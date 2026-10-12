@@ -456,6 +456,21 @@
     justify-content: center;
 }
 
+/* AppButton with an Href: an anchor wearing the button's classes. It loses the
+   underline and the link colour a bare anchor would bring, and sits in a line the
+   way a button does. A disabled one has no href, so the pointer goes with it. */
+a.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    text-decoration: none;
+}
+
+a.btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 /* An inline SVG carries the line box's descender space with it; block does not. */
 .btn svg,
 .btn__icon svg {
@@ -2949,6 +2964,80 @@ button.devbook-chip__label:focus-visible {
 .devbook-scenario-dot--never-run {
     background: transparent;
     border: var(--border-width) dashed var(--color-text-secondary);
+}
+
+/* Scenario parts as a checklist: a task's acceptance evidence, a run's verify
+   evidence. One row per part — dot, part, page, last run — under a count. */
+.scenario-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.scenario-checklist__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.scenario-checklist__heading { font-weight: 600; }
+
+.scenario-checklist__count { color: var(--color-text-secondary); }
+
+.badge--scenario-proved {
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+/* One grid for the list and a subgrid per row, so the columns line up from
+   row to row and the last run keeps the width it needs. */
+.scenario-checklist__list {
+    display: grid;
+    grid-template-columns: auto minmax(0, 3fr) minmax(0, 2fr) max-content;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.scenario-checklist__row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+    min-width: 0;
+}
+
+.scenario-checklist__part {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.scenario-checklist__part--link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.scenario-checklist__part--link:hover,
+.scenario-checklist__part--link:focus-visible { text-decoration: underline; }
+
+.scenario-checklist__page,
+.scenario-checklist__run {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* The run above an open scenario page. */
@@ -7639,6 +7728,165 @@ button.tag-chip__label {
     overflow-wrap: anywhere;
 }
 
+/*
+   StageStrip: the compact form of FlowSteps for a list row — one short mark per
+   step in the step's tone, then a one-line summary. Done is the success ink,
+   active the brand gold, blocked the error ink; pending is an empty slot drawn as
+   an outline, and skipped a dashed one, so the five differ by more than hue.
+*/
+.stage-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    max-width: 100%;
+}
+
+.stage-strip__marks {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 3px;
+}
+
+.stage-strip__mark {
+    width: 12px;
+    height: 6px;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.stage-strip__mark--done { background: var(--color-success-text); box-shadow: none; }
+.stage-strip__mark--active { background: var(--color-primary); box-shadow: none; }
+.stage-strip__mark--blocked { background: var(--color-error-text); box-shadow: none; }
+.stage-strip__mark--skipped { box-shadow: none; outline: var(--border-width) dashed var(--color-border-strong); outline-offset: -1px; }
+
+.stage-strip__summary {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/*
+   EffortChip: .devbook/design/effort-and-mode-chips.md#effort-chips. One gold
+   ladder, never the badge tone scale: effort is a magnitude, not a state. Low and
+   medium share the grey outline (color-border-strong, which clears 3:1 where the
+   drawn color-border did not); high takes gold ink and outline; xhigh adds a tint
+   mixed against color-background so it is one colour on every surface; max is
+   solid gold. A value off the ladder draws as low. Outlines are inset rings, so
+   no step changes the chip's box.
+*/
+.effort-chip {
+    display: inline-block;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.effort-chip--high {
+    color: var(--color-primary-light);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary-dark);
+}
+
+.effort-chip--xhigh {
+    color: var(--color-primary-light);
+    background: color-mix(in srgb, var(--color-primary) 18%, var(--color-background));
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.effort-chip--max {
+    color: var(--color-text-inverse);
+    background: var(--color-primary);
+    box-shadow: none;
+    font-weight: var(--font-weight-semibold);
+}
+
+/*
+   ModeChip: .devbook/design/effort-and-mode-chips.md#mode-chips. Four modes, four
+   shapes — inline plain text, delegate a solid outline, fork a dashed one, gate the
+   only filled box — so a mode reads with every colour removed. Delegate and fork
+   share the edge token; the line style is the difference. A dashed line cannot be an
+   inset ring, so fork draws a real border and gives its width back in padding.
+*/
+.mode-chip {
+    display: inline-block;
+    padding: 0;
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
+    font-weight: 400;
+    white-space: nowrap;
+    color: var(--color-secondary);
+}
+
+.mode-chip--delegate {
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-primary);
+    border-radius: var(--border-radius-full);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.mode-chip--fork {
+    color: var(--color-text-primary);
+    border-radius: var(--border-radius-full);
+    border: var(--border-width) dashed var(--color-border-strong);
+    padding: 0 calc(var(--spacing-sm) - var(--border-width));
+}
+
+.mode-chip--gate {
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-primary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-secondary);
+    font-weight: var(--font-weight-semibold);
+}
+
+/*
+   StageMark: .devbook/design/effort-and-mode-chips.md#stage-marks. One bold glyph,
+   no box; the title is what a screen reader reads in its place.
+*/
+.stage-mark {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
+    font-weight: 700;
+}
+
+.stage-mark--drift {
+    color: var(--color-primary-light);
+}
+
+.stage-mark--inferred {
+    color: var(--color-secondary);
+}
+
+/* StageLegend: the four modes then the two marks, above the stage list. */
+.stage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.stage-legend__entry {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 /* --- Toasts -------------------------------------------------------------- */
 /*
   The host is the live region and stays in the DOM whether or not it holds
@@ -7655,6 +7903,23 @@ button.tag-chip__label {
     gap: var(--spacing-sm);
     justify-items: end;
     pointer-events: none;
+}
+
+/* components.js turns the tray into a manual popover to lift it above an open
+   Modal in the top layer. The user agent dresses a popover as a centred, bordered
+   box; this undoes that so the host keeps the corner and the look it has above.
+   Only the start edges are reset — the end edges are the host's own placement. */
+.toast-host[popover] {
+    inset-block-start: auto;
+    inset-inline-start: auto;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    overflow: visible;
 }
 
 .toast {
@@ -8355,6 +8620,54 @@ select.field__input {
     color: var(--color-text-primary);
 }
 
+/* --- Combobox -------------------------------------------------------------
+   A text field with suggestions under it (Combobox.razor). The field is the
+   library's own input; the list is the tag picker's popup at the field's width or
+   its options', whichever is wider, because the first host is an hours field a
+   few characters wide whose options would otherwise wrap. `top: 100%` for the
+   reason `.tag-select__list` gives. */
+.combobox {
+    position: relative;
+    display: inline-grid;
+    min-width: 0;
+}
+
+.combobox__list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 10;
+    min-width: 100%;
+    width: max-content;
+    max-height: 14rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin: var(--spacing-2xs) 0 0;
+    padding: var(--spacing-2xs);
+    list-style: none;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-lg);
+}
+
+.combobox__option {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* The focus stays in the input, so the active option is the only thing that
+   can show where the keyboard is. */
+.combobox__option--active,
+.combobox__option:hover {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-text-primary);
+}
+
 /* --- Menus --------------------------------------------------------------- */
 
 .menu-list {
@@ -8652,6 +8965,30 @@ select.field__input {
 }
 
 /* --- Modal and confirm dialog -------------------------------------------- */
+
+/* The native dialog Modal opens with showModal() so the dialog lives in the top
+   layer, out of reach of a pane's container-type, transform or filter. It is a
+   carrier only: every user-agent box rule is undone so it is the viewport and
+   draws nothing, and its ::backdrop is transparent because .modal-backdrop below
+   already paints the scrim and takes the clicks. */
+.modal-layer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    overflow: visible;
+}
+
+.modal-layer::backdrop {
+    background: transparent;
+}
 
 .modal-backdrop {
     position: fixed;
@@ -11190,6 +11527,7 @@ select.field__input {
 }
 
 .metric-bars__columns {
+    position: relative;
     display: flex;
     flex: 1;
     align-items: stretch;
@@ -11224,6 +11562,38 @@ select.field__input {
 
 .metric-bars__column--current .metric-bars__column-fill {
     background: var(--chart-ramp-4);
+}
+
+/* A projected column is the same rectangle at low weight: drawn, so the month
+   reads to its end, and faded, so it never reads as spend that happened. The
+   table under the chart says "(projected)" in words. */
+.metric-bars__column--projected .metric-bars__column-fill {
+    background: color-mix(in srgb, var(--chart-ramp-3) 35%, transparent);
+}
+
+/* The reference line sits over the columns, its bottom measured from the
+   baseline: the columns block is the track plus the label row under it, so the
+   baseline is the block's height less the track's. The columns block is its
+   containing block, which is why .metric-bars__columns is positioned. */
+.metric-bars__reference {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% - var(--metric-bars-height, 9rem) + var(--metric-bars-height, 9rem) * var(--metric-bars-reference, 0));
+    left: 0;
+    z-index: 1;
+    border-top: var(--border-width-2) dashed var(--chart-ink-muted);
+    pointer-events: none;
+}
+
+.metric-bars__reference-label {
+    position: absolute;
+    right: 0;
+    bottom: var(--spacing-2xs);
+    padding: 0 var(--spacing-2xs);
+    background: var(--chart-surface);
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
 }
 
 .metric-bars__column-label {
@@ -11958,6 +12328,22 @@ select.field__input {
     background: var(--chart-surface);
 }
 
+/* Where the reading is heading. Ink rather than surface, and wider than the
+   threshold tick, because it is a reading of its own rather than a line on the
+   scale; held inside the track at its far end so the clip never hides it. */
+.metric-meter__marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--border-width-2);
+    margin-left: calc(var(--border-width-2) / -2);
+    background: var(--chart-ink);
+}
+
+.metric-meter__marker[style*="left: 100%"] {
+    margin-left: calc(var(--border-width-2) * -1);
+}
+
 .metric-meter__caption {
     margin: 0;
     color: var(--chart-ink-muted);
@@ -12045,6 +12431,17 @@ select.field__input {
     gap: var(--spacing-2xs);
     justify-items: end;
     min-width: 4.5rem;
+}
+
+/* Share beside the name: the bar is the point of the column there, so it takes
+   the cell's width and the percentage sits under its start rather than its end. */
+.metric-breakdown__share-cell {
+    width: 30%;
+}
+
+.metric-breakdown__share-cell .metric-breakdown__share {
+    width: 100%;
+    justify-items: start;
 }
 
 .metric-breakdown__share-track {
@@ -12264,6 +12661,61 @@ select.field__input {
     height: 100%;
     border-radius: var(--border-radius-full);
     background: var(--chart-ramp-3);
+}
+
+/* The inputs as labelled bars (ComponentsAsBars): name, track, reading out of 100
+   on one line, the reading and weight under it. */
+.metric-score__bars {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.metric-score__bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(3rem, 6rem) auto;
+    align-items: center;
+    gap: 0 var(--spacing-sm);
+    min-width: 0;
+    font-size: var(--font-size-sm);
+}
+
+.metric-score__bar-name {
+    min-width: 0;
+    color: var(--chart-ink);
+}
+
+/* Under the whole row, so a narrow card gives the name the room and not the detail. */
+.metric-score__bar-detail {
+    grid-column: 1 / -1;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.metric-score__bar-track {
+    display: block;
+    overflow: hidden;
+    height: 0.375rem;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.metric-score__bar-fill {
+    display: block;
+    height: 100%;
+    min-width: var(--border-width-2);
+    border-radius: inherit;
+    background: var(--chart-ramp-3);
+}
+
+.metric-score__bar-value {
+    color: var(--chart-ink);
+    font-family: var(--font-family-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
 }
 
 /* --- Metrics: small multiples -------------------------------------------- */
@@ -14395,12 +14847,17 @@ select.field__input {
    carries three or four and four filled pills is a row of shouting. The existing
    .badge--gh is already outlined, so this continues what the product does rather
    than introducing a second look beside it. */
-.badge--integration {
+.badge--integration,
+.badge--tone {
     gap: var(--spacing-xs);
     background: transparent;
     border: var(--border-width) solid var(--integration-edge);
     color: var(--integration-ink-quiet);
     font-variant-numeric: tabular-nums;
+    /* A tone badge is bare text, with no inner label to keep whole the way
+       .integration-chip__label does, and a verdict broken over two lines inside
+       its pill reads as two values. An integration chip loses nothing by it. */
+    white-space: nowrap;
 }
 
 .integration-chip__glyph {
@@ -14416,7 +14873,8 @@ select.field__input {
    spends, on the brand edge. */
 .badge--integration-open,
 .badge--integration-starting,
-.badge--integration-running {
+.badge--integration-running,
+.badge--tone-live {
     color: var(--integration-live);
     border-color: var(--integration-live-edge);
 }
@@ -14424,7 +14882,8 @@ select.field__input {
 /* Landed: the settled tone, a success surface inside the strong edge. It
    happened, and it is a fact rather than something in flight. */
 .badge--integration-merged,
-.badge--integration-finished {
+.badge--integration-finished,
+.badge--tone-settled {
     background: var(--integration-settled-surface);
     border-color: var(--integration-edge-strong);
     color: var(--integration-ink);
@@ -14441,7 +14900,8 @@ select.field__input {
 
 /* Out of force without landing: the archived tone, no fill inside the strong
    edge. */
-.badge--integration-closed {
+.badge--integration-closed,
+.badge--tone-archived {
     border-color: var(--integration-edge-strong);
     color: var(--integration-ink-muted);
 }
@@ -14464,16 +14924,38 @@ select.field__input {
    and would be invisible as boundaries. The semantic tokens are backgrounds. */
 .badge--integration-stalled,
 .badge--integration-local-ahead,
-.badge--integration-remote-ahead {
+.badge--integration-remote-ahead,
+.badge--tone-alert {
     background: var(--integration-alert-surface);
     border-color: var(--integration-edge-strong);
     color: var(--integration-ink);
 }
 
-.badge--integration-failed {
+.badge--integration-failed,
+.badge--tone-fault {
     background: var(--integration-fault-surface);
     border-color: var(--integration-edge-strong);
     color: var(--integration-ink);
+}
+
+/*
+  The tone family: the scale of .devbook/design/color-scheme.md#badge-and-chip-tones
+  itself, as a family, for a host that has already decided where its value sits on it
+  and hands the tone over as the slug — `<Badge Kind="tone" Slug="fault">`. The pull
+  requests pane's verdict is the case that asked for it: its vocabulary (Conflicts,
+  Behind, Ready to merge, …) is the host's own and grows, and a family per vocabulary
+  would restate these six rules once more each time.
+
+  It is not a second set of rules. Its base and five of its tones are listed beside
+  their integration twins above — `.badge--tone` on `.badge--integration`, live on
+  open, settled on merged, alert on stalled, fault on failed, archived on closed — so
+  one rule body serves both families and the two cannot drift apart. Only quiet is
+  its own: the integration draft chip takes the raised surface, and the tone table
+  says quiet is the secondary ink on `color-background-alt`.
+*/
+.badge--tone-quiet {
+    background: var(--integration-surface);
+    color: var(--integration-ink-quiet);
 }
 
 .integration-chip__spin {
@@ -17527,6 +18009,15 @@ select.field__input {
     overflow: hidden;
 }
 
+/* The clip above is only there to round the corner days. An hours editor's open
+   list of suggestions hangs below its day, and in the bottom row — the whole Week
+   view is one — the clip would cut it off at the grid's edge. So the clip is lifted
+   while a list is open: the corners go square for as long as the list is up, which
+   is the cheaper loss than suggestions that cannot be seen or clicked. */
+.task-calendar__grid:has(.combobox--open) {
+    overflow: visible;
+}
+
 /* Positioned, for the plan layer laid over it; --task-calendar-lanes is how many
    rows of plan bars the week needs. The day's top padding, its gap and the head's
    height are named here because the plan layer is placed below the head by them. */
@@ -17573,6 +18064,17 @@ select.field__input {
 
 .task-calendar__day + .task-calendar__day {
     border-left: var(--border-width) solid var(--color-background-raised);
+}
+
+/* The Month | Week control, a fused group beside the heading. */
+.task-calendar__range {
+    flex: none;
+}
+
+/* Week: one row, its days tall enough to list every chip a day holds, since a Week
+   column folds nothing behind "+N more". */
+.task-calendar--week .task-calendar__day {
+    min-height: 24rem;
 }
 
 .task-calendar__day--weekend {
@@ -18152,7 +18654,12 @@ select.field__input {
     min-width: 0;
 }
 
+/* The unit keeps its own width and a little air before the editor's edge: in a
+   narrow month day the field shrinks first, so the "h" is never squeezed against
+   the border. */
 .task-calendar__hours-unit {
+    flex: none;
+    padding-right: var(--spacing-xs);
     color: var(--color-text-secondary);
 }
 

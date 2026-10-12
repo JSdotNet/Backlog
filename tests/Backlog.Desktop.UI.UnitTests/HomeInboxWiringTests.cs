@@ -19,9 +19,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// What the shell does with the Inbox: loads it when its pane first shows, and
-/// when an item is routed reloads the Tasks pane from the store and opens it
-/// alongside.
+/// What the shell does with the Inbox: loads it when it first takes the screen,
+/// and when an item is routed reloads the task list from the store while the Inbox
+/// keeps the screen.
 /// <para>
 /// Driven through the rendered shell rather than the state, because the Inbox
 /// raising <c>Routed</c> and the shell answering it is what is under test: the
@@ -34,7 +34,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class HomeInboxWiringTests
 {
     [Fact]
-    public async Task Routing_an_item_reloads_the_tasks_from_the_store_and_shows_them_beside_the_inbox()
+    public async Task Routing_an_item_reloads_the_tasks_from_the_store_and_keeps_the_inbox_on_screen()
     {
         using var harness = CreateHarness();
         var item = harness.Inbox.Seed("Route me");
@@ -50,32 +50,36 @@ public sealed class HomeInboxWiringTests
         var component = Render(harness);
         await OpenInboxAsync(component);
 
-        // The Inbox beside the Tasks view, which is always showing; nothing is on
-        // the list until routing puts it there.
-        Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+        // The Inbox has the whole screen: the Tasks view is underneath, not beside it.
+        Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
         var state = State(harness);
         Assert.Empty(state.Rows);
 
         await component.Find($"[data-testid='inbox-item-{item.Id:D}']").ClickAsync(new());
         await component.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
 
+        component.WaitForAssertion(() => Assert.Contains(state.Rows, row => row.PreviewTitle == "Route me"));
+
+        // The Inbox the item was routed from keeps the screen.
+        Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
+        Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+        Assert.Equal("Inbox", harness.ShellNavigation.LastSurface);
+        Assert.Equal("Tasks", harness.ShellNavigation.LastView);
+
+        // The Inbox option returns to the list, which already holds the entry.
+        await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Contains(state.Rows, row => row.PreviewTitle == "Route me");
+            Assert.Empty(component.FindAll("[data-testid='inbox-pane']"));
         });
-
-        // Alongside, not instead: the Inbox the item was routed from stays, beside
-        // the Tasks view the entries are on. The task list is a view, not a pane.
-        Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
-        Assert.Equal(["Inbox"], harness.ShellNavigation.LastEnabledPanes);
-        Assert.Equal("Tasks", harness.ShellNavigation.LastView);
     }
 
-    /// <summary>Routed from beside the Roadmap view, the entries are on the list and
-    /// not on the roadmap yet, so the view switches to Tasks — and the Inbox stays.</summary>
+    /// <summary>Routed while the Roadmap view is under the Inbox, the view is left as
+    /// the reader chose it: only the data moves, and the Inbox option returns to the
+    /// roadmap.</summary>
     [Fact]
-    public async Task Routing_an_item_from_beside_the_roadmap_switches_the_view_to_tasks_and_keeps_the_inbox()
+    public async Task Routing_an_item_over_the_roadmap_leaves_the_view_and_keeps_the_inbox()
     {
         using var harness = CreateHarness(startOnRoadmap: true);
         var item = harness.Inbox.Seed("Route me from the roadmap");
@@ -88,24 +92,17 @@ public sealed class HomeInboxWiringTests
 
         var component = Render(harness);
         await OpenInboxAsync(component);
-        component.WaitForAssertion(() =>
-        {
-            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view']"));
-            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-        });
 
         await component.Find($"[data-testid='inbox-item-{item.Id:D}']").ClickAsync(new());
         await component.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
 
-        component.WaitForAssertion(() =>
-        {
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-view']"));
-            Assert.Contains(State(harness).Rows, row => row.PreviewTitle == "Route me from the roadmap");
-        });
+        component.WaitForAssertion(() => Assert.Contains(State(harness).Rows, row => row.PreviewTitle == "Route me from the roadmap"));
 
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
-        Assert.Equal("Tasks", harness.ShellNavigation.LastView);
+        Assert.Equal("Roadmap", harness.ShellNavigation.LastView);
+
+        await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view']")));
     }
 
     /// <summary>A batch is one import, so the shell hears of it once — through
@@ -138,7 +135,6 @@ public sealed class HomeInboxWiringTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.Contains(state.Rows, row => row.PreviewTitle == "First of the batch");
             Assert.Contains(state.Rows, row => row.PreviewTitle == "Second of the batch");
         });
@@ -204,7 +200,7 @@ public sealed class HomeInboxWiringTests
     }
 
     [Fact]
-    public async Task The_inbox_loads_when_its_pane_first_shows_and_not_before()
+    public async Task The_inbox_loads_when_it_first_shows_and_not_before()
     {
         using var harness = CreateHarness(inboxOpenOnStart: false);
 
@@ -219,11 +215,11 @@ public sealed class HomeInboxWiringTests
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-nav-ungrouped']"));
     }
 
-    /// <summary>The resurface sweep runs on every opening of the pane, not just
-    /// the first: a deferred item that came due while the pane was closed is
-    /// back in the queue when it opens again.</summary>
+    /// <summary>The resurface sweep runs on every opening of the Inbox, not just
+    /// the first: a deferred item that came due while it was closed is back in the
+    /// queue when it opens again.</summary>
     [Fact]
-    public async Task Every_opening_of_the_inbox_pane_runs_the_resurface_sweep()
+    public async Task Every_opening_of_the_inbox_runs_the_resurface_sweep()
     {
         using var harness = CreateHarness(inboxOpenOnStart: false);
 
@@ -233,7 +229,7 @@ public sealed class HomeInboxWiringTests
 
         harness.Inbox.Seed("Came due while closed", status: InboxStatus.Deferred, deferredUntil: DateOnly.FromDateTime(harness.Inbox.Now.DateTime));
 
-        // A press on its own toggle closes the Inbox.
+        // A press on its own option leaves the Inbox for the view under it.
         await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
         component.WaitForAssertion(() => Assert.Equal("false", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed")));
         Assert.Equal(1, harness.Inbox.ResurfaceDueCalls);
@@ -263,6 +259,41 @@ public sealed class HomeInboxWiringTests
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='inbox-pane-item']")));
     }
 
+    /// <summary>Escape is the Inbox's own key — it leaves triage for the list — so
+    /// the shell's document-level Escape, which closes every other takeover, leaves
+    /// the Inbox on screen.</summary>
+    [Fact]
+    public async Task Escape_heard_at_the_document_does_not_leave_the_inbox()
+    {
+        using var harness = CreateHarness();
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+
+        await component.InvokeAsync(() => component.Instance.CloseSurfaceOnEscapeAsync());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface']"));
+        Assert.Equal("Inbox", harness.ShellNavigation.LastSurface);
+    }
+
+    /// <summary>Opening the Inbox puts focus inside its pane, not on the surface
+    /// around it: the Inbox's keys are heard only with focus in the pane, so j, k,
+    /// t and Escape out of triage work without a click first.</summary>
+    [Fact]
+    public async Task Opening_the_inbox_moves_focus_into_its_pane()
+    {
+        using var harness = CreateHarness(inboxOpenOnStart: false);
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+
+        component.WaitForAssertion(() => Assert.Contains(
+            harness.Context.JSInterop.Invocations["backlogFocus"],
+            invocation => Equals(invocation.Arguments[0], "inbox-pane")));
+        Assert.Empty(harness.Context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+        Assert.Equal("-1", component.Find("[data-testid='inbox-pane']").GetAttribute("tabindex"));
+    }
+
     // --- Driving it -------------------------------------------------------
 
     private static async Task OpenInboxAsync(IRenderedComponent<Home> component)
@@ -287,7 +318,7 @@ public sealed class HomeInboxWiringTests
     }
 
     /// <summary>
-    /// The shell with the Inbox on and the Tasks pane off, and everything that
+    /// The shell with the Inbox on, and everything that
     /// would put extra chrome or a network call in the way off too. The Inbox
     /// ships behind a Dev flag, so a test about it has to turn it on first.
     /// </summary>
@@ -299,10 +330,10 @@ public sealed class HomeInboxWiringTests
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         var shellNavigation = new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json"));
 
-        // The Inbox open on start beside the Tasks view, unless the test is about
-        // opening it — or beside the Roadmap view, when the test is about routing
-        // taking the reader to the list.
-        if (inboxOpenOnStart) shellNavigation.SetLastPanes(["Inbox"]);
+        // The Inbox on screen on start, over the Tasks view, unless the test is
+        // about opening it — or over the Roadmap view, when the test is about
+        // routing leaving the view alone.
+        if (inboxOpenOnStart) shellNavigation.SetLastSurface("Inbox");
         if (startOnRoadmap) shellNavigation.SetLastView("Roadmap");
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);

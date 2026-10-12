@@ -96,6 +96,7 @@ public static class DesktopCompositionRegistration
             return sp.GetRequiredService<WorkingHoursSettingsStore>();
         });
         services.AddSingleton(options.UsageResetSettings);
+        services.AddSingleton(options.SpendBudgetSettings);
         services.AddSingleton(options.PlanningVelocitySettings);
         services.AddSingleton(options.ShellNavigation);
         // What can change which surface is showing from outside the user interface —
@@ -260,6 +261,9 @@ public static class DesktopCompositionRegistration
         // The Inbox's page on the settings screen: the routing rules. The shell draws
         // it only because it is registered here, and holds no copy of its own.
         services.AddInboxSettings();
+        // The Claude Code page: where this app receives Claude Code's telemetry and
+        // the settings block that sends it there (local ADR 0024).
+        services.AddSessionsSettings();
         // The Connectors page: connect a repository or a product and set how it
         // syncs. Drawn from the connectors' descriptors, so it needs no change when
         // one is added.

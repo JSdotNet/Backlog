@@ -1,0 +1,205 @@
+{
+  "id": "run-muyr7rrx-z2658s",
+  "skillId": "flow-code",
+  "title": "dashboard-redesign:9 - Show budget, projection and tokens on the Cost tab",
+  "status": "parked",
+  "changeKind": "new-functionality",
+  "approval": {
+    "personalValidation": "pending",
+    "decidedAt": "2026-10-08T00:13:04.639Z",
+    "note": "Unattended execute-plan run: parked at Personal Validation; validate on the draft pull request."
+  },
+  "startedAt": "2026-10-07T23:44:02.397Z",
+  "updatedAt": "2026-10-08T00:14:07.021Z",
+  "sessionIds": [
+    "837e8127-4226-4a1e-a827-6d62e020cf82"
+  ],
+  "trigger": "scheduled",
+  "repo": "JSdotNet/Backlog",
+  "stages": [
+    {
+      "name": "Update Base",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 6923,
+      "agents": []
+    },
+    {
+      "name": "Scope",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 208857,
+      "agents": []
+    },
+    {
+      "name": "Implement",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 582450,
+      "agents": [],
+      "execution": {
+        "mode": "inline",
+        "agent": null,
+        "fallback": "csharp-coding:coding",
+        "runs": [
+          {
+            "agent": "owner",
+            "model": null,
+            "effort": null,
+            "slice": "insight"
+          },
+          {
+            "agent": "owner",
+            "model": null,
+            "effort": null,
+            "slice": "library"
+          },
+          {
+            "agent": "owner",
+            "model": null,
+            "effort": null,
+            "slice": "parts"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Review",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 256165,
+      "agents": [],
+      "execution": {
+        "mode": "fork",
+        "agent": "general-purpose",
+        "runs": [
+          {
+            "agent": "general-purpose",
+            "model": null,
+            "effort": null,
+            "slice": "whole diff"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Build & Test",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 322308,
+      "agents": []
+    },
+    {
+      "name": "Verify",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 326172,
+      "agents": [],
+      "execution": {
+        "mode": "inline",
+        "app": {
+          "provider": "repo:run",
+          "host": "aspire"
+        },
+        "fallback": "qa:qa"
+      }
+    },
+    {
+      "name": "Spec Check",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": null,
+      "agents": [],
+      "execution": {
+        "mode": "inline",
+        "skill": "devbook:verify-change"
+      }
+    },
+    {
+      "name": "Ready",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": null,
+      "agents": []
+    },
+    {
+      "name": "Personal Validation",
+      "status": "blocked",
+      "doneCount": 0,
+      "durationMs": null,
+      "agents": []
+    },
+    {
+      "name": "Create Pull Request",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": null,
+      "agents": []
+    },
+    {
+      "name": "Report Back",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": null,
+      "agents": []
+    },
+    {
+      "name": "Summary",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": null,
+      "agents": []
+    }
+  ],
+  "runContext": {
+    "changeKind": "feature",
+    "trigger": "unattended execute-plan worker",
+    "phases": {
+      "flow-code": {
+        "phase-scope": {
+          "mode": "inline",
+          "agent": null,
+          "fallback": "architecture:architect"
+        },
+        "phase-implement": {
+          "mode": "inline",
+          "agent": null,
+          "fallback": "csharp-coding:coding"
+        },
+        "phase-review": {
+          "mode": "fork",
+          "agent": "general-purpose"
+        },
+        "phase-verify": {
+          "mode": "inline",
+          "app": {
+            "provider": "repo:run",
+            "host": "aspire"
+          }
+        },
+        "phase-spec-check": {
+          "mode": "inline",
+          "skill": "devbook:verify-change"
+        },
+        "phase-personal-validation": {
+          "mode": "gate"
+        },
+        "phase-ready": {
+          "mode": "inline"
+        }
+      }
+    },
+    "gates": [
+      {
+        "at": "create-pr",
+        "when": "before",
+        "purpose": "approval",
+        "unattended": "block"
+      }
+    ],
+    "policy": {
+      "qa.ceiling": "full"
+    },
+    "base": "plan/dashboard-redesign"
+  }
+}

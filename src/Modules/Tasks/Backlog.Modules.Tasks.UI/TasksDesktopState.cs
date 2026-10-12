@@ -1136,6 +1136,48 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Replaces the scope with a remembered one, in its order, so the anchor it was
+    /// written with comes back first. An alias nothing is configured under any more
+    /// is dropped, and a repeat is kept once; nothing left means every repository.
+    /// <para>
+    /// One call rather than a <see cref="ToggleRepositoryInScope"/> per alias,
+    /// because each toggle filters the list again and announces a change, and a
+    /// restore is one decision: it filters once and announces once, and announces
+    /// nothing when the scope it resolves to is the one already held.
+    /// </para>
+    /// </summary>
+    public void RestoreRepositoryScope(IReadOnlyList<string> repositoryAliases)
+    {
+        ArgumentNullException.ThrowIfNull(repositoryAliases);
+
+        // An alias that resolves to nothing is only stale when the list of what is
+        // configured was actually read. With the registry unreadable nothing is
+        // dropped, because nothing is known to be gone; the caller keeps the
+        // remembered scope until it can be resolved.
+        if (!RepositoryRegistryReadable) return;
+
+        var restored = repositoryAliases
+            .Select(ResolveAlias)
+            .Where(alias => alias.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (restored.SequenceEqual(_selectedRepositoryAliases, StringComparer.Ordinal)) return;
+
+        _selectedRepositoryAliases.Clear();
+        _selectedRepositoryAliases.AddRange(restored);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Whether the shared repository registry (<c>config/repos.json</c>)
+    /// was read. False while it is there but unreadable: the configured list is
+    /// then not known, so a scope written earlier is neither restored nor
+    /// overwritten — see <see cref="RestoreRepositoryScope"/>.</summary>
+    public bool RepositoryRegistryReadable => _gitHub.Settings.RegistryError is null;
+
     /// <summary>The configured spelling of an alias, or empty when nothing is
     /// configured under it.</summary>
     private string ResolveAlias(string? repositoryAlias) =>
@@ -3946,7 +3988,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// Reads, in the background, the pull requests of Done entries that have not
+    /// Reads, in the background, the pull requests of entries that have not
     /// landed yet as far as the list knows, so a merged one shows merged without the
     /// reader pressing the sync button. The shell asks after the list loads and after
     /// every reload; the list is already on screen by then and nothing about it waits
@@ -3961,8 +4003,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// screen for the life of the app. Merged and closed are not asked about again,
     /// and nothing is asked about twice within the interval: an agent's every write
     /// reloads the list, and asking on each would put the network behind all of them.
-    /// Only Done entries, because that is where a recorded pull request is the work
-    /// waiting to land.
+    /// Every entry with a pull request, whatever its status: a plan item's pull
+    /// request merges into its plan branch while the item stays In progress until
+    /// the plan lands, and that merge is owed its colour as much as a Done entry's.
     /// </para>
     /// <para>
     /// Quiet throughout — no toast, no line on the row. Nobody asked for this read,
@@ -4035,7 +4078,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private async Task ReadDuePullRequestsAsync()
     {
         var ids = Rows
-            .Where(row => row.Id is not null && row.Status is EntryStatus.Done && row.PullRequestLinks.Any(pr => PullRequestDue(row, pr)))
+            .Where(row => row.Id is not null && row.PullRequestLinks.Any(pr => PullRequestDue(row, pr)))
             .Select(row => row.Id!.Value)
             .Distinct()
             .ToList();

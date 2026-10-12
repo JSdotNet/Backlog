@@ -508,6 +508,7 @@ internal sealed partial class DeliveryRunReader
 
         var read = new List<DeliveryRunStage>();
         var delegated = DelegatedAgents(root);
+        var toolCalls = ToolCallsByStage(root);
         var index = 0;
 
         foreach (var stage in stages.EnumerateArray())
@@ -529,9 +530,73 @@ internal sealed partial class DeliveryRunReader
                 Integer(stage, "durationMs"),
                 (int)(Integer(stage, "doneCount") ?? 0))
             {
-                Agents = StageAgents(stage, delegated.Where(agent => agent.Index == position || (agent.Index is null && agent.Stage == name))),
-                Execution = ObjectText(stage, "execution")
+                Agents = StageAgents(stage, delegated.Where(agent => InStage(agent.Index, agent.Stage, position, name))),
+                SubAgentRuns =
+                [
+                    .. delegated
+                        .Where(agent => InStage(agent.Index, agent.Stage, position, name))
+                        .Select(agent => new DeliveryRunSubAgentRun(agent.Name, agent.Model, agent.DurationMs, agent.Tokens, agent.ToolCalls, agent.Failed) { EndedAt = agent.EndedAt })
+                ],
+                ToolCalls = toolCalls.Count(call => InStage(call.Index, call.Stage, position, name)),
+                Execution = ObjectText(stage, "execution"),
+                StartedAt = Moment(stage, "startedAt"),
+                CompletedAt = Moment(stage, "completedAt"),
+                Evidence = StageEvidence(stage)
             });
+        }
+
+        return read;
+    }
+
+    /// <summary>Whether a record belongs to a stage: by index where it has one, by name
+    /// where it has only that.</summary>
+    private static bool InStage(int? index, string? stage, int position, string name) =>
+        index == position || (index is null && stage == name);
+
+    /// <summary>Every tool call the run's insights filed under a stage, by index or by
+    /// name; a call filed under neither ran outside any stage.</summary>
+    private static List<(int? Index, string? Stage)> ToolCallsByStage(JsonElement root)
+    {
+        var calls = new List<(int? Index, string? Stage)>();
+
+        if (!root.TryGetProperty("insights", out var insights) || insights.ValueKind is not JsonValueKind.Array) return calls;
+
+        foreach (var insight in insights.EnumerateArray())
+        {
+            if (insight.ValueKind is not JsonValueKind.Object || Text(insight, "kind") is not "tool") continue;
+
+            var index = Integer(insight, "stageIndex") is { } value ? (int?)value : null;
+            var stage = Text(insight, "stageName");
+
+            if (index is null && !Named(stage)) continue;
+
+            calls.Add((index, stage));
+        }
+
+        return calls;
+    }
+
+    /// <summary>
+    /// The scenario parts a stage reported running (BL2): each object in its
+    /// <c>evidence</c> list with a stem or a part, its fields as sent. Anything
+    /// else in the list — a string, an object naming neither — is skipped rather
+    /// than drawn as an empty row.
+    /// </summary>
+    private static IReadOnlyList<DeliveryScenarioEvidence> StageEvidence(JsonElement stage)
+    {
+        if (!stage.TryGetProperty("evidence", out var evidence) || evidence.ValueKind is not JsonValueKind.Array) return [];
+
+        var read = new List<DeliveryScenarioEvidence>();
+
+        foreach (var part in evidence.EnumerateArray())
+        {
+            if (part.ValueKind is not JsonValueKind.Object) continue;
+
+            var stem = Text(part, "stem");
+            var anchor = Text(part, "part");
+            if (string.IsNullOrWhiteSpace(stem) && string.IsNullOrWhiteSpace(anchor)) continue;
+
+            read.Add(new DeliveryScenarioEvidence(stem, anchor, Text(part, "outcome"), Text(part, "runAt")));
         }
 
         return read;
@@ -539,12 +604,13 @@ internal sealed partial class DeliveryRunReader
 
     /// <summary>
     /// Every delegated agent the run's insights recorded, with the stage it ran in —
-    /// by index where the record has one, by name where it has only that. A record
-    /// with neither ran outside any stage and belongs to none.
+    /// by index where the record has one, by name where it has only that — and what
+    /// the call cost where the record says. A record with neither stage nor index ran
+    /// outside any stage and belongs to none.
     /// </summary>
-    private static List<(int? Index, string? Stage, string Name, string? Model, bool Failed)> DelegatedAgents(JsonElement root)
+    private static List<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls, DateTimeOffset? EndedAt)> DelegatedAgents(JsonElement root)
     {
-        var agents = new List<(int? Index, string? Stage, string Name, string? Model, bool Failed)>();
+        var agents = new List<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls, DateTimeOffset? EndedAt)>();
 
         if (!root.TryGetProperty("insights", out var insights) || insights.ValueKind is not JsonValueKind.Array) return agents;
 
@@ -561,7 +627,16 @@ internal sealed partial class DeliveryRunReader
 
             if (index is null && !Named(stage)) continue;
 
-            agents.Add((index, stage, name, Text(insight, "model") is { Length: > 0 } model ? model : null, Failed(insight)));
+            agents.Add((
+                index,
+                stage,
+                name,
+                Text(insight, "model") is { Length: > 0 } model ? model : null,
+                Failed(insight),
+                Integer(insight, "durationMs"),
+                Integer(insight, "totalTokens"),
+                Integer(insight, "totalToolCalls") is { } calls ? (int)calls : null,
+                Moment(insight, "endedAt")));
         }
 
         return agents;
@@ -575,7 +650,7 @@ internal sealed partial class DeliveryRunReader
     /// </summary>
     private static IReadOnlyList<DeliveryRunStageAgent> StageAgents(
         JsonElement stage,
-        IEnumerable<(int? Index, string? Stage, string Name, string? Model, bool Failed)> ran)
+        IEnumerable<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls, DateTimeOffset? EndedAt)> ran)
     {
         var agents = ran
             .GroupBy(agent => (agent.Name, agent.Model))

@@ -1,0 +1,61 @@
+@*
+    The reasoning effort something ran at, as a chip after the model's name:
+    low, medium, high, xhigh or max. .devbook/design/effort-and-mode-chips.md#effort-chips
+    is the rule; this is its drawing.
+
+    Effort is a magnitude, not a state, so the chip rises along one ladder of the
+    brand gold rather than borrowing the badge tone scale: low and medium share a
+    grey outline, high is gold ink in a gold outline, xhigh adds a gold tint, max is
+    solid gold. Low and medium look alike on purpose, which is why the word is
+    always the chip's text.
+
+    No effort, no chip. A null or blank value renders nothing at all — not an empty
+    chip and not "unknown" — because a chip is a claim that the effort was recorded.
+    A host that wants to say "not recorded" says it in its own words beside it.
+
+    A value the ladder does not list is drawn verbatim in the low treatment, and its
+    title names the values the ladder expects: flagged, not styled.
+
+    Information, not a control: nothing here is focusable, and the title doubles as
+    the accessible name ("Effort: high").
+*@
+@if (Value is { } value)
+{
+    <span class="@ClassValue(value)"
+          title="@Title(value)"
+          aria-label="@Title(value)"
+          data-testid="@TestId"
+          data-effort="@Step(value)">@value</span>
+}
+
+@code {
+    /// <summary>The steps the ladder draws, lowest first.</summary>
+    public static readonly IReadOnlyList<string> Ladder = ["low", "medium", "high", "xhigh", "max"];
+
+    /// <summary>The effort word, as recorded. Null or blank draws nothing.</summary>
+    [Parameter]
+    public string? Effort { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "effort-chip";
+
+    private string? Value => string.IsNullOrWhiteSpace(Effort) ? null : Effort.Trim();
+
+    /// <summary>The ladder step a value takes, or "unknown" for one the ladder does
+    /// not list — which draws in the low treatment.</summary>
+    public static string Step(string effort) =>
+        Ladder.FirstOrDefault(step => string.Equals(step, effort.Trim(), StringComparison.OrdinalIgnoreCase)) ?? "unknown";
+
+    private static string Title(string effort) => Step(effort) == "unknown"
+        ? $"Effort: {effort} — not a recorded step; expected one of {string.Join(", ", Ladder)}"
+        : $"Effort: {Step(effort)}";
+
+    private string ClassValue(string effort)
+    {
+        var chip = $"effort-chip effort-chip--{Step(effort)}";
+        return string.IsNullOrWhiteSpace(CssClass) ? chip : $"{chip} {CssClass}";
+    }
+}

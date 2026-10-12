@@ -1,53 +1,47 @@
 @*
-    The volume score per repository per week.
+    Volume over time: what was merged, closed or committed, week by week, as one
+    column chart and one measure at a time.
 
-    Two components over the same series rather than one, because they answer
-    different questions and the wrong one cannot express the other. The trellis
-    answers "which repositories moved" — every repository at once, each panel to a
-    shared maximum so the heights are comparable. The spotlight answers "how does
-    this one compare to the rest", which is the question somebody has the moment
-    they pick a repository in the filter.
+    One measure at a time rather than three series on one axis, because the three
+    are counted in different units of effort — a week holds a handful of pull
+    requests and a hundred commits — and drawn together the commits would flatten
+    the other two into the axis. The toggle picks the measure; the chart redraws on
+    the same weeks.
 
-    The repository filter narrows both, as it narrows every other part on the
-    surface; the first repository taken into focus is the highlight. The target
-    behind every point is the estate's whichever repositories are drawn, so
-    narrowing never rescales what is left.
+    The choice is a field, like the pane's tab: the part opens on pull requests every
+    time and forgets the choice when the surface closes, for the reason nothing else
+    here is persisted.
 
-    SharedMax is passed explicitly rather than left per panel. A trellis that draws
-    each panel to its own scale makes an erratic repository look like the busiest
-    one, which is the specific way small multiples mislead.
+    The figures are the headline's own weekly series rather than a fetch of their
+    own. The headline part asks the same question of the same report, and drawing
+    the volume from the same answer is what keeps the chart and the tiles above it
+    from disagreeing about a week.
+
+    This used to be the volume score per repository per week, as a trellis and a
+    spotlight. A score is a judgement folded over counts, and the question this tab
+    asks — how much did I ship — is answered by the counts themselves; the score is
+    read beside the chart, with its working.
 *@
-@inherits DashboardPartBase<ProductivityTrend>
+@inherits DashboardPartBase<ProductivityHeadline>
 @inject IProductivityInsights Insights
 
 <PartFrame Title="Volume over time"
            Note="@Note"
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
+           CssClass="dashboard-part--volume"
+           Actions="@(IsReady ? MeasureToggle : null)"
            TestId="dashboard-trend">
     @if (IsReady)
     {
-        <div class="dashboard-part__stack">
-            <MetricTrellis Series="@Series"
-                           Label="Volume score per repository per week"
-                           Highlight="@Value!.Highlight"
-                           SharedMax="@MetricScoring.MaxScore"
-                           FormatValue="MetricFormat.Score"
-                           TestId="dashboard-trend-trellis" />
-
-            @* Only worth drawing when there is a pack to stand against. One
-               repository against itself is the trellis panel again. *@
-            @if (Series.Count > 1)
-            {
-                <MetricSpotlight Series="@Series"
-                                 Selected="@Value!.Highlight"
-                                 Label="@SpotlightLabel"
-                                 NameHeading="Repository"
-                                 SharedMax="@MetricScoring.MaxScore"
-                                 FormatValue="MetricFormat.Score"
-                                 TestId="dashboard-trend-spotlight" />
-            }
-        </div>
+        <MetricBars Points="@Points"
+                    Label="@($"{LabelOf(_measure)} per week")"
+                    BucketHeading="Week"
+                    ValueHeading="@LabelOf(_measure)"
+                    HighlightLast="true"
+                    FormatValue="MetricFormat.Compact"
+                    Height="12rem"
+                    TestId="dashboard-trend-bars" />
     }
     else
     {
@@ -56,57 +50,101 @@
 </PartFrame>
 
 @code {
+    /// <summary>The three measures the chart offers, in the order the toggle shows them.</summary>
+    private enum Measure
+    {
+        PullRequests,
+        Issues,
+        Commits
+    }
+
+    private static readonly Measure[] Measures = [Measure.PullRequests, Measure.Issues, Measure.Commits];
+
+    /// <summary>The measure on show. Pull requests every time the part opens; a field
+    /// rather than anything persisted, for the reason the pane's tab is one.</summary>
+    private Measure _measure = Measure.PullRequests;
+
     /// <summary>
-    /// What a point on this chart is, and what it is not.
-    /// <para>
-    /// Two clauses that a reader would otherwise have to guess at, and would guess
-    /// wrong. The target is shared across every repository rather than derived per
-    /// series — the whole estate's best four weeks, cut to one week — because
-    /// normalising each repository against its own best would make every repository's
-    /// best week read 100 and leave the spotlight comparing nothing. And the chart
-    /// draws the volume score only: a week holds one or two pull requests, and a
-    /// quality proportion over two is a coin toss drawn as a trend. So a point here
-    /// is the volume card cut to one week and one repository, and never the quality
-    /// card at all.
-    /// </para>
+    /// The measure toggle, on the heading's line — drawn only once there is a chart
+    /// to pick a measure for, so a part that is loading or refused carries no control
+    /// that would explain itself by doing nothing. PressedChanged rather than the
+    /// pressed state itself: the strip is one-of-many, so this part owns the choice
+    /// and the button only announces the press.
+    /// </summary>
+    private RenderFragment MeasureToggle => @<ButtonGroup AriaLabel="Which measure to chart" TestId="dashboard-trend-measure">
+        @foreach (var measure in Measures)
+        {
+            <ToggleButton Pressed="_measure == measure"
+                          PressedChanged="_ => _measure = measure"
+                          TestId="@($"dashboard-trend-measure-{Key(measure)}")">
+                @LabelOf(measure)
+            </ToggleButton>
+        }
+    </ButtonGroup>;
+
+    private static string LabelOf(Measure measure) => measure switch
+    {
+        Measure.Issues => "Issues",
+        Measure.Commits => "Commits",
+        _ => "Pull requests"
+    };
+
+    private static string Key(Measure measure) => measure switch
+    {
+        Measure.Issues => "issues",
+        Measure.Commits => "commits",
+        _ => "pulls"
+    };
+
+    /// <summary>
+    /// What a column is. The commits clause is there because commits are the one
+    /// measure read off each pull request's detail rather than off the listing: a
+    /// pull request whose detail could not be read merged and is counted under pull
+    /// requests, but adds no commits.
     /// </summary>
     private string Note
     {
         get
         {
             var basis = Scope.IsAllRepositories
-                ? "One panel per repository that reported anything, on a shared scale."
-                : "One panel per repository in focus that reported anything, on a shared scale.";
+                ? $"Your own work, across every configured repository, week by week over {Scope.Weeks} weeks."
+                : $"Your own work in {Scope.Repositories.Label}, week by week over {Scope.Weeks} weeks.";
 
-            basis += " A point is one repository's week of merged pull requests and closed issues"
-                + " against a target shared by every repository, not against its own best."
-                + " Quality is not drawn here: a week holds too few pull requests for a share to mean anything.";
+            basis += " Pull requests are counted in the week they merged, issues in the week they closed,"
+                + " and commits are those on the pull requests merged that week.";
+
+            if (IsReady && Value!.PullRequestsWithCommitCount < Value!.PullRequestsMerged)
+            {
+                basis += " Some pull requests' detail could not be read, so the commits are a floor.";
+            }
 
             return IsReady && !Value!.Complete
-                ? basis + " Some of this window could not be read, so every point is a floor."
+                ? basis + " Some of this window could not be read, so every column is a floor."
                 : basis;
         }
     }
 
-    private string SpotlightLabel => Value?.Highlight is { } alias
-        ? $"{alias} against the rest"
-        : "Every repository against the rest";
-
-    private IReadOnlyList<MetricSeries> Series =>
+    private IReadOnlyList<MetricPoint> Points =>
         IsReady
-            ? [.. Value!.ByRepository.Select(series => new MetricSeries(
-                series.Name,
-                [.. series.Points.Select(point => new MetricPoint(point.Label, point.Value))],
-                series.Detail))]
+            ? [.. SeriesOf(_measure).Select(point => new MetricPoint(point.Label, point.Value))]
             : [];
 
-    protected override Task<InsightResult<ProductivityTrend>> FetchAsync(CancellationToken cancellationToken) =>
-        Insights.GetTrendAsync(Scope, cancellationToken);
+    private IReadOnlyList<InsightPoint> SeriesOf(Measure measure) => measure switch
+    {
+        Measure.Issues => Value!.IssuesPerWeek,
+        Measure.Commits => Value!.CommitsPerWeek,
+        _ => Value!.PullRequestsPerWeek
+    };
 
-    protected override bool IsEmpty(ProductivityTrend value) => value.ByRepository.Count == 0;
+    protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetHeadlineAsync(Scope, cancellationToken);
+
+    /// <summary>Empty on the headline's rule: nothing merged and nothing closed.</summary>
+    protected override bool IsEmpty(ProductivityHeadline value) =>
+        value.PullRequestsMerged == 0 && value.IssuesClosed == 0;
 
     protected override string EmptyMessage =>
-        "No repository reported anything in this window.";
+        "Nothing merged and nothing closed in this window.";
 
     protected override void InvalidateSource() => Insights.Invalidate(Scope);
 }

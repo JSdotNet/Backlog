@@ -365,16 +365,17 @@ public sealed class DevbookStackLayoutTests
     }
 
     /// <summary>
-    /// Both caps predate anything sitting above the pane row: measured off the
-    /// viewport, they overrun their own grid row by however tall the roadmap band
-    /// is. The row's own height is the honest ceiling.
+    /// The cap predates anything sitting above the pane row: measured off the
+    /// viewport, it overruns its own grid row by however tall the roadmap band
+    /// is. The row's own height is the honest ceiling. The Inbox had the same cap
+    /// while it was a pane in the row; it is a takeover surface now.
     /// </summary>
     [Fact]
     public void Side_panes_are_capped_by_their_row_rather_than_the_viewport()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        foreach (var selector in new[] { ".side-pane-stack {", ".devbook-layout--inbox-before-backlog > .inbox-pane {" })
+        foreach (var selector in new[] { ".side-pane-stack {" })
         {
             var ruleStart = css.IndexOf(selector, StringComparison.Ordinal);
             Assert.True(ruleStart >= 0, $"{selector} should still exist.");

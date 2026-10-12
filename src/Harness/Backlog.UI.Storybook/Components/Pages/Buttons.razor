@@ -46,6 +46,18 @@
         </div>
     </Story>
 
+    <Story Name="A button that opens a page"
+           Description="Given an Href the button is an anchor wearing the same classes, opening the address in a new window. An act whose whole effect is going to look at something on another site — Open on GitHub, Open review on GitHub — is a link: it can be middle-clicked, copied and opened in a new window, and a button that navigates cannot.
+
+Disabled or busy, the anchor loses its href and says so on aria-disabled, because an anchor has no disabled state of its own. Without an Href the button is exactly the one it always was."
+           Code="@HrefCode">
+        <div class="sb-row" data-testid="buttons-href">
+            <AppButton Href="https://github.com/JSdotNet/Backlog/pull/1" Variant="ButtonVariant.Primary">Open on GitHub</AppButton>
+            <AppButton Href="https://github.com/JSdotNet/Backlog/pull/1/files">Open review on GitHub</AppButton>
+            <AppButton Href="https://github.com/JSdotNet/Backlog/pull/1" Disabled="true">Disabled</AppButton>
+        </div>
+    </Story>
+
     <Story Name="With an icon"
            Description="Icon is a fragment rendered before the label, so it can be any glyph or inline SVG."
            Code="@IconCode">
@@ -351,6 +363,11 @@ The third is refused: Disabled keeps the button in its slot with its glyph, so t
 
     private const string BusyCode = """
         <AppButton Variant="ButtonVariant.Primary" Busy="@_saving" BusyLabel="Saving">Save</AppButton>
+        """;
+
+    private const string HrefCode = """
+        <AppButton Href="@pull.Url" Variant="ButtonVariant.Primary">Open on GitHub</AppButton>
+        <AppButton Href="@($"{pull.Url}/files")">Open review on GitHub</AppButton>
         """;
 
     private const string IconCode = """

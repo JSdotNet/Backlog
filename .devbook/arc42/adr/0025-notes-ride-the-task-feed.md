@@ -1,4 +1,4 @@
-# ADR 0024: Notes ride the task feed as a second Inbox document kind, synced both ways
+# ADR 0025: Notes ride the task feed as a second Inbox document kind, synced both ways
 
 ```meta
 date: 2026-10-12

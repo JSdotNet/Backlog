@@ -583,7 +583,7 @@ sequenceDiagram
 ## Mobile Note Sync
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0024-notes-ride-the-task-feed.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md"]
 ```
 
 A note (`.devbook/domain/inbox/domain.md#note`) is the one Inbox item that
@@ -591,7 +591,7 @@ syncs both ways. The phone pulls every note, whichever device made it, and pushe
 it creates and edits. The desktop pushes its own note edits back, and a
 tombstone when it archives or deletes one. The sync and the phone's Notes tab,
 which reads `note_view`, are built.
-`.devbook/arc42/adr/0024-notes-ride-the-task-feed.md` records why notes ride the
+`.devbook/arc42/adr/0025-notes-ride-the-task-feed.md` records why notes ride the
 task feed.
 
 ```mermaid

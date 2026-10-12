@@ -14,7 +14,10 @@
 @using System.Globalization
 @using global::Backlog.SharedKernel
 @using global::Backlog.UI.Components.Inputs
+@using global::Backlog.Modules.Dashboard.Abstractions.Insights
+@using global::Backlog.Modules.Dashboard.Abstractions.Services
 @inject IUsageResetSettings UsageReset
+@inject ISpendBudgetSettings SpendBudgets
 
 @* The week the dashboard cuts by. The assistant's allowance resets on a fixed
    weekday and time, and a week of sessions read against calendar Mondays is a week
@@ -82,10 +85,65 @@
     </p>
 </div>
 
+@* The monthly spend budget, one amount per provider. Bare amounts, read in the
+   currency each provider reports its spend in: Backlog holds no exchange rate, so a
+   budget in any other currency could not be set against the spend. Committed on
+   change rather than bound, so a half-typed amount never reaches the store. A text
+   input with a decimal keypad rather than type="number": a number input hands the
+   server an empty value for text it cannot parse, and empty means "no budget", so
+   "1e" would silently delete the budget in force instead of being refused. *@
+<div class="setting__group" data-testid="spend-budget-settings">
+    <p class="setting__note">
+        <strong>Monthly spend budget.</strong> How much you mean to spend on each
+        assistant in a calendar month, in the currency that provider reports its
+        spend in. The dashboard projects each provider's spend to the end of the
+        month and says when it will pass its budget. Leave a provider empty and it
+        has no budget.
+    </p>
+
+    @foreach (var provider in BudgetProviders)
+    {
+        <TextField Label="@BudgetLabel(provider)"
+                   Id="@($"spend-budget-{Slug(provider)}")"
+                   TestId="@($"spend-budget-{Slug(provider)}")"
+                   inputmode="decimal"
+                   autocomplete="off"
+                   Placeholder="No budget"
+                   Value="@BudgetDraft(provider)"
+                   @onchange="@(e => ApplyBudget(provider, e))" />
+    }
+
+    <p class="setting__status" data-testid="spend-budget-status" role="status">
+        @if (_budgetErrors.Count > 0)
+        {
+            <span class="setting__status--error">@string.Join(" ", BudgetProviders.Where(_budgetErrors.ContainsKey).Select(provider => _budgetErrors[provider]))</span>
+        }
+        else
+        {
+            <span>@BudgetSummary</span>
+        }
+    </p>
+
+    <p class="setting__note">
+        Kept in <code>@SpendBudgets.SettingsPath</code>, on this device only.
+    </p>
+</div>
+
 @code {
     private string _usageResetTimeDraft = string.Empty;
 
     private string? _usageResetError;
+
+    /// <summary>Why a field's typed amount was refused, per provider, so committing
+    /// another field never hides a refusal whose text is still on screen.</summary>
+    private readonly Dictionary<SpendProvider, string> _budgetErrors = [];
+
+    /// <summary>What each budget field shows: the typed text while it is refused, so the
+    /// person can correct it, and otherwise what the store holds.</summary>
+    private readonly Dictionary<SpendProvider, string> _budgetDrafts = [];
+
+    private static readonly SpendProvider[] BudgetProviders =
+        [SpendProvider.Claude, SpendProvider.Copilot, SpendProvider.AzureFoundry];
 
     private static readonly IReadOnlyList<SelectorOption> UsageResetDayOptions =
         [.. WorkingHours.Week.Select(day => new SelectorOption(day.ToString(), day.ToString()))];
@@ -126,6 +184,74 @@
 
         if (_usageResetError is null) SyncUsageResetDraft();
     }
+
+    private void ApplyBudget(SpendProvider provider, ChangeEventArgs e)
+    {
+        var typed = (e.Value?.ToString() ?? string.Empty).Trim();
+        _budgetDrafts[provider] = typed;
+
+        string? error;
+
+        if (typed.Length == 0)
+        {
+            error = SpendBudgets.Set(provider, null);
+        }
+        else if (decimal.TryParse(typed, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var amount))
+        {
+            error = SpendBudgets.Set(provider, amount);
+        }
+        else
+        {
+            error = typed.StartsWith('-')
+                ? "A budget can't be negative."
+                : $"Give the {Name(provider)} budget as an amount, such as 50 or 49.50.";
+        }
+
+        if (error is null)
+        {
+            _budgetErrors.Remove(provider);
+            _budgetDrafts.Remove(provider);
+        }
+        else
+        {
+            _budgetErrors[provider] = error;
+        }
+    }
+
+    private string BudgetDraft(SpendProvider provider) =>
+        _budgetDrafts.TryGetValue(provider, out var draft)
+            ? draft
+            : SpendBudgets.BudgetFor(provider)?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private string BudgetSummary
+    {
+        get
+        {
+            var set = BudgetProviders
+                .Where(provider => SpendBudgets.BudgetFor(provider) is not null)
+                .Select(Name)
+                .ToList();
+
+            return set.Count == 0
+                ? "No budgets set - the dashboard shows spend without one to set it against."
+                : $"Budgets set for {string.Join(", ", set)}; the rest have none.";
+        }
+    }
+
+    private static string BudgetLabel(SpendProvider provider) => $"{Name(provider)} budget a month";
+
+    private static string Name(SpendProvider provider) => provider switch
+    {
+        SpendProvider.Copilot => "GitHub Copilot",
+        SpendProvider.AzureFoundry => "Azure AI Foundry",
+        _ => provider.ToString()
+    };
+
+    private static string Slug(SpendProvider provider) => provider switch
+    {
+        SpendProvider.AzureFoundry => "azure-foundry",
+        _ => provider.ToString().ToLowerInvariant()
+    };
 
     private void ClearUsageReset()
     {

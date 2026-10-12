@@ -377,7 +377,7 @@ the page while the Sync feature is on and keeps it alive across tab switches.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0024-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
@@ -416,7 +416,7 @@ entry so a retry never sends one twice. A note document then goes to
 `POST /api/sync/inbox`. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`,
 `.devbook/arc42/06-runtime-view.md#talk-note-upload`,
 `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push` and
-`.devbook/arc42/adr/0024-notes-ride-the-task-feed.md`.
+`.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`.
 
 ```mermaid
 graph TB

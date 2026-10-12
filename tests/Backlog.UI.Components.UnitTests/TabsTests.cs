@@ -14,6 +14,52 @@ public sealed class TabsTests
         Assert.DoesNotContain("Third body", tabs.Markup, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An eager panel's body is rendered with the strip, hidden, before anyone opens
+    /// it - and opening it shows that same component rather than a new one.
+    /// </summary>
+    [Fact]
+    public void An_eager_panel_renders_its_body_hidden_before_its_first_visit()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<EagerTabsHarness>();
+
+        var probe = Assert.Single(tabs.FindComponents<StatefulProbe>()).Instance;
+        Assert.True(tabs.Find("[data-testid='eager-panel']").HasAttribute("hidden"));
+
+        tabs.FindAll("[role='tab']")[1].Click();
+
+        Assert.Same(probe, Assert.Single(tabs.FindComponents<StatefulProbe>()).Instance);
+        Assert.False(tabs.Find("[data-testid='eager-panel']").HasAttribute("hidden"));
+
+        tabs.FindAll("[role='tab']")[0].Click();
+
+        Assert.Same(probe, Assert.Single(tabs.FindComponents<StatefulProbe>()).Instance);
+        Assert.True(tabs.Find("[data-testid='eager-panel']").HasAttribute("hidden"));
+    }
+
+    /// <summary>
+    /// A panel with no body has only strings for parameters, so Blazor would not draw
+    /// it again on its own; it still hides when another tab is chosen.
+    /// </summary>
+    [Fact]
+    public void A_panel_with_no_body_hides_when_another_tab_is_chosen()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<EagerTabsHarness>();
+
+        tabs.FindAll("[role='tab']")[2].Click();
+        Assert.False(tabs.Find("[data-testid='empty-panel']").HasAttribute("hidden"));
+
+        tabs.FindAll("[role='tab']")[0].Click();
+        Assert.True(tabs.Find("[data-testid='empty-panel']").HasAttribute("hidden"));
+
+        tabs.Render(parameters => parameters.Add(harness => harness.ActiveId, "three"));
+        Assert.False(tabs.Find("[data-testid='empty-panel']").HasAttribute("hidden"));
+    }
+
     /// <summary>A kept-alive panel is still built on demand: nothing inside it
     /// exists until it is first opened.</summary>
     [Fact]

@@ -1,0 +1,26 @@
+@* A combobox bound two-way, as the storybook's stories and any form bind one: each
+   keystroke comes back in as Value. The case a plain recording host cannot reach,
+   because nothing re-renders the combobox with the echo. Refuses any figure that
+   is not one to four characters of digits. *@
+
+<Combobox Options="@Options" AriaLabel="Hours" TestId="combo" @bind-Value="Text" OnCommit="Commit" />
+
+@code {
+    private static readonly IReadOnlyList<SelectorOption> Options =
+    [
+        new("1", "1h"),
+        new("2", "2h")
+    ];
+
+    /// <summary>The bound value, as the host holds it.</summary>
+    public string? Text { get; set; } = "3";
+
+    /// <summary>Every commit, as reason and value.</summary>
+    public List<(string Value, ComboboxCommitReason Reason)> Commits { get; } = [];
+
+    private void Commit(ComboboxCommit commit)
+    {
+        Commits.Add((commit.Value, commit.Reason));
+        if (commit.Value.Length is 0 or > 4 || !commit.Value.All(char.IsAsciiDigit)) commit.Refuse();
+    }
+}

@@ -29,6 +29,18 @@
     chip or a tray item opens the task. The keyboard way to the same date is the
     detail panel the click opens.
 
+    The month bar's Month | Week control picks the range; the host keeps the choice
+    (Range), as it keeps ShowPlans, and is told of a change through RangeChanged. Week
+    shows one Monday-first week as seven tall columns: every chip of a day is listed,
+    with no "+N more", and the plan bars, milestones, hours blocks, day totals, drops
+    and the hours editor are the month grid's own, because a Week day is the same day
+    markup with the same data-calendar-day. Previous, next and Today then step a week,
+    and the heading names the week's days ("6 – 12 October 2026"). The calendar keeps
+    one place to come back to: Week opens on the week holding today when today is in
+    the month shown, else on the month's first week, and Month after Week shows the
+    month holding that week's Thursday. Only the range is the host's to remember,
+    never the date.
+
     The calendar holds no tasks and writes nothing. The host hands in the tasks —
     already filtered — and is told which one was opened and which one was dropped
     where; it redraws from what it wrote.
@@ -57,6 +69,11 @@
     when the day holds more than it has. A block is made from a day's "Add hours…", or
     by dragging a chip or a tray item onto a day with Shift held; either opens the
     day's hours editor, which also changes or removes a block its chip opened. The
+    editor's figure is a Combobox suggesting the usual blocks (CalendarHours.Presets)
+    over a field that takes any figure; taking a suggestion fills the figure and
+    Enter or Save keeps it. Closing the editor — Save, Add, Remove, Cancel or Escape —
+    sends the focus back to the chip that opened it, or to the day's "Add hours…"
+    when that or a Shift drop did, or when Remove took the chip away. The
     calendar writes nothing: it reports the figure through OnHoursChanged and redraws
     from what the host hands back.
 *@
@@ -68,15 +85,15 @@
 
     <div class="task-calendar__bar" data-testid="@Part("bar")">
         <IconButton BaseClass="task-calendar__nav task-calendar__nav--step"
-                    AriaLabel="Previous month"
-                    Title="Previous month"
+                    AriaLabel="@StepLabel("Previous")"
+                    Title="@StepLabel("Previous")"
                     TestId="@Part("previous")"
                     OnClick="() => Move(-1)">
             <span aria-hidden="true">‹</span>
         </IconButton>
         <IconButton BaseClass="task-calendar__nav task-calendar__nav--step"
-                    AriaLabel="Next month"
-                    Title="Next month"
+                    AriaLabel="@StepLabel("Next")"
+                    Title="@StepLabel("Next")"
                     TestId="@Part("next")"
                     OnClick="() => Move(1)">
             <span aria-hidden="true">›</span>
@@ -88,8 +105,22 @@
             Today
         </AppButton>
         <h2 class="task-calendar__month" aria-live="polite" data-testid="@Part("month")">
-            @_month.ToString("MMMM yyyy", CultureInfo.CurrentCulture)
+            @Heading
         </h2>
+        @* One of two, so a fused group with one pressed, per
+           interaction-guidelines.md#group-shape-says-cardinality. *@
+        <ButtonGroup CssClass="task-calendar__range" AriaLabel="Range" TestId="@Part("range")">
+            <ToggleButton Pressed="@(_range == CalendarRange.Month)"
+                          PressedChanged="_ => ShowRangeAsync(CalendarRange.Month)"
+                          TestId="@Part("range-month")">
+                Month
+            </ToggleButton>
+            <ToggleButton Pressed="@(_range == CalendarRange.Week)"
+                          PressedChanged="_ => ShowRangeAsync(CalendarRange.Week)"
+                          TestId="@Part("range-week")">
+                Week
+            </ToggleButton>
+        </ButtonGroup>
         @if (PlansAvailable)
         {
             <Checkbox CssClass="task-calendar__show-plans"
@@ -109,36 +140,16 @@
                 }
             </div>
 
-            @foreach (var weekStart in CalendarMonth.WeekStarts(_month))
+            @if (IsWeek)
             {
-                var (segments, lanes) = WeekPlans(weekStart);
-                <div @key="weekStart"
-                     class="@(lanes > 0 ? "task-calendar__week task-calendar__week--plans" : "task-calendar__week")"
-                     style="@(lanes > 0 ? $"--task-calendar-lanes: {lanes}" : null)"
-                     data-testid="@Part("week")">
-                    @for (var offset = 0; offset < 7; offset++)
-                    {
-                        var date = weekStart.AddDays(offset);
-                        @RenderDay(date)
-                    }
-                    @if (segments.Count > 0)
-                    {
-                        <ul class="task-calendar__plans" aria-label="Plans this week">
-                            @foreach (var segment in segments)
-                            {
-                                <li @key="segment.Plan.Id"
-                                    class="@PlanClass(segment)"
-                                    style="@($"grid-column: {segment.Column} / span {segment.Span}; grid-row: {segment.Lane}")"
-                                    title="@segment.Plan.Summary"
-                                    aria-label="@segment.Plan.Summary"
-                                    data-calendar-plan-window="@segment.Plan.Id"
-                                    data-testid="@Part($"plan-{segment.Plan.Id}")">
-                                    <span class="task-calendar__plan-text">@segment.Label</span>
-                                </li>
-                            }
-                        </ul>
-                    }
-                </div>
+                @RenderWeek(_week)
+            }
+            else
+            {
+                @foreach (var weekStart in CalendarMonth.WeekStarts(_month))
+                {
+                    @RenderWeek(weekStart)
+                }
             }
         </div>
 
@@ -228,6 +239,9 @@
     private DotNetObjectReference<TaskCalendar>? _self;
     private DateOnly _month;
     private DateOnly? _shownMonth;
+    private CalendarRange _range;
+    private CalendarRange? _rangeParameter;
+    private DateOnly _week;
     private DateOnly? _expandedDay;
     private ILookup<DateOnly, CalendarTask> _byDay = Array.Empty<CalendarTask>().ToLookup(task => default(DateOnly));
     private IReadOnlyList<CalendarTask> _undated = [];
@@ -235,6 +249,8 @@
     private HoursDraft? _draft;
     private string? _draftError;
     private bool _focusDraft;
+    private string? _returnFocusTo;
+    private readonly IReadOnlyList<SelectorOption> _hoursPresets = CalendarHours.PresetOptions();
     private ILookup<DateOnly, CalendarMilestone> _milestonesByDay = Array.Empty<CalendarMilestone>().ToLookup(milestone => default(DateOnly));
 
     /// <summary>The tasks to place, in the order a day lists them. Filtered by the
@@ -251,6 +267,15 @@
     /// on its own after that; a new value here moves it again.</summary>
     [Parameter]
     public DateOnly? Month { get; set; }
+
+    /// <summary>The range on screen — the Month | Week control. The host keeps the
+    /// choice; the calendar takes a press at once and reports it through
+    /// <see cref="RangeChanged"/>. A new value here switches it again.</summary>
+    [Parameter]
+    public CalendarRange Range { get; set; } = CalendarRange.Month;
+
+    [Parameter]
+    public EventCallback<CalendarRange> RangeChanged { get; set; }
 
     /// <summary>How many tasks are in today's My Day; today's cell says it.</summary>
     [Parameter]
@@ -328,7 +353,44 @@
     /// <summary>The month on screen, as its first day.</summary>
     public DateOnly ShownMonth => _month;
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "task-calendar" : $"task-calendar {CssClass}";
+    /// <summary>The range on screen.</summary>
+    public CalendarRange ShownRange => _range;
+
+    /// <summary>The week on screen while the range is Week, as its Monday.</summary>
+    public DateOnly ShownWeek => _week;
+
+    private bool IsWeek => _range == CalendarRange.Week;
+
+    private string ClassValue
+    {
+        get
+        {
+            var root = IsWeek ? "task-calendar task-calendar--week" : "task-calendar";
+            return string.IsNullOrWhiteSpace(CssClass) ? root : $"{root} {CssClass}";
+        }
+    }
+
+    /// <summary>"Previous month" or "Previous week": the step says what it steps by.</summary>
+    private string StepLabel(string direction) => IsWeek ? $"{direction} week" : $"{direction} month";
+
+    /// <summary>The month — "October 2026" — or the week's days: "6 – 12 October 2026",
+    /// naming the month and the year only where the week crosses one.</summary>
+    private string Heading
+    {
+        get
+        {
+            var culture = CultureInfo.CurrentCulture;
+            if (!IsWeek) return _month.ToString("MMMM yyyy", culture);
+
+            var end = _week.AddDays(6);
+            var first = _week.Year != end.Year
+                ? _week.ToString("d MMMM yyyy", culture)
+                : _week.Month != end.Month
+                    ? _week.ToString("d MMMM", culture)
+                    : _week.Day.ToString(culture);
+            return $"{first} – {end.ToString("d MMMM yyyy", culture)}";
+        }
+    }
 
     private string TrayHeadingId => $"{_ownerId}-tray";
 
@@ -350,6 +412,15 @@
         {
             _shownMonth = month;
             _month = CalendarMonth.FirstOf(month);
+            if (IsWeek) _week = CalendarMonth.OpeningWeek(_month, Today);
+        }
+
+        // Keyed on the value handed in, as the month is: the host echoing back the
+        // range a press already switched to must not move the week the reader is on.
+        if (_rangeParameter != Range)
+        {
+            _rangeParameter = Range;
+            if (_range != Range) SwitchRange(Range);
         }
 
         _byDay = Tasks.Where(task => task.DueOn is not null).ToLookup(task => task.DueOn!.Value);
@@ -381,6 +452,19 @@
             {
             }
         }
+        else if (_returnFocusTo is { } returnTo)
+        {
+            // backlogFocus waits a few frames for the element, which matters after a
+            // Remove: the day's "Add hours…" comes back on the render that drops the editor.
+            _returnFocusTo = null;
+            try
+            {
+                await Js.InvokeVoidAsync("backlogFocus", returnTo, false);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+            {
+            }
+        }
 
         if (!firstRender) return;
 
@@ -394,11 +478,46 @@
         }
     }
 
+    /// <summary>One week row: its seven days and the plan bars laid over them. The month
+    /// grid stacks one per week it touches; Week draws the one, its days tall.</summary>
+    private RenderFragment RenderWeek(DateOnly weekStart) => __builder =>
+    {
+        var (segments, lanes) = WeekPlans(weekStart);
+        <div @key="weekStart"
+             class="@(lanes > 0 ? "task-calendar__week task-calendar__week--plans" : "task-calendar__week")"
+             style="@(lanes > 0 ? $"--task-calendar-lanes: {lanes}" : null)"
+             data-testid="@Part("week")">
+            @for (var offset = 0; offset < 7; offset++)
+            {
+                var date = weekStart.AddDays(offset);
+                @RenderDay(date)
+            }
+            @if (segments.Count > 0)
+            {
+                <ul class="task-calendar__plans" aria-label="Plans this week">
+                    @foreach (var segment in segments)
+                    {
+                        <li @key="segment.Plan.Id"
+                            class="@PlanClass(segment)"
+                            style="@($"grid-column: {segment.Column} / span {segment.Span}; grid-row: {segment.Lane}")"
+                            title="@segment.Plan.Summary"
+                            aria-label="@segment.Plan.Summary"
+                            data-calendar-plan-window="@segment.Plan.Id"
+                            data-testid="@Part($"plan-{segment.Plan.Id}")">
+                            <span class="task-calendar__plan-text">@segment.Label</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    };
+
     private RenderFragment RenderDay(DateOnly date) => __builder =>
     {
         var tasks = _byDay[date].ToList();
         List<CalendarMilestone> milestones = PlansShown ? [.. _milestonesByDay[date]] : [];
-        var expanded = _expandedDay == date;
+        // A Week column is tall enough for the whole day, so nothing folds there.
+        var expanded = IsWeek || _expandedDay == date;
         var shown = expanded ? tasks : tasks.Take(ChipsPerDay).ToList();
         var hidden = tasks.Count - shown.Count;
         var isToday = date == Today;
@@ -471,7 +590,7 @@
                     +@hidden more
                 </AppButton>
             }
-            else if (expanded && tasks.Count > ChipsPerDay)
+            else if (!IsWeek && expanded && tasks.Count > ChipsPerDay)
             {
                 <AppButton BaseClass="task-calendar__more"
                            Variant="ButtonVariant.None"
@@ -489,6 +608,7 @@
                            Variant="ButtonVariant.None"
                            CssClass="@BlockClass(block)"
                            TestId="@Part($"block-{block.TaskId}-{iso}")"
+                           id="@BlockDomId(block.TaskId, date)"
                            title="@BlockTitle(block)"
                            aria-label="@BlockTitle(block)"
                            aria-expanded="@(IsEditing(block) ? "true" : "false")"
@@ -508,6 +628,7 @@
                 <AppButton BaseClass="task-calendar__add-hours"
                            Variant="ButtonVariant.None"
                            TestId="@Part($"day-{iso}-add-hours")"
+                           id="@AddHoursDomId(date)"
                            aria-label="@($"Add hours on {date.ToString("D", CultureInfo.CurrentCulture)}")"
                            OnClick="() => AddHours(date)">
                     Add hours…
@@ -543,19 +664,17 @@
                              OnChanged="OnDraftTaskChanged" />
             }
             <div class="task-calendar__hours-line">
-                <TextField Type="number"
-                           Compact="true"
-                           AriaLabel="Hours"
-                           Id="@HoursFieldId"
-                           BaseClass="task-calendar__hours-field"
-                           TestId="@Part("hours-editor-hours")"
-                           min="0.25"
-                           max="24"
-                           step="0.25"
-                           autocomplete="off"
-                           Value="@draft.Hours"
-                           ValueChanged="OnDraftHoursChanged"
-                           @onkeydown="OnHoursKeyDown" />
+                <Combobox Options="@_hoursPresets"
+                          Compact="true"
+                          AriaLabel="Hours"
+                          ListAriaLabel="Suggested hours"
+                          Id="@HoursFieldId"
+                          CssClass="task-calendar__hours-field"
+                          TestId="@Part("hours-editor-hours")"
+                          inputmode="decimal"
+                          Value="@draft.Hours"
+                          ValueChanged="OnDraftHoursChanged"
+                          OnCommit="OnHoursCommitAsync" />
                 <span class="task-calendar__hours-unit" aria-hidden="true">h</span>
             </div>
             <div class="task-calendar__hours-actions">
@@ -588,15 +707,40 @@
         </div>
     };
 
-    private void Move(int months)
+    /// <summary>A step back or forward: a week in Week, a month in Month.</summary>
+    private void Move(int steps)
     {
-        _month = _month.AddMonths(months);
+        if (IsWeek) _week = _week.AddDays(7 * steps);
+        else _month = _month.AddMonths(steps);
         _expandedDay = null;
     }
 
     private void ShowToday()
     {
         _month = CalendarMonth.FirstOf(Today);
+        _week = CalendarMonth.MondayOnOrBefore(Today);
+        _expandedDay = null;
+    }
+
+    /// <summary>A press on Month or Week. Pressing the pressed one changes nothing.</summary>
+    private async Task ShowRangeAsync(CalendarRange range)
+    {
+        if (range == _range) return;
+
+        // Taken at once, so the calendar answers the press before the host has written
+        // the choice down and handed it back.
+        SwitchRange(range);
+        await RangeChanged.InvokeAsync(range);
+    }
+
+    /// <summary>Moves to <paramref name="range"/> from the place on screen: Week opens on
+    /// the week holding today when today is in the month shown, else on the month's
+    /// first week; Month shows the month holding the week's Thursday.</summary>
+    private void SwitchRange(CalendarRange range)
+    {
+        if (range == CalendarRange.Week) _week = CalendarMonth.OpeningWeek(_month, Today);
+        else _month = CalendarMonth.MonthOfWeek(_week);
+        _range = range;
         _expandedDay = null;
     }
 
@@ -656,32 +800,44 @@
         var task = Tasks.FirstOrDefault(candidate => string.Equals(candidate.Id, taskId, StringComparison.Ordinal));
         if (task is null) return Task.CompletedTask;
 
+        // A drag has no control to go back to, so closing lands on the day's "Add hours…".
         var held = _hoursByDay[date].FirstOrDefault(block => string.Equals(block.TaskId, task.Id, StringComparison.Ordinal));
         OpenDraft(held is null
-            ? new HoursDraft(date, task.Id, false, string.Empty)
-            : new HoursDraft(date, held.TaskId, true, CalendarHours.Edit(held.Hours)));
+            ? new HoursDraft(date, task.Id, false, string.Empty, AddHoursDomId(date))
+            : new HoursDraft(date, held.TaskId, true, CalendarHours.Edit(held.Hours), AddHoursDomId(date)));
         StateHasChanged();
         return Task.CompletedTask;
     }
 
     /// <summary>The day's "Add hours…": the editor opens on the day with no task picked.</summary>
-    private void AddHours(DateOnly date) => OpenDraft(new HoursDraft(date, null, false, string.Empty));
+    private void AddHours(DateOnly date) =>
+        OpenDraft(new HoursDraft(date, null, false, string.Empty, AddHoursDomId(date)));
 
     /// <summary>A block's chip: the editor opens on its figure, to change or remove it.</summary>
     private void EditBlock(CalendarHoursBlock block) =>
-        OpenDraft(new HoursDraft(block.On, block.TaskId, true, CalendarHours.Edit(block.Hours)));
+        OpenDraft(new HoursDraft(block.On, block.TaskId, true, CalendarHours.Edit(block.Hours), BlockDomId(block.TaskId, block.On)));
 
     private void OpenDraft(HoursDraft draft)
     {
         _draft = draft;
         _draftError = null;
         _focusDraft = true;
+        _returnFocusTo = null;
+    }
+
+    /// <summary>Closes the editor and sends the focus back to what opened it, per
+    /// interaction-guidelines.md#focus-and-selection: the editor replaces the day's
+    /// "Add hours…" while it is open, so without this the focus fell to the page.</summary>
+    private void CloseDraft(string returnFocusTo)
+    {
+        _draft = null;
+        _draftError = null;
+        _returnFocusTo = returnFocusTo;
     }
 
     private void CancelDraft()
     {
-        _draft = null;
-        _draftError = null;
+        if (_draft is { } draft) CloseDraft(draft.ReturnFocusTo);
     }
 
     private void OnDraftTaskChanged(string? taskId)
@@ -695,7 +851,7 @@
             : _hoursByDay[_draft.Day].FirstOrDefault(block => string.Equals(block.TaskId, taskId, StringComparison.Ordinal));
         _draft = held is null
             ? _draft with { TaskId = string.IsNullOrEmpty(taskId) ? null : taskId }
-            : new HoursDraft(_draft.Day, held.TaskId, true, CalendarHours.Edit(held.Hours));
+            : _draft with { TaskId = held.TaskId, Existing = true, Hours = CalendarHours.Edit(held.Hours) };
         _draftError = null;
     }
 
@@ -721,8 +877,7 @@
             return;
         }
 
-        _draft = null;
-        _draftError = null;
+        CloseDraft(draft.ReturnFocusTo);
         await OnHoursChanged.InvokeAsync(new CalendarHoursChange(taskId, draft.Day, hours));
     }
 
@@ -730,21 +885,29 @@
     {
         if (_draft is not { TaskId: { } taskId } draft) return;
 
-        _draft = null;
-        _draftError = null;
+        // The removed block's chip goes with it, so the focus lands on the day's
+        // "Add hours…" whichever control opened the editor.
+        CloseDraft(AddHoursDomId(draft.Day));
         await OnHoursChanged.InvokeAsync(new CalendarHoursChange(taskId, draft.Day, null));
     }
 
-    /// <summary>Escape anywhere in the editor closes it. Enter saves only from the hours
-    /// field: on Remove or Cancel it is that button's own press.</summary>
+    /// <summary>Escape anywhere in the editor closes it — except the Escape that closes
+    /// the hours field's open list of suggestions, which the field keeps to itself.
+    /// Enter saves only from the hours field (<see cref="OnHoursCommitAsync"/>): on
+    /// Remove or Cancel it is that button's own press.</summary>
     private void OnEditorKeyDown(KeyboardEventArgs args)
     {
         if (args.Key == "Escape") CancelDraft();
     }
 
-    private async Task OnHoursKeyDown(KeyboardEventArgs args)
+    /// <summary>Enter in the hours field with no suggestion active saves. Taking a
+    /// suggestion only fills the figure, so the reader still sees it before saving.</summary>
+    private async Task OnHoursCommitAsync(ComboboxCommit commit)
     {
-        if (args.Key == "Enter") await SaveDraftAsync();
+        if (commit.Reason != ComboboxCommitReason.Entered || _draft is null) return;
+
+        _draft = _draft with { Hours = commit.Value };
+        await SaveDraftAsync();
     }
 
     /// <summary>The tasks a new block can be for: the open ones in view, dated or not,
@@ -775,9 +938,18 @@
 
     private string HoursFieldId => $"{_ownerId}-hours";
 
+    /// <summary>The element id of a block's chip: unique to this calendar.</summary>
+    private string BlockDomId(string taskId, DateOnly day) =>
+        $"{_ownerId}-block-{taskId}-{day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+
+    /// <summary>The element id of a day's "Add hours…": unique to this calendar.</summary>
+    private string AddHoursDomId(DateOnly day) =>
+        $"{_ownerId}-add-hours-{day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+
     /// <summary>The hours editor's state: the day, the task it is for (null until one is
-    /// picked), whether it edits a block already there, and the figure as typed.</summary>
-    private sealed record HoursDraft(DateOnly Day, string? TaskId, bool Existing, string Hours);
+    /// picked), whether it edits a block already there, the figure as typed, and the
+    /// element the focus goes back to when it closes.</summary>
+    private sealed record HoursDraft(DateOnly Day, string? TaskId, bool Existing, string Hours, string ReturnFocusTo);
 
     private Task OnShowPlansChangedAsync(bool shown) => ShowPlansChanged.InvokeAsync(shown);
 
@@ -848,7 +1020,9 @@
     {
         var classes = new List<string>(5) { "task-calendar__day" };
         if (hours is { Over: true }) classes.Add("task-calendar__day--over");
-        if (date.Month != _month.Month || date.Year != _month.Year) classes.Add("task-calendar__day--outside");
+        // A week that crosses into the next month is still one week the reader picked,
+        // so only the month grid dims the days it borrows.
+        if (!IsWeek && (date.Month != _month.Month || date.Year != _month.Year)) classes.Add("task-calendar__day--outside");
         if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) classes.Add("task-calendar__day--weekend");
         if (date == Today) classes.Add("task-calendar__day--today");
         if (_expandedDay == date) classes.Add("task-calendar__day--expanded");

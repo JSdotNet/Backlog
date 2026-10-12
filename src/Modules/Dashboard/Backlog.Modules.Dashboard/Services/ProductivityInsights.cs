@@ -68,10 +68,7 @@ public sealed class ProductivityInsights(
     public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
         DashboardScope scope,
         CancellationToken cancellationToken = default) =>
-        DeriveAsync(
-            scope,
-            async token => Headline(await ActivityForAsync(scope, token).ConfigureAwait(false)),
-            cancellationToken);
+        DeriveAsync(scope, token => HeadlineAsync(scope, token), cancellationToken);
 
     public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(
         DashboardScope scope,
@@ -213,6 +210,78 @@ public sealed class ProductivityInsights(
         }, cancellationToken);
     }
 
+    /// <summary>
+    /// How many pull requests were merged in the window of the same length just before
+    /// the scoped one, or null when that cannot be said.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One block of the baseline port rather than a second activity read, because the
+    /// tile compares a count with a count: the activity read's per-pull-request detail
+    /// is what makes it expensive, and none of that detail is wanted here. The block is
+    /// not taken from the record's grid either — that grid ends at the moment the reader
+    /// is looking, so none of its blocks ends where the window opens.
+    /// </para>
+    /// <para>
+    /// Cached under a prefix of its own for the reason <see cref="BaselineForAsync"/>
+    /// gives: a different type under a shared key throws at the cast. And null on any
+    /// failure, on that method's reasoning too — this can only take the comparison off
+    /// the tile, and the tile without it still answers the question it was asked. An
+    /// answer with an uncounted block in it is null as well: a floor set beside a whole
+    /// figure would draw growth that never happened.
+    /// </para>
+    /// </remarks>
+    private Task<int?> PreviousMergedAsync(DashboardScope scope, CancellationToken cancellationToken)
+    {
+        var (from, _) = scope.Window(time.GetUtcNow());
+        var key = "previous|" + scope.Repositories.Key + "|" + scope.Weeks;
+
+        return _cache.GetOrAddAsync<int?>(key, async shared =>
+        {
+            try
+            {
+                var answer = await baseline
+                    .GetBaselineAsync(Scoped(scope), [new ActivityWindow(from.AddDays(-7 * scope.Weeks), from)], shared)
+                    .ConfigureAwait(false);
+
+                return answer is { Complete: true, Blocks: [var block] } ? block.MergedPullRequests : null;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// The headline, and the window before it beside the one count it is compared on.
+    /// The two go out together for the reason <see cref="ScoreAsync"/> sends its two
+    /// together: different provider calls, neither waiting on the other.
+    /// </summary>
+    private async Task<ProductivityHeadline> HeadlineAsync(DashboardScope scope, CancellationToken cancellationToken)
+    {
+        var activityTask = ActivityForAsync(scope, cancellationToken);
+        var previousTask = PreviousMergedAsync(scope, cancellationToken);
+
+        await Task.WhenAll(activityTask, previousTask).ConfigureAwait(false);
+
+        var headline = Headline(await activityTask.ConfigureAwait(false));
+
+        // A listing that stopped early makes the merged count a floor, and a floor set
+        // beside a whole earlier count would draw a fall that never happened. The
+        // baseline call still went out beside the activity read: holding it back until
+        // the activity answered would put a round trip on every headline to save one on
+        // the rare truncated one.
+        return headline with
+        {
+            PreviousPullRequestsMerged = headline.Complete ? await previousTask.ConfigureAwait(false) : null
+        };
+    }
+
     /// <summary>The block grid, oldest first, ending at the moment the reader is
     /// looking — see <see cref="BaselineBlocks"/> for why it does not stop at the
     /// start of the scored window.</summary>
@@ -262,7 +331,22 @@ public sealed class ProductivityInsights(
         {
             Complete = scoped.Report.Complete,
             MedianCommitsPerPullRequest = MedianCommits(pullRequests),
-            PullRequestsWithCommitCount = pullRequests.Count(pr => pr.SizeKnown)
+            PullRequestsWithCommitCount = pullRequests.Count(pr => pr.SizeKnown),
+            CommitsPerWeek = WeekBuckets.Reduce(
+                scoped.Buckets,
+                pullRequests,
+                pr => pr.MergedAt,
+                bucket => bucket.Where(pr => pr.SizeKnown).Sum(pr => pr.Commits)),
+            ReviewTurnaroundPerWeek = WeekBuckets.Reduce(
+                scoped.Buckets,
+                pullRequests,
+                pr => pr.MergedAt,
+                bucket => MedianTurnaround(bucket) is { } median ? (decimal)median.TotalHours : 0m),
+            CommitsPerPullRequestPerWeek = WeekBuckets.Reduce(
+                scoped.Buckets,
+                pullRequests,
+                pr => pr.MergedAt,
+                bucket => MedianCommits(bucket) ?? 0m)
         };
     }
 

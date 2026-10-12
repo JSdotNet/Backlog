@@ -360,9 +360,9 @@ public sealed class InboxAddPersistsAnItemTests
         var shellNavigation = new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json"));
         var captureSources = new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json"));
 
-        // Only the Inbox open on start: adding must not open the Tasks pane,
-        // and the assertion is only worth something if it started closed.
-        shellNavigation.SetLastPanes(["Inbox"]);
+        // The Inbox on screen on start, with the screen to itself: adding must
+        // not take the reader to the task list.
+        shellNavigation.SetLastSurface("Inbox");
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
         _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, false);

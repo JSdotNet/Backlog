@@ -407,16 +407,22 @@ The system SHALL start triage mode on t, move the focus to the chosen item's tag
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_header_counts_the_session_against_the_rows_triage_began_with_and_k_and_j_step, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_bar_fills_with_the_rows_decided_since_triage_began_not_the_session_count]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_header_counts_the_session_against_the_rows_triage_began_with_and_k_and_j_step, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_bar_fills_with_the_rows_decided_since_triage_began_not_the_session_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests.Starting_triage_on_a_routed_row_opens_the_next_open_one_and_counts_only_open_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests.Skip_and_previous_step_over_routed_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests.A_decision_moves_on_past_a_routed_row]
 ```
 
-The system SHALL show over triage mode a progress bar and the line "n of total · m decided this session", where total is the number of items in the slice when triage began, n the place of the item shown among them, and m the decisions taken since the app opened.
+The system SHALL show over triage mode a progress bar and the line "n of total · m decided this session", where total is the number of items in the slice still open when triage first saw them, n the place of the item shown among them, and m the decisions taken since the app opened, and SHALL step over a routed row rather than count or show it.
 
 #### Scenario: Halfway through
 
-- **Given** triage began on a slice of 23 items and the reader has decided 11 of them
+- **Given** triage began on a slice of 23 open items and the reader has decided 11 of them
 - **When** the twelfth item is shown
 - **Then** the line reads "12 of 23 · 11 decided this session" and the bar is a little short of half full
+
+#### Scenario: A routed row in the slice
+
+- **Given** a slice of three rows, the second of them already moved to the backlog
+- **When** the reader starts triage on the second row
+- **Then** the third row is shown and the line starts "2 of 2"
 
 ### Requirement: AI cards come first and the suggestions are numbered after them
 
@@ -520,9 +526,10 @@ related: [.devbook/domain/inbox/features.md#ai-triage-cards, .devbook/arc42/adr/
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Opening_an_item_in_triage_asks_once_with_the_configured_repositories, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Outside_triage_mode_nothing_is_asked, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.Without_an_available_advisor_nothing_is_asked_and_nothing_is_exposed]
 ```
 
-The system SHALL send an item to the Foundry model for its cards only when the reader opens that item in triage mode, at most once per item until the app closes, and never on intake, on a timer or while the list is browsed.
+The system SHALL send an item to the Foundry model for its cards only when the reader opens that item in triage mode, at most once per item until the app closes unless the reader presses Ask again on that item, and never on intake, on a timer or while the list is browsed.
 
 #### Scenario: Browsing the list
 
@@ -536,14 +543,21 @@ The system SHALL send an item to the Foundry model for its cards only when the r
 - **When** the reader presses k
 - **Then** A is shown with the same cards and no new call is made
 
+#### Scenario: Asking again
+
+- **Given** triage shows item A with the cards the model gave it
+- **When** the reader presses Ask again in the AI section
+- **Then** A is sent to the model once more and its cards are the new answer
+
 ### Requirement: Only the settled fields are sent
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.The_user_message_carries_only_the_fields_the_decision_lets_leave, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.The_cards_are_asked_with_the_advice_prompt_and_the_item_and_its_context_as_json]
 ```
 
-The system SHALL send for the item only its title, link, notes, kind, source, person, tags and repository ids, and for matching only the titles, ids, repositories and statuses of the open backlog tasks and of the other unprocessed inbox items and the names of the configured repositories and inbox lists.
+The system SHALL send for the item only its title, link, notes, kind, source, person, tags and repository ids, and for matching only the titles, ids, repositories and statuses of the open backlog tasks and of the other unprocessed inbox items, the configured repositories, and the ids and names of the inbox lists.
 
 #### Scenario: An item with a photo
 
@@ -572,6 +586,7 @@ The system SHALL show no AI card and no Let AI propose the rest when Foundry is 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.A_failed_call_exposes_no_advice_and_is_not_asked_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests.A_call_that_throws_exposes_no_advice, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.An_unreachable_endpoint_and_a_timeout_come_back_as_failed_results, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.A_client_failure_comes_back_as_a_failed_result_carrying_the_clients_words]
 ```
 
 The system SHALL show no AI card for an item whose model call failed and SHALL leave triage of that item otherwise unchanged.
@@ -597,6 +612,7 @@ related: [.devbook/domain/inbox/features.md#merge-into-a-task]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests.A_merge_hands_the_captures_title_link_and_notes_to_the_task_and_archives_it_as_the_tasks_duplicate, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxMergeIntoTaskTests.The_captures_title_link_and_notes_land_on_the_task_as_one_comment_and_its_steps_are_kept]
 ```
 
 The system SHALL add the capture's title, link and notes to the backlog task as a comment and archive the capture with its DuplicateOf naming that task.
@@ -622,6 +638,7 @@ related: [.devbook/domain/inbox/features.md#undo-a-decision]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.U_takes_back_the_newest_decision_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.An_archive_is_undone_by_restoring_the_item_to_unprocessed, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_deferral_is_undone_by_resurfacing_the_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_move_to_a_list_is_undone_by_moving_back_to_the_list_it_came_from, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.With_nothing_to_undo_U_says_so_and_changes_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Restoring_an_archived_item_makes_it_unprocessed_again]
 ```
 
 The system SHALL undo the session's newest decision not yet undone — an archive, a deferral, a move to a list, a move to the backlog or a merge — and return the item to the state it had before it, until the app closes.
@@ -643,6 +660,7 @@ The system SHALL undo the session's newest decision not yet undone — an archiv
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_is_undone_by_returning_the_item_and_deleting_its_tasks_and_the_shell_hears_of_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_whose_task_has_started_is_refused_in_one_sentence_and_the_next_U_reaches_the_decision_before, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Returning_a_routed_item_deletes_the_tasks_the_route_made_and_makes_it_unprocessed, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.A_started_task_refuses_the_return_and_the_item_stays_routed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests.Draft_and_ready_entries_are_deleted_and_an_entry_already_gone_is_no_reason_to_refuse, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests.One_started_entry_refuses_the_lot_by_its_title_and_deletes_nothing]
 ```
 
 The system SHALL undo a move to the backlog by deleting the tasks it made only while none of them has started, and otherwise SHALL refuse the undo with a sentence naming the started task and change nothing.
@@ -664,6 +682,7 @@ The system SHALL undo a move to the backlog by deleting the tasks it made only w
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_merge_is_undone_by_restoring_the_capture_and_clearing_DuplicateOf, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Restoring_a_merged_capture_clears_DuplicateOf_and_leaves_the_comment_on_the_task]
 ```
 
 The system SHALL undo a merge by restoring the capture to the state it had before it and SHALL leave the comment the merge added on the task.
@@ -689,6 +708,7 @@ related: [.devbook/domain/inbox/features.md#inbox-zero]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.With_nothing_waiting_after_a_session_the_summary_replaces_the_rows_and_the_detail, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.A_kind_with_no_decisions_is_left_out_and_no_list_with_waiting_items_leaves_out_its_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.With_no_decisions_this_session_the_first_use_empty_state_stays]
 ```
 
 The system SHALL, when the Inbox has no item still waiting after decisions this session, show the session's count per decision kind with a kind that has none left out, the deferred items with a review date coming back soonest first and at most five, and links to the list with the most waiting items, when one has any, and to Deferred.
@@ -1144,6 +1164,7 @@ related: [.devbook/domain/inbox/features.md#queue-health-bar]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_bar_splits_every_unprocessed_item_by_age_and_calls_out_the_stale_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_middle_part_counts_from_three_days_up_to_the_stale_threshold, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_over_line_is_quiet_when_nothing_has_waited_too_long, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_empty_queue_says_nothing_is_waiting]
 ```
 
 The system SHALL show in the side menu the number of unprocessed items in every list and a bar in three parts counting those captured under 3 days ago, from 3 days up to the fourteen-day stale threshold, and over it with the oldest one's age — leaving deferred, routed and archived items out.
@@ -1294,9 +1315,9 @@ The system SHALL make one task per repository for an item assigned to several, g
 
 #### Scenario: Two repositories
 
-- **Given** an item whose id ends in `9c41d07e`, assigned to Backlog and backlog-sync
+- **Given** an item whose id ends in `9c41d07e`, assigned to `JSdotNet/Backlog` and `JSdotNet/backlog-sync`
 - **When** it is moved to the backlog
-- **Then** two tasks are made, each carrying a "Same capture in:" line naming the other's repository and title, and both are tagged `#from-inbox-9c41d07e`
+- **Then** two tasks are made, each carrying a "Same capture in:" line naming the other's `owner/name` repository id and title, and both are tagged `#from-inbox-9c41d07e`
 
 #### Scenario: One repository
 
