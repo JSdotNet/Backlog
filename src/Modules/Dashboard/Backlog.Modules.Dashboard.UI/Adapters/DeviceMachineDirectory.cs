@@ -90,14 +90,40 @@ public sealed class DeviceMachineDirectory(
             }
         }
 
-        return
+        return Distinguished(
         [
             local,
             .. replicated
                 .OrderBy(machine => machine.Name, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(machine => machine.Id, StringComparer.Ordinal)
+        ]);
+    }
+
+    /// <summary>
+    /// Options a reader can tell apart. Machines stay separate on their id - see the
+    /// remarks - but two options under one name are indistinguishable in a list, so a
+    /// name shared (ignoring case) says which is which: this device says so, and every
+    /// other carries the first eight characters of its id.
+    /// </summary>
+    private static IReadOnlyList<DashboardMachine> Distinguished(IReadOnlyList<DashboardMachine> machines)
+    {
+        var shared = machines
+            .GroupBy(machine => machine.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (shared.Count == 0) return machines;
+
+        return
+        [
+            .. machines.Select((machine, index) => !shared.Contains(machine.Name)
+                ? machine
+                : machine with { Name = index == 0 ? $"{machine.Name} (this device)" : $"{machine.Name} ({ShortId(machine.Id)})" })
         ];
     }
+
+    private static string ShortId(string id) => id.Length > 8 ? id[..8] : id;
 
     /// <summary>
     /// What the option is called. The machine's own name, and its id where the record

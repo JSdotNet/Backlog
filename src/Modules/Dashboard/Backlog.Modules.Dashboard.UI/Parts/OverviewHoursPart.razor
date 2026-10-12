@@ -34,6 +34,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.HoursWorked;
+
     private IReadOnlyList<MetricPart> Parts =>
     [
         new("Inside office hours", Math.Round((decimal)Value!.Inside.TotalHours, 2)),

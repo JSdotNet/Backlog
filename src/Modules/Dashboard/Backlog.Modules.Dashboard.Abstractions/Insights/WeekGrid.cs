@@ -78,30 +78,30 @@ public sealed record LimitMark(DateOnly Day, int Hour, AssistantLimitKind Kind, 
 }
 
 /// <summary>
-/// One week of the sessions part as three grids and a row of totals: seven 24-hour rows
-/// from one reset to the next, every hour present, and the allowance refusals that fell
-/// inside it.
+/// One week of the sessions part as three grids and a row of totals: seven 24-hour rows,
+/// Monday to Sunday on the local calendar, every hour present, and the allowance
+/// refusals that fell inside it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Rows are calendar days, cut at the reset hour.</b> With a reset at Monday 14:00 the
-/// first row is Monday from 14:00 and the last is the following Monday up to 13:00 —
-/// eight rows, the first and last partial. The hours outside the week are not in
-/// <paramref name="Hours"/> at all, and a grid draws an hour it was not given as not
-/// reported, which is the honest reading: those hours belong to the neighbouring weeks.
-/// Under the calendar fallback the reset hour is midnight and there are seven full rows.
+/// <b>Rows are calendar days of a calendar week, whatever the usage reset is.</b> The
+/// grid is titled by its ISO week, and it was once cut at the reset hour instead: with a
+/// reset at Monday 21:00 that drew eight rows, the reset day twice, and a reader looking
+/// on the reset day found its first hours blank because they belonged to the previous
+/// usage week. The usage weeks still cut the columns beside it; each grid names, in
+/// <see cref="UsageWeek"/>, the column whose week begins inside it, so picking a column
+/// still picks a grid.
 /// </para>
 /// <para>
 /// Every hour inside the week is present — 168 of them: an hour nobody worked is a zero
 /// and never a gap, on <see cref="AssistantSessionsInsight.ActivityByHour"/>'s rule.
 /// </para>
 /// </remarks>
-/// <param name="Key">The week's key, the same one its column carries.</param>
-/// <param name="Label">The week's label, the same one its column carries.</param>
-/// <param name="StartsAt">The reset instant the week began at.</param>
+/// <param name="Key">The calendar week's key.</param>
+/// <param name="Label">The calendar week's label, which the week picker offers.</param>
+/// <param name="StartsAt">Local Monday midnight, the instant the week began at.</param>
 /// <param name="Hours">168 cells, in clock order from the week's first hour.</param>
-/// <param name="Days">One row of distinct-session counts per calendar day the week
-/// touches — seven, or eight when the reset is not at midnight — on
+/// <param name="Days">One row of distinct-session counts per calendar day — seven — on
 /// <see cref="ActivityDay"/>'s terms.</param>
 /// <param name="Limits">The refusals inside the week, oldest first.</param>
 public sealed record WeekGrid(
@@ -110,4 +110,11 @@ public sealed record WeekGrid(
     DateTimeOffset StartsAt,
     IReadOnlyList<ActivityHour> Hours,
     IReadOnlyList<ActivityDay> Days,
-    IReadOnlyList<LimitMark> Limits);
+    IReadOnlyList<LimitMark> Limits)
+{
+    /// <summary>The label of the usage week - the column beside the grid - that begins
+    /// inside this calendar week, or null when none does. Under the calendar fallback the
+    /// two weeks are one and this is <see cref="Label"/>. An init property, so the
+    /// positional shape the fixtures build stays as it is.</summary>
+    public string? UsageWeek { get; init; }
+}

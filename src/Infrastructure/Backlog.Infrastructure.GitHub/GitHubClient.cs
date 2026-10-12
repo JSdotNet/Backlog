@@ -155,16 +155,23 @@ public interface IGitHubClient
         Task.FromException(new GitHubException("This GitHub client cannot close an issue."));
 
     /// <summary>
-    /// The repository's open issues carrying <paramref name="label"/>, through the same
-    /// issue search as <see cref="SearchIssuesAsync"/> with the label as a qualifier, so
-    /// a repository with a thousand open issues answers with the handful that matter.
-    /// A default body for the reason that one has.
+    /// The repository's open issues carrying <paramref name="label"/>, through the
+    /// repository's own issue listing — <c>repos/{owner}/{name}/issues?labels=</c> — so a
+    /// repository with a thousand open issues answers with the handful that matter.
+    /// <para>
+    /// Not through search, on purpose. Search shares thirty requests a minute across every
+    /// search the app makes, and answers "Validation Failed" (422) for a <c>repo:</c>
+    /// qualifier naming a repository the credential cannot see; the listing counts against
+    /// the core limit and fails as the plain not-found it is. Its path routes to the
+    /// repository's account as every <c>repos/</c> call does. A default body for the
+    /// reason <see cref="SearchIssuesAsync"/> has one.
+    /// </para>
     /// </summary>
-    Task<GitHubIssueSearchRead> SearchOpenIssuesWithLabelAsync(
+    Task<GitHubIssueSearchRead> ListOpenIssuesWithLabelAsync(
         GitHubRepositoryRef repository,
         string label,
         CancellationToken cancellationToken = default) =>
-        Task.FromException<GitHubIssueSearchRead>(new GitHubException("This GitHub client cannot search issues."));
+        Task.FromException<GitHubIssueSearchRead>(new GitHubException("This GitHub client cannot list issues."));
 
     /// <summary>Takes a draft out of draft — GitHub's "Ready for review".</summary>
     /// <param name="pullRequestId">The pull request's GraphQL node id, from
@@ -867,7 +874,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         return new GitHubIssueSearchRead([.. issues.Values], truncated);
     }
 
-    public async Task<GitHubIssueSearchRead> SearchOpenIssuesWithLabelAsync(
+    public async Task<GitHubIssueSearchRead> ListOpenIssuesWithLabelAsync(
         GitHubRepositoryRef repository,
         string label,
         CancellationToken cancellationToken = default)
@@ -876,10 +883,37 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
 
         var issues = new OrderedDictionary<string, GitHubSearchedIssue>(StringComparer.Ordinal);
-        var truncated = await SearchAsync(repository, closedSince: null, issues, cancellationToken, label).ConfigureAwait(false);
 
-        return new GitHubIssueSearchRead([.. issues.Values], truncated);
+        for (var page = 1; ; page++)
+        {
+            var response = await transport.SendAsync(
+                HttpMethod.Get,
+                LabelledIssuesPath(repository, label, page),
+                body: null,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (response.ValueKind != JsonValueKind.Array)
+            {
+                throw new GitHubException("GitHub did not return an issue list.");
+            }
+
+            var (rows, read) = ReadIssueRows(response);
+            foreach (var issue in rows) issues[issue.NodeId] = issue;
+
+            if (read < SearchPageSize) return new GitHubIssueSearchRead([.. issues.Values], Truncated: false);
+
+            if (page >= SearchPageCap) return new GitHubIssueSearchRead([.. issues.Values], Truncated: true);
+        }
     }
+
+    /// <summary>
+    /// The listing path for one page of a repository's open issues carrying one label,
+    /// oldest first so an issue opened mid-walk lands on a later page. The label is
+    /// escaped whole, because the listing reads a comma as a second label.
+    /// </summary>
+    internal static string LabelledIssuesPath(GitHubRepositoryRef repository, string label, int page) =>
+        $"repos/{repository.Owner}/{repository.Name}/issues?labels={Uri.EscapeDataString(label.Trim())}"
+        + $"&state=open&sort=created&direction=asc&per_page={SearchPageSize}&page={page}";
 
     /// <summary>One query, every page of it, into <paramref name="issues"/> by node
     /// id. Answers whether search held anything back.</summary>
@@ -887,8 +921,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         GitHubRepositoryRef repository,
         DateTimeOffset? closedSince,
         OrderedDictionary<string, GitHubSearchedIssue> issues,
-        CancellationToken cancellationToken,
-        string? label = null)
+        CancellationToken cancellationToken)
     {
         var read = 0;
 
@@ -896,7 +929,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         {
             var response = await transport.SendAsync(
                 HttpMethod.Get,
-                SearchIssuesPath(repository, closedSince, page, label),
+                SearchIssuesPath(repository, closedSince, page),
                 body: null,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -919,20 +952,15 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// GitHub's own query strings carry a space; the closed qualifier's value is
     /// escaped because <c>&gt;=</c> and the time's colons would otherwise be read as
     /// part of the URL. Oldest first, so an issue opened while the walk runs lands on
-    /// a later page instead of pushing an unread one onto a page already read. A label
-    /// is quoted and escaped, so one with a space or a colon stays one qualifier.
+    /// a later page instead of pushing an unread one onto a page already read.
     /// </summary>
-    internal static string SearchIssuesPath(GitHubRepositoryRef repository, DateTimeOffset? closedSince, int page, string? label = null)
+    internal static string SearchIssuesPath(GitHubRepositoryRef repository, DateTimeOffset? closedSince, int page)
     {
         var state = closedSince is { } since
             ? $"is:closed+closed:{Uri.EscapeDataString($">={Rfc3339(since)}")}"
             : "is:open";
 
-        var labelled = string.IsNullOrWhiteSpace(label)
-            ? string.Empty
-            : $"+label:{Uri.EscapeDataString($"\"{label.Trim()}\"")}";
-
-        return $"search/issues?q=is:issue+repo:{repository.Owner}/{repository.Name}+{state}{labelled}"
+        return $"search/issues?q=is:issue+repo:{repository.Owner}/{repository.Name}+{state}"
             + $"&sort=created&order=asc&per_page={SearchPageSize}&page={page}";
     }
 
@@ -957,6 +985,18 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             return new SearchPage([], 0, total, incomplete);
         }
 
+        var (issues, rows) = ReadIssueRows(items);
+
+        return new SearchPage(issues, rows, total, incomplete);
+    }
+
+    /// <summary>
+    /// The issues in one array of issue rows — a search page's <c>items</c>, or a page of
+    /// the repository listing, which share the row shape. A pull request, or a row with no
+    /// node id or number, is left out but still counted as a row read.
+    /// </summary>
+    private static (IReadOnlyList<GitHubSearchedIssue> Issues, int Rows) ReadIssueRows(JsonElement items)
+    {
         var issues = new List<GitHubSearchedIssue>();
         var rows = 0;
 
@@ -983,7 +1023,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 Labels: ReadLabelNames(item)));
         }
 
-        return new SearchPage(issues, rows, total, incomplete);
+        return (issues, rows);
     }
 
     /// <summary>One search page: the issues kept, how many rows it held, the total

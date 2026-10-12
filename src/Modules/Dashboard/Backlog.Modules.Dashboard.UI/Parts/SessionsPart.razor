@@ -222,21 +222,14 @@
                                          CssClass="badge badge--area"
                                          TestId="dashboard-sessions-measure"
                                          OnChanged="ChooseMeasure" />
-                            <ButtonGroup AriaLabel="How to cut the chart" TestId="dashboard-sessions-cut">
-                                <ToggleButton Pressed="CutInForce == Cut.All"
-                                              PressedChanged="_ => _cut = Cut.All"
-                                              TestId="dashboard-sessions-cut-all">
-                                    All
-                                </ToggleButton>
-                                <ToggleButton Pressed="CutInForce == Cut.Repository"
-                                              PressedChanged="_ => _cut = Cut.Repository"
-                                              TestId="dashboard-sessions-cut-repository">
-                                    By repository
-                                </ToggleButton>
-                                @* Only for tokens, the one measure recorded per model. Offered
-                                   and disabled elsewhere, it would be a control that explains
-                                   itself by refusing. *@
-                                @if (Chosen == Measure.Tokens)
+                            @* One choice of three, so a radio group (board Sessions): one stop
+                               in the tab order, and a screen reader hears one control. By
+                               model comes first where it is offered — agent-active hours and
+                               tokens, the two measures a model can be named for — and is what
+                               the chart opens on (decision Q4). Offered and disabled elsewhere,
+                               it would be a control that explains itself by refusing. *@
+                            <ButtonGroup Radio="true" AriaLabel="How to cut the chart" TestId="dashboard-sessions-cut">
+                                @if (ModelCutOffered(Chosen))
                                 {
                                     <ToggleButton Pressed="CutInForce == Cut.Model"
                                                   PressedChanged="_ => _cut = Cut.Model"
@@ -244,6 +237,16 @@
                                         By model
                                     </ToggleButton>
                                 }
+                                <ToggleButton Pressed="CutInForce == Cut.Repository"
+                                              PressedChanged="_ => _cut = Cut.Repository"
+                                              TestId="dashboard-sessions-cut-repository">
+                                    By repository
+                                </ToggleButton>
+                                <ToggleButton Pressed="CutInForce == Cut.All"
+                                              PressedChanged="_ => _cut = Cut.All"
+                                              TestId="dashboard-sessions-cut-all">
+                                    All
+                                </ToggleButton>
                             </ButtonGroup>
                         </div>
 
@@ -271,7 +274,7 @@
                                                TotalHeading="@(CutInForce == Cut.Model ? "All models" : "All repositories")"
                                                LegendLabel="@(CutInForce == Cut.Model ? "Models" : "Repositories")"
                                                LegendInteractive="false"
-                                               SelectedBucket="@SelectedWeekLabel"
+                                               SelectedBucket="@SelectedColumnLabel"
                                                OnBucketSelected="@PickWeek"
                                                FormatValue="@FormatOf(Chosen)"
                                                IdentityOf="@CutIdentity"
@@ -321,7 +324,7 @@
                                        Note="@GridNote"
                                        CellDetail="@GridCellDetail"
                                        CellMarked="@InsideWorkingHours"
-                                       MarkedLabel="working hours"
+                                       MarkedLabel="Office hours"
                                        CellFlag="@LimitFlag"
                                        Flags="@LimitFlags"
                                        ShowValues="true"
@@ -350,7 +353,7 @@
                                    CssClass="dashboard-sessions__all"
                                    OnClick="() => OnOpenSessions.InvokeAsync()"
                                    TestId="dashboard-sessions-all">
-                            All sessions <span aria-hidden="true">→</span>
+                            @AllSessionsLabel <span aria-hidden="true">→</span>
                         </AppButton>
                     }
                 </section>
@@ -426,6 +429,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Sessions;
+
     /// <summary>
     /// Followed for the chart when it is cut by repository and refused for the rest, and
     /// the insight is where that split is made: Claude records no repository against a
@@ -485,8 +490,14 @@
     /// <summary>Per instance, so two hosts of the part never share a heading id.</summary>
     private readonly string _longestHeadingId = "dashboard-sessions-longest-" + Guid.NewGuid().ToString("N");
 
+    /// <summary>A session's length with its minutes under a day — "2 h 40 m" — on the
+    /// board's rule (AC22): the coarse "2h" left two sessions an hour apart reading the
+    /// same.</summary>
     private static readonly Func<decimal, string> LongestFormat =
-        seconds => DashboardFormat.Duration(TimeSpan.FromSeconds((double)seconds));
+        seconds => DashboardFormat.Length(TimeSpan.FromSeconds((double)seconds));
+
+    /// <summary>"All 64 sessions": how many the link opens onto, the window's count.</summary>
+    private string AllSessionsLabel => Value!.Sessions == 1 ? "The 1 session" : $"All {MetricFormat.Compact(Value!.Sessions)} sessions";
 
     /// <summary>The one part on the surface that knows which machine its figures came
     /// from, so the one part the machine filter drives.</summary>
@@ -570,7 +581,8 @@
     }
 
     /// <summary>How the chart divides the measure: not at all, by repository band, or
-    /// by model — the last only for tokens, the one measure recorded per model.</summary>
+    /// by model — the last only for agent-active hours and tokens, the two measures a
+    /// model can be named for.</summary>
     private enum Cut
     {
         All,
@@ -604,7 +616,9 @@
     /// surface forgets it.</summary>
     private Measure _measure = Measure.Producing;
 
-    private Cut _cut = Cut.All;
+    /// <summary>By model: the chart opens on agent-active hours cut by model, as the
+    /// board draws it (decision Q4).</summary>
+    private Cut _cut = Cut.Model;
 
     private GridCount _count = GridCount.Producing;
 
@@ -634,7 +648,7 @@
     /// <summary>The measure as the control and the caption name it.</summary>
     private static string Label(Measure measure) => measure switch
     {
-        Measure.Producing => "Producing hours",
+        Measure.Producing => "Agent-active hours",
         Measure.Waiting => "Waiting for a prompt",
         Measure.Sessions => "Sessions",
         Measure.Prompts => "Prompts per session",
@@ -664,15 +678,26 @@
     /// window took away what it was asked for.</summary>
     private Measure Chosen => IsReady && Offers(_measure) ? _measure : Measure.Producing;
 
-    /// <summary>The cut in force. By model belongs to tokens alone, so under any other
-    /// measure it reads as All — and choosing another measure sets it back for good.</summary>
-    private Cut CutInForce => _cut == Cut.Model && Chosen != Measure.Tokens ? Cut.All : _cut;
+    /// <summary>Whether a measure can be cut by model: agent-active hours, each session's
+    /// time given to its main model, and tokens, recorded per model.</summary>
+    private bool ModelCutOffered(Measure measure) =>
+        measure switch
+        {
+            Measure.Tokens => true,
+            Measure.Producing => IsReady && Value!.ActiveTimeByModel.Count > 0,
+            _ => false
+        };
+
+    /// <summary>The cut in force. By model belongs to the measures it is offered for, so
+    /// under any other it reads as All — and choosing another measure sets it back for
+    /// good.</summary>
+    private Cut CutInForce => _cut == Cut.Model && !ModelCutOffered(Chosen) ? Cut.All : _cut;
 
     private void ChooseMeasure(string? key)
     {
         _measure = Measures.FirstOrDefault(measure => Key(measure) == key, Measure.Producing);
 
-        if (_measure != Measure.Tokens && _cut == Cut.Model) _cut = Cut.All;
+        if (!ModelCutOffered(_measure) && _cut == Cut.Model) _cut = Cut.All;
     }
 
     /// <summary>A measure's figures read the way its tile reads them: hours as
@@ -748,7 +773,10 @@
 
             var measure = Chosen;
 
-            if (CutInForce == Cut.Model) return Bands(Value!.TokensByModel);
+            if (CutInForce == Cut.Model)
+            {
+                return Bands(measure == Measure.Producing ? Value!.ActiveTimeByModel : Value!.TokensByModel);
+            }
 
             return measure switch
             {
@@ -860,7 +888,11 @@
 
             if (CutInForce == Cut.Model)
             {
-                return " Every model the owner sessions answered with, whatever the header's repository scope." + press;
+                // Decision Q2: say how a session's hours were given to a model, because
+                // the record splits tokens by model and never time.
+                return Chosen == Measure.Producing
+                    ? $" Each session's agent-active hours go to the model that wrote most of its output; the records say nothing about which model was working at a given moment. A session that recorded no usage is under \"{AssistantSessionsInsight.ModelUnrecordedName}\". Whatever the header's repository scope." + press
+                    : " Every model the owner sessions answered with, whatever the header's repository scope." + press;
             }
 
             var side = ModeOf(Chosen) == MetricBarsMode.Grouped
@@ -896,7 +928,11 @@
                 _ => "Calendar weeks from Monday, because no usage reset is known — set yours in Settings to cut by it"
             };
 
-    private void PickWeek(string label) => _week = label;
+    /// <summary>A column pressed on the chart: its usage week names the calendar week it
+    /// begins in, and that is the grid to show. A label no grid names is kept as it is,
+    /// which the fallback below reads as the latest grid.</summary>
+    private void PickWeek(string label) =>
+        _week = (IsReady ? Value!.Grids.FirstOrDefault(grid => grid.UsageWeek == label)?.Label : null) ?? label;
 
     /// <summary>The week picker's answer. A blank one changes nothing: the picker offers
     /// no empty entry, and a week the reader did not choose is not one to switch to.</summary>
@@ -910,9 +946,13 @@
     private IReadOnlyList<SelectorOption> WeekOptions =>
         IsReady ? [.. Value!.Grids.Select(grid => new SelectorOption(grid.Label, grid.Label))] : [];
 
-    /// <summary>The picked week's column label, or the latest week's — so the column
-    /// the grid is drawn from is always the one that reads as pressed.</summary>
+    /// <summary>The picked grid's calendar week, which the week picker offers.</summary>
     private string? SelectedWeekLabel => Grid?.Label;
+
+    /// <summary>The column whose usage week begins in the grid's calendar week, so the
+    /// column the grid answers for is the one that reads as pressed - none when no usage
+    /// week begins in it.</summary>
+    private string? SelectedColumnLabel => Grid?.UsageWeek;
 
     /// <summary>The grid the picked week names, or the latest one while nothing is
     /// picked — or was picked in a window that no longer holds it, which a change of
@@ -1001,19 +1041,33 @@
                 .OrderBy(day => day.Key)
                 .Select(day => new MetricSeries(
                     DashboardFormat.Day(day.Key),
-                    // Clock order. A row is a calendar day; the first and last rows of a
-                    // week hold only the hours inside it, and the grid draws the hours it
-                    // is not given as not reported — they are the neighbouring weeks'.
-                    [.. day.OrderBy(hour => hour.Hour)
+                    // Clock order. A row is a calendar day of the calendar week, all of
+                    // its hours present, so today's row holds today's work whatever the
+                    // usage reset is.
+                    [.. day.Where(hour => hour.Hour >= FirstGridHour)
+                        .OrderBy(hour => hour.Hour)
                         .Select(hour => new MetricPoint(DashboardFormat.Hour(hour.Hour), of(hour)))]))]
             : [];
 
+    /// <summary>The grid's title (board Sessions): what it counts, and the week it is
+    /// drawing — the ISO week its first day falls in.</summary>
     private string GridLabel => _count switch
     {
-        GridCount.Open => ByHourOpenLabel,
-        GridCount.Agents => ByHourAgentsLabel,
-        _ => ByHourLabel
+        GridCount.Open => $"Sessions on the go · week {GridWeekNumber}",
+        GridCount.Agents => $"Agents running · week {GridWeekNumber}",
+        _ => $"When the agent worked · week {GridWeekNumber}"
     };
+
+    /// <summary>The ISO week the grid's first day falls in, on the wall clock the week
+    /// was cut on. Not the UTC date: a week that starts at midnight east of UTC starts
+    /// the evening before in UTC, which would title week 42 as week 41.</summary>
+    private int GridWeekNumber =>
+        Grid is { } grid ? System.Globalization.ISOWeek.GetWeekOfYear(grid.StartsAt.DateTime) : 0;
+
+    /// <summary>The first hour the grid draws (board Sessions): 06 to 23. The hours before
+    /// it are counted in every tile; the grid leaves them out so a day reads as a working
+    /// day rather than a third of it empty.</summary>
+    private const int FirstGridHour = 6;
 
     private string GridNote => _count switch
     {
@@ -1041,7 +1095,7 @@
         Grid is { } grid
             ? Value!.Week.Source == WeekSource.Calendar
                 ? $"the week of {grid.Label}, picked above, as calendar days"
-                : $"the week from {grid.Label}, picked above, as calendar days cut at the reset ({Value!.Week.ResetAt}) — the first and last rows hold only the hours inside the week, and the hours outside it are blank"
+                : $"calendar week {GridWeekNumber}, picked above, Monday to Sunday — the columns run from the reset ({Value!.Week.ResetAt}), so the column pressed is the usage week that begins in it"
             : string.Empty;
 
     /// <summary>
@@ -1074,8 +1128,6 @@
     /// that had to give it up.
     /// </para>
     /// </summary>
-    private const string ByHourLabel = "Sessions producing at once, by hour";
-
     /// <summary>The week this grid is showing leads the note, because it is the one
     /// thing about the grid a reader chose; the limit marks and the working-hours
     /// outline follow, then what the row totals are and are not.</summary>
@@ -1099,8 +1151,6 @@
     /// hold an abandoned window open for days.
     /// </para>
     /// </summary>
-    private const string ByHourOpenLabel = "Sessions on the go at once, by hour";
-
     private const string ByHourOpenNote =
         "Producing, or stopped with nothing having prompted them yet. Never lower than "
         + "the Producing count for the same hour, and the gap between the two is the time "
@@ -1123,8 +1173,6 @@
     /// and then nothing — is short by its own silence.
     /// </para>
     /// </summary>
-    private const string ByHourAgentsLabel = "Agents at once, by hour";
-
     private string ByHourAgentsNote =>
         $"Your local clock, {GridWeekSentence}. "
         + "These are the agents Claude's sessions spawned, and "
@@ -1260,6 +1308,9 @@
         IsReady
             ? $"{Value!.LimitHits.FiveHour} × 5-hour · {Value!.LimitHits.Weekly} × weekly. Requests Claude refused because an allowance was spent, "
               + "counted where the refusal was written. Copilot records none, so its sessions contribute nothing rather than zero."
+              // Decision Q1 (b), entry 21: an older Claude Code wrote some refusals with no
+              // reset time, and those are left out of the count rather than placed.
+              + " Refusals an older Claude Code wrote without a reset time are not counted, so this can be a floor."
               + (Overage(Value!.LimitHits) is { } overage ? $" Overage: {overage}." : string.Empty)
             : string.Empty;
 

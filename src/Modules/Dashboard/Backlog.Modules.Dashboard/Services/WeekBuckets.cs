@@ -130,6 +130,35 @@ internal static class WeekBuckets
         Func<IReadOnlyList<T>, decimal> aggregate) =>
         Reduce(buckets, items, instantOf, aggregate, instant => Of(instant).Key);
 
+    /// <summary>
+    /// The reduce for a measure a week can have no reading of — a median over nothing.
+    /// A week whose aggregate is null has no point at all, so a line drawn from the
+    /// series skips it rather than dipping to a zero nobody measured.
+    /// </summary>
+    internal static IReadOnlyList<InsightPoint> ReduceWhereKnown<T>(
+        IReadOnlyList<WeekBucket> buckets,
+        IEnumerable<T> items,
+        Func<T, DateTimeOffset> instantOf,
+        Func<IReadOnlyList<T>, decimal?> aggregate)
+    {
+        ArgumentNullException.ThrowIfNull(buckets);
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(instantOf);
+        ArgumentNullException.ThrowIfNull(aggregate);
+
+        var grouped = items
+            .GroupBy(item => Of(instantOf(item)).Key, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<T>)[.. group], StringComparer.Ordinal);
+
+        return
+        [
+            .. buckets
+                .Select(bucket => (bucket.Label, Value: aggregate(grouped.TryGetValue(bucket.Key, out var inBucket) ? inBucket : [])))
+                .Where(point => point.Value is not null)
+                .Select(point => new InsightPoint(point.Label, point.Value!.Value))
+        ];
+    }
+
     /// <summary>The reduce under a different cut, on the counting overload's terms.</summary>
     internal static IReadOnlyList<InsightPoint> Reduce<T>(
         IReadOnlyList<WeekBucket> buckets,

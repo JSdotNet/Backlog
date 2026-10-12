@@ -1,8 +1,24 @@
-<div class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
-    @ChildContent
-</div>
+@*
+    Two shapes. By default a `group` of independent buttons, each its own switch.
+    With `Radio` set, a `radiogroup` whose ToggleButtons are one choice: each is a
+    `radio` carrying `aria-checked`, only the checked one is a tab stop, and the
+    arrows move *and* select — the roving-tabindex idiom Tabs and ChangeScopePicker
+    already use, so the library has one keyboard idiom for "one of these".
+
+    Opt-in, because the header's view switch and the other strips that render a
+    ButtonGroup today were reviewed as pressed toggles and must not change under
+    them.
+*@
+
+<CascadingValue Value="this" IsFixed="true">
+    <div class="@ClassValue" role="@(Radio ? "radiogroup" : "group")" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
+        @ChildContent
+    </div>
+</CascadingValue>
 
 @code {
+    private readonly List<ToggleButton> _radios = [];
+
     [Parameter]
     public string? AriaLabel { get; set; }
 
@@ -12,6 +28,12 @@
     [Parameter]
     public string? CssClass { get; set; }
 
+    /// <summary>Makes the strip one choice rather than several switches: the group
+    /// is a <c>radiogroup</c>, every <see cref="ToggleButton"/> inside it a
+    /// <c>radio</c>, and the arrow keys, Home and End move the selection.</summary>
+    [Parameter]
+    public bool Radio { get; set; }
+
     [Parameter]
     public string? TestId { get; set; }
 
@@ -19,4 +41,49 @@
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "btn-group" : $"btn-group {CssClass}";
+
+    /// <summary>The radios in the order they first rendered, which is the order the
+    /// arrows walk. A radio that appears later — a cut offered only for one
+    /// measure — joins at the end, which is where every host here draws it.</summary>
+    internal void Register(ToggleButton radio)
+    {
+        if (!_radios.Contains(radio)) _radios.Add(radio);
+    }
+
+    internal void Unregister(ToggleButton radio) => _radios.Remove(radio);
+
+    /// <summary>Exactly one stop: the checked radio, or with none checked the first
+    /// enabled one, so the group is still reachable before anything is chosen.</summary>
+    internal bool IsTabStop(ToggleButton radio)
+    {
+        var checkedRadio = _radios.FirstOrDefault(candidate => candidate.Pressed && !candidate.Disabled);
+        var stop = checkedRadio ?? _radios.FirstOrDefault(candidate => !candidate.Disabled);
+
+        return ReferenceEquals(stop, radio);
+    }
+
+    /// <summary>
+    /// The radio <paramref name="key"/> moves to from <paramref name="from"/>, or
+    /// null for a key that is not navigation. Wraps, as Tabs does, and skips a
+    /// disabled radio rather than landing on it.
+    /// </summary>
+    internal ToggleButton? Step(ToggleButton from, string key)
+    {
+        var enabled = _radios.Where(radio => !radio.Disabled).ToList();
+        if (enabled.Count == 0) return null;
+
+        var current = enabled.IndexOf(from);
+        if (current < 0) current = 0;
+
+        var target = key switch
+        {
+            "ArrowRight" or "ArrowDown" => (current + 1) % enabled.Count,
+            "ArrowLeft" or "ArrowUp" => (current - 1 + enabled.Count) % enabled.Count,
+            "Home" => 0,
+            "End" => enabled.Count - 1,
+            _ => -1
+        };
+
+        return target < 0 ? null : enabled[target];
+    }
 }

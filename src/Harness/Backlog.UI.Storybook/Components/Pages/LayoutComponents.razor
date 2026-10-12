@@ -107,6 +107,24 @@ The dashboard uses it so every part fetches as the pane opens, the way it did un
         </Tabs>
     </Story>
 
+    <Story Name="Focus moved to a tab by the host"
+           Description="FocusTab moves focus to a tab once it next renders. A host that changes the active tab from a control inside the panel it hides calls it, because the focused control disappears with that panel and focus would otherwise fall to the document. Press the button in the first panel: the second tab opens and takes focus, so the next arrow key walks the strip from there."
+           Code="@FocusTabCode">
+        <Tabs @ref="_focusTabs"
+              ActiveId="@_activeFocus"
+              ActiveIdChanged="id => _activeFocus = id"
+              AriaLabel="Overview and detail"
+              TestId="focus-tabs">
+            <TabPanel Id="overview" Title="Overview" TestId="focus-panel-overview">
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="OpenDetail" TestId="focus-tabs-open">Open the detail</AppButton>
+            </TabPanel>
+            <TabPanel Id="detail" Title="Detail" TestId="focus-panel-detail">
+                <p>The panel the button opened. Its tab holds focus.</p>
+            </TabPanel>
+        </Tabs>
+        <p class="sb-state" data-testid="focus-tabs-state">Active tab: @_activeFocus</p>
+    </Story>
+
     <Story Name="Card"
            Description="A titled surface with an optional action area, and a compact variant for dense lists."
            Code="@CardCode">
@@ -315,6 +333,8 @@ Left and Right still describe the separator rather than the number, so here Left
     private string _activePill = "backlog";
     private string _activeKept = "kept";
     private string _activeEager = "first";
+    private string _activeFocus = "overview";
+    private Tabs? _focusTabs;
     private string _body = "The editor and the read view are two tabs over the same text.";
     private bool _foldOpen = true;
     private bool _hostFoldOpen;
@@ -364,6 +384,29 @@ Left and Right still describe the separator rather than the number, so here Left
             </TabPanel>
         </Tabs>
         """;
+
+    private const string FocusTabCode = """
+        <Tabs @ref="_tabs" ActiveId="@_active" ActiveIdChanged="id => _active = id" AriaLabel="Overview and detail">
+            <TabPanel Id="overview" Title="Overview">
+                <AppButton OnClick="OpenDetail">Open the detail</AppButton>
+            </TabPanel>
+            <TabPanel Id="detail" Title="Detail">...</TabPanel>
+        </Tabs>
+
+        private void OpenDetail()
+        {
+            _active = "detail";
+            _tabs?.FocusTab("detail");
+        }
+        """;
+
+    /// <summary>Changes the tab from inside the panel it hides, then hands focus to
+    /// the tab it opened.</summary>
+    private void OpenDetail()
+    {
+        _activeFocus = "detail";
+        _focusTabs?.FocusTab("detail");
+    }
 
     private const string CardCode = """
         <Card Title="Entry">

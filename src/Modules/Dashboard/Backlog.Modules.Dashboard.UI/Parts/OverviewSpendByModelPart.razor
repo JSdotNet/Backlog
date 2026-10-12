@@ -22,7 +22,7 @@
         {
             <MetricBreakdownBar Parts="@currency.Parts"
                                 Label="@(currencies.Count > 1 ? $"In {currency.Code}" : null)"
-                                FormatValue="@(amount => MetricFormat.Money(new MoneyAmount(amount, currency.Code)))"
+                                FormatValue="@(amount => DashboardMoney.Format(amount, currency.Code))"
                                 EmptyMessage="No spend to break down this month."
                                 TestId="@($"dashboard-overview-spend-model-bar-{currency.Code.ToLowerInvariant()}")" />
         }
@@ -34,6 +34,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Cost;
+
     private sealed record Currency(string Code, IReadOnlyList<MetricPart> Parts);
 
     protected override bool FollowsRepository => false;

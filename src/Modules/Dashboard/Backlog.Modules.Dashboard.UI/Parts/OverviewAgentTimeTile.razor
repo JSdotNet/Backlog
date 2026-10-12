@@ -8,7 +8,8 @@
 @inherits DashboardPartBase<AssistantSessionsInsight>
 @inject ISessionInsights Insights
 
-<OverviewTile Label="Agent-active time"
+<OverviewTile OnRetry="RefreshAsync"
+              Label="Agent-active time"
               Value="@(IsReady ? DashboardFormat.Duration(Value!.ActiveTime) : null)"
               Unit="@($"in {Scope.Weeks} weeks")"
               Chip="@(IsReady ? OverviewChip.FromDelta(DashboardFormat.ShareDelta(Value!.ActiveTime, Value!.PreviousActiveTime, DashboardFormat.PreviousWeeks(Scope.Weeks))) : null)"
@@ -19,6 +20,8 @@
               TestId="dashboard-overview-tile-agent-time" />
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Sessions;
+
     protected override bool FollowsMachine => true;
 
     protected override Task<InsightResult<AssistantSessionsInsight>> FetchAsync(CancellationToken cancellationToken) =>

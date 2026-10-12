@@ -5,7 +5,7 @@ using Backlog.Modules.Dashboard.Abstractions.Services;
 namespace Backlog.Modules.Dashboard.Services;
 
 /// <summary>
-/// Turns the assistants' personal spend reports into the three cost parts.
+/// Turns the assistants' personal spend reports into the cost parts.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -39,11 +39,11 @@ public sealed class CostInsights(
     ];
 
     /// <summary>
-    /// How far back the trend reaches. Six whole months plus the current one, so
-    /// the monthly view always has the six comparison buckets the acceptance
-    /// criteria ask for even on the first of a month.
+    /// How far back the weekly read reaches, in whole months before the current one:
+    /// four, so the thirteen ISO weeks <see cref="GetByWeekAsync"/> draws are inside it
+    /// whichever day of the month it is asked on.
     /// </summary>
-    private const int TrendMonths = 6;
+    private const int WeeksMonths = 4;
 
     private readonly InsightCache _cache = new();
 
@@ -63,9 +63,6 @@ public sealed class CostInsights(
         return InsightResult<SpendThisMonthInsight>.Ready(new SpendThisMonthInsight(
             [.. current.Value!.Providers.Select(provider => provider with { PreviousSpend = PreviousOf(provider, previous) })]));
     }
-
-    public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
-        DeriveAsync("trend", TrendWindow(), Trend, cancellationToken);
 
     public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
         DeriveAsync("month", MonthWindow(), ByModel, cancellationToken);
@@ -88,21 +85,22 @@ public sealed class CostInsights(
         DeriveAsync("month", MonthWindow(), ByDay, cancellationToken);
 
     /// <summary>
-    /// Derived from the trend's read, which reaches six months back and so holds every
-    /// day of the thirteen weeks drawn: the brief and the Cost tab ask each provider
-    /// once between them.
+    /// A read of its own, reaching <see cref="WeeksMonths"/> months back so it holds
+    /// every day of the thirteen weeks drawn.
     /// </summary>
     public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
-        DeriveAsync("trend", TrendWindow(), ByWeek, cancellationToken);
+        DeriveAsync("weeks", WeeksWindow(), ByWeek, cancellationToken);
 
     public void Invalidate() => _cache.Clear();
 
     /// <summary>Today's calendar month so far. Not a rolling thirty days: a bill
     /// arrives per calendar month, and "spent this month" has to mean the same
-    /// thing the invoice will.</summary>
+    /// thing the invoice will. Today is the person's local day, as the Devbook tab's
+    /// "Checked" counts it: on the UTC day the chart said "Today, 12 Oct" after local
+    /// midnight on the 13th.</summary>
     private (DateOnly From, DateOnly To) MonthWindow()
     {
-        var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
+        var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
         return (new DateOnly(today.Year, today.Month, 1), today);
     }
 
@@ -120,14 +118,14 @@ public sealed class CostInsights(
         return (start, sameDay < lastDay ? sameDay : lastDay);
     }
 
-    private (DateOnly From, DateOnly To) TrendWindow()
+    private (DateOnly From, DateOnly To) WeeksWindow()
     {
         var (monthStart, today) = MonthWindow();
-        return (monthStart.AddMonths(-TrendMonths), today);
+        return (monthStart.AddMonths(-WeeksMonths), today);
     }
 
     /// <summary>
-    /// The shape all three parts share: ask every provider, and derive from
+    /// The shape every cost part shares: ask every provider, and derive from
     /// whichever answered.
     /// </summary>
     private async Task<InsightResult<T>> DeriveAsync<T>(
@@ -275,7 +273,7 @@ public sealed class CostInsights(
         var reasons = answers.Select(answer => answer.Reason).Where(reason => !string.IsNullOrWhiteSpace(reason)).ToList();
 
         return reasons.Count == 0
-            ? "None of Claude, Copilot or Azure Foundry usage reporting is configured."
+            ? $"None of {SpendProvider.Claude.DisplayName()}, {SpendProvider.Copilot.DisplayName()} or {SpendProvider.AzureFoundry.DisplayName()} usage reporting is configured."
             : string.Join(" ", reasons);
     }
 
@@ -286,25 +284,42 @@ public sealed class CostInsights(
             .Where(pair => pair.Report is not null)
             .Select(pair => (pair.Provider, pair.Report!));
 
+    /// <summary>
+    /// Each provider's month so far. A provider that answered with nothing is a zero in
+    /// the month's currency — <see cref="QuietCurrency"/> — rather than in dollars, so a
+    /// quiet card in a euro month does not read as a currency change.
+    /// </summary>
     private static SpendThisMonthInsight ThisMonth(
         IReadOnlyList<SpendAnswer> answers,
-        (DateOnly From, DateOnly To) window) =>
-        new([.. Answered(answers).Select(pair => new MonthlySpend(
+        (DateOnly From, DateOnly To) window)
+    {
+        var quiet = QuietCurrency(answers);
+
+        return new([.. Answered(answers).Select(pair => new MonthlySpend(
             pair.Provider,
-            Total(pair.Report.Entries),
+            Total(pair.Report.Entries, quiet),
             pair.Report.Allowance,
             window.From,
             window.To,
             pair.Report.IsEstimate))]);
+    }
 
+    /// <summary>Each provider's month-end projection against its budget; a quiet one
+    /// projects, and is budgeted, in the month's currency for the reason
+    /// <see cref="ThisMonth"/> gives.</summary>
     private SpendProjectionInsight Projection(
         IReadOnlyList<SpendAnswer> answers,
-        (DateOnly From, DateOnly To) window) =>
-        new([.. Answered(answers).Select(pair => SpendProjections.Project(
+        (DateOnly From, DateOnly To) window)
+    {
+        var quiet = QuietCurrency(answers);
+
+        return new([.. Answered(answers).Select(pair => SpendProjections.Project(
             pair.Provider,
             pair.Report,
             window.To,
-            budgets?.BudgetFor(pair.Provider)))]);
+            budgets?.BudgetFor(pair.Provider),
+            quiet))]);
+    }
 
     /// <summary>
     /// The month day by day, across the providers that answered.
@@ -330,19 +345,12 @@ public sealed class CostInsights(
         var currency = CurrencyOf(answers);
         var monthEnd = window.From.AddMonths(1).AddDays(-1);
 
-        // A provider that answered with nothing has no currency of its own — its
-        // projection falls back to the default one — so it is put in the month's, rather
-        // than a quiet provider making the others' total refuse over a currency it never
-        // reported in.
+        // A provider that answered with nothing has no currency of its own, so it is
+        // projected in the month's rather than making the others' total refuse over a
+        // currency it never reported in.
+        var quiet = QuietCurrency(answers);
         var projections = answered
-            .Select(pair => SpendProjections.Project(pair.Provider, pair.Report, window.To, budgets?.BudgetFor(pair.Provider)))
-            .Select(projection => answered.First(pair => pair.Provider == projection.Provider).Report.Entries.Count > 0
-                ? projection
-                : projection with
-                {
-                    AverageDaily = DashboardMoney.Zero(currency),
-                    Budget = projection.Budget is { } quiet ? new DashboardMoney(quiet.Amount, currency) : null
-                })
+            .Select(pair => SpendProjections.Project(pair.Provider, pair.Report, window.To, budgets?.BudgetFor(pair.Provider), quiet))
             .ToList();
 
         var spentOn = answered
@@ -367,54 +375,6 @@ public sealed class CostInsights(
             : withBudget.Skip(1).Aggregate(withBudget[0].Budget!, (sum, projection) => sum + projection.Budget!);
 
         return new SpendByDayInsight(days, currency, budget, answered.Any(pair => pair.Report.IsEstimate));
-    }
-
-    /// <summary>The provider's name as the parts print it. Here rather than in
-    /// each part because the trend's series and the model table's detail column
-    /// have to say the same word for the same tile.</summary>
-    private static string Name(SpendProvider provider) => provider switch
-    {
-        SpendProvider.Claude => "Claude",
-        SpendProvider.Copilot => "Copilot",
-        SpendProvider.AzureFoundry => "Azure Foundry",
-        _ => provider.ToString()
-    };
-
-    /// <summary>
-    /// Spend over time, one series per provider that answered.
-    /// </summary>
-    /// <remarks>
-    /// Monthly buckets, because the window is seven months and two hundred daily
-    /// bars in that space is a texture rather than a chart. The bucket kind travels
-    /// on the DTO so the axis can say which it is instead of leaving the reader to
-    /// infer it from the labels.
-    /// </remarks>
-    private static SpendTrendInsight Trend(
-        IReadOnlyList<SpendAnswer> answers,
-        (DateOnly From, DateOnly To) window)
-    {
-        var buckets = MonthBuckets(window.From, window.To);
-        var series = new List<InsightSeries>();
-
-        foreach (var (provider, report) in Answered(answers))
-        {
-            Add(Name(provider), report);
-        }
-
-        return new SpendTrendInsight(series, CurrencyOf(answers), SpendBucket.Month);
-
-        void Add(string name, SpendReport report)
-        {
-            var byMonth = report.Entries
-                .GroupBy(entry => MonthLabel(entry.Date), StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.Sum(entry => entry.Cost.Amount), StringComparer.Ordinal);
-
-            series.Add(new InsightSeries(
-                name,
-                [.. buckets.Select(bucket => new InsightPoint(
-                    bucket,
-                    byMonth.TryGetValue(bucket, out var amount) ? amount : 0m))]));
-        }
     }
 
     /// <summary>
@@ -502,7 +462,7 @@ public sealed class CostInsights(
 
         foreach (var (provider, report) in Answered(answers))
         {
-            Add(Name(provider), report);
+            Add(provider.DisplayName(), report);
         }
 
         return new SpendByModelInsight([.. rows.OrderByDescending(row => row.Cost?.Amount ?? 0m)]);
@@ -533,10 +493,20 @@ public sealed class CostInsights(
     /// currency wins and the mismatch throws, which surfaces as that part's
     /// unavailable reason rather than as a wrong total.
     /// </summary>
-    private static DashboardMoney Total(IReadOnlyList<SpendEntry> entries) =>
+    private static DashboardMoney Total(IReadOnlyList<SpendEntry> entries, string emptyCurrency = SpendProjections.DefaultCurrency) =>
         entries.Count == 0
-            ? DashboardMoney.Zero("USD")
+            ? DashboardMoney.Zero(emptyCurrency)
             : entries.Skip(1).Aggregate(entries[0].Cost, (sum, entry) => sum + entry.Cost);
+
+    /// <summary>
+    /// The currency a provider that answered with nothing is shown in: the one every
+    /// provider that did report is in, or dollars when they reported nothing or
+    /// disagree — there is no single month's currency to borrow then.
+    /// </summary>
+    private static string QuietCurrency(IReadOnlyList<SpendAnswer> answers) =>
+        CurrencyOf(answers) is var currency && currency != Mixed ? currency : SpendProjections.DefaultCurrency;
+
+    private const string Mixed = "mixed";
 
     /// <summary>
     /// The currency to label an axis with. Anthropic and GitHub report United
@@ -555,27 +525,9 @@ public sealed class CostInsights(
 
         return currencies.Count switch
         {
-            0 => "USD",
+            0 => SpendProjections.DefaultCurrency,
             1 => currencies[0],
-            _ => "mixed"
+            _ => Mixed
         };
-    }
-
-    private static string MonthLabel(DateOnly date) =>
-        date.ToString("MMM yy", CultureInfo.InvariantCulture);
-
-    private static IReadOnlyList<string> MonthBuckets(DateOnly from, DateOnly to)
-    {
-        var labels = new List<string>();
-        var cursor = new DateOnly(from.Year, from.Month, 1);
-        var last = new DateOnly(to.Year, to.Month, 1);
-
-        for (var guard = 0; cursor <= last && guard < 120; guard++)
-        {
-            labels.Add(MonthLabel(cursor));
-            cursor = cursor.AddMonths(1);
-        }
-
-        return labels;
     }
 }

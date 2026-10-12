@@ -6932,19 +6932,38 @@ h1, h2, h3 {
     box-shadow: var(--shadow-md);
 }
 
+/* The header: the tab's eyebrow and sentence, and beside them the controls that scope
+   the whole surface (board Main). Where the pane is narrow the controls wrap under the
+   sentence rather than squeezing it. */
 .dashboard-panel__header {
     display: flex;
     flex: none;
-    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
     align-items: flex-start;
     justify-content: space-between;
+    min-width: 0;
+}
+
+.dashboard-panel__header > :first-child {
+    flex: 1 1 16rem;
+    min-width: 0;
 }
 
 .dashboard-panel__header-actions {
     display: flex;
-    flex: none;
-    gap: var(--spacing-xs);
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
     align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+/* "Window and machine don't apply", or the month on the Cost tab: says why the two
+   controls beside it are disabled. */
+.dashboard-panel__scope-note {
+    white-space: nowrap;
 }
 
 .dashboard-panel__eyebrow,
@@ -6974,36 +6993,6 @@ h1, h2, h3 {
     overflow: auto;
 }
 
-/* The filter strip. Two controls, above the content rather than inside the first
-   part, because they scope the whole surface — putting them in a part would make
-   them look like that part's own controls. It is the only thing on this panel a
-   reader can change, and it changes what is shown rather than which parts exist. */
-.dashboard-panel__filters {
-    display: flex;
-    flex: none;
-    flex-wrap: wrap;
-    gap: var(--spacing-md) var(--spacing-lg);
-    align-items: center;
-    padding-bottom: var(--spacing-sm);
-    border-bottom: var(--border-width) solid var(--color-border);
-}
-
-.dashboard-filter {
-    display: flex;
-    gap: var(--spacing-sm);
-    align-items: center;
-    min-width: 0;
-}
-
-.dashboard-filter__label {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
 /* The sections as tabs. The wrapper takes the room the content used to take
    directly, so the panels below the strip scroll while the strip stays put. */
 .dashboard-tabs {
@@ -7016,20 +7005,35 @@ h1, h2, h3 {
 }
 
 /* The tab list and the "Read as brief" link on one line, the link pushed to the
-   end. The list keeps the library's own underline; it wraps rather than scrolling
-   where the pane is narrow. */
+   end. One row at every width: where the pane is narrow the row scrolls sideways
+   rather than wrapping into a stack that leaves the tab body no room (entry 17). The
+   list keeps role="tablist" and its arrow, Home and End keys either way. */
+/* Positioned, so the absolutely placed screen-reader text in a tab - the Devbook
+   badge's ", 14 open drift issues" - is laid out inside this scroll box. Without it the
+   text's containing block was the page, and a tab scrolled out of view at a phone
+   width carried the page 110 px sideways with it. */
 .dashboard-tabs__strip {
+    position: relative;
     display: flex;
     flex: none;
     gap: var(--spacing-md);
     align-items: center;
     min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
 }
 
 .dashboard-tabs__strip > .tabs__list {
-    flex: 1 1 auto;
-    flex-wrap: wrap;
+    flex: 1 0 auto;
+    flex-wrap: nowrap;
     min-width: 0;
+}
+
+.dashboard-tabs__strip > .tabs__list > .tabs__tab,
+.dashboard-tabs__strip > .tabs__list > .tabs__tab--active {
+    flex: none;
+    white-space: nowrap;
 }
 
 .dashboard-tabs__brief {
@@ -7246,11 +7250,30 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* Wraps at a phone's width: "More: tokens, pull requests, peaks and machines" on one
+   line was wider than the card. */
 .dashboard-section__more-title {
+    min-width: 0;
     margin: 0;
     font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+/* The library's fold label stays on one line and truncates. Here it is a heading a
+   reader needs whole - "More: tokens, pull requests, peaks and machines" - and on one
+   line it overflowed a phone's card by 41-56 px, so this fold's label wraps. Scoped to
+   this fold's base class; every other fold keeps the library default. */
+.dashboard-section__more .fold__trigger {
+    max-width: 100%;
+}
+
+.dashboard-section__more .fold__label {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .dashboard-section__more .fold__region:not([hidden]) {
@@ -7390,7 +7413,9 @@ h1, h2, h3 {
    window's minus its padding — a breakpoint would have to restate that sum. */
 .dashboard-section__split {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    /* min() so a column never asks for more than the panel has: 22rem in a 375px
+       panel clipped the Tasks parts on the right (entry 17). */
+    grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
     gap: var(--spacing-md);
     align-items: start;
     min-width: 0;
@@ -7453,6 +7478,12 @@ h1, h2, h3 {
 
 /* A headline tile: the part's card, the figure set large, and the chip and the
    sparkline sharing the foot. */
+/* "Try again" on a tile that could not be read: tucked under its reason, at the
+   start, so the tile keeps its height. */
+.dashboard-overview-tile__retry {
+    align-self: flex-start;
+}
+
 .dashboard-overview-tile {
     display: flex;
     flex-direction: column;
@@ -7665,6 +7696,13 @@ h1, h2, h3 {
 
 /* Needs you: one card per item on its rule's surface, a dot for the eye and the
    words for the meaning, the link to its tab under the detail. */
+/* The board's line above the list: the exceptions, everything else being fine. */
+.dashboard-overview-needs__subtitle {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 .dashboard-overview-needs__list {
     display: grid;
     gap: var(--spacing-sm);
@@ -7739,17 +7777,48 @@ h1, h2, h3 {
 }
 
 .dashboard-rework__tiles {
-    flex: 2 1 30rem;
+    display: grid;
+    flex: 2 1 min(30rem, 100%);
+    gap: var(--spacing-md);
     min-width: 0;
 }
 
+/* "After review" and "Base syncs": the two kinds of rework, each under its label. */
+.dashboard-rework__group {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.dashboard-rework__group-title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* The sum under the churn ranking, which its rows add up to. */
+.dashboard-rework__total {
+    margin: var(--spacing-xs) 0 0;
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 .dashboard-rework__by-repository {
-    flex: 1 1 18rem;
+    flex: 1 1 min(18rem, 100%);
     min-width: 0;
 }
 
 .dashboard-part {
     display: grid;
+    /* minmax(0, 1fr) rather than the implicit auto column: an auto column grows to its
+       content's minimum, and twelve or twenty-six weekly bars at their narrowest pushed
+       the panel wider than a phone (entry 17). */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
@@ -7894,6 +7963,36 @@ h1, h2, h3 {
    counts. Each verdict keeps the tone its badge wears (components.css,
    .badge--sync-verdict-*) except spec-ahead, which takes info so the two "ahead"
    verdicts stay apart in a bar where a badge's word is not there to tell them. */
+/* The frame's subtitle: units verified · issues open · sync failed (board Devbook). */
+.dashboard-drift__summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-drift__summary-failed {
+    color: var(--color-error-text);
+    font-weight: 600;
+}
+
+.dashboard-drift__floor {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.dashboard-drift__issue-detail {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-drift__issue-action {
+    justify-self: start;
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+}
+
 .dashboard-drift__verdicts {
     display: grid;
     gap: var(--spacing-sm);
@@ -7902,15 +8001,15 @@ h1, h2, h3 {
 
 .dashboard-drift__verdict-track {
     display: flex;
-    gap: 2px;
-    height: 1rem;
+    gap: var(--spacing-2xs);
+    height: var(--spacing-md);
     border-radius: var(--border-radius-sm);
     overflow: hidden;
 }
 
 .dashboard-drift__verdict-segment {
     flex: 0 1 0;
-    min-width: 2px;
+    min-width: var(--spacing-2xs);
 }
 
 .dashboard-drift__verdict--aligned { background: var(--color-success); }
@@ -7937,8 +8036,8 @@ h1, h2, h3 {
 }
 
 .dashboard-drift__verdict-swatch {
-    width: 0.625rem;
-    height: 0.625rem;
+    width: calc(var(--spacing-sm) + var(--spacing-2xs));
+    height: calc(var(--spacing-sm) + var(--spacing-2xs));
     border-radius: var(--border-radius-sm);
 }
 
@@ -8010,8 +8109,11 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* One column that may shrink below its content: an auto column grew to the widest
+   unbroken issue title and carried the whole tab sideways with it. */
 .dashboard-drift__issue-list {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-sm);
     margin: 0;
     padding: 0;
@@ -8020,6 +8122,7 @@ h1, h2, h3 {
 
 .dashboard-drift__issue {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-xs);
     padding: var(--spacing-sm);
     border-radius: var(--border-radius-md);
@@ -8038,6 +8141,15 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
     align-items: center;
     justify-content: space-between;
+    min-width: 0;
+}
+
+/* The link gives way inside the head: its title is the part that truncates, and the
+   link's own title attribute carries the whole of it on hover. */
+.dashboard-drift__issue-head > .integration-link {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
 }
 
 /* The roadmap part's timeline: a column of item names, then one column per week of
@@ -8094,7 +8206,33 @@ h1, h2, h3 {
 }
 
 .dashboard-timeline__grid {
+    position: relative;
     min-width: calc(var(--dashboard-timeline-label) + var(--dashboard-timeline-weeks, 1) * var(--dashboard-timeline-week));
+}
+
+/* Today, a line down the weeks with its word at the top: placed as a share of the
+   width the weeks share after the names' column. */
+.dashboard-timeline__today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--dashboard-timeline-label) + (100% - var(--dashboard-timeline-label)) * var(--dashboard-timeline-today, 0));
+    z-index: 0;
+    padding-left: var(--spacing-2xs);
+    border-left: var(--border-width-2) solid var(--color-text-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    pointer-events: none;
+}
+
+.dashboard-timeline__week--today {
+    color: var(--color-text-primary);
+    font-weight: 700;
+}
+
+.dashboard-timeline__outlook {
+    margin-left: var(--spacing-2xs);
 }
 
 .dashboard-timeline__rows {
@@ -8111,8 +8249,11 @@ h1, h2, h3 {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
+/* A line above the week labels for the Today word, which hangs from the top of the
+   grid: on the labels' own line it printed over the week under it ("W42ay"). */
 .dashboard-timeline__axis {
     min-height: 0;
+    padding-top: calc(var(--font-size-xs) * var(--line-height-normal));
     padding-bottom: var(--spacing-xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
@@ -8148,11 +8289,25 @@ h1, h2, h3 {
     background: var(--color-background-alt);
 }
 
+/* Each name cell is its own stacking context, and a later row's sits over an earlier
+   one's: the outlook bubble hanging out of a row opened behind the next row's name.
+   The row holding the focus or the pointer is lifted above the rest. */
+.dashboard-timeline__item:focus-within,
+.dashboard-timeline__item:hover {
+    z-index: 2;
+}
+
 .dashboard-timeline__name {
     overflow: hidden;
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.dashboard-timeline__standing {
+    display: flex;
+    align-items: center;
+    min-width: 0;
 }
 
 .dashboard-timeline__progress {

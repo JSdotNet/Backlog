@@ -74,12 +74,22 @@ public class AttentionInsightsTests
 
         var result = await Attention(tasks: tasks).GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
-        var item = Assert.Single(result.Items);
+        // Behind pace is one definition everywhere: an item past its end with work open
+        // is behind too (verify counted 1 here and 2 on the Tasks tab).
+        Assert.Equal(2, result.Items.Count);
+
+        var item = result.Items[0];
         Assert.Equal(NeedsYouRule.RoadmapBehind, item.Rule);
         Assert.Equal(NeedsYouTab.Tasks, item.Tab);
         Assert.Equal("Dashboard redesign", item.Title);
         Assert.Contains("13 points left", item.Detail, StringComparison.Ordinal);
         Assert.Contains("30 Oct", item.Detail, StringComparison.Ordinal);
+
+        var overdue = result.Items[1];
+        Assert.Equal(NeedsYouRule.RoadmapBehind, overdue.Rule);
+        Assert.Equal("Inbox", overdue.Title);
+        Assert.StartsWith("Past its end:", overdue.Detail, StringComparison.Ordinal);
+        Assert.Contains("5 points left", overdue.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -98,8 +108,12 @@ public class AttentionInsightsTests
         var item = Assert.Single(result.Items);
         Assert.Equal(NeedsYouRule.PastBudget, item.Rule);
         Assert.Equal(NeedsYouTab.Cost, item.Tab);
-        Assert.Contains("Claude", item.Title, StringComparison.Ordinal);
+        Assert.Contains("Anthropic", item.Title, StringComparison.Ordinal);
         Assert.Contains("13 Oct", item.Detail, StringComparison.Ordinal);
+
+        // The dashboard's one money format, the headline's and the cards' (verify: "€23.28"
+        // beside "23.28 EUR").
+        Assert.Contains("Crosses its $100 budget", item.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -114,33 +128,119 @@ public class AttentionInsightsTests
     }
 
     [Fact]
-    public async Task Rework_needs_you_when_more_than_a_quarter_of_merged_pull_requests_came_back_after_review()
+    public async Task Rework_needs_you_when_more_than_a_quarter_of_reviewed_pull_requests_came_back_after_review()
     {
-        var result = await Attention(productivity: new StubProductivity(merged: 20, cameBack: 6))
+        var result = await Attention(productivity: new StubProductivity(reviewed: 20, cameBack: 6))
             .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         var item = Assert.Single(result.Items);
         Assert.Equal(NeedsYouRule.Rework, item.Rule);
         Assert.Equal(NeedsYouTab.Productivity, item.Tab);
-        Assert.Contains("6 of 20", item.Detail, StringComparison.Ordinal);
+        Assert.Equal("6 pull requests came back after review", item.Title);
+        Assert.Contains("6 of 20 reviewed", item.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>The denominator is the reviewed pull requests, the Productivity tab's
+    /// rework rate's own: 6 of the 20 merged would be 30%, but 24 were reviewed and 6 of
+    /// 24 is exactly a quarter.</summary>
+    [Fact]
+    public async Task Rework_divides_by_reviewed_not_merged_pull_requests()
+    {
+        var result = await Attention(productivity: new StubProductivity(reviewed: 24, cameBack: 6, merged: 20))
+            .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsEmpty);
     }
 
     [Fact]
     public async Task Rework_of_exactly_a_quarter_does_not_need_you()
     {
-        var result = await Attention(productivity: new StubProductivity(merged: 20, cameBack: 5))
+        var result = await Attention(productivity: new StubProductivity(reviewed: 20, cameBack: 5))
             .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsEmpty);
     }
 
     [Fact]
-    public async Task Rework_over_no_merged_pull_requests_does_not_need_you()
+    public async Task Rework_just_over_a_quarter_needs_you()
     {
-        var result = await Attention(productivity: new StubProductivity(merged: 0, cameBack: 0))
+        var result = await Attention(productivity: new StubProductivity(reviewed: 99, cameBack: 25))
+            .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Equal(NeedsYouRule.Rework, Assert.Single(result.Items).Rule);
+    }
+
+    [Fact]
+    public async Task Rework_over_no_reviewed_pull_requests_does_not_need_you()
+    {
+        var result = await Attention(productivity: new StubProductivity(reviewed: 0, cameBack: 0, merged: 12))
             .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsEmpty);
+    }
+
+    [Fact]
+    public async Task One_pull_request_back_after_review_reads_in_the_singular()
+    {
+        var result = await Attention(productivity: new StubProductivity(reviewed: 3, cameBack: 1))
+            .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Equal("1 pull request came back after review", Assert.Single(result.Items).Title);
+    }
+
+    [Fact]
+    public void The_rework_detail_splits_the_count_by_repository()
+    {
+        var rework = new ReworkInsight(
+            6, 20, 0, 0, 0, true,
+            [new ReworkRepository("backlog", 4, 12), new ReworkRepository("specs", 2, 8)]);
+
+        var item = Assert.Single(AttentionInsights.ReworkItems(rework));
+
+        Assert.Equal("6 of 20 reviewed came back: 4 in backlog, 2 in specs.", item.Detail);
+    }
+
+    [Fact]
+    public void A_repository_with_nothing_back_is_left_out_of_the_rework_detail()
+    {
+        var rework = new ReworkInsight(
+            6, 20, 0, 0, 0, true,
+            [new ReworkRepository("backlog", 6, 12), new ReworkRepository("specs", 0, 8)]);
+
+        var item = Assert.Single(AttentionInsights.ReworkItems(rework));
+
+        Assert.Equal("6 of 20 reviewed came back: 6 in backlog.", item.Detail);
+    }
+
+    [Theory]
+    [InlineData(NeedsYouRule.Drift, "Open the drift issue")]
+    [InlineData(NeedsYouRule.RoadmapBehind, "Review the roadmap")]
+    [InlineData(NeedsYouRule.PastBudget, "See spend over time")]
+    [InlineData(NeedsYouRule.Rework, "See rework")]
+    public void Each_item_carries_the_action_its_rule_names(NeedsYouRule rule, string action)
+    {
+        var item = new NeedsYouItem(rule, "title", "detail", NeedsYouTab.Devbook);
+
+        Assert.Equal(action, item.Action);
+    }
+
+    [Fact]
+    public async Task Every_raised_item_carries_an_action_phrase()
+    {
+        var result = await Attention(
+                drift: new StubDrift(Drift([Unit(".devbook/domain/tasks/domain.md#task", "conflict")])),
+                tasks: new StubTasks(InsightResult<PlanInsight>.Ready(new PlanInsight(
+                    true,
+                    new PlanPace(5m, PlanPaceBasis.Manual),
+                    [Plan("Dashboard redesign", PlanOutlook.Behind, 21, 8, null)]))),
+                cost: new StubCost(InsightResult<SpendProjectionInsight>.Ready(new SpendProjectionInsight(
+                    [Projection(SpendProvider.Claude, 80m, 5m, 100m)]))),
+                productivity: new StubProductivity(reviewed: 10, cameBack: 5))
+            .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["Open the drift issue", "Review the roadmap", "See spend over time", "See rework"],
+            result.Items.Select(item => item.Action));
     }
 
     [Fact]
@@ -154,7 +254,7 @@ public class AttentionInsightsTests
                     [Plan("Dashboard redesign", PlanOutlook.Behind, 21, 8, null)]))),
                 cost: new StubCost(InsightResult<SpendProjectionInsight>.Ready(new SpendProjectionInsight(
                     [Projection(SpendProvider.Claude, 80m, 5m, 100m)]))),
-                productivity: new StubProductivity(merged: 10, cameBack: 5))
+                productivity: new StubProductivity(reviewed: 10, cameBack: 5))
             .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.Equal(
@@ -168,7 +268,7 @@ public class AttentionInsightsTests
         var result = await Attention(
                 drift: new StubDrift(InsightResult<DriftInsight>.Unavailable("No GitHub token is configured.")),
                 tasks: new StubTasks(failure: new HttpRequestException("The roadmap could not be read.")),
-                productivity: new StubProductivity(merged: 10, cameBack: 5))
+                productivity: new StubProductivity(reviewed: 10, cameBack: 5))
             .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.Equal(NeedsYouRule.Rework, Assert.Single(result.Items).Rule);
@@ -191,7 +291,7 @@ public class AttentionInsightsTests
     {
         var drift = new StubDrift(Drift([]));
         var tasks = new StubTasks(InsightResult<PlanInsight>.Ready(PlanInsight.Off));
-        var productivity = new StubProductivity(merged: 0, cameBack: 0);
+        var productivity = new StubProductivity(reviewed: 0, cameBack: 0);
         var scope = DashboardScope.Default with { Repositories = RepositoryFocus.Of("specs"), Period = DashboardPeriod.FourWeeks };
 
         await Attention(drift: drift, tasks: tasks, productivity: productivity)
@@ -218,7 +318,7 @@ public class AttentionInsightsTests
     {
         var result = await Attention(
                 tasks: new StubTasks(failure: new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout.")),
-                productivity: new StubProductivity(merged: 10, cameBack: 5))
+                productivity: new StubProductivity(reviewed: 10, cameBack: 5))
             .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.Equal(NeedsYouRule.Rework, Assert.Single(result.Items).Rule);
@@ -302,7 +402,7 @@ public class AttentionInsightsTests
             drift ?? new StubDrift(Drift([])),
             tasks ?? new StubTasks(InsightResult<PlanInsight>.Ready(PlanInsight.Off)),
             cost ?? new StubCost(InsightResult<SpendProjectionInsight>.Ready(SpendProjectionInsight.Empty)),
-            productivity ?? new StubProductivity(merged: 0, cameBack: 0));
+            productivity ?? new StubProductivity(reviewed: 0, cameBack: 0));
 
     private static InsightResult<DriftInsight> Drift(IReadOnlyList<DriftUnit> units, params DriftIssue[] issues) =>
         InsightResult<DriftInsight>.Ready(new DriftInsight(
@@ -357,6 +457,10 @@ public class AttentionInsightsTests
             Asked = scope;
             return Task.FromResult(result);
         }
+
+        public void Invalidate()
+        {
+        }
     }
 
     private sealed class StubTasks(InsightResult<PlanInsight>? result = null, Exception? failure = null) : ITaskInsights
@@ -378,9 +482,6 @@ public class AttentionInsightsTests
         public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
@@ -390,31 +491,31 @@ public class AttentionInsightsTests
         public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public void Invalidate()
         {
         }
     }
 
-    private sealed class StubProductivity(int merged, int cameBack) : IProductivityInsights
+    private sealed class StubProductivity(int reviewed, int cameBack, int? merged = null) : IProductivityInsights
     {
         public DashboardScope? Asked { get; private set; }
 
-        public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(DashboardScope scope, CancellationToken cancellationToken = default)
-        {
-            Asked = scope;
-            return Task.FromResult(InsightResult<ProductivityHeadline>.Ready(
-                new ProductivityHeadline(merged, 0, 0m, null, [], [], [])));
-        }
+        public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<ProductivityHeadline>.Ready(
+                new ProductivityHeadline(merged ?? reviewed, 0, 0m, null, [], [], [])));
 
         public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<InsightResult<ProductivityTrend>> GetTrendAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<InsightResult<ReworkInsight>> GetReworkAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<ReworkInsight>.Ready(
-                new ReworkInsight(cameBack, merged, 0, 0, 0, true, [], [])));
+        public Task<InsightResult<ReworkInsight>> GetReworkAsync(DashboardScope scope, CancellationToken cancellationToken = default)
+        {
+            Asked = scope;
+            return Task.FromResult(InsightResult<ReworkInsight>.Ready(
+                new ReworkInsight(cameBack, reviewed, 0, 0, 0, true, [new ReworkRepository("backlog", cameBack, reviewed)])));
+        }
 
         public void Invalidate(DashboardScope scope)
         {

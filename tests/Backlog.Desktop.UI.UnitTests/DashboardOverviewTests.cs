@@ -127,7 +127,7 @@ public class DashboardOverviewTests
         Assert.Contains("2", tile.TextContent, StringComparison.Ordinal);
         Assert.Contains("issues open", tile.TextContent, StringComparison.Ordinal);
         var chip = pane.Find("[data-testid='dashboard-overview-tile-drift-chip']");
-        Assert.Equal("Sync failed: domain/sync", chip.TextContent.Trim());
+        Assert.Equal("1 sync failed", chip.TextContent.Trim());
         Assert.Contains("dashboard-overview-chip--drift", chip.ClassName, StringComparison.Ordinal);
         Assert.Empty(pane.FindAll("[data-testid='dashboard-overview-tile-drift-trend']"));
     }
@@ -144,14 +144,14 @@ public class DashboardOverviewTests
 
         var pane = context.Render<DashboardPane>();
 
-        Assert.Contains("Claude", pane.Find("[data-testid='dashboard-overview-tile-spend-claude']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Anthropic", pane.Find("[data-testid='dashboard-overview-tile-spend-claude']").TextContent, StringComparison.Ordinal);
         Assert.Contains("Copilot", pane.Find("[data-testid='dashboard-overview-tile-spend-copilot']").TextContent, StringComparison.Ordinal);
 
         Assert.Contains("of", pane.Find("[data-testid='dashboard-overview-tile-spend-claude']").TextContent, StringComparison.Ordinal);
         Assert.Contains("vs same days last month", pane.Find("[data-testid='dashboard-overview-tile-spend-claude']").TextContent, StringComparison.Ordinal);
 
         var chip = pane.Find("[data-testid='dashboard-overview-tile-spend-chip']");
-        Assert.Equal("Claude will pass budget", chip.TextContent.Trim());
+        Assert.Equal("Anthropic will pass budget", chip.TextContent.Trim());
         Assert.Contains("dashboard-overview-chip--warning", chip.ClassName, StringComparison.Ordinal);
 
         // No line: the only spend by day adds the providers together.
@@ -219,7 +219,7 @@ public class DashboardOverviewTests
         Assert.Contains("Multi-account support", rows[0].TextContent, StringComparison.Ordinal);
         Assert.Contains("5 / 13 pts", rows[0].TextContent, StringComparison.Ordinal);
         Assert.Equal(
-            ["Behind", "Finished"],
+            ["Behind", "Done"],
             pane.FindAll("[data-testid='dashboard-overview-roadmap-chip']").Select(found => found.TextContent.Trim()));
         Assert.Contains("Pace", pane.Find("[data-testid='dashboard-overview-roadmap-summary']").TextContent, StringComparison.Ordinal);
     }
@@ -346,6 +346,10 @@ public class DashboardOverviewTests
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<DriftInsight>.Ready(insight));
+
+        public void Invalidate()
+        {
+        }
     }
 
     private sealed class ReadyProductivityInsights(int previousMerged = 19) : IProductivityInsights
@@ -372,11 +376,6 @@ public class DashboardOverviewTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
-        public Task<InsightResult<ProductivityTrend>> GetTrendAsync(
-            DashboardScope scope,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<ProductivityTrend>.Unavailable(DashboardTestHost.UnavailableReason));
-
         public Task<InsightResult<ReworkInsight>> GetReworkAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
@@ -401,9 +400,6 @@ public class DashboardOverviewTests
                 },
                 new MonthlySpend(SpendProvider.Copilot, new DashboardMoney(10m, "USD"), new DashboardMoney(5m, "USD"), MonthStart, Through, IsEstimate: false)
             ])));
-
-        public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<SpendTrendInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByModelInsight>.Ready(new SpendByModelInsight(
@@ -436,6 +432,9 @@ public class DashboardOverviewTests
                     DaysLeft: 19,
                     IsEstimate: false)
             ])));
+
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable("Not used by this test."));
 
         public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByDayInsight>.Unavailable("Two currencies cannot be added."));

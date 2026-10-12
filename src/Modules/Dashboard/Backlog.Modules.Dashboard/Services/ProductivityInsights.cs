@@ -5,16 +5,15 @@ using Backlog.Modules.Dashboard.Abstractions.Services;
 namespace Backlog.Modules.Dashboard.Services;
 
 /// <summary>
-/// Turns one window of the person's own pull requests and issues into the four
-/// productivity parts.
+/// Turns one window of the person's own pull requests and issues into the three
+/// productivity insights.
 /// </summary>
 /// <remarks>
 /// <para>
-/// All four parts derive from a single activity fetch per scope, cached for the
-/// session. They are still four separate methods because they are four separate
-/// parts on screen and each shows its own status — but behind them they join one
-/// call rather than making four, which is what the cache's task-valued entries are
-/// for.
+/// All three derive from a single activity fetch per scope, cached for the
+/// session. They are still separate methods because they feed separate parts on
+/// screen and each shows its own status — but behind them they join one call rather
+/// than making three, which is what the cache's task-valued entries are for.
 /// </para>
 /// <para>
 /// Availability is asked before data, and a source that says no produces an
@@ -75,11 +74,6 @@ public sealed class ProductivityInsights(
         CancellationToken cancellationToken = default) =>
         DeriveAsync(scope, token => ScoreAsync(scope, token), cancellationToken);
 
-    public Task<InsightResult<ProductivityTrend>> GetTrendAsync(
-        DashboardScope scope,
-        CancellationToken cancellationToken = default) =>
-        DeriveAsync(scope, token => TrendAsync(scope, token), cancellationToken);
-
     public Task<InsightResult<ReworkInsight>> GetReworkAsync(
         DashboardScope scope,
         CancellationToken cancellationToken = default) =>
@@ -100,10 +94,10 @@ public sealed class ProductivityInsights(
     }
 
     /// <summary>
-    /// The one shape all four parts share: ask whether the source can answer, then
+    /// The one shape every insight here shares: ask whether the source can answer, then
     /// derive. Each derivation decides for itself what it has to fetch — the score
-    /// wants a baseline beside the window, the trend wants the unfocused window — but
-    /// none of them has to repeat the availability check or the failure contract.
+    /// wants a baseline beside the window — but none of them has to repeat the
+    /// availability check or the failure contract.
     /// </summary>
     private async Task<InsightResult<T>> DeriveAsync<T>(
         DashboardScope scope,
@@ -330,6 +324,7 @@ public sealed class ProductivityInsights(
                 bucket => bucket.Count == 0 ? 0m : (decimal)bucket.Count(pr => pr.HasChurn) / bucket.Count))
         {
             Complete = scoped.Report.Complete,
+            PullRequestsReviewed = reviewed.Count,
             MedianCommitsPerPullRequest = MedianCommits(pullRequests),
             PullRequestsWithCommitCount = pullRequests.Count(pr => pr.SizeKnown),
             CommitsPerWeek = WeekBuckets.Reduce(
@@ -337,16 +332,18 @@ public sealed class ProductivityInsights(
                 pullRequests,
                 pr => pr.MergedAt,
                 bucket => bucket.Where(pr => pr.SizeKnown).Sum(pr => pr.Commits)),
-            ReviewTurnaroundPerWeek = WeekBuckets.Reduce(
+            // A week with no reviewed merge has no wait, and one with no read detail no
+            // commit count: no point at all, rather than a 0 h or 0 commits nobody saw.
+            ReviewTurnaroundPerWeek = WeekBuckets.ReduceWhereKnown(
                 scoped.Buckets,
                 pullRequests,
                 pr => pr.MergedAt,
-                bucket => MedianTurnaround(bucket) is { } median ? (decimal)median.TotalHours : 0m),
-            CommitsPerPullRequestPerWeek = WeekBuckets.Reduce(
+                bucket => MedianTurnaround(bucket) is { } median ? (decimal)median.TotalHours : null),
+            CommitsPerPullRequestPerWeek = WeekBuckets.ReduceWhereKnown(
                 scoped.Buckets,
                 pullRequests,
                 pr => pr.MergedAt,
-                bucket => MedianCommits(bucket) ?? 0m)
+                bucket => MedianCommits(bucket))
         };
     }
 
@@ -478,99 +475,6 @@ public sealed class ProductivityInsights(
     }
 
     /// <summary>
-    /// The score per repository per week — a small score over one week's activity,
-    /// which is noisier than the headline figure and is meant to be: the point of
-    /// the trend is to show a repository whose trajectory changed, and smoothing
-    /// that away would leave five flat lines.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Fetched over the UNFOCUSED window whatever the filter says, then narrowed to
-    /// the repositories in focus. The fetch stays estate-wide for two reasons: the
-    /// target every point is read against is the estate's record, and a fetch keyed
-    /// on the focus would set a different bar per filter move — a quiet repository
-    /// focused alone would read its own best week as full marks; and the unfocused
-    /// fetch is the one every other part already made, so narrowing here costs no
-    /// call. The series are then filtered so the part answers the filter the way
-    /// the rest of the surface does, and the first repository taken into focus
-    /// travels on as <see cref="ProductivityTrend.Highlight"/>.
-    /// </para>
-    /// <para>
-    /// One target for every repository, taken from the whole estate's record rather
-    /// than from each repository's own best week. Per-series normalisation would make
-    /// every repository's best week read 100 — the busiest and the quietest alike —
-    /// and destroy the only comparison the spotlight exists to draw.
-    /// </para>
-    /// <para>
-    /// The volume score alone, never the quality one. A week holds one or two pull
-    /// requests, and a proportion over two is a coin toss drawn as a trend — so a
-    /// point here is the volume card's measure cut to one week, and the part says
-    /// so beside the chart.
-    /// </para>
-    /// </remarks>
-    private async Task<ProductivityTrend> TrendAsync(DashboardScope scope, CancellationToken cancellationToken)
-    {
-        var estate = scope with { Repositories = RepositoryFocus.All };
-
-        var activityTask = ActivityForAsync(estate, cancellationToken);
-        var baselineTask = BaselineForAsync(estate, cancellationToken);
-
-        await Task.WhenAll(activityTask, baselineTask).ConfigureAwait(false);
-
-        var scoped = await activityTask.ConfigureAwait(false);
-        var record = await baselineTask.ConfigureAwait(false);
-
-        var targets = new ProductivityTargets(
-            record?.MergedPerWeek ?? 0m,
-            record?.ClosedPerWeek ?? 0m);
-
-        var series = scoped.Repositories
-            .Select(repository =>
-            {
-                var pullRequests = scoped.Report.PullRequests
-                    .Where(pr => Matches(pr.RepositoryAlias, repository.Alias))
-                    .ToList();
-
-                var issues = scoped.Report.Issues
-                    .Where(issue => Matches(issue.RepositoryAlias, repository.Alias))
-                    .ToList();
-
-                var points = scoped.Buckets
-                    .Select(bucket => new InsightPoint(
-                        bucket.Label,
-                        // The volume score alone. A week holds one or two pull requests,
-                        // and a proportion over two is a coin toss drawn as a trend; the
-                        // count against a shared target is the one figure a week can
-                        // carry honestly.
-                        ProductivityScoring.Score(ProductivityScoring.VolumeInputsFor(
-                            [.. pullRequests.Where(pr => WeekBuckets.Of(pr.MergedAt).Key == bucket.Key)],
-                            [.. issues.Where(issue => WeekBuckets.Of(issue.ClosedAt).Key == bucket.Key)],
-                            weeks: 1,
-                            targets))))
-                    .ToList();
-
-                return new InsightSeries(repository.Alias, points);
-            })
-            // A repository that reported nothing all quarter draws a flat zero line
-            // that says only that it was quiet. Dropping it keeps the trellis about
-            // the repositories actually worked in.
-            .Where(one => one.Points.Any(point => point.Value > 0m))
-            // And the filter narrows the rest, as it narrows every other part. The
-            // target was set above from the whole estate, so a repository scores
-            // the same drawn alone as it did beside the pack.
-            .Where(one => scope.IsAllRepositories || scope.Repositories.Contains(one.Name))
-            .ToList();
-
-        // The anchor: the trellis and the spotlight can hold one repository up
-        // against the rest, and the first one taken into focus is the one the
-        // reader was looking at first.
-        return new ProductivityTrend(series, scope.Repositories.Anchor)
-        {
-            Complete = scoped.Report.Complete
-        };
-    }
-
-    /// <summary>
     /// The churn figures, and the repositories they came from.
     /// </summary>
     /// <remarks>
@@ -593,14 +497,13 @@ public sealed class ProductivityInsights(
         var churned = reviewed.Where(pr => pr.HasChurn).ToList();
         var synced = scoped.Report.PullRequests.Where(pr => pr.WasSynced).ToList();
 
+        // Ranked by the pull requests that came back, the figure the card is about, and
+        // then by name so two repositories tied on it keep one order between reads.
         var byRepository = reviewed
             .GroupBy(pr => pr.RepositoryAlias, StringComparer.OrdinalIgnoreCase)
-            .OrderByDescending(group => group.Count(pr => pr.HasChurn))
-            .Select(group => new InsightRow(
-                group.Key,
-                Tokens: group.Sum(pr => pr.CommitsAfterFirstReview),
-                Cost: null,
-                Detail: group.Count(pr => pr.HasChurn) + " of " + group.Count() + " reviewed"))
+            .Select(group => new ReworkRepository(group.Key, group.Count(pr => pr.HasChurn), group.Count()))
+            .OrderByDescending(row => row.PullRequestsWithChurn)
+            .ThenBy(row => row.Alias, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         return new ReworkInsight(
@@ -610,7 +513,6 @@ public sealed class ProductivityInsights(
             reviewed.Sum(pr => pr.ForcePushesAfterFirstReview),
             reviewed.Sum(pr => pr.FilesRetouched),
             reviewed.All(pr => pr.ChurnComplete),
-            WeekBuckets.Count(scoped.Buckets, churned, pr => pr.MergedAt),
             byRepository)
         {
             Complete = scoped.Report.Complete,
@@ -622,7 +524,4 @@ public sealed class ProductivityInsights(
             ConflictedSyncMerges = synced.Sum(pr => pr.ConflictedSyncMerges)
         };
     }
-
-    private static bool Matches(string? left, string? right) =>
-        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 }

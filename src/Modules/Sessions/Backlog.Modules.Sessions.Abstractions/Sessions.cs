@@ -317,7 +317,7 @@ public static class AgentSessionLimits
     /// promised to reach on every source, whatever the per-agent cap.
     /// <para>
     /// The cap is the right shape for a list and the wrong one for a count. A surface
-    /// that asks "how many sessions ran in the last twelve weeks" and is answered with
+    /// that asks "how many sessions ran in the last twenty-six weeks" and is answered with
     /// the newest hundred per agent reads a page size back as a total — 200 on every
     /// machine, which is what the Dashboard showed. So a reading can be asked for
     /// everything since a horizon instead, and this is the horizon a source that keeps
@@ -325,12 +325,12 @@ public static class AgentSessionLimits
     /// answer the same question short for every other machine.
     /// </para>
     /// <para>
-    /// Twelve weeks because that is the longest period the Dashboard offers. The
+    /// Twenty-six weeks because that is the longest period the Dashboard offers. The
     /// Dashboard cannot name this constant — its module may not see this one — so the
     /// two are paired by this sentence and by <c>SessionInsights.Horizon</c>'s.
     /// </para>
     /// </summary>
-    public static readonly TimeSpan History = TimeSpan.FromDays(7 * 12);
+    public static readonly TimeSpan History = TimeSpan.FromDays(7 * 26);
 }
 
 /// <summary>

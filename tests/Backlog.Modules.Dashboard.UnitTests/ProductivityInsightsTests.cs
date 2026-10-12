@@ -23,14 +23,12 @@ public class ProductivityInsightsTests
 
         var headline = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
         var score = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
-        var trend = await insights.GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
         var rework = await insights.GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         foreach (var reason in new[]
                  {
                      headline.Availability.Reason,
                      score.Availability.Reason,
-                     trend.Availability.Reason,
                      rework.Availability.Reason
                  })
         {
@@ -77,14 +75,13 @@ public class ProductivityInsightsTests
     }
 
     [Fact]
-    public async Task Four_parts_share_one_fetch_rather_than_making_four()
+    public async Task Three_parts_share_one_fetch_rather_than_making_three()
     {
         var source = new StubActivitySource();
         var insights = Insights(source);
 
         _ = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
         _ = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
-        _ = await insights.GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
         _ = await insights.GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, source.Calls);
@@ -172,11 +169,36 @@ public class ProductivityInsightsTests
         Assert.True(headline.HasValue);
         Assert.Equal(0.5m, headline.Value!.ReworkRate);
         Assert.Equal(4, headline.Value.PullRequestsMerged);
+        Assert.Equal(2, headline.Value.PullRequestsReviewed);
 
         Assert.True(rework.HasValue);
         Assert.Equal(2, rework.Value!.PullRequestsReviewed);
         Assert.Equal(1, rework.Value.PullRequestsWithChurn);
         Assert.Equal(0.5m, rework.Value.Rate);
+    }
+
+    /// <summary>
+    /// Merges with no review at all: the rate is a share of nothing, and the headline says
+    /// how many were reviewed - none - so a surface can print "—" where verify read "0%
+    /// came back" beside a First review of "—".
+    /// </summary>
+    [Fact]
+    public async Task A_window_with_no_reviewed_merge_says_none_were_reviewed()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: false, churned: false),
+                    Merged(2, reviewed: false, churned: false)
+                ],
+                [])
+        };
+
+        var headline = await Insights(source).GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(headline.HasValue);
+        Assert.Equal(0, headline.Value!.PullRequestsReviewed);
     }
 
     [Fact]
@@ -216,44 +238,6 @@ public class ProductivityInsightsTests
 
         Assert.True(headline.HasValue);
         Assert.Equal(TimeSpan.FromHours(3), headline.Value!.MedianReviewTurnaround);
-    }
-
-    [Fact]
-    public async Task A_repository_that_reported_nothing_is_left_off_the_trend_rather_than_drawn_as_a_flat_zero()
-    {
-        var source = new StubActivitySource
-        {
-            Report = new ActivityReport([Merged(1, reviewed: true, churned: false)], [])
-        };
-
-        var trend = await Insights(source).GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
-
-        Assert.True(trend.HasValue);
-        var series = Assert.Single(trend.Value!.ByRepository);
-        Assert.Equal("backlog", series.Name);
-    }
-
-    /// <summary>
-    /// Nothing in focus draws every repository that reported anything: the trellis
-    /// is the whole estate until somebody narrows it.
-    /// </summary>
-    [Fact]
-    public async Task No_focus_returns_every_repository_that_reported()
-    {
-        var source = new StubActivitySource
-        {
-            Report = new ActivityReport(
-                [
-                    Merged(1, reviewed: true, churned: false),
-                    Merged(2, reviewed: true, churned: false) with { RepositoryAlias = "backlog-ide" }
-                ],
-                [])
-        };
-
-        var trend = await Insights(source).GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
-
-        Assert.True(trend.HasValue);
-        Assert.Equal(2, trend.Value!.ByRepository.Count);
     }
 
     /// <summary>
@@ -540,7 +524,7 @@ public class ProductivityInsightsTests
     /// trend: commits summed by the week a pull request merged, and the two medians
     /// cut by the same weeks. A pull request whose detail was not read adds no
     /// commits and is not in either median, and a week with nothing to take a median
-    /// over reads zero rather than dropping out of the axis.
+    /// over has no point rather than a zero one (entry 19).
     /// </summary>
     [Fact]
     public async Task Commits_and_the_two_medians_are_cut_by_the_week_a_pull_request_merged()
@@ -578,10 +562,42 @@ public class ProductivityInsightsTests
         Assert.Equal(3m, perPullRequest["W34"]);
         Assert.Equal(5m, perPullRequest["W33"]);
 
-        // Every other week of the window is on the axis at zero.
-        Assert.All(
-            headline.CommitsPerPullRequestPerWeek.Where(point => point.Label is not ("W33" or "W34")),
-            point => Assert.Equal(0m, point.Value));
+        // Every other week of the window had no merge, so neither median has a point
+        // there; the commits measure is a sum and keeps its zero.
+        Assert.Equal(["W33", "W34"], headline.ReviewTurnaroundPerWeek.Select(point => point.Label));
+        Assert.Equal(["W33", "W34"], headline.CommitsPerPullRequestPerWeek.Select(point => point.Label));
+        Assert.Equal(headline.PullRequestsPerWeek.Count, headline.CommitsPerWeek.Count);
+    }
+
+    /// <summary>
+    /// A week whose merges were none of them reviewed has no first-review wait to take
+    /// a median of, and a week whose merges' detail was not read has no commit count:
+    /// each is left out of its line rather than drawn as 0 h or 0 commits (entry 19).
+    /// </summary>
+    [Fact]
+    public async Task A_week_with_no_evidence_has_no_median_point()
+    {
+        // Wednesday 19 August: day 1 merged this week (W34), unreviewed and with its
+        // detail read; day 3 on the Sunday before (W33), reviewed, detail not read.
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: false, churned: false) with { SizeKnown = true, Commits = 4 },
+                    Turnaround(3, TimeSpan.FromHours(5)) with { SizeKnown = false, Commits = 0 }
+                ],
+                [])
+        };
+
+        var headline = (await Insights(source).GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        var turnaround = Assert.Single(headline.ReviewTurnaroundPerWeek);
+        Assert.Equal("W33", turnaround.Label);
+        Assert.Equal(5m, turnaround.Value);
+
+        var perPullRequest = Assert.Single(headline.CommitsPerPullRequestPerWeek);
+        Assert.Equal("W34", perPullRequest.Label);
+        Assert.Equal(4m, perPullRequest.Value);
     }
 
     /// <summary>
@@ -628,126 +644,78 @@ public class ProductivityInsightsTests
         var score = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
         var headline = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
         var rework = await insights.GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
-        var trend = await insights.GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.False(score.Value!.Complete);
         Assert.False(headline.Value!.Complete);
         Assert.False(rework.Value!.Complete);
-        Assert.False(trend.Value!.Complete);
     }
 
     /// <summary>
-    /// The repository filter narrows the trend the way it narrows every other part:
-    /// only the repositories in focus are drawn, and the first one taken into focus
-    /// is the highlight. It used to move the highlight alone and keep the pack on
-    /// screen, which read as the filter not reaching this part.
+    /// Churn by repository ranks by the pull requests that came back after review, the
+    /// figure the card is about, and each row carries its own reviewed count so the
+    /// rows add up to the totals the part prints under them (entry 20).
     /// </summary>
     [Fact]
-    public async Task Focusing_repositories_narrows_the_trend_to_those_repositories()
+    public async Task Churn_by_repository_ranks_by_pull_requests_that_churned()
     {
         var source = new StubActivitySource
         {
             Report = new ActivityReport(
                 [
-                    Merged(1, reviewed: true, churned: false),
-                    Merged(2, reviewed: true, churned: false) with { RepositoryAlias = "backlog-ide" },
-                    Merged(3, reviewed: true, churned: false) with { RepositoryAlias = "backlog-mobile" }
+                    // backlog: one churned, but with many commits after review.
+                    Merged(1, reviewed: true, churned: true) with { CommitsAfterFirstReview = 30 },
+                    Merged(2, reviewed: true, churned: false),
+                    // backlog-ide: two churned, few commits each.
+                    Merged(3, reviewed: true, churned: true) with { RepositoryAlias = "backlog-ide", CommitsAfterFirstReview = 1 },
+                    Merged(4, reviewed: true, churned: true) with { RepositoryAlias = "backlog-ide", CommitsAfterFirstReview = 1 },
+                    Merged(5, reviewed: true, churned: false) with { RepositoryAlias = "backlog-ide" },
+                    // backlog-mobile: reviewed, nothing came back.
+                    Merged(6, reviewed: true, churned: false) with { RepositoryAlias = "backlog-mobile" },
+                    // never reviewed: in no row.
+                    Merged(7, reviewed: false, churned: false) with { RepositoryAlias = "backlog-mobile" }
                 ],
                 [])
         };
 
-        var trend = await Insights(source)
-            .GetTrendAsync(
-                new DashboardScope(RepositoryFocus.Of("backlog-ide", "backlog-mobile")),
-                TestContext.Current.CancellationToken);
+        var rework = (await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
 
-        Assert.True(trend.HasValue);
-        Assert.Equal(["backlog-ide", "backlog-mobile"], trend.Value!.ByRepository.Select(series => series.Name));
-        Assert.Equal("backlog-ide", trend.Value.Highlight);
+        Assert.Equal(
+            [("backlog-ide", 2, 3), ("backlog", 1, 2), ("backlog-mobile", 0, 1)],
+            rework.ByRepository.Select(row => (row.Alias, row.PullRequestsWithChurn, row.PullRequestsReviewed)));
+        Assert.Equal(rework.PullRequestsWithChurn, rework.ByRepository.Sum(row => row.PullRequestsWithChurn));
+        Assert.Equal(rework.PullRequestsReviewed, rework.ByRepository.Sum(row => row.PullRequestsReviewed));
     }
 
     /// <summary>
-    /// Narrowing does not move the bar. The target every point is read against is
-    /// the whole estate's record whatever the filter says, so a repository's week
-    /// scores the same whether it is drawn beside the pack or alone — otherwise
-    /// focusing a quiet repository would make its best week read full marks.
+    /// The baseline port counts any stretch of the past GitHub can search, so even the
+    /// widest window keeps its comparison: 26 weeks back from midnight on 19 August is
+    /// 18 February, and the 26 before that open on 20 August 2025 (AC2).
     /// </summary>
     [Fact]
-    public async Task Focusing_a_repository_keeps_the_estate_wide_target()
+    public async Task Twenty_six_weeks_is_compared_with_the_twenty_six_before_it()
     {
-        var week = Now.AddDays(-1);
+        var baseline = new StubBaselineSource { MergedPerBlock = 90 };
 
-        var source = new StubActivitySource
-        {
-            Report = new ActivityReport(
-                [
-                    .. Enumerable.Range(1, 8).Select(number =>
-                        Merged(number, reviewed: false, churned: false) with { MergedAt = week }),
-                    .. Enumerable.Range(9, 2).Select(number =>
-                        Merged(number, reviewed: false, churned: false) with
-                        {
-                            RepositoryAlias = "backlog-ide",
-                            MergedAt = week
-                        })
-                ],
-                [])
-        };
+        var headline = await Insights(new StubActivitySource(), baseline)
+            .GetHeadlineAsync(new DashboardScope(Period: DashboardPeriod.TwentySixWeeks), TestContext.Current.CancellationToken);
 
-        var baseline = new StubBaselineSource { MergedPerBlock = 40, ClosedPerBlock = 0 };
-
-        var trend = await Insights(source, baseline)
-            .GetTrendAsync(new DashboardScope(RepositoryFocus.Of("backlog-ide")), TestContext.Current.CancellationToken);
-
-        var quiet = Assert.Single(trend.Value!.ByRepository);
-        Assert.Equal("backlog-ide", quiet.Name);
-        Assert.Equal(16m, quiet.Points.Max(point => point.Value));
+        Assert.Equal(90, headline.Value!.PreviousPullRequestsMerged);
+        var block = Assert.Single(baseline.Blocks);
+        Assert.Equal(new DateTimeOffset(2025, 8, 20, 0, 0, 0, TimeSpan.Zero), block.From);
+        Assert.Equal(new DateTimeOffset(2026, 2, 18, 0, 0, 0, TimeSpan.Zero), block.To);
     }
 
-    /// <summary>
-    /// One target across the whole trellis, taken from the estate's record. Per-series
-    /// normalisation would make every repository's best week read 100 — the busiest
-    /// and the quietest alike — and destroy the only comparison the spotlight exists
-    /// to draw.
-    /// </summary>
     [Fact]
-    public async Task Every_repositorys_week_is_judged_against_the_same_target()
+    public async Task Eight_weeks_is_compared_with_the_eight_before_it()
     {
-        var week = Now.AddDays(-1);
+        var baseline = new StubBaselineSource();
 
-        var source = new StubActivitySource
-        {
-            Report = new ActivityReport(
-                [
-                    .. Enumerable.Range(1, 8).Select(number =>
-                        Merged(number, reviewed: false, churned: false) with { MergedAt = week }),
-                    .. Enumerable.Range(9, 2).Select(number =>
-                        Merged(number, reviewed: false, churned: false) with
-                        {
-                            RepositoryAlias = "backlog-ide",
-                            MergedAt = week
-                        })
-                ],
-                [])
-        };
+        _ = await Insights(new StubActivitySource(), baseline)
+            .GetHeadlineAsync(new DashboardScope(Period: DashboardPeriod.EightWeeks), TestContext.Current.CancellationToken);
 
-        // Forty merges in the best block is ten a week, so one week's full marks is
-        // twelve and a half.
-        var baseline = new StubBaselineSource { MergedPerBlock = 40, ClosedPerBlock = 0 };
-
-        var trend = await Insights(source, baseline)
-            .GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
-
-        var busy = Assert.Single(trend.Value!.ByRepository, series => series.Name == "backlog");
-        var quiet = Assert.Single(trend.Value.ByRepository, series => series.Name == "backlog-ide");
-
-        Assert.Equal(64m, busy.Points.Max(point => point.Value));
-        Assert.Equal(16m, quiet.Points.Max(point => point.Value));
-
-        // Neither reads full marks, which is what per-series normalisation would have
-        // given both of them.
-        Assert.All(
-            trend.Value.ByRepository,
-            series => Assert.All(series.Points, point => Assert.True(point.Value < 100m)));
+        var block = Assert.Single(baseline.Blocks);
+        Assert.Equal(new DateTimeOffset(2026, 4, 29, 0, 0, 0, TimeSpan.Zero), block.From);
+        Assert.Equal(new DateTimeOffset(2026, 6, 24, 0, 0, 0, TimeSpan.Zero), block.To);
     }
 
     /// <summary>

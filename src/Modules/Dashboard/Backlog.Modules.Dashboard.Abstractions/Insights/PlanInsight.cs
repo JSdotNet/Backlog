@@ -55,6 +55,32 @@ public sealed record PlanInsight(bool RoadmapEnabled, PlanPace Pace, IReadOnlyLi
     /// <summary>The last day of that window, inclusive — today.</summary>
     public DateOnly WindowTo { get; init; }
 
+    /// <summary>The last day the timeline draws: the latest end of an item it shows, and
+    /// never before <see cref="WindowTo"/>. Items read for a window that ends today still
+    /// run on past it, and an axis ending today drew them as stubs cut off at the edge.
+    /// <c>default</c> when the insight was built without a window.</summary>
+    public DateOnly TimelineTo { get; init; }
+
+    /// <summary>The story points of the gathered, estimated work still open — planned
+    /// less done, never below nothing.</summary>
+    public int StillToDo => Math.Max(0, PlannedEffort - DoneEffort);
+
+    /// <summary>The points a week the roadmap places work at, or null when there is none
+    /// to place it at. Null rather than zero: a pace of nothing reads as "nothing gets
+    /// done", where the truth is that nothing was measured.</summary>
+    public decimal? PaceInUse => Pace.PointsPerWeek > 0m ? Pace.PointsPerWeek : null;
+
+    /// <summary>How many weeks <see cref="StillToDo"/> takes at <see cref="PaceInUse"/>,
+    /// or null with no pace.</summary>
+    public decimal? WeeksStillToDo => PaceInUse is { } pace ? StillToDo / pace : null;
+
+    /// <summary>How many of the items are finished.</summary>
+    public int ItemsDone => Items.Count(item => item.Outlook == PlanOutlook.Finished);
+
+    /// <summary>How many of the items are late — behind or overdue, the two the timeline
+    /// draws in the behind tone.</summary>
+    public int ItemsBehind => Items.Count(item => item.Outlook is PlanOutlook.Behind or PlanOutlook.Overdue);
+
     /// <summary>The story points the items gathered, estimated work only.</summary>
     public int PlannedEffort => Items.Sum(item => item.Item.TotalEffort);
 

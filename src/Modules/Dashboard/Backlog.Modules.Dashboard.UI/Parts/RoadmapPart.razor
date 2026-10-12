@@ -7,16 +7,18 @@
     The bars answer the one question the task charts below them cannot — whether the
     work that was planned is landing where it was planned to — in the roadmap's own
     terms, so a figure here can be found again on the roadmap. It is not the roadmap's
-    timeline: nothing here is dragged or opened, a bar spans whole weeks rather than
-    days, and it is clipped to the window rather than scrolling into the future. The
+    timeline: nothing here is dragged or opened, and a bar spans whole weeks rather than
+    days. The axis runs from the window's first week past today to the latest end of an
+    item it shows, at most half a year ahead, with today marked on it, so an item still
+    running is drawn whole rather than as a stub cut off at today (AC17). The
     pace is the one the roadmap quotes for the repositories in scope, and the stretch it
     was measured over is said with it, because a measured pace and a typed one are
     different claims.
 
     An outlook is text on a tone, never a colour alone: the word is printed under the
-    item's name, and the projection behind it is the bar's title — which a screen
-    reader announces as the description of a bar labelled with the item and its
-    stretch — so a reader who cannot tell the tones apart loses nothing.
+    item's name, and the projection behind it is an info mark beside it — a real button,
+    so a keyboard or a touch reaches the sentence, not only a pointer hovering the bar
+    (AC18) — so a reader who cannot tell the tones apart loses nothing.
 
     Nothing at all while the roadmap is switched off. The roadmap sits behind a feature
     flag, and a frame announcing a switched-off surface would be this dashboard
@@ -38,32 +40,8 @@
         {
             var weeks = Weeks;
             <div class="dashboard-part__stack">
-                <MetricGrid Label="The roadmap over the selected window" TestId="dashboard-roadmap-tiles">
-                    <MetricTile Label="Pace in use"
-                                Value="@MetricFormat.Score(Value!.Pace.PointsPerWeek)"
-                                Unit="pts/week"
-                                Emphasis="true"
-                                Footnote="@Basis(Value!.Pace.Basis)"
-                                FootnoteAsHint="true"
-                                TestId="dashboard-roadmap-pace" />
-                    <MetricTile Label="Items in window"
-                                Value="@MetricFormat.Compact(Value!.Items.Count)"
-                                TestId="dashboard-roadmap-items" />
-                    @* A floor whenever something gathered carries no estimate, and the
-                       footnote says how many — the effort total is not allowed to hide
-                       the work it could not weigh. *@
-                    <MetricTile Label="Planned effort"
-                                Value="@MetricFormat.Compact(Value!.PlannedEffort)"
-                                Unit="pts"
-                                Footnote="@PlannedFootnote"
-                                FootnoteAsHint="true"
-                                TestId="dashboard-roadmap-planned" />
-                    <MetricTile Label="Done"
-                                Value="@MetricFormat.Compact(Value!.DoneEffort)"
-                                Unit="@($"of {MetricFormat.Compact(Value!.PlannedEffort)} pts")"
-                                TestId="dashboard-roadmap-done" />
-                </MetricGrid>
-
+                @* The roadmap's figures are the Tasks tab's joined row now (TaskFiguresPart),
+                   so the pace, the items and the effort are said once on the tab. *@
                 @* The timeline: one column per ISO week of the window, one row per item,
                    and a bar from the week the item starts in to the week it ends in,
                    clipped to the window. The weeks are the window the insight was read
@@ -88,9 +66,19 @@
                                 <span class="dashboard-timeline__corner">Item</span>
                                 @foreach (var week in weeks)
                                 {
-                                    <span class="dashboard-timeline__week" data-testid="dashboard-roadmap-week">@WeekLabel(week)</span>
+                                    <span class="@(week == TodayWeek ? "dashboard-timeline__week dashboard-timeline__week--today" : "dashboard-timeline__week")"
+                                          data-testid="dashboard-roadmap-week">@WeekLabel(week)</span>
                                 }
                             </div>
+                            @if (TodayAt(weeks) is { } today)
+                            {
+                                @* Today, as a line down the weeks: where the window ends and
+                                   the plan runs on. Placed as a share of the weeks' width,
+                                   which is what the columns divide between them. *@
+                                <span class="dashboard-timeline__today"
+                                      style="@($"--dashboard-timeline-today: {today.ToString("0.####", CultureInfo.InvariantCulture)}")"
+                                      data-testid="dashboard-roadmap-today">Today</span>
+                            }
                             <ol class="dashboard-timeline__rows"
                                 aria-label="@($"Roadmap items overlapping the last {Scope.Weeks} weeks")">
                                 @foreach (var row in Value!.Items)
@@ -99,7 +87,14 @@
                                     <li @key="row.Item.Id" class="dashboard-timeline__row" data-testid="dashboard-roadmap-row">
                                         <span class="dashboard-timeline__item">
                                             <span class="dashboard-timeline__name">@row.Item.Title</span>
-                                            <span class="dashboard-timeline__progress">@Progress(row)</span>
+                                            <span class="dashboard-timeline__standing">
+                                                <span class="dashboard-timeline__progress">@Progress(row)</span>
+                                                <InfoHint AriaLabel="@($"How {row.Item.Title} stands")"
+                                                          Text="@Sentence(row)"
+                                                          CssClass="dashboard-timeline__outlook"
+                                                          TriggerTestId="dashboard-roadmap-outlook"
+                                                          TooltipTestId="dashboard-roadmap-outlook-sentence" />
+                                            </span>
                                         </span>
                                         @if (bar is { } placed)
                                         {
@@ -129,6 +124,8 @@
 }
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Tasks;
+
     /// <summary>A plan is filed under repositories, so the chips narrow it — the
     /// insight keeps the plan-wide items in every scope.</summary>
     protected override bool FollowsRepository => true;
@@ -164,18 +161,25 @@
 
     /// <summary>
     /// The line under an item's name: the effort done against the effort gathered, and
-    /// the outlook in words. An item nothing it gathered is estimated on has no points
+    /// the outlook in the board's chip words, the Overview's own. An item nothing it gathered is estimated on has no points
     /// to compare, so it says the count of entries instead of "0 / 0 pts".
     /// </summary>
     private static string Progress(PlanItemInsight row) =>
         row.Item.TotalEffort == 0
-            ? $"{row.Item.DoneCount} of {row.Item.GatheredCount} entries · {PlanOutlookFormat.Word(row.Outlook)}"
-            : $"{row.Item.DoneEffort} / {row.Item.TotalEffort} pts · {PlanOutlookFormat.Word(row.Outlook)}";
+            ? $"{row.Item.DoneCount} of {row.Item.GatheredCount} entries · {PlanOutlookFormat.Chip(row)}"
+            : $"{row.Item.DoneEffort} / {row.Item.TotalEffort} pts · {PlanOutlookFormat.Chip(row)}";
+
+    /// <summary>How far past today the axis may run: half a year. One item planned to
+    /// end years out would otherwise stretch the axis and squash every other bar; past
+    /// this it is drawn clipped at the edge, which its squared-off end says.</summary>
+    private const int FurthestAheadDays = 7 * 26;
 
     /// <summary>
-    /// The Monday of every ISO week the window touches, oldest first — the same weeks
-    /// the task charts below bucket into, so a bar and a bar of those charts name the
-    /// same week. An insight built without a window falls back to the items' own stretch.
+    /// The Monday of every ISO week the axis shows, oldest first: from the window's first
+    /// week — the weeks the task charts below bucket into — through the latest end of an
+    /// item it shows (<see cref="PlanInsight.TimelineTo"/>), never past
+    /// <see cref="FurthestAheadDays"/> beyond today. An insight built without a window
+    /// falls back to the items' own stretch.
     /// </summary>
     private IReadOnlyList<DateOnly> Weeks
     {
@@ -183,18 +187,14 @@
         {
             if (!IsReady) return [];
 
-            var (from, to) = Value!.WindowFrom != default
-                ? (Value!.WindowFrom, Value!.WindowTo)
-                : Value!.Items.Count == 0
-                    ? (default, default)
-                    : (Value!.Items.Min(row => row.Item.Start), Value!.Items.Max(row => row.Item.End));
+            var (from, to) = Axis(Value!);
             if (from == default || to < from) return [];
 
             var weeks = new List<DateOnly>();
             var last = Monday(to);
 
-            // Bounded rather than trusted: a window is twelve weeks at most, and an
-            // absurd fallback stretch should draw a wide axis, not hang the pane.
+            // Bounded rather than trusted: an absurd fallback stretch should draw a wide
+            // axis, not hang the pane.
             for (var cursor = Monday(from); cursor <= last && weeks.Count < 104; cursor = cursor.AddDays(7))
             {
                 weeks.Add(cursor);
@@ -202,6 +202,41 @@
 
             return weeks;
         }
+    }
+
+    /// <summary>The first and last day the axis covers. Public to the tests through the
+    /// rendered weeks only; the rule is the window to the latest item end, capped.</summary>
+    private static (DateOnly From, DateOnly To) Axis(PlanInsight plan)
+    {
+        if (plan.WindowFrom == default)
+        {
+            return plan.Items.Count == 0
+                ? (default, default)
+                : (plan.Items.Min(row => row.Item.Start), plan.Items.Max(row => row.Item.End));
+        }
+
+        var to = plan.TimelineTo == default ? plan.WindowTo : plan.TimelineTo;
+        var furthest = plan.WindowTo.AddDays(FurthestAheadDays);
+
+        return (plan.WindowFrom, to > furthest ? furthest : to);
+    }
+
+    /// <summary>The Monday of the week today falls in, where the window ends; default
+    /// for an insight built without a window, which has no today to mark.</summary>
+    private DateOnly TodayWeek => IsReady && Value!.WindowFrom != default ? Monday(Value!.WindowTo) : default;
+
+    /// <summary>Where today sits along the weeks, as a share of their width — the start
+    /// of its week plus the days into it — or null when it is not on the axis.</summary>
+    private double? TodayAt(IReadOnlyList<DateOnly> weeks)
+    {
+        if (TodayWeek == default || weeks.Count == 0) return null;
+
+        var index = (TodayWeek.DayNumber - weeks[0].DayNumber) / 7;
+        if (index < 0 || index >= weeks.Count) return null;
+
+        var into = Value!.WindowTo.DayNumber - TodayWeek.DayNumber + 0.5;
+
+        return (index + into / 7d) / weeks.Count;
     }
 
     private static DateOnly Monday(DateOnly day) =>

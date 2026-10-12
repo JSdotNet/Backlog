@@ -456,6 +456,21 @@ public sealed record AssistantSessionsInsight(
     /// </summary>
     public IReadOnlyList<WeeklyBand> TokensByModel { get; init; } = [];
 
+    /// <summary>What the row of agent-active time no model can be named for is called:
+    /// the session recorded no token usage, or its record is not in the reading.</summary>
+    public const string ModelUnrecordedName = "Model not recorded";
+
+    /// <summary>
+    /// Agent-active hours per week of the window, one row per model — the Sessions
+    /// chart's By model cut on hours (AC20). A session's producing time goes to the model
+    /// that wrote most of its output; a session that recorded no usage goes to
+    /// <see cref="ModelUnrecordedName"/>, which is always last. Cut from the same sweep as
+    /// <see cref="ActiveTimePerWeek"/> over disjoint sets of sessions, so the rows add up to
+    /// it column for column. Follows the machine filter, not the repository scope, on the
+    /// totals' precedent.
+    /// </summary>
+    public IReadOnlyList<WeeklyBand> ActiveTimeByModel { get; init; } = [];
+
     /// <summary>
     /// The same output tokens cut by repository band instead of by model, with the
     /// band rule and the repository scope <see cref="ByRepository"/> is cut under.
@@ -490,9 +505,10 @@ public sealed record AssistantSessionsInsight(
     /// the sources were read.
     /// <para>
     /// Swept from the reading already in hand rather than from a second one, and that
-    /// is what makes it null for twelve weeks. Both sources are read back to
-    /// <c>DashboardScope.Horizon</c>, twelve weeks, so four weeks has its previous four
-    /// inside the reading and twelve weeks has its previous twelve entirely outside it.
+    /// is what makes it null for twenty-six weeks. Both sources are read back to
+    /// <c>DashboardScope.Horizon</c>, twenty-six weeks, so four, eight and twelve weeks
+    /// have their previous window inside the reading and twenty-six weeks has its
+    /// previous twenty-six entirely outside it.
     /// Reading further back would cost a second parse of every transcript for one
     /// comparison, and the Sessions context does not promise to keep records that old
     /// anyway — a figure swept from a history that may have been pruned would compare

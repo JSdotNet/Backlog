@@ -803,6 +803,38 @@ public sealed class MetricHeatmapTests
     }
 
     [Fact]
+    public void The_legend_names_the_marked_edge_with_its_own_swatch()
+    {
+        // The edge is a distinction a sighted reader sees on every grid, so the legend
+        // says what it means - not only the cell's hidden text, which a sighted reader
+        // never reads (AC21: the hour grid's "Office hours" entry).
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.SharedMax, 100m)
+            .Add(h => h.CellMarked, (_, bucket) => bucket == "w2")
+            .Add(h => h.MarkedLabel, "Office hours"));
+
+        var marked = heatmap.Find(".metric-heatmap__legend-item--marked");
+
+        Assert.Equal("Office hours", marked.TextContent.Trim());
+        Assert.NotNull(marked.QuerySelector(".metric-heatmap__swatch--marked"));
+    }
+
+    [Fact]
+    public void An_unmarked_grid_has_no_marked_legend_entry()
+    {
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.SharedMax, 100m));
+
+        Assert.Empty(heatmap.FindAll(".metric-heatmap__legend-item--marked"));
+    }
+
+    [Fact]
     public void A_flagged_cell_carries_a_dot_of_its_kind_and_says_what_it_means_and_the_legend_names_each_kind()
     {
         // A moment inside the hour, not a region around it: a second kind of mark that

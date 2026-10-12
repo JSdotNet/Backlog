@@ -38,7 +38,7 @@ public enum NeedsYouRule
     PastBudget,
 
     /// <summary>Pull requests that came back after review are more than a quarter of
-    /// those merged in the window.</summary>
+    /// those reviewed in the window.</summary>
     Rework
 }
 
@@ -55,6 +55,16 @@ public sealed record NeedsYouItem(NeedsYouRule Rule, string Title, string Detail
     /// <summary>The tab's id as the dashboard pane names it — <c>dashboard-devbook</c>,
     /// <c>dashboard-tasks</c>, <c>dashboard-cost</c>, <c>dashboard-productivity</c>.</summary>
     public string TabId => "dashboard-" + Tab.ToString().ToLowerInvariant();
+
+    /// <summary>What following the item's link does, as the link says it — one phrase
+    /// per rule, so every item of a rule offers the same act.</summary>
+    public string Action => Rule switch
+    {
+        NeedsYouRule.Drift => "Open the drift issue",
+        NeedsYouRule.RoadmapBehind => "Review the roadmap",
+        NeedsYouRule.PastBudget => "See spend over time",
+        _ => "See rework"
+    };
 }
 
 /// <summary>
@@ -74,7 +84,7 @@ public sealed record NeedsYouInsight(IReadOnlyList<NeedsYouItem> Items, IReadOnl
     /// <summary>What an empty result means, in the words the Overview shows.</summary>
     public const string NothingNeedsYou = "Nothing needs you.";
 
-    /// <summary>The share of merged pull requests that came back after review above
+    /// <summary>The share of reviewed pull requests that came back after review above
     /// which rework needs the person. Exactly this share does not.</summary>
     public const decimal ReworkThreshold = 0.25m;
 

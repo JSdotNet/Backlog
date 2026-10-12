@@ -286,7 +286,7 @@ public sealed class SessionSyncSession
     /// then probes every transcript whose mtime is inside that window — a
     /// <c>File.Exists</c> and a JSON read of the cache entry per unchanged file,
     /// a parse only for one that moved. That is the same cost the Dashboard already
-    /// pays per refresh over its twelve-week horizon, and the alternative — a
+    /// pays per refresh over its twenty-six-week horizon, and the alternative — a
     /// horizon that occasionally sends less than the whole record — is a wrong
     /// number on another machine's screen rather than a slower cycle on this one.
     /// </para>

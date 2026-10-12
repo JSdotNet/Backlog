@@ -19,7 +19,7 @@
             StatusMessage="@BlockMessage(reading)"
             Headline="@(reading is null ? null : WeeklyBriefSentences.PointsDone(reading.Value, reading.Previous))"
             Detail="@(reading is null ? null : WeeklyBriefSentences.PlanDetail(Value!.Plan))"
-            Figure="@(reading is null ? null : MetricFormat.Compact(reading.Value))"
+            Figure="@(reading is null ? null : Figure(reading))"
             Unit="pts"
             Bars="Points(reading)"
             Caption="@Caption("Story points done per week", reading)"
@@ -29,6 +29,15 @@
 
 @code {
     private const string TabId = "dashboard-tasks";
+
+    /// <summary>The running total against the plan, "41 of 55" (AC34), where there is a
+    /// plan; the week's own points otherwise. The week's points are the headline's.</summary>
+    /// <remarks>The plan as it stands now, so only under the current week; an older
+    /// week shows its own points rather than today's total beside it.</remarks>
+    private string Figure(BriefReading reading) =>
+        Week.WeeksBack == 0 && Value!.Plan is { RoadmapEnabled: true } plan
+            ? WeeklyBriefSentences.PlanFigure(plan.DoneEffort, plan.PlannedEffort)
+            : MetricFormat.Compact(reading.Value);
 
     /// <summary>What the block reads: the throughput, and the roadmap when it could be
     /// read — switched off included, which the sentence says.</summary>

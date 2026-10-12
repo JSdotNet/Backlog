@@ -21,7 +21,7 @@
 @inject ICostInsights Costs
 
 <PartFrame Title="Spend by model"
-           Note="Your own usage this month. Tokens are reported by Claude only — Copilot meters in AI credits and Azure Foundry in per-meter units, which are different units and are left out of the token columns rather than mixed into them. Azure rows are billing meters: one model appears once per token direction."
+           Note="Your own usage this month. Tokens are split into input and output where the provider splits them — Anthropic does; Copilot meters in AI credits and Azure AI Foundry in per-meter units, which are left out of the token columns rather than mixed into them, as is a total no provider split. Azure rows are billing meters: one model appears once per token direction."
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-spend-model">
@@ -32,12 +32,15 @@
                      CostHeading="Spend"
                      ShareOf="MetricShareOf.Cost"
                      ShareFirst="true"
+                     FormatCost="@(money => DashboardMoney.Format(money.Amount, money.Currency))"
                      Status="Status"
                      StatusMessage="@StatusMessage"
                      TestId="dashboard-spend-model-table" />
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Cost;
+
     /// <summary>Spend narrows by nothing on the filter strip. See
     /// <see cref="DashboardPartBase{T}.FollowsRepository"/>.</summary>
     protected override bool FollowsRepository => false;
@@ -48,9 +51,10 @@
         IsReady
             ? [.. Value!.Rows.Select(row => new MetricRow(
                 row.Name,
-                // The total only where there is no split to show instead: the two
-                // halves already say it, and a third column would repeat them.
-                row.InputTokens is null && row.OutputTokens is null ? row.Tokens : null,
+                // One token shape (entry 19, AC32): input and output, never a total
+                // beside them. A provider that reports only a total reads as not
+                // reported in both, rather than the table growing a third kind of column.
+                null,
                 row.Cost is null ? null : new MoneyAmount(row.Cost.Amount, row.Cost.Currency),
                 row.Detail)
             {

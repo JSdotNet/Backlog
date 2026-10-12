@@ -19,10 +19,10 @@
             StatusMessage="@BlockMessage(reading)"
             Headline="@(reading is null ? null : Headline(reading))"
             Detail="@(reading is null ? null : WeeklyBriefSentences.CostDetail(Value!.Projection))"
-            Figure="@(reading is null ? null : Money(reading.Value))"
-            Unit="@(IsReady && Value!.Weeks.IsEstimate ? "spent, estimated" : "spent")"
+            Figure="@(reading is null ? null : MonthFigure ?? Money(reading.Value))"
+            Unit="@Unit(reading)"
             Bars="Points(reading)"
-            Caption="@Caption("Spend per week, Claude and Azure Foundry", reading)"
+            Caption="@Caption($"Spend per week, {SpendProvider.Claude.DisplayName()} and {SpendProvider.AzureFoundry.DisplayName()}", reading)"
             FormatValue="Money"
             LinkText="Spend"
             OnOpen="Open(TabId)"
@@ -48,8 +48,23 @@
             reading.Previous is { } previous ? new DashboardMoney(previous, currency) : null);
     }
 
+    /// <summary>"this month" under the month-to-date against the budgets (AC34), or the
+    /// week's spend under "spent" where the projection could not be read; the week's own
+    /// spend is the headline's either way.</summary>
+    private string? Unit(BriefReading? reading) =>
+        reading is null
+            ? null
+            : MonthFigure is not null
+                ? "this month"
+                : Value!.Weeks.IsEstimate ? "spent, estimated" : "spent";
+
+    /// <summary>The month to date against the budgets — the month as it stands now, so
+    /// only under the current week; an older week shows its own spend.</summary>
+    private string? MonthFigure =>
+        Week.WeeksBack == 0 ? WeeklyBriefSentences.CostFigure(Value!.Projection) : null;
+
     private string Money(decimal amount) =>
-        MetricFormat.Money(new MoneyAmount(amount, Value?.Weeks.Currency ?? string.Empty));
+        DashboardMoney.Format(amount, Value?.Weeks.Currency ?? string.Empty);
 
     protected override async Task<InsightResult<Reading>> FetchAsync(CancellationToken cancellationToken)
     {

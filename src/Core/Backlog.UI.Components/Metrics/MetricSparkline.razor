@@ -67,6 +67,14 @@
     [Parameter]
     public decimal? Max { get; set; }
 
+    /// <summary>The buckets the line is drawn across, by label, oldest first — for a
+    /// series that leaves out the buckets it has no reading for. Each point then sits
+    /// over its own bucket instead of the points being spread evenly, so a gap stays a
+    /// gap in the spacing; a point whose label the axis does not name is left out. Null
+    /// spreads the points evenly, as before.</summary>
+    [Parameter]
+    public IReadOnlyList<string>? Axis { get; set; }
+
     [Parameter]
     public string Height { get; set; } = "2.5rem";
 
@@ -90,7 +98,11 @@
 
     protected override void OnParametersSet()
     {
-        var points = Points ?? [];
+        var axis = Axis;
+        var points = (Points ?? [])
+            .Select((point, index) => (Point: point, Slot: axis is null ? index : IndexOf(axis, point.Label)))
+            .Where(placed => placed.Slot >= 0)
+            .ToList();
 
         // One point is a dot pretending to be a trend.
         if (points.Count < 2)
@@ -102,12 +114,23 @@
         // A supplied max that is smaller than this series would clip the line out of
         // the box, so the larger of the two wins: a shared scale must still contain
         // whatever it is given.
-        var max = Math.Max(points.Max(point => point.Value), Max ?? 0m);
+        var max = Math.Max(points.Max(placed => placed.Point.Value), Max ?? 0m);
         var span = max <= 0m ? 1d : (double)max;
-        var step = 100d / (points.Count - 1);
+        var slots = axis is null ? points.Count : axis.Count;
+        var step = 100d / Math.Max(1, slots - 1);
 
-        Coordinates = [.. points.Select((point, index) =>
-            (index * step, 30d - (double)point.Value / span * 30d))];
+        Coordinates = [.. points.Select(placed =>
+            (placed.Slot * step, 30d - (double)placed.Point.Value / span * 30d))];
+    }
+
+    private static int IndexOf(IReadOnlyList<string> axis, string label)
+    {
+        for (var index = 0; index < axis.Count; index++)
+        {
+            if (string.Equals(axis[index], label, StringComparison.Ordinal)) return index;
+        }
+
+        return -1;
     }
 
     private string LinePoints =>
@@ -120,8 +143,9 @@
 
     private string StyleValue => $"--metric-sparkline-height: {Height}";
 
-    /// <summary>The last point as percentages of the box. The x is always the
-    /// right edge; the y is the viewBox row over its thirty-unit height.</summary>
+    /// <summary>The last point as percentages of the box: the right edge, or the last
+    /// point's own bucket against an axis; the y is the viewBox row over its thirty-unit
+    /// height.</summary>
     private string MarkerPosition =>
         $"left: {Text(Coordinates[^1].X)}%; top: {Text(Coordinates[^1].Y / 30d * 100d)}%";
 

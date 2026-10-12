@@ -32,6 +32,7 @@
                     Value="@(IsReady ? MetricFormat.Compact(Value!.PullRequestsMerged) : null)"
                     Emphasis="true"
                     Delta="@(IsReady ? DashboardFormat.CountDelta(Value!.PullRequestsMerged, Value!.PreviousPullRequestsMerged, DashboardFormat.PreviousWeeks(Scope.Weeks)) : null)"
+                    Footnote="@(IsReady ? PerWeek(Value!.PullRequestsMerged) : null)"
                     Trend="@(IsReady ? Sparkline(Value!.PullRequestsPerWeek, "Pull requests merged per week", "dashboard-headline-pulls-trend") : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"
@@ -39,6 +40,7 @@
 
         <MetricTile Label="Issues closed"
                     Value="@(IsReady ? MetricFormat.Compact(Value!.IssuesClosed) : null)"
+                    Footnote="@(IsReady ? PerWeek(Value!.IssuesClosed) : null)"
                     Trend="@(IsReady ? Sparkline(Value!.IssuesPerWeek, "Issues closed per week", "dashboard-headline-issues-trend") : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"
@@ -48,8 +50,8 @@
            scale itself, a quarter whose worst week churned a tenth of its pull
            requests would draw the same shape as one that churned all of them. *@
         <MetricTile Label="Came back after review"
-                    Value="@(IsReady ? MetricFormat.Percent(Value!.ReworkRate) : null)"
-                    Footnote="@(IsReady ? "Of the pull requests that were reviewed" : null)"
+                    Value="@(IsReady ? (Value!.PullRequestsReviewed == 0 ? "—" : MetricFormat.Percent(Value!.ReworkRate)) : null)"
+                    Footnote="@(IsReady ? (Value!.PullRequestsReviewed == 0 ? "No pull request was reviewed" : "Of the pull requests that were reviewed") : null)"
                     Trend="@(IsReady ? Sparkline(Value!.ReworkRatePerWeek, "Share of reviewed pull requests that churned, per week", "dashboard-headline-rework-trend", max: 1m) : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"
@@ -58,7 +60,7 @@
         <MetricTile Label="First review arrived in"
                     Value="@(IsReady ? DashboardFormat.Duration(Value!.MedianReviewTurnaround) : null)"
                     Footnote="@(IsReady ? "Median, across reviewed pull requests" : null)"
-                    Trend="@(IsReady ? Sparkline(Value!.ReviewTurnaroundPerWeek, "Median hours to a first review, per week", "dashboard-headline-turnaround-trend") : null)"
+                    Trend="@(IsReady ? Sparkline(Value!.ReviewTurnaroundPerWeek, "Median hours to a first review, in the weeks that had one", "dashboard-headline-turnaround-trend", axis: Axis) : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"
                     TestId="dashboard-headline-turnaround" />
@@ -70,7 +72,7 @@
         <MetricTile Label="Commits per pull request"
                     Value="@(IsReady ? CommitsValue : null)"
                     Footnote="@(IsReady ? CommitsFootnote : null)"
-                    Trend="@(IsReady ? Sparkline(Value!.CommitsPerPullRequestPerWeek, "Median commits per pull request, per week", "dashboard-headline-commits-trend") : null)"
+                    Trend="@(IsReady ? Sparkline(Value!.CommitsPerPullRequestPerWeek, "Median commits per pull request, in the weeks that had one", "dashboard-headline-commits-trend", axis: Axis) : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"
                     TestId="dashboard-headline-commits" />
@@ -78,6 +80,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Productivity;
+
     /// <summary>
     /// Whose work, from where, over how long — and whether all of it arrived. The
     /// truncation clause is conditional because a permanent one would train the
@@ -123,13 +127,22 @@
 
     protected override void InvalidateSource() => Insights.Invalidate(Scope);
 
+    /// <summary>The window's weeks, from the one series that keeps every week. The two
+    /// medians leave out a week with no reading, and are drawn against these so a gap
+    /// stays a gap rather than the readings closing up.</summary>
+    private IReadOnlyList<string> Axis => [.. Value!.PullRequestsPerWeek.Select(point => point.Label)];
+
+    private string PerWeek(int count) => DashboardFormat.PerWeek(count, Scope.Weeks);
+
     private RenderFragment Sparkline(
         IReadOnlyList<InsightPoint> points,
         string description,
         string testId,
-        decimal? max = null) =>
+        decimal? max = null,
+        IReadOnlyList<string>? axis = null) =>
         @<MetricSparkline Points="@(points.Select(point => new MetricPoint(point.Label, point.Value)).ToList())"
                           Max="max"
+                          Axis="axis"
                           Description="@description"
                           TestId="@testId" />;
 }

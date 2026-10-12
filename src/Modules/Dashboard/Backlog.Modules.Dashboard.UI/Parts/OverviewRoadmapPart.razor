@@ -24,7 +24,14 @@
         {
             <div class="dashboard-part__stack">
                 <p class="dashboard-overview-roadmap__summary" data-testid="dashboard-overview-roadmap-summary">
-                    Pace <strong>@MetricFormat.Score(Value!.Pace.PointsPerWeek) pts/week</strong>
+                    @if (Value!.PaceInUse is { } pace)
+                    {
+                        <text>Pace <strong>@MetricFormat.Score(pace) pts/week</strong></text>
+                    }
+                    else
+                    {
+                        <text><strong>No pace</strong> measured yet</text>
+                    }
                     · @MetricFormat.Compact(Value!.DoneEffort) of @MetricFormat.Compact(Value!.PlannedEffort) pts done
                 </p>
                 <ol class="dashboard-overview-roadmap__list" aria-label="Roadmap items and how each stands">
@@ -35,10 +42,11 @@
                             <span class="dashboard-overview-roadmap__name" title="@row.Item.Title">@row.Item.Title</span>
                             <span class="dashboard-overview-roadmap__effort">@Effort(row)</span>
                             <span class="@($"dashboard-overview-chip dashboard-overview-chip--{Tone(row.Outlook).Modifier} dashboard-overview-roadmap__chip")"
-                                  data-testid="dashboard-overview-roadmap-chip">@PlanOutlookFormat.Word(row.Outlook)</span>
+                                  data-testid="dashboard-overview-roadmap-chip"
+                                  title="@PlanOutlookFormat.Word(row.Outlook)">@PlanOutlookFormat.Chip(row)</span>
                             <span class="dashboard-overview-roadmap__track"
                                   role="img"
-                                  aria-label="@($"{row.Item.Title}: {Effort(row)}, {PlanOutlookFormat.Word(row.Outlook)}")">
+                                  aria-label="@($"{row.Item.Title}: {Effort(row)}, {PlanOutlookFormat.Chip(row)}")">
                                 <span class="@FillClass(row.Outlook)"
                                       style="@($"width: {share.ToString(System.Globalization.CultureInfo.InvariantCulture)}%")"></span>
                             </span>
@@ -55,6 +63,8 @@
 }
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Tasks;
+
     /// <summary>The done effort against the gathered effort — or, for an item nothing
     /// it gathered is estimated on, the count of entries, as the timeline says it.</summary>
     private static string Effort(PlanItemInsight row) =>

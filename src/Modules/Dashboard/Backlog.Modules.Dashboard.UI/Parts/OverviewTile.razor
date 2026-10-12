@@ -53,6 +53,19 @@
     else
     {
         <MetricStatus Kind="Status" Message="@StatusMessage" CssClass="dashboard-overview-tile__status" />
+
+        @* A tile has no refresh of its own while it shows a figure — the framed parts
+           beside it carry those — but one that could not be read offers to try again,
+           or it would stay unavailable until the scope moved or the pane reopened
+           (entry 19). *@
+        @if (Status is MetricStatusKind.Unavailable && OnRetry.HasDelegate)
+        {
+            <IconButton AriaLabel="@($"Try {Label} again")"
+                        Title="Try again"
+                        CssClass="btn--ghost dashboard-overview-tile__retry"
+                        TestId="@(TestId is null ? null : TestId + "-retry")"
+                        OnClick="() => OnRetry.InvokeAsync()">↻</IconButton>
+        }
     }
 </article>
 
@@ -85,6 +98,11 @@
 
     [Parameter]
     public string? StatusMessage { get; set; }
+
+    /// <summary>Reads the tile's source again; offered only while the tile is
+    /// unavailable.</summary>
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
 
     /// <summary>More of the figure, under the value: the spend tile's provider lines.</summary>
     [Parameter]

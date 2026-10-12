@@ -232,7 +232,7 @@ public static class SessionRecordMapping
     /// <para>
     /// The newest rather than the oldest, because a reader's window covers the end
     /// of a record before its beginning: the Dashboard sweeps the last seven days
-    /// or the last twelve weeks, and a session long enough to overrun the cap is
+    /// or the last twenty-six weeks, and a session long enough to overrun the cap is
     /// one whose oldest stretches are the first to fall out of any window. The
     /// list is taken in the order the contract promises — ascending — so the tail
     /// is the newest; this is an in-process record from a source this build owns,

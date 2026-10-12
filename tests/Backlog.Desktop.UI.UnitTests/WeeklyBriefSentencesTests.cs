@@ -43,7 +43,7 @@ public sealed class WeeklyBriefSentencesTests
         Assert.Equal(
             "1 story point done — 1 more than last week.",
             WeeklyBriefSentences.PointsDone(1m, 0m));
-        Assert.Equal("1 issue closed.", WeeklyBriefSentences.ShippingDetail(1, null));
+        Assert.Equal("1 issue closed, and no merge that week was reviewed.", WeeklyBriefSentences.ShippingDetail(1, null));
         Assert.Equal("1 session was last active that week.", WeeklyBriefSentences.SessionsDetail(1));
     }
 
@@ -71,13 +71,13 @@ public sealed class WeeklyBriefSentencesTests
         Assert.Equal("33.0h of agent time — as much as last week.", WeeklyBriefSentences.AgentTime(33m, 33m));
 
         Assert.Equal(
-            "212.00 USD spent — 28.00 USD more than last week.",
+            "$212 spent — $28 more than last week.",
             WeeklyBriefSentences.Spent(new DashboardMoney(212m, "USD"), new DashboardMoney(184m, "USD")));
         Assert.Equal(
-            "150.00 USD spent — 34.00 USD less than last week.",
+            "$150 spent — $34 less than last week.",
             WeeklyBriefSentences.Spent(new DashboardMoney(150m, "USD"), new DashboardMoney(184m, "USD")));
         Assert.Equal(
-            "184.00 USD spent — as much as last week.",
+            "$184 spent — as much as last week.",
             WeeklyBriefSentences.Spent(new DashboardMoney(184m, "USD"), new DashboardMoney(184m, "USD")));
     }
 
@@ -87,18 +87,104 @@ public sealed class WeeklyBriefSentencesTests
     public void Money_in_another_currency_is_not_compared()
     {
         Assert.Equal(
-            "12.00 EUR spent.",
+            "€12 spent.",
             WeeklyBriefSentences.Spent(new DashboardMoney(12m, "EUR"), new DashboardMoney(9m, "USD")));
     }
 
     [Fact]
-    public void The_shipping_detail_adds_the_review_wait_only_when_a_merge_was_reviewed()
+    public void The_shipping_detail_says_the_review_wait_or_that_nothing_was_reviewed()
     {
         Assert.Equal(
             "4 issues closed, and a first review took a median of 3.2h.",
             WeeklyBriefSentences.ShippingDetail(4, 3.2m));
-        Assert.Equal("4 issues closed.", WeeklyBriefSentences.ShippingDetail(4, 0m));
+
+        // Entry 19, AC35: a week with no reviewed merge says so rather than dropping
+        // the clause.
+        Assert.Equal("4 issues closed, and no merge that week was reviewed.", WeeklyBriefSentences.ShippingDetail(4, null));
+
+        // A review that arrived within the hour is still a review.
+        Assert.Equal("4 issues closed, and a first review took a median of 0h.", WeeklyBriefSentences.ShippingDetail(4, 0m));
     }
+
+    /// <summary>The brief's narrative title (decision Q5, AC33): the best or quietest
+    /// shipping week of the quarter read, else the week's counts; ", at a cost" when a
+    /// provider is projected past its budget.</summary>
+    [Fact]
+    public void The_title_names_the_best_shipping_week_of_the_quarter()
+    {
+        Assert.Equal(
+            "Your best shipping week this quarter.",
+            WeeklyBriefSentences.Title(23, [12, 18, 23, 9], 14m, atACost: false));
+        Assert.Equal(
+            "Your best shipping week this quarter, at a cost.",
+            WeeklyBriefSentences.Title(23, [12, 18, 23, 9], 14m, atACost: true));
+    }
+
+    [Fact]
+    public void The_title_names_the_quietest_shipping_week_of_the_quarter()
+    {
+        Assert.Equal(
+            "Your quietest shipping week this quarter.",
+            WeeklyBriefSentences.Title(9, [12, 18, 23, 9], 14m, atACost: false));
+    }
+
+    [Fact]
+    public void Otherwise_the_title_is_the_weeks_counts()
+    {
+        Assert.Equal(
+            "18 pull requests merged, 14 story points done.",
+            WeeklyBriefSentences.Title(18, [12, 18, 23, 9], 14m, atACost: false));
+        Assert.Equal(
+            "1 pull request merged, 1 story point done, at a cost.",
+            WeeklyBriefSentences.Title(1, [1, 1, 1], 1m, atACost: true));
+        Assert.Equal(
+            "0 pull requests merged.",
+            WeeklyBriefSentences.Title(0, [0, 0], null, atACost: false));
+    }
+
+    /// <summary>The Plan figure is the running total against the plan (AC34).</summary>
+    [Fact]
+    public void The_plan_figure_is_done_of_planned()
+    {
+        Assert.Equal("41 of 55", WeeklyBriefSentences.PlanFigure(41, 55));
+        Assert.Equal("0 of 1", WeeklyBriefSentences.PlanFigure(0, 1));
+    }
+
+    /// <summary>The Cost figure is month-to-date against the budget, one per provider in
+    /// its own currency (AC34, decision Q3).</summary>
+    [Fact]
+    public void The_cost_figure_is_month_to_date_against_each_budget()
+    {
+        var projection = new SpendProjectionInsight(
+        [
+            Projection(SpendProvider.Claude, 178m, 250m, "EUR"),
+            Projection(SpendProvider.AzureFoundry, 34m, 50m, "EUR"),
+            Projection(SpendProvider.Copilot, 9m, null, "USD")
+        ]);
+
+        Assert.Equal("€178 of €250 · €34 of €50 · $9", WeeklyBriefSentences.CostFigure(projection));
+        Assert.Equal("€212 of €300", WeeklyBriefSentences.CostFigure(new SpendProjectionInsight([Projection(SpendProvider.Claude, 212m, 300m, "EUR")])));
+        Assert.Null(WeeklyBriefSentences.CostFigure(SpendProjectionInsight.Empty));
+    }
+
+    [Fact]
+    public void The_cost_detail_names_a_provider_as_the_screen_does()
+    {
+        var projection = new SpendProjectionInsight([Projection(SpendProvider.AzureFoundry, 60m, 50m, "EUR", projected: 90m)]);
+
+        Assert.Equal("Azure AI Foundry is on course to pass its budget this month.", WeeklyBriefSentences.CostDetail(projection));
+    }
+
+    private static SpendProjection Projection(SpendProvider provider, decimal spent, decimal? budget, string currency, decimal? projected = null) =>
+        new(
+            provider,
+            new DashboardMoney(spent, currency),
+            new DashboardMoney(1m, currency),
+            new DashboardMoney(projected ?? spent, currency),
+            budget is { } amount ? new DashboardMoney(amount, currency) : null,
+            new DateOnly(2026, 10, 12),
+            19,
+            IsEstimate: false);
 
     [Fact]
     public void The_plan_detail_counts_the_items_behind_pace()
@@ -117,6 +203,12 @@ public sealed class WeeklyBriefSentencesTests
             "Every roadmap item in view is on pace, with 15 points of 21 done.",
             WeeklyBriefSentences.PlanDetail(new PlanInsight(true, new PlanPace(5m, PlanPaceBasis.Manual),
                 [new PlanItemInsight(item, PlanOutlook.OnTrack, null)])));
+        // Past its end with work open is behind pace too, the one definition the Overview
+        // tile, Needs you and the Tasks tab share.
+        Assert.Equal(
+            "2 roadmap items are behind pace, with 30 points of 42 done.",
+            WeeklyBriefSentences.PlanDetail(new PlanInsight(true, new PlanPace(5m, PlanPaceBasis.Manual),
+                [new PlanItemInsight(item, PlanOutlook.Behind, null), new PlanItemInsight(item, PlanOutlook.Overdue, null)])));
         Assert.Equal("The roadmap is switched off.", WeeklyBriefSentences.PlanDetail(PlanInsight.Off));
         Assert.Equal("The roadmap could not be read.", WeeklyBriefSentences.PlanDetail(null));
     }

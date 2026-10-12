@@ -82,17 +82,35 @@ public sealed class DeviceMachineDirectoryTests
     /// <summary>
     /// On the id and not on the name, which is the whole reason a machine carries
     /// both: two machines can be called the same thing, and merging them would give
-    /// the reader one option that filters to half of what it names.
+    /// the reader one option that filters to half of what it names. Two options under
+    /// one name are indistinguishable, though - verify read "JS-DESKTOP" three times -
+    /// so a shared name carries the start of the id that tells them apart.
     /// </summary>
     [Fact]
-    public async Task Two_machines_sharing_a_name_are_two_options()
+    public async Task Two_machines_sharing_a_name_are_two_options_told_apart_by_their_id()
     {
         var directory = Directory(Session("laptop", "DEV-LAPTOP"), Session("other", "DEV-LAPTOP"));
 
         var machines = await directory.GetMachinesAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(["DEV-TOWER", "DEV-LAPTOP", "DEV-LAPTOP"], machines.Select(machine => machine.Name));
+        Assert.Equal(["DEV-TOWER", "DEV-LAPTOP (laptop)", "DEV-LAPTOP (other)"], machines.Select(machine => machine.Name));
         Assert.Equal([ThisDevice.ToString(), "laptop", "other"], machines.Select(machine => machine.Id));
+    }
+
+    /// <summary>The verify case: this device and two others all called the same. This
+    /// device says so; the others carry the first eight characters of their id.</summary>
+    [Fact]
+    public async Task Machines_sharing_this_devices_name_are_told_apart_from_it()
+    {
+        var directory = Directory(
+            Session("0f4c2a9e-0000-4000-8000-000000000001", "DEV-TOWER"),
+            Session("a71d33b0-0000-4000-8000-000000000002", "dev-tower"));
+
+        var machines = await directory.GetMachinesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["DEV-TOWER (this device)", "DEV-TOWER (0f4c2a9e)", "dev-tower (a71d33b0)"],
+            machines.Select(machine => machine.Name));
     }
 
     /// <summary>

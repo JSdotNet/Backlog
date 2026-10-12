@@ -107,6 +107,9 @@ internal sealed class InsightCache
 
     internal void Clear() => _entries.Clear();
 
+    /// <summary>Forgets the one entry under exactly this key.</summary>
+    internal void Forget(string key) => _entries.TryRemove(key, out _);
+
     /// <summary>Evicts by identity, so a retry that has already replaced this entry
     /// is not thrown away by a slower failure arriving after it.</summary>
     private void Evict(string key, Entry entry) =>

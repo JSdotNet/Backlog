@@ -1,0 +1,33 @@
+@* A host that keeps the one-of-many choice itself, the way every dashboard strip
+   does: each ToggleButton's Pressed is drawn from Selected, and PressedChanged
+   moves Selected. *@
+
+<ButtonGroup Radio="true" AriaLabel="Window" TestId="radio">
+    @foreach (var option in Options)
+    {
+        var value = option;
+        <ToggleButton Pressed="Selected == value"
+                      PressedChanged="pressed => Choose(value, pressed)"
+                      Disabled="DisabledOption == value"
+                      TestId="@($"radio-{value}")">@value</ToggleButton>
+    }
+</ButtonGroup>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<string> Options { get; set; } = ["4", "8", "12", "26"];
+
+    [Parameter]
+    public string? Selected { get; set; }
+
+    [Parameter]
+    public string? DisabledOption { get; set; }
+
+    public List<(string Value, bool Pressed)> Reports { get; } = [];
+
+    private void Choose(string value, bool pressed)
+    {
+        Reports.Add((value, pressed));
+        Selected = value;
+    }
+}

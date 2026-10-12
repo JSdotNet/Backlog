@@ -240,12 +240,8 @@
 
     private static string BudgetLabel(SpendProvider provider) => $"{Name(provider)} budget a month";
 
-    private static string Name(SpendProvider provider) => provider switch
-    {
-        SpendProvider.Copilot => "GitHub Copilot",
-        SpendProvider.AzureFoundry => "Azure AI Foundry",
-        _ => provider.ToString()
-    };
+    /// <summary>The provider as every cost part names it (AC27).</summary>
+    private static string Name(SpendProvider provider) => provider.DisplayName();
 
     private static string Slug(SpendProvider provider) => provider switch
     {

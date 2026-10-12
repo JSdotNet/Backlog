@@ -353,7 +353,9 @@ public class DashboardPaneTests
     /// <summary>
     /// Choosing a tab shows its panel and hides the one before - the same parts, not a
     /// fresh render. Every panel renders as the pane opens and stays rendered, so a
-    /// switch asks no source again.
+    /// switch asks no part's source again. The header reads the one insight its
+    /// sentence comes from as a tab is first shown — through the same cached service,
+    /// so one ask each here, and none on a provider in the application.
     /// </summary>
     [Fact]
     public void Choosing_a_tab_shows_its_panel_without_re_fetching()
@@ -391,8 +393,8 @@ public class DashboardPaneTests
             Assert.True(pane.Find("[data-testid='dashboard-cost']").HasAttribute("hidden"));
         });
 
-        Assert.Equal(productivityCalls, productivity.Scopes.Count);
-        Assert.Equal(costCalls, costs.Calls);
+        Assert.Equal(productivityCalls + 1, productivity.Scopes.Count);
+        Assert.Equal(costCalls + 1, costs.Calls);
     }
 
     /// <summary>
@@ -517,20 +519,23 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The machine select and the window toggle stay in the pane's header, above the
-    /// strip, because they scope every tab rather than one.
+    /// The machine select and the window toggle sit in the header's actions, beside the
+    /// ✕ (board Main), because they scope every tab rather than one — and there is no
+    /// filter row of their own under the header any more (AC1).
     /// </summary>
     [Fact]
-    public void The_filters_stay_above_the_tab_strip()
+    public void The_controls_sit_in_the_header_beside_the_close()
     {
         using var context = Context();
 
         var pane = context.Render<DashboardPane>();
-        var filters = pane.Find("[data-testid='dashboard-filters']");
+        var actions = pane.Find(".dashboard-panel__header-actions");
 
-        Assert.NotNull(filters.QuerySelector("[data-testid='dashboard-machine-filter']"));
-        Assert.NotNull(filters.QuerySelector("[data-testid='dashboard-window-filter']"));
-        Assert.Null(filters.Closest("[data-testid='dashboard-section-tabs']"));
+        Assert.NotNull(actions.QuerySelector("[data-testid='dashboard-machine-filter']"));
+        Assert.NotNull(actions.QuerySelector("[data-testid='dashboard-window-filter']"));
+        Assert.NotNull(actions.QuerySelector("[aria-label='Close dashboard']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-filters']"));
+        Assert.Null(actions.Closest("[data-testid='dashboard-section-tabs']"));
     }
 
     /// <summary>
@@ -560,6 +565,10 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<DriftInsight>.Ready(insight));
+
+        public void Invalidate()
+        {
+        }
     }
 
     [Fact]
@@ -756,7 +765,7 @@ public class DashboardPaneTests
         Assert.Equal(2, rows.Length);
         Assert.Equal("Token store", rows[0].QuerySelector(".metric-ranking__name")!.TextContent);
         Assert.Equal("backlog · opus · 31 prompts", rows[0].QuerySelector(".metric-ranking__detail")!.TextContent);
-        Assert.Contains("3h", rows[0].QuerySelector(".metric-ranking__value")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("3 h", rows[0].QuerySelector(".metric-ranking__value")!.TextContent, StringComparison.Ordinal);
         Assert.Equal("Untitled session", rows[1].QuerySelector(".metric-ranking__name")!.TextContent);
         Assert.Null(rows[1].QuerySelector(".metric-ranking__detail"));
 
@@ -983,7 +992,7 @@ public class DashboardPaneTests
         ChooseMeasure(pane, "pull-requests");
 
         Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-cut-model']"));
-        Assert.Equal("true", pane.Find("[data-testid='dashboard-sessions-cut-all']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-sessions-cut-all']").GetAttribute("aria-checked"));
         Assert.Contains(
             "Pull requests linked per week — 3",
             Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent),
@@ -991,7 +1000,7 @@ public class DashboardPaneTests
 
         // Back to tokens: the fallback was for good, not a mask over the old choice.
         ChooseMeasure(pane, "tokens");
-        Assert.Equal("true", pane.Find("[data-testid='dashboard-sessions-cut-all']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-sessions-cut-all']").GetAttribute("aria-checked"));
     }
 
     /// <summary>
@@ -1042,7 +1051,7 @@ public class DashboardPaneTests
     /// on every row — a row that omitted its quiet hours would render short and read as
     /// "not reported" where the honest answer is zero.</summary>
     [Fact]
-    public void The_grid_draws_seven_days_and_twenty_four_hours()
+    public void The_grid_draws_seven_days_from_six_in_the_morning_to_midnight()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
@@ -1054,8 +1063,8 @@ public class DashboardPaneTests
 
         // The hour headings specifically, not every heading: the day column adds a
         // twenty-fifth that is not an hour.
-        Assert.Equal(24, grid.QuerySelectorAll(".metric-heatmap__bucket").Length);
-        Assert.Equal(7 * 24, grid.QuerySelectorAll(".metric-heatmap__cell").Length);
+        Assert.Equal(GridHours, grid.QuerySelectorAll(".metric-heatmap__bucket").Length);
+        Assert.Equal(7 * GridHours, grid.QuerySelectorAll(".metric-heatmap__cell").Length);
     }
 
     /// <summary>
@@ -1076,7 +1085,7 @@ public class DashboardPaneTests
         // The caption names the measure; the mark beside it carries the rest. Both are
         // inside the grid, which is what this reads — a reader meets the week it is
         // showing, and the refusals, at the thing that will not move either way.
-        Assert.Contains("Sessions producing at once, by hour", grid, StringComparison.Ordinal);
+        Assert.Contains("When the agent worked · week", grid, StringComparison.Ordinal);
         Assert.Contains("Your local clock, the week of W34, picked above, as calendar days", grid, StringComparison.Ordinal);
         Assert.Contains("A cell in the error colour is an hour Claude had walled you out for the 5-hour limit", grid, StringComparison.Ordinal);
     }
@@ -1096,8 +1105,8 @@ public class DashboardPaneTests
         // The fixture puts four concurrent sessions in the 09 column and nothing else, so
         // the quiet hours keep their track shade and print nothing — a grid where most
         // hours are empty would otherwise be a wall of noughts.
-        Assert.Equal("4", cells[9].QuerySelector(".metric-heatmap__value")!.TextContent);
-        Assert.Null(cells[8].QuerySelector(".metric-heatmap__value"));
+        Assert.Equal("4", cells[9 - GridStart].QuerySelector(".metric-heatmap__value")!.TextContent);
+        Assert.Null(cells[8 - GridStart].QuerySelector(".metric-heatmap__value"));
     }
 
     /// <summary>
@@ -1151,19 +1160,19 @@ public class DashboardPaneTests
         Assert.Equal("true", pane.Find("[data-testid='dashboard-sessions-grid-producing']").GetAttribute("aria-pressed"));
 
         var grid = pane.Find("[data-testid='dashboard-sessions-hours']");
-        Assert.Contains("Sessions producing at once, by hour", Squashed(grid.TextContent), StringComparison.Ordinal);
+        Assert.Contains("When the agent worked · week", Squashed(grid.TextContent), StringComparison.Ordinal);
         Assert.NotEmpty(grid.QuerySelectorAll(".metric-heatmap__total"));
 
         pane.Find("[data-testid='dashboard-sessions-grid-open']").Click();
 
         grid = pane.Find("[data-testid='dashboard-sessions-hours']");
-        Assert.Contains("Sessions on the go at once, by hour", Squashed(grid.TextContent), StringComparison.Ordinal);
+        Assert.Contains("Sessions on the go · week", Squashed(grid.TextContent), StringComparison.Ordinal);
         Assert.Empty(grid.QuerySelectorAll(".metric-heatmap__total"));
 
         pane.Find("[data-testid='dashboard-sessions-grid-agents']").Click();
 
         grid = pane.Find("[data-testid='dashboard-sessions-hours']");
-        Assert.Contains("Agents at once, by hour", Squashed(grid.TextContent), StringComparison.Ordinal);
+        Assert.Contains("Agents running · week", Squashed(grid.TextContent), StringComparison.Ordinal);
         Assert.Empty(grid.QuerySelectorAll(".metric-heatmap__total"));
         Assert.Single(pane.FindAll(".metric-heatmap"));
     }
@@ -1184,22 +1193,22 @@ public class DashboardPaneTests
         var peakCells = pane.Find("[data-testid='dashboard-sessions-hours']")
             .QuerySelectorAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell");
 
-        Assert.Equal("4", peakCells[9].QuerySelector(".metric-heatmap__value")!.TextContent);
-        Assert.Null(peakCells[10].QuerySelector(".metric-heatmap__value"));
+        Assert.Equal("4", peakCells[9 - GridStart].QuerySelector(".metric-heatmap__value")!.TextContent);
+        Assert.Null(peakCells[10 - GridStart].QuerySelector(".metric-heatmap__value"));
 
         pane.Find("[data-testid='dashboard-sessions-grid-open']").Click();
 
         var open = pane.Find("[data-testid='dashboard-sessions-hours']");
         var openCells = open.QuerySelectorAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell");
 
-        Assert.Equal("7", openCells[9].QuerySelector(".metric-heatmap__value")!.TextContent);
+        Assert.Equal("7", openCells[9 - GridStart].QuerySelector(".metric-heatmap__value")!.TextContent);
 
         // An hour where nothing produced but something was still on the go.
-        Assert.Equal("2", openCells[10].QuerySelector(".metric-heatmap__value")!.TextContent);
+        Assert.Equal("2", openCells[10 - GridStart].QuerySelector(".metric-heatmap__value")!.TextContent);
 
         // Seven days and twenty-four hours, and the working week outlined on it too.
         Assert.Equal(7, open.QuerySelectorAll("tbody tr").Length);
-        Assert.Equal(24, open.QuerySelectorAll(".metric-heatmap__bucket").Length);
+        Assert.Equal(GridHours, open.QuerySelectorAll(".metric-heatmap__bucket").Length);
         Assert.NotEmpty(open.QuerySelectorAll(".metric-heatmap__cell--marked"));
     }
 
@@ -1215,7 +1224,7 @@ public class DashboardPaneTests
         pane.Find("[data-testid='dashboard-sessions-grid-open']").Click();
         var open = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
 
-        Assert.Contains("Sessions on the go at once", open, StringComparison.Ordinal);
+        Assert.Contains("Sessions on the go · week", open, StringComparison.Ordinal);
         Assert.Contains(
             "A session that went quiet and never resumed is not counted, because nothing "
             + "records when a session ended.",
@@ -1245,12 +1254,12 @@ public class DashboardPaneTests
         var thursday = rows[0].QuerySelectorAll(".metric-heatmap__cell");
         var saturday = rows[2].QuerySelectorAll(".metric-heatmap__cell");
 
-        Assert.DoesNotContain("metric-heatmap__cell--marked", thursday[8].ClassList);
-        Assert.Contains("metric-heatmap__cell--marked", thursday[9].ClassList);
+        Assert.DoesNotContain("metric-heatmap__cell--marked", thursday[8 - GridStart].ClassList);
+        Assert.Contains("metric-heatmap__cell--marked", thursday[9 - GridStart].ClassList);
 
         // Half past five leaves this hour half worked, and it is outlined whole.
-        Assert.Contains("metric-heatmap__cell--marked", thursday[17].ClassList);
-        Assert.DoesNotContain("metric-heatmap__cell--marked", thursday[18].ClassList);
+        Assert.Contains("metric-heatmap__cell--marked", thursday[17 - GridStart].ClassList);
+        Assert.DoesNotContain("metric-heatmap__cell--marked", thursday[18 - GridStart].ClassList);
 
         // A day off is outlined nowhere at all.
         Assert.DoesNotContain(
@@ -1289,7 +1298,7 @@ public class DashboardPaneTests
 
         Assert.Contains(
             "2h agent-active, 45m waiting",
-            cells[9].QuerySelector(".sr-only")!.TextContent,
+            cells[9 - GridStart].QuerySelector(".sr-only")!.TextContent,
             StringComparison.Ordinal);
     }
 
@@ -1548,7 +1557,7 @@ public class DashboardPaneTests
         Assert.Contains("metric-bars", chart.ClassList);
         Assert.Equal(2, chart.QuerySelectorAll(".metric-bars__column").Length);
         Assert.Null(chart.QuerySelector(".metric-stacked-bars__legend"));
-        Assert.Contains("Producing hours per week — 5h", text, StringComparison.Ordinal);
+        Assert.Contains("Agent-active hours per week — 5h", text, StringComparison.Ordinal);
         Assert.Contains("Calendar weeks from Monday, because no usage reset is known", text, StringComparison.Ordinal);
 
         // The week's hours in the tile's words: 3 and 2 decimal hours.
@@ -1558,8 +1567,8 @@ public class DashboardPaneTests
         Assert.Equal(
             ["producing", "waiting", "sessions", "prompts", "sessions-at-once", "agents-at-once"],
             MeasureOptions(pane));
-        Assert.Equal("true", pane.Find("[data-testid='dashboard-sessions-cut-all']").GetAttribute("aria-pressed"));
-        Assert.Equal("false", pane.Find("[data-testid='dashboard-sessions-cut-repository']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-sessions-cut-all']").GetAttribute("aria-checked"));
+        Assert.Equal("false", pane.Find("[data-testid='dashboard-sessions-cut-repository']").GetAttribute("aria-checked"));
 
         // The controls sit directly above the chart they drive.
         var controls = pane.Find("[data-testid='dashboard-sessions-measure']").ParentElement!;
@@ -1629,7 +1638,7 @@ public class DashboardPaneTests
         var text = Squashed(chart.TextContent);
 
         Assert.Contains("metric-stacked-bars--stacked", chart.ClassList);
-        Assert.Contains("Producing hours per week, by repository", text, StringComparison.Ordinal);
+        Assert.Contains("Agent-active hours per week, by repository", text, StringComparison.Ordinal);
         Assert.All(
             chart.QuerySelectorAll(".metric-stacked-bars__column"),
             column => Assert.Equal(2, column.QuerySelectorAll(".metric-stacked-bars__segment").Length));
@@ -1662,6 +1671,37 @@ public class DashboardPaneTests
         Assert.Contains("Sessions at once per week, by repository", Squashed(chart.TextContent), StringComparison.Ordinal);
         Assert.Contains("peak 3", chart.QuerySelector("[data-testid='dashboard-sessions-weekly-bars-toggle-no-repository-recorded']")!.TextContent, StringComparison.Ordinal);
         Assert.Empty(chart.QuerySelectorAll("tfoot"));
+    }
+
+    /// <summary>
+    /// The grid is a calendar week and the columns may be usage weeks cut at a reset, so
+    /// the two carry different labels. A pressed column finds the grid its week begins
+    /// in, the picker shows that grid's own label, and the column stays pressed.
+    /// </summary>
+    [Fact]
+    public void A_pressed_usage_week_opens_the_calendar_week_it_begins_in()
+    {
+        var insight = Insight();
+        var calendar = insight with
+        {
+            Grids = [.. insight.Grids.Select(grid => grid with { Label = "Calendar " + grid.Label })]
+        };
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(calendar)));
+
+        var pane = context.Render<DashboardPane>();
+
+        pane.Find("[data-testid='dashboard-sessions-cut-repository']").Click();
+
+        Assert.Equal("true", pane.FindAll("[data-testid='dashboard-sessions-weekly-bars'] .metric-stacked-bars__column")[1].GetAttribute("aria-pressed"));
+
+        pane.FindAll("[data-testid='dashboard-sessions-weekly-bars'] .metric-stacked-bars__column")[0].Click();
+
+        var grid = pane.Find("[data-testid='dashboard-sessions-hours']");
+        Assert.Contains("Thu 06", grid.QuerySelector("tbody th")!.TextContent, StringComparison.Ordinal);
+        Assert.Equal("Calendar W33", pane.Find("[data-testid='dashboard-sessions-week'] select").GetAttribute("value"));
+        Assert.Equal("true", pane.FindAll("[data-testid='dashboard-sessions-weekly-bars'] .metric-stacked-bars__column")[0].GetAttribute("aria-pressed"));
     }
 
     /// <summary>
@@ -1744,15 +1784,15 @@ public class DashboardPaneTests
         var wednesday = grid.QuerySelectorAll("tbody tr").Single(row => row.QuerySelector("th")!.TextContent.Contains("Wed 19", StringComparison.Ordinal));
         var cells = wednesday.QuerySelectorAll(".metric-heatmap__cell");
 
-        Assert.Equal([11, 12, 13, 14], Enumerable.Range(0, 24).Where(hour => cells[hour].ClassList.Contains("metric-heatmap__cell--flag-blocked")));
-        Assert.Contains("blocked by the 5-hour limit, from the refusal to the reset", cells[13].GetAttribute("title"), StringComparison.Ordinal);
+        Assert.Equal([11, 12, 13, 14], Enumerable.Range(GridStart, GridHours).Where(hour => cells[hour - GridStart].ClassList.Contains("metric-heatmap__cell--flag-blocked")));
+        Assert.Contains("blocked by the 5-hour limit, from the refusal to the reset", cells[13 - GridStart].GetAttribute("title"), StringComparison.Ordinal);
 
         // No mark of its own for the refusal's hour: the run's start is the moment.
         Assert.Empty(grid.QuerySelectorAll(".metric-heatmap__cell--flag-five-hour"));
 
         // Tuesday 18th at 9: the weekly refusal, a dot of its own kind and no stripe.
         var tuesday = grid.QuerySelectorAll("tbody tr").Single(row => row.QuerySelector("th")!.TextContent.Contains("Tue 18", StringComparison.Ordinal));
-        var nine = tuesday.QuerySelectorAll(".metric-heatmap__cell")[9];
+        var nine = tuesday.QuerySelectorAll(".metric-heatmap__cell")[9 - GridStart];
 
         Assert.Contains("metric-heatmap__cell--flag-weekly", nine.ClassList);
         Assert.DoesNotContain("metric-heatmap__cell--flag-blocked", nine.ClassList);
@@ -1780,10 +1820,11 @@ public class DashboardPaneTests
         Assert.Contains("Copilot records none", tile, StringComparison.Ordinal);
     }
 
-    /// <summary>Under a usage reset the grid caption says a row runs from the reset hour,
-    /// so a reader does not take a row's date for a calendar day.</summary>
+    /// <summary>Under a usage reset the grid is still a calendar week, Monday to Sunday,
+    /// and the caption says the columns beside it run from the reset - so a reader knows
+    /// why the column pressed is the usage week that begins in the grid's week.</summary>
     [Fact]
-    public void Under_a_usage_reset_the_grid_says_its_rows_are_cut_at_the_reset()
+    public void Under_a_usage_reset_the_grid_says_it_is_a_calendar_week_beside_reset_columns()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
@@ -1794,8 +1835,8 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var text = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
 
-        Assert.Contains("as calendar days cut at the reset (Monday 21:00)", text, StringComparison.Ordinal);
-        Assert.Contains("the hours outside it are blank", text, StringComparison.Ordinal);
+        Assert.Contains("calendar week 34, picked above, Monday to Sunday", text, StringComparison.Ordinal);
+        Assert.Contains("the columns run from the reset (Monday 21:00)", text, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -2018,16 +2059,16 @@ public class DashboardPaneTests
         var agents = pane.Find("[data-testid='dashboard-sessions-hours']");
         var cells = agents.QuerySelectorAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell");
 
-        Assert.Equal("11", cells[9].QuerySelector(".metric-heatmap__value")!.TextContent);
+        Assert.Equal("11", cells[9 - GridStart].QuerySelector(".metric-heatmap__value")!.TextContent);
 
         // The hour that belongs to this count alone: nothing produced and nothing was
         // open, and three agents were running.
-        Assert.Equal("3", cells[11].QuerySelector(".metric-heatmap__value")!.TextContent);
+        Assert.Equal("3", cells[11 - GridStart].QuerySelector(".metric-heatmap__value")!.TextContent);
 
         // And it says what it counts, and that it is neither of the other two.
         var label = Squashed(agents.TextContent);
 
-        Assert.Contains("Agents at once, by hour", label, StringComparison.Ordinal);
+        Assert.Contains("Agents running · week", label, StringComparison.Ordinal);
         Assert.Contains("Your local clock, the week of W34, picked above", label, StringComparison.Ordinal);
         Assert.Contains("they are in neither session count", label, StringComparison.Ordinal);
     }
@@ -2058,7 +2099,7 @@ public class DashboardPaneTests
         Assert.Equal(sessions, agents.Select(cell => cell.ClassList.Contains("metric-heatmap__cell--marked")));
 
         // Not two rows of falses agreeing with each other.
-        Assert.Contains("metric-heatmap__cell--marked", agents[9].ClassList);
+        Assert.Contains("metric-heatmap__cell--marked", agents[9 - GridStart].ClassList);
     }
 
     /// <summary>Every hour on every row, quiet ones included. A row that omitted them
@@ -2076,8 +2117,8 @@ public class DashboardPaneTests
         var agents = pane.Find("[data-testid='dashboard-sessions-hours']");
 
         Assert.Equal(7, agents.QuerySelectorAll("tbody tr").Length);
-        Assert.Equal(24, agents.QuerySelectorAll(".metric-heatmap__bucket").Length);
-        Assert.Equal(7 * 24, agents.QuerySelectorAll(".metric-heatmap__cell").Length);
+        Assert.Equal(GridHours, agents.QuerySelectorAll(".metric-heatmap__bucket").Length);
+        Assert.Equal(7 * GridHours, agents.QuerySelectorAll(".metric-heatmap__cell").Length);
     }
 
     /// <summary>
@@ -2099,7 +2140,7 @@ public class DashboardPaneTests
         Assert.Contains(
             "2h agent-active, 45m waiting",
             pane.Find("[data-testid='dashboard-sessions-hours']")
-                .QuerySelectorAll(".metric-heatmap__cell")[9]
+                .QuerySelectorAll(".metric-heatmap__cell")[9 - GridStart]
                 .QuerySelector(".sr-only")!
                 .TextContent,
             StringComparison.Ordinal);
@@ -2107,7 +2148,7 @@ public class DashboardPaneTests
         pane.Find("[data-testid='dashboard-sessions-grid-agents']").Click();
 
         var busiest = pane.Find("[data-testid='dashboard-sessions-hours']")
-            .QuerySelectorAll(".metric-heatmap__cell")[9]
+            .QuerySelectorAll(".metric-heatmap__cell")[9 - GridStart]
             .QuerySelector(".sr-only")!
             .TextContent;
 
@@ -2129,7 +2170,7 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var grid = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
 
-        Assert.Contains("Sessions producing at once", grid, StringComparison.Ordinal);
+        Assert.Contains("When the agent worked · week", grid, StringComparison.Ordinal);
         Assert.DoesNotContain("agents running at once", grid, StringComparison.Ordinal);
     }
 
@@ -2237,7 +2278,7 @@ public class DashboardPaneTests
                     {
                         UntilDay = new DateOnly(2026, 8, 7),
                         UntilHour = 15
-                    }]),
+                    }]) { UsageWeek = "W33" },
                 new WeekGrid("2026-W34", "W34", new DateTimeOffset(2026, 8, 17, 0, 0, 0, TimeSpan.Zero), Grid(), Days(),
                     [
                         new LimitMark(new DateOnly(2026, 8, 19), 11, AssistantLimitKind.FiveHour, new DateTimeOffset(2026, 8, 19, 11, 40, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 19, 14, 0, 0, TimeSpan.Zero))
@@ -2246,7 +2287,7 @@ public class DashboardPaneTests
                             UntilHour = 14
                         },
                         new LimitMark(new DateOnly(2026, 8, 18), 9, AssistantLimitKind.SevenDay, new DateTimeOffset(2026, 8, 18, 9, 5, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 24, 21, 0, 0, TimeSpan.Zero))
-                    ])
+                    ]) { UsageWeek = "W34" }
             ],
 
             // Eight five-hour walls and one weekly, so the tile's split shows and a part
@@ -2518,22 +2559,11 @@ public class DashboardPaneTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ProductivityScoreInsight>.Ready(score));
 
-        public Task<InsightResult<ProductivityTrend>> GetTrendAsync(
-            DashboardScope scope,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<ProductivityTrend>.Ready(
-                new ProductivityTrend(
-                    [new InsightSeries("backlog", [new InsightPoint("W33", 40m), new InsightPoint("W34", 55m)])],
-                    null)
-                {
-                    Complete = score.Complete
-                }));
-
         public Task<InsightResult<ReworkInsight>> GetReworkAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ReworkInsight>.Ready(
-                (rework ?? new ReworkInsight(6, 30, 12, 2, 9, true, [new InsightPoint("W34", 3m)], [])
+                (rework ?? new ReworkInsight(6, 30, 12, 2, 9, true, [])
                 {
                     PullRequestsSynced = 14,
                     PullRequestsWithConflictedSync = 3,
@@ -2632,14 +2662,14 @@ public class DashboardPaneTests
 
         var pane = context.Render<DashboardPane>();
 
-        Assert.Equal("true", pane.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-pressed"));
-        Assert.Equal("false", pane.Find("[data-testid='dashboard-trend-measure-commits']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-checked"));
+        Assert.Equal("false", pane.Find("[data-testid='dashboard-trend-measure-commits']").GetAttribute("aria-checked"));
         Assert.Contains("164", pane.Find("[data-testid='dashboard-trend-bars']").TextContent, StringComparison.Ordinal);
 
         pane.Find("[data-testid='dashboard-trend-measure-commits']").Click();
 
-        Assert.Equal("true", pane.Find("[data-testid='dashboard-trend-measure-commits']").GetAttribute("aria-pressed"));
-        Assert.Equal("false", pane.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-trend-measure-commits']").GetAttribute("aria-checked"));
+        Assert.Equal("false", pane.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-checked"));
         var bars = pane.Find("[data-testid='dashboard-trend-bars']").TextContent;
         Assert.Contains("733", bars, StringComparison.Ordinal);
         Assert.DoesNotContain("164", bars, StringComparison.Ordinal);
@@ -2663,7 +2693,7 @@ public class DashboardPaneTests
 
         var again = context.Render<DashboardPane>();
 
-        Assert.Equal("true", again.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", again.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-checked"));
     }
 
     /// <summary>Both scores draw each input as a labelled bar, with the reading and
@@ -2706,10 +2736,9 @@ public class DashboardPaneTests
                     2,
                     9,
                     true,
-                    [],
                     [
-                        new InsightRow("marketplace", 3, Detail: "2 of 10 reviewed"),
-                        new InsightRow("backlog", 9, Detail: "4 of 20 reviewed")
+                        new ReworkRepository("marketplace", 2, 10),
+                        new ReworkRepository("backlog", 4, 20)
                     ])
                 {
                     PullRequestsSynced = 14,
@@ -2733,10 +2762,12 @@ public class DashboardPaneTests
         }
 
         var ranking = pane.Find("[data-testid='dashboard-rework-by-repository']");
-        Assert.Equal(grids[0].ParentElement, ranking.ParentElement);
+        Assert.Equal(grids[0].ParentElement, ranking.ParentElement!.ParentElement);
+        Assert.Equal(["After review", "Base syncs"], grids[0].QuerySelectorAll(".dashboard-rework__group-title").Select(title => title.TextContent.Trim()));
+        Assert.Equal("Total 6 of 30 reviewed", Squashed(pane.Find("[data-testid='dashboard-rework-by-repository-total']").TextContent));
         Assert.Contains("Churn by repository", ranking.TextContent, StringComparison.Ordinal);
 
-        // Ranked by commits after review, largest first, whatever order they came in.
+        // Ranked by pull requests that came back, largest first, whatever order they came in.
         var rows = ranking.QuerySelectorAll("li");
         Assert.Equal(2, rows.Length);
         Assert.Contains("backlog", rows[0].TextContent, StringComparison.Ordinal);
@@ -2754,7 +2785,7 @@ public class DashboardPaneTests
         using var context = Context(configure: services =>
             services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(
                 Score(),
-                new ReworkInsight(0, 0, 0, 0, 0, true, [], [])
+                new ReworkInsight(0, 0, 0, 0, 0, true, [])
                 {
                     PullRequestsSynced = 12,
                     PullRequestsWithConflictedSync = 0,
@@ -2773,6 +2804,12 @@ public class DashboardPaneTests
     /// <summary>Markup wraps a note across several source lines, so the text arrives
     /// with newlines and runs of spaces in it. Comparing a sentence needs those
     /// collapsed, or the assertion is about the indentation.</summary>
+    /// <summary>The first hour the Sessions grid draws, and how many it draws: 06 to 23,
+    /// as board Sessions does (AC21). The cell indexes below count from it.</summary>
+    private const int GridStart = 6;
+
+    private const int GridHours = 18;
+
     private static string Squashed(string text) =>
         string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
@@ -2842,10 +2879,11 @@ public class DashboardPaneTests
         // No repository select: the header's scope is the repository control.
         Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
-        Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
-        // Thirteen parts across the five section tabs, and the Overview's five framed
-        // blocks - its tiles are figures, not parts, and carry no refresh of their own.
-        Assert.Equal(18, pane.FindAll("[data-testid$='-refresh']").Count);
+        Assert.Equal(4, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
+        // Fourteen parts across the five section tabs — the Tasks tab's figures row among
+        // them — and the Overview's five framed blocks; its tiles are figures, not parts,
+        // and carry only a "try again" while unavailable.
+        Assert.Equal(19, pane.FindAll("[data-testid$='-refresh']").Count);
         // The tabs show and hide what is already there; they arrange nothing. No fold
         // is left on the pane itself — the More folds' parts are shown in their tabs,
         // and the sessions part's own More is inside the figures it would fold, which
@@ -2853,16 +2891,18 @@ public class DashboardPaneTests
         Assert.Equal(6, pane.FindAll("[data-testid='dashboard-tablist'] [role='tab']").Count);
         Assert.Empty(pane.FindAll(".fold__trigger"));
         // The info marks open a caption; they change nothing.
-        Assert.Equal(18, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
+        Assert.Equal(19, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, two window buttons, eighteen refreshes, six
-        // tabs, eighteen info marks, and the "Read as brief" link, which opens a view
-        // and configures nothing. Needs you draws a link per item, and there are none
-        // here.
-        Assert.Equal(1 + 1 + 2 + 18 + 6 + 18 + 1, controls.Count);
+        // One close, one filter select, four window buttons, nineteen refreshes, six
+        // tabs, nineteen info marks, the "Read as brief" link, which opens a view
+        // and configures nothing, and a "try again" on each of the five headline tiles,
+        // which read again and only appear while a tile is unavailable, as every one is
+        // here. Needs you draws a link per item, and there are none here.
+        Assert.Equal(5, pane.FindAll("[data-testid$='-retry']").Count);
+        Assert.Equal(1 + 1 + 4 + 19 + 6 + 19 + 1 + 5, controls.Count);
     }
 
     /// <summary>
@@ -3007,21 +3047,21 @@ public class DashboardPaneTests
 
         var pane = context.Render<DashboardPane>();
 
-        var pace = Squashed(pane.Find("[data-testid='dashboard-roadmap-pace']").TextContent);
+        // The roadmap's figures are the tab's joined row now (S6).
+        var pace = Squashed(pane.Find("[data-testid='dashboard-tasks-figure-pace']").TextContent);
         Assert.Contains("Pace in use", pace, StringComparison.Ordinal);
         Assert.Contains("12", pace, StringComparison.Ordinal);
-        Assert.Contains("pts/week", pace, StringComparison.Ordinal);
+        Assert.Contains("pts / week", pace, StringComparison.Ordinal);
         Assert.Contains("Measured over the last 4 weeks", pace, StringComparison.Ordinal);
 
-        Assert.Contains("2", pane.Find("[data-testid='dashboard-roadmap-items'] .metric-tile__value").TextContent, StringComparison.Ordinal);
+        Assert.Contains("2", pane.Find("[data-testid='dashboard-tasks-figure-items'] .metric-tile__value").TextContent, StringComparison.Ordinal);
 
-        var planned = Squashed(pane.Find("[data-testid='dashboard-roadmap-planned']").TextContent);
+        var planned = Squashed(pane.Find("[data-testid='dashboard-tasks-figure-planned']").TextContent);
         Assert.Contains("31", planned, StringComparison.Ordinal);
         Assert.Contains("1 gathered entry has no estimate and adds nothing, so this is a floor.", planned, StringComparison.Ordinal);
 
-        var done = Squashed(pane.Find("[data-testid='dashboard-roadmap-done']").TextContent);
-        Assert.Contains("15", done, StringComparison.Ordinal);
-        Assert.Contains("of 31 pts", done, StringComparison.Ordinal);
+        Assert.Contains("16", Squashed(pane.Find("[data-testid='dashboard-tasks-figure-left']").TextContent), StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-roadmap-tiles']"));
 
         var timeline = pane.Find("[data-testid='dashboard-roadmap-timeline']");
         Assert.Empty(pane.FindAll("[data-testid='dashboard-roadmap-table']"));
@@ -3139,8 +3179,8 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The Tasks tab leads with the roadmap — its tiles above its timeline — and lays
-    /// the two weekly task charts side by side under it.
+    /// The Tasks tab leads with its six figures in one row, then the roadmap's timeline,
+    /// and lays the two weekly task charts side by side under it (entry 16).
     /// </summary>
     [Fact]
     public void The_tasks_tab_puts_the_roadmap_first_and_the_two_task_charts_side_by_side_under_it()
@@ -3152,16 +3192,22 @@ public class DashboardPaneTests
         var tab = pane.Find("[data-testid='dashboard-tasks-section']");
 
         var children = tab.Children.ToList();
-        Assert.Equal(2, children.Count);
-        Assert.Equal("dashboard-roadmap", children[0].GetAttribute("data-testid"));
-        Assert.Contains("dashboard-section__split", children[1].ClassList);
+        Assert.Equal(3, children.Count);
+        Assert.Equal("dashboard-tasks-figures", children[0].GetAttribute("data-testid"));
+        Assert.Equal("dashboard-roadmap", children[1].GetAttribute("data-testid"));
+        Assert.Contains("dashboard-section__split", children[2].ClassList);
         Assert.Equal(
             ["dashboard-tasks-completed", "dashboard-tasks-effort"],
-            children[1].Children.Select(part => part.GetAttribute("data-testid")));
+            children[2].Children.Select(part => part.GetAttribute("data-testid")));
 
-        var tiles = children[0].QuerySelector("[data-testid='dashboard-roadmap-tiles']")!;
-        var timeline = children[0].QuerySelector("[data-testid='dashboard-roadmap-timeline']")!;
-        Assert.Same(tiles.NextElementSibling, timeline);
+        Assert.Equal(
+            [
+                "dashboard-tasks-figure-completed", "dashboard-tasks-figure-points", "dashboard-tasks-figure-pace",
+                "dashboard-tasks-figure-items", "dashboard-tasks-figure-planned", "dashboard-tasks-figure-left"
+            ],
+            children[0].QuerySelectorAll("[data-testid='dashboard-tasks-figures-tiles'] > *").Select(tile => tile.GetAttribute("data-testid")));
+
+        var timeline = children[1].QuerySelector("[data-testid='dashboard-roadmap-timeline']")!;
         Assert.NotNull(timeline.QuerySelector(".dashboard-timeline__scroll > .dashboard-timeline__grid"));
     }
 
@@ -3378,14 +3424,6 @@ public class DashboardPaneTests
             return Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable("Not configured."));
         }
 
-        public Task<InsightResult<ProductivityTrend>> GetTrendAsync(
-            DashboardScope scope,
-            CancellationToken cancellationToken = default)
-        {
-            Scopes.Add(scope);
-            return Task.FromResult(InsightResult<ProductivityTrend>.Unavailable("Not configured."));
-        }
-
         public Task<InsightResult<ReworkInsight>> GetReworkAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
@@ -3419,14 +3457,6 @@ public class DashboardPaneTests
         {
             await Task.Yield();
             return InsightResult<ProductivityScoreInsight>.Unavailable("Answered after yielding.");
-        }
-
-        public async Task<InsightResult<ProductivityTrend>> GetTrendAsync(
-            DashboardScope scope,
-            CancellationToken cancellationToken = default)
-        {
-            await Task.Yield();
-            return InsightResult<ProductivityTrend>.Unavailable("Answered after yielding.");
         }
 
         public async Task<InsightResult<ReworkInsight>> GetReworkAsync(
@@ -3503,12 +3533,6 @@ public class DashboardPaneTests
             return Task.FromResult(InsightResult<SpendThisMonthInsight>.Unavailable("Not configured."));
         }
 
-        public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default)
-        {
-            Calls++;
-            return Task.FromResult(InsightResult<SpendTrendInsight>.Unavailable("Not configured."));
-        }
-
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default)
         {
             Calls++;
@@ -3520,6 +3544,9 @@ public class DashboardPaneTests
             Calls++;
             return Task.FromResult(InsightResult<SpendProjectionInsight>.Unavailable("Not configured."));
         }
+
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable("Not used by this test."));
 
         public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default)
         {
@@ -3549,18 +3576,15 @@ public class DashboardPaneTests
                     IsEstimate: true)
             ])));
 
-        public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<SpendTrendInsight>.Ready(new SpendTrendInsight(
-                [new InsightSeries("Claude", [new InsightPoint("Aug 26", 12.34m)])],
-                "USD",
-                SpendBucket.Month)));
-
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByModelInsight>.Ready(new SpendByModelInsight(
                 [new InsightRow("opus", 1_000, new DashboardMoney(12.34m, "USD"), "Claude")])));
 
         public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendProjectionInsight>.Ready(SpendProjectionInsight.Empty));
+
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable("Not used by this test."));
 
         public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByDayInsight>.Ready(new SpendByDayInsight(

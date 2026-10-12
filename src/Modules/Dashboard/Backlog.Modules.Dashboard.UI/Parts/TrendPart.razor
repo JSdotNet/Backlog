@@ -50,6 +50,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Productivity;
+
     /// <summary>The three measures the chart offers, in the order the toggle shows them.</summary>
     private enum Measure
     {
@@ -71,7 +73,7 @@
     /// pressed state itself: the strip is one-of-many, so this part owns the choice
     /// and the button only announces the press.
     /// </summary>
-    private RenderFragment MeasureToggle => @<ButtonGroup AriaLabel="Which measure to chart" TestId="dashboard-trend-measure">
+    private RenderFragment MeasureToggle => @<ButtonGroup Radio="true" AriaLabel="Which measure to chart" TestId="dashboard-trend-measure">
         @foreach (var measure in Measures)
         {
             <ToggleButton Pressed="_measure == measure"

@@ -15,14 +15,22 @@
 *@
 @inherits DashboardPartBase<NeedsYouInsight>
 @inject IAttentionInsights Attention
+@inject IDriftInsights Drift
+@inject IProductivityInsights Productivity
+@inject ICostInsights Costs
 
 <PartFrame Title="Needs you"
            Note="Drift that failed to sync or conflicts, roadmap items behind, providers projected past their budget, and rework above a quarter of what merged. Each item links to the tab that shows it."
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-overview-needs-you">
+    @* The board's subtitle: the list is the exceptions, and everything else on the
+       Overview is fine — said once, above it, rather than left to be inferred. *@
     @if (IsReady)
     {
+        @* Only over items: above "Nothing needs you." it would contradict it, and while
+           loading it would introduce a list that is not there. *@
+        <p class="dashboard-overview-needs__subtitle" data-testid="dashboard-overview-needs-you-subtitle">Everything below is fine. These are not.</p>
         <ul class="dashboard-overview-needs__list" data-testid="dashboard-overview-needs-you-items">
             @foreach (var (item, index) in Value!.Items.Select((item, index) => (item, index)))
             {
@@ -40,7 +48,7 @@
                                        OnClick="() => OnOpenTab.InvokeAsync(item.TabId)"
                                        TestId="@($"dashboard-overview-needs-you-open-{item.Tab.ToString().ToLowerInvariant()}")"
                                        aria-describedby="@titleId">
-                                @($"Open {item.Tab}") <span aria-hidden="true">→</span>
+                                @item.Action <span aria-hidden="true">→</span>
                             </AppButton>
                         }
                     </span>
@@ -61,6 +69,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Drift | DashboardSources.Tasks | DashboardSources.Cost | DashboardSources.Productivity;
+
     /// <summary>Raised with the pane's id of the tab an item links to. With nobody
     /// listening the items draw no link.</summary>
     [Parameter]
@@ -84,10 +94,14 @@
 
     protected override string EmptyMessage => NeedsYouInsight.NothingNeedsYou;
 
-    // Nothing to drop: every insight it reads keeps its own cache, and refreshing one of
-    // those on its tab is what moves this.
+    /// <summary>Drops every cache the list reads through — drift, productivity and cost;
+    /// the roadmap keeps none — so a refresh here re-reads every source it judges, and the
+    /// pane's fan-out moves every other part that shows those figures (entry 19).</summary>
     protected override void InvalidateSource()
     {
+        Drift.Invalidate();
+        Productivity.Invalidate(Scope);
+        Costs.Invalidate();
     }
 
     /// <summary>The sources that could not be read, under the list — so it reads as a

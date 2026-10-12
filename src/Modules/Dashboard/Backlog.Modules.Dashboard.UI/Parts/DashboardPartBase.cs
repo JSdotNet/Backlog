@@ -42,6 +42,17 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
 {
     private CancellationTokenSource? _inFlight;
     private DashboardScope? _fetchedFor;
+    private IDisposable? _joined;
+    private Func<Task>? _reload;
+
+    /// <summary>The pane's refresh fan-out, when there is a pane: a refresh here reaches
+    /// every part that reads the same insight. Null for a part rendered on its own.</summary>
+    [CascadingParameter]
+    public DashboardRefreshes? Refreshes { get; set; }
+
+    /// <summary>The insights this part reads, so the pane's refresh fan-out can tell
+    /// which parts show the same figures. None for a part that shares no read.</summary>
+    protected virtual DashboardSources Sources => DashboardSources.None;
 
     /// <summary>What the dashboard is looking at. Parts that cannot narrow by
     /// repository or by machine still receive it — see <see cref="FollowsRepository"/>
@@ -141,6 +152,16 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
         Period = FollowsWindow ? scope.Period : DashboardScope.Default.Period
     };
 
+    protected override void OnInitialized()
+    {
+        _reload = () => InvokeAsync(LoadAsync);
+
+        if (Refreshes is not null && Sources != DashboardSources.None)
+        {
+            _joined = Refreshes.Join(Sources, _reload);
+        }
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         // Re-fetch when the part of the scope this part cares about actually changed.
@@ -155,12 +176,17 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
         await LoadAsync();
     }
 
-    /// <summary>Fetches again from the provider. What the part's refresh control does.</summary>
+    /// <summary>Fetches again from the provider. What the part's refresh control does —
+    /// and, through the pane, every other part that reads the same insight reads again
+    /// from the fresh read, so a refresh moves every figure it could have changed.</summary>
     protected async Task RefreshAsync()
     {
         InvalidateSource();
 
+        var others = Refreshes?.AnnounceAsync(Sources, _reload!) ?? Task.CompletedTask;
+
         await LoadAsync();
+        await others;
     }
 
     private async Task LoadAsync()
@@ -233,6 +259,9 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     protected virtual void Dispose(bool disposing)
     {
         if (!disposing) return;
+
+        _joined?.Dispose();
+        _joined = null;
 
         _inFlight?.Cancel();
         _inFlight?.Dispose();

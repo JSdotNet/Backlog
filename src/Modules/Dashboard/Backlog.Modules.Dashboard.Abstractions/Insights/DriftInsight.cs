@@ -47,7 +47,26 @@ public sealed record DriftDirection(string? Direction, IReadOnlyList<DriftUnit> 
 /// <param name="Title">The title the sweep gave it: <c>[Devbook drift] &lt;unit or chapter&gt;</c>.</param>
 /// <param name="Url">Where it opens.</param>
 /// <param name="SyncFailed">Whether it carries <c>sync-failed</c>.</param>
-public sealed record DriftIssue(string RepositoryAlias, int Number, string Title, string Url, bool SyncFailed);
+public sealed record DriftIssue(string RepositoryAlias, int Number, string Title, string Url, bool SyncFailed)
+{
+    /// <summary>How the sweep titles a drift issue, before the unit or chapter it is
+    /// about.</summary>
+    public const string TitlePrefix = "[Devbook drift]";
+
+    /// <summary>The unit or chapter the title names, as the title spells it — the title
+    /// without <see cref="TitlePrefix"/>. The one place the prefix is taken off.</summary>
+    public string Subject
+    {
+        get
+        {
+            var trimmed = Title.Trim();
+
+            return trimmed.StartsWith(TitlePrefix, StringComparison.OrdinalIgnoreCase)
+                ? trimmed[TitlePrefix.Length..].Trim()
+                : trimmed;
+        }
+    }
+}
 
 /// <summary>
 /// The devbook's drift at a glance: every unit a sweep has spoken about, by the

@@ -5,9 +5,13 @@
     figures about how the pull requests went: how long a first review took, how many
     came back after one, and how many commits each carried.
 
-    The Productivity tab's headline, from the same cached read; that tab holds the rest.
+    The Productivity tab's headline and rework, from the same cached read; that tab holds
+    the rest. "Came back after review" is a count of a count — the reviewed pull requests
+    that churned, of those reviewed — the rework rate's own two numbers, so it reads as
+    the Productivity tab and Needs you read it. The latest week's bars are drawn picked,
+    the week the reader most often asks about.
 *@
-@inherits DashboardPartBase<ProductivityHeadline>
+@inherits DashboardPartBase<OverviewThroughputPart.Reading>
 @inject IProductivityInsights Insights
 
 <PartFrame Title="Throughput"
@@ -19,6 +23,7 @@
     {
         <div class="dashboard-part__stack">
             <MetricStackedBars Series="@Series"
+                               SelectedBucket="@LatestWeek"
                                Mode="MetricBarsMode.Grouped"
                                Label="Pull requests merged and issues closed per week"
                                NameHeading="Measure"
@@ -28,15 +33,15 @@
             <dl class="dashboard-overview-figures" data-testid="dashboard-overview-throughput-figures">
                 <div class="dashboard-overview-figures__item">
                     <dt>First review in</dt>
-                    <dd>@DashboardFormat.Duration(Value!.MedianReviewTurnaround) <span class="dashboard-overview-figures__note">median</span></dd>
+                    <dd>@DashboardFormat.Duration(Value!.Headline.MedianReviewTurnaround) <span class="dashboard-overview-figures__note">median</span></dd>
                 </div>
                 <div class="dashboard-overview-figures__item">
                     <dt>Came back after review</dt>
-                    <dd>@MetricFormat.Percent(Value!.ReworkRate)</dd>
+                    <dd data-testid="dashboard-overview-throughput-came-back">@CameBack</dd>
                 </div>
                 <div class="dashboard-overview-figures__item">
                     <dt>Commits per pull request</dt>
-                    <dd>@(Value!.MedianCommitsPerPullRequest is { } median ? MetricFormat.Compact(median) : "—") <span class="dashboard-overview-figures__note">median</span></dd>
+                    <dd>@(Value!.Headline.MedianCommitsPerPullRequest is { } median ? MetricFormat.Compact(median) : "—") <span class="dashboard-overview-figures__note">median</span></dd>
                 </div>
             </dl>
         </div>
@@ -48,23 +53,43 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Productivity;
+
     /// <summary>Whose work, over how long, and, when the window was not read whole,
     /// that every figure is a floor, in the Productivity tab's words.</summary>
     private string Note =>
         $"Your own work, over {Scope.Weeks} weeks. The Productivity tab holds the volume chart, the scores and rework."
-        + (IsReady && !Value!.Complete ? " Some of this window could not be read, so every figure here is a floor." : null);
+        + (IsReady && !Value!.Headline.Complete ? " Some of this window could not be read, so every figure here is a floor." : null);
+
+    /// <summary>What the part reads: the headline, and the rework when it answered.</summary>
+    public sealed record Reading(ProductivityHeadline Headline, ReworkInsight? Rework);
 
     private IReadOnlyList<MetricSeries> Series =>
     [
-        new("Pull requests merged", [.. Value!.PullRequestsPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]),
-        new("Issues closed", [.. Value!.IssuesPerWeek.Select(point => new MetricPoint(point.Label, point.Value))])
+        new("Pull requests merged", [.. Value!.Headline.PullRequestsPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]),
+        new("Issues closed", [.. Value!.Headline.IssuesPerWeek.Select(point => new MetricPoint(point.Label, point.Value))])
     ];
 
-    protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
-        Insights.GetHeadlineAsync(Scope, cancellationToken);
+    private string? LatestWeek => Value!.Headline.PullRequestsPerWeek.Count > 0 ? Value!.Headline.PullRequestsPerWeek[^1].Label : null;
 
-    protected override bool IsEmpty(ProductivityHeadline value) =>
-        value.PullRequestsMerged == 0 && value.IssuesClosed == 0;
+    /// <summary>"4 of 23": churned of reviewed. An em dash when the rework could not be
+    /// read or nothing was reviewed — a share of nothing is not a figure.</summary>
+    private string CameBack => Value!.Rework is { PullRequestsReviewed: > 0 } rework
+        ? $"{MetricFormat.Compact(rework.PullRequestsWithChurn)} of {MetricFormat.Compact(rework.PullRequestsReviewed)}"
+        : "—";
+
+    protected override async Task<InsightResult<Reading>> FetchAsync(CancellationToken cancellationToken)
+    {
+        var headline = await Insights.GetHeadlineAsync(Scope, cancellationToken);
+        if (!headline.HasValue) return InsightResult<Reading>.Unavailable(headline.Availability.Reason);
+
+        var rework = await Insights.GetReworkAsync(Scope, cancellationToken);
+
+        return InsightResult<Reading>.Ready(new Reading(headline.Value!, rework.HasValue ? rework.Value : null));
+    }
+
+    protected override bool IsEmpty(Reading value) =>
+        value.Headline.PullRequestsMerged == 0 && value.Headline.IssuesClosed == 0;
 
     protected override string EmptyMessage => "Nothing merged and nothing closed in this window.";
 

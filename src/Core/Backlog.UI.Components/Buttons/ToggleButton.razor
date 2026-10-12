@@ -8,20 +8,56 @@
     class alone could not express that.
 *@
 
-<button type="button"
-        class="@ClassValue"
-        data-testid="@TestId"
-        aria-pressed="@(Pressed ? "true" : "false")"
-        disabled="@Disabled"
-        title="@Title"
-        aria-label="@AriaLabel"
-        @onclick="TogglePressed"
-        @onclick:stopPropagation="StopPropagation"
-        @attributes="AdditionalAttributes">
-    @ChildContent
-</button>
+@if (InRadioGroup)
+{
+    @* Inside a radio-mode ButtonGroup the button is one option of a choice:
+       `aria-checked` replaces `aria-pressed`, and the roving tabindex keeps the
+       whole group one stop. The pressed class still mirrors the state, so a
+       host's styling does not change with the mode. *@
+    <button type="button"
+            class="@ClassValue"
+            data-testid="@TestId"
+            role="radio"
+            aria-checked="@(Pressed ? "true" : "false")"
+            tabindex="@(Group!.IsTabStop(this) ? 0 : -1)"
+            disabled="@Disabled"
+            title="@Title"
+            aria-label="@AriaLabel"
+            @ref="_element"
+            @onclick="TogglePressed"
+            @onclick:stopPropagation="StopPropagation"
+            @onkeydown="OnKeyDownAsync"
+            @attributes="AdditionalAttributes">
+        @ChildContent
+    </button>
+}
+else
+{
+    <button type="button"
+            class="@ClassValue"
+            data-testid="@TestId"
+            aria-pressed="@(Pressed ? "true" : "false")"
+            disabled="@Disabled"
+            title="@Title"
+            aria-label="@AriaLabel"
+            @onclick="TogglePressed"
+            @onclick:stopPropagation="StopPropagation"
+            @attributes="AdditionalAttributes">
+        @ChildContent
+    </button>
+}
+
+@implements IDisposable
 
 @code {
+    private ElementReference _element;
+    private bool _focusPending;
+
+    /// <summary>The group around this button, when there is one. Only a group in
+    /// <see cref="ButtonGroup.Radio"/> mode changes anything here.</summary>
+    [CascadingParameter]
+    public ButtonGroup? Group { get; set; }
+
     [Parameter]
     public bool Pressed { get; set; }
 
@@ -82,14 +118,69 @@
         }
     }
 
+    private bool InRadioGroup => Group is { Radio: true };
+
+    protected override void OnInitialized()
+    {
+        if (InRadioGroup) Group!.Register(this);
+    }
+
+    public void Dispose() => Group?.Unregister(this);
+
     private async Task TogglePressed(MouseEventArgs args)
     {
         // The new state is announced rather than kept: a host driving a
         // one-of-many strip sets Pressed from its own selection on the next
         // render, and pressing the pressed one there must not unpress it.
-        var pressed = !Pressed;
+        // A radio is never unchecked by pressing it, so it announces true.
+        var pressed = InRadioGroup || !Pressed;
         Pressed = pressed;
         await PressedChanged.InvokeAsync(pressed);
         await OnClick.InvokeAsync(args);
+    }
+
+    /// <summary>
+    /// Selection follows focus, as in Tabs: the arrow lands on the next radio and
+    /// chooses it, so a keyboard reader changes the choice with one key where a
+    /// pointer reader uses one click. The page would otherwise scroll on the same
+    /// keys; components.js refuses that default on a radio, because a
+    /// state-bound <c>@onkeydown:preventDefault</c> applies to the key after.
+    /// </summary>
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        var target = Group?.Step(this, args.Key);
+        if (target is null) return;
+
+        await target.SelectFromKeyboardAsync();
+    }
+
+    private async Task SelectFromKeyboardAsync()
+    {
+        _focusPending = true;
+        await TogglePressed(new MouseEventArgs());
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Moving the roving tabindex is not moving focus. Without this the ring would
+    /// stay on the radio the reader left, now at <c>tabindex="-1"</c>, and the next
+    /// arrow would be computed from it.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPending) return;
+
+        _focusPending = false;
+
+        try
+        {
+            await _element.FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 }

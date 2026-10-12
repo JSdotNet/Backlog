@@ -1229,12 +1229,15 @@ public class SessionInsightsTests
     public async Task The_previous_agent_active_time_follows_the_machine_filter()
     {
         var earlier = (new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero));
+        var covering = (new DateTimeOffset(2026, 6, 20, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 20, 11, 0, 0, TimeSpan.Zero));
 
         var insights = Insights(
             new StubAssistantSessionSource(),
             Activity(
                 Ran("tower", Tower, "Claude", earlier),
-                Ran("laptop", Laptop, "Claude", earlier)));
+                Ran("laptop", Laptop, "Claude", earlier),
+                Ran("tower-before", Tower, "Claude", covering),
+                Ran("laptop-before", Laptop, "Claude", covering)));
 
         var all = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
         var tower = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks, MachineId: Tower));
@@ -1244,23 +1247,104 @@ public class SessionInsightsTests
     }
 
     /// <summary>
-    /// Twelve weeks' previous twelve lie wholly before the horizon the sources were read
-    /// to, so there is no figure — not a zero, which would read as an agent that never
+    /// Twenty-six weeks' previous twenty-six lie wholly before the horizon the sources were
+    /// read to, so there is no figure — not a zero, which would read as an agent that never
     /// worked, and not a second read, which would parse every transcript again for one
-    /// comparison.
+    /// comparison (AC2).
     /// </summary>
     [Fact]
-    public async Task Twelve_weeks_has_no_previous_agent_active_time_because_it_was_never_read()
+    public async Task Twenty_six_weeks_has_no_previous_agent_active_time_because_it_was_never_read()
     {
-        var older = (Now.AddDays(-100), Now.AddDays(-100).AddHours(1));
+        var older = (Now.AddDays(-200), Now.AddDays(-200).AddHours(1));
         var activity = Activity(Ran("old", Tower, "Claude", older));
 
-        var twelve = await ValueOf(
+        var half = await ValueOf(
             Insights(new StubAssistantSessionSource(), activity),
+            new DashboardScope(Period: DashboardPeriod.TwentySixWeeks));
+
+        Assert.Null(half.PreviousActiveTime);
+        Assert.Equal(1, activity.Calls);
+    }
+
+    /// <summary>
+    /// With session history at twenty-six weeks, twelve weeks' previous twelve are inside
+    /// the reading, so the delta is drawn once the records reach back past them: an hour a
+    /// hundred days back is in the twelve weeks before the window, a record 175 days back
+    /// shows the history covers all of them, and nothing is in the window itself.
+    /// </summary>
+    [Fact]
+    public async Task Twelve_weeks_is_compared_with_the_twelve_before_it()
+    {
+        var older = (Now.AddDays(-100), Now.AddDays(-100).AddHours(1));
+        var oldest = (Now.AddDays(-175), Now.AddDays(-175).AddMinutes(30));
+
+        var twelve = await ValueOf(
+            Insights(
+                new StubAssistantSessionSource(),
+                Activity(Ran("old", Tower, "Claude", older), Ran("oldest", Tower, "Claude", oldest))),
+            new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Equal(TimeSpan.FromHours(1), twelve.PreviousActiveTime);
+    }
+
+    /// <summary>
+    /// The verify finding: records that begin a few weeks into the previous window. The
+    /// reading reaches back twenty-six weeks, but what it found starts well after the
+    /// previous twelve open, so those weeks hold a few minutes of history rather than
+    /// twelve weeks of work — and a delta against them read "up 65251.4%". The records do
+    /// not cover the window, so there is no figure (AC2).
+    /// </summary>
+    [Fact]
+    public async Task Twelve_weeks_has_no_previous_when_the_records_begin_inside_the_twelve_before()
+    {
+        var firstMinutes = (Now.AddDays(-100), Now.AddDays(-100).AddMinutes(4));
+        var window = (Now.AddDays(-3), Now.AddDays(-3).AddHours(40));
+
+        var twelve = await ValueOf(
+            Insights(
+                new StubAssistantSessionSource(),
+                Activity(Ran("first", Tower, "Claude", firstMinutes), Ran("recent", Tower, "Claude", window))),
             new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
 
         Assert.Null(twelve.PreviousActiveTime);
-        Assert.Equal(1, activity.Calls);
+    }
+
+    /// <summary>Coverage follows the machine filter: one machine's records starting late
+    /// leave that machine's previous window uncovered, even when another machine's
+    /// history reaches back past it.</summary>
+    [Fact]
+    public async Task A_machine_whose_records_begin_inside_the_previous_window_has_no_previous()
+    {
+        var earlier = (new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero));
+        var covering = (new DateTimeOffset(2026, 6, 20, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 20, 11, 0, 0, TimeSpan.Zero));
+
+        var insights = Insights(
+            new StubAssistantSessionSource(),
+            Activity(
+                Ran("tower", Tower, "Claude", earlier),
+                Ran("tower-before", Tower, "Claude", covering),
+                Ran("laptop", Laptop, "Claude", earlier)));
+
+        var tower = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks, MachineId: Tower));
+        var laptop = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks, MachineId: Laptop));
+
+        Assert.Equal(TimeSpan.FromHours(2), tower.PreviousActiveTime);
+        Assert.Null(laptop.PreviousActiveTime);
+    }
+
+    [Fact]
+    public async Task Eight_weeks_is_compared_with_the_eight_before_it()
+    {
+        var older = (Now.AddDays(-80), Now.AddDays(-80).AddHours(2));
+        var oldest = (Now.AddDays(-120), Now.AddDays(-120).AddMinutes(30));
+
+        var eight = await ValueOf(
+            Insights(
+                new StubAssistantSessionSource(),
+                Activity(Ran("old", Tower, "Claude", older), Ran("oldest", Tower, "Claude", oldest))),
+            new DashboardScope(Period: DashboardPeriod.EightWeeks));
+
+        Assert.Equal(TimeSpan.FromHours(2), eight.PreviousActiveTime);
     }
 
     /// <summary>
@@ -1294,7 +1378,7 @@ public class SessionInsightsTests
 
         _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks), TestContext.Current.CancellationToken);
 
-        Assert.Equal(Now.AddDays(-7 * 12), Assert.Single(activity.Horizons));
+        Assert.Equal(Now.AddDays(-7 * 26), Assert.Single(activity.Horizons));
     }
 
     /// <summary>
@@ -2406,9 +2490,11 @@ public class SessionInsightsTests
         Assert.Equal(WeekSource.Detected, value.Week.Source);
         Assert.Equal("Monday 21:00", value.Week.ResetAt);
 
-        // Now is Wednesday 19 August 09:00: the week began Monday 17 August 21:00.
+        // Now is Wednesday 19 August 09:00: the week began Monday 17 August 21:00. The
+        // grid is the calendar week that usage week begins in, and names it.
         Assert.Equal("17 Aug", value.ActiveTimePerWeek[^1].Label);
-        Assert.Equal(new DateTimeOffset(2026, 8, 17, 21, 0, 0, TimeSpan.Zero), value.Grids[^1].StartsAt);
+        Assert.Equal(new DateTimeOffset(2026, 8, 17, 0, 0, 0, TimeSpan.Zero), value.Grids[^1].StartsAt);
+        Assert.Equal("17 Aug", value.Grids[^1].UsageWeek);
     }
 
     /// <summary>A configured reset outranks a detected one: the records on a machine may
@@ -2427,20 +2513,21 @@ public class SessionInsightsTests
         var value = await ValueOf(insights, DashboardScope.Default);
 
         Assert.Equal(WeekSource.Configured, value.Week.Source);
-        Assert.Equal(new DateTimeOffset(2026, 8, 17, 14, 0, 0, TimeSpan.Zero), value.Grids[^1].StartsAt);
+        Assert.Equal("17 Aug", value.ActiveTimePerWeek[^1].Label);
+        Assert.Equal("17 Aug", value.Grids[^1].UsageWeek);
     }
 
     /// <summary>
-    /// A grid row is a calendar day, cut at the reset: with the reset at Monday 14:00
-    /// the first row is Monday from 14:00 and the last is the next Monday up to 13:00 —
-    /// eight rows, 168 hours between them, and the hours outside the week simply not
-    /// there. One grid per column, on the same keys, so a column a reader picks names a
-    /// grid.
+    /// A grid is a calendar week, Monday to Sunday, whatever the usage reset is: the grid
+    /// is titled "week N" (AC21), and a week N of eight rows - the reset day twice, its
+    /// first hours blank because they were the previous usage week's - read as a defect
+    /// in verify. Seven full rows, 168 hours; each grid names the usage week that begins
+    /// in it, so a column a reader picks still names a grid.
     /// </summary>
     [Fact]
-    public async Task A_grid_is_calendar_days_cut_at_the_reset_hour()
+    public async Task A_grid_is_a_calendar_week_and_names_the_usage_week_beginning_in_it()
     {
-        // Tuesday 18 August 02:00–03:00 UTC: on Tuesday's row, inside the week.
+        // Tuesday 18 August 02:00-03:00 UTC: on Tuesday's row, inside the week.
         var ran = (new DateTimeOffset(2026, 8, 18, 2, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 18, 3, 0, 0, TimeSpan.Zero));
 
         var insights = Insights(
@@ -2452,15 +2539,18 @@ public class SessionInsightsTests
 
         var grid = value.Grids[^1];
 
-        Assert.Equal(value.ActiveTimePerWeek.Count, value.Grids.Count);
-        Assert.Equal(value.ActiveTimePerWeek.Select(point => point.Label), value.Grids.Select(one => one.Label));
+        // Every usage week's column names exactly one grid.
+        Assert.All(
+            value.ActiveTimePerWeek,
+            point => Assert.Single(value.Grids, one => one.UsageWeek == point.Label));
         Assert.Equal(168, grid.Hours.Count);
 
-        // Eight calendar rows: Monday 17 from 14:00 to Monday 24 up to 13:00.
-        Assert.Equal(8, grid.Days.Count);
-        Assert.Equal(Enumerable.Range(14, 10), grid.Hours.Where(hour => hour.Day == new DateOnly(2026, 8, 17)).Select(hour => hour.Hour));
-        Assert.Equal(Enumerable.Range(0, 14), grid.Hours.Where(hour => hour.Day == new DateOnly(2026, 8, 24)).Select(hour => hour.Hour));
-        Assert.Equal(24, grid.Hours.Count(hour => hour.Day == new DateOnly(2026, 8, 18)));
+        // Seven calendar rows, Monday 17 to Sunday 23, each of twenty-four hours.
+        Assert.Equal(7, grid.Days.Count);
+        Assert.Equal(new DateOnly(2026, 8, 17), grid.Days[0].Day);
+        Assert.Equal(new DateOnly(2026, 8, 23), grid.Days[^1].Day);
+        Assert.All(grid.Days, day => Assert.Equal(24, grid.Hours.Count(hour => hour.Day == day.Day)));
+        Assert.Equal("17 Aug", grid.UsageWeek);
 
         // The run at 02:00 Tuesday is on Tuesday's row, and Tuesday's row counts it.
         var worked = Assert.Single(grid.Hours, hour => hour.Active > TimeSpan.Zero);
@@ -2487,6 +2577,30 @@ public class SessionInsightsTests
         Assert.Equal(7, grid.Days.Count);
         Assert.Equal(new DateOnly(2026, 8, 17), grid.Days[0].Day);
         Assert.All(grid.Days, day => Assert.Equal(24, grid.Hours.Count(hour => hour.Day == day.Day)));
+    }
+
+    /// <summary>
+    /// The verify finding: the usage week resets Monday 21:00, and the reader looks after
+    /// it. Monday's work before the reset was the previous usage week's, so it sat on the
+    /// previous grid and today's row on the latest grid read "not reported". The latest
+    /// grid is the calendar week holding today, so today's hours are on it, as worked.
+    /// </summary>
+    [Fact]
+    public async Task Work_before_the_reset_on_the_reset_day_is_on_the_latest_grid()
+    {
+        // Monday 17 August 10:00-11:00 UTC, before the 21:00 reset; Now is Wednesday.
+        var monday = (new DateTimeOffset(2026, 8, 17, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 17, 11, 0, 0, TimeSpan.Zero));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", monday.Item1, monday.Item2, "one")) },
+            Activity(Ran("one", Tower, "Claude", monday)),
+            reset: new FixedUsageReset(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(21, 0))));
+
+        var grid = (await ValueOf(insights, DashboardScope.Default)).Grids[^1];
+
+        var worked = Assert.Single(grid.Hours, hour => hour.Active > TimeSpan.Zero);
+        Assert.Equal((new DateOnly(2026, 8, 17), 10), (worked.Day, worked.Hour));
+        Assert.Equal(7, grid.Days.Count);
     }
 
     /// <summary>A five-hour refusal is marked on the cell it happened in, on the row it
@@ -2581,6 +2695,44 @@ public class SessionInsightsTests
         Assert.Equal(4, twelve.LimitHits.Total);
     }
 
+    /// <summary>
+    /// Entry 21's limit hits: 52 over twelve weeks and none over four. Every refusal this
+    /// machine's transcripts hold falls in ISO weeks 34 to 36 — five to eight weeks before
+    /// the reading — so four weeks is right to show none. The fixture is that shape: three
+    /// refusals six weeks back, two seven weeks back, one at the four-week window's very
+    /// opening (in) and one just before it (out of four, in twelve), and one a hand count
+    /// puts outside twelve weeks.
+    /// </summary>
+    [Fact]
+    public async Task Refusals_are_counted_over_the_half_open_window_and_agree_with_a_hand_count()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+        var fourWeeksOpens = new DateTimeOffset(Now.Date, Now.Offset).AddDays(-28);
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddDays(-42), Now.AddDays(-42).AddHours(3)),
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddDays(-43), Now.AddDays(-43).AddHours(3)),
+                    Refused("one", AssistantLimitKind.SevenDay, Now.AddDays(-44), Now.AddDays(-40)),
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddDays(-49), Now.AddDays(-49).AddHours(3)),
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddDays(-50), Now.AddDays(-50).AddHours(3)),
+                    Refused("one", AssistantLimitKind.FiveHour, fourWeeksOpens, fourWeeksOpens.AddHours(3)),
+                    Refused("one", AssistantLimitKind.FiveHour, fourWeeksOpens.AddTicks(-1), fourWeeksOpens.AddHours(3)),
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddDays(-90), Now.AddDays(-90).AddHours(3))
+                ]));
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+        var half = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwentySixWeeks));
+
+        Assert.Equal((1, 0), (four.LimitHits.FiveHour, four.LimitHits.Weekly));
+        Assert.Equal((6, 1), (twelve.LimitHits.FiveHour, twelve.LimitHits.Weekly));
+        Assert.Equal(8, half.LimitHits.Total);
+    }
+
     /// <summary>The refusals follow the machine filter, the way every grid does.</summary>
     [Fact]
     public async Task A_refusal_on_another_machine_is_not_marked_when_one_machine_is_focused()
@@ -2671,6 +2823,63 @@ public class SessionInsightsTests
                 Assert.Equal(1_500m, opus.PerWeek.Sum(point => point.Value));
             },
             haiku => Assert.Equal(("haiku", 200m), (haiku.Name, haiku.Total)));
+    }
+
+    /// <summary>
+    /// Agent-active hours cut by model (AC20): each session's producing time goes to the
+    /// model that wrote most of its output, a session that recorded no usage goes to an
+    /// explicit band, and the bands add up to the active-time columns week by week.
+    /// </summary>
+    [Fact]
+    public async Task Agent_active_hours_are_cut_by_the_model_that_wrote_most_of_each_session()
+    {
+        var mostlyOpus = (Now.AddHours(-5), Now.AddHours(-3));
+        var haikuOnly = (Now.AddDays(-8), Now.AddDays(-8).AddHours(1));
+        var unrecorded = (Now.AddHours(-2), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", mostlyOpus.Item1, mostlyOpus.Item2, "one") with
+                    {
+                        ModelUsage = [Usage("haiku", output: 100), Usage("opus", output: 900)]
+                    },
+                    Session(Tower, "Claude", haikuOnly.Item1, haikuOnly.Item2, "two") with { ModelUsage = [Usage("haiku", output: 50)] },
+                    Session(Tower, "Copilot", unrecorded.Item1, unrecorded.Item2, "three"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", mostlyOpus),
+                Ran("two", Tower, "Claude", haikuOnly),
+                Ran("three", Tower, "Copilot", unrecorded)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(
+            [("opus", 2m), ("haiku", 1m), (AssistantSessionsInsight.ModelUnrecordedName, 1m)],
+            value.ActiveTimeByModel.Select(band => (band.Name, band.Total)));
+
+        for (var week = 0; week < value.ActiveTimePerWeek.Count; week++)
+        {
+            Assert.Equal(
+                value.ActiveTimePerWeek[week].Value,
+                value.ActiveTimeByModel.Sum(band => band.PerWeek[week].Value));
+        }
+    }
+
+    /// <summary>A producing stretch whose session record is not in the reading — another
+    /// machine's, not yet replicated — has no model either, and is still counted.</summary>
+    [Fact]
+    public async Task Activity_with_no_session_record_goes_to_the_unrecorded_band()
+    {
+        var ran = (Now.AddHours(-4), Now.AddHours(-1));
+
+        var value = await ValueOf(
+            Insights(new StubAssistantSessionSource(), Activity(Ran("orphan", Tower, "Claude", ran))),
+            DashboardScope.Default);
+
+        var band = Assert.Single(value.ActiveTimeByModel);
+        Assert.Equal((AssistantSessionsInsight.ModelUnrecordedName, 3m), (band.Name, band.Total));
     }
 
     [Fact]
