@@ -153,9 +153,30 @@ header. The Machine select and the Window toggle sit in the pane header, because
 the dashboard reads them. The Devbook tab says that the window and the machine do not
 apply to it.
 
-Each headline figure carries a delta against the previous window of the same length.
-A figure over a window of N weeks is compared with the N weeks just before it, so the
-person sees which way it moved without choosing a second period.
+A headline figure carries a delta against the previous window of the same length. A
+figure over a window of N weeks is compared with the N weeks just before it, so the
+person sees which way it moved without choosing a second period. Pull requests merged
+and story points done show the difference as a count. Agent-active time shows it as a
+share of the earlier figure.
+
+Story points are counted in whole weeks. The earlier window therefore ends on the day
+before the first week shown, and it is as long as the current one, so no day is counted
+twice.
+
+Spend this month is a calendar month, so it is compared with the same days of last
+month. When last month was shorter, the comparison runs to its last day. Only Claude and
+Azure report spend by day, so only they carry this delta. Copilot reports a whole month
+at once, and its tile shows no delta.
+
+A delta is left out when there is no honest earlier figure to compare with:
+
+- Devbook drift issues open has no delta. The issue source reads only the issues open
+  now, so it cannot say how many were open when the window began.
+- Agent-active time has no delta over twelve weeks. Session history goes back
+  84 days, which covers only the current twelve weeks.
+- Pull requests merged has no delta while either window's count is incomplete. An
+  incomplete count is only a floor, so a delta built on it would show a change that may
+  not have happened.
 
 ### What needs you
 
@@ -231,16 +252,24 @@ after today. A provider is projected past its budget only when it has a budget a
 the projection is above it.
 
 The Cost tab holds one card per provider. A card shows the spend so far out of the
-budget, with a marker where the projected month-end spend falls. Below the cards, a
-chart draws spend over time, either cumulative or per day. It draws the budget line,
-and it draws the projected days to the end of the month faded, so a projection never
-reads as spend that happened. The tab ends with spend by model: each model's share,
-its input and output tokens, and its spend.
+budget, with a marker where the projected month-end spend falls, and a chip that says
+"Will pass budget" or "Within budget". For a provider that reports what its plan
+already covered, the card says what was charged against what was consumed. A provider
+with no budget shows its spend and its projection, without a meter or a chip.
 
-Each provider's spend stays on its own and is never summed into one total. The
-figures differ in kind, because one provider calls its figure an estimate and another
-reports what it charged, and they may be in different currencies. No provider reports
-spend per repository, so the repository chips do not narrow spend.
+Below the cards, a chart draws spend over time for every day of the month, either
+cumulative or per day. A day after today is projected at the providers' average daily
+spend, and drawn faded, so a projection never reads as spend that happened. The
+cumulative view draws the budget line, which is the sum of the providers' budgets.
+The tab ends with spend by model: each model's share, its input and output tokens,
+and its spend. A provider that reports no tokens shows a dash in the token columns.
+
+Each card keeps its provider's spend on its own. The figures differ in kind, because
+one provider calls its figure an estimate and another reports what it charged, and
+they may be in different currencies. The chart is the one place the providers are
+added up, because the budget line it draws is a sum. When the providers report in
+different currencies, the chart says it cannot add them and draws nothing. No
+provider reports spend per repository, so the repository chips do not narrow spend.
 
 ### The weekly brief
 
@@ -281,6 +310,29 @@ wall for the reason the assistant gave ("org spend cap reached"), or nothing sai
 And a Claude session now sits in the band of the registered clone its folder lies in,
 rather than in "No repository recorded" with every other Claude session.
 
+### The longest sessions
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
+```
+
+The Sessions tab opens on its six figures as one joined row: sessions, agent-active
+time, waiting for a prompt, prompts per session, limit hits and last activity. Under
+them the weekly chart with its cut toggle and the hour grid with office hours marked
+sit in a wide column, and the **longest sessions** sit beside them. Hours worked
+follows below.
+
+The list holds the six sessions in which an agent produced longest inside the window,
+longest first. Each row names the session as the Sessions pane does, its agent-active
+time, its repository, the model it spent most on and how many prompts the person sent,
+with a bar against the longest. A part the session did not record is left out of its
+row rather than shown as a placeholder. The time is the same measure the agent-active
+figure sums, so the first row never exceeds it, and the list follows the window and
+the machine like the figures do. A session that left no activity to measure is not
+listed. A link under the list opens the Sessions pane.
+
 ### Hours worked
 
 ```meta
@@ -317,17 +369,23 @@ related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .d
 ```
 
 Show how far each repository's devbook has drifted from its code, without opening a
-chapter. This part is the Devbook tab. It lists every sync unit a devbook sweep has
-verified, grouped by the direction the unit goes — push, pull, sync, report, or off —
-each with the last verdict the sweep reached on it, what the sweep did about it, and
-when. The units that need a look come first, and the aligned units are folded away.
-A verdict leads to the pull request or drift issue the sweep opened. Below the units it lists the `devbook-drift` issues still open, those
-labelled `sync-failed` first: a sweep tried that unit, did not finish, and will not
-try again until a person clears the label. A unit whose drift issue carries the
-label is marked in its row too.
+chapter. This part is the Devbook tab. A stacked bar sums up the last verdict a sweep
+reached on every unit it has verified — aligned, code-ahead, spec-ahead, conflict, and
+unresolved — with a legend that gives the count of each. Under it, the units that need a
+look are listed with their direction, their last verdict, what the sweep did about it,
+and when. The aligned units are folded away behind a "Show all" link that names how
+many units there are.
 
-The direction is the one the sweep read when it verified the unit, so a group is
-also the sweep that owns its units. A unit no sweep has verified is not listed.
+A direction filter narrows the list to All, Code → chapter, or Chapter → code. Code →
+chapter is the pull direction, and Chapter → code is the push direction. A unit a sync,
+report, or off sweep owns shows under All only. A verdict leads to the pull request or
+drift issue the sweep opened. Beside the units, a side list holds the `devbook-drift`
+issues still open, those labelled `sync-failed` first and marked with the label's badge:
+a sweep tried that unit, did not finish, and will not try again until a person clears
+the label. A unit whose drift issue carries the label is marked in its row too.
+
+The direction is the one the sweep read when it verified the unit, so the filter also
+picks the sweep that owns the units. A unit no sweep has verified is not listed.
 The repository chips narrow the tab. The window and the machine do not, because a
 verdict is the latest a sweep left and an issue is open now, and the tab says so.
 The verdicts are this machine's and the issues are GitHub's, and either shows without the other: issues

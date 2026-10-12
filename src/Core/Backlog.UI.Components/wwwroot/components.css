@@ -10485,6 +10485,7 @@ select.field__input {
 }
 
 .metric-bars__columns {
+    position: relative;
     display: flex;
     flex: 1;
     align-items: stretch;
@@ -10519,6 +10520,38 @@ select.field__input {
 
 .metric-bars__column--current .metric-bars__column-fill {
     background: var(--chart-ramp-4);
+}
+
+/* A projected column is the same rectangle at low weight: drawn, so the month
+   reads to its end, and faded, so it never reads as spend that happened. The
+   table under the chart says "(projected)" in words. */
+.metric-bars__column--projected .metric-bars__column-fill {
+    background: color-mix(in srgb, var(--chart-ramp-3) 35%, transparent);
+}
+
+/* The reference line sits over the columns, its bottom measured from the
+   baseline: the columns block is the track plus the label row under it, so the
+   baseline is the block's height less the track's. The columns block is its
+   containing block, which is why .metric-bars__columns is positioned. */
+.metric-bars__reference {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% - var(--metric-bars-height, 9rem) + var(--metric-bars-height, 9rem) * var(--metric-bars-reference, 0));
+    left: 0;
+    z-index: 1;
+    border-top: var(--border-width-2) dashed var(--chart-ink-muted);
+    pointer-events: none;
+}
+
+.metric-bars__reference-label {
+    position: absolute;
+    right: 0;
+    bottom: var(--spacing-2xs);
+    padding: 0 var(--spacing-2xs);
+    background: var(--chart-surface);
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
 }
 
 .metric-bars__column-label {
@@ -11253,6 +11286,22 @@ select.field__input {
     background: var(--chart-surface);
 }
 
+/* Where the reading is heading. Ink rather than surface, and wider than the
+   threshold tick, because it is a reading of its own rather than a line on the
+   scale; held inside the track at its far end so the clip never hides it. */
+.metric-meter__marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--border-width-2);
+    margin-left: calc(var(--border-width-2) / -2);
+    background: var(--chart-ink);
+}
+
+.metric-meter__marker[style*="left: 100%"] {
+    margin-left: calc(var(--border-width-2) * -1);
+}
+
 .metric-meter__caption {
     margin: 0;
     color: var(--chart-ink-muted);
@@ -11340,6 +11389,17 @@ select.field__input {
     gap: var(--spacing-2xs);
     justify-items: end;
     min-width: 4.5rem;
+}
+
+/* Share beside the name: the bar is the point of the column there, so it takes
+   the cell's width and the percentage sits under its start rather than its end. */
+.metric-breakdown__share-cell {
+    width: 30%;
+}
+
+.metric-breakdown__share-cell .metric-breakdown__share {
+    width: 100%;
+    justify-items: start;
 }
 
 .metric-breakdown__share-track {

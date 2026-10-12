@@ -28,6 +28,10 @@ public class AgentSessionAssistantSessionSourceTests
         Assert.Equal("Claude", session.Assistant);
         Assert.Equal(Noon.AddHours(-2), session.StartedAt);
         Assert.Equal(Noon.AddHours(-1), session.LastActivityAt);
+
+        // Sessions' own title, unchanged, so the longest-sessions list names a session
+        // the way the Sessions pane does.
+        Assert.Equal("claude-1", session.Title);
     }
 
     /// <summary>

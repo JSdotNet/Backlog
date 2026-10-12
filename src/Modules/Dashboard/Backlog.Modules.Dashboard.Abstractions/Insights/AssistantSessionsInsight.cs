@@ -1,6 +1,33 @@
 namespace Backlog.Modules.Dashboard.Abstractions.Insights;
 
 /// <summary>
+/// One row of the longest-sessions list: a session and how long an agent produced in it
+/// inside the window.
+/// </summary>
+/// <param name="Id">The session's own identifier, the row's key.</param>
+/// <param name="Title">What the Sessions pane calls it, or null where the source had no
+/// title to offer.</param>
+/// <param name="Repository">The repository band the session falls in — the configured
+/// alias where there is one — or null where the session records no repository and sits
+/// in no registered clone. Null rather than a placeholder, so the part decides the
+/// wording.</param>
+/// <param name="Model">The model the session spent the most output tokens on, or null
+/// where it recorded no usage.</param>
+/// <param name="Prompts">How many prompts the person sent, or null where the source
+/// could not count them — never 0 standing in for absent.</param>
+/// <param name="ActiveTime">How long an agent was producing in this session, clipped to
+/// the window.</param>
+/// <param name="LastActivityAt">When the session last moved.</param>
+public sealed record LongestSession(
+    string Id,
+    string? Title,
+    string? Repository,
+    string? Model,
+    int? Prompts,
+    TimeSpan ActiveTime,
+    DateTimeOffset LastActivityAt);
+
+/// <summary>
 /// One row of the sessions breakdown — a machine when every machine is in view, an
 /// assistant when one machine is focused.
 /// <para>
@@ -443,6 +470,45 @@ public sealed record AssistantSessionsInsight(
     /// the way <see cref="ByRepository"/> does.
     /// </summary>
     public IReadOnlyList<WeeklyBand> PullRequestsByRepository { get; init; } = [];
+
+    /// <summary>
+    /// <see cref="ActiveTime"/> over the window of the same length just before this
+    /// one, on the same machines — or null when that window reaches further back than
+    /// the sources were read.
+    /// <para>
+    /// Swept from the reading already in hand rather than from a second one, and that
+    /// is what makes it null for twelve weeks. Both sources are read back to
+    /// <c>DashboardScope.Horizon</c>, twelve weeks, so four weeks has its previous four
+    /// inside the reading and twelve weeks has its previous twelve entirely outside it.
+    /// Reading further back would cost a second parse of every transcript for one
+    /// comparison, and the Sessions context does not promise to keep records that old
+    /// anyway — a figure swept from a history that may have been pruned would compare
+    /// a full window against a partial one and call the difference a trend.
+    /// </para>
+    /// <para>
+    /// Null rather than zero, because zero is a reading — no agent worked — and a tile
+    /// would draw it as "up from nothing".
+    /// </para>
+    /// </summary>
+    public TimeSpan? PreviousActiveTime { get; init; }
+
+    /// <summary>
+    /// The sessions with the most agent-active time inside the window, longest first, at
+    /// most <see cref="LongestSessionsLimit"/> of them.
+    /// <para>
+    /// Over the same population the tiles count — the window and the machine filter, not
+    /// the repository chips, for the reason the part gives — and measured off the same
+    /// producing stretches <see cref="ActiveTime"/> sums, clipped to the window the same
+    /// way, so the first row can never claim more than the tile beside it. A session that
+    /// left no activity record contributes no time and is not listed: it is not short, it
+    /// is unmeasured. Ties go to the session that moved last, then to its id, so the order
+    /// does not shuffle between two refreshes of the same figures.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<LongestSession> LongestSessions { get; init; } = [];
+
+    /// <summary>How many rows <see cref="LongestSessions"/> holds at most.</summary>
+    public const int LongestSessionsLimit = 6;
 
     public static AssistantSessionsInsight Empty { get; } =
         new(0, TimeSpan.Zero, null, 0, false, [], []) { SessionsPerWeek = [] };

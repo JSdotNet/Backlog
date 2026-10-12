@@ -63,4 +63,13 @@ public sealed record InsightSeries(string Name, IReadOnlyList<InsightPoint> Poin
 /// <summary>One row of a breakdown — a model, a provider — with whatever
 /// measures the source reported. A null is "not reported", which is a different
 /// fact from zero and is displayed differently.</summary>
-public sealed record InsightRow(string Name, long? Tokens = null, DashboardMoney? Cost = null, string? Detail = null);
+public sealed record InsightRow(string Name, long? Tokens = null, DashboardMoney? Cost = null, string? Detail = null)
+{
+    /// <summary>Input tokens, or null when the source does not split tokens by
+    /// direction.</summary>
+    public long? InputTokens { get; init; }
+
+    /// <summary>Output tokens, or null when the source does not split tokens by
+    /// direction.</summary>
+    public long? OutputTokens { get; init; }
+}

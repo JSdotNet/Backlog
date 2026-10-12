@@ -78,8 +78,7 @@ public class CostInsightsTests
         Assert.Equal(new DateOnly(2026, 8, 1), provider.MonthStart);
         Assert.Equal(new DateOnly(2026, 8, 19), provider.Through);
 
-        Assert.Equal(new DateOnly(2026, 8, 1), claude.From);
-        Assert.Equal(new DateOnly(2026, 8, 19), claude.To);
+        Assert.Contains((new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 19)), claude.Windows);
     }
 
     [Fact]
@@ -223,12 +222,15 @@ public class CostInsightsTests
         _ = await costs.GetByModelAsync(TestContext.Current.CancellationToken);
 
         // Month and by-model read the same window, so they share one fetch; the
-        // trend reads a longer one and fetches on its own.
-        Assert.Equal(1, claude.Calls);
+        // trend reads a longer one and fetches on its own. Claude is asked a second
+        // time, for the same days of last month the month tile compares with; Copilot
+        // is not, because it reports a month as one entry.
+        Assert.Equal(2, claude.Calls);
+        Assert.Equal(1, copilot.Calls);
 
         _ = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(2, claude.Calls);
+        Assert.Equal(3, claude.Calls);
         Assert.Equal(2, copilot.Calls);
     }
 
@@ -296,8 +298,171 @@ public class CostInsightsTests
         Assert.Contains("No cost scope.", month.Availability.Reason, StringComparison.Ordinal);
     }
 
-    private static CostInsights Costs(StubSpendSource claude, StubSpendSource copilot, StubSpendSource? azureFoundry = null) =>
-        new(new ClaudeAdapter(claude), new CopilotAdapter(copilot), new AzureFoundryAdapter(azureFoundry ?? Silent()), new FakeTimeProvider(Now));
+    /// <summary>
+    /// Nineteen days of August against the first nineteen of July, not against the
+    /// whole of July: a month that is not over set beside one that is would read as
+    /// spend falling every month until its last day.
+    /// </summary>
+    [Fact]
+    public async Task The_previous_spend_is_the_same_days_of_last_month()
+    {
+        var claude = new StubSpendSource { ReportFor = ByMonth(thisMonth: 12m, lastMonth: 8m) };
+        var azure = new StubSpendSource { ReportFor = ByMonth(thisMonth: 4.5m, lastMonth: 6m, currency: "EUR") };
+
+        var month = await Costs(claude, Silent(), azure).GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(month.HasValue);
+        var claudeTile = Assert.Single(month.Value!.Providers, one => one.Provider == SpendProvider.Claude);
+        Assert.Equal(12m, claudeTile.Spend.Amount);
+        Assert.Equal(new DashboardMoney(8m, "USD"), claudeTile.PreviousSpend);
+
+        var azureTile = Assert.Single(month.Value.Providers, one => one.Provider == SpendProvider.AzureFoundry);
+        Assert.Equal(new DashboardMoney(6m, "EUR"), azureTile.PreviousSpend);
+
+        Assert.Equal(
+            [(new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 19)), (new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 19))],
+            claude.Windows);
+    }
+
+    /// <summary>
+    /// The thirty-first of March has no thirty-first of February to stop at, so last
+    /// month runs to its own last day: the whole of February against the whole of
+    /// March so far.
+    /// </summary>
+    [Fact]
+    public async Task A_shorter_last_month_is_read_to_its_last_day()
+    {
+        var claude = new StubSpendSource { Report = Spend(1m) };
+
+        _ = await Costs(claude, Silent(), now: new DateTimeOffset(2026, 3, 31, 9, 0, 0, TimeSpan.Zero))
+            .GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [(new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 31)), (new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 28))],
+            claude.Windows);
+    }
+
+    /// <summary>Copilot reports a month as one entry, so it cannot say what the first
+    /// nineteen days of last month cost and is not asked: its tile has no comparison.</summary>
+    [Fact]
+    public async Task Copilot_has_no_previous_spend_and_is_not_asked_for_one()
+    {
+        var copilot = new StubSpendSource { Report = Spend(3m) };
+
+        var month = await Costs(Silent(), copilot).GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        var tile = Assert.Single(month.Value!.Providers);
+        Assert.Null(tile.PreviousSpend);
+        Assert.Equal([(new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 19))], copilot.Windows);
+    }
+
+    /// <summary>
+    /// The comparison is the one thing a failed read of last month may cost. This
+    /// month's figure was read, and a reader who cannot see last month's still wants
+    /// to know what this one is.
+    /// </summary>
+    [Fact]
+    public async Task A_failed_read_of_last_month_leaves_this_months_figure_without_a_comparison()
+    {
+        var claude = new StubSpendSource
+        {
+            ReportFor = ByMonth(thisMonth: 12m, lastMonth: 8m),
+            FailsFrom = from => from.Month == 7
+        };
+
+        var month = await Costs(claude, Silent()).GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(month.HasValue);
+        var tile = Assert.Single(month.Value!.Providers);
+        Assert.Equal(12m, tile.Spend.Amount);
+        Assert.Null(tile.PreviousSpend);
+    }
+
+    /// <summary>There is no exchange rate in this product, so a provider whose currency
+    /// changed between the two months has no comparison rather than a converted one.</summary>
+    [Fact]
+    public async Task Last_month_in_another_currency_gives_no_comparison()
+    {
+        var claude = new StubSpendSource
+        {
+            ReportFor = (from, _) => new SpendReport(
+            [
+                new SpendEntry(from, "opus", 1, new DashboardMoney(5m, from.Month == 8 ? "USD" : "EUR"))
+            ])
+        };
+
+        var month = await Costs(claude, Silent()).GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(Assert.Single(month.Value!.Providers).PreviousSpend);
+    }
+
+    /// <summary>Nothing spent over the same days of last month is a figure — zero, in
+    /// this month's currency — and not an absence: the provider answered.</summary>
+    [Fact]
+    public async Task Nothing_spent_last_month_is_a_zero_in_this_months_currency()
+    {
+        var claude = new StubSpendSource
+        {
+            ReportFor = (from, _) => from.Month == 8 ? AzureSpend(2m) : SpendReport.Empty
+        };
+
+        var month = await Costs(claude, Silent()).GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DashboardMoney(0m, "EUR"), Assert.Single(month.Value!.Providers).PreviousSpend);
+    }
+
+    /// <summary>
+    /// Last month is a comparison for a figure, so a part with no figure — every
+    /// provider refused, or the month could not be totalled — does not ask for it.
+    /// </summary>
+    [Fact]
+    public async Task Last_month_is_not_read_when_this_month_has_no_figure()
+    {
+        var claude = new StubSpendSource
+        {
+            Report = new SpendReport(
+            [
+                new SpendEntry(new DateOnly(2026, 8, 1), "opus", 10, new DashboardMoney(4m, "USD")),
+                new SpendEntry(new DateOnly(2026, 8, 2), "opus", 10, new DashboardMoney(4m, "EUR"))
+            ])
+        };
+
+        var month = await Costs(claude, Silent()).GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(month.HasValue);
+        Assert.Equal([(new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 19))], claude.Windows);
+    }
+
+    [Fact]
+    public async Task Last_month_is_read_once_and_kept_like_this_month()
+    {
+        var claude = new StubSpendSource { Report = Spend(2m) };
+        var costs = Costs(claude, Silent());
+
+        _ = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
+        _ = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, claude.Calls);
+    }
+
+    private static CostInsights Costs(
+        StubSpendSource claude,
+        StubSpendSource copilot,
+        StubSpendSource? azureFoundry = null,
+        DateTimeOffset? now = null) =>
+        new(
+            new ClaudeAdapter(claude),
+            new CopilotAdapter(copilot),
+            new AzureFoundryAdapter(azureFoundry ?? Silent()),
+            new FakeTimeProvider(now ?? Now));
+
+    /// <summary>A report that says which month it was asked about: this month's amount
+    /// for a window opening in August, last month's otherwise.</summary>
+    private static Func<DateOnly, DateOnly, SpendReport> ByMonth(decimal thisMonth, decimal lastMonth, string currency = "USD") =>
+        (from, _) => new SpendReport(
+        [
+            new SpendEntry(from, "opus", 1_000, new DashboardMoney(from.Month == 8 ? thisMonth : lastMonth, currency))
+        ]);
 
     private static SpendReport AzureSpend(decimal amount) =>
         new([new SpendEntry(new DateOnly(2026, 8, 3), "gpt-5.4 Output Tokens", null, new DashboardMoney(amount, "EUR"))]);
@@ -319,11 +484,20 @@ public class CostInsightsTests
 
         public Exception? Throw { get; init; }
 
+        /// <summary>When set, the report for a window, so a test can answer this month and
+        /// last month differently. <see cref="Report"/> answers every window otherwise.</summary>
+        public Func<DateOnly, DateOnly, SpendReport>? ReportFor { get; init; }
+
+        /// <summary>When set, a spend read whose window opens on a day this answers true
+        /// for throws after availability has said yes — a read that fails rather than
+        /// one that refuses.</summary>
+        public Func<DateOnly, bool>? FailsFrom { get; init; }
+
         public int Calls { get; private set; }
 
-        public DateOnly From { get; private set; }
-
-        public DateOnly To { get; private set; }
+        /// <summary>Every window asked for, in order. A list rather than the last one,
+        /// because the month part asks for two.</summary>
+        public List<(DateOnly From, DateOnly To)> Windows { get; } = [];
 
         public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken) =>
             Throw is not null ? Task.FromException<InsightAvailability>(Throw) : Task.FromResult(Availability);
@@ -331,9 +505,14 @@ public class CostInsightsTests
         public Task<SpendReport> GetSpendAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
         {
             Calls++;
-            From = from;
-            To = to;
-            return Task.FromResult(Report);
+            Windows.Add((from, to));
+
+            if (FailsFrom?.Invoke(from) == true)
+            {
+                return Task.FromException<SpendReport>(new InvalidOperationException("Anthropic answered 500."));
+            }
+
+            return Task.FromResult(ReportFor?.Invoke(from, to) ?? Report);
         }
     }
 

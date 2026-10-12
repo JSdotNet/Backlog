@@ -36,7 +36,27 @@ public sealed record MonthlySpend(
     DashboardMoney? Allowance,
     DateOnly MonthStart,
     DateOnly Through,
-    bool IsEstimate);
+    bool IsEstimate)
+{
+    /// <summary>
+    /// What the same provider charged over the same days of last month — the first of
+    /// it up to the same day of the month as <see cref="Through"/>, or its last day when
+    /// last month was shorter — or null when there is no like-for-like figure.
+    /// <para>
+    /// The same days rather than the whole of last month, because this month is not
+    /// over: a full month set beside nineteen days of one would read as spend falling
+    /// every month until the last day of it.
+    /// </para>
+    /// <para>
+    /// Null for Copilot, whose billing reports one entry per month rather than one per
+    /// day, so "the first nineteen days of last month" is not something it can say.
+    /// Null as well when last month's read refused or failed, or came back in another
+    /// currency. In each case the tile draws no comparison rather than one against a
+    /// zero, which would read as a provider that cost nothing last month.
+    /// </para>
+    /// </summary>
+    public DashboardMoney? PreviousSpend { get; init; }
+}
 
 /// <summary>Spend this month, per provider. A provider whose source could not
 /// answer is absent from the list rather than present as zero.</summary>

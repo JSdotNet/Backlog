@@ -304,11 +304,125 @@ public class ProductivityInsightsTests
         Assert.True(score.HasValue);
 
         // One of each, rather than one of them evicting the other and being re-asked.
+        // The baseline is asked twice because it answers two questions — the record
+        // the score is read against, and the window before this one the headline is
+        // compared with — each under a key of its own.
         Assert.Equal(1, source.Calls);
-        Assert.Equal(1, baseline.Calls);
+        Assert.Equal(2, baseline.Calls);
 
         // And the baseline is the one that landed under the baseline key.
         Assert.NotNull(score.Value!.Target);
+        Assert.NotNull(headline.Value!.PreviousPullRequestsMerged);
+    }
+
+    /// <summary>
+    /// The window before this one is a count and nothing else, so it is one block of the
+    /// baseline port — the cheap one — of exactly the window's length, ending where the
+    /// window opens. Midnight on 19 August less four weeks is 22 July, and four weeks
+    /// before that is 24 June.
+    /// </summary>
+    [Fact]
+    public async Task The_previous_window_is_one_baseline_block_of_the_same_length_ending_where_the_window_opens()
+    {
+        var baseline = new StubBaselineSource { MergedPerBlock = 17 };
+
+        var headline = await Insights(new StubActivitySource(), baseline)
+            .GetHeadlineAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks), TestContext.Current.CancellationToken);
+
+        Assert.True(headline.HasValue);
+        Assert.Equal(17, headline.Value!.PreviousPullRequestsMerged);
+
+        var block = Assert.Single(baseline.Blocks);
+        Assert.Equal(new DateTimeOffset(2026, 6, 24, 0, 0, 0, TimeSpan.Zero), block.From);
+        Assert.Equal(new DateTimeOffset(2026, 7, 22, 0, 0, 0, TimeSpan.Zero), block.To);
+    }
+
+    [Fact]
+    public async Task Twelve_weeks_is_compared_with_the_twelve_before_it()
+    {
+        var baseline = new StubBaselineSource();
+
+        _ = await Insights(new StubActivitySource(), baseline)
+            .GetHeadlineAsync(new DashboardScope(Period: DashboardPeriod.TwelveWeeks), TestContext.Current.CancellationToken);
+
+        var block = Assert.Single(baseline.Blocks);
+        Assert.Equal(new DateTimeOffset(2026, 3, 4, 0, 0, 0, TimeSpan.Zero), block.From);
+        Assert.Equal(new DateTimeOffset(2026, 5, 27, 0, 0, 0, TimeSpan.Zero), block.To);
+    }
+
+    /// <summary>
+    /// The comparison is decoration on a figure that stands without it, so a baseline
+    /// that refuses takes the comparison off the tile and leaves the tile.
+    /// </summary>
+    [Fact]
+    public async Task A_baseline_that_throws_leaves_the_headline_without_a_previous_figure()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: true, churned: false)], [])
+        };
+
+        var headline = await Insights(source, new StubBaselineSource { Throw = new InvalidOperationException("GitHub answered 502.") })
+            .GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(headline.HasValue);
+        Assert.Equal(1, headline.Value!.PullRequestsMerged);
+        Assert.Null(headline.Value.PreviousPullRequestsMerged);
+    }
+
+    /// <summary>
+    /// An answer with no block in it — nothing configured to ask — and an answer that
+    /// says one of its blocks could not be counted are both null rather than a number. A
+    /// floor set beside a whole figure would draw growth that never happened.
+    /// </summary>
+    [Fact]
+    public async Task A_baseline_with_no_block_or_an_incomplete_one_gives_no_previous_figure()
+    {
+        var empty = await Insights(new StubActivitySource(), new StubBaselineSource { Answer = ActivityBaseline.Empty })
+            .GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var partial = await Insights(new StubActivitySource(), new StubBaselineSource { Complete = false })
+            .GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(empty.HasValue);
+        Assert.Null(empty.Value!.PreviousPullRequestsMerged);
+        Assert.True(partial.HasValue);
+        Assert.Null(partial.Value!.PreviousPullRequestsMerged);
+    }
+
+    /// <summary>
+    /// A listing that stopped early makes the merged count a floor, and a floor set
+    /// beside a whole earlier count would draw a fall that never happened — so the
+    /// comparison goes, and the count stays with the note that already says it is one.
+    /// </summary>
+    [Fact]
+    public async Task A_truncated_window_gives_no_previous_figure()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: true, churned: false)], []) { Complete = false }
+        };
+
+        var headline = await Insights(source, new StubBaselineSource())
+            .GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(headline.HasValue);
+        Assert.False(headline.Value!.Complete);
+        Assert.Equal(1, headline.Value.PullRequestsMerged);
+        Assert.Null(headline.Value.PreviousPullRequestsMerged);
+    }
+
+    [Fact]
+    public async Task The_previous_window_is_asked_once_per_focus_and_narrowed_to_it()
+    {
+        var baseline = new StubBaselineSource();
+        var insights = Insights(new StubActivitySource(), baseline);
+        var focused = new DashboardScope(RepositoryFocus.Of("backlog-ide"));
+
+        _ = await insights.GetHeadlineAsync(focused, TestContext.Current.CancellationToken);
+        _ = await insights.GetHeadlineAsync(focused, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, baseline.Calls);
+        Assert.Equal(["backlog-ide"], baseline.Requested.Select(repository => repository.Alias));
     }
 
     /// <summary>
@@ -736,6 +850,10 @@ public class ProductivityInsightsTests
 
         public Exception? Throw { get; init; }
 
+        /// <summary>When set, answered whatever was asked, for a test about an answer the
+        /// per-block default cannot describe — one with no block in it.</summary>
+        public ActivityBaseline? Answer { get; init; }
+
         public int Calls { get; private set; }
 
         public List<DashboardRepository> Requested { get; } = [];
@@ -752,6 +870,8 @@ public class ProductivityInsightsTests
             Blocks.AddRange(blocks);
 
             if (Throw is not null) return Task.FromException<ActivityBaseline>(Throw);
+
+            if (Answer is not null) return Task.FromResult(Answer);
 
             return Task.FromResult(new ActivityBaseline(
                 [.. blocks.Select(block => new ActivityVolume(

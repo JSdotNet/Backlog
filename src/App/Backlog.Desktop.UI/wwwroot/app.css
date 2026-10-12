@@ -5790,6 +5790,118 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The sessions part's figures as one joined strip rather than six cards. Each tile
+   draws its own outline as a shadow and the gap is one border wide, so neighbours
+   share a single rule and a wrapped last row leaves its empty cells empty — a border
+   on the grid itself would fill them in. No clipping on the strip: a tile's hinted
+   footnote hangs below it and must not be cut off. */
+.dashboard-sessions__figures {
+    gap: var(--border-width);
+    padding: var(--border-width);
+}
+
+.dashboard-sessions__figures > .metric-tile {
+    border: 0;
+    border-radius: 0;
+    box-shadow: 0 0 0 var(--border-width) var(--color-border);
+}
+
+/* The hero figure keeps its left rule inside the strip: drawn as an inset shadow,
+   because the strip's own rule above takes the border away. */
+.dashboard-sessions__figures > .metric-tile--emphasis {
+    box-shadow:
+        inset var(--border-width-4) 0 0 var(--chart-series),
+        0 0 0 var(--border-width) var(--color-border);
+}
+
+/* The chart and the grid in a wide column, the longest sessions in a narrow one
+   beside them; the narrow one drops underneath where the part has no room for both.
+   Flex rather than a grid of fixed tracks, because the part's width is the panel's
+   and the panel's is the window's. */
+.dashboard-sessions__layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-sessions__main {
+    flex: 999 1 32rem;
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* A window with no week and no grid leaves the column empty; it takes no room then. */
+.dashboard-sessions__main:not(:has(*)) {
+    display: none;
+}
+
+.dashboard-sessions__longest {
+    flex: 1 1 18rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    min-width: 0;
+}
+
+.dashboard-sessions__longest-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+}
+
+/* A row reads title and time on the first line, what the session was on the second,
+   the bar under both — the ranking's own figures box is unwrapped so its two parts
+   can take a line each. */
+.dashboard-sessions__longest .metric-ranking__list {
+    gap: var(--spacing-sm);
+}
+
+.dashboard-sessions__longest .metric-ranking__item {
+    grid-template-areas:
+        "name value"
+        "detail detail"
+        "track track";
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-sessions__longest .metric-ranking__name {
+    grid-area: name;
+    font-weight: 600;
+}
+
+.dashboard-sessions__longest .metric-ranking__figures {
+    display: contents;
+}
+
+.dashboard-sessions__longest .metric-ranking__value {
+    grid-area: value;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-align: right;
+}
+
+.dashboard-sessions__longest .metric-ranking__detail {
+    grid-area: detail;
+    overflow: hidden;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-sessions__longest .metric-ranking__track {
+    grid-area: track;
+}
+
+.dashboard-sessions__all {
+    justify-self: start;
+}
+
 /* Two parts side by side where there is room for them, one above the other where
    there is not. auto-fit rather than a media query, because what decides this is
    the panel's own width and the panel is inside a takeover whose width is the
@@ -5927,6 +6039,52 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* A Cost tab provider card: the tile with its budget meter in the trend slot and
+   the chip in the corner the label line leaves free. The chip is a soft surface
+   with primary text on it, like every other state chip — the words say whether the
+   projection passes the budget, the tint only draws the eye to the one that does. */
+.dashboard-spend-card {
+    position: relative;
+}
+
+.dashboard-spend-card__chip {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* The tile's own value and unit already read "spent of budget", so the meter's
+   printed reading would say it twice. The track keeps it as its aria-valuetext. */
+.dashboard-spend-card .metric-meter__heading {
+    display: none;
+}
+
+/* The label line makes room for the chip, so a long provider name in a narrow
+   column wraps instead of running under it. */
+.dashboard-spend-card:has(.dashboard-spend-card__chip) .metric-tile__label {
+    padding-right: 8.5rem;
+}
+
+.dashboard-spend-card__chip--over {
+    background: var(--color-warning);
+}
+
+.dashboard-spend-card__chip--within {
+    background: var(--color-success);
+}
+
+/* The Cumulative / Per day switch sits at the start of the part, above the chart
+   it switches, and does not stretch across it. */
+.dashboard-spend-trend__mode {
+    justify-self: start;
+}
+
 /* Drift at a glance. The repository after a unit only when the units come from more
    than one, quieter than the unit it qualifies; a unit whose drift issue carries
    sync-failed keeps its row and says so with the badge, the tint only draws the eye. */
@@ -5936,6 +6094,156 @@ h1, h2, h3 {
 
 .dashboard-drift__unit--failed > td {
     background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+/* The last verdict per unit as one stacked bar, the legend under it carrying the
+   counts. Each verdict keeps the tone its badge wears (components.css,
+   .badge--sync-verdict-*) except spec-ahead, which takes info so the two "ahead"
+   verdicts stay apart in a bar where a badge's word is not there to tell them. */
+.dashboard-drift__verdicts {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-drift__verdict-track {
+    display: flex;
+    gap: 2px;
+    height: 1rem;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.dashboard-drift__verdict-segment {
+    flex: 0 1 0;
+    min-width: 2px;
+}
+
+.dashboard-drift__verdict--aligned { background: var(--color-success); }
+.dashboard-drift__verdict--code-ahead { background: var(--color-warning); }
+.dashboard-drift__verdict--spec-ahead { background: var(--color-info); }
+.dashboard-drift__verdict--conflict { background: var(--color-error); }
+.dashboard-drift__verdict--unresolved { background: var(--color-text-disabled); }
+.dashboard-drift__verdict--unknown { background: var(--color-border-strong); }
+
+.dashboard-drift__verdict-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-drift__verdict-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.dashboard-drift__verdict-swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.dashboard-drift__verdict-count {
+    font-variant-numeric: tabular-nums;
+}
+
+/* The units beside the open issues where the part is wide enough, the issues under
+   them where it is not - flex rather than a grid so the units take the room. */
+.dashboard-drift__body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-drift__units {
+    flex: 999 1 32rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-drift__units-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.dashboard-drift__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.dashboard-drift__aligned-note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* A link's look on a button: it changes what the table shows, it goes nowhere. */
+.dashboard-drift__show-all {
+    margin-left: var(--spacing-xs);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.dashboard-drift__issues {
+    flex: 1 1 18rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    min-width: 0;
+}
+
+.dashboard-drift__issues-empty-text {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.dashboard-drift__issue-list {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-drift__issue {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+
+.dashboard-drift__issue--failed {
+    background: color-mix(in srgb, var(--color-error) 12%, var(--color-background-raised));
+}
+
+.dashboard-drift__issue-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+    justify-content: space-between;
 }
 
 /* The roadmap part's timeline: a column of item names, then one column per week of
