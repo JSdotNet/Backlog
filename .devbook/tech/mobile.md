@@ -58,14 +58,14 @@ status: adopted
 type: library
 version: "4.152.1"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
-related: [".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+related: [".devbook/domain/inbox/features.md#notes-on-the-phone", ".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 alternatives: ["ImageSharp", "Android Bitmap plus a browser canvas"]
 ```
 
-The image codec the phone downscales a talk note's pictures with, before they
-enter the outbox.
+The image codec the phone downscales a note's pictures with, before they
+enter the outbox. It serves the Notes editor and the capture sheet's photo.
 
-- **Used for** — decoding a slide photo, resizing it to a 1600 px longest edge
+- **Used for** — decoding a photo, resizing it to a 1600 px longest edge
   and re-encoding it as JPEG; the EXIF orientation is carried over by hand and
   everything else in EXIF is dropped.
 - **Why** — MIT-licensed, with the Android and Windows natives in the package,

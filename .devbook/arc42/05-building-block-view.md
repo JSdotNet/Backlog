@@ -377,7 +377,7 @@ the page while the Sync feature is on and keeps it alive across tab switches.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/domain/capture/features.md#mobile-capture"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0024-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
@@ -402,16 +402,21 @@ three tabs along the bottom, withheld until the device is paired:
   tasks: adding a task picked for today, and marking a task in today's My Day
   done or undone, ticking one of its steps, or moving it to tomorrow.
 
-Its local SQLite file holds three things and no canonical task data: the
-outbox, the last inbox it pulled, and `task_view`, a fold of the owner's task
-feed. Everything the phone sends leaves through the outbox, oldest first, with
-backoff and a park after five attempts; an entry's kind — `capture`,
-`talk-note`, `task` — decides how it is sent. A talk note's files wait beside
-the database in `talk-notes/outbox/` and form its attachment upload queue: each
-is uploaded before the capture that names them, checkpointed into the entry so a
-retry never sends one twice. See
-`.devbook/arc42/06-runtime-view.md#talk-note-upload` and
-`.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
+Its local SQLite file holds four things and no canonical task data: the
+outbox, the last inbox it pulled (`inbox_cache`), `task_view`, a fold of the
+owner's task feed, and `note_view`, a fold of the `note` documents on the same
+feed with its own cursor. Everything the phone sends leaves through the outbox,
+oldest first, with backoff and a park after five attempts. An entry's kind
+decides how it is sent: `capture`, `note` or `task`, and `talk-note` only for an
+entry an earlier build left queued. A note's files, and a leftover talk note's,
+wait beside the database in `talk-notes/outbox/` and form the attachment upload
+queue. Each is uploaded before the document that names it, checkpointed into the
+entry so a retry never sends one twice. A note document then goes to
+`POST /api/sync/tasks`, and a leftover talk note's capture to
+`POST /api/sync/inbox`. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`,
+`.devbook/arc42/06-runtime-view.md#talk-note-upload`,
+`.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push` and
+`.devbook/arc42/adr/0024-notes-ride-the-task-feed.md`.
 
 ```mermaid
 graph TB
@@ -424,9 +429,10 @@ graph TB
   end
 
   subgraph "Device store (SQLite)"
-    Outbox["Outbox\n(capture, talk-note, task)"]
+    Outbox["Outbox\n(capture, note, task, talk-note)"]
     InboxCache["Last pulled inbox"]
     TaskView["task_view\n(fold of the task feed)"]
+    NoteView["note_view\n(fold of note documents)"]
   end
 
   Files["talk-notes/outbox\n(attachment upload queue)"]
@@ -445,6 +451,7 @@ graph TB
   Shell --> TasksTab
   InboxTab --> Outbox
   InboxTab --> InboxCache
+  NoteTab --> NoteView
   NoteTab --> Outbox
   NoteTab --> Files
   NoteTab --> Picker
@@ -458,6 +465,7 @@ graph TB
   Outbox -->|"POST /api/sync/inbox, /api/sync/tasks"| API
   API -->|"GET /api/sync/inbox"| InboxCache
   API -->|"GET /api/sync/tasks (task feed)"| TaskView
+  API -->|"GET /api/sync/tasks (note documents)"| NoteView
   Creds -.->|bearer| API
 ```
 

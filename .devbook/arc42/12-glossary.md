@@ -13,6 +13,7 @@ lists only system-wide architecture terms that don't belong to a single domain.
 ## Terms
 
 ```meta
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/adr/0024-notes-ride-the-task-feed.md"]
 ```
 
 | Term | Definition |
@@ -25,7 +26,8 @@ lists only system-wide architecture terms that don't belong to a single domain.
 | **Thin cloud** | The principle that the cloud service only coordinates sync, forwards webhooks, pushes notifications, and hosts the PC registry — no domain data or fetching. |
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |
 | **WoL relay** | Wake-on-LAN relay in the cloud PC registry that can wake a registered sleeping/offline machine. |
-| **Talk note** | A note taken on the phone during a conference talk — the body, the speaker, tags, and attached pictures and files — sent to the desktop Inbox as one ordinary capture. Never called a *session note*: *session* already names a bounded context (Sessions, the record of an AI coding session), and the two must not share a word. See `.devbook/domain/capture/features.md#talk-note`. |
+| **Note** | An Inbox item of content kind `note`. It syncs both ways between the desktop and the phone, and either side may edit it. Not a *Knowledge Note*, which is a Devbook term. See `.devbook/domain/inbox/domain.md#note` and `.devbook/arc42/adr/0024-notes-ride-the-task-feed.md`. |
+| **Talk note** | A note taken on the phone during a conference talk. The talk note was replaced by the note (`.devbook/domain/inbox/domain.md#note`): it is now a note written in the phone's Notes tab. Never called a *session note*: *session* already names a bounded context (Sessions, the record of an AI coding session), and the two must not share a word. See `.devbook/domain/capture/features.md#talk-note`. |
 
 For bounded-context names (Capture, Inbox, Devbook, etc.) and their
 business meaning, see `.devbook/domain/context-map.md#subdomain-landscape`.
