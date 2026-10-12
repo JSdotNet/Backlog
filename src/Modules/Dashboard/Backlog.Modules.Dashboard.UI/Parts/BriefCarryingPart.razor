@@ -1,0 +1,55 @@
+@*
+    What closes the weekly brief: "Carrying into next week", holding the Overview's
+    Needs-you items — the same derivation (IAttentionInsights), so the brief never
+    carries what the Overview does not list. They are what needs the person now, read
+    for the scope in view, whichever week the brief is reporting.
+
+    Nothing qualifying reads "Nothing needs you.", and a source the derivation could not
+    read is named under it, so an empty list over an unread source is not taken for an
+    all-clear — the Overview's rule.
+*@
+@inherits DashboardPartBase<NeedsYouInsight>
+@inject IAttentionInsights Attention
+
+<section class="dashboard-brief-carry" aria-labelledby="dashboard-brief-carry-title" data-testid="dashboard-brief-carry">
+    <h4 class="dashboard-brief-carry__title" id="dashboard-brief-carry-title">Carrying into next week</h4>
+    @if (IsReady)
+    {
+        <ul class="dashboard-brief-carry__list" data-testid="dashboard-brief-carry-items">
+            @foreach (var item in Value!.Items)
+            {
+                <li class="dashboard-brief-carry__item" data-testid="dashboard-brief-carry-item">
+                    <strong class="dashboard-brief-carry__item-title">@item.Title</strong>
+                    <span class="dashboard-brief-carry__item-detail">@item.Detail</span>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <MetricStatus Kind="Status"
+                      Message="@(Status == MetricStatusKind.Empty ? NeedsYouInsight.NothingNeedsYou : StatusMessage)"
+                      CssClass="dashboard-brief-carry__status"
+                      TestId="dashboard-brief-carry-status" />
+    }
+    @if (Value is { Skipped.Count: > 0 } read)
+    {
+        <p class="dashboard-brief-carry__skipped" data-testid="dashboard-brief-carry-skipped">
+            Not checked: @string.Join(" ", read.Skipped)
+        </p>
+    }
+</section>
+
+@code {
+    protected override async Task<InsightResult<NeedsYouInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        InsightResult<NeedsYouInsight>.Ready(await Attention.GetNeedsYouAsync(Scope, cancellationToken));
+
+    protected override bool IsEmpty(NeedsYouInsight value) => value.IsEmpty;
+
+    protected override string EmptyMessage => NeedsYouInsight.NothingNeedsYou;
+
+    // Nothing to drop: every insight it reads keeps its own cache.
+    protected override void InvalidateSource()
+    {
+    }
+}

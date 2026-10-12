@@ -87,6 +87,14 @@ public sealed class CostInsights(
     public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
         DeriveAsync("month", MonthWindow(), ByDay, cancellationToken);
 
+    /// <summary>
+    /// Derived from the trend's read, which reaches six months back and so holds every
+    /// day of the thirteen weeks drawn: the brief and the Cost tab ask each provider
+    /// once between them.
+    /// </summary>
+    public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+        DeriveAsync("trend", TrendWindow(), ByWeek, cancellationToken);
+
     public void Invalidate() => _cache.Clear();
 
     /// <summary>Today's calendar month so far. Not a rolling thirty days: a bill
@@ -407,6 +415,73 @@ public sealed class CostInsights(
                     bucket,
                     byMonth.TryGetValue(bucket, out var amount) ? amount : 0m))]));
         }
+    }
+
+    /// <summary>
+    /// Spend per ISO week over the weeks a twelve-week window touches, the providers that
+    /// report by the day added up.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The weeks are the productivity series' own — <see cref="WeekBuckets"/> over the
+    /// twelve weeks back from today — so the brief's Cost block counts back from the same
+    /// last bucket as its other blocks.
+    /// </para>
+    /// <para>
+    /// Copilot is left out: it reports a month as one entry, which has no week. When it is
+    /// the only provider that answered there is nothing to draw, and the refusal is that
+    /// reason. Two currencies refuse through <see cref="DashboardMoney"/>, as everywhere
+    /// else here; <see cref="DeriveAsync{T}"/> turns either refusal into the part's reason.
+    /// </para>
+    /// </remarks>
+    private SpendByWeekInsight ByWeek(
+        IReadOnlyList<SpendAnswer> answers,
+        (DateOnly From, DateOnly To) window)
+    {
+        _ = window;
+
+        var daily = Answered(answers).Where(pair => pair.Provider != SpendProvider.Copilot).ToList();
+
+        if (daily.Count == 0)
+        {
+            var missing = answers
+                .Where(answer => answer.Provider != SpendProvider.Copilot && answer.Report is null)
+                .Select(answer => answer.Reason)
+                .Where(reason => !string.IsNullOrWhiteSpace(reason));
+
+            throw new InvalidOperationException(string.Join(" ",
+                ["Only Copilot answered, and it reports spend by the month, so there is no weekly figure.", .. missing]));
+        }
+
+        var now = time.GetUtcNow();
+        var buckets = WeekBuckets.Buckets(now.AddDays(-7 * 12), now);
+        var keys = buckets.Select(bucket => bucket.Key).ToHashSet(StringComparer.Ordinal);
+
+        var inWeeks = daily
+            .SelectMany(pair => pair.Report.Entries.Select(entry => (pair.Report, entry)))
+            .Select(pair => (Key: WeekBuckets.Of(new DateTimeOffset(pair.entry.Date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)).Key, pair.Report, pair.entry))
+            .Where(pair => keys.Contains(pair.Key))
+            .ToList();
+
+        var spentIn = inWeeks
+            .GroupBy(pair => pair.Key, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => Total([.. group.Select(pair => pair.entry)]), StringComparer.Ordinal);
+
+        var currency = spentIn.Values.Select(money => money.Currency).Distinct(StringComparer.OrdinalIgnoreCase).ToList() switch
+        {
+            [] => "USD",
+            [var one] => one,
+            [var first, var second, ..] => throw new InvalidOperationException(
+                $"Cannot add {first} to {second}: Backlog holds no exchange rate, so spend by week is not drawn.")
+        };
+
+        return new SpendByWeekInsight(
+            [.. buckets.Select(bucket => new InsightPoint(
+                bucket.Label,
+                spentIn.TryGetValue(bucket.Key, out var spent) ? spent.Amount : 0m))],
+            currency,
+            // An estimate only when an estimate went into the weeks drawn.
+            inWeeks.Any(pair => pair.Report.IsEstimate));
     }
 
     /// <summary>

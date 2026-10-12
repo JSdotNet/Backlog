@@ -1,0 +1,120 @@
+@*
+    One block of the weekly brief: what it is about, a headline sentence, one
+    supporting sentence and a link to the tab that shows the evidence, beside the
+    week's figure and eight weeks of it as bars, the reported week the highlighted one.
+
+    Presentation only. The four block parts fetch through the insight their tab reads,
+    fill the templates in WeeklyBriefSentences, and hand the result here, so the four
+    blocks cannot drift apart in how they are laid out.
+
+    A block whose source could not answer says so in one line in place of its sentences,
+    and draws no figure: a zero under "no figures" would read as a quiet week.
+*@
+
+<section class="dashboard-brief-block" aria-labelledby="@TagId" data-testid="@TestId">
+    <div class="dashboard-brief-block__text">
+        <p class="dashboard-brief-block__tag" id="@TagId">@Tag</p>
+        @if (Status is MetricStatusKind.Ready)
+        {
+            <h4 class="dashboard-brief-block__headline" data-testid="@Part("headline")">@Headline</h4>
+            <p class="dashboard-brief-block__detail" data-testid="@Part("detail")">@Detail</p>
+            @if (OnOpen.HasDelegate && !string.IsNullOrWhiteSpace(LinkText))
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           CssClass="dashboard-brief-block__link"
+                           OnClick="() => OnOpen.InvokeAsync()"
+                           TestId="@Part("open")">
+                    @LinkText <span aria-hidden="true">→</span>
+                </AppButton>
+            }
+        }
+        else if (Status is MetricStatusKind.Loading)
+        {
+            <MetricStatus Kind="MetricStatusKind.Loading" CssClass="dashboard-brief-block__status" TestId="@Part("status")" />
+        }
+        else
+        {
+            <MetricStatus Kind="MetricStatusKind.Unavailable"
+                          Message="@WeeklyBriefSentences.Missing(Tag, StatusMessage ?? string.Empty)"
+                          CssClass="dashboard-brief-block__status"
+                          TestId="@Part("missing")" />
+        }
+    </div>
+
+    @if (Status is MetricStatusKind.Ready)
+    {
+        <div class="dashboard-brief-block__figure">
+            <p class="dashboard-brief-block__value" data-testid="@Part("figure")">
+                @Figure
+                @if (!string.IsNullOrWhiteSpace(Unit))
+                {
+                    <span class="dashboard-brief-block__unit">@Unit</span>
+                }
+            </p>
+            <MetricBars Points="@Bars"
+                        Label="@Caption"
+                        FormatValue="@FormatValue"
+                        BucketHeading="Week"
+                        ValueHeading="@Tag"
+                        HighlightLast="true"
+                        MaxLabels="4"
+                        Height="4rem"
+                        CssClass="dashboard-brief-block__chart"
+                        TestId="@Part("chart")" />
+        </div>
+    }
+</section>
+
+@code {
+    /// <summary>What the block is about — Shipping, Plan, Sessions, Cost.</summary>
+    [Parameter, EditorRequired]
+    public string Tag { get; set; } = string.Empty;
+
+    /// <summary>Ready draws the sentences and the figure; Loading the spinner; anything
+    /// else the one line saying the figures are missing.</summary>
+    [Parameter]
+    public MetricStatusKind Status { get; set; } = MetricStatusKind.Loading;
+
+    /// <summary>Why the figures are missing, in the source's own words.</summary>
+    [Parameter]
+    public string? StatusMessage { get; set; }
+
+    [Parameter]
+    public string? Headline { get; set; }
+
+    [Parameter]
+    public string? Detail { get; set; }
+
+    /// <summary>The reported week's figure, already formatted.</summary>
+    [Parameter]
+    public string? Figure { get; set; }
+
+    [Parameter]
+    public string? Unit { get; set; }
+
+    /// <summary>Up to eight weeks, oldest first, the reported week last.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricPoint> Bars { get; set; } = [];
+
+    /// <summary>What the bars are, under them and as the hidden table's caption.</summary>
+    [Parameter]
+    public string? Caption { get; set; }
+
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>The name of the tab the link opens — Throughput, Roadmap.</summary>
+    [Parameter]
+    public string? LinkText { get; set; }
+
+    /// <summary>Raised by the link. With nobody listening the block draws none.</summary>
+    [Parameter]
+    public EventCallback OnOpen { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string TagId => $"{TestId ?? "dashboard-brief-block"}-tag";
+
+    private string? Part(string name) => TestId is null ? null : $"{TestId}-{name}";
+}

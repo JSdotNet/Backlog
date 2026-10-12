@@ -303,16 +303,39 @@ provider reports spend per repository, so the repository chips do not narrow spe
 type: sub-feature
 status: draft
 related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyBriefSentencesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
 ```
 
 Read the last finished week as a few sentences rather than as charts. The brief
 covers the last completed week, Monday to Sunday, and links to the week before it.
-The person reaches it from the "Read as brief" link on the tab strip.
+The person reaches it from the "Read as brief" link on the tab strip, and "Open
+overview" takes them back to the tabs, on the Overview.
 
 The brief has one block each for Shipping, Plan, Sessions and Cost. Each block opens
 with a headline sentence built from a template, adds one supporting sentence, and
-shows its figure and a small chart. It closes with "Carrying into next week", which
-holds the items of [What needs you](#what-needs-you).
+shows its figure and the eight weeks up to the reported one as bars, that week
+highlighted. A block's link opens the tab it reads. It closes with "Carrying into next
+week", which holds the items of [What needs you](#what-needs-you).
+
+| Block | Headline | Supporting sentence |
+| --- | --- | --- |
+| Shipping | Pull requests merged, against the week before | Issues closed, and the median wait for a first review |
+| Plan | Story points done, against the week before | Roadmap items behind pace, and the points done of those planned |
+| Sessions | Agent-active hours, against the week before | Sessions last active that week |
+| Cost | Spend, against the week before | Whether a provider is on course to pass its monthly budget |
+
+The sentences are fixed templates, never written by a model, filled from the figures
+the tabs read: "23 pull requests merged — 4 more than last week." A figure that did not
+move reads "as many as last week", and a count of one is singular. A block whose source
+cannot answer says so in one line, with the source's reason, instead of its sentences.
+
+The brief reads twelve weeks whatever window is selected, so it goes back four weeks
+before the last completed one and no further: eight bars and the week compared with
+them have to fit inside what was read. Every block reports the same Monday-to-Sunday
+week: the Sessions block reads the sessions' hours on calendar weeks, not on the
+Sessions tab's usage weeks, which run from one usage reset to the next. The Cost block adds Claude and Azure Foundry by the week. Copilot
+reports a month at once, so it has no week and is left out; two currencies cannot be
+added, so the block then says it has no figure.
 
 ### What the sessions cost and shipped
 

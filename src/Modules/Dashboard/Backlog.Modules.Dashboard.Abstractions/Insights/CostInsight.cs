@@ -74,6 +74,27 @@ public sealed record SpendTrendInsight(IReadOnlyList<InsightSeries> ByProvider, 
     public static SpendTrendInsight Empty { get; } = new([], "USD", SpendBucket.Day);
 }
 
+/// <summary>
+/// Spend per ISO week, the providers that report by the day added up — what the weekly
+/// brief's Cost block reads.
+/// </summary>
+/// <remarks>
+/// <para>
+/// One point per ISO week a twelve-week window touches, oldest first, labelled as the
+/// productivity series are (<c>W34</c>), and the last point is the week today falls in,
+/// so a reader takes the week before it for the last finished one. A week nobody spent
+/// in is a zero point rather than a gap.
+/// </para>
+/// <para>
+/// Copilot is not in it. Its billing reports a month as one entry, so it has no week to
+/// put that entry in, and drawing a month as one week's spend would be the worse figure.
+/// </para>
+/// </remarks>
+/// <param name="Weeks">Spend per week, oldest first.</param>
+/// <param name="Currency">The currency every point is in.</param>
+/// <param name="IsEstimate">True when a provider added in calls its figure an estimate.</param>
+public sealed record SpendByWeekInsight(IReadOnlyList<InsightPoint> Weeks, string Currency, bool IsEstimate);
+
 /// <summary>How wide a bucket a spend trend is drawn in.</summary>
 public enum SpendBucket
 {

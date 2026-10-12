@@ -219,6 +219,7 @@ public sealed class SessionInsights(
         // known — and the insight says which, so the columns can.
         var weeks = Weeks(reading.Activity.Limits, to, zone);
         var buckets = weeks.Buckets(from, to);
+        var calendar = WeekBuckets.Buckets(from, to);
 
         var scopedLimits = reading.Activity.Limits
             .Where(hit => scope.IsAllMachines || Matches(hit.MachineId, scope.MachineId))
@@ -274,6 +275,10 @@ public sealed class SessionInsights(
             // its start instant falls in, on the same cut as the sessions series.
             ActiveTimePerWeek = PerWeek(buckets, weeks, active, zone, Hours),
             WaitingPerWeek = PerWeek(buckets, weeks, waiting, zone, Hours),
+            // The same two figures again on the calendar's ISO weeks, for the weekly
+            // brief, which reports a Monday-to-Sunday week whatever the usage reset is.
+            ActiveTimePerCalendarWeek = WeekBuckets.Reduce(calendar, active, cell => StartOf(cell.Key, zone), Hours),
+            SessionsPerCalendarWeek = WeekBuckets.Count(calendar, scoped, session => session.LastActivityAt),
             MostSessionsAtOncePerWeek = PerWeek(buckets, weeks, active, zone, Peak),
             MostAgentsAtOncePerWeek = PerWeek(buckets, weeks, agents, zone, Peak),
             ByRepository = ByRepository(buckets, weeks, scope, bandOf, scoped, scopedActivity, scopedAgents, from, to, zone),

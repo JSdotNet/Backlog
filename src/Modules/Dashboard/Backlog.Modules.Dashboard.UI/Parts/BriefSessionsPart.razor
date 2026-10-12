@@ -1,0 +1,40 @@
+@*
+    The brief's Sessions block: agent-active hours in the week, against the week before,
+    from the Sessions tab's read — the same cached read the Overview's agent-time tile
+    draws — with the sessions last active that week as its supporting sentence.
+
+    The week is the calendar's Monday-to-Sunday one in UTC, as every other block's is —
+    the insight's calendar-week series, not the Sessions tab's usage weeks, which run
+    from reset to reset when a reset is known. It follows the machine filter, as that
+    tab does.
+*@
+@inherits BriefPartBase<AssistantSessionsInsight>
+@inject ISessionInsights Insights
+
+@{
+    var reading = IsReady ? Week.Read(Value!.ActiveTimePerCalendarWeek) : null;
+}
+<BriefBlock Tag="Sessions"
+            Status="BlockStatus(reading)"
+            StatusMessage="@BlockMessage(reading)"
+            Headline="@(reading is null ? null : WeeklyBriefSentences.AgentTime(reading.Value, reading.Previous))"
+            Detail="@(reading is null ? null : WeeklyBriefSentences.SessionsDetail((int)(Week.Read(Value!.SessionsPerCalendarWeek)?.Value ?? 0m)))"
+            Figure="@(reading is null ? null : DashboardFormat.Hours(reading.Value))"
+            Unit="agent-active"
+            Bars="Points(reading)"
+            Caption="@Caption("Agent-active hours per week", reading)"
+            FormatValue="DashboardFormat.Hours"
+            LinkText="Sessions"
+            OnOpen="Open(TabId)"
+            TestId="dashboard-brief-sessions" />
+
+@code {
+    private const string TabId = "dashboard-sessions";
+
+    protected override bool FollowsMachine => true;
+
+    protected override Task<InsightResult<AssistantSessionsInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetSessionsAsync(Scope, cancellationToken);
+
+    protected override void InvalidateSource() => Insights.Invalidate();
+}

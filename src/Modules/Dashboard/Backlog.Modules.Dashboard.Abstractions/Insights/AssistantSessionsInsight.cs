@@ -328,6 +328,19 @@ public sealed record AssistantSessionsInsight(
     public IReadOnlyList<InsightPoint> ActiveTimePerWeek { get; init; } = [];
 
     /// <summary>
+    /// <see cref="ActiveTimePerWeek"/> on the calendar's ISO weeks in UTC — the weeks the
+    /// productivity series are drawn on, Monday to Sunday — whatever the usage reset is,
+    /// labelled <c>W41</c>, the last point the week today falls in. What the weekly brief
+    /// reads, because it reports a Monday-to-Sunday week. Read out of the same sweep, so
+    /// over the same window the two series sum to the same hours.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> ActiveTimePerCalendarWeek { get; init; } = [];
+
+    /// <summary><see cref="SessionsPerWeek"/> on the weeks of
+    /// <see cref="ActiveTimePerCalendarWeek"/>, bucketed on the same last activity.</summary>
+    public IReadOnlyList<InsightPoint> SessionsPerCalendarWeek { get; init; } = [];
+
+    /// <summary>
     /// <see cref="Waiting"/> cut by ISO week, in hours, on exactly
     /// <see cref="ActiveTimePerWeek"/>'s terms: the hours of a wait go in the weeks they
     /// were waited, so a gap that ran over a weekend is in the weekend's week even when

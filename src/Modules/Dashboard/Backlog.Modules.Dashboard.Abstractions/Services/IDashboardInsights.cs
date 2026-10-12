@@ -159,6 +159,16 @@ public interface ICostInsights
     /// <see cref="GetProjectionAsync"/>, and the sum of the providers' budgets.</summary>
     Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Spend per ISO week over the last twelve weeks and this one, from the
+    /// providers that report by the day — what the weekly brief's Cost block draws.
+    /// <para>
+    /// A default body that answers unavailable, so a host or a test double composed
+    /// before the brief existed still compiles and says plainly that it has no weekly
+    /// figure, rather than every double having to learn a method it has no opinion on.
+    /// </para></summary>
+    Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable("Spend by week is not reported here."));
+
     /// <summary>Drops whatever was cached, so the next call goes back to the providers.</summary>
     void Invalidate();
 }
