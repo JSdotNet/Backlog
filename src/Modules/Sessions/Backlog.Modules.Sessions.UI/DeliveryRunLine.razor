@@ -122,7 +122,7 @@
         @* Under the header, what the run cost against its usual and the stage that
            explains the difference — only once the run has finished and enough earlier
            runs of its flow were priced. *@
-        <DeliveryRunInsightLine Insight="@Comparison?.Insight" />
+        <DeliveryRunInsightLine Insight="@Comparison?.Insight" Flow="@Run.SkillId" OnOpen="@OpenEconomics" Id="@DeliveryRunInsightLine.DomId(Run)" />
 
         @* Last, and quiet: which recipe produced the run is what a reader asks after
            the work and the outcome, and it is the one thing two runs of the same flow
@@ -376,6 +376,15 @@
     /// on this surface can follow.</summary>
     [Parameter]
     public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
+
+    /// <summary>How the host opens Delivery economics on this run's flow. With
+    /// it the insight line is a button onto the run's flow; without it, plain text.</summary>
+    [Parameter]
+    public EventCallback<DeliveryRun> OnOpenEconomics { get; set; }
+
+    /// <summary>The insight line's press, handing the host this run; inert without a host.</summary>
+    private EventCallback<string> OpenEconomics =>
+        OnOpenEconomics.HasDelegate ? EventCallback.Factory.Create<string>(this, () => OnOpenEconomics.InvokeAsync(Run)) : default;
 
     /// <summary>What the line draws in place of the run's own references, where the row
     /// knows more than the run file does — a pull request the session linked and the

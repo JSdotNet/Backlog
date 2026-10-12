@@ -414,6 +414,309 @@ public sealed class SessionsPaneDetailTests
     }
 
     /// <summary>
+    /// The insight line is a way into Delivery economics: a real button that opens the
+    /// page inside the takeover, on the run's own flow.
+    /// </summary>
+    [Fact]
+    public void A_finished_runs_insight_line_opens_delivery_economics_on_its_flow()
+    {
+        using var context = InsightContext();
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']")));
+
+        var insight = pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']");
+        Assert.Equal("BUTTON", insight.TagName);
+        Assert.Equal("higher", insight.GetAttribute("data-band"));
+        Assert.Contains("Opens Delivery economics for flow-code", insight.GetAttribute("title"), StringComparison.Ordinal);
+
+        insight.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='sessions-panel']"));
+            Assert.NotNull(pane.Find("[data-testid='delivery-economics']"));
+            Assert.Equal("flow-code", pane.Find("[data-testid='economics-flow'] select").GetAttribute("value"));
+            Assert.StartsWith("6 runs of flow-code in the last 30 days", pane.Find("[data-testid='economics-subtitle']").TextContent.Trim(), StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>A run still under way has no insight line, and so no way into the page
+    /// from it.</summary>
+    [Fact]
+    public void A_run_with_no_insight_offers_no_way_into_delivery_economics()
+    {
+        using var context = Context([Claude], [Run()]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotNull(pane.Find("[data-testid='sessions-run']"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-run-insight']"));
+        });
+    }
+
+    /// <summary>
+    /// The header's button switches the takeover to Delivery economics, and its
+    /// breadcrumb switches back to the list as the reader left it.
+    /// </summary>
+    [Fact]
+    public void The_header_opens_delivery_economics_and_the_breadcrumb_returns_to_the_list_as_it_was()
+    {
+        using var context = Context([Claude, Copilot], []);
+        var focus = context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count));
+        SessionsPaneTests.Pick(pane, "Copilot/0012e2c7");
+        pane.WaitForAssertion(() => Assert.Equal("Copilot/0012e2c7", pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key")));
+
+        pane.Find("[data-testid='sessions-open-economics']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='sessions-list']"));
+            var page = pane.Find("[data-testid='delivery-economics']");
+
+            Assert.Equal("Sessions › Delivery economics", Squash(page.QuerySelector("[data-testid='economics-breadcrumb']")!.TextContent));
+            Assert.NotNull(page.QuerySelector("[data-testid='economics-empty']"));
+
+            // The pressed button left with the list, so the focus goes to the page.
+            Assert.Equal(["delivery-economics"], focus.Invocations.Select(call => call.Arguments[0]));
+        });
+
+        pane.Find("[data-testid='economics-back']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='delivery-economics']"));
+            Assert.Equal("Copilot/0012e2c7", pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key"));
+
+            // And back on the button that opened it.
+            Assert.Equal("sessions-open-economics", pane.Find("[data-testid='sessions-open-economics']").Id);
+            Assert.Equal(["delivery-economics", "sessions-open-economics"], focus.Invocations.Select(call => call.Arguments[0]));
+        });
+    }
+
+    /// <summary>Back from a page an insight line opened returns the focus to that line.</summary>
+    [Fact]
+    public void Back_from_a_page_an_insight_line_opened_returns_the_focus_to_the_line()
+    {
+        using var context = InsightContext();
+        context.JSInterop.Mode = JSRuntimeMode.Strict;
+        var focus = context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']")));
+        var id = pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']").Id;
+        Assert.StartsWith("sessions-run-insight-", id, StringComparison.Ordinal);
+
+        pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']").Click();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
+
+        pane.Find("[data-testid='economics-back']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(id, pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']").Id);
+            Assert.Equal(id, focus.Invocations.Last().Arguments[0]);
+        });
+    }
+
+    /// <summary>
+    /// A Refresh on the page drops the runs' comparisons, so the insight line that opened
+    /// it is not drawn when the list comes back: Back then puts the focus on the header's
+    /// button rather than on an id nobody wears.
+    /// </summary>
+    [Fact]
+    public void Back_after_a_refresh_puts_the_focus_on_the_header_button_when_the_line_is_gone()
+    {
+        using var context = InsightContext();
+        context.JSInterop.Mode = JSRuntimeMode.Strict;
+        var focus = context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']")));
+        pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']").Click();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
+
+        pane.Find("[data-testid='economics-refresh']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("Refresh", pane.Find("[data-testid='economics-refresh']").TextContent.Trim()));
+
+        pane.Find("[data-testid='economics-back']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='delivery-economics']"));
+            Assert.Equal("sessions-open-economics", focus.Invocations.Last().Arguments[0]);
+        });
+    }
+
+    /// <summary>A task that opens the pane on a session asks for the list, even while the
+    /// page is showing.</summary>
+    [Fact]
+    public void A_session_asked_for_while_the_page_shows_brings_the_list_back_on_it()
+    {
+        using var context = Context([Claude, Copilot], []);
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-open-economics']")));
+        pane.Find("[data-testid='sessions-open-economics']").Click();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
+
+        pane.Render(parameters => parameters.Add(p => p.FocusSessionId, Copilot.Id));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='delivery-economics']"));
+            Assert.Equal("Copilot/0012e2c7", pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key"));
+        });
+    }
+
+    /// <summary>Under the header's repository scope the page reads only the runs of the
+    /// rows the list admits, by the list's own rule.</summary>
+    [Fact]
+    public void The_page_reads_only_the_runs_inside_the_repository_scope()
+    {
+        DeliveryRun Finished(string id, string skill, string repository, int day) =>
+            SessionRowsTests.Run(id, $"wt-{id}-1a2b3c4d", Noon.AddDays(-day), Noon.AddDays(-day).AddMinutes(30)) with
+            {
+                SkillId = skill,
+                Repository = repository,
+                Stages = [new DeliveryRunStage("Implement", "done", 60_000, 1)]
+            };
+
+        using var context = Context([], [Finished("a", "flow-code", "JSdotNet/Backlog", 1), Finished("b", "flow-spec", "JSdotNet/Archify", 2), Finished("c", "flow-spec", "JSdotNet/Archify", 3)]);
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog" })
+            .Add(p => p.RepositoryAlias, repository => repository?.ToLowerInvariant() switch
+            {
+                "jsdotnet/backlog" => "backlog",
+                "jsdotnet/archify" => "archify",
+                _ => null
+            }));
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-open-economics']")));
+        pane.Find("[data-testid='sessions-open-economics']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            // Unscoped, flow-spec would lead with two runs; in scope there is only Backlog's.
+            Assert.Equal(["flow-code"], pane.FindAll("[data-testid='economics-flow'] option").Select(option => option.GetAttribute("value")));
+            Assert.Equal("1 run of flow-code in the last 30 days · narrowed to backlog · no run could be priced.", pane.Find("[data-testid='economics-subtitle']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>The page's Refresh is the pane's: it reads the runs again and prices what
+    /// it finds.</summary>
+    [Fact]
+    public void The_pages_refresh_reads_the_runs_again_and_prices_them()
+    {
+        DeliveryRun Finished(string id, int day) =>
+            SessionRowsTests.Run(id, $"wt-{id}-1a2b3c4d", Noon.AddDays(-day), Noon.AddDays(-day).AddMinutes(30)) with
+            {
+                SkillId = "flow-code",
+                Stages = [new DeliveryRunStage("Implement", "done", 60_000, 1)]
+            };
+
+        var source = new GrowingRunSource([Finished("a", 1)], [Finished("a", 1), Finished("b", 2)]);
+
+        var context = new BunitContext();
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource([]));
+        context.Services.AddSingleton<IDeliveryRunSource>(source);
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        using (context)
+        {
+            var pane = context.Render<SessionsPane>();
+
+            pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-open-economics']")));
+            pane.Find("[data-testid='sessions-open-economics']").Click();
+
+            pane.WaitForAssertion(() =>
+                Assert.StartsWith("1 run of flow-code", pane.Find("[data-testid='economics-subtitle']").TextContent.Trim(), StringComparison.Ordinal));
+
+            pane.Find("[data-testid='economics-refresh']").Click();
+
+            pane.WaitForAssertion(() =>
+            {
+                Assert.Equal(2, source.Reads);
+                Assert.Equal("2 runs of flow-code in the last 30 days · no run could be priced.", pane.Find("[data-testid='economics-subtitle']").TextContent.Trim());
+            });
+        }
+    }
+
+    /// <summary>A run source whose second reading holds more than its first.</summary>
+    private sealed class GrowingRunSource(IReadOnlyList<DeliveryRun> first, IReadOnlyList<DeliveryRun> then) : IDeliveryRunSource
+    {
+        public int Reads { get; private set; }
+
+        public Task<DeliveryRunCatalog> GetRunsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DeliveryRunCatalog(++Reads == 1 ? first : then, []));
+    }
+
+    /// <summary>The page is inside the takeover, so its ✕ is the pane's own close.</summary>
+    [Fact]
+    public void Delivery_economics_closes_the_takeover_the_way_the_list_does()
+    {
+        var closed = 0;
+
+        using var context = Context([Claude], []);
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pane = context.Render<SessionsPane>(parameters => parameters.Add(p => p.OnClose, () => closed++));
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-open-economics']")));
+        pane.Find("[data-testid='sessions-open-economics']").Click();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
+
+        pane.Find("[data-testid='delivery-economics'] [aria-label='Close sessions pane']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(1, closed));
+    }
+
+    /// <summary>The run and its five earlier runs of the insight test, on the clock of
+    /// the day they ran.</summary>
+    private static BunitContext InsightContext()
+    {
+        static DeliveryRunTokenUsage Spent(long input) => new(
+            new DeliveryRunTokens(1, input, 0, 0, 0, 0),
+            new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
+            [new DeliveryRunStageTokens("Implement", new DeliveryRunTokens(1, input, 0, 0, 0, 0), new DeliveryRunTokens(0, 0, 0, 0, 0, 0))],
+            ["claude-opus-5-5"]);
+
+        static DeliveryRun Priced(string id, DateTimeOffset started, long input, int done = 1) =>
+            SessionRowsTests.Run(id, Worktree, started, started.AddMinutes(30)) with
+            {
+                SkillId = "flow-code",
+                Stages = [new DeliveryRunStage("Implement", "done", 60_000, done) { Execution = """{"mode":"inline","model":"claude-opus-5-5"}""" }],
+                TokenUsage = Spent(input)
+            };
+
+        var now = Priced("run-now", Noon.AddMinutes(-90), 2_000_000, done: 2) with { SessionIds = [Claude.Id] };
+        var earlier = Enumerable.Range(1, 5).Select(day => Priced($"run-{day}", Noon.AddDays(-day), 1_000_000) with { Worktree = $"wt-{day}-1a2b3c4d" });
+
+        var context = Context([Claude], [now, .. earlier]);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(new StubRequestStore([]));
+        context.Services.AddSingleton<IModelPriceStore>(new StubPriceStore(new ModelPriceTable([new ModelPrice("opus", 5m, 25m, 0.5m, 6.25m)])));
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        return context;
+    }
+
+    /// <summary>
     /// The session's and each run's share of the week's reported cost, and once a weekly
     /// refusal is recorded, an estimate of the weekly limit beside it — Fable's on a line
     /// of its own.

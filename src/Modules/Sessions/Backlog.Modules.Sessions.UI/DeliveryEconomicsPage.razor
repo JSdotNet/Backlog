@@ -1,0 +1,730 @@
+@using Microsoft.JSInterop
+@using global::Backlog.UI.Components.Metrics
+@using global::Microsoft.Extensions.DependencyInjection
+@implements IDisposable
+@inject IServiceProvider Services
+@inject IJSRuntime JS
+
+@*
+    Delivery economics: per phase of one flow, the configurations that ran it, read
+    on what the phase cost and what the whole run cost (.devbook/domain/sessions/
+    features.md, "Delivery economics"). A page inside the Sessions takeover rather
+    than a surface of its own, so the shell's one-main-view rule and the names it
+    persists are untouched: the pane switches to it and back, and a reopened pane
+    shows the list.
+
+    It compares cost and nothing else, and it says so. The delivery engine reports no
+    review rounds, blockers or escaped defects yet, so every quality cell reads "not
+    reported", the page names how many runs the quality measure stands on, and a
+    lesson card claims nothing about quality. A figure nobody measured is never drawn
+    as a zero: a phase no run priced has no cost.
+
+    Like the list, it is not a monitor. It prices the window's runs when it opens, when
+    the window or the flow changes, and when somebody presses Refresh, with no timer.
+    The pricing is the pane's — one cached task per run, the same ones the runs'
+    insight lines are compared against — so each run is priced once per reading of
+    the pane, and a store that fails leaves the figures estimated or absent rather
+    than failing the page. The table fills in as the runs are priced, and the line
+    above it counts them.
+*@
+
+@* Focusable from script only, so opening the page can put the reader on it: the
+   section is named by its heading, which is what a screen reader then reads. *@
+<section class="sessions-panel delivery-economics" id="@FocusId" tabindex="-1" aria-labelledby="delivery-economics-title" data-testid="delivery-economics">
+    @* The way back first, where a reader looks for where they are. *@
+    <nav class="delivery-economics__breadcrumb" aria-label="Breadcrumb" data-testid="economics-breadcrumb">
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   CssClass="delivery-economics__back"
+                   TestId="economics-back"
+                   OnClick="() => OnBack.InvokeAsync()">Sessions</AppButton>
+        <span class="delivery-economics__crumb-separator" aria-hidden="true">›</span>
+        <span class="delivery-economics__crumb" aria-current="page">Delivery economics</span>
+    </nav>
+
+    <SectionHeader BaseClass="sessions-panel__header"
+                   TextCssClass=""
+                   TitleCssClass="sessions-panel__title"
+                   DescriptionCssClass="sessions-panel__subtitle"
+                   DescriptionTestId="economics-subtitle"
+                   ActionsCssClass="sessions-panel__header-actions"
+                   TitleId="delivery-economics-title"
+                   Title="What each phase costs"
+                   Description="@Subtitle">
+        <Actions>
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@Loading"
+                       TestId="economics-refresh"
+                       OnClick="() => OnRefresh.InvokeAsync()">
+                @(Loading ? "Reading..." : "Refresh")
+            </AppButton>
+            <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
+        </Actions>
+    </SectionHeader>
+
+    <div class="sessions-panel__filters" data-testid="economics-filters">
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Flow</span>
+            <SelectField CurrentValue="@_flow"
+                         Options="@FlowOptions"
+                         Label="Flow to compare"
+                         Disabled="@(FlowOptions.Count == 0)"
+                         CssClass="badge badge--area"
+                         TestId="economics-flow"
+                         OnChanged="ChooseFlow" />
+        </div>
+
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Window</span>
+            <ButtonGroup AriaLabel="How far back to read" TestId="economics-window">
+                @foreach (var days in Windows)
+                {
+                    <ToggleButton Pressed="_days == days"
+                                  PressedChanged="_ => ChooseWindow(days)"
+                                  TestId="@($"economics-window-{days}")">
+                        @days days
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+    </div>
+
+    <div class="sessions-panel__content delivery-economics__content" aria-busy="@(Pricing || Loading ? "true" : null)">
+        @if (_windowRuns.Count == 0)
+        {
+            <EmptyState Title="@EmptyTitle" Description="@EmptyDescription" TestId="economics-empty" />
+        }
+        else
+        {
+            var report = _report;
+            var selected = SelectedOf(report);
+
+            // One live line that stays in place: its words change when pricing starts
+            // and when it ends, never per run — the running count is in the subtitle,
+            // which is not live. Once done it is heard and not seen.
+            <Alert Message="@PricingLine"
+                   BaseClass="@(Pricing ? "sessions-panel__notice" : "sr-only")"
+                   Role="status"
+                   TestId="economics-pricing" />
+            <MetricGrid Label="The flow at a glance" MinColumnWidth="13rem" CssClass="delivery-economics__kpis" TestId="economics-kpis">
+                <MetricTile Label="Runs"
+                            Value="@_windowRuns.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                            Footnote="@($"Finished {_flow} runs, last {_days} days")"
+                            TestId="economics-kpi-runs" />
+                <MetricTile Label="Median run"
+                            Value="@MedianRunValue(report)"
+                            Status="@(report.MedianRun is null ? MetricStatusKind.Empty : MetricStatusKind.Ready)"
+                            StatusMessage="No run was priced."
+                            Footnote="@MedianRunFootnote(report)"
+                            TestId="economics-kpi-median" />
+                <MetricTile Label="Largest phase"
+                            Value="@Largest(report)?.Name"
+                            Status="@(Largest(report) is null ? MetricStatusKind.Empty : MetricStatusKind.Ready)"
+                            StatusMessage="No run priced a phase yet."
+                            Footnote="@LargestFootnote(report)"
+                            TestId="economics-kpi-largest" />
+                <MetricTile Label="Quality measure"
+                            Value="@($"{report.QualityRuns} of {_windowRuns.Count}")"
+                            Footnote="@QualityLine(report)"
+                            TestId="economics-kpi-quality" />
+            </MetricGrid>
+
+            <div class="delivery-economics__layout">
+                <section class="delivery-economics__phases" aria-label="@($"Phases of {_flow}")" data-testid="economics-phases">
+                    @* The column heads for the eye; each cell names itself to a screen
+                       reader, because a row is one button and its name is read whole. *@
+                    <div class="delivery-economics__columns" aria-hidden="true">
+                        <span>Phase</span>
+                        <span>Configuration now</span>
+                        <span class="delivery-economics__number">Runs</span>
+                        <span class="delivery-economics__number">Median cost</span>
+                        <span>Share of phase costs</span>
+                        <span>Quality</span>
+                        <span class="delivery-economics__number">Configurations</span>
+                    </div>
+                    <ul class="delivery-economics__rows">
+                        @foreach (var phase in report.Phases)
+                        {
+                            <li @key="phase.Name">
+                                @PhaseRow(phase, ReferenceEquals(phase, selected))
+                            </li>
+                        }
+                    </ul>
+                </section>
+
+                @if (selected is not null)
+                {
+                    @Panel(selected)
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    /// <summary>One phase as a pressable row: pressing it shows its configurations in
+    /// the panel beside the table. Spans throughout, because a button holds phrasing
+    /// content only.</summary>
+    private RenderFragment PhaseRow(DeliveryPhase phase, bool selected) => __builder =>
+    {
+        <ToggleButton BaseClass="delivery-economics__phase"
+                      PressedCssClass="delivery-economics__phase--selected"
+                      Pressed="@selected"
+                      PressedChanged="_ => Select(phase)"
+                      TestId="economics-phase"
+                      data-phase="@phase.Name">
+            <span class="delivery-economics__name">@phase.Name</span>
+            <span class="delivery-economics__now" data-testid="economics-phase-now">
+                @if (phase.Now is { } now)
+                {
+                    <span class="sr-only">configuration now: </span>
+                    @now.ModelLabel
+                    <EffortChip Effort="@now.Effort" TestId="economics-phase-effort" />
+                }
+                else
+                {
+                    <span title="No run recorded what ran this phase">—</span>
+                }
+            </span>
+            <span class="delivery-economics__number"
+                  title="@($"{phase.PricedRuns} of the {phase.Runs} runs that finished it were priced")"
+                  data-testid="economics-phase-runs">@phase.PricedRuns<span class="sr-only"> priced runs</span></span>
+            <span class="delivery-economics__number" data-testid="economics-phase-cost">
+                <span class="sr-only">median cost </span>@Cost(phase.Median, NotPricedReason)
+            </span>
+            <span class="delivery-economics__share" data-testid="economics-phase-share">
+                @if (phase.Share is { } share)
+                {
+                    @* The bar is the eye's; the percent beside it is the figure, so
+                       the width is never the only carrier. *@
+                    <span class="delivery-economics__bar" aria-hidden="true">
+                        <span class="delivery-economics__bar-fill" style="@($"width: {BarWidth(share)}%")"></span>
+                    </span>
+                    <span class="delivery-economics__share-figure" title="Its median over the sum of the medians of the phases the latest run carries">@DeliveryRunStageUsual.Percent(share)<span class="sr-only"> @ShareOf</span></span>
+                }
+                else
+                {
+                    @* Two reasons for no share, told apart: nothing priced the phase, or
+                       it was priced but the latest run no longer carries it, so it is not
+                       part of the flow's phase costs now. *@
+                    var reason = phase.Median is null ? NotPricedReason : DroppedReason;
+
+                    <span title="@reason" data-testid="economics-phase-no-share">—<span class="sr-only"> @reason</span></span>
+                }
+            </span>
+            <span class="delivery-economics__quality" data-testid="economics-phase-quality"><span class="sr-only">quality </span>@NotReported</span>
+            <span class="delivery-economics__number" data-testid="economics-phase-configurations">@phase.Configurations<span class="sr-only">@(phase.Configurations == 1 ? " configuration seen" : " configurations seen")</span></span>
+        </ToggleButton>
+    };
+
+    /// <summary>The selected phase: one card per configuration that ran it, then the
+    /// lesson where one stands, or why there is none.</summary>
+    private RenderFragment Panel(DeliveryPhase phase) => __builder =>
+    {
+        var configurations = DeliveryEconomics.Compare(phase);
+        var lesson = _flow is { } flow && configurations.Count > 1 ? DeliveryEconomics.Lesson(flow, phase) : null;
+
+        <aside class="delivery-economics__panel" aria-labelledby="economics-panel-title" data-testid="economics-panel" data-phase="@phase.Name">
+            <p class="delivery-economics__eyebrow">Configurations that ran it</p>
+            <h3 class="delivery-economics__panel-title" id="economics-panel-title" data-testid="economics-panel-title">@phase.Name</h3>
+            @if (phase.Now is { } now)
+            {
+                <p class="delivery-economics__lede">Configured now: @now.Label.</p>
+            }
+
+            <div class="delivery-economics__configs">
+                @foreach (var configuration in configurations)
+                {
+                    var best = lesson?.Best is { } mark && mark == configuration.Configuration;
+
+                    <Card CssClass="@(best ? "delivery-economics__config delivery-economics__config--best" : "delivery-economics__config")"
+                          AriaLabel="@configuration.Configuration.Label"
+                          TestId="economics-config"
+                          Compact="true">
+                        <div class="delivery-economics__config-head">
+                            <span class="delivery-economics__config-model">@configuration.Configuration.ModelLabel</span>
+                            <EffortChip Effort="@configuration.Configuration.Effort" TestId="economics-config-effort" />
+                            @if (configuration.Configuration.Mode is { } mode)
+                            {
+                                <ModeChip Mode="@DeliveryRunStages.ModeWord(mode)" TestId="economics-config-mode" />
+                            }
+                            @if (configuration.Configuration.Agent is { } agent)
+                            {
+                                <span class="delivery-economics__config-agent data-table__mono">@agent</span>
+                            }
+                            <span class="delivery-economics__config-runs" data-testid="economics-config-runs">@ConfigurationRuns(configuration)</span>
+                            @if (DeliveryEconomics.Matches(phase, configuration.Configuration))
+                            {
+                                <Badge Kind="tone" Slug="quiet" Title="What the flow configures for this phase now" TestId="economics-config-current">current</Badge>
+                            }
+                            @if (best)
+                            {
+                                <Badge Kind="tone" Slug="settled" Title="Cheaper for the phase, and whole runs cost no more" TestId="economics-config-best">best on cost</Badge>
+                            }
+                        </div>
+                        <dl class="delivery-economics__figures">
+                            <div class="delivery-economics__figure">
+                                <dt>Phase cost, median</dt>
+                                <dd data-testid="economics-config-phase-cost">@if (configuration.MedianPhase is null)
+                                    {
+                                        <span title="No run of this configuration priced the phase">not priced</span>
+                                    }
+                                    else
+                                    {
+                                        @Cost(configuration.MedianPhase, string.Empty)
+                                    }</dd>
+                            </div>
+                            <div class="delivery-economics__figure">
+                                <dt>Quality</dt>
+                                <dd data-testid="economics-config-quality">@QualityOf(configuration)</dd>
+                            </div>
+                            <div class="delivery-economics__figure">
+                                <dt>Whole run, median</dt>
+                                <dd data-testid="economics-config-run-cost" title="@WholeRunTitle(configuration.TotalRuns, configuration.PartialRuns)">@Cost(configuration.MedianRun, "No run of this configuration was priced")@if (configuration.PartialRuns > 0)
+                                    {
+                                        <span class="delivery-economics__partial" data-testid="economics-config-partial"> · @configuration.PartialRuns of @configuration.TotalRuns partly priced</span>
+                                    }</dd>
+                            </div>
+                        </dl>
+                    </Card>
+                }
+            </div>
+
+            @if (configurations.Count <= 1)
+            {
+                <EmptyState Title="Only one configuration has run this phase"
+                            Description="So there is nothing to compare it with yet. To learn whether it is worth what it costs, run a cheaper one on a few changes through your local overlay; it shows up here beside this one."
+                            TestId="economics-one-configuration" />
+            }
+            else if (lesson is not null)
+            {
+                @Lesson(lesson)
+            }
+            else
+            {
+                <p class="delivery-economics__lede" data-testid="economics-no-lesson">@NoLessonLine</p>
+            }
+        </aside>
+    };
+
+    /// <summary>One lesson: the headline, both sample sizes, that quality was not
+    /// compared, and — unless it only confirms what is configured now — the request
+    /// to copy into a session, since the app never writes the overlay itself.</summary>
+    private RenderFragment Lesson(DeliveryLesson lesson) => __builder =>
+    {
+        <Card CssClass="@(lesson.KeepsNow ? "delivery-economics__lesson delivery-economics__lesson--keep" : "delivery-economics__lesson")"
+              AriaLabel="Lesson"
+              TestId="economics-lesson"
+              Compact="true">
+            <div class="delivery-economics__lesson-body">
+                <p class="delivery-economics__headline" data-testid="economics-lesson-headline">@lesson.Headline</p>
+                <p class="delivery-economics__lede" data-testid="economics-lesson-samples">@lesson.Samples</p>
+                <p class="delivery-economics__lede" data-testid="economics-lesson-quality">@lesson.QualityNote</p>
+                @if (lesson.Estimated)
+                {
+                    <p class="delivery-economics__lede">Some of these medians are @CostFigure.EstimatedNote at the Settings prices.</p>
+                }
+                @if (lesson.Request is { } request)
+                {
+                    <p class="delivery-economics__lede">Copy the request and run it in a Claude Code session in this repository: devbook-config:local writes your own overlay. This app never writes it.</p>
+                    <CopyButton Text="@request"
+                                Label="Copy the overlay request"
+                                CssClass="delivery-economics__copy"
+                                ButtonCssClass="delivery-economics__copy-button"
+                                StatusCssClass="delivery-economics__copy-result"
+                                TestId="economics-lesson-copy"
+                                ButtonTestId="economics-lesson-copy-button"
+                                StatusTestId="economics-lesson-copy-result">Copy the overlay request</CopyButton>
+                }
+            </div>
+        </Card>
+    };
+
+    /// <summary>A cost, marked where it was estimated; an em dash with its reason where
+    /// nothing priced it — never $0.</summary>
+    private static RenderFragment Cost(CostFigure? cost, string missing) => __builder =>
+    {
+        if (cost is null)
+        {
+            <span title="@missing">—</span>
+        }
+        else
+        {
+            <span title="@DeliveryRunStages.CostTitle(cost)">@cost.Label</span>
+            if (cost.Estimated)
+            {
+                <span class="delivery-economics__estimated" title="@CostFigure.EstimatedNote"> est.</span>
+            }
+        }
+    };
+
+    private static readonly int[] Windows = [30, 90];
+
+    private const string NotReported = "not reported";
+
+    private const string NoLessonLine =
+        "No lesson yet: a lesson needs two configurations of this phase with at least five priced runs each, at different medians.";
+
+    /// <summary>The runs to read: the pane's catalog, already narrowed to the shell's
+    /// repository scope the way the list is.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DeliveryRun> Runs { get; set; } = [];
+
+    /// <summary>What one run cost, stage by stage, with the model of the session that
+    /// owned it. The pane's, so a run is priced once per reading. Without it every run
+    /// is unpriced and the page shows no cost.</summary>
+    [Parameter]
+    public Func<DeliveryRun, Task<PricedDeliveryRun>>? Price { get; set; }
+
+    /// <summary>The flow the page opens on — a run's insight line passes its own — or
+    /// null for the flow with the most runs.</summary>
+    [Parameter]
+    public string? Flow { get; set; }
+
+    /// <summary>Whether the pane is reading its catalog again.</summary>
+    [Parameter]
+    public bool Loading { get; set; }
+
+    /// <summary>The repositories the shell has scoped, in words, or null for all.</summary>
+    [Parameter]
+    public string? ScopeLabel { get; set; }
+
+    /// <summary>Back to the session list.</summary>
+    [Parameter]
+    public EventCallback OnBack { get; set; }
+
+    /// <summary>The pane's own close: the page is inside the takeover.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>Read the catalog again; the pane's Refresh.</summary>
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    private TimeProvider _clock = TimeProvider.System;
+
+    private int _days = Windows[0];
+
+    /// <summary>The flow on screen, or null when the window holds no run at all.</summary>
+    private string? _flow;
+
+    /// <summary>The <see cref="Flow"/> last applied, so a render that passes the same
+    /// one leaves the reader's own choice alone.</summary>
+    private string? _flowApplied;
+
+    private bool _flowSeen;
+
+    private IReadOnlyList<DeliveryRun>? _runsApplied;
+
+    private IReadOnlyList<DeliveryFlow> _flows = [];
+
+    private IReadOnlyList<DeliveryRun> _windowRuns = [];
+
+    private readonly List<PricedDeliveryRun> _priced = [];
+
+    private DeliveryEconomicsReport _report = DeliveryEconomicsReport.Empty;
+
+    /// <summary>The phase the reader picked, by name, or null for the default.</summary>
+    private string? _selected;
+
+    /// <summary>Which pricing is current: a new window, flow or reading starts another,
+    /// and an answer for an earlier one is dropped.</summary>
+    private int _generation;
+
+    private bool _disposed;
+
+    private bool Pricing => _priced.Count < _windowRuns.Count;
+
+    protected override void OnInitialized() =>
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+    protected override void OnParametersSet()
+    {
+        var flowChanged = false;
+
+        if (!_flowSeen || !string.Equals(Flow, _flowApplied, StringComparison.OrdinalIgnoreCase))
+        {
+            _flowSeen = true;
+            _flowApplied = Flow;
+            _flow = string.IsNullOrWhiteSpace(Flow) ? null : Flow;
+            _selected = null;
+            flowChanged = true;
+        }
+
+        var runsChanged = !ReferenceEquals(Runs, _runsApplied);
+        _runsApplied = Runs;
+
+        // A new reading of the same flow and window is the same view refreshed: what is
+        // on screen stays until the new figures are all in, rather than blanking and
+        // refilling run by run. A different flow or window is a different view.
+        if (flowChanged) Load(keepShown: false);
+        else if (runsChanged) Load(keepShown: true);
+    }
+
+    /// <summary>Whether the figures on screen are an earlier reading's, kept while the
+    /// new one is priced.</summary>
+    private bool _stale;
+
+    /// <summary>The window's flows and the chosen flow's runs, then their pricing.</summary>
+    private void Load(bool keepShown)
+    {
+        var now = _clock.GetUtcNow();
+        var window = TimeSpan.FromDays(_days);
+        var flowBefore = _flow;
+
+        _flows = DeliveryEconomics.Flows(Runs, window, now);
+        _flow = DeliveryEconomics.DefaultFlow(_flows, _flow);
+        _windowRuns = _flow is { } flow ? DeliveryEconomics.Runs(Runs, flow, window, now) : [];
+        _priced.Clear();
+        _generation++;
+
+        _stale = keepShown
+                 && _report.Runs > 0
+                 && string.Equals(flowBefore, _flow, StringComparison.OrdinalIgnoreCase);
+
+        if (!_stale) _report = DeliveryEconomicsReport.Empty;
+
+        if (_windowRuns.Count > 0) _ = PriceAllAsync(_windowRuns, _generation);
+    }
+
+    /// <summary>
+    /// Prices the runs one after another, the way the pane prices a run's baseline. A
+    /// first reading redraws as each run lands; a refresh keeps the last figures until
+    /// the last run is in. A run whose pricing fails is kept with no cost: it still
+    /// counts as a run, and nothing on the page claims a figure for it.
+    /// </summary>
+    private async Task PriceAllAsync(IReadOnlyList<DeliveryRun> runs, int generation)
+    {
+        foreach (var run in runs)
+        {
+            PricedDeliveryRun priced;
+
+            try
+            {
+                priced = Price is { } price ? await price(run) : Unpriced(run);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                priced = Unpriced(run);
+            }
+
+            if (_disposed || generation != _generation) return;
+
+            _priced.Add(priced);
+
+            DeliveryEconomicsReport report;
+
+            try
+            {
+                report = DeliveryEconomics.Of(_priced);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // A run shaped in a way the comparison did not expect costs the page its
+                // figures, not the pane: the run is kept unpriced and the rest stand.
+                _priced[^1] = Unpriced(run);
+                report = DeliveryEconomics.Of(_priced);
+            }
+
+            var done = _priced.Count == runs.Count;
+
+            if (!_stale || done)
+            {
+                _report = report;
+                _stale = false;
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    /// <summary>The page's id, which opening it puts the focus on.</summary>
+    internal const string FocusId = "delivery-economics";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogFocus", FocusId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page went with its circuit; there is nothing left to focus.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering, or a host with no JavaScript: the page is still on screen.
+        }
+    }
+
+    /// <summary>The live line: what is being priced, and once it is done, that it is.
+    /// Its words change at the start and at the end only.</summary>
+    private string PricingLine => Pricing
+        ? _stale
+            ? "Pricing the runs again. The figures below are the last reading's until it finishes."
+            : "Pricing the runs. The figures below cover the runs priced so far."
+        : $"Priced all {RunsWord(_windowRuns.Count)}.";
+
+    private static PricedDeliveryRun Unpriced(DeliveryRun run) =>
+        new(run, [.. run.Stages.Select(_ => new DeliveryRunStageCost(null, []))]);
+
+    public void Dispose() => _disposed = true;
+
+    private void ChooseWindow(int days)
+    {
+        if (_days == days) return;
+
+        _days = days;
+        Load(keepShown: false);
+    }
+
+    private void ChooseFlow(string? flow)
+    {
+        if (string.IsNullOrWhiteSpace(flow) || string.Equals(flow, _flow, StringComparison.OrdinalIgnoreCase)) return;
+
+        _flow = flow;
+        _selected = null;
+        Load(keepShown: false);
+    }
+
+    private void Select(DeliveryPhase phase) => _selected = phase.Name;
+
+    /// <summary>The phase the panel shows: the one picked while the flow still has it,
+    /// else the one with the largest share of the run, else the first.</summary>
+    private DeliveryPhase? SelectedOf(DeliveryEconomicsReport report) =>
+        report.Phases.FirstOrDefault(phase => string.Equals(phase.Name, _selected, StringComparison.Ordinal))
+        ?? Largest(report)
+        ?? report.Phases.FirstOrDefault();
+
+    private static DeliveryPhase? Largest(DeliveryEconomicsReport report) =>
+        report.Phases.Where(phase => phase.Share is not null).MaxBy(phase => phase.Share);
+
+    /// <summary>The flows on offer, with their run counts; the chosen one stays on the
+    /// list when the window holds none of its runs, so the select never shows a value
+    /// it does not offer.</summary>
+    private IReadOnlyList<SelectorOption> FlowOptions
+    {
+        get
+        {
+            var options = _flows.Select(flow => new SelectorOption(flow.SkillId, $"{flow.SkillId} · {RunsWord(flow.Runs)}")).ToList();
+
+            if (_flow is { } chosen && _flows.All(flow => !string.Equals(flow.SkillId, chosen, StringComparison.OrdinalIgnoreCase)))
+            {
+                options.Insert(0, new SelectorOption(chosen, $"{chosen} · no runs"));
+            }
+
+            return options;
+        }
+    }
+
+    /// <summary>How many runs of the flow are read, and where their costs came from —
+    /// the reported/estimated rule the session's own cost follows.</summary>
+    private string Subtitle
+    {
+        get
+        {
+            var scope = ScopeLabel is { Length: > 0 } label ? $" · narrowed to {label}" : string.Empty;
+
+            if (_flow is null) return $"No finished delivery runs in the last {_days} days{scope}.";
+
+            var lead = $"{RunsWord(_windowRuns.Count)} of {_flow} in the last {_days} days{scope}";
+
+            if (_windowRuns.Count == 0) return lead + ".";
+
+            return Pricing ? $"{lead} · pricing {_priced.Count} of {_windowRuns.Count}." : $"{lead} · {Sources(_report)}.";
+        }
+    }
+
+    internal static string Sources(DeliveryEconomicsReport report)
+    {
+        var reported = report.ReportedRuns;
+        var estimated = report.EstimatedRuns;
+        var unpriced = report.Runs - reported - estimated;
+
+        var sources = (reported, estimated) switch
+        {
+            (0, 0) => "no run could be priced",
+            (_, 0) => unpriced == 0 ? "costs are Claude Code's own reported figures" : $"{reported} reported by Claude Code",
+            (0, _) => unpriced == 0 ? $"costs {CostFigure.EstimatedNote} at the Settings prices" : $"{estimated} {CostFigure.EstimatedNote}",
+            _ => $"{reported} reported by Claude Code, {estimated} {CostFigure.EstimatedNote}"
+        };
+
+        return unpriced > 0 && (reported > 0 || estimated > 0) ? $"{sources}, {unpriced} not priced" : sources;
+    }
+
+    private string EmptyTitle => _flow is null
+        ? $"No finished delivery runs in the last {_days} days"
+        : $"No finished {_flow} runs in the last {_days} days";
+
+    private string EmptyDescription
+    {
+        get
+        {
+            var text = "A run is counted once it has finished, and placed by when it started.";
+
+            if (_days < Windows[^1]) text += $" Choose {Windows[^1]} days to look further back.";
+            if (ScopeLabel is { Length: > 0 }) text += " Clear the repository scope in the header to include every repository.";
+
+            return text;
+        }
+    }
+
+    private static string? MedianRunValue(DeliveryEconomicsReport report) =>
+        report.MedianRun is { } median ? median.Estimated ? $"{median.Label} est." : median.Label : null;
+
+    private static string? MedianRunFootnote(DeliveryEconomicsReport report)
+    {
+        if (report.P90Run is not { } p90) return null;
+
+        var footnote = $"p90 {p90.Label}{(p90.Estimated ? " est." : string.Empty)}";
+
+        // A run with a stage nobody priced still counts, over the stages that were; the
+        // tile says how many stand on part of a run rather than dropping them.
+        return report.PartialRuns > 0 ? $"{footnote} · {report.PartialRuns} of {report.TotalRuns} runs partly priced" : footnote;
+    }
+
+    /// <summary>A card's run count: the runs that ran the phase under it, and how many
+    /// of them priced it where that is fewer — a configuration nothing priced still shows
+    /// that it ran.</summary>
+    private static string ConfigurationRuns(DeliveryConfigurationCost configuration) =>
+        configuration.PricedRuns == configuration.Runs
+            ? RunsWord(configuration.Runs)
+            : $"{RunsWord(configuration.Runs)} · {configuration.PricedRuns} priced";
+
+    private static string WholeRunTitle(int totalRuns, int partialRuns) =>
+        partialRuns > 0
+            ? $"Over {RunsWord(totalRuns)}, each over the stages that were priced; {partialRuns} left a stage unpriced"
+            : $"Over {RunsWord(totalRuns)}";
+
+    private static string? LargestFootnote(DeliveryEconomicsReport report) =>
+        Largest(report) is { Share: { } share } ? $"{DeliveryRunStageUsual.Percent(share)} {ShareOf}" : null;
+
+    /// <summary>What a share is of: the summed medians of the phases the latest run
+    /// carries — not the Median run tile's figure, which is a whole run's.</summary>
+    private const string ShareOf = "of the flow's phase costs";
+
+    private const string NotPricedReason = "No run priced this phase";
+
+    private const string DroppedReason = "Not in the latest run, so not part of the flow's phase costs now";
+
+    /// <summary>How many runs the quality measure stands on, said every time — while
+    /// the engine reports none, that is zero, and the page says so.</summary>
+    private string QualityLine(DeliveryEconomicsReport report) =>
+        report.QualityRuns == 0
+            ? $"Quality measure stands on 0 of {_windowRuns.Count} runs: the delivery engine reports no quality facts yet, so this page compares cost only."
+            : $"Quality measure stands on {report.QualityRuns} of {_windowRuns.Count} runs.";
+
+    private static string QualityOf(DeliveryConfigurationCost configuration) =>
+        configuration.Quality is { } quality
+            ? $"{quality.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} over {RunsWord(configuration.QualityRuns)}"
+            : NotReported;
+
+    /// <summary>The bar's width, in percent of the track: the share itself, capped at
+    /// the track's end.</summary>
+    private static string BarWidth(double share) =>
+        Math.Clamp(share * 100, 0, 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string RunsWord(int count) => count == 1 ? "1 run" : $"{count} runs";
+}

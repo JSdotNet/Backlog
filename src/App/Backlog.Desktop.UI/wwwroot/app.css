@@ -8558,11 +8558,15 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
-.sessions-row:hover {
+/* Shared with Delivery economics' phase rows, so the two lists in the takeover
+   answer the pointer and the keyboard the same way. */
+.sessions-row:hover,
+.delivery-economics__phase:hover {
     box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
 }
 
-.sessions-row:focus-visible {
+.sessions-row:focus-visible,
+.delivery-economics__phase:focus-visible {
     outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
 }
@@ -9884,6 +9888,328 @@ a.pull-request-detail-checks__name:hover {
        that is identifiers rather than prose. */
     white-space: normal;
     overflow-wrap: anywhere;
+}
+
+/* The insight line as a way into Delivery economics: still the line it was, in the
+   same band colours, with the underline a link wears so the press is not a guess.
+   Its own box is the 44px target accessibility.md asks for, the text centred in it:
+   a hit area that reached past the box would sit over the fold trigger above. */
+.sessions-run__insight--action {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: var(--color-border-strong);
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+.sessions-run__insight--action:hover {
+    text-decoration-color: currentColor;
+}
+
+.sessions-run__insight--action:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Delivery economics: a page inside the Sessions takeover. The pane's own frame,
+   header and filter bar, then the figures tiles, then the phase table beside the
+   selected phase's panel — the panel drops under the table at a narrow width.
+   --------------------------------------------------------------------------- */
+.delivery-economics__breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+    align-items: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.delivery-economics__back {
+    letter-spacing: inherit;
+    text-transform: inherit;
+}
+
+.delivery-economics__crumb {
+    color: var(--color-text-primary);
+}
+
+.delivery-economics__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.delivery-economics__layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+}
+
+/* One set of columns for the heads and every row, so a column lines up whatever the
+   row holds. */
+.delivery-economics__phases {
+    --delivery-economics-columns:
+        minmax(7rem, 1.1fr) minmax(9rem, 1.3fr) 4rem 6rem
+        minmax(8rem, 1.4fr) minmax(6rem, 0.9fr) 6.5rem;
+    flex: 1.6 1 40rem;
+    min-width: 0;
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    overflow-x: auto;
+}
+
+.delivery-economics__columns {
+    display: grid;
+    grid-template-columns: var(--delivery-economics-columns);
+    gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 50rem;
+    padding: var(--spacing-xs) var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+}
+
+/* A column head over figures keeps the heads' type: only the figures themselves are
+   set in the mono face. */
+.delivery-economics__columns .delivery-economics__number {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.delivery-economics__rows {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.delivery-economics__phase {
+    display: grid;
+    grid-template-columns: var(--delivery-economics-columns);
+    gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 50rem;
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* Selected reads by the raised surface and the focus-colour border that
+   interaction-guidelines.md asks of a selected list item — wider than hover's ring,
+   so the two never look alike; aria-pressed says it to assistive technology. */
+.delivery-economics__phase--selected,
+.delivery-economics__phase--selected:hover {
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 var(--border-width-2) var(--color-border-focus);
+}
+
+.delivery-economics__name {
+    font-weight: 500;
+}
+
+.delivery-economics__now {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    align-items: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.delivery-economics__number {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    text-align: right;
+}
+
+.delivery-economics__estimated {
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+}
+
+.delivery-economics__share {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+/* The share as a width, beside the percent that states it. */
+/* The chart roles and height the metric breakdown's share track uses, so the same
+   share reads the same on both surfaces. */
+.delivery-economics__bar {
+    flex: 1 1 auto;
+    height: var(--border-width-4);
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.delivery-economics__bar-fill {
+    display: block;
+    height: 100%;
+    background: var(--chart-series);
+}
+
+.delivery-economics__share-figure {
+    flex: none;
+    min-width: 2.5rem;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-align: right;
+}
+
+.delivery-economics__quality {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.delivery-economics__panel {
+    display: flex;
+    flex: 1 1 24rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.delivery-economics__eyebrow {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.delivery-economics__panel-title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+}
+
+.delivery-economics__lede {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.delivery-economics__configs {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* The best mark is a word on a badge; the edge only repeats it. */
+.delivery-economics__config--best {
+    box-shadow: inset 0 0 0 var(--border-width-2) var(--color-success);
+}
+
+.delivery-economics__config-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.delivery-economics__config-model {
+    font-weight: 600;
+}
+
+.delivery-economics__config-agent {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.delivery-economics__config-runs {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.delivery-economics__figures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0 0;
+}
+
+.delivery-economics__figure dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.delivery-economics__figure dd {
+    margin: var(--spacing-2xs) 0 0;
+    font-family: var(--font-family-mono);
+}
+
+.delivery-economics__lesson {
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary);
+}
+
+/* A lesson that only confirms what is configured now asks for nothing, so it takes
+   the quiet ring rather than the call-to-action one; its headline says "Keep". */
+.delivery-economics__lesson--keep {
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+/* Opening the page puts the focus on it so a screen reader reads its heading; the
+   section is not a control, so it draws no ring. */
+.delivery-economics:focus {
+    outline: none;
+}
+
+.delivery-economics__lesson-body {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.delivery-economics__headline {
+    margin: 0;
+    font-weight: 600;
+}
+
+.delivery-economics__copy {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.delivery-economics__copy-button {
+    width: auto;
+    padding: 0 var(--spacing-md);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    font-weight: 500;
+}
+
+.delivery-economics__copy-result {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is
