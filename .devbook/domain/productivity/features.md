@@ -192,14 +192,21 @@ flowchart LR
 Needs you lists what the person should look at, in this order:
 
 1. Devbook units whose drift issue carries `sync-failed`, or whose last verdict is
-   conflict.
-2. Roadmap items whose outlook is Behind.
-3. Providers projected to pass their monthly budget by the end of the month.
+   conflict. A `sync-failed` issue whose unit no recorded verdict names still counts,
+   once.
+2. Roadmap items whose outlook is Behind, with the story points they have left.
+3. Providers projected to pass their monthly budget by the end of the month, with the
+   day the projection crosses it — or that it is past it already.
 4. Rework, when the pull requests that came back after review are more than 25% of
-   those merged in the window.
+   those merged in the window. Exactly 25% does not count.
 
 Each item has a title, a one-line detail and a link to its tab. The list only points;
 the tab holds the evidence. When nothing qualifies, the list says "Nothing needs you."
+
+Each rule reads its tab's own figures, so an item never says what its tab does not
+show. A source that cannot be read is skipped rather than failing the list, and the
+list keeps the reason, so an empty list over a skipped source is not mistaken for
+an all-clear.
 
 ### Spend against a monthly budget
 
