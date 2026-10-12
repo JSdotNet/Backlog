@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// whole point: a takeover cannot coexist with the workspace, and the takeovers
 /// cannot coexist with each other. Each belongs to one context — Tools to Dev PC
 /// Management, Dashboard to the Dashboard, Sessions and Pull requests to
-/// Sessions — and opening any of them means the
+/// Sessions, the Inbox to the Inbox — and opening any of them means the
 /// reader has stopped looking at the backlog, so there is no arrangement in which
 /// one shares the screen with the panes or with another. Two booleans would have
 /// to be kept out of the impossible states by hand; this cannot reach any of them.
@@ -69,5 +69,14 @@ internal enum WorkspaceSurface
     /// the navigation file stores names, so every surface an earlier build wrote
     /// reopens unchanged, and a new name is simply one no earlier file holds. The
     /// header orders its segments for itself; this order is nobody's layout.</summary>
-    PullRequests
+    PullRequests,
+
+    /// <summary>The Inbox, taking the whole screen (local ADR 0022, amendment of
+    /// 2026-10-12). It was a <see cref="GlobalPane"/> beside the main view until
+    /// triage wanted the width; <c>ShellNavigationStore</c> reads a file from then
+    /// that had it open over the workspace as this surface. Appended for the reason
+    /// <see cref="PullRequests"/> was. Unlike the other takeovers Escape does not
+    /// close it: Escape belongs to the Inbox's own keys there, leaving triage for the
+    /// list, so only its header option — or another surface's — leaves it.</summary>
+    Inbox
 }

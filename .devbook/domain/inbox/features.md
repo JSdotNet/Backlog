@@ -25,8 +25,9 @@ selected item opens in a detail view shaped by its kind.
 
 The rows are grouped by how long ago they were captured: **Today**, **This
 week** and **Older than a week**, each heading with its count. A group with no
-rows is not shown. The pane is three columns: the side menu, the rows, and the
-detail of the chosen item. **Deferred** is the one slice without age headings:
+rows is not shown. On the desktop the Inbox takes the whole screen in place of
+the main view, in three columns: the side menu, the rows, and the detail of the
+chosen item. **Deferred** is the one slice without age headings:
 its rows run in the order they come back, soonest review date first, and
 splitting them by capture would scramble that.
 
@@ -694,7 +695,7 @@ type: sub-feature
 status: draft
 related: [.devbook/domain/inbox/flow.md#inbox-item-lifecycle]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Deferring_with_a_date_moves_the_row_to_the_deferred_slice_and_counts_it_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests.Every_opening_of_the_inbox_pane_runs_the_resurface_sweep]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Deferring_with_a_date_moves_the_row_to_the_deferred_slice_and_counts_it_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests.Every_opening_of_the_inbox_runs_the_resurface_sweep]
 ```
 
 Put an item aside with an optional **Review on** date from its detail. The item

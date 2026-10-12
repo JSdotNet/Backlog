@@ -34,10 +34,11 @@
     surfaces they choose between. The `.shell` class on the wrapper is the older name and stays,
     because it is what every layout rule in app.css is written against.
 
-    There are five, and exactly one of them renders: the workspace — the main view
-    the view switch picks, Tasks or Roadmap, with the Inbox and the Devbook beside
-    it — the tools surface, the dashboard, the session list and the pull requests
-    list. The last four are takeovers — Dev PC Management, the Dashboard and
+    There are six, and exactly one of them renders: the workspace — the main view
+    the view switch picks, Tasks or Roadmap, with the Devbook beside it — the tools
+    surface, the dashboard, the session list, the pull requests list and the Inbox.
+    The Inbox took the screen when triage outgrew a side pane; the four before it
+    are takeovers — Dev PC Management, the Dashboard and
     Sessions are whole domains, and opening one means the reader has stopped
     looking at the backlog, so it takes the screen and hides every other domain
     concern rather than docking beside them. The roadmap was one of them until it
@@ -156,10 +157,13 @@
 
            The view switch is the one question every screen answers: which main
            view the workspace shows. Exactly one is always showing, so the switch has
-           no "off" and pressing the pressed option changes nothing. The Inbox and
-           the Devbook are not views but panes beside whichever view is showing, and
-           they flank the switch because they are the workspace's too — the reader
-           reads them beside the list or the roadmap, not instead of it. The Tasks
+           no "off" and pressing the pressed option changes nothing. The Devbook is
+           not a view but a pane beside whichever view is showing, read beside the
+           list or the roadmap, not instead of it. The Inbox leads the row and is a
+           takeover: it takes the whole screen, because triage reads one item at a
+           time and wants the width, and pressing it again returns to the view that
+           was showing. Escape does not close it, unlike the other takeovers — the
+           Inbox's own keys use Escape to leave triage. The Tasks
            pane toggle that used to sit between them is gone with the "side panes
            only" state it allowed: the task list is the Tasks view now.
 
@@ -181,12 +185,12 @@
                 {
                     <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
-                                  Pressed="PaneOptionPressed(GlobalPane.Inbox)"
+                                  Pressed="InboxVisible"
                                   id="inbox-pane-option"
                                   TestId="inbox-pane-option"
-                                  aria-controls="inbox-pane"
-                                  Title="@PaneOptionTitle(GlobalPane.Inbox, "Inbox")"
-                                  OnClick="() => PressPane(GlobalPane.Inbox)">
+                                  aria-controls="inbox-surface"
+                                  Title="@InboxOptionTitle"
+                                  OnClick="ToggleInbox">
                         Inbox
                         <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
                                             Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
@@ -282,8 +286,8 @@
                              AriaLabel="Work in progress"
                              TestId="work-in-progress-switcher">
                     @* A main view, not a takeover, though it sits with two: pressing
-                       it shows the view as a view-switch option does, the Inbox and
-                       the Devbook stay beside it, and nothing closes it. First,
+                       it shows the view as a view-switch option does, the Devbook
+                       stays beside it, and nothing closes it. First,
                        because it is the summary the other two are the lists behind. *@
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
@@ -615,19 +619,27 @@
                               FocusPullRequest="@_focusPullRequest" />
         </main>
     }
+    else if (InboxVisible)
+    {
+        @* The Inbox takes the screen like the takeovers above, but Escape is not
+           its way out: no Escape-closes marker and no surface key handler, so
+           Escape stays with the Inbox's own keys, which use it to leave triage.
+           Its header option, or another surface's, is the way back. *@
+        <main class="workspace-surface"
+              id="inbox-surface"
+              data-testid="inbox-surface"
+              aria-label="Inbox">
+            @InboxPaneContent
+        </main>
+    }
     else
     {
         <main class="workspace" id="workspace" data-testid="workspace">
-            @* The pane row: the Inbox, the main view, and the Devbook beside it.
-               The class, the width variable and the test id are unchanged from when
-               it was the <main> itself, because the resizer's JavaScript finds the
-               layout by that test id. *@
-            <div class="devbook-layout @(DevbookPaneVisible ? "devbook-layout--side-open" : "devbook-layout--side-closed") @(InboxPaneVisible ? "devbook-layout--inbox-before-backlog" : string.Empty)" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
-                @if (InboxPaneVisible)
-                {
-                    @InboxPaneContent
-                }
-
+            @* The pane row: the main view, and the Devbook beside it. The class,
+               the width variable and the test id are unchanged from when it was
+               the <main> itself, because the resizer's JavaScript finds the layout
+               by that test id. *@
+            <div class="devbook-layout @(DevbookPaneVisible ? "devbook-layout--side-open" : "devbook-layout--side-closed")" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
                 @if (RoadmapViewVisible)
                 {
                     @* No Escape-to-close here, unlike the takeovers: the roadmap is a
@@ -855,22 +867,22 @@
         // this page does, because the pane ships behind a flag and is closed by
         // default — a store read for a pane nobody opened is a store read wasted.
         // After every render rather than on a toggle handler, because there are
-        // three ways the pane opens (its own toggle, a restored selection, and
-        // the feature switching on) and one place to notice is better than three.
-        if (InboxPaneVisible && !_inboxInitialized)
+        // three ways the Inbox opens (its own option, a restored surface, and the
+        // feature switching on) and one place to notice is better than three.
+        if (InboxVisible && !_inboxInitialized)
         {
             _inboxInitialized = true;
             _inboxWasVisible = true;
             await InboxState.InitializeAsync();
         }
-        else if (InboxPaneVisible != _inboxWasVisible)
+        else if (InboxVisible != _inboxWasVisible)
         {
             // Every later open runs the resurface sweep again, so a deferred
             // item due since the pane was last closed is back before anyone
             // reads the queue. The flag moves first: the sweep re-renders, and
             // the render after it must not see a second opening.
-            _inboxWasVisible = InboxPaneVisible;
-            if (InboxPaneVisible) await InboxState.OpenedAsync();
+            _inboxWasVisible = InboxVisible;
+            if (InboxVisible) await InboxState.OpenedAsync();
         }
 
         // The two branches below run on every render, not only the first: a
@@ -915,7 +927,12 @@
         _focusSurfacePending = false;
         try
         {
-            await _surfaceElement.FocusAsync();
+            // The Inbox takes focus inside its own pane rather than on the
+            // landmark: its keys — j, k, t and Escape out of triage — are heard
+            // only while focus is within the pane, so landing on the surface
+            // would leave them dead until a click.
+            if (InboxVisible) await JS.InvokeVoidAsync("backlogFocus", InboxPaneId, false);
+            else await _surfaceElement.FocusAsync();
         }
         catch (Exception)
         {
@@ -954,7 +971,7 @@
     /// <summary>Whether the workspace — the main view and its side panes — is on
     /// screen. Anything that is not a takeover is the workspace, including a
     /// surface whose feature has been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible;
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible;
 
     /// <summary>The view the workspace shows: the one chosen, unless its feature
     /// has since been switched off — then Tasks, which is always offered. The
@@ -1001,11 +1018,14 @@
         ShellNavigation.SetBoardColumns(grouping.ToString());
 
     /// <summary>Whether what is on screen can show several repositories at once:
-    /// the task list, the Dashboard, the session list, or the pull requests list.
+    /// the task list, the Dashboard, the session list, or the pull requests list —
+    /// and the Inbox, which shows none but routes into the list: it sat beside the
+    /// list before it took the screen, and a triage session must not cost the reader
+    /// the scope the list goes back to.
     /// Devbook reads one, and Tools reads none, so on those a chip is a single
     /// select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || InProgressViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible;
+        TasksListOnScreen || InProgressViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -1027,7 +1047,7 @@
         get
         {
             var keys = new List<string>(7);
-            if (WorkspaceVisible && InboxPaneVisible) keys.Add("inbox");
+            if (InboxVisible) keys.Add("inbox");
             if (TasksListOnScreen) keys.Add("tasks");
             if (RoadmapViewVisible) keys.Add("roadmap");
             if (WorkspaceVisible && DevbookPaneVisible) keys.Add("devbook");
@@ -1081,7 +1101,6 @@
 
     private static string AiScopeFor(GlobalPane pane) => pane switch
     {
-        GlobalPane.Inbox => "inbox",
         GlobalPane.Devbook => "devbook",
         // Exhaustive on purpose: a pane added without an area is a pane whose
         // press would silently point Ask AI at the wrong content, and a throw
@@ -1124,8 +1143,8 @@
     /// a takeover that was up closes, so the press is also the way back.
     /// <para>
     /// The option already pressed changes nothing — one view is always showing, so
-    /// there is nothing to switch off to. The Inbox and the Devbook stay as they
-    /// were: they are panes beside the view, whichever it is.
+    /// there is nothing to switch off to. The Devbook stays as it was: it is a
+    /// pane beside the view, whichever it is.
     /// </para>
     /// </summary>
     private void ShowView(ShellView view)
@@ -1198,6 +1217,13 @@
 
     private void TogglePullRequests() => ToggleSurface(WorkspaceSurface.PullRequests);
 
+    /// <summary>The Inbox option: opens the Inbox in place of the main view, or
+    /// returns to that view when the Inbox is already on screen.</summary>
+    private void ToggleInbox() => ToggleSurface(WorkspaceSurface.Inbox);
+
+    /// <summary>What the Inbox option's press will do.</summary>
+    private string InboxOptionTitle => InboxVisible ? $"Back to {EffectiveView}" : "Open the Inbox";
+
     /// <summary>Opens a surface, or returns to the workspace if it was already the
     /// one on screen. Assigning rather than flipping a flag is what makes the
     /// takeovers exclusive: opening one is the same act as closing the other.</summary>
@@ -1223,6 +1249,9 @@
                 break;
             case WorkspaceSurface.Sessions:
                 RememberAiScope("sessions");
+                break;
+            case WorkspaceSurface.Inbox:
+                RememberAiScope("inbox");
                 break;
         }
     }
@@ -1403,8 +1432,7 @@
     /// The mirror of <see cref="OpenSessionAsync"/>: the entry belongs to Tasks and
     /// the chapter to Devbook, and the shell is the one place holding both. Opened
     /// beside the view — the reader pressed it from the list and is still working in
-    /// it — and where the window has no room for another side pane, the Inbox makes
-    /// way rather than the request being dropped.
+    /// it.
     /// A repository with no devbook to show, or the Devbook switched off, is said out
     /// loud rather than opening an empty pane.
     /// </para>
@@ -1627,8 +1655,9 @@
     [JSInvokable]
     public Task CloseSurfaceOnEscapeAsync()
     {
-        // The Roadmap view is the workspace and has no Escape of its own here.
-        if (WorkspaceVisible) return Task.CompletedTask;
+        // The Roadmap view is the workspace and has no Escape of its own here, and
+        // the Inbox keeps Escape for its own keys.
+        if (WorkspaceVisible || InboxVisible) return Task.CompletedTask;
 
         CloseSurface();
         StateHasChanged();
@@ -1737,7 +1766,13 @@
 
     private bool InboxPaneOptionVisible => InboxFeatureEnabled;
 
-    private bool InboxPaneVisible => InboxPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Inbox);
+    /// <summary>The Inbox pane's own id, the one its keyboard shortcuts are
+    /// registered under; see <c>InboxPane</c>.</summary>
+    private const string InboxPaneId = "inbox-pane";
+
+    /// <summary>Whether the Inbox has the screen. The same shape as the takeovers
+    /// above: its flag switched off returns the reader to the workspace.</summary>
+    private bool InboxVisible => _surface == WorkspaceSurface.Inbox && InboxPaneOptionVisible;
 
     /// <summary>Whether there is any knowledge to offer. The shell asks Devbook
     /// rather than working it out from folder settings itself.</summary>
@@ -2043,7 +2078,6 @@
 
     private void SynchronizePaneAvailability()
     {
-        _globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);
         _globalPanes.TrySetAvailable(GlobalPane.Devbook, DevbookPaneOptionVisible);
         PersistPaneSelection();
     }
@@ -2092,7 +2126,7 @@
     /// During a takeover the press is first the way back: it closes the takeover,
     /// as <see cref="CloseSurface"/> does for Escape. A pane already open is then
     /// simply shown again with the workspace as it was — closing it would answer
-    /// "show me the Inbox" by hiding the Inbox.
+    /// "show me the Devbook" by hiding the Devbook.
     /// </para>
     /// </summary>
     private void PressPane(GlobalPane pane)
@@ -2125,12 +2159,11 @@
     }
 
     /// <summary>Triage: the Inbox turned an item into backlog entries, and the
-    /// shell shows them where work actually happens.
+    /// task list reads them in, so they are there when the reader goes back to it.
     /// <para>
-    /// The Tasks view, with the Inbox kept open beside it: the entries are on the
-    /// list, and closing the Inbox they just routed the item from would take away
-    /// the queue they were working through. Routed from beside the Roadmap view, the
-    /// view switches to Tasks, since the new entries are not on the roadmap yet.
+    /// Only the data moves: the Inbox has the screen, and leaving it for the list
+    /// would take away the queue the reader is working through. The view under it
+    /// stays what it was — the reader chose it, and the Inbox option returns to it.
     /// </para>
     /// <para>
     /// The Tasks pane is reloaded from the store rather than told what changed.
@@ -2163,11 +2196,6 @@
 
     private void RefreshTasksAfterRouting() => _ = InvokeAsync(async () =>
     {
-        // The entries are on the task list, so that is the view the workspace
-        // shows, unless the Board or the Calendar is already laying the same
-        // rows out; the Inbox stays open beside it.
-        if (EffectiveView is not (ShellView.Tasks or ShellView.Board or ShellView.Calendar)) SetView(ShellView.Tasks);
-
         try
         {
             await State.ReloadFromStoreAsync();
@@ -2175,8 +2203,8 @@
         }
         catch (Exception ex)
         {
-            // The entries were made — the Inbox said so — and only the pane
-            // beside it failed to show them. Said on a toast, for the reason
+            // The entries were made — the Inbox said so — and only the task
+            // list failed to read them. Said on a toast, for the reason
             // HandleTaskSyncChanged gives: nothing awaits this.
             Toasts.Publish(ToastMessage.Error($"The backlog could not be refreshed after routing: {ex.Message}", TasksReloadErrorTestId));
         }

@@ -7831,6 +7831,23 @@ button.tag-chip__label {
     pointer-events: none;
 }
 
+/* components.js turns the tray into a manual popover to lift it above an open
+   Modal in the top layer. The user agent dresses a popover as a centred, bordered
+   box; this undoes that so the host keeps the corner and the look it has above.
+   Only the start edges are reset — the end edges are the host's own placement. */
+.toast-host[popover] {
+    inset-block-start: auto;
+    inset-inline-start: auto;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    overflow: visible;
+}
+
 .toast {
     display: flex;
     align-items: center;
@@ -8826,6 +8843,30 @@ select.field__input {
 }
 
 /* --- Modal and confirm dialog -------------------------------------------- */
+
+/* The native dialog Modal opens with showModal() so the dialog lives in the top
+   layer, out of reach of a pane's container-type, transform or filter. It is a
+   carrier only: every user-agent box rule is undone so it is the viewport and
+   draws nothing, and its ::backdrop is transparent because .modal-backdrop below
+   already paints the scrim and takes the clicks. */
+.modal-layer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    overflow: visible;
+}
+
+.modal-layer::backdrop {
+    background: transparent;
+}
 
 .modal-backdrop {
     position: fixed;

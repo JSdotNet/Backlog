@@ -230,6 +230,7 @@ both items and chapters.
 ## Feedback and Toasts
 
 ```meta
+related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 ```
 
 | Rule | Requirement |
@@ -240,6 +241,7 @@ both items and chapters.
 | Dismiss | The dismiss control MUST have an accessible label ("Dismiss notification"). |
 | No redundant save toasts | Routine auto-saves MUST NOT spam toasts — the persistent save-state indicator carries that; toasts are for failures and notable events only. |
 | Inline confirmation | Prefer subtle inline confirmation (e.g. a brief `ease-bounce` flash on a saved inline edit) over a toast for small edits. |
+| Above an open dialog | A toast raised while a `Modal` is open MUST be seen above it. A modal sits in the browser's top layer (`typography-and-layout.md#z-index-scale`), so the tray is lifted into that layer above each modal as it opens and let down when the last one closes. It is visible, not interactive: the modal makes everything outside itself inert, so the dismiss control does not answer until the modal closes, and the toast's own timer still dismisses it. |
 
 ## Motion and Reduced Motion
 
@@ -415,8 +417,9 @@ related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-vie
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
-question. Below it the workspace shows exactly one **main view**, with the side
-panes beside it, unless a **takeover** has the screen (local ADR 0022).
+question. Below it the workspace shows exactly one **main view**, with the
+Devbook beside it, unless a **takeover** or the Inbox has the screen (local ADR
+0022).
 
 | Region | Answers | Holds |
 |---|---|---|
@@ -431,21 +434,22 @@ as its kind:
 | Control | Members | Behaves as |
 |---|---|---|
 | View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows. Pressing the pressed option changes nothing. A view is never closed and Escape never leaves it. |
-| Side-pane toggle | `Inbox` before the view switch, `Devbook` after it | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. |
+| Inbox toggle | `Inbox`, before the view switch | An on-or-off of its own that gives the Inbox the whole screen in place of the main view; pressed again, it returns to that view. Escape does not leave the Inbox: it is the Inbox's own key, leaving triage for the list. |
+| Side-pane toggle | `Devbook`, after the view switch | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. |
 | Work in progress group | `In progress` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the Sessions context's work. In progress acts as a view option does; Sessions and Pull requests act as takeovers. Renders while Sessions or Pull requests is offered. |
 | Remaining takeovers | `Dashboard`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. |
 
 | Rule | Requirement |
 |---|---|
-| The workspace cluster sits close | The Inbox toggle, the view switch and the Devbook toggle MUST sit at the tighter `spacing-xs` gap and the groups after them at the wider navigation gap, so the panes read as belonging to the views they open beside. |
+| The workspace cluster sits close | The Inbox toggle, the view switch and the Devbook toggle MUST sit at the tighter `spacing-xs` gap and the groups after them at the wider navigation gap, so the Inbox and the Devbook read as belonging to the views. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view and the open side panes underneath; closing it shows them as they were. |
-| Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option or a side-pane toggle during a takeover MUST close it and show the workspace, with that view or that pane on screen. |
-| Nothing reads pressed under a takeover | During a takeover no view option and no side-pane toggle reads pressed, since nothing of the workspace is on screen. |
+| Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option or a side-pane toggle during a takeover MUST close it and show the workspace, with that view or that pane on screen. The Inbox is left by a second press of its option, a view option, the side-pane toggle or another takeover, never by Escape. |
+| Nothing reads pressed under a takeover | During a takeover, or while the Inbox has the screen, no view option and no side-pane toggle reads pressed, since nothing of the workspace is on screen. |
 | Takeovers are exclusive | Opening a takeover MUST replace any other takeover; a group of pressed states, not `aria-expanded`, says so. Ask AI keeps `aria-expanded`, because it is a disclosure. |
 | A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
 | The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar, a select with no visible word beside it — the grouping it shows says what the columns are — named `Columns` to assistive technology and in its tooltip. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
 | A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the side-pane toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
-| The shell reopens where it was left | The main view, the open side panes and any open takeover MUST be restored on a fresh shell instance, including after Settings and back. |
+| The shell reopens where it was left | The main view, the open side pane and any open takeover or the Inbox MUST be restored on a fresh shell instance, including after Settings and back. |
 
 Review surface: storybook → *App shell* → **Desktop header navigation**.
 
@@ -455,20 +459,22 @@ Review surface: storybook → *App shell* → **Desktop header navigation**.
 related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-The desktop shell has two side panes, the Inbox and the Devbook, and each opens
-beside whichever main view is showing (see `#shell-header`). The task list is
-not a pane: it is the Tasks view, which is never closed. That is why no pane has
-to stay open, and why the old pane strip's rules — an exclusive plain press, a
-Ctrl-press to add one beside, a disabled last option, a pin on every option —
-are gone with it.
+The desktop shell has one side pane, the Devbook, and it opens beside whichever
+main view is showing (see `#shell-header`). The task list is not a pane: it is
+the Tasks view, which is never closed. That is why no pane has to stay open, and
+why the old pane strip's rules — an exclusive plain press, a Ctrl-press to add
+one beside, a disabled last option, a pin on every option — are gone with it.
+The Inbox was a side pane too, before the main view; it takes the whole screen
+now, because triage reads one item at a time and wants the width (local ADR
+0022, amendment of 2026-10-12).
 
 | Rule | Requirement |
 |---|---|
 | A toggle of its own | A press on a closed side pane MUST open it beside the view, and a press on an open one MUST close it. No modifier changes what a press does. |
 | No pane is an ordinary state | The shell MUST render with no side pane open, and a side-pane toggle MUST NOT be disabled. |
-| The tooltip says what the press will do | "Open Inbox beside Tasks", "Close Inbox", or during a takeover "Back to the workspace with Inbox open". |
-| The Inbox opens before the view | The Inbox MUST render before the main view and the Devbook after it, as their toggles stand in the header. |
-| A full window trims in the stable order | The viewport sets how many panes fit, the main view included, and leaves at least one side slot. A pane that opens into a full set MUST close the first open side pane in the stable order (Inbox, then Devbook), and a narrowed window MUST trim the same way, so one arrangement always narrows one way. |
+| The tooltip says what the press will do | "Open Devbook beside Tasks", "Close Devbook", or during a takeover "Back to the workspace with Devbook open". |
+| The Devbook opens after the view | The Devbook MUST render after the main view, as its toggle stands in the header. |
+| A narrow window stacks, it does not close | The viewport sets how many panes fit, the main view included, and always leaves the side pane its slot: below the two-pane width the layout stacks its columns rather than closing the Devbook. |
 | The edge is the handle | The Devbook's width MUST be set by dragging the pane edge, with arrow keys on the same separator as the keyboard equivalent. |
 
 ## Group Shape Says Cardinality

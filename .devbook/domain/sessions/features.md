@@ -1297,7 +1297,7 @@ the repository scope, each with the sessions and pull requests linked to it besi
 — a session's title, state and last activity; a pull request's number, title, draft
 or open, review verdict, checks and size. A task with nothing of a kind says "None
 yet". It is the first option of the work in progress group in the header and a main
-view rather than a takeover: the Inbox and the Devbook still open beside it, and it is
+view rather than a takeover: the Devbook still opens beside it, and it is
 offered while the session list or the pull requests list is.
 
 The scope is the task list's whole repository scope: the repositories chosen in the

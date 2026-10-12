@@ -46,8 +46,7 @@ public sealed class PaneResizerScopeTests
     /// A child combinator rather than a descendant one, because the split's separator
     /// is also inside <c>.devbook-layout</c> — two levels down, through the tasks
     /// workspace — so a descendant selector would hide exactly what this is scoped to
-    /// spare. The sheet already writes the layout's own children this way; see
-    /// <c>.devbook-layout--inbox-before-backlog &gt; .inbox-pane</c>.
+    /// spare.
     /// </para>
     /// </summary>
     [Fact]
