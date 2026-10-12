@@ -5,11 +5,16 @@
     its hours, and a remove — and a line to set hours aside on another day.
 
     A block is a day and a number of hours, never a time of day: the person's own
-    plan, which the Calendar draws and the roadmap never reads. A figure is committed
-    on change rather than per keystroke, so "2." on the way to "2.5" never reaches the
-    host, and a figure that is no number of hours to keep — zero, less, or more than a
-    day — is said under the lines and not handed on. The editor writes nothing: it
-    reports each change through OnChanged and redraws from the blocks it is given.
+    plan, which the Calendar draws and the roadmap never reads. Each figure is a
+    Combobox suggesting the usual blocks (CalendarHours.Presets) over a field that
+    takes any figure. A day's figure is committed when a suggestion is taken, at
+    once, and a typed one on Enter or on leaving the field — never per keystroke, so
+    "2." on the way to "2.5" never reaches the host. A figure that is no number of
+    hours to keep — zero, less, or more than a day — is said under the lines, not
+    handed on, and the field goes back to the figure the day still has. The add
+    line's figure waits for "Add hours", since its day is picked beside it. The
+    editor writes nothing: it reports each change through OnChanged and redraws
+    from the blocks it is given.
 *@
 <div class="planned-hours" data-testid="@TestId">
     @if (Blocks.Count > 0)
@@ -21,17 +26,15 @@
                 var spoken = block.On.ToString("D", CultureInfo.CurrentCulture);
                 <li @key="block.On" class="planned-hours__row" data-day="@iso" data-testid="@Part("row")">
                     <span class="planned-hours__day">@block.On.ToString("ddd d MMM yyyy", CultureInfo.CurrentCulture)</span>
-                    <TextField Type="number"
-                               Compact="true"
-                               AriaLabel="@($"Hours on {spoken}")"
-                               BaseClass="planned-hours__hours"
-                               TestId="@Part($"hours-{iso}")"
-                               min="0.25"
-                               max="24"
-                               step="0.25"
-                               autocomplete="off"
-                               Value="@CalendarHours.Edit(block.Hours)"
-                               @onchange="args => ChangeAsync(block, args)" />
+                    <Combobox Options="@_presets"
+                              Compact="true"
+                              AriaLabel="@($"Hours on {spoken}")"
+                              ListAriaLabel="Suggested hours"
+                              CssClass="planned-hours__hours"
+                              TestId="@Part($"hours-{iso}")"
+                              inputmode="decimal"
+                              Value="@CalendarHours.Edit(block.Hours)"
+                              OnCommit="commit => ChangeAsync(block, commit)" />
                     <span class="planned-hours__unit" aria-hidden="true">h</span>
                     <IconButton AriaLabel="@($"Remove the hours on {spoken}")"
                                 Title="Remove these hours"
@@ -52,18 +55,16 @@
                    TestId="@Part("add-day")"
                    Value="@AddDay"
                    ValueChanged="value => _addDay = value" />
-        <TextField Type="number"
-                   Compact="true"
-                   AriaLabel="Hours to plan"
-                   BaseClass="planned-hours__hours"
-                   TestId="@Part("add-hours")"
-                   min="0.25"
-                   max="24"
-                   step="0.25"
-                   autocomplete="off"
-                   Placeholder="Hours"
-                   Value="@_addHours"
-                   ValueChanged="value => _addHours = value" />
+        <Combobox Options="@_presets"
+                  Compact="true"
+                  AriaLabel="Hours to plan"
+                  ListAriaLabel="Suggested hours"
+                  CssClass="planned-hours__hours"
+                  TestId="@Part("add-hours")"
+                  inputmode="decimal"
+                  Placeholder="Hours"
+                  Value="@_addHours"
+                  ValueChanged="value => _addHours = value" />
         <span class="planned-hours__unit" aria-hidden="true">h</span>
         <AppButton Size="ButtonSize.Small" TestId="@Part("add")" OnClick="AddAsync">Add hours</AppButton>
     </div>
@@ -78,6 +79,7 @@
     private string? _addDay;
     private string? _addHours;
     private string? _error;
+    private readonly IReadOnlyList<SelectorOption> _presets = CalendarHours.PresetOptions();
 
     /// <summary>The task's blocks, in date order.</summary>
     [Parameter]
@@ -100,16 +102,28 @@
 
     private string AddDay => _addDay ?? Iso(DefaultDay);
 
-    private async Task ChangeAsync(PlannedHoursDay block, ChangeEventArgs args)
+    private async Task ChangeAsync(PlannedHoursDay block, ComboboxCommit commit)
     {
-        if (CalendarHours.Parse(args.Value?.ToString()) is not { } hours)
+        if (CalendarHours.Parse(commit.Value) is not { } hours)
         {
+            // The field goes back to the figure the task still holds; left as typed it
+            // would read as kept while the sentence under it says it was not.
             _error = Refusal;
+            commit.Refuse();
             return;
         }
 
         _error = null;
-        if (hours != block.Hours) await OnChanged.InvokeAsync(new PlannedHoursDayChange(block.On, hours));
+        if (hours != block.Hours)
+        {
+            await OnChanged.InvokeAsync(new PlannedHoursDayChange(block.On, hours));
+        }
+        else if (!string.Equals(commit.Value, CalendarHours.Edit(hours), StringComparison.Ordinal))
+        {
+            // "3.1" rounds to the 3 the day already holds: nothing to hand on, but the
+            // field shows the figure kept rather than the one typed.
+            commit.Refuse();
+        }
     }
 
     private async Task RemoveAsync(PlannedHoursDay block)

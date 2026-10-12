@@ -252,6 +252,9 @@ Rules:
   sole carrier of meaning (see `accessibility.md`).
 - Icon-only controls require an `aria-label`/automation name and a ≥ 44 × 44 px
   target (see `accessibility.md#target-sizes-and-text`).
+- A glyph leading a header option's label — the view switch and the work in
+  progress group (`interaction-guidelines.md#shell-header`) — is `icon-sm`, 16 px:
+  it sits inline with the label's text, so the nav-item default does not apply.
 - Standard status icons: `check-circle` (success), `alert-triangle` (warning),
   `x-circle` (error), `info` (info), `loader-2` (loading), `grip-vertical` (drag
   handle).

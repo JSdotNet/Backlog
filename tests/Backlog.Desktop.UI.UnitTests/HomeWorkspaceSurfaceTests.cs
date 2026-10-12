@@ -1213,6 +1213,169 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// The Calendar's Month | Week range is remembered beside the view, as the Board's
+    /// columns are: a fresh shell reopens the Calendar on Week, and picking Month again
+    /// takes the key back out. Only the range is kept, so the week shown is today's.
+    /// </summary>
+    [Fact]
+    public void The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            {
+                var component = Render(harness);
+
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='calendar-view-option']")));
+                component.Find("[data-testid='calendar-view-option']").Click();
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar-range-week']")));
+                Assert.Equal(ShellNavigationStore.DefaultCalendarRange, shellNavigation.CalendarRange);
+
+                component.Find("[data-testid='task-calendar-range-week']").Click();
+                component.WaitForAssertion(() =>
+                {
+                    Assert.Equal("Week", shellNavigation.CalendarRange);
+                    Assert.Equal("true", component.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
+                });
+            }
+
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+            var reopenedNavigation = new ShellNavigationStore(path);
+            using (var reopened = CreateHarness(shellNavigation: reopenedNavigation))
+            {
+                var again = Render(reopened);
+
+                again.WaitForAssertion(() =>
+                {
+                    Assert.Equal("true", again.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("true", again.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
+                    Assert.Equal(7, again.FindAll("[data-testid='task-calendar'] [data-calendar-day]").Count);
+                    Assert.NotEmpty(again.FindAll($"[data-calendar-day='{monday:yyyy-MM-dd}']"));
+                });
+
+                again.Find("[data-testid='task-calendar-range-month']").Click();
+                again.WaitForAssertion(() => Assert.Equal(ShellNavigationStore.DefaultCalendarRange, reopenedNavigation.CalendarRange));
+            }
+
+            Assert.DoesNotContain("calendarRange", File.ReadAllText(path), StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The In progress view's two choices are the shell's to keep, beside the
+    /// Board's columns and the calendar's range: a fresh shell instance — a
+    /// relaunch, or Settings and back — reopens the board as the reader left it,
+    /// and putting both back to their defaults takes their keys out of the file.
+    /// </summary>
+    [Fact]
+    public void The_in_progress_toggles_are_remembered_and_a_fresh_shell_reopens_on_them()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using (var harness = CreateHarness(shellNavigation: shellNavigation, seed: InProgressEntryText))
+            {
+                var component = Render(harness);
+
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view-option']")));
+                component.Find("[data-testid='in-progress-view-option']").Click();
+                component.WaitForAssertion(() =>
+                {
+                    Assert.Equal("true", component.Find("[data-testid='in-progress-needs-you-first']").GetAttribute("aria-pressed"));
+                    Assert.Equal("false", component.Find("[data-testid='in-progress-include-finished']").GetAttribute("aria-pressed"));
+                });
+
+                component.Find("[data-testid='in-progress-needs-you-first']").Click();
+                component.WaitForAssertion(() => Assert.False(shellNavigation.InProgressNeedsYouFirst));
+                component.Find("[data-testid='in-progress-include-finished']").Click();
+                component.WaitForAssertion(() =>
+                {
+                    Assert.True(shellNavigation.InProgressIncludeFinishedToday);
+                    Assert.Equal("false", component.Find("[data-testid='in-progress-needs-you-first']").GetAttribute("aria-pressed"));
+                    Assert.Equal("true", component.Find("[data-testid='in-progress-include-finished']").GetAttribute("aria-pressed"));
+                });
+            }
+
+            var reopenedNavigation = new ShellNavigationStore(path);
+            using (var reopened = CreateHarness(shellNavigation: reopenedNavigation, seed: InProgressEntryText))
+            {
+                var again = Render(reopened);
+
+                again.WaitForAssertion(() =>
+                {
+                    Assert.Equal("true", again.Find("[data-testid='in-progress-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("false", again.Find("[data-testid='in-progress-needs-you-first']").GetAttribute("aria-pressed"));
+                    Assert.Equal("true", again.Find("[data-testid='in-progress-include-finished']").GetAttribute("aria-pressed"));
+                });
+
+                again.Find("[data-testid='in-progress-needs-you-first']").Click();
+                again.Find("[data-testid='in-progress-include-finished']").Click();
+                again.WaitForAssertion(() =>
+                {
+                    Assert.True(reopenedNavigation.InProgressNeedsYouFirst);
+                    Assert.False(reopenedNavigation.InProgressIncludeFinishedToday);
+                });
+            }
+
+            var written = File.ReadAllText(path);
+            Assert.DoesNotContain("inProgressNeedsYouFirst", written, StringComparison.Ordinal);
+            Assert.DoesNotContain("inProgressIncludeFinishedToday", written, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// Every view option and every work-in-progress option leads with a glyph. The
+    /// glyph is decoration, hidden from assistive technology and out of the tab
+    /// order, so the option's name is still its word alone
+    /// (accessibility.md#iconography-accessibility).
+    /// </summary>
+    [Theory]
+    [InlineData("tasks-view-option", "list-icon", "Tasks")]
+    [InlineData("board-view-option", "columns-3-icon", "Board")]
+    [InlineData("calendar-view-option", "calendar-icon", "Calendar")]
+    [InlineData("roadmap-view-option", "chart-gantt-icon", "Roadmap")]
+    [InlineData("in-progress-view-option", "activity-icon", "In progress")]
+    [InlineData("sessions-toggle-button", "square-terminal-icon", "Sessions")]
+    [InlineData("pull-requests-toggle-button", "git-pull-request-icon", "Pull requests")]
+    public void Each_header_option_leads_with_a_hidden_glyph_and_keeps_its_word_as_its_name(
+        string option, string glyph, string name)
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var button = component.Find($"[data-testid='{option}']");
+            var icon = Assert.IsAssignableFrom<IElement>(button.FirstElementChild);
+
+            Assert.Equal("svg", icon.LocalName);
+            Assert.Contains(glyph, icon.ClassList);
+            Assert.Equal("true", icon.GetAttribute("aria-hidden"));
+            Assert.Equal("false", icon.GetAttribute("focusable"));
+            Assert.Equal("16", icon.GetAttribute("width"));
+            Assert.Null(button.GetAttribute("aria-label"));
+
+            // The name a screen reader reads: the text, which the glyph adds none to.
+            // A feature flag's badge may follow the word, so it is the start that counts.
+            Assert.StartsWith(name, button.TextContent.Trim(), StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
     /// The roadmap is a main view, not a takeover: it shows in the workspace's own
     /// <c>main</c>, in the place of the task list, and the Tasks filter bar goes with
     /// the list. The view switch reads Roadmap pressed and Tasks not.

@@ -3156,6 +3156,9 @@ h1, h2, h3 {
 .header-group__option {
     display: inline-flex;
     align-items: center;
+    /* Between an option's glyph and its word. The feature flag is absolutely
+       placed (below), so it takes no share of the gap. */
+    gap: var(--spacing-xs);
     min-height: 2.25rem;
     padding: var(--spacing-xs) var(--spacing-md);
     border: 0;

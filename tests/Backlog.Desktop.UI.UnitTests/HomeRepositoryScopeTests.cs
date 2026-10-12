@@ -473,6 +473,164 @@ public sealed class HomeRepositoryScopeTests
     private static IReadOnlyList<IElement> Chips(IRenderedComponent<Home> component) =>
         component.WaitForElements("[data-testid='repository-filter-option']");
 
+    // --- Remembered across a restart ---------------------------------------------------
+    //
+    // The scope is written to shell-navigation.json, anchor first, on every change,
+    // and a fresh shell instance hands it back to the state before the list loads. So
+    // the Devbook option — which reads the anchor — is there straight after a restart,
+    // without a chip pressed to bring it back.
+
+    [Fact]
+    public void Without_a_remembered_scope_the_devbook_option_waits_for_a_chip()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component);
+
+        Assert.Empty(state.SelectedRepositoryAliases);
+        Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
+    }
+
+    [Fact]
+    public void A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered()
+    {
+        using var harness = CreateHarness(remembered: shell => shell.SetRepositoryScope(["docs", "backlog"]));
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
+            Assert.All(Chips(component), chip => Assert.Equal("true", chip.GetAttribute("aria-pressed")));
+
+            // The anchor is marked on its chip, and docs was taken first.
+            Assert.Equal("true", Chips(component)[1].GetAttribute("aria-current"));
+            Assert.Null(Chips(component)[0].GetAttribute("aria-current"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']"));
+        });
+
+        component.Find("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+    }
+
+    /// <summary>The file outlives Settings. A repository removed since the scope was
+    /// written is dropped on the way back in, and the rest keep their order.</summary>
+    [Fact]
+    public void A_remembered_repository_no_longer_configured_is_dropped()
+    {
+        using var harness = CreateHarness(remembered: shell => shell.SetRepositoryScope(["retired", "docs"]));
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["docs"], state.SelectedRepositoryAliases);
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']"));
+        });
+    }
+
+    /// <summary>Several repositories are a list affordance, so a plural scope restored
+    /// onto the Roadmap view goes back to its anchor — the same narrowing a trip to
+    /// the Roadmap makes — and the file says so too.</summary>
+    [Fact]
+    public void A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor()
+    {
+        using var harness = CreateHarness(remembered: shell =>
+        {
+            shell.SetLastView("Roadmap");
+            shell.SetRepositoryScope(["docs", "backlog"]);
+        });
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal(["docs"], state.SelectedRepositoryAliases);
+            Assert.Equal(["docs"], harness.Context.Services.GetRequiredService<ShellNavigationStore>().RepositoryScope);
+        });
+    }
+
+    [Fact]
+    public void A_scope_change_is_remembered_and_every_repository_writes_no_key()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var path = ShellNavigationPath(harness.Root);
+
+        Chips(component)[1].Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForAssertion(() =>
+            Assert.Equal(["docs", "backlog"], new ShellNavigationStore(path).RepositoryScope));
+
+        // Back to every repository: a plain press on docs narrows to it, a second
+        // empties the scope.
+        Chips(component)[1].Click();
+        Chips(component)[1].Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(new ShellNavigationStore(path).RepositoryScope);
+            Assert.DoesNotContain("repositoryScope", File.ReadAllText(path), StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// A launch whose repository registry (<c>config/repos.json</c>) cannot be read
+    /// does not know which repositories are configured, so it can tell neither a
+    /// removed repository nor the reader's scope. It drops nothing and writes
+    /// nothing over the remembered scope; once the registry reads again, the scope
+    /// comes back as it was left.
+    /// </summary>
+    [Fact]
+    public void An_unreadable_registry_neither_drops_nor_overwrites_the_remembered_scope()
+    {
+        using var harness = CreateHarness(
+            settings =>
+            {
+                File.WriteAllText(settings.RegistryPath, "{ this is not json");
+                settings.Reload();
+                Assert.NotNull(settings.RegistryError);
+            },
+            remembered: shell => shell.SetRepositoryScope(["docs", "backlog"]));
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        var path = ShellNavigationPath(harness.Root);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='view-switch']")));
+
+        // A change the state announces while the registry is unreadable — here the
+        // No repository scope — is not a reason to write the failed state's scope.
+        component.InvokeAsync(() => state.SetNoRepositoryFilter(true));
+        component.InvokeAsync(() => state.SetNoRepositoryFilter(false));
+
+        Assert.Empty(state.SelectedRepositoryAliases);
+        Assert.Equal(["docs", "backlog"], new ShellNavigationStore(path).RepositoryScope);
+
+        // The registry reads again: the next pass restores what was remembered.
+        var (repositories, errors) = GitHubSettings.ParseText(
+            "backlog = JSdotNet/Backlog" + Environment.NewLine + "docs = JSdotNet/Docs");
+        Assert.Empty(errors);
+        File.Delete(harness.GitHubSettings.RegistryPath);
+        harness.GitHubSettings.Reload();
+        Assert.Null(harness.GitHubSettings.SetRepositories([.. repositories]));
+        Assert.Null(harness.GitHubSettings.RegistryError);
+
+        component.InvokeAsync(() => state.SetNoRepositoryFilter(false));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
+            Assert.Equal(["docs", "backlog"], new ShellNavigationStore(path).RepositoryScope);
+        });
+    }
+
+    private static string ShellNavigationPath(string root) => Path.Combine(root, "shell", "shell-navigation.json");
+
     // --- The repository colour visualization ----------------------------------
     //
     // The switch is here, on the main page, beside the chips it is most visibly about.
@@ -634,9 +792,15 @@ public sealed class HomeRepositoryScopeTests
         return harness.Context.Render<Home>();
     }
 
-    private static Harness CreateHarness(Action<GitHubSettingsStore>? configureRepositories = null)
+    private static Harness CreateHarness(
+        Action<GitHubSettingsStore>? configureRepositories = null,
+        Action<ShellNavigationStore>? remembered = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-repository-scope-tests", Guid.NewGuid().ToString("n"));
+
+        // What an earlier run of the shell left in the file, written through a store
+        // of its own so the shell under test reads it fresh, as after a relaunch.
+        remembered?.Invoke(new ShellNavigationStore(ShellNavigationPath(root)));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -674,7 +838,7 @@ public sealed class HomeRepositoryScopeTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
-        context.Services.AddSingleton(new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json")));
+        context.Services.AddSingleton(new ShellNavigationStore(ShellNavigationPath(root)));
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));

@@ -8355,6 +8355,54 @@ select.field__input {
     color: var(--color-text-primary);
 }
 
+/* --- Combobox -------------------------------------------------------------
+   A text field with suggestions under it (Combobox.razor). The field is the
+   library's own input; the list is the tag picker's popup at the field's width or
+   its options', whichever is wider, because the first host is an hours field a
+   few characters wide whose options would otherwise wrap. `top: 100%` for the
+   reason `.tag-select__list` gives. */
+.combobox {
+    position: relative;
+    display: inline-grid;
+    min-width: 0;
+}
+
+.combobox__list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 10;
+    min-width: 100%;
+    width: max-content;
+    max-height: 14rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin: var(--spacing-2xs) 0 0;
+    padding: var(--spacing-2xs);
+    list-style: none;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-lg);
+}
+
+.combobox__option {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* The focus stays in the input, so the active option is the only thing that
+   can show where the keyboard is. */
+.combobox__option--active,
+.combobox__option:hover {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-text-primary);
+}
+
 /* --- Menus --------------------------------------------------------------- */
 
 .menu-list {
@@ -17527,6 +17575,15 @@ select.field__input {
     overflow: hidden;
 }
 
+/* The clip above is only there to round the corner days. An hours editor's open
+   list of suggestions hangs below its day, and in the bottom row — the whole Week
+   view is one — the clip would cut it off at the grid's edge. So the clip is lifted
+   while a list is open: the corners go square for as long as the list is up, which
+   is the cheaper loss than suggestions that cannot be seen or clicked. */
+.task-calendar__grid:has(.combobox--open) {
+    overflow: visible;
+}
+
 /* Positioned, for the plan layer laid over it; --task-calendar-lanes is how many
    rows of plan bars the week needs. The day's top padding, its gap and the head's
    height are named here because the plan layer is placed below the head by them. */
@@ -17573,6 +17630,17 @@ select.field__input {
 
 .task-calendar__day + .task-calendar__day {
     border-left: var(--border-width) solid var(--color-background-raised);
+}
+
+/* The Month | Week control, a fused group beside the heading. */
+.task-calendar__range {
+    flex: none;
+}
+
+/* Week: one row, its days tall enough to list every chip a day holds, since a Week
+   column folds nothing behind "+N more". */
+.task-calendar--week .task-calendar__day {
+    min-height: 24rem;
 }
 
 .task-calendar__day--weekend {
@@ -18152,7 +18220,12 @@ select.field__input {
     min-width: 0;
 }
 
+/* The unit keeps its own width and a little air before the editor's edge: in a
+   narrow month day the field shrinks first, so the "h" is never squeezed against
+   the border. */
 .task-calendar__hours-unit {
+    flex: none;
+    padding-right: var(--spacing-xs);
     color: var(--color-text-secondary);
 }
 

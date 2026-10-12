@@ -1136,6 +1136,48 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Replaces the scope with a remembered one, in its order, so the anchor it was
+    /// written with comes back first. An alias nothing is configured under any more
+    /// is dropped, and a repeat is kept once; nothing left means every repository.
+    /// <para>
+    /// One call rather than a <see cref="ToggleRepositoryInScope"/> per alias,
+    /// because each toggle filters the list again and announces a change, and a
+    /// restore is one decision: it filters once and announces once, and announces
+    /// nothing when the scope it resolves to is the one already held.
+    /// </para>
+    /// </summary>
+    public void RestoreRepositoryScope(IReadOnlyList<string> repositoryAliases)
+    {
+        ArgumentNullException.ThrowIfNull(repositoryAliases);
+
+        // An alias that resolves to nothing is only stale when the list of what is
+        // configured was actually read. With the registry unreadable nothing is
+        // dropped, because nothing is known to be gone; the caller keeps the
+        // remembered scope until it can be resolved.
+        if (!RepositoryRegistryReadable) return;
+
+        var restored = repositoryAliases
+            .Select(ResolveAlias)
+            .Where(alias => alias.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (restored.SequenceEqual(_selectedRepositoryAliases, StringComparer.Ordinal)) return;
+
+        _selectedRepositoryAliases.Clear();
+        _selectedRepositoryAliases.AddRange(restored);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Whether the shared repository registry (<c>config/repos.json</c>)
+    /// was read. False while it is there but unreadable: the configured list is
+    /// then not known, so a scope written earlier is neither restored nor
+    /// overwritten — see <see cref="RestoreRepositoryScope"/>.</summary>
+    public bool RepositoryRegistryReadable => _gitHub.Settings.RegistryError is null;
+
     /// <summary>The configured spelling of an alias, or empty when nothing is
     /// configured under it.</summary>
     private string ResolveAlias(string? repositoryAlias) =>

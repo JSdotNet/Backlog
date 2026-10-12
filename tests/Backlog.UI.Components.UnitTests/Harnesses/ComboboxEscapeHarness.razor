@@ -1,0 +1,21 @@
+@* A combobox under a host that closes on Escape: the Calendar hours editor, reduced
+   to the one thing being asserted. The Escape that closes the open list is the
+   list's and must not reach the host; the next one, with the list closed, is the
+   host's. A host that records every key is what tells those apart. *@
+
+<div class="escape-host" data-testid="host" @onkeydown="OnHostKeyDown">
+    <Combobox Options="@Options" AriaLabel="Hours" TestId="combo" />
+</div>
+
+@code {
+    private static readonly IReadOnlyList<SelectorOption> Options =
+    [
+        new("1", "1h"),
+        new("2", "2h")
+    ];
+
+    /// <summary>Every key that reached the host, in order.</summary>
+    public List<string> HostKeys { get; } = [];
+
+    private void OnHostKeyDown(KeyboardEventArgs e) => HostKeys.Add(e.Key);
+}

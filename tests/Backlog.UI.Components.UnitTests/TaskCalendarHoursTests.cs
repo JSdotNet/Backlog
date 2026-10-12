@@ -349,6 +349,193 @@ public sealed class TaskCalendarHoursTests : IDisposable
         Assert.Equal([new CalendarHoursChange("sync", Monday, 4m)], changes);
     }
 
+    [Fact]
+    public void The_hours_field_suggests_the_presets_and_taking_one_fills_the_figure_without_saving()
+    {
+        using var context = new BunitContext();
+        var changes = new List<CalendarHoursChange>();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)], changes);
+
+        calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Click();
+        var field = calendar.Find("[data-testid='cal-hours-editor-hours'] input");
+        Assert.Equal("combobox", field.GetAttribute("role"));
+
+        field.KeyDown(new KeyboardEventArgs { Key = "ArrowDown", AltKey = true });
+        Assert.Equal(
+            ["0.5h", "1h", "2h", "3h", "4h", "6h", "8h"],
+            calendar.FindAll("[data-testid='cal-hours-editor-hours'] [role='option']").Select(option => option.TextContent));
+
+        calendar.Find("[data-testid='cal-hours-editor-hours-option-6']").Click();
+
+        Assert.Equal("8", calendar.Find("[data-testid='cal-hours-editor-hours'] input").GetAttribute("value"));
+        Assert.Empty(changes);
+
+        calendar.Find("[data-testid='cal-hours-editor-save']").Click();
+        Assert.Equal([new CalendarHoursChange("sync", Monday, 8m)], changes);
+    }
+
+    /// <summary>Enter on a highlighted suggestion takes it and only that: the editor
+    /// stays open, and the next Enter saves.</summary>
+    [Fact]
+    public void Enter_on_a_suggestion_takes_it_and_does_not_also_save()
+    {
+        using var context = new BunitContext();
+        var changes = new List<CalendarHoursChange>();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)], changes);
+
+        calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Click();
+        // Down opens on the figure held (3h); one more is 4h.
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Empty(changes);
+        Assert.NotEmpty(calendar.FindAll("[data-testid='cal-hours-editor']"));
+        Assert.Equal("4", calendar.Find("[data-testid='cal-hours-editor-hours'] input").GetAttribute("value"));
+
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        Assert.Equal([new CalendarHoursChange("sync", Monday, 4m)], changes);
+    }
+
+    /// <summary>The Escape that closes the suggestions is the field's; the editor stays
+    /// open until the next one.</summary>
+    [Fact]
+    public void Escape_closes_the_open_suggestions_first_and_the_editor_on_the_next()
+    {
+        using var context = new BunitContext();
+        var changes = new List<CalendarHoursChange>();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)], changes);
+
+        calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Click();
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.NotEmpty(calendar.FindAll("[data-testid='cal-hours-editor']"));
+        Assert.Empty(calendar.FindAll("[data-testid='cal-hours-editor-hours'] [role='listbox']"));
+
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Empty(calendar.FindAll("[data-testid='cal-hours-editor']"));
+        Assert.Empty(changes);
+    }
+
+    /// <summary>Review S2 round 1: the grid clips its content to round its corners, and
+    /// cut the suggestions off below a day in the bottom row. The open list marks its
+    /// wrapper, inside the grid, and the stylesheet lifts the clip on that mark.</summary>
+    [Fact]
+    public void An_open_list_of_suggestions_lifts_the_grids_clip()
+    {
+        using var context = new BunitContext();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)]);
+
+        calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Click();
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+
+        Assert.NotNull(calendar.Find("[data-testid='cal-grid'] .combobox--open [role='listbox']"));
+
+        var css = File.ReadAllText(RepositoryRoot.File(
+            "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
+        var start = css.IndexOf("\n.task-calendar__grid:has(.combobox--open) {", StringComparison.Ordinal);
+        Assert.True(start >= 0, "components.css does not lift the grid's clip while a combobox list is open.");
+        Assert.Matches(@"overflow:\s*visible", css[start..css.IndexOf('}', start)]);
+    }
+
+    private static string? LastFocused(BunitContext context) =>
+        context.JSInterop.Invocations
+            .Where(invocation => invocation.Identifier == "backlogFocus")
+            .Select(invocation => invocation.Arguments[0] as string)
+            .LastOrDefault();
+
+    [Fact]
+    public void Saving_a_blocks_editor_sends_the_focus_back_to_its_chip()
+    {
+        using var context = new BunitContext();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)]);
+        var chipId = calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Id;
+        Assert.False(string.IsNullOrEmpty(chipId));
+
+        calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Click();
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").Input("4");
+        calendar.Find("[data-testid='cal-hours-editor-save']").Click();
+
+        Assert.Equal(chipId, LastFocused(context));
+    }
+
+    [Theory]
+    [InlineData("cancel")]
+    [InlineData("escape")]
+    public void Closing_a_blocks_editor_without_saving_sends_the_focus_back_to_its_chip(string how)
+    {
+        using var context = new BunitContext();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)]);
+        var chipId = calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Id;
+
+        calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Click();
+        if (how == "cancel") calendar.Find("[data-testid='cal-hours-editor-cancel']").Click();
+        else calendar.Find("[data-testid='cal-hours-editor']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(chipId, LastFocused(context));
+    }
+
+    /// <summary>Remove takes the chip away, so the focus lands on the day's "Add hours…".</summary>
+    [Fact]
+    public void Removing_a_block_sends_the_focus_to_the_days_add_hours()
+    {
+        using var context = new BunitContext();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)]);
+
+        calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Click();
+        calendar.Find("[data-testid='cal-hours-editor-remove']").Click();
+
+        var addHours = calendar.Find($"[data-testid='cal-day-{Iso(Monday)}-add-hours']");
+        Assert.False(string.IsNullOrEmpty(addHours.Id));
+        Assert.Equal(addHours.Id, LastFocused(context));
+    }
+
+    [Fact]
+    public void Adding_hours_sends_the_focus_back_to_the_days_add_hours()
+    {
+        using var context = new BunitContext();
+        var calendar = Render(context, []);
+
+        calendar.Find($"[data-testid='cal-day-{Iso(Monday)}-add-hours']").Click();
+        calendar.Find("[data-testid='cal-hours-editor-pick'] select").Change("docs");
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").Input("2");
+        calendar.Find("[data-testid='cal-hours-editor-save']").Click();
+
+        Assert.Equal(calendar.Find($"[data-testid='cal-day-{Iso(Monday)}-add-hours']").Id, LastFocused(context));
+    }
+
+    /// <summary>A drag leaves no control to go back to, so a Shift drop's editor closes
+    /// onto the day's "Add hours…".</summary>
+    [Fact]
+    public async Task Closing_a_shift_drops_editor_sends_the_focus_to_the_days_add_hours()
+    {
+        using var context = new BunitContext();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)]);
+
+        await calendar.InvokeAsync(() => calendar.Instance.HoldOnDay("sync", Iso(Monday)));
+        calendar.Find("[data-testid='cal-hours-editor-cancel']").Click();
+
+        Assert.Equal(calendar.Find($"[data-testid='cal-day-{Iso(Monday)}-add-hours']").Id, LastFocused(context));
+    }
+
+    /// <summary>A refused figure keeps the editor open, so the focus stays where it is.</summary>
+    [Fact]
+    public void A_refused_figure_moves_no_focus()
+    {
+        using var context = new BunitContext();
+        var calendar = Render(context, [new("sync", "Refactor sync", Monday, 3m)]);
+
+        calendar.Find($"[data-testid='cal-block-sync-{Iso(Monday)}']").Click();
+        var fieldId = calendar.Find("[data-testid='cal-hours-editor-hours'] input").Id;
+        calendar.Find("[data-testid='cal-hours-editor-hours'] input").Input("0");
+        calendar.Find("[data-testid='cal-hours-editor-save']").Click();
+
+        Assert.NotEmpty(calendar.FindAll("[data-testid='cal-hours-editor-error']"));
+        Assert.Equal(fieldId, LastFocused(context));
+    }
+
     /// <summary>A block taken away elsewhere closes its open editor, so Save cannot put it
     /// back.</summary>
     [Fact]
@@ -421,6 +608,93 @@ public sealed class PlannedHoursEditorTests : IDisposable
 
         Assert.Empty(changes);
         Assert.Contains("more than 0", editor.Find("[data-testid='ph-error']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Entry 22's finding: a refused figure used to stay in the field as typed,
+    /// reading as kept while the sentence under it said it was not.</summary>
+    [Fact]
+    public void A_refused_figure_goes_back_to_the_stored_one_and_the_refusal_still_shows()
+    {
+        using var context = new BunitContext();
+        var changes = new List<PlannedHoursDayChange>();
+        var editor = Render(context, [new(Monday, 3m)], changes);
+
+        editor.Find("[data-testid='ph-hours-2026-10-12'] input").Input("30");
+        Assert.Equal("30", editor.Find("[data-testid='ph-hours-2026-10-12'] input").GetAttribute("value"));
+
+        editor.Find("[data-testid='ph-hours-2026-10-12'] input").Change("30");
+
+        Assert.Empty(changes);
+        Assert.Equal("3", editor.Find("[data-testid='ph-hours-2026-10-12'] input").GetAttribute("value"));
+        Assert.Contains("at most 24", editor.Find("[data-testid='ph-error']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_figure_that_rounds_to_the_stored_one_shows_the_stored_one()
+    {
+        using var context = new BunitContext();
+        var changes = new List<PlannedHoursDayChange>();
+        var editor = Render(context, [new(Monday, 3m)], changes);
+
+        editor.Find("[data-testid='ph-hours-2026-10-12'] input").Input("3.1");
+        editor.Find("[data-testid='ph-hours-2026-10-12'] input").Change("3.1");
+
+        Assert.Empty(changes);
+        Assert.Equal("3", editor.Find("[data-testid='ph-hours-2026-10-12'] input").GetAttribute("value"));
+        Assert.Empty(editor.FindAll("[data-testid='ph-error']"));
+    }
+
+    [Fact]
+    public void Taking_a_suggested_figure_for_a_day_commits_it_at_once()
+    {
+        using var context = new BunitContext();
+        var changes = new List<PlannedHoursDayChange>();
+        var editor = Render(context, [new(Monday, 3m)], changes);
+
+        editor.Find("[data-testid='ph-hours-2026-10-12'] input").Click();
+        Assert.Equal(
+            ["0.5h", "1h", "2h", "3h", "4h", "6h", "8h"],
+            editor.FindAll("[data-testid='ph-hours-2026-10-12'] [role='option']").Select(option => option.TextContent));
+
+        editor.Find("[data-testid='ph-hours-2026-10-12-option-0']").Click();
+
+        Assert.Equal([new PlannedHoursDayChange(Monday, 0.5m)], changes);
+    }
+
+    [Fact]
+    public void A_typed_figure_for_a_day_commits_on_enter_and_once()
+    {
+        using var context = new BunitContext();
+        var changes = new List<PlannedHoursDayChange>();
+        var editor = Render(context, [new(Monday, 3m)], changes);
+
+        editor.Find("[data-testid='ph-hours-2026-10-12'] input").Input("2.5");
+        Assert.Empty(changes);
+
+        editor.Find("[data-testid='ph-hours-2026-10-12'] input").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        // The change a browser raises after Enter carries the same figure.
+        editor.Find("[data-testid='ph-hours-2026-10-12'] input").Change("2.5");
+
+        Assert.Equal([new PlannedHoursDayChange(Monday, 2.5m)], changes);
+    }
+
+    /// <summary>The add line's day is picked beside its figure, so a suggestion only
+    /// fills the figure and "Add hours" commits both.</summary>
+    [Fact]
+    public void Taking_a_suggestion_on_the_add_line_waits_for_add_hours()
+    {
+        using var context = new BunitContext();
+        var changes = new List<PlannedHoursDayChange>();
+        var editor = Render(context, [], changes);
+
+        editor.Find("[data-testid='ph-add-hours'] input").Click();
+        editor.Find("[data-testid='ph-add-hours-option-3']").Click();
+
+        Assert.Empty(changes);
+        Assert.Equal("3", editor.Find("[data-testid='ph-add-hours'] input").GetAttribute("value"));
+
+        editor.Find("[data-testid='ph-add']").Click();
+        Assert.Equal([new PlannedHoursDayChange(Monday, 3m)], changes);
     }
 
     [Fact]
