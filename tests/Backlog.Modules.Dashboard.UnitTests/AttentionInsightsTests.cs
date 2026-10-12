@@ -203,12 +203,94 @@ public class AttentionInsightsTests
     }
 
     [Fact]
-    public async Task Cancellation_is_not_swallowed_as_an_unavailable_source()
+    public async Task The_callers_cancellation_is_not_swallowed_as_an_unavailable_source()
     {
-        var tasks = new StubTasks(failure: new OperationCanceledException());
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var tasks = new StubTasks(failure: new OperationCanceledException(cancellation.Token));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => Attention(tasks: tasks).GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken));
+            () => Attention(tasks: tasks).GetNeedsYouAsync(DashboardScope.Default, cancellation.Token));
+    }
+
+    [Fact]
+    public async Task A_source_timing_out_on_its_own_is_skipped_while_the_callers_token_is_live()
+    {
+        var result = await Attention(
+                tasks: new StubTasks(failure: new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout.")),
+                productivity: new StubProductivity(merged: 10, cameBack: 5))
+            .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Equal(NeedsYouRule.Rework, Assert.Single(result.Items).Rule);
+        Assert.StartsWith("The roadmap could not be read:", Assert.Single(result.Skipped), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_skip_reason_that_already_names_its_source_is_not_prefixed_again()
+    {
+        var result = await Attention(
+                drift: new StubDrift(InsightResult<DriftInsight>.Unavailable("Drift is unavailable: no GitHub token is configured.")))
+            .GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Drift is unavailable: no GitHub token is configured.", Assert.Single(result.Skipped));
+    }
+
+    [Fact]
+    public async Task A_partial_drift_read_keeps_its_note_beside_the_items()
+    {
+        var drift = new StubDrift(InsightResult<DriftInsight>.Ready(new DriftInsight(
+            [new DriftDirection("push", [Unit(".devbook/domain/tasks/domain.md#task", "conflict")])],
+            [],
+            "Some repositories' drift issues could not be read, so the issues listed are a floor.")));
+
+        var result = await Attention(drift: drift).GetNeedsYouAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Equal(NeedsYouRule.Drift, Assert.Single(result.Items).Rule);
+        Assert.Contains("a floor", Assert.Single(result.Skipped), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_sync_failed_issue_keeps_its_titles_own_spelling()
+    {
+        var insight = new DriftInsight(
+            [],
+            [new DriftIssue("backlog", 14, "[Devbook drift] .devbook/domain/Sessions/domain.md#Run", "https://example.test/14", true)],
+            null);
+
+        var item = Assert.Single(AttentionInsights.DriftItems(insight));
+
+        Assert.Equal("Devbook sync failed: .devbook/domain/Sessions/domain.md#Run", item.Title);
+    }
+
+    [Fact]
+    public void A_behind_item_with_unestimated_things_says_how_many()
+    {
+        var plan = new PlanInsight(
+            true,
+            new PlanPace(5m, PlanPaceBasis.LastFourWeeks),
+            [Plan("Dashboard redesign", PlanOutlook.Behind, total: 21, done: 8, projectedEnd: null, unestimated: 3)]);
+
+        var item = Assert.Single(AttentionInsights.BehindItems(plan));
+
+        Assert.Contains("13 points (and 3 unestimated) left", item.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_crossing_day_is_never_past_the_months_last_day()
+    {
+        // 99.99 spent, 0.001 a day, 2 days left: the arithmetic lands weeks out; the
+        // projection is only past budget because of rounding, and the day stays in month.
+        var projection = new SpendProjection(
+            SpendProvider.Claude,
+            new DashboardMoney(99.99m, "USD"),
+            new DashboardMoney(0.001m, "USD"),
+            new DashboardMoney(100.01m, "USD"),
+            new DashboardMoney(100m, "USD"),
+            Today,
+            DaysLeft: 2,
+            IsEstimate: false);
+
+        Assert.Equal(Today.AddDays(2), AttentionInsights.CrossingDay(projection));
     }
 
     private static AttentionInsights Attention(
@@ -231,7 +313,7 @@ public class AttentionInsightsTests
     private static DriftUnit Unit(string unit, string? verdict) =>
         new("backlog", unit, "aggregate", "push", null, verdict, null, null, new DateTimeOffset(2026, 10, 5, 4, 30, 0, TimeSpan.Zero));
 
-    private static PlanItemInsight Plan(string title, PlanOutlook outlook, int total, int done, DateOnly? projectedEnd) =>
+    private static PlanItemInsight Plan(string title, PlanOutlook outlook, int total, int done, DateOnly? projectedEnd, int unestimated = 0) =>
         new(
             new PlanItemProgress(
                 Guid.NewGuid(),
@@ -243,7 +325,7 @@ public class AttentionInsightsTests
                 DoneCount: 2,
                 TotalEffort: total,
                 DoneEffort: done,
-                Unestimated: 0,
+                Unestimated: unestimated,
                 IsFinished: false,
                 LastCompletedOn: null,
                 Parts: [],
@@ -304,6 +386,9 @@ public class AttentionInsightsTests
 
         public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(result);
+
+        public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
         public void Invalidate()
         {

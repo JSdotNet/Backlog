@@ -67,8 +67,8 @@ public sealed record NeedsYouItem(NeedsYouRule Rule, string Title, string Detail
 /// it is a floor rather than an all-clear.
 /// </remarks>
 /// <param name="Items">What needs the person, rule by rule.</param>
-/// <param name="Skipped">Why each source that could not be read was skipped, in rule
-/// order. Empty when every source answered.</param>
+/// <param name="Skipped">Why each source that could not be read, or not read whole, was
+/// skipped or is a floor, in rule order. Empty when every source answered in full.</param>
 public sealed record NeedsYouInsight(IReadOnlyList<NeedsYouItem> Items, IReadOnlyList<string> Skipped)
 {
     /// <summary>What an empty result means, in the words the Overview shows.</summary>
@@ -81,5 +81,6 @@ public sealed record NeedsYouInsight(IReadOnlyList<NeedsYouItem> Items, IReadOnl
     /// <summary>True when nothing needs the person.</summary>
     public bool IsEmpty => Items.Count == 0;
 
+    /// <summary>Nothing needs the person and every source answered.</summary>
     public static NeedsYouInsight Empty { get; } = new([], []);
 }

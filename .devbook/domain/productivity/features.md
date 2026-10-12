@@ -215,7 +215,8 @@ Needs you lists what the person should look at, in this order:
 1. Devbook units whose drift issue carries `sync-failed`, or whose last verdict is
    conflict. A `sync-failed` issue whose unit no recorded verdict names still counts,
    once.
-2. Roadmap items whose outlook is Behind, with the story points they have left.
+2. Roadmap items whose outlook is Behind, with the story points they have left and how
+   many of their things carry no estimate.
 3. Providers projected to pass their monthly budget by the end of the month, with the
    day the projection crosses it — or that it is past it already.
 4. Rework, when the pull requests that came back after review are more than 25% of

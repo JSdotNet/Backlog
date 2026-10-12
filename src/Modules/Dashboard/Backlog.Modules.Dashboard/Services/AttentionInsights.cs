@@ -18,7 +18,7 @@ namespace Backlog.Modules.Dashboard.Services;
 /// <para>
 /// A source that cannot answer — unavailable, or throwing — is skipped and its reason kept
 /// in <see cref="NeedsYouInsight.Skipped"/>. The list is never an error: one unconfigured
-/// provider must not hide the drift. Cancellation is the exception and is let through.
+/// provider must not hide the drift. The caller's own cancellation is the exception and is let through; a source timing out on its own is skipped.
 /// </para>
 /// </remarks>
 internal sealed class AttentionInsights(
@@ -37,18 +37,25 @@ internal sealed class AttentionInsights(
     {
         ArgumentNullException.ThrowIfNull(scope);
 
-        var driftRead = ReadAsync("Drift", () => drift.GetDriftAsync(scope, cancellationToken));
-        var planRead = ReadAsync("The roadmap", () => tasks.GetPlanAsync(scope, cancellationToken));
-        var projectionRead = ReadAsync("The month-end projection", () => cost.GetProjectionAsync(cancellationToken));
-        var headlineRead = ReadAsync("Rework", () => productivity.GetHeadlineAsync(scope, cancellationToken));
-        var reworkRead = ReadAsync("Rework", () => productivity.GetReworkAsync(scope, cancellationToken));
+        var driftRead = ReadAsync("Drift", () => drift.GetDriftAsync(scope, cancellationToken), cancellationToken);
+        var planRead = ReadAsync("The roadmap", () => tasks.GetPlanAsync(scope, cancellationToken), cancellationToken);
+        var projectionRead = ReadAsync("The month-end projection", () => cost.GetProjectionAsync(cancellationToken), cancellationToken);
+        var headlineRead = ReadAsync("Rework", () => productivity.GetHeadlineAsync(scope, cancellationToken), cancellationToken);
+        var reworkRead = ReadAsync("Rework", () => productivity.GetReworkAsync(scope, cancellationToken), cancellationToken);
 
         await Task.WhenAll(driftRead, planRead, projectionRead, headlineRead, reworkRead).ConfigureAwait(false);
 
         var items = new List<NeedsYouItem>();
         var skipped = new List<string>();
 
-        Apply(await driftRead, DriftItems, items, skipped);
+        var driftResult = await driftRead;
+        Apply(driftResult, DriftItems, items, skipped);
+
+        if (driftResult.Value?.IssuesNote is { } issuesNote)
+        {
+            skipped.Add(issuesNote);
+        }
+
         Apply(await planRead, BehindItems, items, skipped);
         Apply(await projectionRead, PastBudgetItems, items, skipped);
 
@@ -93,7 +100,7 @@ internal sealed class AttentionInsights(
 
         foreach (var issue in insight.SyncFailed)
         {
-            var reference = DriftInsights.Reference(issue.Title);
+            var reference = Named(issue.Title);
 
             if (!raised.Add(Key(issue.RepositoryAlias, reference))) continue;
 
@@ -102,7 +109,8 @@ internal sealed class AttentionInsights(
     }
 
     /// <summary>Rule 2: each roadmap item whose outlook is Behind, with the estimated
-    /// points it has left.</summary>
+    /// points it has left — and how many of its things carry no estimate, so the points
+    /// read as a floor when they are one.</summary>
     internal static IEnumerable<NeedsYouItem> BehindItems(PlanInsight insight)
     {
         if (!insight.RoadmapEnabled) yield break;
@@ -110,6 +118,9 @@ internal sealed class AttentionInsights(
         foreach (var planned in insight.Items.Where(item => item.Outlook == PlanOutlook.Behind))
         {
             var left = Math.Max(0, planned.Item.TotalEffort - planned.Item.DoneEffort);
+            var unestimated = planned.Item.Unestimated > 0
+                ? $" (and {planned.Item.Unestimated} unestimated)"
+                : string.Empty;
             var lands = planned.ProjectedEnd is { } end
                 ? $", projected to land {Day(end)} against an end of {Day(planned.Item.End)}."
                 : $", against an end of {Day(planned.Item.End)}.";
@@ -117,7 +128,7 @@ internal sealed class AttentionInsights(
             yield return new NeedsYouItem(
                 NeedsYouRule.RoadmapBehind,
                 planned.Item.Title,
-                $"Behind: {Points(left)} left{lands}",
+                $"Behind: {Points(left)}{unestimated} left{lands}",
                 NeedsYouTab.Tasks);
         }
     }
@@ -163,7 +174,8 @@ internal sealed class AttentionInsights(
     /// <summary>
     /// The first day the projection's running total is above the budget: the month-to-date
     /// figure through <see cref="SpendProjection.Through"/>, plus the average daily spend
-    /// for each day after it. Null when the month-to-date figure is past it already.
+    /// for each day after it, never past the month's last day. Null when the month-to-date
+    /// figure is past it already.
     /// </summary>
     internal static DateOnly? CrossingDay(SpendProjection projection)
     {
@@ -177,7 +189,7 @@ internal sealed class AttentionInsights(
 
         var days = (int)decimal.Floor((budget - spent) / daily) + 1;
 
-        return projection.Through.AddDays(days);
+        return projection.Through.AddDays(Math.Min(days, Math.Max(projection.DaysLeft, 1)));
     }
 
     private static NeedsYouItem SyncFailed(string repository, string unit) =>
@@ -202,7 +214,10 @@ internal sealed class AttentionInsights(
         items.AddRange(rule(read.Value!));
     }
 
-    private static async Task<(T? Value, string? Skipped)> ReadAsync<T>(string source, Func<Task<InsightResult<T>>> read)
+    private static async Task<(T? Value, string? Skipped)> ReadAsync<T>(
+        string source,
+        Func<Task<InsightResult<T>>> read,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -212,16 +227,40 @@ internal sealed class AttentionInsights(
                 ? (result.Value, null)
                 : (default, Skip(source, result.Availability.Reason));
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
+            // A source's own timeout surfaces as an OperationCanceledException with the
+            // caller's token still live: that source is skipped like any other failure.
+            // Only the caller's own cancellation is let through.
             return (default, Skip(source, exception.Message));
         }
     }
 
-    private static string Skip(string source, string reason) =>
-        string.IsNullOrWhiteSpace(reason)
-            ? $"{source} could not be read."
-            : $"{source} could not be read: {DriftInsights.Reason(reason)}";
+    /// <summary>
+    /// Why a source was skipped, naming it once. Most insights' reasons already open with
+    /// the source — "Drift is unavailable: …", "The roadmap could not be read: …" — and
+    /// are kept as they are; any other reason gets the source in front.
+    /// </summary>
+    internal static string Skip(string source, string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason)) return $"{source} could not be read.";
+
+        var first = DriftInsights.Reason(reason);
+
+        return first.StartsWith(source, StringComparison.OrdinalIgnoreCase)
+            ? first
+            : $"{source} could not be read: {first}";
+    }
+
+    /// <summary>The unit or chapter a drift issue's title names, as the title spells it.</summary>
+    private static string Named(string title)
+    {
+        var trimmed = title.Trim();
+
+        return trimmed.StartsWith(DriftInsights.IssueTitlePrefix, StringComparison.OrdinalIgnoreCase)
+            ? trimmed[DriftInsights.IssueTitlePrefix.Length..].Trim()
+            : trimmed;
+    }
 
     private static (string, string) Key(string repository, string unit) =>
         (repository.Trim().ToLowerInvariant(), unit.Trim().ToLowerInvariant());
