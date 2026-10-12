@@ -60,6 +60,10 @@ public sealed class ShellNavigationStore
     /// <summary>The surface that is no takeover at all: the workspace.</summary>
     private const string WorkspaceSurfaceName = "Workspace";
 
+    /// <summary>The pane name the Inbox was stored under while it was a side pane,
+    /// and the surface name it is stored under now.</summary>
+    private const string InboxName = "Inbox";
+
     private readonly string _path;
 
     public ShellNavigationStore()
@@ -89,7 +93,7 @@ public sealed class ShellNavigationStore
 
         var dto = Read();
         (LastSurface, LastView) = Normalize(dto?.LastSurface, dto?.LastView);
-        LastEnabledPanes = dto?.LastEnabledPanes ?? Empty;
+        (LastSurface, LastEnabledPanes) = MigrateInboxPane(dto?.LastSurface, LastSurface, dto?.LastEnabledPanes ?? Empty);
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
@@ -113,7 +117,8 @@ public sealed class ShellNavigationStore
     /// Empty is both "nothing remembered yet" and "no side pane open", which the
     /// shell reopens the same way. A file from before the view switch may still
     /// list <c>Tasks</c> here; the shell ignores it, since the task list is a view
-    /// now and no longer a pane.</summary>
+    /// now and no longer a pane. An <c>Inbox</c> here is read away on load — see
+    /// <see cref="MigrateInboxPane"/> — since the Inbox is a surface now.</summary>
     public IReadOnlyList<string> LastEnabledPanes { get; private set; }
 
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
@@ -179,6 +184,26 @@ public sealed class ShellNavigationStore
         }
 
         return (surface, string.IsNullOrWhiteSpace(view) ? DefaultView : view);
+    }
+
+    /// <summary>
+    /// The Inbox was a side pane beside the main view before it took the whole screen
+    /// as a surface (local ADR 0022, amendment of 2026-10-12), so a file from then
+    /// lists it among the panes. Where it was on screen — no takeover stored over the
+    /// workspace — it reopens as the Inbox surface; under a takeover it was hidden, so
+    /// that takeover stays. Either way the name leaves the pane list, and the next save
+    /// cannot write it back there. Decided on the stored surface, before the roadmap
+    /// takeover is read as a view, because that takeover covered the pane too.
+    /// </summary>
+    private static (string? Surface, IReadOnlyList<string> Panes) MigrateInboxPane(
+        string? storedSurface, string? surface, IReadOnlyList<string> panes)
+    {
+        if (!panes.Contains(InboxName, StringComparer.Ordinal)) return (surface, panes);
+
+        string[] remaining = [.. panes.Where(pane => !string.Equals(pane, InboxName, StringComparison.Ordinal))];
+        var inboxWasOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
+
+        return (inboxWasOnScreen ? InboxName : surface, remaining);
     }
 
     public void SetLastPanes(IReadOnlyList<string> enabled)

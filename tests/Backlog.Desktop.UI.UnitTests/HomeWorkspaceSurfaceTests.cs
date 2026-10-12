@@ -433,10 +433,10 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>The Inbox is an area like the others: opened beside the task list,
-    /// it is the one asked by default, and the list is still a choice.</summary>
+    /// <summary>The Inbox is an area like the others: with the screen to itself it is
+    /// the one area asked, and the task list under it is not on offer.</summary>
     [Fact]
-    public void Ask_ai_offers_the_inbox_opened_beside_the_task_list()
+    public void Ask_ai_offers_the_inbox_alone_while_it_has_the_screen()
     {
         using var harness = CreateHarness(features =>
         {
@@ -450,7 +450,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']"));
         });
@@ -458,8 +458,8 @@ public sealed class HomeWorkspaceSurfaceTests
         component.Find("[data-testid='ai-toggle-button']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("true", component.Find("[data-testid='ai-scope-inbox']").GetAttribute("aria-pressed"));
-            Assert.Equal("false", component.Find("[data-testid='ai-scope-tasks']").GetAttribute("aria-pressed"));
+            Assert.Equal("Answers from the Inbox content.", component.Find(".ai-panel__body").TextContent.Trim());
+            Assert.Empty(component.FindAll("[data-testid='ai-scope-tasks']"));
         });
     }
 
@@ -848,6 +848,47 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// The Inbox is remembered as the surface, like the other takeovers: a shell
+    /// built over the file again — a relaunch — reopens on it, and leaving it is
+    /// remembered too.
+    /// </summary>
+    [Fact]
+    public void Opening_the_inbox_reopens_it_after_a_restart()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using (var harness = CreateHarness(
+                features => features.SetEnabled(AppFeatures.InboxPane, true),
+                shellNavigation: shellNavigation))
+            {
+                var component = Render(harness);
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
+                component.Find("[data-testid='inbox-pane-option']").Click();
+                component.WaitForAssertion(() => Assert.Equal("Inbox", shellNavigation.LastSurface));
+            }
+
+            var restarted = new ShellNavigationStore(path);
+            using var again = CreateHarness(
+                features => features.SetEnabled(AppFeatures.InboxPane, true),
+                shellNavigation: restarted);
+            var reopened = Render(again);
+
+            reopened.WaitForAssertion(() =>
+                Assert.NotEmpty(reopened.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']")));
+
+            reopened.Find("[data-testid='inbox-pane-option']").Click();
+            reopened.WaitForAssertion(() => Assert.Equal("Workspace", restarted.LastSurface));
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// The bug this pins: navigating to Settings and back tears down and rebuilds
     /// this component — the Router disposes it on every route change — so a fresh
     /// <c>GlobalPaneSelection</c> field initializer used to reopen with no side pane
@@ -883,7 +924,8 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <summary>
     /// A file from before the view switch lists the task list among its panes —
     /// "Tasks", or "Backlog" before that. It names no pane now and is ignored: the
-    /// Tasks view is showing, and the Inbox and the Devbook keep their state.
+    /// Tasks view is under the Inbox, which was open over the workspace and so
+    /// reopens as its surface, and the Devbook keeps its state.
     /// </summary>
     [Theory]
     [InlineData("Backlog")]
@@ -906,17 +948,22 @@ public sealed class HomeWorkspaceSurfaceTests
 
             component.WaitForAssertion(() =>
             {
-                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
                 Assert.Equal("true", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
             });
 
-            // The next save writes the side panes alone.
+            // Leaving the Inbox shows the Tasks view with the Devbook beside it, and
+            // the next save writes the side panes alone.
             component.Find("[data-testid='inbox-pane-option']").Click();
-            component.WaitForAssertion(() => Assert.Equal(["Devbook"], shellNavigation.LastEnabledPanes));
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Equal(["Devbook"], shellNavigation.LastEnabledPanes);
+            });
         }
         finally
         {
@@ -925,12 +972,11 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The "side panes only" state is gone with the Tasks pane toggle: a file that
-    /// left the Inbox open on its own reopens with the Inbox beside the Tasks view,
-    /// since one view is always showing.
+    /// The Inbox was a side pane before it took the screen: a file that left it open
+    /// over the workspace reopens on the Inbox surface, with no pane row beside it.
     /// </summary>
     [Fact]
-    public void A_side_panes_only_file_reopens_with_the_panes_beside_the_tasks_view()
+    public void An_inbox_pane_from_before_the_inbox_took_the_screen_reopens_as_the_inbox_surface()
     {
         var path = NewShellNavigationPath();
 
@@ -948,9 +994,9 @@ public sealed class HomeWorkspaceSurfaceTests
 
             component.WaitForAssertion(() =>
             {
-                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
-                Assert.Empty(component.FindAll("[data-testid='side-pane-stack']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
+                Assert.Empty(component.FindAll("[data-testid='workspace']"));
+                Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
             });
         }
         finally
@@ -1283,17 +1329,17 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The side panes open beside whichever view is showing: the Inbox to the left of
-    /// the roadmap, the Devbook to its right, as they sit beside the task list.
+    /// The Devbook opens beside whichever view is showing, to its right, as it sits
+    /// beside the task list. The Inbox does not: it takes the whole screen over the
+    /// view, and its option pressed again returns to that view as it was.
     /// </summary>
     [Fact]
-    public void The_inbox_and_devbook_open_beside_the_roadmap_view()
+    public void The_devbook_opens_beside_the_roadmap_and_the_inbox_takes_the_screen_over_it()
     {
         using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
         var component = Render(harness);
 
         OpenTheRoadmap(component);
-        component.Find("[data-testid='inbox-pane-option']").Click();
         component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
@@ -1303,12 +1349,28 @@ public sealed class HomeWorkspaceSurfaceTests
                 .Select(child => child.GetAttribute("data-testid"))
                 .ToList();
 
-            Assert.Equal("inbox-pane", columns[0]);
-            Assert.Equal("roadmap-view", columns[1]);
+            Assert.Equal("roadmap-view", columns[0]);
             Assert.Equal("side-pane-stack", columns[^1]);
+            Assert.DoesNotContain("inbox-pane", columns);
             Assert.NotNull(layout.QuerySelector("[data-testid='side-pane-stack'] [data-testid='devbook-stack']"));
             Assert.Contains("devbook-layout--side-open", layout.ClassList);
-            Assert.Contains("devbook-layout--inbox-before-backlog", layout.ClassList);
+        });
+
+        component.Find("[data-testid='inbox-pane-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            Assert.Equal("true", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
+        });
+
+        component.Find("[data-testid='inbox-pane-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='inbox-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
         });
     }
@@ -1348,6 +1410,41 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button']"));
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
         });
+    }
+
+    /// <summary>
+    /// A shell remembered on the Inbox reopens on the workspace while the Inbox
+    /// flag is off: there is no option to leave it by, so it must not have the
+    /// screen. The stored surface is kept for when the flag comes back.
+    /// </summary>
+    [Fact]
+    public void A_stored_inbox_surface_with_its_feature_off_shows_the_workspace()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastSurface("Inbox");
+
+            using var harness = CreateHarness(
+                features => features.SetEnabled(AppFeatures.InboxPane, false),
+                shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
+                Assert.Empty(component.FindAll("[data-testid='inbox-surface']"));
+                Assert.Empty(component.FindAll("[data-testid='inbox-pane-option']"));
+                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            });
+            Assert.Equal("Inbox", shellNavigation.LastSurface);
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
     }
 
     /// <summary>
@@ -1551,9 +1648,9 @@ public sealed class HomeWorkspaceSurfaceTests
     /// later tidy-up rather than a test of behaviour, which is why it counts members.
     /// </summary>
     [Fact]
-    public void The_side_panes_are_the_inbox_and_the_devbook_and_no_view()
+    public void The_side_pane_is_the_devbook_and_no_view_or_surface()
     {
-        GlobalPane[] expected = [GlobalPane.Inbox, GlobalPane.Devbook];
+        GlobalPane[] expected = [GlobalPane.Devbook];
 
         Assert.Equal(expected, Enum.GetValues<GlobalPane>());
     }
@@ -1699,31 +1796,24 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// A window too narrow for the view and two side panes has to drop one, and it
-    /// drops the first in the stable order — the Inbox before the Devbook. The view
-    /// itself is never dropped. This is the resize path rather than the press path.
+    /// However narrow the window, the Devbook stays beside the view: the layout
+    /// stacks its columns rather than closing the one side pane, and the view itself
+    /// is never dropped. This is the resize path rather than the press path.
     /// </summary>
     [Fact]
-    public async Task A_narrowed_window_drops_the_first_side_pane_in_the_stable_order()
+    public async Task A_narrowed_window_keeps_the_devbook_beside_the_view()
     {
-        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
-        component.Find("[data-testid='inbox-pane-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
         component.Find("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']")));
+
+        await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(1));
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-        });
-
-        await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(2));
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Empty(component.FindAll("[data-testid='inbox-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });

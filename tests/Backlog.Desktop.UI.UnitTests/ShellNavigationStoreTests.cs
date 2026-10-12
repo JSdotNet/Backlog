@@ -554,9 +554,12 @@ public sealed class ShellNavigationStoreTests
 
             Assert.Equal("Roadmap", store.LastView);
             Assert.Equal("Workspace", store.LastSurface);
-            Assert.Equal(["Inbox"], store.LastEnabledPanes);
 
-            store.SetLastPanes(["Inbox", "Devbook"]);
+            // The roadmap takeover covered the Inbox pane, so the Inbox was not on
+            // screen: it does not become the surface, and leaves the pane list.
+            Assert.Empty(store.LastEnabledPanes);
+
+            store.SetLastPanes(["Devbook"]);
 
             using var document = JsonDocument.Parse(File.ReadAllText(path));
             Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
@@ -585,6 +588,117 @@ public sealed class ShellNavigationStoreTests
             Assert.Equal("Roadmap", store.LastView);
             using var document = JsonDocument.Parse(File.ReadAllText(path));
             Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The Inbox was a side pane beside the main view before it took the whole
+    /// screen. A file from then with it open over the workspace reopens on the Inbox
+    /// surface, with the view underneath kept, and the pane list loses the name.
+    /// </summary>
+    [Theory]
+    [InlineData("\"lastSurface\": \"Workspace\",")]
+    [InlineData("")]
+    public void An_inbox_pane_open_over_the_workspace_reads_as_the_inbox_surface(string surfaceLine)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, $$"""
+                {
+                  {{surfaceLine}}
+                  "lastView": "Board",
+                  "lastEnabledPanes": ["Inbox", "Devbook"]
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal("Inbox", store.LastSurface);
+            Assert.Equal("Board", store.LastView);
+            Assert.Equal(["Devbook"], store.LastEnabledPanes);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>A takeover stored over the Inbox pane was what the reader saw, so it
+    /// stays the surface; the Inbox name is dropped and nothing else changes.</summary>
+    [Fact]
+    public void An_inbox_pane_under_another_surface_is_dropped_and_the_surface_kept()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                {
+                  "lastSurface": "Dashboard",
+                  "lastEnabledPanes": ["Inbox"]
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal("Dashboard", store.LastSurface);
+            Assert.Empty(store.LastEnabledPanes);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The migration is what the next save writes: the Inbox as the surface,
+    /// and never again among the panes.</summary>
+    [Fact]
+    public void A_migrated_inbox_pane_is_written_back_as_the_surface()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                { "lastSurface": "Workspace", "lastEnabledPanes": ["Inbox", "Devbook"] }
+                """);
+
+            var store = new ShellNavigationStore(path);
+            store.SetLastView("Calendar");
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("Inbox", document.RootElement.GetProperty("lastSurface").GetString());
+            Assert.Equal(
+                ["Devbook"],
+                document.RootElement.GetProperty("lastEnabledPanes").EnumerateArray().Select(e => e.GetString()));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void The_inbox_surface_survives_a_restart()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+
+            store.SetLastSurface("Inbox");
+
+            Assert.Equal("Inbox", new ShellNavigationStore(path).LastSurface);
         }
         finally
         {

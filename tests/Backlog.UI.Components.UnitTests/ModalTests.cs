@@ -34,6 +34,139 @@ public sealed class ModalTests
     }
 
     [Fact]
+    public void An_open_dialog_is_rooted_in_a_native_dialog_element()
+    {
+        // A pane that sets container-type (the Inbox does) becomes the containing
+        // block of every position: fixed descendant, so an inline backdrop was
+        // clipped to the pane and painted under its neighbour. A <dialog> opened
+        // with showModal() lives in the browser's top layer, which no ancestor's
+        // containment, transform or stacking context can reach.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        var root = Assert.Single(modal.Nodes.OfType<AngleSharp.Dom.IElement>());
+
+        Assert.Equal("dialog", root.NodeName.ToLowerInvariant());
+        Assert.Contains("modal-layer", root.ClassList);
+
+        var backdrop = Assert.Single(root.Children);
+        Assert.Contains("modal-backdrop", backdrop.ClassList);
+        Assert.NotNull(backdrop.QuerySelector("[role='dialog']"));
+    }
+
+    [Fact]
+    public void The_layer_is_open_in_markup_so_a_missing_script_still_shows_the_dialog()
+    {
+        // A closed <dialog> is display: none. If the script never runs, showModal()
+        // never happens — and a dialog the reader cannot see is worse than one drawn
+        // in place, so the layer is rendered open and the script upgrades it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        Assert.True(modal.Find("dialog.modal-layer").HasAttribute("open"));
+    }
+
+    [Fact]
+    public void The_layer_carries_the_same_name_as_the_dialog_inside_it()
+    {
+        // The native <dialog> is a dialog to assistive technology too, so it is
+        // named the way the inner one is rather than announced as a bare "dialog".
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var titled = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.Title, "Delete entry")
+            .AddChildContent("<p>Body</p>"));
+        var labelled = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.AriaLabel, "Entry actions")
+            .AddChildContent("<p>Body</p>"));
+
+        var titledLayer = titled.Find("dialog.modal-layer");
+        Assert.Equal(titled.Find(".modal__title").Id, titledLayer.GetAttribute("aria-labelledby"));
+        Assert.False(titledLayer.HasAttribute("aria-label"));
+        Assert.Equal("dialog", titled.Find(".modal").GetAttribute("role"));
+
+        var labelledLayer = labelled.Find("dialog.modal-layer");
+        Assert.Equal("Entry actions", labelledLayer.GetAttribute("aria-label"));
+        Assert.False(labelledLayer.HasAttribute("aria-labelledby"));
+    }
+
+    [Fact]
+    public void Opening_shows_the_layer_modally_and_closing_closes_it()
+    {
+        // showModal() is what puts the layer in the top layer; a <dialog> merely
+        // rendered with `open` would sit in the pane like the backdrop did. The
+        // layer is shown before the focus moves in, and only after the focus that
+        // opened it is recorded: showModal() itself moves the focus.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        var layerId = modal.Find("dialog.modal-layer").Id;
+        var show = Assert.Single(context.JSInterop.Invocations["backlogShowModalLayer"]);
+        Assert.Equal(layerId, show.Arguments[0]);
+
+        var order = context.JSInterop.Invocations
+            .Select(invocation => invocation.Identifier)
+            .ToList();
+        Assert.True(
+            order.IndexOf("backlogCaptureFocus") < order.IndexOf("backlogShowModalLayer"),
+            "The opener is recorded before showModal() moves the focus.");
+        Assert.True(
+            order.IndexOf("backlogShowModalLayer") < order.IndexOf("Blazor._internal.domWrapper.focus"),
+            "The layer is shown before the dialog takes the focus.");
+
+        Assert.Empty(context.JSInterop.Invocations["backlogCloseModalLayer"]);
+
+        modal.Render(parameters => parameters.Add(m => m.Open, false));
+
+        var close = Assert.Single(context.JSInterop.Invocations["backlogCloseModalLayer"]);
+        Assert.Equal(layerId, close.Arguments[0]);
+    }
+
+    [Fact]
+    public async Task A_dialog_torn_out_while_open_closes_its_layer()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        await context.DisposeComponentsAsync();
+
+        Assert.Single(context.JSInterop.Invocations["backlogCloseModalLayer"]);
+    }
+
+    [Fact]
+    public void A_dialog_that_never_opened_shows_no_layer()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters.AddChildContent("<p>Body</p>"));
+
+        modal.Render(parameters => parameters.Add(m => m.Open, false));
+
+        Assert.Empty(context.JSInterop.Invocations["backlogShowModalLayer"]);
+        Assert.Empty(context.JSInterop.Invocations["backlogCloseModalLayer"]);
+    }
+
+    [Fact]
     public void Without_a_title_the_dialog_carries_its_own_label()
     {
         using var context = new BunitContext();
