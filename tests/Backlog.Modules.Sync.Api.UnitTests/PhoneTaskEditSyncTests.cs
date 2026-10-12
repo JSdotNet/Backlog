@@ -228,6 +228,36 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         Assert.Single(await devices.SuccessorsOfAsync(task.Id));
     }
 
+    /// <summary>
+    /// A task added from the phone's capture sheet lands at the end of today's
+    /// list on both sides: the phone's Anytime today and the desktop's My Day,
+    /// which is the store's order (hand rank, then newest first) narrowed to
+    /// today's pick (features.md#my-day, #manual-ordering).
+    /// </summary>
+    [Fact]
+    public async Task A_task_added_on_the_phone_lands_in_the_same_place_in_both_My_Day_lists()
+    {
+        await using var devices = await PairedAsync();
+        await devices.DesktopAddsTodaysTaskAsync("Plan the trip", order: 0);
+        await devices.DesktopAddsTodaysTaskAsync("Book the hotel", order: 1);
+
+        await devices.Phone.View.PullAsync(Cancellation);
+        await devices.Phone.View.AddAsync("Buy a charger", Cancellation);
+        await devices.Phone.Outbox.FlushAsync(Cancellation);
+        Assert.Empty(devices.Phone.Outbox.Entries);
+
+        Assert.True((await devices.DesktopSession.PullAsync(Cancellation)).IsSuccess);
+        await devices.Phone.View.PullAsync(Cancellation);
+
+        string[] expected = ["Plan the trip", "Book the hotel", "Buy a charger"];
+        var today = devices.Phone.View.Today;
+        var desktop = (await devices.DesktopTasks.ListAsync(Cancellation))
+            .Where(task => task.InMyDayOn == today)
+            .Select(task => task.Title);
+        Assert.Equal(expected, desktop);
+        Assert.Equal(expected, devices.Phone.View.Day(today).Select(row => row.Task.Title));
+    }
+
     private async Task<Devices> PairedAsync()
     {
         var desktopHttp = _service.CreateClient();
@@ -328,12 +358,13 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         /// <summary>A task the desktop picked for today, with two steps written
         /// as the desktop writes them — chapters in the body, and the structured
         /// list beside them.</summary>
-        public async Task<TaskItem> DesktopAddsTodaysTaskAsync()
+        public async Task<TaskItem> DesktopAddsTodaysTaskAsync(string title = "Plan the trip", int order = 0)
         {
-            var task = new TaskItem("Plan the trip", "Before Friday.\n\n## Pack\n\n## Book the train", EntryType.Task);
+            var task = new TaskItem(title, "Before Friday.\n\n## Pack\n\n## Book the train", EntryType.Task);
             task.AddSubItem("Pack");
             task.AddSubItem("Book the train");
             task.SetInMyDayOn(Phone.View.Today);
+            task.SetOrder(order);
 
             await DesktopTasks.SaveAsync(task, Cancellation);
             Assert.True((await DesktopSession.SyncAsync(Cancellation)).IsSuccess);

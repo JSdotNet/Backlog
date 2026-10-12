@@ -10,6 +10,7 @@
 @inject IAttachmentPicker Picker
 @inject ISpeechTranscriber Speech
 @inject TimeProvider Clock
+@inject AppLifecycle Lifecycle
 @implements IDisposable
 
 @*
@@ -20,9 +21,10 @@
     There is no save button (interaction-guidelines.md#auto-save-no-save-buttons).
     A second after the last keystroke the note is written through
     NoteViewProjection — created the first time it has anything in it, edited
-    after that — and a field's blur, a picked file and leaving the page flush a
-    save still pending. The line at the top says "Saved", or "Waiting to sync"
-    while the outbox still holds an edit of this note.
+    after that — and a field's blur, a picked file, leaving the page and the app
+    going to the background flush a save still pending. The line at the top
+    says "Saved", or "Waiting to sync" while the outbox still holds an edit of
+    this note.
 
     The text being written is held in a TalkNoteDraft of this page's own rather
     than the scoped one: the note is saved within a second, so what outlives a
@@ -182,6 +184,7 @@ else
     {
         Outbox.Changed += OnOutboxChanged;
         Notes.Changed += OnNotesChanged;
+        Lifecycle.Paused += OnPaused;
         if (Picker is WebAttachmentPicker web) web.Unrequested += OnUnrequestedAsync;
     }
 
@@ -241,6 +244,7 @@ else
         _disposed = true;
         Outbox.Changed -= OnOutboxChanged;
         Notes.Changed -= OnNotesChanged;
+        Lifecycle.Paused -= OnPaused;
         if (Picker is WebAttachmentPicker web) web.Unrequested -= OnUnrequestedAsync;
 
         _debounce?.Dispose();
@@ -318,6 +322,17 @@ else
 
         _debounce?.Dispose();
         _debounce = Clock.CreateTimer(_ => _ = InvokeAsync(SaveAsync), null, SaveDelay, Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>
+    /// The app is going to the background, where the OS may end it before the
+    /// wait is up: the pending wait is cancelled and the note written now.
+    /// </summary>
+    private void OnPaused()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(FlushAsync);
     }
 
     private Task FlushAsync()

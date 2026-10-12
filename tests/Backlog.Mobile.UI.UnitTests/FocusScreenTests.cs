@@ -133,8 +133,9 @@ public sealed class FocusScreenTests
     [Fact]
     public void With_no_step_left_Complete_task_marks_it_done_and_goes_back_to_Today()
     {
+        var clock = new FakeTimeProvider(Now);
         var tasks = new ScriptedTaskService(Timed(Sample()));
-        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
+        using var host = ShellHost.Paired(clock: clock, tasks: tasks);
         var app = host.Open($"tasks/{Id}/focus");
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='focus-step-done']")));
@@ -153,6 +154,10 @@ public sealed class FocusScreenTests
         Assert.Empty(app.FindAll("[data-testid='focus-step-done']"));
         Assert.Null(host.Service<TaskViewProjection>().Find(Id)!.Task.CompletedOn);
 
+        // Complete task holds still a moment after taking Step done's place.
+        clock.Advance(TimeSpan.FromSeconds(1));
+        app.WaitForAssertion(() => Assert.False(app.Find("[data-testid='focus-complete']").HasAttribute("disabled")));
+
         app.Find("[data-testid='focus-complete']").Click();
 
         app.WaitForAssertion(() =>
@@ -164,6 +169,119 @@ public sealed class FocusScreenTests
         });
 
         Assert.Equal(Today, host.Service<TaskViewProjection>().Find(Id)!.Task.CompletedOn);
+    }
+
+    [Fact]
+    public void A_double_tap_on_the_last_step_does_not_complete_the_task()
+    {
+        var clock = new FakeTimeProvider(Now);
+        var tasks = new ScriptedTaskService(Timed(Sample()));
+        using var host = ShellHost.Paired(clock: clock, tasks: tasks);
+        var app = host.Open($"tasks/{Id}/focus");
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='focus-step-done']")));
+        tasks.State = InboxServiceState.Unreachable;
+
+        app.Find("[data-testid='focus-step-done']").Click();
+        app.WaitForAssertion(() => Assert.Equal("Step 3 of 3 · now", app.Find("[data-testid='focus-step-number']").TextContent));
+
+        // The last step, tapped twice in a row: the second tap lands on the
+        // Complete task that has just taken Step done's place.
+        app.Find("[data-testid='focus-step-done']").Click();
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='focus-complete']")));
+        app.Find("[data-testid='focus-complete']").Click();
+
+        Assert.Null(host.Service<TaskViewProjection>().Find(Id)!.Task.CompletedOn);
+        Assert.EndsWith($"tasks/{Id}/focus", host.Navigation.Uri, StringComparison.Ordinal);
+        Assert.True(app.Find("[data-testid='focus-complete']").HasAttribute("disabled"));
+
+        // Once the reader can have seen it, Complete task does its work.
+        clock.Advance(TimeSpan.FromSeconds(1));
+        app.WaitForAssertion(() => Assert.False(app.Find("[data-testid='focus-complete']").HasAttribute("disabled")));
+
+        app.Find("[data-testid='focus-complete']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal(host.Navigation.BaseUri, host.Navigation.Uri));
+        Assert.Equal(Today, host.Service<TaskViewProjection>().Find(Id)!.Task.CompletedOn);
+    }
+
+    [Fact]
+    public void A_task_opened_with_no_step_left_can_be_completed_at_once()
+    {
+        var change = Timed(Sample());
+        change = change with { Task = change.Task with { SubItems = [], ContentMd = "Just do it." } };
+        var tasks = new ScriptedTaskService(change);
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
+        var app = host.Open($"tasks/{Id}/focus");
+
+        // Nothing was replaced, so there is nothing to wait for.
+        app.WaitForAssertion(() => Assert.False(app.Find("[data-testid='focus-complete']").HasAttribute("disabled")));
+    }
+
+    [Fact]
+    public void The_countdown_measures_real_time_across_a_daylight_saving_change()
+    {
+        // Sunday 29 March 2026 in a zone one hour ahead of UTC, two in summer,
+        // whose clocks jump from 02:00 to 03:00. The block runs 01:30–03:30 on
+        // the wall clock, which is one real hour.
+        var zone = TimeZoneInfo.CreateCustomTimeZone(
+            "Focus/Summer", TimeSpan.FromHours(1), "Focus summer time", "Focus standard", "Focus summer",
+            [
+                TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(
+                    new DateTime(2000, 1, 1), new DateTime(2099, 12, 31), TimeSpan.FromHours(1),
+                    TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 2, 0, 0), 3, 5, DayOfWeek.Sunday),
+                    TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 3, 0, 0), 10, 5, DayOfWeek.Sunday))
+            ]);
+        var changeover = new DateOnly(2026, 3, 29);
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 3, 29, 0, 30, 0, TimeSpan.Zero));
+        clock.SetLocalTimeZone(zone);
+
+        var change = TestTasks.Task("Write sync conflict tests", clock.GetUtcNow(), inMyDayOn: changeover, id: Id);
+        change = change with { Task = change.Task with { AgendaAt = "01:30", AgendaMinutes = 120 } };
+        var tasks = new ScriptedTaskService(change);
+        using var host = ShellHost.Paired(clock: clock, tasks: tasks);
+        var app = host.Open($"tasks/{Id}/focus");
+
+        // 01:30 local, the block's start: an hour of real time to its end.
+        app.WaitForAssertion(() => Assert.Equal("1:00:00", app.Find("[data-testid='focus-time']").TextContent));
+        Assert.Contains("until 03:30", app.Find("[data-testid='focus-kicker']").TextContent, StringComparison.Ordinal);
+
+        // Half an hour on, at 03:00 summer time, half the block is left.
+        clock.Advance(TimeSpan.FromMinutes(30));
+        app.WaitForAssertion(() => Assert.Equal("30:00", app.Find("[data-testid='focus-time']").TextContent));
+        Assert.Equal(2 * Math.PI * 88 / 2, Offset(app), precision: 1);
+
+        // An hour on, 03:30 summer time: the block is over, not an hour to go.
+        clock.Advance(TimeSpan.FromMinutes(30));
+        app.WaitForAssertion(() => Assert.Equal("Over by 00:00", app.Find("[data-testid='focus-time']").TextContent));
+    }
+
+    [Fact]
+    public void An_edit_the_phone_cannot_keep_says_so_and_Focus_stays_open()
+    {
+        var store = new FailingDeviceStore();
+        var tasks = new ScriptedTaskService(Timed(Sample()));
+        using var host = ShellHost.Paired(store: store, clock: new FakeTimeProvider(Now), tasks: tasks);
+        var app = host.Open($"tasks/{Id}/focus");
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='focus-step-done']")));
+        tasks.State = InboxServiceState.Unreachable;
+        store.Failing = true;
+
+        app.Find("[data-testid='focus-step-done']").Click();
+
+        app.WaitForAssertion(() =>
+            Assert.Equal(
+                "This change couldn't be kept on this phone. Try again.",
+                app.Find("[data-testid='focus-error']").TextContent.Trim()));
+        Assert.Equal("alert", app.Find("[data-testid='focus-error']").GetAttribute("role"));
+
+        // Still on Focus, on the same step, which can be tried again.
+        Assert.EndsWith($"tasks/{Id}/focus", host.Navigation.Uri, StringComparison.Ordinal);
+        Assert.Equal("Step 2 of 3 · now", app.Find("[data-testid='focus-step-number']").TextContent);
+        Assert.False(app.Find("[data-testid='focus-step-done']").HasAttribute("disabled"));
+        Assert.Equal("pending", host.Service<TaskViewProjection>().Find(Id)!.Task.SubItems.Single(step => step.Id == Second).Status);
+        Assert.Empty(host.Outbox.Entries);
     }
 
     [Fact]
@@ -381,4 +499,31 @@ public sealed class FocusScreenTests
 
     private static TaskChange Timed(TaskChange change) =>
         change with { Task = change.Task with { AgendaAt = "09:45", AgendaMinutes = 45 } };
+
+    /// <summary>A device whose outbox stops taking writes once told to — a full
+    /// disk or a locked database — so every task edit throws.</summary>
+    private sealed class FailingDeviceStore : IDeviceStore
+    {
+        private readonly InMemoryDeviceStore _inner = new();
+
+        public bool Failing { get; set; }
+
+        public IReadOnlyList<OutboxEntry> ReadOutbox() => _inner.ReadOutbox();
+
+        public Task AddAsync(OutboxEntry entry, CancellationToken cancellationToken = default) =>
+            Failing
+                ? throw new IOException("There is not enough space on the device.")
+                : _inner.AddAsync(entry, cancellationToken);
+
+        public Task UpdateAsync(OutboxEntry entry, CancellationToken cancellationToken = default) =>
+            _inner.UpdateAsync(entry, cancellationToken);
+
+        public Task RemoveAsync(Guid id, CancellationToken cancellationToken = default) =>
+            _inner.RemoveAsync(id, cancellationToken);
+
+        public CachedInbox? ReadInbox() => _inner.ReadInbox();
+
+        public Task SaveInboxAsync(CachedInbox inbox, CancellationToken cancellationToken = default) =>
+            _inner.SaveInboxAsync(inbox, cancellationToken);
+    }
 }
