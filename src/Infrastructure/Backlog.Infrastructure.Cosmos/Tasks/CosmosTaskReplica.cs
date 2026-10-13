@@ -76,21 +76,24 @@ internal sealed class CosmosTaskReplica : ITaskReplica
 
         var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
-        var accepted = 0;
 
-        // One document at a time rather than a transactional batch. The batch
-        // is capped at a hundred operations and is all-or-nothing, and a push
-        // from a device that has been offline for a week is neither: a single
-        // unlucky document must not send the other four hundred back.
-        foreach (var change in changes)
-        {
-            if (await WriteIfLaterAsync(container, partition, scope, change, cancellationToken).ConfigureAwait(false))
-            {
-                accepted++;
-            }
-        }
-
-        return accepted;
+        // One request per document rather than a transactional batch. The
+        // batch is capped at a hundred operations and is all-or-nothing, and a
+        // push from a device that has been offline for a week is neither: a
+        // single unlucky document must not send the other four hundred back.
+        //
+        // Several documents at once, though, and never two writes to one: a
+        // read and a conditional write per document, one after another, made a
+        // two-hundred-task push four hundred Gateway round trips end to end.
+        // ReplicaWrites keeps each task's versions in the order they were sent.
+        // A failed batch may have written documents after the one that failed,
+        // which is why PushTasksCommandHandler releases capture files on the
+        // way out of a failure too.
+        return await ReplicaWrites.WriteAllAsync(
+            changes,
+            change => ReplicaDocumentSerialization.Key(change.Id),
+            (change, token) => WriteIfLaterAsync(container, partition, scope, change, token),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>How often one document is re-read and re-tried after another

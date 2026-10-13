@@ -141,6 +141,26 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         Assert.Empty(component.FindAll("nav[aria-label='Design documents']"));
     }
 
+    /// <summary>The overview row is built from the area's root, so the list the
+    /// menu is handed is a new one each time it is built. The pane renders on every
+    /// keystroke typed into a task beside it; an unchanged render hands the menu
+    /// the list it already has, so the menu has nothing to map again.</summary>
+    [Fact]
+    public async Task An_unchanged_pane_render_hands_the_design_menu_the_rows_it_already_has()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        await OpenDesignAsync(component);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
+        component.WaitForAssertion(() => Assert.Contains("All documents", component.FindAll(".devbook-menu__label").Select(label => label.TextContent.Trim())));
+        var rows = component.FindComponent<DevbookMenuTreeView>().Instance.Nodes;
+
+        component.Render(parameters => parameters.Add(pane => pane.RepositoryAlias, harness.RepositoryAlias));
+
+        Assert.Same(rows, component.FindComponent<DevbookMenuTreeView>().Instance.Nodes);
+    }
+
     [Fact]
     public async Task The_architecture_section_lists_its_chapters_once()
     {

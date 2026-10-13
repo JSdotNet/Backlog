@@ -1234,6 +1234,15 @@ public sealed class InboxDesktopState
     /// <summary>To Brain's name, on its button and its undo.</summary>
     public const string ToBrainLabel = "To Brain";
 
+    /// <summary>What the To Brain buttons say on hover: the act and its key, or —
+    /// while the Brain cannot take a note — why not, in the words the route would
+    /// refuse in.</summary>
+    public const string ToBrainTitle = "Keep it as a note in your Brain (b)";
+
+    /// <summary>Why To Brain cannot be taken now, or null while it can. Asked on
+    /// render, so a Brain folder set a moment ago enables the button at once.</summary>
+    public string? ToBrainUnavailableReason => _inbox.BrainUnavailableReason;
+
     /// <summary>The test id of the toast a refused To Brain raises.</summary>
     internal const string BrainErrorTestId = "inbox-brain-error";
 

@@ -119,8 +119,9 @@ public sealed class DevbookUnifiedSearch
     public IReadOnlyList<DevbookSearchSource> Sources() => _sources();
 
     /// <summary>Whether a question is also searched by meaning: the switch is on
-    /// and something can embed it.</summary>
-    public bool SearchesByMeaning => _embedder is not null && _meaningOn();
+    /// and something can embed it — a configured deployment that has not
+    /// refused.</summary>
+    public bool SearchesByMeaning => _embedder is { IsAvailable: true } && _meaningOn();
 
     /// <summary>
     /// The words answer, grouped: every source under Everywhere

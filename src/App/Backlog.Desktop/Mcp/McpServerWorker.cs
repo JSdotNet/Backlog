@@ -24,7 +24,8 @@ namespace Backlog.Desktop.Mcp;
 /// endpoint the desktop application serves from inside its own process, on
 /// <c>127.0.0.1</c> and nothing else.
 /// <para>
-/// A plain object whose constructor starts the listener rather than an
+/// A plain object whose constructor queues the listener's build and bind,
+/// on a thread pool thread rather than its own, instead of an
 /// <c>IHostedService</c>, and shaped on <c>TaskSyncWorker</c> deliberately —
 /// §2 names it as the pattern. The reasoning is that worker's own: "There is no
 /// hosted service anywhere in this repository because there is nowhere for one
@@ -82,8 +83,8 @@ public sealed class McpServerWorker : IDisposable
     private static readonly TimeSpan DisposeDrainTimeout = TimeSpan.FromSeconds(5);
 
     /// <summary>
-    /// Guards <see cref="_listener"/>, <see cref="_boundPort"/> and
-    /// <see cref="_disposed"/> together, because the three are what decide
+    /// Guards <see cref="_listener"/> and <see cref="_disposed"/> together,
+    /// because the two are what decide
     /// whether a listener may still be created: the settings store raising
     /// <c>McpChanged</c> on one thread while the window closes on another is
     /// otherwise a port bound after disposal, which nothing would ever release.
@@ -99,7 +100,21 @@ public sealed class McpServerWorker : IDisposable
     /// holding a socket in a process that is going away.</summary>
     private readonly CancellationTokenSource _lifetime = new();
 
-    private WebApplication? _listener;
+    /// <summary>
+    /// The listener this worker currently means to have: the port it was asked
+    /// for, and the host once the chain has built it.
+    /// <para>
+    /// A slot rather than the host itself because the host is no longer built
+    /// where the decision is made. <see cref="ApplyGates"/> runs on the thread
+    /// that raised the event - the one drawing the first window, or the Settings
+    /// screen a port was typed into - and composing a <c>WebApplication</c> there
+    /// is Kestrel, routing, the MCP server and the bridge into the head's
+    /// container, all before a pixel is drawn. So the decision records a slot
+    /// under <see cref="_gate"/>, and <see cref="TransitionAsync"/> builds the
+    /// host into it on the chain, off that thread.
+    /// </para>
+    /// </summary>
+    private Listener? _listener;
 
     /// <summary>
     /// Every start and every release this worker has queued, in order, as one
@@ -122,11 +137,6 @@ public sealed class McpServerWorker : IDisposable
     /// </para>
     /// </summary>
     private Task _pending = Task.CompletedTask;
-
-    /// <summary>Which port <see cref="_listener"/> was built for. Kept because
-    /// the running listener cannot be asked: a port change has to rebind, and a
-    /// <c>McpChanged</c> raised for the token cannot be allowed to.</summary>
-    private int _boundPort;
 
     private bool _disposed;
 
@@ -186,6 +196,11 @@ public sealed class McpServerWorker : IDisposable
         $"Port {port} is already in use, so the MCP server could not start. "
         + "Close whatever is using it, or choose another port — and change it in every registration too.";
 
+    /// <summary>What a person is told when the listener could not even be built -
+    /// not a port collision, so not <see cref="PortUnavailable"/>'s sentence.</summary>
+    private static string CouldNotStart(int port) =>
+        $"The MCP server could not start on port {port}. The application log has the reason.";
+
     /// <summary>Stops the listener, releases the port, and lets go of both
     /// stores. Unsubscribing matters more than stopping the listener does, for
     /// the reason <c>TaskSyncWorker.Dispose</c> gives: a worker that stayed on a
@@ -194,7 +209,7 @@ public sealed class McpServerWorker : IDisposable
     /// it.</summary>
     public void Dispose()
     {
-        WebApplication? listener;
+        Listener? listener;
         Task pending;
 
         lock (_gate)
@@ -223,7 +238,10 @@ public sealed class McpServerWorker : IDisposable
         // That reasoning is shutdown's alone. A port change goes the other way -
         // see ApplyGates - because there the thread being blocked may be drawing
         // a screen, and the app carries on afterwards.
-        if (listener is not null) Release(listener);
+        // A slot whose host the chain has not built yet has nothing to release
+        // here: the chain finds it is no longer the current one and lets the host
+        // go itself, which the drain below waits for.
+        if (listener?.App is { } app) Release(app);
 
         // And whatever the chain still owes, bounded. A listener queued by a port change
         // the window closed on top of is one this method never saw, and it holds
@@ -291,10 +309,13 @@ public sealed class McpServerWorker : IDisposable
             if (_disposed) return;
 
             var port = _settings.McpServerPort;
-            WebApplication? releasing = null;
-            WebApplication? starting = null;
+            Listener? releasing = null;
+            Listener? starting = null;
 
-            if (_listener is not null && port != _boundPort)
+            // The slot's port, because the running listener cannot be asked: a
+            // port change has to rebind, and a McpChanged raised for the token
+            // cannot be allowed to.
+            if (_listener is not null && port != _listener.Port)
             {
                 releasing = _listener;
                 _listener = null;
@@ -303,18 +324,15 @@ public sealed class McpServerWorker : IDisposable
                 LastError = null;
             }
 
-            if (_listener is null)
-            {
-                _boundPort = port;
-                _listener = starting = CreateListener(port);
-            }
+            // Recorded, not built: the build is the chain's, off this thread.
+            if (_listener is null) _listener = starting = new Listener(port);
 
             // Both under the gate, and queued as one step: a release and the
             // start that replaces it must not overlap, or the new listener binds
             // a port the old one has not given back yet.
             if (releasing is not null || starting is not null)
             {
-                _pending = Continue(_pending, releasing, starting, _boundPort);
+                _pending = Continue(_pending, releasing, starting);
             }
         }
 
@@ -333,26 +351,28 @@ public sealed class McpServerWorker : IDisposable
     /// window is closing, because it is what gives the port back.
     /// </para>
     /// </summary>
-    private Task Continue(Task previous, WebApplication? releasing, WebApplication? starting, int port) =>
+    private Task Continue(Task previous, Listener? releasing, Listener? starting) =>
         previous
             .ContinueWith(
-                _ => TransitionAsync(releasing, starting, port),
+                _ => TransitionAsync(releasing, starting),
                 CancellationToken.None,
                 TaskContinuationOptions.DenyChildAttach,
                 TaskScheduler.Default)
             .Unwrap();
 
-    /// <summary>Let the old listener go, then bind the new one. Never throws:
-    /// every failure inside it is caught and reported through
+    /// <summary>Let the old listener go, then build and bind the new one. Never
+    /// throws: every failure inside it is caught and reported through
     /// <see cref="LastError"/> and the log, so the chain is never faulted and the
     /// next change is never queued behind a broken task.</summary>
-    private async Task TransitionAsync(WebApplication? releasing, WebApplication? starting, int port)
+    private async Task TransitionAsync(Listener? releasing, Listener? starting)
     {
         if (releasing is not null)
         {
             try
             {
-                Release(releasing);
+                // Null when the slot was replaced before its own step built it:
+                // that step found itself superseded and let its host go already.
+                if (releasing.App is { } app) Release(app);
             }
             catch (Exception ex)
             {
@@ -368,7 +388,78 @@ public sealed class McpServerWorker : IDisposable
             Changed?.Invoke();
         }
 
-        if (starting is not null) await StartAsync(starting, port).ConfigureAwait(false);
+        if (starting is not null && Build(starting) is { } built) await StartAsync(starting, built).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Builds the slot's host and hands it to the slot, or answers null when there
+    /// is nothing to start: the slot was superseded or the worker disposed while
+    /// this step waited, or the build itself failed.
+    /// <para>
+    /// The ownership check is under <see cref="_gate"/>, the lock
+    /// <see cref="Dispose"/> and <see cref="ApplyGates"/> take to replace the
+    /// slot, so a host is either handed to a slot that is still current - and
+    /// whoever replaces it later finds it there to release - or released here.
+    /// Never both and never neither.
+    /// </para>
+    /// </summary>
+    private WebApplication? Build(Listener slot)
+    {
+        lock (_gate)
+        {
+            if (!ReferenceEquals(_listener, slot)) return null;
+        }
+
+        WebApplication app;
+        try
+        {
+            app = CreateListener(slot.Port);
+        }
+        catch (Exception ex)
+        {
+            bool current;
+            lock (_gate)
+            {
+                current = ReferenceEquals(_listener, slot);
+                if (current)
+                {
+                    _listener = null;
+                    LastError = CouldNotStart(slot.Port);
+                }
+            }
+
+            // A slot replaced meanwhile - a port change, or the window closing
+            // and disposing the head's container under the build - is nobody's
+            // failure to report.
+            if (current)
+            {
+                _log.LogError(ex, "The MCP server's listener for 127.0.0.1:{Port} could not be built.", slot.Port);
+                Changed?.Invoke();
+            }
+
+            return null;
+        }
+
+        lock (_gate)
+        {
+            if (ReferenceEquals(_listener, slot))
+            {
+                slot.App = app;
+                return app;
+            }
+        }
+
+        try
+        {
+            Release(app);
+        }
+        catch (Exception ex)
+        {
+            // Never bound, so it holds no port; nothing to tell anyone but the log.
+            _log.LogError(ex, "A superseded MCP listener could not be disposed.");
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -482,8 +573,10 @@ public sealed class McpServerWorker : IDisposable
     /// the chain is never left faulted.
     /// </para>
     /// </summary>
-    private async Task StartAsync(WebApplication listener, int port)
+    private async Task StartAsync(Listener slot, WebApplication listener)
     {
+        var port = slot.Port;
+
         try
         {
             // Before the bind, so the token exists the moment the server does.
@@ -500,7 +593,7 @@ public sealed class McpServerWorker : IDisposable
                 // Somebody moved the port while this was binding: that
                 // listener has already been disposed and this one is not ours
                 // to report.
-                if (!ReferenceEquals(_listener, listener)) return;
+                if (!ReferenceEquals(_listener, slot)) return;
 
                 IsListening = true;
                 LastError = null;
@@ -524,7 +617,7 @@ public sealed class McpServerWorker : IDisposable
         {
             lock (_gate)
             {
-                if (ReferenceEquals(_listener, listener))
+                if (ReferenceEquals(_listener, slot))
                 {
                     _listener = null;
                     IsListening = false;
@@ -679,5 +772,15 @@ public sealed class McpServerWorker : IDisposable
         }
 
         return forwarded;
+    }
+
+    /// <summary>One listener this worker meant to have: the port it was asked
+    /// for, and the host once <see cref="Build"/> has made it. Read and written
+    /// under <see cref="_gate"/>.</summary>
+    private sealed class Listener(int port)
+    {
+        public int Port { get; } = port;
+
+        public WebApplication? App { get; set; }
     }
 }

@@ -143,7 +143,7 @@ It writes nothing and calls nothing: it reads the calls the run already makes.
 | --- | --- |
 | The entries and their statuses | `get_plan_items` and `transition`, on any MCP server |
 | Which sub-agent runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `Agent` call's prompt — change it and `parseBrief` in `hooks/parse.ts` with it |
-| Each entry's stages | `start_run`, `update_stage` and `finish_run` on any delivery surface, from the sub-agent's loop or one it spawned |
+| Each entry's stages | `start_run`, `update_stage` and `finish_run` on any delivery surface, from the sub-agent's loop or one it spawned. A call the surface answered with an error still counts, since the pane mirrors what the worker said; a call a function hook refused with `deny` never ran and does not |
 | How the entry ended | The sub-agent's one-line return: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before` |
 
 The module's state is declared in `types/index.d.ts`. `claude plugin validate plugins/backlog-tools`

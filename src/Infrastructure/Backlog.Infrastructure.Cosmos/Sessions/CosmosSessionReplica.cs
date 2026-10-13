@@ -74,7 +74,6 @@ internal sealed class CosmosSessionReplica : ISessionReplica
 
         var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
-        var accepted = 0;
 
         // One request per record rather than a transactional batch. The batch is
         // capped at a hundred operations and is all-or-nothing, and a push from a
@@ -87,28 +86,34 @@ internal sealed class CosmosSessionReplica : ISessionReplica
         // moving it to the end of the feed. The key begins with this machine's
         // device id, so the write cannot reach another machine's record for the
         // same session even if two machines somehow issued the same session id.
-        foreach (var record in records)
-        {
-            try
+        //
+        // Several records at once, and never two upserts to one key: a batch
+        // that carries one key twice still ends with the later copy stored,
+        // because ReplicaWrites writes one key's records in the order sent.
+        return await ReplicaWrites.WriteAllAsync(
+            records,
+            record => SessionRecordKey.For(scope.DeviceId.Value, record),
+            async (record, token) =>
             {
-                await container.UpsertItemAsync(
-                    SessionDocumentFactory.From(scope, record),
-                    partition,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await container.UpsertItemAsync(
+                        SessionDocumentFactory.From(scope, record),
+                        partition,
+                        cancellationToken: token).ConfigureAwait(false);
 
-                accepted++;
-            }
-            catch (CosmosException failure)
-            {
-                // Every CosmosException, not only the ones that mean "not there
-                // yet". Anything left unclassified would be a 500 with no code on
-                // it (inherited ADR 0017), and the batch carrying that record
-                // would fail on every run for ever.
-                throw Fault(failure);
-            }
-        }
-
-        return accepted;
+                    return true;
+                }
+                catch (CosmosException failure)
+                {
+                    // Every CosmosException, not only the ones that mean "not there
+                    // yet". Anything left unclassified would be a 500 with no code on
+                    // it (inherited ADR 0017), and the batch carrying that record
+                    // would fail on every run for ever.
+                    throw Fault(failure);
+                }
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<SessionReplicaPage> ReadChanges(

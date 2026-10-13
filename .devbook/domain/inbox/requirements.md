@@ -1353,7 +1353,7 @@ status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsInboxRoutingRulesTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxRoutingRulesStoreTests]
 ```
 
-The system SHALL keep the routing rules typed on the Repositories page only when every line reads as `pattern => owner/repo`, and otherwise name the line and keep the rules in use.
+The system SHALL keep the routing rules typed on the Inbox settings page only when every line reads as `pattern => owner/repo`, and otherwise name the line and keep the rules in use.
 
 #### Scenario: A line without an arrow
 
@@ -1668,7 +1668,7 @@ related: [.devbook/domain/inbox/features.md#route-to-brain]
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.A_capture_becomes_a_note_and_the_item_leaves_the_queue_as_routed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_captured_link_keeps_its_address, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.An_inbox_note_becomes_a_brain_note_with_its_title_and_body, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.To_brain_in_triage_routes_the_item_says_where_it_went_and_moves_on]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.A_capture_becomes_a_note_and_the_item_leaves_the_queue_as_routed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_captured_link_keeps_its_address, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.An_inbox_note_becomes_a_brain_note_with_its_title_and_body, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.To_brain_in_triage_routes_the_item_says_where_it_went_and_moves_on, e2e:dotnet:Backlog.EndToEndTests.BrainTests.To_brain_writes_an_inbox_item_as_a_note_in_the_inbox_area]
 ```
 
 The system SHALL write an item routed To Brain as a new note in the Brain's inbox area, with the item's title and body, and mark the item routed.

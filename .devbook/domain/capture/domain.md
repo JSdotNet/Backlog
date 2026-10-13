@@ -23,21 +23,20 @@ aliases: [ItemCaptured]
 
 A single acquired piece of raw content from one source, before it becomes an
 Inbox Item. The aggregate guarantees that every capture is normalized into the
-standard shape (title, `body_md`, source, tags, `captured_at`) and preserves its
-original source link and capture timestamp before delivery. Each capture is a
-unique entry — duplicates from multiple devices are acceptable and create
-separate captures. Edits follow last-write-wins by most recent timestamp.
+standard shape (title, `body_md`, source, tags, `captured_at`). It also keeps the
+original source link and capture timestamp until delivery. Each capture is a
+unique entry: the same content from two devices makes two separate captures, and
+that is acceptable. Edits follow last-write-wins by most recent timestamp.
 
 A note the phone creates starts as a capture like any other, with an id the
 phone mints. Unlike the other captures, it does not end at delivery. Its Inbox
 Item has `Content Kind` `note` and keeps syncing with the phone, which may edit
 it again. Those later edits are the Inbox Item's, not the capture's. See
-`.devbook/domain/inbox/domain.md#note`. The phone's Notes tab writes this kind
-of note. The talk note it replaced was an ordinary capture.
+[Note](../inbox/domain.md#note). The phone's Notes tab writes this kind of note.
 
-The Capture aggregate has no owned entities beyond its root; its variability is
-carried by the `Source Metadata` value object and the `Capture Source` enum, and
-the files it brings with it by the `Capture Attachment` value object.
+The Capture aggregate has no owned entities beyond its root. The `Source Metadata`
+value object and the `Capture Source` enum carry what varies between captures. The
+`Capture Attachment` value object describes the files a capture brings with it.
 
 ### Source Metadata
 
@@ -47,12 +46,12 @@ status: draft
 aliases: [SourceMetadata]
 ```
 
-Source-specific context attached to a capture, e.g. YouTube channel name,
-clipped `source_url`, email sender, or IDE-class file path / line / branch. For
-captures from an agentic session tool (e.g. the GitHub Copilot App), the same
-`ide` shape also carries a `session_id` and the local worktree path in place of
-an open-editor selection. Equality is by value. Its concrete keys depend on the
-`Capture Source`; it is opaque to downstream domains except as provenance.
+Source-specific context attached to a capture: a YouTube channel name, a clipped
+`source_url`, an email sender, or an IDE file path, line and branch. A capture from
+an agentic session tool such as the GitHub Copilot App uses the same `ide` shape.
+It carries a `session_id` and the local worktree path in place of an open-editor
+selection. Equality is by value. Its concrete keys depend on the `Capture Source`,
+and downstream domains read it only as provenance.
 
 ### Capture Attachment
 
@@ -63,17 +62,17 @@ related: [.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside
 aliases: [AttachmentMetadata, attachment]
 ```
 
-A file a capture brings with it — a slide photographed at a talk, a handout
-PDF — described by its `id`, file `name`, `contentType`, `sizeBytes` and
-`sha256`. The capture holds this description only; the bytes live in the
-attachment store under the same id, uploaded before the capture that names
-them (local ADR 0014). The id is minted by the client, so a phone with no
-network can name a file before it has sent it. Equality is by value.
+A file a capture brings with it, such as a slide photographed at a talk or a
+handout PDF. It is described by its `id`, file `name`, `contentType`, `sizeBytes`
+and `sha256`. The capture holds this description only. The bytes live in the
+attachment store under the same id, uploaded before the capture that names them
+(local ADR 0014). The client mints the id, so a phone with no network can name a
+file before it has sent it. Equality is by value.
 
-The store is a courier, not a home: acknowledging the capture releases the
-files, and a capture left waiting longer than 30 days keeps its description but
-loses its bytes. Once a desktop has taken the capture in, its Inbox Item owns
-its own copy of each file.
+The store is a courier, not a home. Acknowledging the capture releases the files,
+and a capture left waiting longer than 30 days keeps its description but loses its
+bytes. Once a desktop has taken the capture in, its Inbox Item owns its own copy of
+each file.
 
 ### Tag
 
@@ -102,8 +101,8 @@ Origin type of a capture. Values and meaning:
 - `website` — a change detected by the website monitor.
 - `email` — a newsletter/summary ingested from an IMAP inbox.
 - `web_clipper` — content clipped by the browser extension/bookmarklet.
-- `ide` — content captured from an IDE-class host: a selection in an IDE
-  extension adapter (VS Code, Visual Studio) or an in-session capture command
+- `ide` — content captured from an IDE-class host. It is a selection in an IDE
+  extension adapter (VS Code, Visual Studio), or an in-session capture command
   from an agentic session tool such as the GitHub Copilot App.
 - `manual` — drag-and-drop or pasted content imported by hand.
 - `import` — an item read from an import manifest. A skill outside the product
@@ -120,18 +119,34 @@ status: draft
 related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/arc42/06-runtime-view.md#mobile-capture-and-sync, .devbook/arc42/06-runtime-view.md#ide-context-aware-capture]
 ```
 
-Coordinates acquisition for a given `Capture Source`: polling or event intake,
-retry with exponential backoff, offline-first buffering with background sync,
-and normalization of raw content into a Capture. Each source (mobile monitor,
-YouTube monitor, website monitor, email ingestion, web clipper, IDE adapter,
-GitHub Copilot App session adapter, manual import, import manifest) is a
-concrete adapter behind this service. The GitHub Copilot App adapter runs as a peer of the IDE
-extension adapters: it is invoked from within a Copilot App session against
-the session's local worktree, so it reads/writes through the same local-first
-path as the Desktop App and never routes credentials through the optional
-Cloud Service. The behavior does not belong on the Capture aggregate because it
-spans external I/O, scheduling, and transport concerns that are outside a
-single capture's consistency boundary. Invocation semantics: command-/scheduler-invoked application service behind per-source adapters.
+Coordinates acquisition for a given `Capture Source`. It covers polling or event
+intake, retry with exponential backoff, offline-first buffering with background
+sync, and normalization of raw content into a Capture. Each source has a concrete
+adapter behind this service:
+
+| Adapter | Source | Built |
+| --- | --- | --- |
+| Mobile app, through the sync service | `mobile` | yes |
+| YouTube monitor | `youtube` | yes |
+| Website monitor | `website` | yes |
+| Import manifest | `import` | yes |
+| Email ingestion | `email` | planned |
+| Web clipper | `web_clipper` | planned |
+| IDE extension adapter | `ide` | planned |
+| GitHub Copilot App session adapter | `ide` | planned |
+| Manual import | `manual` | planned |
+
+The GitHub Copilot App adapter would run as a peer of the IDE extension adapters.
+A Copilot App session would invoke it against the session's local worktree. It would
+then read and write through the same local-first path as the Desktop App, and never
+route credentials through the optional Cloud Service.
+
+The behavior does not belong on the Capture aggregate. It spans external I/O,
+scheduling, and transport, which lie outside a single capture's consistency
+boundary.
+
+Invocation semantics: command- or scheduler-invoked application service behind
+per-source adapters.
 
 ## Delivery
 
@@ -141,10 +156,13 @@ status: draft
 related: [.devbook/domain/inbox/domain.md#inbox-item]
 ```
 
-Delivers a normalized Capture to the Inbox incoming queue as an Inbox Item,
-emitting the `ItemCaptured` event (source, title, `body_md`, tags,
-`captured_at`). It exists as a service because delivery is a cross-boundary
-handoff between Capture and Inbox rather than an in-aggregate state change. Invocation semantics: handoff service invoked after normalization completes; its cross-boundary side effect is publishing `ItemCaptured`.
+Delivers a normalized Capture to the Inbox's
+[incoming queue](../inbox/features.md#incoming-queue) as an Inbox Item, and emits
+the `ItemCaptured` event. It is a service because delivery is a handoff across the
+boundary between Capture and Inbox, not a state change inside the aggregate.
+
+Invocation semantics: handoff service, invoked after normalization completes. Its
+one side effect across the boundary is publishing `ItemCaptured`.
 
 ## ItemCaptured
 
@@ -155,7 +173,8 @@ related: [.devbook/domain/capture/domain.md#delivery]
 ```
 
 Published by `Delivery` when a normalized Capture is handed off to the Inbox.
-This is Capture's published language for intake into the shared queue.
+This is Capture's published language for intake into the Inbox's
+[incoming queue](../inbox/features.md#incoming-queue).
 
 ### Payload
 
@@ -171,7 +190,8 @@ This is Capture's published language for intake into the shared queue.
 
 ### Consumers
 
-- Inbox intake, which creates the `Inbox Item` and becomes the owner of further lifecycle.
+- The Inbox's incoming queue, which creates the `Inbox Item` and owns its lifecycle
+  from then on.
 
 ### Published language rules
 

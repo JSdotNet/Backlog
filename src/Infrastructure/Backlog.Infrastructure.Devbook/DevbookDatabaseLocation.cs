@@ -191,7 +191,7 @@ public static class DevbookDatabaseLocation
     /// <c>D:\Repos\Backlog\</c> and <c>d:\repos\backlog</c> are one repository and
     /// get one database.
     /// </summary>
-    internal static string? NormalizedRoot(string repositoryRoot)
+    public static string? NormalizedRoot(string repositoryRoot)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) return null;
 

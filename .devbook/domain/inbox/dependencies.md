@@ -29,20 +29,18 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 ## Notes
 
 - The Inbox is the hub of the capture -> triage -> backlog/knowledge/archive
-  pipeline; keep the `ItemTriaged` payload as a published language so Tasks and
-  Devbook never depend on Inbox internals.
+  pipeline. Its contract with Tasks and Devbook is the
+  [`ItemTriaged`](domain.md#itemtriaged) published language.
 - The Inbox -> Tasks edge is realised the way the roadmap's cross-context joins
-  are: a port in the Inbox's Abstractions, an adapter in `src/Infrastructure`
-  that references both published surfaces, and no project reference between
-  the two modules. The adapter is the only place an inbox item becomes entry
-  text (`.devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md`). The
-  earlier Tasks.UI -> Inbox.UI edge is gone.
-- The Inbox's own store — `inbox_items`, `inbox_lists`, `inbox_groups` in
-  `backlog.db` — is the module's; the adapter never touches another module's
+  are. A port sits in the Inbox's Abstractions and an adapter in
+  `src/Infrastructure` references both published surfaces. There is no project
+  reference between the two modules.
+- The Inbox's own store is the module's: `inbox_items`, `inbox_lists` and
+  `inbox_groups` in `backlog.db`. The adapter never touches another module's
   table (`.devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md`).
   Lists and groups never sync.
-- The inbox is global (one per workspace root), not repo-scoped — all sources
-  deliver to one shared inbox regardless of origin; repositories are assigned
-  per item, not per inbox.
+- The inbox is global, one per workspace root, and not scoped to a repository.
+  Every source delivers to one shared inbox, and repositories are assigned per
+  item.
 - See the follow-up loop in `.devbook/domain/monitoring/flow.md#signal-flow` rather than
   duplicating it here.

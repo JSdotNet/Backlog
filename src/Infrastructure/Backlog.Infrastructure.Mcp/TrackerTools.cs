@@ -526,7 +526,7 @@ public sealed class TrackerTools(
             ? null
             : RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
 
-        var all = await entries.ListAsync(cancellationToken).ConfigureAwait(false);
+        var count = await entries.CountAsync(cancellationToken).ConfigureAwait(false);
 
         var text = rawText ?? string.Empty;
 
@@ -541,7 +541,7 @@ public sealed class TrackerTools(
         // ranked belongs at the bottom, not wherever an old gap in the numbering
         // happens to put it.
         var saved = await entries
-            .SaveFromTextAsync(null, text, all.Count, cancellationToken: cancellationToken)
+            .SaveFromTextAsync(null, text, count, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         return Reference(saved.ValueOrThrow().Entry);
@@ -640,13 +640,12 @@ public sealed class TrackerTools(
         };
     }
 
-    /// <summary>The entry, or the refusal that names the id. One read of the port
-    /// for the tools that start with "the entry you mean is this one".</summary>
+    /// <summary>The entry, or the refusal that names the id. One read of one entry
+    /// for the tools that start with "the entry you mean is this one" - never the
+    /// whole backlog, mapped, to find it.</summary>
     private async Task<TaskItemDto> RequireAsync(Guid id, CancellationToken cancellationToken)
     {
-        var all = await entries.ListAsync(cancellationToken).ConfigureAwait(false);
-
-        return all.FirstOrDefault(entry => entry.Id == id)
+        return await entries.GetAsync(id, cancellationToken).ConfigureAwait(false)
             ?? throw RepositoryScope.Failure(Error.NotFound(
                 "item.not_found",
                 $"No backlog entry has the id '{id}'."));

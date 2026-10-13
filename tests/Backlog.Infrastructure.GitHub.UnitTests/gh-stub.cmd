@@ -8,8 +8,14 @@ rem  arrive as a file next to this script, and everything a test can observe has
 rem  to leave as argv, stdout, stderr or an exit code.
 rem
 rem  Reads:   stdout.txt     written to stdout verbatim, when it exists
+rem           stdout-VERB.txt  written instead of stdout.txt when the call's
+rem                          first argument is VERB -- `api` or `auth` -- so
+rem                          one stub can answer `gh api user` and
+rem                          `gh auth token` differently
 rem           stderr.txt     written to stderr verbatim, when it exists
 rem           exit-code.txt  the exit code to end with; 0 when absent
+rem           exit-code-VERB.txt  wins over exit-code.txt when the call's
+rem                          first argument is VERB
 rem           hang.txt       when it exists, the call never ends by itself: a
 rem                          child `ping` holds hang.lock open for two minutes,
 rem                          so the lock outlives the call unless the whole
@@ -27,6 +33,7 @@ rem ---------------------------------------------------------------------------
 setlocal
 
 set "here=%~dp0"
+set "verb=%~1"
 
 :record
 if "%~1"=="" goto recorded
@@ -45,9 +52,12 @@ if not exist "%here%hang.txt" goto answer
 
 if defined piped more >>"%here%stdin.txt"
 
-if exist "%here%stdout.txt" type "%here%stdout.txt"
+set "out=%here%stdout.txt"
+if exist "%here%stdout-%verb%.txt" set "out=%here%stdout-%verb%.txt"
+if exist "%out%" type "%out%"
 if exist "%here%stderr.txt" >&2 type "%here%stderr.txt"
 
 set "code=0"
 if exist "%here%exit-code.txt" set /p code=<"%here%exit-code.txt"
+if exist "%here%exit-code-%verb%.txt" set /p code=<"%here%exit-code-%verb%.txt"
 exit /b %code%

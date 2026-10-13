@@ -21,11 +21,11 @@ related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/inbox/domain.md#
 aliases: [ProgressSignal, Signal]
 ```
 
-An immutable, timestamped event indicating a change somewhere in the system,
-captured from a domain or external source. The aggregate guarantees each signal
-records its `Signal Type`, source, subject reference, and payload at detection
-time, and is never mutated after capture — corrections arrive as new signals.
-Signals are the raw material dashboards and attention rules read from.
+An immutable, timestamped record of a change somewhere in the system, captured
+from a domain or an external source. The aggregate guarantees that each signal
+records its `Signal Type`, source, subject reference and payload at detection
+time. A signal is never changed after capture; a correction arrives as a new
+signal. Signals are the raw material that dashboards and attention rules read.
 
 The Progress Signal aggregate is a single immutable record with no owned child
 entities; its variable payload is held in the `Signal Payload` value object.
@@ -38,10 +38,16 @@ status: draft
 aliases: [SignalPayload]
 ```
 
-The type-specific body of a signal (e.g. `{item_id, new_status, changed_at}` for
-a status change, `{queue_name, depth, age_max, processing_rate}` for queue depth,
-`{machine_id, status, last_heartbeat}` for machine status). Immutable; equality
-by value.
+The type-specific body of a signal. Its keys depend on the `Signal Type`, for
+example:
+
+| Signal type | Payload |
+| --- | --- |
+| `status_change` | `{item_id, new_status, changed_at}` |
+| `queue_depth` | `{queue_name, depth, age_max, processing_rate}` |
+| `machine_status` | `{machine_id, status, last_heartbeat}` |
+
+A payload is immutable, and two payloads are equal when their values are.
 
 ### Signal Type
 
@@ -55,12 +61,15 @@ Kind of change a signal represents:
 
 - `status_change` — a task changed status.
 - `github_sync` — a GitHub issue linked to a task updated.
-- `app_insights` — an Application Insights metric/alert (error, latency).
-- `queue_depth` — inbox/processing queue depth and rate.
-- `inbox_age` — oldest unprocessed inbox item age.
-- `automation_run` — an inbox automation executed (success/failure, items created).
-- `copilot_session` — a session update read from Sessions, for any agent; the token keeps its first name.
-- `machine_status` — a dev PC heartbeat/state change.
+- `app_insights` — an Application Insights metric or alert, such as an error or
+  latency.
+- `queue_depth` — Inbox or processing queue depth and rate.
+- `inbox_age` — the age of the oldest unprocessed Inbox item.
+- `automation_run` — a [capture monitor](../capture/features.md#automation-capture)
+  ran: whether it succeeded, and how many items it created.
+- `copilot_session` — a session update read from Sessions. `copilot_session` keeps
+  its old name although it covers every agent.
+- `machine_status` — a dev PC heartbeat or state change.
 - `team_aggregate` — a team-level rollup signal.
 
 ## Signal Aggregation
@@ -70,11 +79,14 @@ type: domain-service
 status: draft
 ```
 
-Ingests signals from every source, correlates them (e.g. GitHub errors against
-backlog delays), detects staleness/attention conditions against configurable
-thresholds, and computes rollups including team-level aggregates. It is a service
-because it spans many signal sources and produces cross-cutting views rather than
-mutating one aggregate. Invocation semantics: event-triggered read-side service consuming published signals from other contexts.
+Ingests signals from every source and correlates them, for example GitHub errors
+against backlog delays. It detects staleness and attention conditions against
+configurable thresholds, and computes rollups, team-level aggregates among them. It
+is a service because it spans many signal sources and produces cross-cutting views
+rather than changing one aggregate.
+
+Invocation semantics: event-triggered read-side service, consuming the signals other
+contexts publish.
 
 ## Dashboard
 
@@ -84,12 +96,21 @@ status: draft
 related: [.devbook/arc42/08-crosscutting-concepts.md#observability]
 ```
 
-Composes multi-layer dashboards — project (Application Insights), backlog/GitHub
-progress, inbox/queue health, agent sessions (from Sessions), and infrastructure (PC status,
-repo health) — with role-based visibility for personal vs. team views. It emits
-`FollowUpCaptured` back to the Inbox when a dashboard follow-up should become a
-new item. It is a service because it reads across aggregates and contexts to
-present, rather than own, state. Invocation semantics: query/composition service invoked when a dashboard view or follow-up decision is requested.
+Composes dashboards in layers, with role-based visibility for personal and team
+views:
+
+- the project layer, from Application Insights;
+- backlog and GitHub progress;
+- Inbox and queue health;
+- agent sessions, from Sessions;
+- infrastructure: PC status and repository health.
+
+It emits `FollowUpCaptured` when a dashboard follow-up should become a new Inbox
+item. It is a service because it reads across aggregates and contexts to present
+state rather than own it.
+
+Invocation semantics: query/composition service, invoked when a dashboard view or a
+follow-up decision is requested.
 
 ## FollowUpCaptured
 
@@ -100,7 +121,6 @@ related: [.devbook/domain/monitoring/domain.md#dashboard]
 ```
 
 Published by `Dashboard` when an observed condition should become a new Inbox item.
-It is the only write-back contract from Monitoring into the core workflow.
 
 ### Payload
 
@@ -117,8 +137,8 @@ It is the only write-back contract from Monitoring into the core workflow.
 ### Published language rules
 
 - Monitoring owns the observation payload; Inbox owns the resulting item lifecycle.
-- `FollowUpCaptured` is the only feedback-loop write allowed from Monitoring into
-  another bounded context.
+- `FollowUpCaptured` is the only write Monitoring makes into another bounded
+  context. It closes the loop from observing a condition to acting on it.
 
 ## Shared Enums
 

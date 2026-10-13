@@ -1,6 +1,18 @@
 {
   "schemaVersion": 1,
   "entries": {
+    "13128c53f6791348e88025021e841f53b8eaf0797be9498296d8c5af327a2761": {
+      "chapter": "flow.md",
+      "ordinal": 5,
+      "type": "workflow",
+      "quality": "showcase",
+      "kind": "flowchart",
+      "spec": "flow.5.workflow.json",
+      "specSha256": "9ecccc02a60666fd546acd1cce2493e66dd680c6efe545eb99f1769df5d15234",
+      "artifact": "flow.5.workflow.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
     "17cbe2740c1274489aa2661f585e2c2cf7986dd908aef52e4f905264b6c828fc": {
       "chapter": "flow.md",
       "ordinal": 1,
@@ -12,29 +24,7 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "357a1b4123314d39dbbe0dacccd6a5f4718dffa361eba0c66ea14e8eb2d0d8a7": {
-      "chapter": "flow.md",
-      "ordinal": 4,
-      "type": "workflow",
-      "quality": "showcase",
-      "kind": "flowchart",
-      "spec": "flow.4.workflow.json",
-      "artifact": "flow.4.workflow.html",
-      "checksPassed": 9,
-      "checkCount": 9
-    },
     "3812555598b657fe4d4f0c162d0521315f612a43778bd8877fd0091462ffb1df": {
-      "chapter": "flow.md",
-      "ordinal": 2,
-      "type": "workflow",
-      "quality": "showcase",
-      "kind": "flowchart",
-      "spec": "flow.2.workflow.json",
-      "artifact": "flow.2.workflow.html",
-      "checksPassed": 9,
-      "checkCount": 9
-    },
-    "cf4ae53b222a10d80fff80116f5ae0eecd2a899866f7f886dcc4e0678fd1b3d4": {
       "chapter": "flow.md",
       "ordinal": 3,
       "type": "workflow",
@@ -42,6 +32,17 @@
       "kind": "flowchart",
       "spec": "flow.3.workflow.json",
       "artifact": "flow.3.workflow.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "cf4ae53b222a10d80fff80116f5ae0eecd2a899866f7f886dcc4e0678fd1b3d4": {
+      "chapter": "flow.md",
+      "ordinal": 4,
+      "type": "workflow",
+      "quality": "showcase",
+      "kind": "flowchart",
+      "spec": "flow.4.workflow.json",
+      "artifact": "flow.4.workflow.html",
       "checksPassed": 9,
       "checkCount": 9
     }
