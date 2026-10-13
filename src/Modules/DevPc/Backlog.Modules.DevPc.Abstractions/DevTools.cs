@@ -1023,6 +1023,12 @@ public sealed record DevToolActionResult(bool Succeeded, string Message)
     /// <inheritdoc cref="DevToolCatalog.Commands" />
     public IReadOnlyList<DevToolCommand> Commands { get; init; } = [];
 
+    /// <summary>One step per tool the action ran, in the order it ran them, for
+    /// the record of the last run. Filled by an Update all, which is the one
+    /// action that touches several tools; empty everywhere else, where the caller
+    /// already holds the one row it acted on.</summary>
+    public IReadOnlyList<DevToolRunStep> Steps { get; init; } = [];
+
     public static DevToolActionResult Ok(string message, IReadOnlyList<DevToolCommand>? commands = null) =>
         new(true, message) { Commands = commands ?? [] };
 
@@ -1052,6 +1058,17 @@ public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConf
     /// "no catalog yet" empty state and a create button pointed at a path beside
     /// the catalog they already had.</para></summary>
     public const string LegacyCatalogFileName = "copilot-tools.json";
+
+    /// <summary>What the record of the last tool run is called. It sits in the
+    /// per-PC folder beside that machine's tool choices, because which tools this
+    /// machine last updated is as much this machine's business as which ones it
+    /// switched off.</summary>
+    public const string LastRunFileName = "last-run.json";
+
+    /// <summary>Where this machine's last tool run is kept: beside
+    /// <see cref="PcConfigPath"/>, in the same per-PC folder.</summary>
+    public string LastRunPath =>
+        Path.Combine(Path.GetDirectoryName(PcConfigPath) ?? Environment.CurrentDirectory, LastRunFileName);
 
     public static DevToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null, string? storageRootDirectory = null)
     {
@@ -3097,6 +3114,27 @@ public interface IDevToolService
     Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// This machine's most recent finished run — an Update all, an Update, an
+    /// Install or a Clear stale cache — or <see langword="null"/> on a machine
+    /// that has never finished one.
+    ///
+    /// <para>None, too, for a record that cannot be read: a corrupt file is a
+    /// card with nothing to say, not a pane that fails to open.</para>
+    /// </summary>
+    Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Keeps <paramref name="run"/> as this machine's last run, replacing the
+    /// one before it. Called once a run has finished, never while one is still
+    /// going; only the last run is kept, never a history.
+    ///
+    /// <para>Does not throw for a write the disk refuses. The run it records has
+    /// already happened, and a record that could not be kept must not turn an
+    /// update that worked into one that reads as failed.</para>
+    /// </summary>
+    Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default);
+
+    /// <summary>
     /// Raised when something outside this pane changed what a listing would
     /// answer.
     ///
@@ -3159,6 +3197,12 @@ public sealed class UnsupportedDevToolService : IDevToolService
 
     public Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default) =>
         Task.FromResult(DevToolActionResult.Failed(Message));
+
+    /// <summary>Nothing runs here, so there is never a last run.</summary>
+    public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) =>
+        Task.FromResult<DevToolLastRun?>(null);
+
+    public Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default) => Task.CompletedTask;
 
     /// <summary>Nothing here ever changes, so nothing is ever raised.
     ///
