@@ -22,16 +22,14 @@ time saved, flow, and outcomes; it does not own task work, agent sessions
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/tasks/domain.md#aiworklogged, .devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/tasks/domain.md#aiworklogged, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/domain/productivity/domain.invariants.md#productivity-ledger]
 aliases: [ProductivityLedger]
 ```
 
-The personal record of productivity-relevant activity. The ledger is append-only:
-each recorded activity is preserved as a `Productivity Entry`, corrections arrive
-as new entries, and metrics are derived from the ledger rather than edited in
-place. Invariants: each entry has a source, activity kind, time range or
-timestamp, and optional subject reference; AI-assisted entries identify the AI
-tool or session when available; summaries never mutate source entries.
+The personal record of productivity-relevant activity. Each recorded activity is
+preserved as a `Productivity Entry`, and metrics are derived from the ledger
+rather than edited in place. The rules the ledger holds are in
+[its invariants](domain.invariants.md#productivity-ledger).
 
 ### Productivity Entry
 
@@ -55,7 +53,7 @@ aliases: [WorkSubjectRef, subject_ref]
 
 An opaque reference to the work being measured, such as a task, pull
 request, commit, issue, note, or Copilot session. Equality is by `subject_type`
-and `subject_id`.
+and `subject_id`. An entry may carry one, and need not.
 
 ### Productivity Metric
 

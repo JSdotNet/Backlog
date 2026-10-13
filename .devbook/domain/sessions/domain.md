@@ -15,7 +15,7 @@ type: domain
 
 ```meta
 type: aggregate
-related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/sessions/dependencies.md, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/sessions/dependencies.md, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/sessions/domain.invariants.md#session-log]
 ```
 
 Everything one environment can say about the agent sessions it has a record of.
@@ -26,35 +26,16 @@ would assert facts nobody had gathered. A view over many environments is a
 composition of several Session Logs. That is why grouping by environment is a
 derivation rather than a structural relationship.
 
-Invariants:
+The rules the log holds every reading to are in
+[its invariants](domain.invariants.md#session-log).
 
-- A session appears **once**, however many records the environment holds for it.
-  An agent may leave one record per process and another per transcript. It may also
-  file the same transcript under two working folders when a session moved between
-  them: the session went somewhere, it did not become two. All of that is evidence
-  of one session. The most recent record describes it, because it is the one the
-  agent went on writing. The collapse happens before anything counts or truncates,
-  so the number an environment reports is a number of sessions, never of files.
-- A session's `Session State` is **derived from the evidence available**, never
-  asserted. Running and Stalled both require liveness evidence; with none, a session
-  is Finished. A state no evidence supports is not reported at all. There is no
-  Failed, because a record that stops says nothing about why.
-- The log **never fills a gap the agent left**. A fact an agent did not record is
-  absent, not inferred. A repository guessed from a folder path looks exactly like a
-  recorded one, and is wrong.
-- The log **says how complete it is**. It may describe fewer sessions than exist,
-  and then how many exist is part of the answer. That completeness belongs to the
-  reading alone. The reader's chosen `Session View` removes rows after the log has
-  answered, and is accounted for separately. One number for both subtractions would
-  have the log confess to a shortfall the reader asked for.
-
-**Records replicate, and none of the above changes when they do.** Local ADR 0005
+**Records replicate, and none of those rules changes when they do.** Local ADR 0005
 puts session records in the same cloud replica as tasks. So a record gathered on one
 machine can be read on another. The path is built. It is off until switched on, and
 it has not yet run against provisioned infrastructure. Replication decides whether
 another machine's sessions are in front of a reader. It decides nothing about what
-one of them means. Every invariant survives, because the thing that replicates is a
-record, not an authority:
+one of them means. Every [rule of the log](domain.invariants.md#session-log)
+survives, because the thing that replicates is a record, not an authority:
 
 - **Still single-writer.** A session ran on one environment, and only that
   environment holds the evidence for it, so only that environment writes its
@@ -69,9 +50,10 @@ record, not an authority:
 - **Still one environment per log.** A reading that spans machines is a composition
   of several Session Logs, as grouping by environment already is. A replicated record
   names the environment that gathered it, so nothing asserts a fact nobody gathered.
-- **Still derived, never asserted.** `Session State` is worked out on every reading,
-  from the evidence that reached the reader, and never travels on the record. A state
-  on the wire would freeze the gathering machine's reading of its own clock. It would
+- **Still derived, never asserted.** `Session State`
+  [never travels on the record](domain.invariants.md#invariant-state-is-derived-never-carried).
+  It is worked out from the evidence that reached the reader. A state on the wire
+  would freeze the gathering machine's reading of its own clock. It would
   go on saying `running` about a session that ended before the last exchange. A
   record from another machine is stale rather than wrong, and the derivation says so
   from the timestamps it has. A record carries no liveness marker: the same record
@@ -741,7 +723,8 @@ answering about, and two controls to one place is one too many.
 
 No state rides on a reference. Whether the issue is open or the pull request merged is
 a reading of the tracker, and this context has not performed one. A `Session Log` that
-reported one would be filling a gap nobody looked into, which its invariants already
+reported one would be filling a gap nobody looked into, which
+[its invariants](domain.invariants.md#invariant-the-log-never-fills-a-gap) already
 forbid for a session's own fields.
 
 ### Session Row
@@ -961,8 +944,9 @@ decide what Live's tally counts: the live rows among what the other narrowings k
 No narrowing reorders. Ordering is the grouping's answer to give, and a narrowing that
 sorted would be a second answer to what "most recently active first" means.
 
-The view decides nothing about liveness. The `Session Log`'s invariant on derived
-`Session State` has already settled that, and this service only reads the answer. That
+The view decides nothing about liveness. The `Session Log`'s
+[invariant on derived `Session State`](domain.invariants.md#invariant-state-is-derived-never-carried)
+has already settled that, and this service only reads the answer. That
 is why "live" here can only mean running or stalled. A second place that worked out
 for itself whether a session was still going would be a second definition of live,
 free to drift from the first. The two would disagree first on exactly the sessions a

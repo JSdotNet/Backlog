@@ -17,17 +17,15 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/domain.md#brain]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/domain.md#brain, .devbook/domain/devbook/domain.invariants.md#knowledge-note]
 aliases: [KnowledgeNote, Brain note]
 ```
 
 An organized unit of project knowledge stored as Markdown, and the boundary for
-its own organization and links. Invariants: a note sits in one area, its
-`PARA Category`; it may be scoped to zero or more projects or repositories; and
-links to tasks and other notes are managed through the root. `updated_at` moves
-forward on every change. The area is the note's only persisted state: its
-lifecycle is a set of workflow phases read off the area
-([Knowledge note lifecycle](flow.md#knowledge-note-lifecycle)).
+its own organization and links. Its area, its `PARA Category`, is its only
+lifecycle state: the lifecycle is a set of workflow phases read off the area
+([Knowledge note lifecycle](flow.md#knowledge-note-lifecycle)). The rules a note
+is held to are in [its invariants](domain.invariants.md#knowledge-note).
 
 A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook
 chapter like any other. It keeps the devbook `meta` block and `annotation` fences
@@ -65,7 +63,8 @@ aliases: [ProjectRef, repo_id]
 ```
 
 A scope link to a project/repo: `repo_id` and `project_name`. Equality is by
-value; a note may hold several.
+value. A note may be scoped to any number of projects or repositories, none
+included.
 
 ### Task Link
 

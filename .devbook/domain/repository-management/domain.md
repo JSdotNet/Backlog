@@ -17,7 +17,7 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repository-management/domain.invariants.md#repository-registry]
 aliases: [RepositoryRegistry]
 ```
 
@@ -38,14 +38,11 @@ before anyone had configured it. Renaming the placeholder to the real
 repository's owner and name merges the two, and the real repository keeps its
 own settings ([Following a repository rename](features.md#following-a-repository-rename)).
 
-Scanning and health scoring are planned and not built. Their invariants are:
-
-- A repository must be registered before health metrics are calculated.
-- `health_score` is computed from component scores: package, GitHub, coverage,
-  and security.
-- Package manifests are populated on scan, with outdated packages flagged.
-- GitHub metadata is synced on scan.
-- Each scan generates a health-score snapshot.
+Scanning and health scoring are planned and not built. A repository's
+`health_score` is computed from component scores: package, GitHub, coverage, and
+security. The rules they will hold are in
+[the registry's invariants](domain.invariants.md#repository-registry) and
+[the scan's](domain.invariants.md#repository-scan).
 
 ### Repository
 
@@ -287,7 +284,7 @@ Security alert severity: `critical`, `high`, `medium`, `low`.
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal]
+related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal, .devbook/domain/repository-management/domain.invariants.md#repository-scan]
 ```
 
 Runs scheduled or on-demand scans of a repository. A scan:
