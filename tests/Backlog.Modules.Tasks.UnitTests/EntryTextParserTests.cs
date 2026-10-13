@@ -1900,5 +1900,45 @@ public class EntryTextParserTests
         Assert.Contains("`task` `*medium` `!in-progress`", cascaded, StringComparison.Ordinal);
         Assert.Equal(body, EntryTextParser.WithoutSubItemMetaLines(cascaded).Trim());
     }
+
+    // --- Every step's title and note at once -------------------------------
+
+    /// <summary>The steps list reads every chapter's title and note on each
+    /// render; reading them in one pass has to give it exactly what asking chapter
+    /// by chapter gives, on the text shapes that make the two indexings differ.</summary>
+    [Theory]
+    [InlineData("# Entry\n\n## First\nNotes one.\n\n## Second\nNotes two.\n")]
+    [InlineData("# Entry\r\n\r\n## First\r\nNotes one.\r\n\r\n## Second\r\n`task` `!done`\r\n\r\nNotes two.\r\n")]
+    [InlineData("# Entry\n\n- [ ] a checklist line\n\n## [x] Done step\n`task` `!done`\nIts note.\n\n### Nested\n\n- [x] another line\n")]
+    [InlineData("# Entry\n\n## \n\n## Titled\nafter an empty heading\n")]
+    [InlineData("# Entry\n\n## Real\n```\n## Not a step\n```\n\n## Last\n\n\n")]
+    [InlineData("# Entry\n\nNo chapters at all.\n")]
+    [InlineData("")]
+    public void Every_steps_title_and_note_read_at_once_match_reading_them_one_by_one(string raw)
+    {
+        var steps = EntryTextParser.GetSubItemTitlesAndNotes(raw);
+
+        Assert.Equal(EntryTextParser.CountSubItems(raw), steps.Count);
+        for (var i = 0; i < steps.Count; i++)
+        {
+            Assert.Equal(EntryTextParser.GetSubItemTitle(raw, i), steps[i].Title);
+            Assert.Equal(EntryTextParser.GetSubItemNote(raw, i), steps[i].Note);
+        }
+    }
+
+    [Fact]
+    public void Every_steps_title_and_note_read_at_once_drop_the_box_and_the_meta_line()
+    {
+        const string raw = "# Entry\n\n## [x] Ship it\n`task` `!done`\n\nShipped on Monday.\n\n## Tell people\n";
+
+        var steps = EntryTextParser.GetSubItemTitlesAndNotes(raw);
+
+        EntryTextParser.SubItemTitleAndNote[] expected =
+        [
+            new("Ship it", "Shipped on Monday."),
+            new("Tell people", "")
+        ];
+        Assert.Equal(expected, steps);
+    }
 }
 

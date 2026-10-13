@@ -25,6 +25,11 @@ internal sealed class TaskStoreCalls
     /// rebasing on the store makes first.</summary>
     public int Count => Volatile.Read(ref _count);
 
+    /// <summary>Run with the use case's name the moment a call is made, before the
+    /// call itself: for a test that has to look at the list while one of the
+    /// state's writes is still on its way to the store.</summary>
+    public Action<string>? Before { get; set; }
+
     /// <summary>The same use cases, with every call through them counted.</summary>
     public ITaskItems Watch(ITaskItems inner)
     {
@@ -49,6 +54,7 @@ internal sealed class TaskStoreCalls
         {
             ArgumentNullException.ThrowIfNull(targetMethod);
             Calls.Record();
+            Calls.Before?.Invoke(targetMethod.Name);
 
             try
             {

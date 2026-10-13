@@ -169,6 +169,75 @@ public sealed class HomeInboxWiringTests
     }
 
     /// <summary>
+    /// The Inbox is re-read after a sync only for a cycle that brought something:
+    /// one that applied a change, read once however many times the worker raised
+    /// for it. A cycle that applied nothing — the worker runs one every five
+    /// minutes, and raises at both ends of each — reads nothing and draws nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_sync_cycle_rereads_the_inbox_once_when_it_applied_something_and_not_when_it_applied_nothing()
+    {
+        var pulled = new TaskItem("Pulled while the inbox was open", string.Empty, EntryType.Task);
+        using var harness = CreateHarness(pull: pulled);
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+
+        var reads = 0;
+        harness.Inbox.BeforeSnapshot = () =>
+        {
+            Interlocked.Increment(ref reads);
+            return Task.CompletedTask;
+        };
+        var worker = harness.Context.Services.GetRequiredService<TaskSyncWorker>();
+
+        await RunCycleAsync(component, worker);
+
+        component.WaitForAssertion(
+            () => Assert.Contains(State(harness).Rows, row => row.PreviewTitle == "Pulled while the inbox was open"),
+            TimeSpan.FromSeconds(10));
+        component.WaitForAssertion(() => Assert.Equal(1, Volatile.Read(ref reads)));
+        Assert.Equal(1, worker.LastSummary?.Applied);
+
+        var shellBefore = ShellRenderCount.Shell(component);
+
+        await RunCycleAsync(component, worker);
+
+        Assert.Equal(0, worker.LastSummary?.Applied);
+        Assert.Equal(1, Volatile.Read(ref reads));
+        Assert.Equal(shellBefore, ShellRenderCount.Shell(component));
+    }
+
+    /// <summary>A cycle that failed may have applied pages before it did, and says
+    /// nothing about how many, so the Inbox is re-read after it.</summary>
+    [Fact]
+    public async Task A_sync_cycle_that_failed_rereads_the_inbox()
+    {
+        var pulled = new TaskItem("Pulled before the replica failed", string.Empty, EntryType.Task);
+        using var harness = CreateHarness(pull: pulled);
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+
+        var worker = harness.Context.Services.GetRequiredService<TaskSyncWorker>();
+        await RunCycleAsync(component, worker);
+        component.WaitForAssertion(
+            () => Assert.Contains(State(harness).Rows, row => row.PreviewTitle == "Pulled before the replica failed"),
+            TimeSpan.FromSeconds(10));
+
+        var reads = 0;
+        harness.Inbox.BeforeSnapshot = () =>
+        {
+            Interlocked.Increment(ref reads);
+            return Task.CompletedTask;
+        };
+        harness.Replica!.Failing = true;
+
+        await RunCycleAsync(component, worker);
+
+        Assert.NotNull(worker.LastError);
+        component.WaitForAssertion(() => Assert.True(Volatile.Read(ref reads) >= 1));
+    }
+
+    /// <summary>
     /// The third writer from outside the pane: the app's own MCP server, which an
     /// agent uses to move an entry along while the person watches the list. It
     /// writes through the same use cases the pane does, on a request thread, and
@@ -308,6 +377,36 @@ public sealed class HomeInboxWiringTests
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-list'], [data-testid='inbox-pane-empty']")));
     }
 
+    /// <summary>
+    /// One whole sync cycle, and everything the shell queued on hearing it. A cycle
+    /// that runs raises the worker's Changed twice, at its start and at its end;
+    /// the shell subscribed first, so by the second raise here it has queued its
+    /// answer to both, and the empty dispatch after it runs behind them.
+    /// </summary>
+    private static async Task RunCycleAsync(IRenderedComponent<Home> component, TaskSyncWorker worker)
+    {
+        var raises = 0;
+        var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnChanged()
+        {
+            if (Interlocked.Increment(ref raises) == 2) finished.TrySetResult();
+        }
+
+        worker.Changed += OnChanged;
+        try
+        {
+            worker.RequestSync();
+            await finished.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            worker.Changed -= OnChanged;
+        }
+
+        await component.InvokeAsync(() => { });
+    }
+
     private static TasksDesktopState State(Harness harness) =>
         harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
@@ -423,12 +522,14 @@ public sealed class HomeInboxWiringTests
         // writing through the same repository the pane reads. The real session
         // and the real worker, for the reason SettingsDevicesTests composes
         // them: what is under test is the shell hearing what the exchange did.
+        OnePullReplica? replica = null;
         if (pull is not null)
         {
             _ = featureSettings.SetEnabled(SyncFeatures.Sync, true);
             var credentials = new InMemoryDeviceCredentialStore(
                 new DeviceCredential(Guid.NewGuid(), Guid.NewGuid(), "Workshop PC", "a-registration-credential"));
-            var http = new HttpClient(new OnePullReplica(pull)) { BaseAddress = new Uri("https://sync.test") };
+            replica = new OnePullReplica(pull);
+            var http = new HttpClient(replica) { BaseAddress = new Uri("https://sync.test") };
             var tasks = TasksTestHost.RepositoryFor(store);
             var syncState = new SettingsDevicesTests.ForgetfulTaskSyncStateStore();
 
@@ -440,7 +541,7 @@ public sealed class HomeInboxWiringTests
                 sp, featureSettings, credentials, syncState, new FakeTimeProvider()));
         }
 
-        return new Harness(root, context, shellNavigation, entries, inbox);
+        return new Harness(root, context, shellNavigation, entries, inbox, replica);
     }
 
     private sealed record Harness(
@@ -448,7 +549,8 @@ public sealed class HomeInboxWiringTests
         BunitContext Context,
         ShellNavigationStore ShellNavigation,
         ITaskItems Entries,
-        FakeInboxItems Inbox) : IDisposable
+        FakeInboxItems Inbox,
+        OnePullReplica? Replica = null) : IDisposable
     {
         public void Dispose()
         {
@@ -466,11 +568,19 @@ public sealed class HomeInboxWiringTests
     }
 
     /// <summary>A replica with one task to give: every push is accepted and
-    /// the first pull hands the task back, on a cursor that then stays put.</summary>
+    /// the first pull hands the task back, on a cursor that then stays put —
+    /// until it is told to fail, when every pull is refused.</summary>
     private sealed class OnePullReplica(TaskItem task) : HttpMessageHandler
     {
+        public bool Failing { get; set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            if (Failing && request.Method != HttpMethod.Post)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+            }
+
             if (request.Method == HttpMethod.Post)
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

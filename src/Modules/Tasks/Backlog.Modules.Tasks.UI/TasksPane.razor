@@ -3319,7 +3319,7 @@
                        Not the note alone — a writer scoped to the prose half would
                        silently drop a `##` chapter typed into the block, and this block's
                        whole promise is that it is the text. *@
-                    <MarkdownEditor Value="@EntryTextParser.Parse(row.RawText).Body"
+                    <MarkdownEditor Value="@row.PreviewBody"
                                     ValueChanged="body => State.ChangeBody(row, body)"
                                     AriaLabel="Markdown"
                                     ToolbarLabel="Formatting for the entry's markdown"
@@ -3349,13 +3349,25 @@
     /// the nth <c>##</c> chapter. The id is the index, because a step has no
     /// identity of its own in the markdown: it is the chapter written in that
     /// position, which is also why moving one is a rewrite.
+    /// <para>
+    /// Titles and notes come from the row's one reading of its steps
+    /// (<see cref="EntryRow.PreviewStepTexts"/>), read again only when the text
+    /// changes, rather than two passes over the whole text per step per render. A
+    /// step past the end of that reading has no title or notes, which is what the
+    /// per-index reads answer for it.
+    /// </para>
     /// </summary>
-    private IReadOnlyList<TaskRow> StepTasks(EntryRow row) =>
-        [.. Enumerable.Range(0, row.PreviewSubItems.Count).Select(index => new TaskRow(
+    private IReadOnlyList<TaskRow> StepTasks(EntryRow row)
+    {
+        var steps = row.PreviewSubItems;
+        var texts = row.PreviewStepTexts;
+
+        return [.. Enumerable.Range(0, steps.Count).Select(index => new TaskRow(
             index.ToString(CultureInfo.InvariantCulture),
-            EntryTextParser.GetSubItemTitle(row.RawText, index),
-            Done: row.PreviewSubItems[index].Done,
-            Body: EntryTextParser.GetSubItemNote(row.RawText, index) is { Length: > 0 } note ? note : null))];
+            index < texts.Count ? texts[index].Title : string.Empty,
+            Done: steps[index].Done,
+            Body: index < texts.Count && texts[index].Note is { Length: > 0 } note ? note : null))];
+    }
 
     private static int StepIndex(string id) =>
         int.TryParse(id, CultureInfo.InvariantCulture, out var index) ? index : -1;
