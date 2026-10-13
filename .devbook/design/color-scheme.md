@@ -345,7 +345,7 @@ restriction is a list rather than a single surface. Exactly these may use one:
 | A repository box in the Inbox triage picker, "Move to backlog in" | the identity edge below, along the box's leading edge |
 | The colour picker in Settings → Repositories | a solid swatch of the hue itself |
 | The **Brain** chip leading the repository scope in the app header | the identity edge below, in `color-band-2`; see [The Brain's accent](#the-brains-accent) |
-| The **Brain** badge after the Devbook pane's title, the **From your Brain** box under a repository chapter, and a Brain note's edges in the Brain's atlas | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
+| The header's Devbook toggle while it reads **Brain**, the **Brain** badge after the Devbook pane's title, the **From your Brain** box under a repository chapter, and a Brain note's edges in the Brain's atlas | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
 
 The picker is the one place a hue is painted as a fill rather than an edge, and that
 is not an exception to the rule below — it is the rule's own consequence. A control
@@ -521,6 +521,7 @@ repository's devbook*.
 | Surface | Mark |
 |---|---|
 | The Brain chip in the header's repository scope | the identity edge along the chip's bottom, as a repository chip's |
+| The header's Devbook toggle, which reads **Brain** while the pane shows the Brain | the identity edge along its bottom, pressed or not; pressed, `color-band-2` takes `color-primary`'s place on its border and a 16% fill, with `color-text-primary` ink |
 | The Brain badge after the Devbook pane's title, while the pane shows the Brain | a badge in the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
 | The **From your Brain** box under a repository chapter | the band painting on the box's leading edge and surface |
 | The **Brain** card on Settings › Storage | a 1px `color-band-2` border round the card and a 10px `color-band-2` swatch before its title, which reads *Brain* |

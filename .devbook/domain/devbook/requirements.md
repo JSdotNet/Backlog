@@ -294,6 +294,34 @@ The system SHALL flip the pane between the Brain and the repository with the `Br
 - **When** the reader picks `backlog` on the pane's switch
 - **Then** the pane shows the devbook of `backlog` and the task list is unchanged
 
+### Requirement: The header toggle names what the pane shows
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_nothing_pressed_the_devbook_option_names_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_the_brain_as_the_anchor_the_devbook_option_names_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_a_repository_as_the_anchor_the_devbook_option_names_the_devbook, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.In_a_mixed_scope_the_devbook_option_follows_the_switch]
+```
+
+The system SHALL label the header's Devbook toggle *Brain* while the pane shows the Brain, or would on opening, and *Devbook* otherwise.
+
+#### Scenario: Nothing pressed, pane closed
+
+- **Given** no chip is pressed and the Devbook pane is closed
+- **When** the reader looks at the header
+- **Then** the toggle reads *Brain* and its tooltip reads *Open Brain beside Tasks*
+
+#### Scenario: A repository anchor
+
+- **Given** `backlog` is pressed
+- **When** the reader looks at the header
+- **Then** the toggle reads *Devbook*
+
+#### Scenario: The switch flips the toggle
+
+- **Given** Brain and `backlog` are pressed and the pane shows the Brain
+- **When** the reader picks `backlog` on the pane's switch
+- **Then** the toggle reads *Devbook*, and picking Brain again makes it read *Brain*
+
 ### Requirement: A Brain note is always editable
 
 ```meta

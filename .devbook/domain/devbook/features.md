@@ -137,7 +137,7 @@ harness among them, takes a typed path.
 type: feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/requirements.md#brain-mode-of-the-devbook-pane, .devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+related: [.devbook/domain/devbook/requirements.md#brain-mode-of-the-devbook-pane, .devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/design/interaction-guidelines.md#shell-header]
 ```
 
 Read and write the Brain in the same pane that reads a repository's devbook.
@@ -157,6 +157,11 @@ pane title flips between them without touching the task filter. The switch opens
 on the anchor's side. With Brain as the anchor and several repositories pressed,
 its other side is the first of them. The switch is not remembered: any change to
 the scope puts the pane back on the anchor.
+
+The header's toggle for the pane names what it shows: **Brain**, in teal, while
+the pane shows the Brain, and **Devbook** otherwise. It is right before the pane
+opens, so a closed toggle already says which one a press will open, and it flips
+with the switch.
 
 On the Brain, and while the switch shows, the pane names itself *Devbook* at the
 start of its tab strip. The switch sits right after the title, so it stays in

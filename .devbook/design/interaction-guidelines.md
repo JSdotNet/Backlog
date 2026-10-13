@@ -435,7 +435,7 @@ as its kind:
 |---|---|---|
 | View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows. Pressing the pressed option changes nothing. A view is never closed and Escape never leaves it. |
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off of its own that gives the Inbox the whole screen in place of the main view; pressed again, it returns to that view. Escape does not leave the Inbox: it is the Inbox's own key, leaving triage for the list. |
-| Side-pane toggle | `Devbook`, after the view switch | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. |
+| Side-pane toggle | `Devbook`, after the view switch; `Brain` while the pane shows the Brain | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. It is named for what the pane shows, open or closed: **Brain**, in the Brain's accent (`color-scheme.md#the-brains-accent`), while the pane reads or would open on the Brain — nothing pressed, the Brain as anchor, or the Brain side of the pane's `Brain \| <repo>` switch — and **Devbook** otherwise. The word changes, the control does not. |
 | Work in progress group | `In progress` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the Sessions context's work. In progress acts as a view option does; Sessions and Pull requests act as takeovers. Renders while Sessions or Pull requests is offered. |
 | Remaining takeovers | `Dashboard`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. |
 
@@ -474,7 +474,7 @@ now, because triage reads one item at a time and wants the width (local ADR
 |---|---|
 | A toggle of its own | A press on a closed side pane MUST open it beside the view, and a press on an open one MUST close it. No modifier changes what a press does. |
 | No pane is an ordinary state | The shell MUST render with no side pane open, and a side-pane toggle MUST NOT be disabled. |
-| The tooltip says what the press will do | "Open Devbook beside Tasks", "Close Devbook", or during a takeover "Back to the workspace with Devbook open". |
+| The tooltip says what the press will do | "Open Devbook beside Tasks", "Close Devbook", or during a takeover "Back to the workspace with Devbook open" — with *Brain* in place of *Devbook* while the pane shows the Brain. |
 | The Devbook opens after the view | The Devbook MUST render after the main view, as its toggle stands in the header. |
 | A narrow window stacks, it does not close | The viewport sets how many panes fit, the main view included, and always leaves the side pane its slot: below the two-pane width the layout stacks its columns rather than closing the Devbook. |
 | The edge is the handle | The Devbook's width MUST be set by dragging the pane edge, with arrow keys on the same separator as the keyboard equivalent. |
