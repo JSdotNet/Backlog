@@ -36,12 +36,17 @@ namespace Backlog.Infrastructure.Claude.Dashboard;
 /// every read. Optional because it is an optimization, and <paramref name="time"/>
 /// exists only to say which days those are.
 /// </para>
+/// <para>
+/// When a host composes <paramref name="reads"/>, each organization's read is
+/// recorded there as it completes, so Settings can say when each was last read.
+/// </para>
 /// </remarks>
 internal sealed class ClaudeSpendSource(
     IClaudeUsageClient usage,
     ClaudeSettingsStore settings,
     IClaudeCodeUsageCache? cache = null,
-    TimeProvider? time = null) : IClaudeSpendSource
+    TimeProvider? time = null,
+    IUsageReadRecorder? reads = null) : IClaudeSpendSource
 {
     /// <summary>
     /// How many day requests are in flight at once. Six keeps a month under a
@@ -98,21 +103,33 @@ internal sealed class ClaudeSpendSource(
         // faster where it matters and would burst against each of them at once.
         foreach (var account in accounts)
         {
-            foreach (var batch in days.Chunk(MaxConcurrentDays))
-            {
-                var reports = await Task
-                    .WhenAll(batch.Select(day => ReadDayAsync(account, day, cancellationToken)))
-                    .ConfigureAwait(false);
+            var read = new AccountRead();
 
-                entries.AddRange(reports.SelectMany(rows => rows).Where(entry => entry is not null).Select(entry => entry!));
+            try
+            {
+                foreach (var batch in days.Chunk(MaxConcurrentDays))
+                {
+                    var reports = await Task
+                        .WhenAll(batch.Select(day => ReadDayAsync(account, day, read, cancellationToken)))
+                        .ConfigureAwait(false);
+
+                    entries.AddRange(reports.SelectMany(rows => rows).Where(entry => entry is not null).Select(entry => entry!));
+                }
             }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                reads?.Failed(UsageSource.Claude(account.Id), exception.Message);
+                throw;
+            }
+
+            Record(account, read);
         }
 
         // Anthropic calls this figure estimated, so the report says so and every
         // part that renders it repeats the word.
         return new SpendReport(entries, Allowance: null, IsEstimate: true);
 
-        async Task<IReadOnlyList<SpendEntry?>> ReadDayAsync(ClaudeAccount account, DateOnly day, CancellationToken token)
+        async Task<IReadOnlyList<SpendEntry?>> ReadDayAsync(ClaudeAccount account, DateOnly day, AccountRead read, CancellationToken token)
         {
             var actor = account.Actor!;
             var settled = cache is not null && IsSettled(day);
@@ -126,9 +143,12 @@ internal sealed class ClaudeSpendSource(
             try
             {
                 report = await usage.GetClaudeCodeUsageAsync(account, day, token).ConfigureAwait(false);
+                read.Answered();
             }
-            catch (ClaudeException)
+            catch (ClaudeException exception)
             {
+                read.Refused(exception.Message);
+
                 // One missing day is a gap in a trend, not a failure of the trend.
                 // A day Anthropic has not finished aggregating answers this way —
                 // and it is deliberately not remembered as empty, because a refusal
@@ -160,6 +180,45 @@ internal sealed class ClaudeSpendSource(
                 OutputTokens = model.Tokens.OutputTokens
             })
         ];
+    }
+
+    /// <summary>
+    /// Records how one organization's read went. Anthropic answering any day is a
+    /// successful read — a day still aggregating refuses as a matter of course, and
+    /// recording that would show every organization as failing every morning. Every
+    /// day refused is a failed read, with the last refusal as its reason. A window
+    /// answered wholly from the settled-day cache asked Anthropic nothing, so it
+    /// records nothing.
+    /// </summary>
+    private void Record(ClaudeAccount account, AccountRead read)
+    {
+        if (reads is null) return;
+
+        var source = UsageSource.Claude(account.Id);
+
+        if (read.AnyAnswered) reads.Succeeded(source);
+        else if (read.LastRefusal is { } reason) reads.Failed(source, reason);
+    }
+
+    /// <summary>What one organization's day requests came back with, written
+    /// from the concurrent day reads.</summary>
+    private sealed class AccountRead
+    {
+        private readonly Lock _gate = new();
+
+        public bool AnyAnswered { get; private set; }
+
+        public string? LastRefusal { get; private set; }
+
+        public void Answered()
+        {
+            lock (_gate) AnyAnswered = true;
+        }
+
+        public void Refused(string reason)
+        {
+            lock (_gate) LastRefusal = reason;
+        }
     }
 
     /// <summary>Whether a day's report can no longer change: it is at least

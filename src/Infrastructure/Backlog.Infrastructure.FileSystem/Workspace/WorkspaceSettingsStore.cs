@@ -132,6 +132,7 @@ public sealed class WorkspaceSettingsStore
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
         SessionRecordsDirectory = Path.Combine(appData, SessionRecordsFolderName);
         SpendCacheDirectory = Path.Combine(appData, SpendCacheFolderName);
+        UsageReadsPath = Path.Combine(appData, UsageReadLogStore.FileName);
 
         // The store owns the location, so it is the store that makes sure the
         // location is usable. This used to happen as a side effect of building a
@@ -353,6 +354,15 @@ public sealed class WorkspaceSettingsStore
     /// </para>
     /// </summary>
     public string SpendCacheDirectory { get; }
+
+    /// <summary>
+    /// Where this device records when each usage source was last read. Beside the
+    /// per-user settings and never under the backlog root: it is runtime state of
+    /// this machine, and another device reading its own providers keeps its own.
+    /// A file rather than a folder under <see cref="SpendCacheDirectory"/>, so
+    /// clearing the spend cache leaves it alone.
+    /// </summary>
+    public string UsageReadsPath { get; }
 
     /// <summary>The default cache folder's name under the storage folder. It
     /// used to sit beside the per-user settings instead, under this name or the

@@ -67,6 +67,33 @@ usage and cost reports to an organization holding an Admin API key, and GitHub
 reports Copilot usage per organization to an organization owner. The import is
 evidence for the ledger; it never becomes the ledger.
 
+### When each usage source was last read
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
+related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageReadLogStoreTests, unit:dotnet:Backlog.Infrastructure.Claude.UnitTests.ClaudeSpendSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.CopilotSpendSourceReadTests]
+```
+
+Backlog records when each usage source was last read, so the AI providers
+settings can say how fresh each figure is. Each Claude organization is one
+source, and the GitHub AI-credit report is one more.
+
+Each source keeps the time of its last successful read. When its most recent
+read failed, it also keeps that time and a one-line reason. A later success
+clears the failure. A Claude organization counts as read when Anthropic answered
+any day in the window, because a day still being aggregated is refused as a
+matter of course. GitHub counts as read when any month answered. A window
+answered wholly from the settled-day cache asks the provider nothing and records
+nothing, and a cancelled read records nothing either.
+
+The record is runtime state of one device, kept in `usage-reads.json` in the
+per-user folder. It never travels through the GitHub settings sync or the
+workspace, and it survives a restart. Settings reads it through a read model
+that raises a change each time a read is recorded.
+
 ### Local usage accumulation
 
 ```meta
