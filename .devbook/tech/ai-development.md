@@ -113,8 +113,8 @@ status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 related: [".devbook/tech/ai-development.md#delivery-surfaces", ".devbook/tech/ai-development.md#subagents"]
-version: "1.18.0"
-date: 2026-10-06
+version: "1.25.0"
+date: 2026-10-13
 ```
 
 The `delivery` plugin: the `flow-*` skills, the shared phases they run
@@ -137,8 +137,8 @@ through, and the stack config they read.
 status: trial
 type: tool
 depends-on: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/ai-development.md#claude-code"]
-version: "1.18.0"
-date: 2026-10-06
+version: "1.25.0"
+date: 2026-10-13
 ```
 
 The `delivery-schedule` plugin: a catalog of `schedule-*` entry points and the
@@ -256,7 +256,7 @@ status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/shared.md#nodejs"]
 related: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/shared.md#net-aspire", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
-version: "1.24.0"
+version: "1.25.0"
 date: 2026-10-13
 ```
 
@@ -291,10 +291,10 @@ convention this repository follows and the repository procedures.
 ```meta
 status: adopted
 type: tool
-version: "1.18.0"
+version: "1.25.0"
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#json"]
 related: [".devbook/tech/ai-development.md#devbook-plugin", ".devbook/tech/ai-development.md#delivery-engine"]
-date: 2026-10-06
+date: 2026-10-13
 ```
 
 The `devbook-config` plugin: the owner of `.devbook/config.json` as a whole and
