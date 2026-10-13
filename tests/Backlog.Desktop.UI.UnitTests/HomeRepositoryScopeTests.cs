@@ -776,6 +776,91 @@ public sealed class HomeRepositoryScopeTests
         Assert.Equal(scope, state.SelectedRepositoryAliases);
     }
 
+    /// <summary>A gold <c>repo:</c> chip in a Brain note opens that repository's
+    /// devbook in the pane at the chapter, and leaves the header scope on the Brain
+    /// (requirement <em>A repo link opens the repository chapter</em>).</summary>
+    [Fact]
+    public void Following_a_repo_link_opens_the_repository_chapter_and_keeps_the_scope()
+    {
+        const string Adr = ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md";
+        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-repo-link-brain", Guid.NewGuid().ToString("n"));
+        Directory.CreateDirectory(Path.Combine(brainFolder, "work"));
+        File.WriteAllText(Path.Combine(brainFolder, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n");
+        File.WriteAllText(Path.Combine(brainFolder, "work", "plan.md"), $"# Plan\n\nSee [the scope decision](repo:backlog/{Adr}).\n");
+
+        try
+        {
+            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+            var component = Render(harness);
+            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+            BrainChip(component).Click();
+            component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+            component.WaitForElement("[data-testid='brain-repo-link'] button").Click();
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+                Assert.Contains("Links run from the Brain into a repository, never back", component.Markup, StringComparison.Ordinal);
+            });
+            Assert.Equal([BrainScope.Value], state.SelectedRepositoryAliases);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(brainFolder, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
+    /// <summary>With the anchor repository and the Brain both pressed and the switch
+    /// on the Brain, a chip naming the anchor repository — spelled in another case —
+    /// still puts the pane on that repository's chapter: the reader's choice
+    /// outranks the switch's.</summary>
+    [Fact]
+    public void Following_a_repo_link_to_the_anchor_from_the_switch_leaves_the_brain()
+    {
+        const string Adr = ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md";
+        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-repo-link-brain", Guid.NewGuid().ToString("n"));
+        Directory.CreateDirectory(Path.Combine(brainFolder, "work"));
+        File.WriteAllText(Path.Combine(brainFolder, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n");
+        File.WriteAllText(Path.Combine(brainFolder, "work", "plan.md"), $"# Plan\n\nSee [the scope decision](repo:Backlog/{Adr}).\n");
+
+        try
+        {
+            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+            var component = Render(harness);
+            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+            Chips(component)[0].Click();
+            BrainChip(component).Click(new MouseEventArgs { CtrlKey = true });
+            component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+            component.WaitForElement("[data-testid='devbook-brain-switch-brain']").Click();
+            component.WaitForElement("[data-testid='brain-repo-link'] button").Click();
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+                Assert.Contains("Links run from the Brain into a repository, never back", component.Markup, StringComparison.Ordinal);
+            });
+            Assert.Equal(["backlog", BrainScope.Value], state.SelectedRepositoryAliases);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(brainFolder, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
     /// <summary>The switch's choice is the scope's while it stands: any chip press
     /// drops it, and the pane goes back to the anchor.</summary>
     [Fact]

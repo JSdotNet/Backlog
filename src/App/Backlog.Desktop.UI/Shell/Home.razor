@@ -752,7 +752,8 @@
                                      SwitchRepositoryAlias="@DevbookSwitchRepositoryAlias"
                                      ShowsBrainChanged="OnDevbookShowsBrainChanged"
                                      OpenReference="@_devbookOpenRequest"
-                                     OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
+                                     OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
+                                     OnOpenRepositoryChapter="OpenBrainRepoLinkAsync" />
                     </aside>
                 }
             </div>
@@ -1622,6 +1623,25 @@
     }
 
     private const string DevbookUnavailableTestId = "tasks-devbook-unavailable";
+
+    /// <summary>
+    /// A Brain note's <c>repo:</c> link, followed (local ADR 0027 §6): that
+    /// repository's devbook in the pane, at the chapter. The same road a task's
+    /// reference takes, so the header scope stays as the reader left it and the
+    /// pane's switch, or the scope, brings the Brain back.
+    /// </summary>
+    private Task OpenBrainRepoLinkAsync(BrainRepoLink link)
+    {
+        // The pane was on the Brain, perhaps through the switch: the reader just
+        // chose a repository, so the switch's choice gives way — else a link to
+        // the anchor repository would leave the pane on the Brain.
+        _devbookSwitch = null;
+
+        // The alias as configured, not as the note spelled it: the link resolves
+        // case-insensitively, and the shell compares aliases exactly.
+        var alias = Devbook.Repository(link.Alias)?.Alias ?? link.Alias;
+        return OpenDevbookReferenceAsync(new DevbookReferenceRequest(alias, link.Reference));
+    }
 
     /// <summary>
     /// The Backlog entry a delivery run was started from, opened from the sessions

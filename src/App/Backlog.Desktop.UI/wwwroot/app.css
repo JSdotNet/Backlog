@@ -10637,6 +10637,56 @@ a.pull-request-detail-checks__name:hover {
     overflow-wrap: anywhere;
 }
 
+/* From your Brain (local ADR 0027 §6): under a repository chapter, the Brain notes
+   linking to it, in the Brain's band painting (.devbook/design/color-scheme.md
+   #the-brains-accent) — a 4px band-2 leading edge on the band's 24% surface. The
+   words say Brain and say who sees it, so the teal never carries either alone. */
+.brain-backlinks {
+    margin: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.brain-backlinks__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.brain-backlinks__title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.brain-backlinks__private {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.brain-backlinks__list {
+    margin: var(--spacing-2xs) 0 0;
+    padding-left: var(--spacing-md);
+}
+
+.brain-backlinks__heading {
+    color: var(--color-text-secondary);
+}
+
+/* A Brain note's own `related` links into repository devbooks: one line of chips
+   above the body, since the title block they sit in is not drawn as prose. */
+.brain-note__repo-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-sm);
+}
+
 .devbook-stack__repositories,
 .devbook-stack__nav {
     flex: 0 0 auto;

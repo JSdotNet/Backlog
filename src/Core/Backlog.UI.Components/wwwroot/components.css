@@ -2735,6 +2735,79 @@ button.devbook-chip__label:focus-visible {
     cursor: default;
 }
 
+/*
+  A Brain note's link into a repository devbook (local ADR 0027 §6,
+  .devbook/design/color-scheme.md#the-brains-accent). Resolved, it is gold: the
+  `live` tone's ink and edge, unfilled, because following it is the reader acting
+  (#badge-and-chip-tones, the followable-badge rule). Unresolved, it is `quiet`
+  inside a dashed strong edge, with "not on this machine" in words. The alias is
+  printed in both, so gold never has to say which repository.
+*/
+.repo-link-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--integration-live-edge);
+    border-radius: var(--border-radius-full);
+    color: var(--integration-live);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    vertical-align: baseline;
+}
+
+.repo-link-chip--unresolved {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+    background: var(--color-background-alt);
+    color: var(--color-secondary);
+}
+
+.repo-link-chip__open {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.repo-link-chip__open:hover .repo-link-chip__label {
+    text-decoration: underline;
+}
+
+.repo-link-chip__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+    border-radius: var(--border-radius-full);
+}
+
+.repo-link-chip__alias {
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-semibold);
+}
+
+.repo-link-chip__label {
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.repo-link-chip__problem {
+    font-style: italic;
+    white-space: nowrap;
+}
+
 /* A plain string field — an alias, a kind, a version, an issue shorthand. It
    names something with no chapter to point at, so it borrows neither the pill
    nor the link: it is simply the value, set in the same mono face as the
