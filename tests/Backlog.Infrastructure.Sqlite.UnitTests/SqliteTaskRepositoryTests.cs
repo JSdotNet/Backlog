@@ -711,6 +711,27 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Empty(await _repository.ListAsync(TestContext.Current.CancellationToken));
     }
 
+    /// <summary>The count is the length of the list, tombstones left out the same
+    /// way — appending at "the end of the backlog" must not count a deleted task
+    /// the list no longer shows.</summary>
+    [Fact]
+    public async Task The_count_is_the_live_tasks_and_skips_a_tombstone()
+    {
+        var token = TestContext.Current.CancellationToken;
+        Assert.Equal(0, await _repository.CountAsync(token));
+
+        var kept = new TaskItem("Keep me", string.Empty, EntryType.Task);
+        var deleted = new TaskItem("Delete me", string.Empty, EntryType.Task);
+        await _repository.SaveAsync(kept, token);
+        await _repository.SaveAsync(deleted, token);
+
+        deleted.MarkDeleted();
+        await _repository.SaveAsync(deleted, token);
+
+        Assert.Equal(1, await _repository.CountAsync(token));
+        Assert.Equal((await _repository.ListAsync(token)).Count, await _repository.CountAsync(token));
+    }
+
     /// <summary>
     /// And the other half: the row is still there. That is the whole point of a
     /// tombstone — a task that is simply gone from this machine is
