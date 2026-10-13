@@ -3,7 +3,7 @@
 ```meta
 date: 2026-10-07
 status: proposed
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md"]
 ```
 
 The desktop shell's workspace always shows exactly one **main view** — Tasks,
@@ -278,6 +278,24 @@ What changes in this record: section 3 now holds for the Devbook alone, the
 Inbox joins the takeovers of section 4 with the Escape exception above, the
 positive consequence of side panes beside every view holds for the Devbook alone,
 and the negative consequence that the Inbox cannot be read alone no longer holds.
+
+**2026-10-13: the repository scope gains the Brain.** ADR 0027 makes the Brain
+the scope of everything filed against no repository
+(`.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md`).
+The decision is recorded there. Three things change here:
+
+- **The Identity region leads with the Brain chip.** The header's repository
+  scope starts with a permanent Brain chip, set off by a divider. The scope
+  renders even when no repository is configured.
+- **The Devbook side pane shows the Brain when nothing is scoped.** It no longer
+  asks for a repository. It follows the scope's anchor, and an anchor of Brain
+  shows the Brain.
+- **`repositoryScope` may hold the reserved Brain value.** In
+  `shell-navigation.json` the empty string `""` stands for Brain, in its place in
+  the order. ADR 0027 §5 holds its migration table.
+
+What changes in this record: section 3's Devbook pane has something to show with
+no repository scoped, and the shell's remembered scope may name the Brain.
 
 ## Verification
 
