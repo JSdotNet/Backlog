@@ -146,10 +146,11 @@ With the scope's anchor on Brain, or nothing pressed, the pane carries a teal
 picker would be, and one tab per area the Brain declares. The tree, the rendered
 chapter and the editor are the ones a repository devbook uses, and a Brain note
 is always editable. What only a repository has is absent: branch updates, sync
-verdicts and scenario marks. So are the repository's atlas, its search and
-opening the folder in an editor, until the Brain has its own
-([Unified search](#unified-search), [Atlas edges](#atlas-edges)). Ask AI takes
-no Brain note as the open chapter.
+verdicts and scenario marks. So are the repository's atlas and opening the
+folder in an editor, until the Brain has its own ([Atlas edges](#atlas-edges)).
+Search is offered on the Brain as on a repository, because it is one
+[Unified search](#unified-search) wherever it is opened. Ask AI takes no Brain
+note as the open chapter.
 
 With Brain and a repository both pressed, a `Brain | <repo>` switch beside the
 pane title flips between them without touching the task filter. The switch opens
@@ -211,6 +212,14 @@ first. It searches by words and by meaning, as
 [Devbook retrieval](#devbook-retrieval) does for one devbook, over each source's
 own database. A source with no database yet is named as not searchable rather
 than silently left out.
+
+Search by meaning is additive, as it is for one devbook: it is asked only while
+it is switched on, once typing pauses, and the words answer is drawn while it is
+on its way. Within a source the two answers are merged by where each put a
+chapter, never by their scores, which are on different scales; a chapter both
+found is one result. Opening a result from the devbook on screen opens it there.
+Opening one from another devbook moves the pane to that devbook and opens it,
+without touching the header's scope or the task filter.
 
 ## Atlas edges
 

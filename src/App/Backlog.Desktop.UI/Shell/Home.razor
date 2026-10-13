@@ -751,6 +751,7 @@
                         <DevbookPane RepositoryAlias="@DevbookRepositoryAlias"
                                      SwitchRepositoryAlias="@DevbookSwitchRepositoryAlias"
                                      ShowsBrainChanged="OnDevbookShowsBrainChanged"
+                                     OpenSearchResultElsewhere="OpenDevbookSearchResult"
                                      OpenReference="@_devbookOpenRequest"
                                      OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
                     </aside>
@@ -1622,6 +1623,28 @@
     }
 
     private const string DevbookUnavailableTestId = "tasks-devbook-unavailable";
+
+    /// <summary>
+    /// A search result from a devbook the pane is not showing: the pane reads that
+    /// devbook — the Brain or another repository — and opens the result there.
+    /// <para>
+    /// The same move as a task's reference (<see cref="OpenDevbookReferenceAsync"/>):
+    /// it changes what the pane reads and never the header's scope or the task
+    /// filter, and it holds only while the scope it was asked under stands. The
+    /// switch the reader may have pressed gives way to it, because the reader just
+    /// chose again.
+    /// </para>
+    /// </summary>
+    private void OpenDevbookSearchResult(DevbookSearchOpen result)
+    {
+        var key = result.Source.Key;
+
+        _devbookSwitch = null;
+        _devbookRepositoryRequest = string.Equals(key, State.AnchorRepositoryAlias, StringComparison.Ordinal)
+            ? null
+            : new DevbookRepositoryRequest(State.AnchorRepositoryAlias, key);
+        _devbookOpenRequest = new DevbookOpenRequest(result.Reference, ++_devbookOpenSequence);
+    }
 
     /// <summary>
     /// The Backlog entry a delivery run was started from, opened from the sessions

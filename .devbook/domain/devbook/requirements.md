@@ -439,6 +439,36 @@ The system SHALL search only the Brain under the Brain chip and only one reposit
 - **When** the reader searches for it with the Brain chip
 - **Then** only the Brain note is listed
 
+### Requirement: A source with no database is named
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL name a source whose database has not been built as not searchable, beside the groups of the sources that answered, rather than leave it out.
+
+#### Scenario: A repository with no index
+
+- **Given** a configured repository whose devbook database has not been built
+- **When** the reader searches with Everywhere
+- **Then** that repository is listed as not searchable yet, with the reason, after the groups that answered
+
+### Requirement: A result opens in its own devbook
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open a result in the devbook it came from, moving the pane to that devbook when it shows another, and SHALL leave the header's scope and the task filter unchanged.
+
+#### Scenario: A repository chapter found on the Brain
+
+- **Given** the pane shows the Brain and a search lists a chapter of `backlog`
+- **When** the reader opens that result
+- **Then** the pane shows the `backlog` devbook on that chapter, and the header's scope is unchanged
+
 ## Atlas edges
 
 ```meta
