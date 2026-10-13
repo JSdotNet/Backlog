@@ -52,6 +52,7 @@ between inherited ADRs 0005 and 0009.
 - **[0023 — Inbox items may be read by the Foundry model](0023-inbox-items-may-be-read-by-the-foundry-model.md)** *(accepted, built but for Ask again; reverses the "no model reads the item" line of the Inbox features)*
 - **[0024 — Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener](0024-claude-code-telemetry-arrives-on-the-mcp-listener.md)** *(proposed, built; extends 0012)*
 - **[0025 — Notes ride the task feed as a second Inbox document kind, synced both ways](0025-notes-ride-the-task-feed.md)** *(proposed, built; extends 0009)*
+- **[0026 — The Brain is a personal devbook, one folder per user outside any repository](0026-the-brain-is-a-personal-devbook-outside-any-repository.md)** *(proposed, not yet built; builds on 0004, 0015 and 0016)*
 
 ## Inherited decisions
 
