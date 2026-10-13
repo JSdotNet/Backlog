@@ -25,7 +25,7 @@
       "id": "created",
       "type": "start",
       "label": "Created",
-      "sublabel": "from Inbox or manually",
+      "sublabel": "from the Inbox or the Brain",
       "lane": "main",
       "col": 0
     },
@@ -33,7 +33,7 @@
       "id": "organized",
       "type": "active",
       "label": "Organized",
-      "sublabel": "topic and PARA category",
+      "sublabel": "out of the inbox area",
       "lane": "main",
       "col": 2
     },
@@ -41,7 +41,7 @@
       "id": "linked",
       "type": "active",
       "label": "Linked",
-      "sublabel": "backlog entries, notes",
+      "sublabel": "tasks, notes",
       "lane": "main",
       "col": 4
     },
@@ -49,7 +49,7 @@
       "id": "archived",
       "type": "neutral",
       "label": "Archived",
-      "sublabel": "PARA category archive",
+      "sublabel": "the archive area",
       "lane": "archive",
       "col": 1
     }
@@ -59,15 +59,19 @@
       "id": "organize",
       "from": "created",
       "to": "organized",
-      "label": "Assigned topic and PARA category",
+      "label": "Moved out of the inbox area into another area",
       "fromSide": "right",
-      "toSide": "left"
+      "toSide": "left",
+      "labelAt": [
+        248,
+        112
+      ]
     },
     {
       "id": "link",
       "from": "organized",
       "to": "linked",
-      "label": "Linked to backlog entries or other notes",
+      "label": "Linked to tasks or other notes",
       "fromSide": "right",
       "toSide": "left",
       "labelAt": [
@@ -162,16 +166,16 @@
       "title": "Phases, not a stored enum",
       "items": [
         "Created, Organized, Linked and Archived are workflow phases",
-        "PARA Category = archive is the persisted archived state",
-        "A note carries a primary topic and a PARA Category"
+        "The persisted state is the note's area",
+        "In the inbox area it is Created, in the archive area Archived"
       ]
     },
     {
       "dot": "emerald",
       "title": "Organizing and linking",
       "items": [
-        "Organizing assigns the topic and the PARA category",
-        "Linking reaches backlog entries and other notes",
+        "Organizing moves the note out of the inbox area into another",
+        "Linking reaches tasks and other notes",
         "Updating links returns the note to Organized"
       ]
     },

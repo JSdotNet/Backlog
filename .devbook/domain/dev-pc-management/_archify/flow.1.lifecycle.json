@@ -23,6 +23,6 @@
     { "id": "wake", "from": "sleeping", "to": "online", "label": "WoL received; heartbeat resumes", "fromSide": "top", "toSide": "top", "via": [[402, 86], [248, 86]], "labelAt": [345, 106] },
     { "id": "online-timeout", "from": "online", "to": "offline", "label": "Heartbeat timeout", "fromSide": "bottom", "toSide": "left", "via": [[248, 307]], "labelAt": [340, 330] },
     { "id": "sleeping-timeout", "from": "sleeping", "to": "offline", "label": "Heartbeat timeout", "fromSide": "bottom", "toSide": "top", "via": [[402, 233], [556, 233]], "labelAt": [479, 210] },
-    { "id": "restart", "from": "offline", "to": "online", "label": "Component restarts and heartbeats", "fromSide": "right", "toSide": "top", "via": [[760, 307], [760, 60], [248, 60]], "labelAt": [500, 40] }
+    { "id": "restart", "from": "offline", "to": "online", "label": "Desktop app restarts and heartbeats", "fromSide": "right", "toSide": "top", "via": [[760, 307], [760, 60], [248, 60]], "labelAt": [500, 40] }
   ]
 }
