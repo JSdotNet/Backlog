@@ -3648,7 +3648,7 @@
         The frame cannot work this out for itself and neither can its stylesheet:
         an Archify document is a single `width: 100%` SVG over its own viewBox, so
         its height is a function of the frame's width, and it differs per diagram -
-        1440x700 for one runtime view, 1200x2458 for a building block view. A fixed
+        1440x700 for one runtime view, 1392x3496 for the technology graph. A fixed
         height fits neither, and whatever did not fit used to be simply gone.
 
         So the measurement is made where the answer is known and sent out. This is
@@ -3796,7 +3796,7 @@
             `backlogWatchArtifactHeight` writes it onto the frame. Without that the
             frame kept the fixed height its stylesheet gives it and everything past
             that was cut off, which for a portrait diagram like
-            `05-building-block-view.2` (1200x2458) is most of the picture.
+            `technology-graph.1` (1392x3496) is most of the picture.
         */
         renderArtifact(element, id, html, compact, hideNodeDetails) {
             /*

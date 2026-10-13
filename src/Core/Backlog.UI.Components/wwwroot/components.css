@@ -6916,7 +6916,7 @@ button.task-panel__check:focus-visible {
 
    The height here is only the opening bid. What an artifact is actually worth is
    a function of how wide this frame turns out to be — one drawing is 1440x700 and
-   another is 1200x2458 — so the document measures itself and components.js writes
+   another is 1392x3496 — so the document measures itself and components.js writes
    the answer back as an inline height. This is what it looks like until that
    arrives, and what it stays at if the frame never reports: `height` rather than
    `min-height` precisely so the measured value can go under it as well as over,
