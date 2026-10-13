@@ -30,9 +30,11 @@ public sealed partial class ModuleUiIoTests
     /// </summary>
     internal static readonly string[] AllowedUiIo =
     [
-        // Devbook: the readers, writers and walkers the first slice of #738 left
-        // in the screen project once the index reader and its parse cache moved
-        // into Backlog.Infrastructure.Devbook. The later slices of #738 move them.
+        // Devbook: the readers, writers and walkers #738 has not moved yet. The
+        // index reader and its parse cache, the chapter readers and writers, and
+        // the instruction-source readers (with the instructions panel's file read)
+        // went to Backlog.Infrastructure.Devbook in its first three slices; the
+        // later slices move the rest.
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/Arc42Devbook.cs",
         // Also starts the Archify CLI through Process.
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/ArchifyDiagramArtifacts.cs",
@@ -42,18 +44,10 @@ public sealed partial class ModuleUiIoTests
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DevbookMarkdownSyncWriter.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DocumentDevbook.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DomainDevbookStore.cs",
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/InstructionFileWalk.cs",
         // Only by name: it has a private Directory(path) helper of its own, which
         // the pattern cannot tell from System.IO.Directory.
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/InstructionLoading.cs",
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/InstructionPathTree.cs",
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/InstructionSourceDiscovery.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/TechnologyDevbook.cs",
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/UserContextSources.cs",
-        // The instructions panel reads an instruction file's text straight off the
-        // disk to show it. The Devbook ratchet read only .cs files, so this one was
-        // not on it; it goes with the instruction readers above, under #738.
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/InstructionsDevbookPanel.razor",
 
         // Capture: the import row writes the picked manifest to a temp folder for
         // the run to read and deletes it afterwards. The run's port should take

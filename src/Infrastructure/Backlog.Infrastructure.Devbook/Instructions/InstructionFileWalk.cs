@@ -2,7 +2,7 @@ using System.IO.Enumeration;
 
 using Backlog.Modules.Devbook.Abstractions;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Instructions;
 
 /// <summary>
 /// How the instructions area walks a repository: which directories it never

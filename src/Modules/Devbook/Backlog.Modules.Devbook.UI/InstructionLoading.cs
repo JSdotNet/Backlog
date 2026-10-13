@@ -102,6 +102,20 @@ public sealed record InstructionLoadTotals(int Files, int Lines, long Bytes)
 {
     public static InstructionLoadTotals None { get; } = new(0, 0, 0);
 
+    /// <summary>What every host carries from this machine, per host: the
+    /// user-level locations <see cref="UserContextSources"/> found holding
+    /// something. Sized only, so it carries no lines.</summary>
+    public static InstructionLoadTotals FromMachine(IEnumerable<UserContextSource> sources, string host)
+    {
+        var loaded = sources
+            .Where(source => source.State == UserContextState.Present && string.Equals(source.Host, host, StringComparison.Ordinal))
+            .ToList();
+
+        return loaded.Count == 0
+            ? None
+            : new InstructionLoadTotals(loaded.Sum(source => source.Files), 0, loaded.Sum(source => source.Bytes));
+    }
+
     public long EstimatedTokens => (long)Math.Round(Bytes / 4d, MidpointRounding.AwayFromZero);
 }
 

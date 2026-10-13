@@ -153,12 +153,12 @@ public sealed class UserContextSourcesTests : IDisposable
 
         var sources = UserContextSources.Read(_home, _home);
 
-        var claude = UserContextSources.Total(sources, "Claude Code");
+        var claude = InstructionLoadTotals.FromMachine(sources, "Claude Code");
         Assert.Equal(2, claude.Files);
         Assert.Equal(13, claude.Bytes);
 
         // Nothing of Copilot's is on this machine, so it carries nothing.
-        Assert.Equal(0, UserContextSources.Total(sources, "GitHub Copilot").Files);
+        Assert.Equal(0, InstructionLoadTotals.FromMachine(sources, "GitHub Copilot").Files);
     }
 
     [Fact]

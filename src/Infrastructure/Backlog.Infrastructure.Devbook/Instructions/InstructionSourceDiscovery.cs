@@ -1,8 +1,19 @@
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Infrastructure.GitHub;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Instructions;
 
+/// <summary>
+/// Reads a repository's instruction documents off the disk: the files each agent
+/// loads, found where each agent looks for them.
+/// <para>
+/// In the adapter rather than the Devbook screen project since issue #738: it walks
+/// the clone or the branch snapshot and opens every file it lists, and renders
+/// nothing. It knows a repository by what the reading needs — an alias for the
+/// folder port, a clone directory, the folder settings — and not by the GitHub
+/// settings' record, which this project does not reference; the screen maps its
+/// repositories in and the listing back.
+/// </para>
+/// </summary>
 public sealed class InstructionSourceDiscovery
 {
     /// <summary>
@@ -37,7 +48,7 @@ public sealed class InstructionSourceDiscovery
     ];
 
     /// <summary>
-    /// Reads each repository's instruction documents.
+    /// Reads one repository's instruction documents.
     /// <para>
     /// <paramref name="folders"/> is how a repository read from a branch finds
     /// its root. Instructions are the one area whose folder <em>is</em> the
@@ -49,21 +60,15 @@ public sealed class InstructionSourceDiscovery
     /// loading existed.
     /// </para>
     /// </summary>
-    public IReadOnlyList<InstructionRepositoryView> Discover(
-        IEnumerable<GitHubRepositoryRef> repositories,
-        IDevbookFolderSource? folders = null) =>
-    [
-        .. repositories.Select(repository => DiscoverRepository(repository, folders))
-    ];
-
-    private static InstructionRepositoryView DiscoverRepository(GitHubRepositoryRef repository, IDevbookFolderSource? folders)
+    public InstructionSourceListing Read(InstructionRepository repository, IDevbookFolderSource? folders = null)
     {
+        ArgumentNullException.ThrowIfNull(repository);
+
         var instructions = DevbookFolderSetting.Normalize(repository.DevbookFolders)
             .FirstOrDefault(folder => string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase));
         if (instructions is { Enabled: false })
         {
-            return new InstructionRepositoryView(
-                repository,
+            return new InstructionSourceListing(
                 null,
                 [],
                 "Instructions are turned off for this repository.");
@@ -74,8 +79,7 @@ public sealed class InstructionSourceDiscovery
 
         if (fromBranch && location is not { Available: true })
         {
-            return new InstructionRepositoryView(
-                repository,
+            return new InstructionSourceListing(
                 location?.RootPath,
                 [],
                 location?.Message ?? "This repository's branch is being fetched.",
@@ -86,8 +90,7 @@ public sealed class InstructionSourceDiscovery
 
         if (string.IsNullOrWhiteSpace(configuredRoot))
         {
-            return new InstructionRepositoryView(
-                repository,
+            return new InstructionSourceListing(
                 null,
                 [],
                 "Set a local clone directory in Settings before instructions can be read.");
@@ -96,8 +99,7 @@ public sealed class InstructionSourceDiscovery
         var root = Path.GetFullPath(configuredRoot);
         if (!Directory.Exists(root))
         {
-            return new InstructionRepositoryView(
-                repository,
+            return new InstructionSourceListing(
                 root,
                 [],
                 fromBranch
@@ -133,8 +135,7 @@ public sealed class InstructionSourceDiscovery
                 : string.Compare(left.RelativePath, right.RelativePath, StringComparison.OrdinalIgnoreCase);
         });
 
-        return new InstructionRepositoryView(
-            repository,
+        return new InstructionSourceListing(
             root,
             documents,
             documents.Count switch
@@ -144,6 +145,61 @@ public sealed class InstructionSourceDiscovery
                 _ => null
             },
             CanEdit: !fromBranch);
+    }
+
+    /// <summary>
+    /// One file under <paramref name="root"/> that discovery did not list, read
+    /// because somebody picked it in the Devbook menu: the instructions panel shows
+    /// it rather than nothing.
+    /// <para>
+    /// Only from the agent folders — <c>.github</c>, <c>.claude</c>, <c>.agent</c>
+    /// and <c>.agents</c> — and only inside the root, so a picked path cannot reach
+    /// the rest of the clone or out of it. The menu spells the shared convention's
+    /// folder <c>.agent</c>; a clone that has only <c>.agents</c> is read from there.
+    /// Null for anything refused or not on disk.
+    /// </para>
+    /// </summary>
+    public static InstructionDocument? ReadDocument(string? root, string selectedPath)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return null;
+
+        // The dot is kept: .github and .claude are the folders an instruction
+        // source lives in, and github/ is not one of them.
+        var relativePath = DevbookPath.NormalizeKeepingDotFolder(selectedPath);
+        if (!IsInstructionRootPath(relativePath)) return null;
+
+        var fullRoot = Path.GetFullPath(root);
+        var fullPath = Path.GetFullPath(Path.Combine(fullRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+        if (!File.Exists(fullPath) && relativePath.StartsWith(".agent/", StringComparison.OrdinalIgnoreCase))
+        {
+            var fallbackPath = ".agents/" + relativePath[".agent/".Length..];
+            fullPath = Path.GetFullPath(Path.Combine(fullRoot, fallbackPath.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        if (!fullPath.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath)) return null;
+
+        var info = new FileInfo(fullPath);
+        return new InstructionDocument(
+            Path.GetFileName(relativePath),
+            relativePath.Replace('/', Path.DirectorySeparatorChar),
+            InstructionAgent(relativePath),
+            "Repository file",
+            File.ReadAllText(fullPath),
+            info.Length,
+            info.LastWriteTimeUtc);
+    }
+
+    private static bool IsInstructionRootPath(string path) =>
+        path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".agent/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".agents/", StringComparison.OrdinalIgnoreCase);
+
+    private static string InstructionAgent(string path)
+    {
+        if (path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)) return "GitHub Copilot";
+        if (path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)) return "Claude Code";
+        return "Agent instructions";
     }
 
     private static int AgentOrder(string agent) => agent switch
@@ -227,12 +283,23 @@ public sealed class InstructionSourceDiscovery
     }
 }
 
+/// <summary>The repository whose instructions are read, in the terms the reading
+/// needs and nothing more.</summary>
+/// <param name="Alias">What the devbook-folder port knows the repository by.</param>
+/// <param name="CloneDirectory">The local clone, when one is configured.</param>
+/// <param name="DevbookFolders">The repository's folder settings, where the
+/// instructions area may be turned off.</param>
+public sealed record InstructionRepository(
+    string Alias,
+    string? CloneDirectory,
+    IEnumerable<DevbookFolderSetting>? DevbookFolders);
+
+/// <summary>What one repository's instruction documents read as.</summary>
 /// <param name="CanEdit">Whether these documents may be written to. False for a
 /// branch snapshot, which is a copy of somebody's commit — an edit to it would
 /// survive exactly until the next fetch. Defaults to true so that every caller
 /// predating branch loading keeps offering the edit it always offered.</param>
-public sealed record InstructionRepositoryView(
-    GitHubRepositoryRef Repository,
+public sealed record InstructionSourceListing(
     string? LocalRoot,
     IReadOnlyList<InstructionDocument> Documents,
     string? Message,

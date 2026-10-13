@@ -107,7 +107,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     /// </summary>
     private static void AddRootInstructionFiles(IDevbookFileTree tree, List<DevbookMenuNode> roots, string repositoryRoot, string areaKey)
     {
-        foreach (var name in InstructionSourceDiscovery.RootFileNames)
+        foreach (var name in DevbookInstructionSources.RootFileNames)
         {
             var fullPath = Path.Combine(repositoryRoot, name);
             if (!tree.FileExists(fullPath)) continue;

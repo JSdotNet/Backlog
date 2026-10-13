@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Instructions;
 
 /// <summary>Whether a user-level location is there, and whether it holds
 /// anything. Absent and empty are different claims and the view says so: a
@@ -80,18 +80,6 @@ public static class UserContextSources
             ReadFolder(Copilot, "Personal instruction files", System.IO.Path.Combine(home, ".copilot", "instructions"), "*.instructions.md"),
             ReadFolder(Copilot, "User prompt files", VsCodeUserFolder(home, "prompts"), "*.instructions.md")
         ];
-    }
-
-    /// <summary>What every host carries from this machine, per host.</summary>
-    public static InstructionLoadTotals Total(IEnumerable<UserContextSource> sources, string host)
-    {
-        var loaded = sources
-            .Where(source => source.State == UserContextState.Present && string.Equals(source.Host, host, StringComparison.Ordinal))
-            .ToList();
-
-        return loaded.Count == 0
-            ? InstructionLoadTotals.None
-            : new InstructionLoadTotals(loaded.Sum(source => source.Files), 0, loaded.Sum(source => source.Bytes));
     }
 
     /// <summary>

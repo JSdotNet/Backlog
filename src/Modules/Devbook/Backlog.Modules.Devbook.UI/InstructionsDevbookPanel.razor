@@ -334,7 +334,7 @@
         {
             var views = InstructionSources.Discover(repositories, folders);
             var root = ActiveRepositoryIn(views, alias)?.LocalRoot;
-            return (views, InstructionPathTree.Read(root), UserContextSources.Read(root));
+            return (views, InstructionPathTreeNodes.Read(root), UserContextSources.Read(root));
         });
 
         _repositories = discovered;
@@ -547,56 +547,13 @@
         if (!string.IsNullOrWhiteSpace(SelectedPath))
         {
             return repository.Documents.FirstOrDefault(d => DevbookPath.MatchesKeepingDotFolder(d.RelativePath, SelectedPath))
-                ?? TryReadSelectedInstructionFile(repository, SelectedPath);
+                ?? InstructionSourceDiscovery.ReadDocument(repository.LocalRoot, SelectedPath);
         }
 
         // Nothing asked for, so the first file discovery found. This is the shape a
         // host that holds no selection gets — the panel has no picker of its own
         // any more, so there is no second answer to prefer over this one.
         return repository.Documents.FirstOrDefault();
-    }
-
-    private static InstructionDocument? TryReadSelectedInstructionFile(InstructionRepositoryView repository, string selectedPath)
-    {
-        if (string.IsNullOrWhiteSpace(repository.LocalRoot)) return null;
-
-        // The dot is kept: .github and .claude are the folders an instruction
-        // source lives in, and github/ is not one of them.
-        var relativePath = DevbookPath.NormalizeKeepingDotFolder(selectedPath);
-        if (!IsInstructionRootPath(relativePath)) return null;
-
-        var root = Path.GetFullPath(repository.LocalRoot);
-        var fullPath = Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!File.Exists(fullPath) && relativePath.StartsWith(".agent/", StringComparison.OrdinalIgnoreCase))
-        {
-            var fallbackPath = ".agents/" + relativePath[".agent/".Length..];
-            fullPath = Path.GetFullPath(Path.Combine(root, fallbackPath.Replace('/', Path.DirectorySeparatorChar)));
-        }
-
-        if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath)) return null;
-
-        var info = new FileInfo(fullPath);
-        return new InstructionDocument(
-            Path.GetFileName(relativePath),
-            relativePath.Replace('/', Path.DirectorySeparatorChar),
-            InstructionAgent(relativePath),
-            "Repository file",
-            File.ReadAllText(fullPath),
-            info.Length,
-            info.LastWriteTimeUtc);
-    }
-
-    private static bool IsInstructionRootPath(string path) =>
-        path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)
-        || path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)
-        || path.StartsWith(".agent/", StringComparison.OrdinalIgnoreCase)
-        || path.StartsWith(".agents/", StringComparison.OrdinalIgnoreCase);
-
-    private static string InstructionAgent(string path)
-    {
-        if (path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)) return "GitHub Copilot";
-        if (path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)) return "Claude Code";
-        return "Agent instructions";
     }
 }
 
