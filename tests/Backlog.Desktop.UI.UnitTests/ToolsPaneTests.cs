@@ -70,7 +70,7 @@ public sealed class ToolsPaneTests
         using var context = Context(tools);
         var pane = context.Render<ToolsPane>();
 
-        pane.FindAll("button").Single(button => button.TextContent.Trim() == "Update all").Click();
+        pane.Find("[data-testid='tools-update-all']").Click();
 
         pane.WaitForAssertion(() => Assert.Equal(DevToolRunKind.UpdateAll, Assert.Single(tools.SavedRuns).Kind));
     }
