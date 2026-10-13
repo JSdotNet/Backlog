@@ -3,6 +3,8 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Worker } from '../types'
 import {
+  asId,
+  asIndex,
   isPlanItems,
   isTransition,
   newWorker,
@@ -11,6 +13,7 @@ import {
   parsePlan,
   parseReturn,
   parseRunId,
+  parseStages,
   surfaceOp,
   tally,
 } from './parse'
@@ -26,6 +29,12 @@ const parents = atom({ plugin: 'backlog-tools', key: 'parents' } as const, {})
 
 const patchWorker = (list: Worker[], agentId: string, fn: (w: Worker) => Worker) =>
   list.map(w => (w.agentId === agentId ? fn(w) : w))
+
+/**
+ * The run ids a worker holds. The session's state outlives a reload of this code, so a worker
+ * 0.17.0 stored has a single `runId` and no list: it counts as a run no surface confirmed.
+ */
+const idsOf = (w: Worker): string[] => (w as Partial<Worker>).runIds ?? []
 
 /** The execute-plan worker a loop belongs to, walking nested spawns up. */
 async function rootOf($: EngineInterface, agentId: string | undefined) {
@@ -97,33 +106,46 @@ export const register: Register = on => {
     if (!op || !owner) return next(e)
 
     const ran = await next(e)
-    if (ran.deny !== undefined || ran.isError) return ran
+    // The pane mirrors what the worker said, not what a surface stored: a call the surface
+    // rejected still counts. A call the host denied never ran, and the worker retries it.
+    if (ran.deny !== undefined) return ran
     // Any report from the worker's loop means it is working again, after a gate answered too.
     const resume = (w: Worker): Worker => (w.state === 'gate' ? { ...w, state: 'running', note: '' } : w)
+    // Until a surface confirms the run, the latest declared run is the worker's current one; after,
+    // a report under another id is another run's (a second flow), not this one's.
+    const ours = (w: Worker) => idsOf(w).length === 0 || idsOf(w).includes(asId(args.runId))
     if (op === 'start_run') {
-      const runId = parseRunId(ran.text)
-      const stages = Array.isArray(args.stages) ? args.stages.map(String) : []
-      await update($, workers, list =>
-        patchWorker(list, owner, w => {
-          // A reattach (resumed:true) keeps the statuses already seen.
-          const same = w.runId === runId && w.stages.length === stages.length
-          return {
-            ...resume(w),
-            flow: String(args.skillId ?? ''),
-            runId,
-            stages,
-            stageStatus: same ? w.stageStatus : stages.map(() => 'pending'),
-            runStatus: 'in_progress',
-          }
-        }),
-      )
+      const stages = parseStages(args.stages)
+      const flow = String(args.skillId ?? '')
+      const runId = ran.isError ? '' : parseRunId(ran.text)
+      if (stages.length > 0) {
+        await update($, workers, list =>
+          patchWorker(list, owner, w => {
+            // The fan-out to a second surface, a retry and a reattach all declare the same run.
+            const same =
+              w.runStatus === 'in_progress' && w.flow === flow &&
+              w.stages.length === stages.length && w.stages.every((s, i) => s === stages[i])
+            if (same) {
+              const ids = idsOf(w)
+              return { ...resume(w), runIds: runId && !ids.includes(runId) ? [...ids, runId] : ids }
+            }
+            return {
+              ...resume(w),
+              flow,
+              runIds: runId ? [runId] : [],
+              stages,
+              stageStatus: stages.map(() => 'pending'),
+              runStatus: 'in_progress',
+            }
+          }),
+        )
+      }
     } else if (op === 'update_stage') {
-      const i = Number(args.stageIndex)
+      const i = asIndex(args.stageIndex)
       const status = String(args.status ?? '')
       await update($, workers, list =>
         patchWorker(list, owner, w => {
-          // Another run of the same worker (a second flow) is not this one's stages.
-          if (args.runId !== w.runId || !(i >= 0 && i < w.stages.length)) return w
+          if (!ours(w) || !(i >= 0 && i < w.stages.length)) return w
           const stageStatus = [...w.stageStatus]
           stageStatus[i] = status
           return { ...resume(w), stageStatus }
@@ -131,9 +153,7 @@ export const register: Register = on => {
       )
     } else {
       await update($, workers, list =>
-        patchWorker(list, owner, w =>
-          args.runId === w.runId ? { ...w, runStatus: String(args.status ?? '') } : w,
-        ),
+        patchWorker(list, owner, w => (ours(w) ? { ...w, runStatus: String(args.status ?? '') } : w)),
       )
     }
     return ran
