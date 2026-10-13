@@ -23,6 +23,7 @@ public class StylesheetDuplicateSelectorTests
     private const string App = "src/App/Backlog.Desktop.UI/wwwroot/app.css";
     private const string Components = "src/Core/Backlog.UI.Components/wwwroot/components.css";
     private const string Capture = "src/Modules/Capture/Backlog.Modules.Capture.UI/wwwroot/capture.css";
+    private const string Roadmap = "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/wwwroot/roadmap.css";
 
     /// <summary>A duplicate this test tolerates: the selector, how many top-level
     /// rules declare it, and why it has not been folded.</summary>
@@ -71,12 +72,6 @@ public class StylesheetDuplicateSelectorTests
             new(".tools-panel__message", 2, SharedWithSiblings),
             new(".tools-panel__count", 2, SharedWithSiblings),
             new(".tools-inventory__meta", 2, SharedWithSiblings),
-            new(".roadmap-band__eyebrow", 2, SharedWithSiblings),
-            new(".roadmap-band__title", 2, SharedWithSiblings),
-            new(".roadmap-pace__note", 2, SharedWithSiblings),
-            new(".roadmap-pace__value", 2, SharedWithSiblings),
-            new(".roadmap-order__meta", 2, SharedWithSiblings),
-            new(".roadmap-order__points", 2, SharedWithSiblings),
             new(".dashboard-panel__eyebrow", 2, SharedWithSiblings),
             new(".dashboard-panel__title", 2, SharedWithSiblings),
             new(".sessions-panel__eyebrow", 2, SharedWithSiblings),
@@ -193,10 +188,20 @@ public class StylesheetDuplicateSelectorTests
             new(".graph-atlas-index__status", 2, SharedWithSiblings),
         ],
         // A module stylesheet starts with none, and a duplicate in it fails.
-        [Capture] = []
+        [Capture] = [],
+        // Moved out of the desktop stylesheet with the Roadmap's rules (issue #759).
+        [Roadmap] =
+        [
+            new(".roadmap-band__eyebrow", 2, SharedWithSiblings),
+            new(".roadmap-band__title", 2, SharedWithSiblings),
+            new(".roadmap-pace__note", 2, SharedWithSiblings),
+            new(".roadmap-pace__value", 2, SharedWithSiblings),
+            new(".roadmap-order__meta", 2, SharedWithSiblings),
+            new(".roadmap-order__points", 2, SharedWithSiblings),
+        ]
     };
 
-    public static TheoryData<string> Stylesheets => [App, Components, Capture];
+    public static TheoryData<string> Stylesheets => [App, Components, Capture, Roadmap];
 
     [Theory]
     [MemberData(nameof(Stylesheets))]
