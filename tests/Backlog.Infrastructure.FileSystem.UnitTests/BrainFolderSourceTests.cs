@@ -30,6 +30,23 @@ public class BrainFolderSourceTests : IDisposable
         Assert.Null(Source().BrainRoot);
     }
 
+    /// <summary>The pane's cheap look for a folder that went away: present only
+    /// while a folder is set and is on disk.</summary>
+    [Fact]
+    public void The_brain_folder_is_present_only_while_set_and_on_disk()
+    {
+        Assert.False(Source().BrainFolderPresent());
+
+        _setting = Brain;
+        Assert.False(Source().BrainFolderPresent());
+
+        Directory.CreateDirectory(Brain);
+        Assert.True(Source().BrainFolderPresent());
+
+        Directory.Delete(Brain);
+        Assert.False(Source().BrainFolderPresent());
+    }
+
     /// <summary>The Brain's folder setting has one definition, in
     /// <see cref="BrainConventions"/>, so the assistant tools — which cannot reference
     /// this project — and this source cannot describe it two ways.</summary>

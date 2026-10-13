@@ -56,6 +56,9 @@ public sealed class BrainFolderSource : IBrainFolderSource
     /// setting is not a usable path.</summary>
     public string? BrainRoot => RootFor(_brainFolder());
 
+    /// <inheritdoc />
+    public bool BrainFolderPresent() => BrainRoot is { } root && Directory.Exists(root);
+
     /// <summary>A configured folder as an absolute root, or null when it is blank,
     /// relative — which would resolve against wherever the process happens to
     /// run — or not a valid path.</summary>

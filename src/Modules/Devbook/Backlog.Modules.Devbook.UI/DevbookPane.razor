@@ -479,7 +479,7 @@
 
     /// <summary>Whether the Brain read last as available is no longer there.</summary>
     private bool BrainFolderVanished() =>
-        BrainMode && _brainUnavailable is null && _brainRoot is { } root && !Directory.Exists(root);
+        BrainMode && _brainUnavailable is null && _brainRoot is not null && _brain?.BrainFolderPresent() == false;
 
     /// <summary>Whether the last parameter set showed the Brain.</summary>
     private bool _parametersShowedBrain;
