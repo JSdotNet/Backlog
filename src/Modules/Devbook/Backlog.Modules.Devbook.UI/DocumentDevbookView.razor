@@ -340,6 +340,11 @@
     private string? _loadedRepositoryAlias;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
     private int _chapterRead;
+
+    /// <summary>The folder load and the document the open chapter was last read
+    /// for, or null before the first read; see <see cref="ReadChapterAsync"/>.</summary>
+    private (DocumentDevbookModel? Model, DocumentDevbookFile? File)? _chapterReadFor;
+
     private DevbookChapterEditor? _editor;
     private string? _statusError;
     private bool _editing;
@@ -437,7 +442,7 @@
 
         // The selection can move without the scope moving, and the guard above is
         // there precisely to skip a re-parse when it does — so the chapter is
-        // read outside it.
+        // read outside it, behind a guard of its own.
         await ReadChapterAsync();
     }
 
@@ -513,7 +518,7 @@
         // here rather than only by ReloadOrReportAsync, because a folder change
         // reloads without it and the failure alert is drawn before the documents.
         _loadError = null;
-        await ReadChapterAsync();
+        await ReadChapterAsync(force: true);
     }
 
     /// <summary>
@@ -527,18 +532,35 @@
     /// close the editor under the reader who is typing.
     /// </para>
     /// <para>
-    /// Only the latest read lands. Every parameter set starts one, so reads
-    /// overlap whenever the host re-renders while a file is still coming off disk,
-    /// and they can finish out of order: a read of the chapter that was open
-    /// finishing after the reader picked the folder overview put that chapter's
-    /// file view back inside the overview.
+    /// Read once per folder load and document. The host hands this view its
+    /// parameters again on every render of its own — every keystroke typed into a
+    /// task beside the pane — and each read is a file off disk and a parse of its
+    /// sync blocks. Guarded on reference identity, as the arc42 panel guards its
+    /// chapter: every load builds a new model, so a load always reads again, while
+    /// a parameter set that changed nothing hands back the very model and file
+    /// already read. The overview is a read too — of nothing — and is guarded the
+    /// same way. A reload passes <paramref name="force"/>, because a save, a
+    /// folder change or leaving the editor has changed the file whatever the
+    /// provider hands back. The guard is set as the read starts, so a parameter
+    /// set arriving while it is out starts no second read of the same document.
+    /// </para>
+    /// <para>
+    /// Only the latest read lands. Reads overlap whenever the selection moves, or
+    /// a reload starts, while a file is still coming off disk, and they can finish
+    /// out of order: a read of the chapter that was open finishing after the
+    /// reader picked the folder overview put that chapter's file view back inside
+    /// the overview.
     /// </para>
     /// </summary>
-    private async Task ReadChapterAsync()
+    private async Task ReadChapterAsync(bool force = false)
     {
+        var model = _model;
+        var file = SelectedFile;
+        if (!force && _chapterReadFor is { } last && ReferenceEquals(last.Model, model) && ReferenceEquals(last.File, file)) return;
+
+        _chapterReadFor = (model, file);
         var read = ++_chapterRead;
         var chapter = await LoadChapterAsync();
-        var file = SelectedFile;
         var sync = file is null
             ? DevbookSyncReading.None
             : await Provider.ReadSyncAsync(RepositoryAlias, DocumentPath(file));
