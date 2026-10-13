@@ -9,10 +9,11 @@
     AAB), but signed with a throwaway *developer* keystore instead of the release
     keystore held in repository secrets.
 
-    On first run it creates that developer keystore under build/.local/, which is
-    gitignored. That keystore is for local sideloading only — it is not the release
-    identity, and an APK signed with it cannot upgrade a release-signed install
-    (uninstall first, or vice versa; Android refuses signature changes).
+    On first run it creates that developer keystore under the main checkout's
+    build/.local/, which is gitignored. That keystore is for local sideloading
+    only — it is not the release identity, and an APK signed with it cannot update
+    a release-signed install, or vice versa: Android refuses signature changes, so
+    the script offers to uninstall the installed copy first (see -Reinstall).
 
     Requirements, all located automatically when they are in their usual places:
       - .NET SDK with the android/maui-android workload
@@ -30,12 +31,14 @@
 
 .PARAMETER VersionCode
     ApplicationVersion (the integer Android versionCode). Defaults to whatever
-    Backlog.Mobile.csproj declares. Increase it to install over a previous local
-    build without uninstalling.
+    Backlog.Mobile.csproj declares. A lower value than the installed one is
+    installed as a downgrade.
 
 .PARAMETER KeystorePath
     Developer keystore location. Defaults to build/.local/backlog-android.keystore
-    and is created on first use.
+    in the main checkout — not in a worktree — so every worktree signs with the
+    same developer identity and their builds update each other. Created on first
+    use.
 
 .PARAMETER KeyAlias
     Key alias inside the developer keystore. Defaults to "backlog-dev".
@@ -54,6 +57,17 @@
     Build and sign the APK but do not install it. Useful for producing an APK to
     copy onto a phone manually.
 
+.PARAMETER Reinstall
+    When the installed app is signed with a different key (a release build, or
+    another machine's developer keystore), uninstall it and install the new APK
+    without asking. Uninstalling erases the app's local data on the device.
+    Without this switch the script asks first, and fails when it cannot ask.
+
+.NOTES
+    An existing install is updated in place. A lower versionCode than the
+    installed one is retried as a downgrade (adb install -d); a different signing
+    key needs an uninstall, which -Reinstall or the prompt confirms.
+
 .EXAMPLE
     ./build/Install-AndroidApp.ps1
 
@@ -62,12 +76,17 @@
 .EXAMPLE
     ./build/Install-AndroidApp.ps1 -Device emulator-5554 -VersionCode 2
 
-    Install onto a named emulator, bumping the versionCode so it upgrades in place.
+    Install onto a named emulator with versionCode 2.
 
 .EXAMPLE
     ./build/Install-AndroidApp.ps1 -SkipInstall
 
     Produce the APK only, and print its path for manual transfer to a phone.
+
+.EXAMPLE
+    ./build/Install-AndroidApp.ps1 -Reinstall
+
+    Replace a release-signed install with a local build, erasing its app data.
 #>
 [CmdletBinding()]
 param(
@@ -79,7 +98,8 @@ param(
     [string]$KeyAlias = 'backlog-dev',
     [string]$KeystorePassword,
     [string]$Device,
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    [switch]$Reinstall
 )
 
 Set-StrictMode -Version Latest
@@ -94,7 +114,20 @@ if (-not (Test-Path -LiteralPath $projectPath)) {
     throw "Mobile project not found: $projectPath"
 }
 
-$localDir = Join-Path $PSScriptRoot '.local'
+# The developer keystore lives in the main checkout's build/.local, found through
+# git's common directory, so a build from any worktree carries the same signature
+# and installs over a build from another. Outside git, fall back to this checkout.
+$mainRoot = $repoRoot
+try {
+    $commonDir = & git -C $repoRoot rev-parse --path-format=absolute --git-common-dir 2>$null
+    if ($LASTEXITCODE -eq 0 -and $commonDir -and (Split-Path -Leaf $commonDir) -eq '.git') {
+        $mainRoot = Split-Path -Parent $commonDir
+    }
+}
+catch [System.Management.Automation.CommandNotFoundException] {
+    # No git on PATH: keep this checkout's build/.local.
+}
+$localDir = Join-Path $mainRoot 'build/.local'
 if (-not $KeystorePath) {
     $KeystorePath = Join-Path $localDir 'backlog-android.keystore'
 }
@@ -341,15 +374,81 @@ elseif ($attached -notcontains $Device) {
     throw "Device '$Device' is not attached. Attached: $($attached -join ', ')."
 }
 
-Write-Host "Installing $($apk.Name) on $Device..." -ForegroundColor Cyan
-& $adb -s $Device install -r $apk.FullName
-if ($LASTEXITCODE -ne 0) {
-    throw @"
-adb install failed. The most common cause is a signature mismatch with an already
-installed copy of $applicationId (for example a release-signed build). Uninstall it
-first:
+function Invoke-AdbInstall {
+    <#
+        Runs adb install, echoing its output, and returns that output with the
+        exit code so the caller can tell an update adb refused from any other
+        failure.
+    #>
+    param([string[]]$ExtraArgs = @())
+
+    $output = @(& $adb -s $Device install -r @ExtraArgs $apk.FullName 2>&1 | ForEach-Object { "$_" })
+    $output | ForEach-Object { Write-Host $_ }
+    return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Text = ($output -join "`n") }
+}
+
+function Confirm-Reinstall {
+    if ($Reinstall) { return $true }
+
+    $prompt = "The installed $applicationId on $Device is signed with a different key " +
+        '(a release build, or another machine''s developer keystore), so it cannot be ' +
+        'updated in place. Uninstall it and install this build? Its app data on the device is erased.'
+    try {
+        $choice = $Host.UI.PromptForChoice('Signature mismatch', $prompt, @('&Yes', '&No'), 1)
+        return $choice -eq 0
+    }
+    catch {
+        # Non-interactive host: there is nobody to ask, so do not erase data.
+        return $false
+    }
+}
+
+$installedVersion = & $adb -s $Device shell dumpsys package $applicationId 2>$null |
+    Select-String -Pattern 'versionCode=(\d+)' |
+    Select-Object -First 1
+if ($installedVersion) {
+    Write-Host "Updating the installed $applicationId (versionCode $($installedVersion.Matches[0].Groups[1].Value)) on $Device with $($apk.Name)..." -ForegroundColor Cyan
+}
+else {
+    Write-Host "Installing $($apk.Name) on $Device..." -ForegroundColor Cyan
+}
+
+$result = Invoke-AdbInstall
+
+if ($result.ExitCode -ne 0 -and $result.Text -match 'INSTALL_FAILED_VERSION_DOWNGRADE') {
+    Write-Host 'The installed copy has a higher versionCode; retrying as a downgrade (adb install -d).' -ForegroundColor Yellow
+    $result = Invoke-AdbInstall -ExtraArgs @('-d')
+}
+
+if ($result.ExitCode -ne 0 -and $result.Text -match 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match') {
+    if (-not (Confirm-Reinstall)) {
+        throw @"
+The installed $applicationId on $Device is signed with a different key, so this
+build cannot update it. Re-run with -Reinstall to uninstall it first (this erases
+the app's data on the device), or uninstall it yourself:
   adb -s $Device uninstall $applicationId
 "@
+    }
+
+    Write-Host "Uninstalling $applicationId from $Device..." -ForegroundColor Yellow
+    & $adb -s $Device uninstall $applicationId
+    if ($LASTEXITCODE -ne 0) {
+        throw "adb uninstall of $applicationId on $Device failed with exit code $LASTEXITCODE."
+    }
+    $result = Invoke-AdbInstall
+}
+
+if ($result.ExitCode -ne 0 -and $result.Text -match 'INSTALL_FAILED_VERSION_DOWNGRADE') {
+    throw @"
+The device refused to downgrade $applicationId on $Device; most devices allow a
+downgrade only for a debuggable build. Re-run with a -VersionCode at least as high
+as the installed one, or uninstall it first:
+  adb -s $Device uninstall $applicationId
+"@
+}
+
+if ($result.ExitCode -ne 0) {
+    throw "adb install of $($apk.Name) on $Device failed with exit code $($result.ExitCode); its output is above."
 }
 
 Write-Host "Installed $applicationId on $Device." -ForegroundColor Green
