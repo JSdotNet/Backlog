@@ -17,8 +17,8 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
-aliases: [KnowledgeNote]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/domain.md#brain]
+aliases: [KnowledgeNote, Brain note]
 ```
 
 An organized unit of project knowledge stored as markdown and the boundary for
@@ -27,6 +27,22 @@ a `PARA Category`; it may be scoped to zero or more projects/repos; links to
 tasks and other notes are managed through the root; and status advances
 through the note lifecycle (created → organized → linked → archived, with
 restore). `updated_at` moves forward on every change.
+
+A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook
+chapter like any other: it keeps the devbook `meta` block and `annotation` fences
+(local ADR 0016) and adds three fields to the block (local ADR 0026):
+
+| Field | Holds | Value object |
+|---|---|---|
+| `para` | The note's area. Derived from the top folder the note sits in, and written only to override it. | [PARA Category](#para-category) |
+| `repos` | The repositories a project note concerns. Project notes only. | [Project Ref](#project-ref) |
+| `tasks` | The tasks the note links to. | [Task Link](#task-link) |
+
+The file is the note: nothing derived about it is written into the Brain folder,
+and the folder's own sync carries it between machines. A Knowledge Note never
+rides the task feed, which is what tells it apart from an Inbox
+[Note](../inbox/domain.md#note) (local ADR 0025): that one waits for triage, and
+triaging it **To Brain** is what makes a Knowledge Note of it.
 
 A knowledge chapter — this aggregate, and equally any chapter Devbook renders
 from a repository's knowledge folders — may also carry two pieces of metadata in
@@ -105,17 +121,31 @@ no current roadmap item is a normal, harmless state.
 ### PARA Category
 
 ```meta
-type: enum
+type: value-object
 status: draft
-aliases: [PARACategory]
+aliases: [PARACategory, Brain area, para]
+related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/features.md#brain-folder-setup]
 ```
 
-Organization bucket for a note:
+The area a note is organized under: one top folder of the [Brain](#brain), shown
+as one tab. It is no longer a closed list. The Brain's `CONVENTIONS.md` declares
+the areas, each with its name, its folder and its place in the tab order, and a
+note's area is the top folder it sits in unless its `para` field overrides it.
+Equality is by folder name.
 
-- `projects` — active work with a goal and deadline.
+When `CONVENTIONS.md` declares no areas, the PARA set applies, in this order:
+
+- `_inbox` — notes not yet filed; where a capture lands.
+- `projects` — active work with a goal and a deadline.
 - `areas` — ongoing responsibilities without a deadline.
 - `resources` — reference material and collected knowledge.
-- `archive` — inactive items preserved for future search.
+- `people` — notes about the people the work involves.
+- `journal` — dated entries.
+- `archive` — inactive notes preserved for future search.
+
+The name stays *PARA Category* because PARA is the default and the vocabulary a
+person starts from; a Brain that declares its own areas is still organized the
+same way, one area per note.
 
 ### Note Source
 
@@ -124,7 +154,9 @@ type: enum
 status: draft
 ```
 
-Origin of the note: `inbox` (routed from triage), `manual`, or `import`.
+Origin of the note: `inbox` (routed **To Brain** from triage), `manual`
+(written in the Brain, through the pane's **Capture** or an assistant's capture
+over MCP), or `import`.
 
 ## Cross-Linking
 
@@ -187,7 +219,8 @@ status: draft
 > Enums used by more than one aggregate in this bounded context.
 
 Devbook has a single aggregate; `PARA Category` and `Note Source` are
-documented under it. This chapter is reserved for future cross-aggregate enums.
+documented under it, `PARA Category` as a value object now that the Brain's
+`CONVENTIONS.md` declares its values. This chapter is reserved for future cross-aggregate enums.
 
 ## Ubiquitous Language
 
@@ -200,17 +233,56 @@ type: ubiquitous-language
 ```meta
 type: term
 status: draft
-aliases: [Devbook, Knowledge, Second Brain, SecondBrain]
-related: [.devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/context-map.md#context-map]
+aliases: [Devbook, Knowledge]
+related: [.devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/context-map.md#context-map, .devbook/domain/devbook/domain.md#brain]
 ```
 
 The bounded context, and the module, pane, database and tooling named after it.
 Until 2026-09-15 the context was called **Second Brain** and the code was named
-`Knowledge*` (`Backlog.Modules.Knowledge`, `KnowledgePane`, `_meta/knowledge.db`);
-both former names are kept as aliases so a counterpart resolved on an older branch
-still lands here. "Knowledge" also remains the informal shorthand the Inbox uses when
+`Knowledge*` (`Backlog.Modules.Knowledge`, `KnowledgePane`, `_meta/knowledge.db`).
+`Knowledge` stays an alias here. The former name *Second Brain* now resolves to
+the [Brain](#brain), the person's own notes, which is what the phrase means
+everywhere outside this history. "Knowledge" also remains the informal shorthand the Inbox uses when
 routing here. What the context *reads* — a repository's `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`
 and `.devbook/design` folders — keeps the convention's own name, *knowledge folders*.
+
+### Brain
+
+```meta
+type: term
+status: draft
+aliases: [Brain, Second Brain, SecondBrain, brain scope, Brain scope]
+related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/12-glossary.md#terms, .devbook/domain/devbook/features.md#brain-scope]
+```
+
+The person's own notes: one devbook-shaped folder per user, outside every
+repository, whose [Knowledge Notes](#knowledge-note) are organized under the
+areas its `CONVENTIONS.md` declares. The app builds its database into its own
+storage, never into the folder. It replaces the *Second Brain* alias, which now
+means this and not the context.
+
+**Brain** is also the scope of everything filed against no repository: the first
+chip of the header's repository scope, which narrows every view that reads the
+scope to the tasks with no repository and opens the Brain in the Devbook pane.
+The two senses are one person's own things, the work that belongs to no
+repository and the notes kept outside every repository, which is why they share
+a name. Where the scope is stored, Brain is the empty string, a value no
+repository alias can take.
+
+### Repo link
+
+```meta
+type: term
+status: draft
+aliases: [repo link, RepoLink, From your Brain]
+related: [.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#repo-links-and-backlinks]
+```
+
+A link from a Brain note into a repository devbook, written
+`repo:<alias>/<devbook path>[#slug]` in the note's `related` or in its body. It
+runs one way: a repository devbook never links into a Brain. Its reverse is read,
+never written: a repository chapter lists **From your Brain** the Brain notes that
+link to it, for the Brain's owner only, from the Brain's own database.
 
 ### Effort
 

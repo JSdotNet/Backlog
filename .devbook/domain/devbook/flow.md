@@ -13,8 +13,8 @@ status: draft
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Created : Captured from Inbox or manually
-    Created --> Organized : Assigned topic and PARA category
+    [*] --> Created : Routed To Brain from the Inbox, or captured in the Brain
+    Created --> Organized : Moved out of the inbox area into another area
     Organized --> Linked : Linked to tasks or other notes
     Linked --> Organized : Links updated
     Organized --> Archived : Note no longer active
@@ -23,5 +23,7 @@ stateDiagram-v2
 ```
 
 - The lifecycle states (Created/Organized/Linked/Archived) are workflow phases,
-  not a stored enum field; `PARA Category` = `archive` is the persisted archived
-  state.
+  not a stored enum field. The persisted state is the note's area: a note in the
+  Brain's inbox area (`_inbox` under the PARA default) is Created, and a note in
+  its archive area is Archived. A Brain that declares its own areas without an
+  archive area has no Archived state.

@@ -32,7 +32,11 @@ depends-on: [.devbook/domain/tasks/features.md#task-creation]
 Edit and enrich tasks over time: set priority and status, add context links,
 and flag oversized items with suggested splits. The desktop experience keeps
 Markdown canonical while letting users adjust type, priority, repository,
-status, and metadata tags directly from the reading layout. Expanded tasks
+status, and metadata tags directly from the reading layout. The task's
+repository picker lists **Brain** first, set off from the repositories, and
+picking it clears the task's repository: Brain is the name the app gives to
+filing a task against no repository, where the picker used to read *No repo*
+(local ADR 0027). Expanded tasks
 open into an inline Markdown editor for the full task body; compact tasks can
 stay on one line when they only need metadata-level refinement.
 
@@ -531,7 +535,7 @@ umbrella step, as the connected target's setting says.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header]
+related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#brain-scope]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key]
 ```
 
@@ -544,8 +548,18 @@ progress, the Dashboard, the session list and the pull requests list — and
 narrows back to one on the roadmap and on Tools, which read one repository or
 none.
 
+The scope leads with a permanent **Brain** chip, the
+[Brain scope](../devbook/features.md#brain-scope): Brain is the scope of
+everything filed against no repository. Pressed alone it shows only the tasks
+with no repository, in every view that reads the scope; Ctrl adds it to the
+repositories already pressed, as it adds a repository; and nothing pressed
+still means every task. It replaces the filter bar's *No repo* chip, which
+narrowed the same rows beside the scope under a second name and was never
+remembered, so the filter bar no longer carries one (local ADR 0027).
+
 The repository scope is remembered on this device in the order it was chosen, so
-the app reopens on the same repositories with the first one chosen still first.
+the app reopens on the same repositories with the first one chosen still first,
+and with Brain in its place when it was pressed.
 The Devbook beside them is then offered straight away, with no chip to press. A
 repository that is no longer configured is dropped when the scope comes back, and
 a scope with none left is every repository. The scope is remembered as it stands
@@ -586,7 +600,9 @@ The same filtered tasks laid out as columns of cards, under the same filters
 and beside the same open task. The columns are by status by default — Draft,
 Ready, In progress and Done — and can be by plan instead, one per
 [Roadmap Tag](domain.md#roadmap-tag) in view and then the tasks in no plan, by
-repository, or by [Priority](domain.md#priority). Each column says how many
+repository, or by [Priority](domain.md#priority). By repository, the tasks filed
+against no repository gather in a column titled **Brain**, the name the scope
+gives them, where it used to read *No repository*. Each column says how many
 tasks it holds, the [Effort](domain.md#effort) they add up to, and how many of
 them nobody has estimated. A task under two plans is in both plan columns. The
 choice of columns is remembered with the view.
