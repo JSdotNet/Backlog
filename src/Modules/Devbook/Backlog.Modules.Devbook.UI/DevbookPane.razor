@@ -162,13 +162,15 @@
            search is a way into all of them at once, so which tab is open says
            nothing about whether it is worth offering. Behind a flag because the
            surface is only half the feature - the other half is a generated index
-           the repository may not have, which the surface itself reports. *@
-        @if (!BrainMode && Scope.SearchOffered && VisibleAreas.Count > 0)
+           the repository may not have, which the surface itself reports. On the
+           Brain too: the search asks the Brain and every repository at once, so it
+           is the same search wherever it is opened from. *@
+        @if (Scope.SearchOffered && VisibleAreas.Count > 0)
         {
             <AppButton BaseClass="devbook-stack__search-toggle"
                        Variant="ButtonVariant.None"
                        TestId="devbook-search-toggle"
-                       title="@(_searchOpen ? "Close search" : "Search every devbook area at once")"
+                       title="@(_searchOpen ? "Close search" : "Search the Brain and every devbook at once")"
                        aria-expanded="@(_searchOpen ? "true" : "false")"
                        OnClick="ToggleSearch">
                 @(_searchOpen ? "Hide search" : "Search")
@@ -271,7 +273,11 @@
                     <TabPanel Id="@area.Key"
                               Title="@area.Label"
                               BaseClass="@(_atlasOpen || _searchOpen ? "devbook-stack__section devbook-stack__section--atlas" : "devbook-stack__section")">
-                        @if (BrainMode && _atlasOpen)
+                        @if (_searchOpen)
+                        {
+                            <DevbookSearchView OnOpen="OpenSearchResultAsync" />
+                        }
+                        else if (BrainMode && _atlasOpen)
                         {
                             @* The whole Brain as a map, every repo: link drawn
                                to the repository chapter it names. *@
@@ -282,15 +288,9 @@
                         }
                         else if (BrainMode)
                         {
-                            @* No scenario catalog and no search: a Brain note is
-                               read and written, and searching the whole Brain is
-                               a step of its own. *@
+                            @* No scenario catalog: a Brain note is read and
+                               written. *@
                             @RenderSection(area.Key)
-                        }
-                        else if (_searchOpen)
-                        {
-                            <DevbookSearchView RepositoryAlias="@ActiveRepositoryAlias"
-                                                 OnNavigateToChapter="OpenChapterFromSearch" />
                         }
                         else if (_atlasOpen)
                         {
@@ -366,6 +366,15 @@
     /// </summary>
     [Parameter]
     public EventCallback<bool> ShowsBrainChanged { get; set; }
+
+    /// <summary>
+    /// Raised when the reader opens a search result from a devbook the pane is not
+    /// showing — the Brain while a repository is on screen, or another repository.
+    /// The shell switches the pane to that devbook and hands the reference back as
+    /// <see cref="OpenReference"/>, the way a task's reference arrives.
+    /// </summary>
+    [Parameter]
+    public EventCallback<DevbookSearchOpen> OpenSearchResultElsewhere { get; set; }
 
     /// <summary>The Brain, when the host composes one. Resolved rather than
     /// injected, as the optional stores are: a host without a Brain draws the
@@ -686,7 +695,7 @@
         // answered too, and is no more worth following a second time.
         _ = OnOpenReferenceFollowed.InvokeAsync(request.Sequence);
 
-        if (DevbookChapterLink.From(request.Reference) is not { } target) return;
+        if (LinkFor(request.Reference) is not { } target) return;
 
         _atlasOpen = false;
         _searchOpen = false;
@@ -980,11 +989,25 @@
     /// the atlas closes on the same move: the reader asked to go and read that
     /// chapter, and leaving the search over it would answer a question they have
     /// stopped asking.</summary>
-    private void OpenChapterFromSearch(DevbookChapterLink target)
+    private async Task OpenSearchResultAsync(DevbookSearchOpen result)
     {
-        SelectChapter(target);
         _searchOpen = false;
+
+        if (result.Source.IsBrain ? BrainMode : !BrainMode && string.Equals(result.Source.Key, ActiveRepositoryAlias, StringComparison.OrdinalIgnoreCase))
+        {
+            if (LinkFor(result.Reference) is { } target) SelectChapter(target);
+            return;
+        }
+
+        // Another devbook than the one on screen: which one the pane reads is the
+        // shell's to choose, so it is asked to switch and hand the reference back.
+        await OpenSearchResultElsewhere.InvokeAsync(result);
     }
+
+    /// <summary>A reference as the pane can follow it on what it shows now: a
+    /// Brain note on the Brain, a repository chapter on a repository.</summary>
+    private DevbookChapterLink? LinkFor(string reference) =>
+        BrainMode ? DevbookChapterLink.ForBrainNote(reference) : DevbookChapterLink.From(reference);
 
     /// <summary>Widens the map to every knowledge folder at once. This is the
     /// explicit way back to the unfiltered view — the section tabs already narrow
@@ -1016,32 +1039,7 @@
     private void OpenNoteFromAtlas(string notePath)
     {
         _atlasOpen = false;
-
-        var path = notePath.Replace('\\', '/').TrimStart('/');
-        var separator = path.IndexOf('/');
-        if (separator <= 0) return;
-
-        var areaKey = DevbookMenu.BrainAreaKey(path[..separator]);
-
-        // The tree the check below asks is the previous one while the menu
-        // loads; the note is taken as the selection then, and the load keeps it
-        // when the new tree has it (EnsureSelectedChapter).
-        if (_menuLoading)
-        {
-            _pendingChapter = null;
-            _selectedSection = areaKey;
-            _selectedChapterPaths[areaKey] = path;
-            return;
-        }
-
-        var root = RootOf(areaKey);
-        if (root is null || !root.Available || !ContainsPath(root, path)) return;
-
-        _pendingChapter = null;
-        _selectedSection = areaKey;
-        _selectedChapterPaths[areaKey] = path;
-        _folderOpenError = null;
-        ExpandAncestorsToSelected(root.Children, path);
+        if (DevbookChapterLink.ForBrainNote(notePath) is { } target) SelectChapter(target);
     }
 
     /// <summary>A resolved repository chapter followed out of the Brain atlas:

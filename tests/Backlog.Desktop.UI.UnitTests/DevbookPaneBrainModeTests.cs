@@ -83,10 +83,11 @@ public sealed class DevbookPaneBrainModeTests
     }
 
     /// <summary>None of what a repository devbook carries — a version to check, a
-    /// sync verdict, a scenario mark, search, the editor launch — is drawn, and the
-    /// repository source behind them is not even asked. The atlas is offered, as
-    /// the Brain's own map, and drawing its toggle asks the repository nothing
-    /// either.</summary>
+    /// sync verdict, a scenario mark, the editor launch — is drawn, and the
+    /// repository source behind them is not even asked. Search is drawn: it asks
+    /// the Brain and every repository at once, so it is the same search on either
+    /// side. The atlas is offered, as the Brain's own map. Drawing either toggle
+    /// asks the repositories nothing.</summary>
     [Fact]
     public async Task The_repository_only_chrome_is_absent_and_its_services_are_not_asked()
     {
@@ -101,7 +102,7 @@ public sealed class DevbookPaneBrainModeTests
         Assert.Empty(component.FindAll("[data-testid='devbook-update-action']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-update-behind']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-update-status']"));
-        Assert.Empty(component.FindAll("[data-testid='devbook-search-toggle']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='devbook-search-toggle']"));
         Assert.Single(component.FindAll("[data-testid='devbook-atlas-toggle']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-atlas-all']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-scenario-mark']"));
