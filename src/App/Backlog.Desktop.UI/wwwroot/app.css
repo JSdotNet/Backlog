@@ -5681,24 +5681,41 @@ h1, h2, h3 {
     box-shadow: var(--shadow-md);
 }
 
+/* The header in the Dashboard's arrangement (dashboard-panel__header): the tab's
+   eyebrow and sentence, and beside them the controls that scope the whole surface.
+   Where the pane is narrow the controls wrap under the sentence rather than
+   squeezing it, and wrap among themselves rather than running off the pane. */
 .tools-panel__header {
     display: flex;
-    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
     align-items: flex-start;
     justify-content: space-between;
+    min-width: 0;
+}
+
+.tools-panel__header > :first-child {
+    flex: 1 1 16rem;
+    min-width: 0;
 }
 
 .tools-panel__header-actions {
     display: flex;
-    flex: none;
-    gap: var(--spacing-xs);
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
     align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
 }
 
+/* The status line names the catalog's full path, which has no break in it; at a
+   phone width it would otherwise push the pane wider than the window. */
 .tools-panel__eyebrow,
 .tools-panel__subtitle,
 .tools-panel__message {
     margin: 0;
+    overflow-wrap: anywhere;
 }
 
 .tools-panel__eyebrow {
@@ -5716,20 +5733,10 @@ h1, h2, h3 {
 }
 
 .tools-panel__subtitle,
-.tools-panel__count,
 .tools-panel__message,
 .tools-inventory__meta {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
-}
-
-.tools-panel__count {
-    border: var(--border-width) solid rgba(242, 193, 78, 0.4);
-    border-radius: 999px;
-    padding: 0.15rem 0.55rem;
-    background: rgba(0, 0, 0, 0.18);
-    color: var(--color-primary);
-    white-space: nowrap;
 }
 
 /* One column until there is room for two: the inventory, and then the transcript
@@ -5779,9 +5786,9 @@ h1, h2, h3 {
   a column barely wider than its own heading — the rail is 20 to 26rem or it is
   the trigger, never an arbitrary width in between.
 
-  70rem is chosen against the table's own restack threshold rather than for its
+  74rem is chosen against the table's own restack threshold rather than for its
   own sake: the rail takes at most 26rem and the grid gap 1rem, which leaves the
-  table 43rem — above the 39rem where its four columns stop fitting. Any lower gate
+  table 47rem — above the 46rem where its five columns stop fitting. Any lower gate
   would buy a second column by restacking every row in the first.
 
   Sticky, because the pane is the scrollport and the rail is at the top of it.
@@ -5792,7 +5799,7 @@ h1, h2, h3 {
   parked on the frame's border reads as a rendering fault. `align-items: start` is
   what gives it room to travel — stretched to the row it would have no distance to
   move within. */
-@container tools-panel (min-width: 70rem) {
+@container tools-panel (min-width: 74rem) {
     .tools-panel__content {
         grid-template-columns: minmax(0, 1fr) fit-content(26rem);
         align-items: start;
@@ -5812,15 +5819,87 @@ h1, h2, h3 {
     }
 }
 
-.tools-panel__toolbar {
+/* The kind tabs: the library's strip and panels in the Dashboard's arrangement
+   (dashboard-tabs). The strip is one row at every width; where the pane is narrow
+   it scrolls sideways rather than wrapping into a stack, and the "Last run
+   transcript" link sits at its end. Positioned, so the screen-reader text in a tab's
+   badge is laid out inside this scroll box rather than against the page. */
+.tools-tabs {
     display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-tabs__strip {
+    position: relative;
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.tools-tabs__strip > .tabs__list {
+    flex: 1 0 auto;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+.tools-tabs__strip > .tabs__list > .tabs__tab,
+.tools-tabs__strip > .tabs__list > .tabs__tab--active {
+    flex: none;
+    white-space: nowrap;
+}
+
+.tools-tabs__transcript {
+    flex: none;
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+/* A kind tab's count of rows needing action, in the tone of the worst of them. */
+.tools-tabs__count {
+    margin-left: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+}
+
+.tools-tabs__panels {
+    min-width: 0;
+}
+
+/* One tab's panel: the toolbar, then the group cards. :not([hidden]) so a panel
+   behind another tab keeps the hidden attribute's display: none. */
+.tools-tab:not([hidden]) {
+    display: grid;
+    gap: var(--spacing-md);
+    align-content: start;
+    min-width: 0;
+}
+
+/* The kind tab's toolbar: the Needs action toggle, the name filter, and the
+   catalog's acts, on one row that wraps when the pane is narrow. */
+.tools-panel__toolbar {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 0;
+}
+
+.tools-panel__filter {
+    flex: 1 1 12rem;
+    max-width: 20rem;
+    min-width: 0;
 }
 
 .tools-panel__toolbar-actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-sm);
+    margin-inline-start: auto;
 }
 
 /* The inventory that has not arrived yet, in the shape of the one that will.
@@ -5848,27 +5927,31 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-.tools-kind__header {
-    gap: var(--spacing-sm);
-    align-items: baseline;
-}
-
-.tools-kind__header .section-header__title {
-    color: var(--color-primary);
-    font-size: var(--font-size-base);
-}
-
-/* The count, and how much of it is still outstanding. Quiet: it is a qualifier
-   on the heading, and the number that matters is the second one. */
-.tools-kind__header .section-header__description {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
+/* One catalog group: the library's card, its fold row, and its table. The card's
+   body is the scroll box, so anything the restack below does not foresee scrolls
+   inside the card rather than widening the pane. */
 .tools-group {
+    min-width: 0;
+}
+
+.tools-group .card__body {
     display: grid;
     gap: var(--spacing-xs);
     min-width: 0;
+    overflow-x: auto;
+}
+
+.tools-group__fold-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.tools-group__fold-row .fold__heading {
+    margin: 0;
 }
 
 /* The sub-group's disclosure. It reads at the weight of the table's meta text
@@ -5931,13 +6014,14 @@ h1, h2, h3 {
 }
 
 /*
-  The floors the four columns are drawn at, and the arithmetic the restack step at
+  The floors the five columns are drawn at, and the arithmetic the restack step at
   the bottom of this block is derived from. They sit on the heading cells because
   the heading is the one cell in a column this pane does not write — and a column
   is as wide as the widest minimum in it either way.
 
-  17.5rem of actions is the sum of what the cell below actually places in it — a
-  status, a toggle and a Remove side by side — rather than the 8rem it was while
+  7.5rem of status holds the widest chip, "Confirmed by hand". 17.5rem of actions
+  is the sum of what the cell below actually places in it — an action or a note,
+  a toggle and a Remove side by side — rather than the 8rem it was while
   those three could wrap onto a second line. A column narrower than its own cell
   is how the Available column and every action in the row came to be clipped in
   the first place.
@@ -5950,6 +6034,10 @@ h1, h2, h3 {
     min-width: 5.5rem;
 }
 
+.tools-inventory__col-status {
+    min-width: 7.5rem;
+}
+
 .tools-inventory__col-actions {
     min-width: 17.5rem;
 }
@@ -5960,9 +6048,28 @@ h1, h2, h3 {
     opacity: 0.66;
 }
 
-.tools-inventory__tool strong,
 .tools-inventory__meta {
     display: block;
+}
+
+/* The name and its host chips on one line, wrapping under the name when the
+   column is narrow. */
+.tools-inventory__name-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.tools-inventory__host-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+/* The row's status, as one chip from the library's tone family. */
+.tools-inventory__status-chip {
+    white-space: nowrap;
 }
 
 /* Which hosts a row is for. Deliberately quiet — it is a qualifier on the name
@@ -6148,12 +6255,12 @@ h1, h2, h3 {
 /*
   Below the width its own columns need, the table stops being a table.
 
-  39rem is the columns' own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5
-  + 17.5 is 38.5rem of floors, and that is the whole sum. The library does pad every
+  46rem is the columns' own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5
+  + 7.5 + 17.5 is 46rem of floors, and that is the whole sum. The library does pad every
   cell with a --spacing-sm either side, but this sheet sets `box-sizing: border-box`
   on everything, so each floor already contains that padding — counting it a second
   time put the step 4rem past the width the columns actually need, and restacked a
-  table that still fitted. Under 38.5rem the four columns cannot all be drawn. Above
+  table that still fitted. Under 46rem the five columns cannot all be drawn. Above
   it they fit; there is no band left where the row is wider than its box.
 
   The threshold is derived from the column list rather than chosen, so it has to
@@ -6168,11 +6275,11 @@ h1, h2, h3 {
   safety net for whatever the stack does not foresee: an unbreakable version
   string, a label wider than the slot it is in.
 
-  The heading row goes, because four column names above a single column name
+  The heading row goes, because five column names above a single column name
   nothing, and each version cell puts its own label up instead. Precisely one of
   the two is live at any width.
 */
-@container tools-inventory (max-width: 39rem) {
+@container tools-inventory (max-width: 46rem) {
     .tools-inventory .data-table__table,
     .tools-inventory .data-table__section,
     .tools-inventory .data-table__row,

@@ -70,7 +70,7 @@ public sealed class ToolsPaneTests
         using var context = Context(tools);
         var pane = context.Render<ToolsPane>();
 
-        pane.FindAll("button").Single(button => button.TextContent.Trim() == "Update all").Click();
+        pane.Find("[data-testid='tools-update-all']").Click();
 
         pane.WaitForAssertion(() => Assert.Equal(DevToolRunKind.UpdateAll, Assert.Single(tools.SavedRuns).Kind));
     }
@@ -244,9 +244,8 @@ public sealed class ToolsPaneTests
         // The other two states, and the two acts that read a catalog there is not.
         Assert.Empty(pane.FindAll("[data-testid='tools-empty-no-entries']"));
         Assert.Empty(pane.FindAll(".tools-inventory"));
-        Assert.All(
-            pane.FindAll(".tools-panel__toolbar-actions button"),
-            button => Assert.True(button.HasAttribute("disabled")));
+        Assert.True(pane.Find("[data-testid='tools-refresh']").HasAttribute("disabled"));
+        Assert.True(pane.Find("[data-testid='tools-update-all']").HasAttribute("disabled"));
     }
 
     [Fact]
@@ -289,12 +288,12 @@ public sealed class ToolsPaneTests
         // And the badge does not answer a question the pane has not asked yet.
         // _catalogExists starts false, so this used to open on "No catalog" -
         // a verdict, beside a placeholder promising rows were on their way.
-        Assert.Equal("Checking", pane.Find(".tools-panel__count").TextContent.Trim());
+        Assert.Equal("Checking the catalog", pane.Find("[data-testid='tools-checked']").TextContent.Trim());
 
         reading.SetResult();
         pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='tools-loading']")));
         Assert.NotNull(pane.Find("[data-testid='tools-empty-no-entries']"));
-        Assert.Equal("Check tools", pane.Find(".tools-panel__count").TextContent.Trim());
+        Assert.Contains("0 entries", pane.Find("[data-testid='tools-checked']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -579,7 +578,7 @@ public sealed class ToolsPaneTests
         var table = pane.Find(".tools-inventory table");
         var headings = table.QuerySelectorAll("thead th");
 
-        Assert.Equal(["Tool", "Installed", "Available", "Actions"], headings.Select(heading => heading.TextContent.Trim()));
+        Assert.Equal(["Tool", "Installed", "Available", "Status", "Actions"], headings.Select(heading => heading.TextContent.Trim()));
         Assert.All(headings, heading => Assert.Equal("col", heading.GetAttribute("scope")));
 
         // One cell per heading, in the same order. Nothing in the component can
@@ -797,9 +796,12 @@ public sealed class ToolsPaneTests
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
-        var labels = pane.FindAll("[data-testid='tools-row-hosts']").Select(badge => badge.TextContent).ToArray();
+        // One chip per host, beside the name.
+        var labels = pane.FindAll("[data-testid='tools-row-hosts']")
+            .Select(chips => string.Join("|", chips.QuerySelectorAll(".tools-inventory__hosts").Select(chip => chip.TextContent.Trim())))
+            .ToArray();
 
-        Assert.Equal(["Copilot + Claude", "Claude", "Copilot"], labels);
+        Assert.Equal(["Copilot|Claude", "Claude", "Copilot"], labels);
     }
 
     /// <summary>An application is machine software, not a registration with an AI
@@ -942,7 +944,7 @@ public sealed class ToolsPaneTests
         using var context = Context(FakeDevToolService.With(Marketplace(known)));
 
         var pane = context.Render<ToolsPane>();
-        var updateAll = pane.FindAll(".tools-panel__toolbar-actions button")[1];
+        var updateAll = pane.Find("[data-testid='tools-update-all']");
 
         Assert.Equal(expectDisabled, updateAll.HasAttribute("disabled"));
     }
@@ -1134,12 +1136,15 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
         var kinds = pane.FindAll("[data-testid='tools-kind']");
 
+        // One tab per kind, every one drawn whether or not it holds rows, with the
+        // rows confirmed by hand split off as the Checklist.
         Assert.Equal(
-            [nameof(DevToolKind.Plugin), nameof(DevToolKind.McpServer), nameof(DevToolKind.Application)],
+            [nameof(DevToolKind.Plugin), nameof(DevToolKind.Marketplace), nameof(DevToolKind.McpServer), nameof(DevToolKind.Application), "Checklist"],
             kinds.Select(section => section.GetAttribute("data-tool-kind")));
-        Assert.Contains("Plugins", kinds[0].TextContent, StringComparison.Ordinal);
-        Assert.Contains("MCP servers", kinds[1].TextContent, StringComparison.Ordinal);
-        Assert.Contains("Applications", kinds[2].TextContent, StringComparison.Ordinal);
+        Assert.NotNull(kinds[0].QuerySelector("[data-tool-key='plugin:architecture']"));
+        Assert.NotNull(kinds[2].QuerySelector("[data-tool-key='mcp:Guidelines']"));
+        Assert.NotNull(kinds[3].QuerySelector("[data-tool-key='app:Git.Git']"));
+        Assert.NotNull(kinds[1].QuerySelector("[data-testid='tools-kind-empty']"));
     }
 
     /// <summary>Within the applications the entry's own group is the sub-heading.
@@ -1270,7 +1275,10 @@ public sealed class ToolsPaneTests
         Assert.Equal(expected, InstalledValue(pane));
         Assert.Equal(expected, pane.Find(".tools-inventory__action-note").TextContent);
         Assert.DoesNotContain("Version unknown", pane.Markup, StringComparison.Ordinal);
-        Assert.DoesNotContain("Up to date", pane.Markup, StringComparison.Ordinal);
+        // The status chip may say the row matches the catalog; the version-shaped
+        // cells may not claim a version nobody looked up.
+        Assert.DoesNotContain("Up to date", pane.Find(".tools-inventory__actions").TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Up to date", InstalledValue(pane), StringComparison.Ordinal);
     }
 
     /// <summary>Two of the checklist rows declare an install of their own — a git
@@ -1473,7 +1481,7 @@ public sealed class ToolsPaneTests
     /// <summary>One application row, as the port would answer it. Ungrouped by
     /// default, because an ungrouped kind is always open and a test about an
     /// action cell should not also be a test about a disclosure.</summary>
-    private static DevToolInfo Application(
+    internal static DevToolInfo Application(
         string id,
         string name,
         string? group = null,
@@ -1501,7 +1509,7 @@ public sealed class ToolsPaneTests
 
     /// <summary>A row nothing can probe: its detected state is the acknowledgement
     /// and nothing else.</summary>
-    private static DevToolInfo ManualApplication(bool acknowledged) =>
+    internal static DevToolInfo ManualApplication(bool acknowledged) =>
         Application(
             "office-signed-in",
             "Office apps activated and signed in",
@@ -1535,8 +1543,7 @@ public sealed class ToolsPaneTests
 
         // And nothing for "Update all" to act on either, which is the toolbar's
         // half of the same claim.
-        var updateAll = pane.FindAll(".tools-panel__toolbar-actions button")
-            .Single(button => button.TextContent.Contains("Update all", StringComparison.Ordinal));
+        var updateAll = pane.Find("[data-testid='tools-update-all']");
         Assert.True(updateAll.HasAttribute("disabled"));
     }
 
@@ -1594,7 +1601,8 @@ public sealed class ToolsPaneTests
 
         SectionHeaderAdoptionTests.AssertPaneHeader(header, "tools-panel", "installed-tools-title");
         SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "tools-panel");
-        Assert.NotNull(header.QuerySelector(".tools-panel__header-actions .tools-panel__count"));
+        Assert.NotNull(header.QuerySelector(".tools-panel__header-actions [data-testid='tools-host-filter']"));
+        Assert.Equal("No catalog on this machine", header.QuerySelector("[data-testid='tools-checked']")!.TextContent.Trim());
     }
 
     /// <summary>
@@ -1788,7 +1796,7 @@ public sealed class ToolsPaneTests
         };
     }
 
-    private static BunitContext Context(IDevToolService service)
+    internal static BunitContext Context(IDevToolService service)
     {
         var context = new BunitContext();
 
@@ -1798,7 +1806,7 @@ public sealed class ToolsPaneTests
         return context;
     }
 
-    private static DevToolInfo Tool(string key, string name) => new(
+    internal static DevToolInfo Tool(string key, string name) => new(
         key,
         key.StartsWith("plugin:", StringComparison.Ordinal) ? DevToolKind.Plugin : DevToolKind.McpServer,
         name,
@@ -1914,7 +1922,7 @@ public sealed class ToolsPaneTests
 
     /// <summary>A port that records what it was asked and answers from a fixed
     /// catalog. A record so a test can vary one field of it without a builder.</summary>
-    private sealed record FakeDevToolService : IDevToolService
+    internal sealed record FakeDevToolService : IDevToolService
     {
         public const string RefusalMessage = "The catalog is read-only on this machine.";
 
