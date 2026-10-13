@@ -858,6 +858,70 @@ public sealed class TaskReplicaMergeTests
         Assert.Equal("medium", payload.Priority);
     }
 
+    // --- What the log says arrived ----------------------------------------------
+
+    /// <summary>A page is recorded as one change to the log, so the footer
+    /// redraws once per page rather than once per document written.</summary>
+    [Fact]
+    public async Task A_page_is_recorded_with_one_change_to_the_log()
+    {
+        var activity = new SyncActivityLog();
+        var raised = 0;
+        activity.Changed += () => raised++;
+
+        var page = new[] { "One", "Two", "Three" }
+            .Select((title, i) => TaskChanges.Record(TaskChanges.Change(title, Noon.AddMinutes(i)), Earlier, serverTimestamp: 100 + i))
+            .ToArray();
+
+        var outcome = await new TaskReplicaMerge(new InMemoryTaskStore(), activity: activity)
+            .ApplyAsync(page, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, outcome.Applied);
+        Assert.Equal(1, raised);
+        Assert.Equal(["One", "Three", "Two"], activity.Snapshot().Select(entry => entry.Title).Order().ToArray());
+    }
+
+    /// <summary>What a page wrote before a write failed did land, so the log
+    /// still lists it: recorded once the page stops, however it stops.</summary>
+    [Fact]
+    public async Task What_a_page_wrote_before_a_write_failed_is_still_recorded()
+    {
+        var activity = new SyncActivityLog();
+        var raised = 0;
+        activity.Changed += () => raised++;
+
+        var failing = TaskChanges.Change("Cannot be saved", Noon.AddMinutes(2));
+        var page = new[]
+        {
+            TaskChanges.Record(TaskChanges.Change("Saved first", Noon), Earlier, serverTimestamp: 100),
+            TaskChanges.Record(TaskChanges.Change("Saved second", Noon.AddMinutes(1)), Earlier, serverTimestamp: 101),
+            TaskChanges.Record(failing, Earlier, serverTimestamp: 102),
+        };
+
+        var merge = new TaskReplicaMerge(new SaveFailingTaskStore(new InMemoryTaskStore(), failing.Id), activity: activity);
+
+        await Assert.ThrowsAsync<IOException>(() => merge.ApplyAsync(page, TestContext.Current.CancellationToken));
+
+        Assert.Equal(1, raised);
+        Assert.Equal(["Saved first", "Saved second"], activity.Snapshot().Select(entry => entry.Title).Order().ToArray());
+    }
+
+    /// <summary>The store, failing the save of one task the way a full disk or a
+    /// locked database file would.</summary>
+    private sealed class SaveFailingTaskStore(InMemoryTaskStore inner, Guid failing) : ITaskRepository
+    {
+        public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default) =>
+            task.Id == failing ? throw new IOException("The disk is full.") : inner.SaveAsync(task, cancellationToken);
+
+        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) => inner.GetAsync(id, cancellationToken);
+
+        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) => inner.GetIncludingDeletedAsync(id, cancellationToken);
+
+        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) => inner.ListAsync(cancellationToken);
+
+        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken = default) => inner.ListChangedSinceAsync(since, cancellationToken);
+    }
+
     // --- What a pulled write is not ---------------------------------------------
 
     /// <summary>

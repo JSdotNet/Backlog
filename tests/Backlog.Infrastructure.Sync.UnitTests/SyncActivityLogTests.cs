@@ -101,6 +101,119 @@ public sealed class SyncActivityLogTests
         Assert.Equal(2, log.Snapshot().Count);
     }
 
+    // --- A batch at a time ------------------------------------------------------
+
+    /// <summary>A first sync moves hundreds of documents, and the footer copies
+    /// the whole window and redraws on every <c>Changed</c>. A batch recorded at
+    /// once is one redraw, however many documents it names.</summary>
+    [Fact]
+    public void Recording_a_batch_raises_Changed_once()
+    {
+        var log = new SyncActivityLog();
+        var raised = 0;
+        log.Changed += () => raised++;
+
+        log.RecordRange(
+        [
+            log.Entry(SyncDirection.Sent, SyncItemKind.Task, "a", "First"),
+            log.Entry(SyncDirection.Sent, SyncItemKind.Task, "b", "Second"),
+            log.Entry(SyncDirection.Sent, SyncItemKind.Task, "c", "Third"),
+        ]);
+
+        Assert.Equal(1, raised);
+        Assert.Equal(3, log.Count);
+    }
+
+    [Fact]
+    public void An_empty_batch_raises_nothing()
+    {
+        var log = new SyncActivityLog();
+        var raised = 0;
+        log.Changed += () => raised++;
+
+        log.RecordRange([]);
+
+        Assert.Equal(0, raised);
+        Assert.Empty(log.Snapshot());
+    }
+
+    /// <summary>The footer reads the window the same way whichever call filled
+    /// it: a batch is read back newest first, its last entry on top, above
+    /// what was there before.</summary>
+    [Fact]
+    public void A_batch_reads_back_as_if_its_entries_had_been_recorded_one_by_one()
+    {
+        var log = new SyncActivityLog();
+        log.Record(SyncDirection.Received, SyncItemKind.Task, "earlier", "Earlier");
+
+        log.RecordRange(
+        [
+            log.Entry(SyncDirection.Sent, SyncItemKind.Task, "a", "First"),
+            log.Entry(SyncDirection.Sent, SyncItemKind.Task, "b", "Second", "deleted"),
+            log.Entry(SyncDirection.Sent, SyncItemKind.Task, "c", "Third"),
+        ]);
+
+        var entries = log.Snapshot();
+
+        Assert.Equal(["Third", "Second", "First", "Earlier"], entries.Select(entry => entry.Title).ToArray());
+        Assert.Equal("deleted", entries[1].Note);
+    }
+
+    [Fact]
+    public void A_batch_larger_than_the_window_keeps_its_newest_entries()
+    {
+        var log = new SyncActivityLog();
+
+        log.RecordRange(
+        [
+            .. Enumerable.Range(0, SyncActivityLog.Capacity + 5)
+                .Select(i => log.Entry(SyncDirection.Sent, SyncItemKind.Task, i.ToString(), $"Task {i}")),
+        ]);
+
+        var entries = log.Snapshot();
+
+        Assert.Equal(SyncActivityLog.Capacity, entries.Count);
+        Assert.Equal(SyncActivityLog.Capacity, log.Count);
+        Assert.Equal($"Task {SyncActivityLog.Capacity + 4}", entries[0].Title);
+        Assert.Equal("Task 5", entries[^1].Title);
+    }
+
+    /// <summary>One redraw, but still one line per document: the dashboard
+    /// filters on the lines, and a batch folded into one would hide which
+    /// documents it carried.</summary>
+    [Fact]
+    public void Every_entry_of_a_batch_is_written_to_the_logger()
+    {
+        var logger = new CapturingLogger();
+        var log = new SyncActivityLog(logger);
+
+        log.RecordRange(
+        [
+            log.Entry(SyncDirection.Received, SyncItemKind.Note, "n-1", "Standup", "edited"),
+            log.Entry(SyncDirection.Received, SyncItemKind.Capture, "c-1", "Buy milk"),
+        ]);
+
+        Assert.Equal(2, logger.Lines.Count);
+        Assert.Equal("n-1", logger.Lines[0].Properties["ItemId"]);
+        Assert.Contains("(edited)", logger.Lines[0].Message, StringComparison.Ordinal);
+        Assert.Equal("c-1", logger.Lines[1].Properties["ItemId"]);
+    }
+
+    /// <summary>An entry built for a batch carries the log's clock, the way
+    /// <see cref="SyncActivityLog.Record(SyncDirection, SyncItemKind, string, string, string?)"/>
+    /// stamps one.</summary>
+    [Fact]
+    public void An_entry_the_log_builds_is_stamped_by_its_clock()
+    {
+        var clock = new FakeTimeProvider(Noon);
+        var log = new SyncActivityLog(time: clock);
+
+        var entry = log.Entry(SyncDirection.Sent, SyncItemKind.Session, "s", "A session");
+
+        Assert.Equal(new SyncActivityEntry(Noon, SyncDirection.Sent, SyncItemKind.Session, "s", "A session"), entry);
+        Assert.Empty(log.Snapshot());
+    }
+
     private sealed class CapturingLogger : ILogger<SyncActivityLog>
     {
         public List<(LogLevel Level, string Message, Dictionary<string, object?> Properties)> Lines { get; } = [];

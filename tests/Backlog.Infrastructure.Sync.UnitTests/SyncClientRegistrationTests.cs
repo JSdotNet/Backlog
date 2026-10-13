@@ -1,9 +1,15 @@
+using System.Net;
+
+using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Options;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -277,6 +283,163 @@ public class SyncClientRegistrationTests
         using var provider = Build(services);
 
         Assert.NotNull(provider.GetRequiredService<SessionSyncSession>());
+    }
+
+    // --- The replication clients' pipeline ---------------------------------------
+
+    /// <summary>
+    /// A push that fails is sent once. A 503 on a push does not say the batch did
+    /// not land, and a second send of a batch that did reaches a replica already
+    /// holding every item, which refuses them all as not later and answers an
+    /// accepted count short of what landed. Asserted with the host's default
+    /// pipeline applied, because that default is what used to send it again.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(TaskSyncClient))]
+    [InlineData(nameof(SessionSyncClient))]
+    [InlineData(nameof(AnnotationSyncClient))]
+    public async Task A_push_that_fails_is_sent_once(string client)
+    {
+        var wire = new StubHttpMessageHandler((_, _) => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        using var provider = ReplicationHost(client, wire);
+
+        var pushed = await PushAsync(provider, client);
+
+        Assert.True(pushed.IsFailure);
+        Assert.Single(wire.Requests);
+    }
+
+    /// <summary>A pull is a read and safe to send again, so a transient refusal is
+    /// still retried: the pipeline is narrowed for the push, not taken away.</summary>
+    [Theory]
+    [InlineData(nameof(TaskSyncClient))]
+    [InlineData(nameof(SessionSyncClient))]
+    [InlineData(nameof(AnnotationSyncClient))]
+    public async Task A_pull_that_fails_is_retried(string client)
+    {
+        var wire = new StubHttpMessageHandler((_, _) => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        using var provider = ReplicationHost(client, wire);
+
+        var pulled = await PullAsync(provider, client);
+
+        Assert.True(pulled.IsFailure);
+        Assert.True(wire.Requests.Count > 1, $"Expected a retry, saw {wire.Requests.Count} request(s).");
+    }
+
+    /// <summary>A push of a full batch against a cold replica can run past the
+    /// host default's ten seconds an attempt, and a push cancelled there is a
+    /// push that may still land. One long attempt is waited out instead.</summary>
+    [Theory]
+    [InlineData(nameof(TaskSyncClient))]
+    [InlineData(nameof(SessionSyncClient))]
+    [InlineData(nameof(AnnotationSyncClient))]
+    public void A_push_is_given_one_long_attempt(string client)
+    {
+        using var provider = ReplicationHost(client, new StubHttpMessageHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK)));
+
+        var options = provider.GetRequiredService<IOptionsMonitor<HttpStandardResilienceOptions>>().Get(PipelineOptions(client));
+        var http = provider.GetRequiredService<IHttpClientFactory>().CreateClient(client);
+
+        Assert.True(options.AttemptTimeout.Timeout >= TimeSpan.FromSeconds(100), $"Attempt timeout was {options.AttemptTimeout.Timeout}.");
+        Assert.True(options.TotalRequestTimeout.Timeout >= options.AttemptTimeout.Timeout);
+        Assert.True(options.CircuitBreaker.SamplingDuration >= options.AttemptTimeout.Timeout * 2);
+
+        // HttpClient.Timeout wraps the whole handler chain, the pipeline and the
+        // token fetch included, so it has to outlast the pipeline's own total or
+        // it is the budget that applies. Finite, though: guideline ADR 0015 has
+        // no infinite timeouts.
+        Assert.True(http.Timeout > options.TotalRequestTimeout.Timeout, $"HttpClient.Timeout was {http.Timeout}.");
+        Assert.NotEqual(Timeout.InfiniteTimeSpan, http.Timeout);
+    }
+
+    /// <summary>A push the pipeline gives up on ends as the clients' existing
+    /// unreachable result, the way a refused connection does, rather than as the
+    /// pipeline's own exception escaping into the loop's catch-all.</summary>
+    [Theory]
+    [InlineData(nameof(TaskSyncClient))]
+    [InlineData(nameof(SessionSyncClient))]
+    [InlineData(nameof(AnnotationSyncClient))]
+    public async Task A_push_the_pipeline_times_out_is_an_unreachable_result(string client)
+    {
+        using var provider = ReplicationHost(client, new HangingHandler(), options =>
+        {
+            options.AttemptTimeout.Timeout = TimeSpan.FromMilliseconds(100);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromMilliseconds(500);
+        });
+
+        var pushed = await PushAsync(provider, client);
+
+        Assert.True(pushed.IsFailure);
+        Assert.Equal(DevicePairingClient.UnreachableCode, pushed.Error.Code);
+    }
+
+    /// <summary>The options name <c>AddStandardResilienceHandler</c> gives a typed
+    /// client's pipeline: the client's type name, which is its client name.</summary>
+    private static string PipelineOptions(string client) => client + "-standard";
+
+    /// <summary>
+    /// The three replication clients as a desktop head composes them, under the
+    /// pipeline <c>AddServiceDefaults()</c> puts on every client, with only the
+    /// wire under <paramref name="client"/> swapped and its retry delay zeroed so a
+    /// retry costs no time. No credential is stored, so the requests go out
+    /// unauthenticated and the token endpoint is never asked. A test that needs a
+    /// short clock moves the budgets on that pipeline's own options through
+    /// <paramref name="adjust"/>.
+    /// </summary>
+    private static ServiceProvider ReplicationHost(string client, HttpMessageHandler wire, Action<HttpStandardResilienceOptions>? adjust = null)
+    {
+        var services = new ServiceCollection();
+        services.ConfigureHttpClientDefaults(http => http.AddStandardResilienceHandler());
+        services.AddSingleton<IDeviceCredentialStore>(new InMemoryDeviceCredentialStore());
+        services.AddSyncClient(SyncAddress);
+        services.AddTaskSyncClient(SyncAddress);
+        services.AddSessionSyncClient(SyncAddress);
+        services.AddAnnotationSyncClient(SyncAddress);
+        services.AddHttpClient(client).ConfigurePrimaryHttpMessageHandler(() => wire);
+        services.PostConfigure<HttpStandardResilienceOptions>(PipelineOptions(client), options =>
+        {
+            options.Retry.Delay = TimeSpan.Zero;
+            adjust?.Invoke(options);
+        });
+
+        return services.BuildServiceProvider();
+    }
+
+    private static async Task<Result> PushAsync(IServiceProvider provider, string client)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        return client switch
+        {
+            nameof(TaskSyncClient) => await provider.GetRequiredService<TaskSyncClient>().PushAsync([], cancellationToken),
+            nameof(SessionSyncClient) => await provider.GetRequiredService<SessionSyncClient>().PushAsync([], cancellationToken),
+            nameof(AnnotationSyncClient) => await provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
+        };
+    }
+
+    private static async Task<Result> PullAsync(IServiceProvider provider, string client)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        return client switch
+        {
+            nameof(TaskSyncClient) => await provider.GetRequiredService<TaskSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
+            nameof(SessionSyncClient) => await provider.GetRequiredService<SessionSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
+            nameof(AnnotationSyncClient) => await provider.GetRequiredService<AnnotationSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
+        };
+    }
+
+    /// <summary>The sync service not answering: the request waits until it is
+    /// cancelled.</summary>
+    private sealed class HangingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new InvalidOperationException("Unreachable.");
+        }
     }
 
     /// <summary>The composition a desktop head makes, with the two session stores in
