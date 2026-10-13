@@ -125,15 +125,29 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         }
 
         var children = EnumerateChildren(tree, folder, folder, areaKey, DevbookMenuOutline.None, cancellationToken, skipDotEntries: true);
+        IEnumerable<DevbookMenuNode> rebased = children.Select(child => RebaseOnBrain(child, area.Folder, areaKey));
+        if (BrainConventions.IsDated(area)) rebased = NewestFirst(rebased);
+
         return new DevbookMenuNode(
             areaKey,
             area.Name,
             area.Folder,
             DevbookMenuNodeKind.Folder,
             areaKey,
-            [.. children.Select(child => RebaseOnBrain(child, area.Folder, areaKey))],
+            [.. rebased],
             true);
     }
+
+    /// <summary>
+    /// A dated area's rows, newest first at every level ("Journal sorts newest
+    /// first", the Devbook vs Brain board). A journal names its entries by date —
+    /// <c>2026-10-13.md</c>, or <c>2026/10/13.md</c> — so the name on disk,
+    /// descending, is the date descending; nothing is read from the files.
+    /// </summary>
+    private static IEnumerable<DevbookMenuNode> NewestFirst(IEnumerable<DevbookMenuNode> nodes) =>
+        nodes
+            .OrderByDescending(node => node.Key[(node.Key.LastIndexOf('/') + 1)..], StringComparer.OrdinalIgnoreCase)
+            .Select(node => node.Children.Count == 0 ? node : node with { Children = [.. NewestFirst(node.Children)] });
 
     /// <summary>A node listed relative to its area folder, re-keyed under the
     /// area's key and re-pathed relative to the Brain's root.</summary>

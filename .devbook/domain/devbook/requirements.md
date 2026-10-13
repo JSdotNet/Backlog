@@ -278,6 +278,22 @@ The system SHALL show one tab per area `CONVENTIONS.md` declares, in its order, 
 - **When** the pane shows the Brain
 - **Then** it shows the tabs of the PARA set
 
+### Requirement: A dated area lists newest first
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.The_journal_tab_lists_and_opens_the_newest_entry_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.The_journal_sorts_newest_first_at_every_level_and_other_areas_by_name, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.An_area_conventions_marks_as_dated_sorts_newest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.A_dated_area_is_the_journal_or_one_its_holds_line_calls_dated]
+```
+
+The system SHALL list the notes of a dated area — the `journal` folder, or an area whose `Holds` line says *dated* — newest first by name, at every level, and every other area by name.
+
+#### Scenario: The journal
+
+- **Given** a journal holding `2026-09-30.md`, `2026-10-01.md` and `2026-10-13.md`
+- **When** the reader opens the Journal tab
+- **Then** the menu lists `2026-10-13.md` first and the pane opens it
+
 ### Requirement: The switch leaves the task filter alone
 
 ```meta
@@ -416,6 +432,22 @@ The system SHALL list under a repository chapter the owner's Brain notes that li
 - **Given** two Brain notes link to a chapter of `backlog`
 - **When** the reader opens that chapter
 - **Then** a From your Brain box lists both notes with Only you see this, and the repository's working tree is unchanged
+
+### Requirement: A backlink opens the note in the Brain
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_from_your_brain_item_is_a_link_that_opens_the_note_on_the_brain_side, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_host_that_cannot_switch_the_pane_lists_the_notes_as_text]
+```
+
+The system SHALL open a note listed in a From your Brain box on the Brain side of the pane when the reader follows it, and leave the header's scope and the task filter unchanged.
+
+#### Scenario: Scope: backlog
+
+- **Given** the scope is `backlog` alone and a chapter's From your Brain box lists `projects/plan.md`
+- **When** the reader follows that note
+- **Then** the pane shows the note on the Brain, and the scope is still `backlog`
 
 ## Unified search
 

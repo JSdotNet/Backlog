@@ -34,6 +34,10 @@ Organize notes into the areas the Brain's `CONVENTIONS.md` declares, one top
 folder each, shown as one tab each. A Brain that declares none uses the PARA set:
 an inbox for what is not filed yet, Projects (active, deadline), Areas
 (ongoing), Resources (reference), People, a Journal, and Archive (inactive).
+A dated area lists newest first: the `journal` folder, or any area whose
+`Holds` line in `CONVENTIONS.md` says *dated*. Its entries are named by date, so
+the name descending is the date descending, at every level of the folder; every
+other area lists by name.
 Moving a note to another area is moving its file to another folder; a note may
 name its area in its `para` field instead, which wins over the folder.
 
@@ -165,6 +169,11 @@ On the Brain, and while the switch shows, the pane names itself *Devbook* at the
 start of its tab strip. The switch sits right after the title, so it stays in
 place as the badge and the path come and go.
 
+The pane's own width decides its layout, not the window's. Narrower than a menu
+beside a readable column, as at the side pane's minimum, the menu sits above the
+note, capped so the note still starts on screen, and a note's title wraps above
+its path rather than ending in an ellipsis.
+
 With no folder set up yet, the pane on the Brain asks for one. A folder that is
 set but missing, or is not a path, says so in words and shows no tabs. A
 declared area whose folder does not exist yet still has its tab, and the tab
@@ -204,8 +213,10 @@ this*: it reads the owner's own Brain database, and nothing is written into the
 repository, so personal notes never reach shared history. A link to any
 heading of the chapter's file counts. Each note is listed once: under the
 first chapter it links from, when every link it has sits in a chapter, and on
-its own when one is in its `related` or its prose outside every chapter. A chapter no note links to draws no box. A repository devbook has no way
-to link into a Brain.
+its own when one is in its `related` or its prose outside every chapter. A chapter no note links to draws no box. Each note in the box is a link:
+following it puts the note on the Brain side of the pane, the way a Brain
+search result does, and leaves the header's scope and the task filter alone.
+A repository devbook has no way to link into a Brain.
 
 ## Unified search
 
@@ -250,7 +261,10 @@ repository gather in one group named for that alias. One chapter is one node,
 whichever devbook layout or alias case a note wrote it in. A link this machine
 can follow is a solid edge to a filled node. One it cannot is a dashed edge to a
 hollow node, like its chip. The atlas reads no repository: what a repository
-node shows is the link's own words.
+node shows is the link's own words. An edge's label sits at the middle of its
+curve unless that overlaps a node, a node's label, or another edge's label; it
+then steps along the curve or just above or below it, and an edge with no free
+seat goes unlabelled, because the node labels are what the reader navigates by.
 
 Selecting a repository node shows the link's chip. A gold chip opens that
 repository's devbook at the chapter, as a chip in a note does. A dashed one says
