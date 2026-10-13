@@ -406,6 +406,15 @@ sync path — a known id is a replay, not a duplicate — is what makes a second
 press of Capture free, with no seen-store of its own. See
 `.devbook/domain/context-map.md#strategic-rules`.
 
+**The Settings screen** is the shell's, `Settings.razor` in
+`Backlog.Desktop.UI/Settings`, and it is a tab host. Its five app-wide pages —
+Features, AI, Storage, Accounts and Repositories — are one component each
+beside it, so a change to one page is a change to one file. What more than one
+page reads is a `SettingsScreenContext` the screen owns and hands to every
+page: how this machine reaches GitHub, which logins the GitHub CLI holds, and
+that a feature was switched. The modules' pages follow the app-wide ones as
+registered sections, and every page is kept alive across tab switches.
+
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the
 pairing code, and forgets a device. It also holds the sync service address and

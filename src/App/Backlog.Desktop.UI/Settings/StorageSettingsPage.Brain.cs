@@ -3,7 +3,6 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.UI.Components.Brain;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.JSInterop;
 
 // The component's published namespace, not the folder's: see the note at the top
 // of Settings.razor for why the two must differ.
@@ -15,18 +14,13 @@ namespace Backlog.Desktop.UI.Shell;
 /// what it holds, and <b>Create conventions</b>.
 /// <para>
 /// A partial of its own because the card's state is self-contained and the
-/// screen's file is long enough already. The three collaborators are read off the
+/// page's file is long enough already. The three collaborators are read off the
 /// service provider rather than injected, the way the backup worker is: a host
-/// that composes no Brain setting still renders the screen, and draws no card.
+/// that composes no Brain setting still renders the page, and draws no card.
 /// </para>
 /// </summary>
-public partial class Settings
+public partial class StorageSettingsPage
 {
-    /// <summary>The page a link opened this screen at — <c>settings?page=storage</c>
-    /// — or null for the default one.</summary>
-    [SupplyParameterFromQuery(Name = "page")]
-    public string? Page { get; set; }
-
     private IBrainSettings? _brainSettings;
     private BrainFolderSetup? _brainSetup;
     private IBrainFolderPicker? _brainPicker;
@@ -55,7 +49,7 @@ public partial class Settings
     /// <summary>Looks at the folder again. Asked when the card is drawn and after
     /// every act on it, so a file somebody added by hand since is noticed the next
     /// time Storage is opened.</summary>
-    private void RefreshBrainStatus()
+    internal void RefreshBrainStatus()
     {
         if (_brainSettings?.BrainFolder is not { } folder || _brainSetup is null)
         {
@@ -139,24 +133,6 @@ public partial class Settings
         return result.Kept.Count == 0
             ? written + "."
             : written + ". Everything already there was left as it was.";
-    }
-
-    /// <summary>Brings the card's field into view and focus when a link opened
-    /// the screen at the Brain card - the chip's "Set up your Brain" - so the
-    /// first thing in front of the person is the field they came to fill.</summary>
-    private async Task RevealBrainCardAsync()
-    {
-        if (_brainSettings is null || _activePage is not SettingsPage.Storage) return;
-        if (!new Uri(Navigation.Uri).Fragment.Equals("#" + BrainSetup.CardId, StringComparison.OrdinalIgnoreCase)) return;
-
-        try
-        {
-            await JS.InvokeVoidAsync("backlogFocus", BrainSetup.CardId + "-input");
-        }
-        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
-        {
-            // Bringing the card into view is a courtesy; the page is already on it.
-        }
     }
 
     private void OnBrainSettingsChanged() => _ = InvokeAsync(() =>
