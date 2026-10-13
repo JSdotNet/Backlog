@@ -29,6 +29,7 @@ status: draft
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
 | Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
+| Progress | Supporting | It lays sprints over a set of repositories and reports what each set out to do and how it ended, naming tasks by id and plans by tag without owning either. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
 
 ## Context map
@@ -47,6 +48,7 @@ flowchart LR
     Repo[Repository Management]
     DevPC[Dev PC Management]
     Sessions[Sessions]
+    Progress[Progress]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
     %% Inbox -> Tasks is built as an in-process port (IInboxBacklogTarget in
@@ -94,6 +96,13 @@ flowchart LR
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
+
+    %% Progress. All four edges are in-process reads; Progress publishes no
+    %% event. See .devbook/domain/progress/context.md and local ADR 0028.
+    Tasks -->|Customer/Supplier<br/>Task by id: status, tags, plan tag, linked pull requests| Progress
+    Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary| Progress
+    Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Progress
+    Progress -->|Customer/Supplier<br/>Open sprint and goal for the briefs| Monitor
 ```
 
 ## Published languages and contracts
@@ -181,3 +190,10 @@ flowchart LR
   the product-wide device identity issued by the shared kernel
   (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns. That
   identity is still not Dev PC Management's Machine, so the rule stands unchanged.
+- `Progress` names a task by its id and a plan by its
+  [plan tag](roadmap/domain.md#roadmap-tag), and reads both from their owners
+  on every reading. `Tasks` holds no knowledge of sprints: no task field, tag,
+  status or entry-text token names one, and no close outcome changes a task
+  (`.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
+  Progress publishes no event, so it has no row in the published-language table;
+  its four edges are Customer/Supplier reads.
