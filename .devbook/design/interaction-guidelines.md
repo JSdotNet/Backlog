@@ -4,14 +4,20 @@
 related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-everywhere", ".devbook/design/accessibility.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-> Binding interaction rules for the Backlog product: auto-save (there are no save
-> buttons), drag-and-drop reordering of both items and chapters with mandatory
-> keyboard equivalents, feedback/toasts, motion and reduced-motion, the
-> empty/loading/error state patterns, the desktop shell's header, panes and
-> group shapes, and the combobox. Motion tokens and interaction patterns were
-> adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
-> `09-interaction-patterns`); conflict handling aligns with the last-write-wins
-> rule in `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
+> Binding interaction rules for the Backlog product. They cover:
+>
+> - auto-save, since there are no save buttons;
+> - drag-and-drop reordering of items and chapters, with mandatory keyboard
+>   equivalents;
+> - feedback and toasts, motion and reduced motion;
+> - the empty, loading and error state patterns;
+> - the desktop shell's header, panes and group shapes;
+> - the combobox, action density and overflow, and timelines.
+>
+> Motion tokens and interaction patterns were adapted from the JSdotNet design
+> style guide (`04-motion-and-interaction`, `09-interaction-patterns`). Conflict
+> handling follows the last-write-wins rule in
+> `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
 > declared in `color-scheme.md` and `typography-and-layout.md`.
 
 ## Auto-Save (No Save Buttons)
@@ -20,8 +26,9 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-everywhere", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-There is **no manual save anywhere in the product**. Every edit persists
-automatically to the local canonical store first (local-first), then syncs.
+The rule that the product has no save affordance is
+`design-principles.md#no-save-buttons--auto-save-everywhere`'s. This section
+specifies how auto-save behaves.
 
 ### Save Timing and Debounce
 
@@ -30,7 +37,6 @@ automatically to the local canonical store first (local-first), then syncs.
 
 | Rule | Requirement |
 |---|---|
-| No save affordance | There MUST NOT be a Save button, menu item, or save-only keyboard gesture as the means of persistence. |
 | Text debounce | Continuous text edits MUST auto-save on a **debounce of 500 ms–1000 ms** after the last keystroke (recommended default 750 ms). |
 | Idle/blur flush | A pending save MUST be flushed immediately on field/editor **blur**, on navigation away, and on app background/close. |
 | Discrete actions | Discrete changes (reorder, toggle, checkbox, metadata edit, drop) MUST save **immediately** (no debounce). |
@@ -72,13 +78,10 @@ Rules:
   it settles to a quiet `color-text-secondary` state.
 - State transitions use motion per `#motion-and-reduced-motion`.
 - Screen-reader announcements for save state are specified in
-  `accessibility.md#screen-reader-announcements`.
+  `accessibility.md#screen-reader--announcements`.
 
-The shared `SaveIndicator` component carries three of these five states —
-`Saving` (`Saving...`), `Saved`, and `Failed` (`Could not save`) — plus an
-`Idle` state that renders nothing at all, which is how a surface with no edit in
-flight stays quiet. `Offline` and `Conflict` are specified above but not yet
-built; see `#materialization`.
+What the shared `SaveIndicator` builds of this vocabulary is in
+[Materialization](#materialization).
 
 ### Undo and History
 
@@ -118,10 +121,10 @@ related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/desi
 The product supports reordering of **two distinct things**, both with the same
 affordance language and both with mandatory keyboard equivalents:
 
-1. **Items** — files/entries in a list (e.g. tasks, inbox items,
-   knowledge notes).
-2. **Chapters** — headings/sections *within a document* (reordering a `##`
-   section moves it and all its nested content).
+1. **Items:** files or entries in a list, such as tasks, inbox items and
+   knowledge notes.
+2. **Chapters:** headings and their sections *within a document*. Reordering a
+   `##` section moves it with all its nested content.
 
 ### Drag Affordances
 
@@ -178,7 +181,7 @@ both items and chapters.
 | Grab/move model | Focus the handle, press **Space/Enter** to "pick up", **Arrow Up/Down** to move, **Space/Enter** to drop, **Escape** to cancel and restore. |
 | Explicit move commands | Additionally provide **Move up / Move down** (and **Move to top / bottom**) commands via the item's context menu and the command palette, mapped to keyboard shortcuts. |
 | Chapter indent | For chapters, **Arrow Left/Right** (or Tab/Shift+Tab while picked up) MUST change nesting depth within the allowed range. |
-| Announcements | Every keyboard move MUST announce the new position via a live region (see `accessibility.md#screen-reader-announcements`), e.g. "Moved to position 3 of 8." |
+| Announcements | Every keyboard move MUST announce the new position via a live region (see `accessibility.md#screen-reader--announcements`), e.g. "Moved to position 3 of 8." |
 | Parity | Anything achievable by dragging MUST be achievable by keyboard, including cross-container moves. |
 
 ### Autoscroll
@@ -240,7 +243,7 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 | Roles | Use `role="status"` for success/info toasts and `role="alert"` for warning/error (see `accessibility.md`). |
 | Dismiss | The dismiss control MUST have an accessible label ("Dismiss notification"). |
 | No redundant save toasts | Routine auto-saves MUST NOT spam toasts — the persistent save-state indicator carries that; toasts are for failures and notable events only. |
-| Inline confirmation | Prefer subtle inline confirmation (e.g. a brief `ease-bounce` flash on a saved inline edit) over a toast for small edits. |
+| Inline confirmation | Prefer subtle inline confirmation (e.g. a brief saved-confirmation flash on a saved inline edit, per `#motion-and-reduced-motion`) over a toast for small edits. |
 | Above an open dialog | A toast raised while a `Modal` is open MUST be seen above it. A modal sits in the browser's top layer (`typography-and-layout.md#z-index-scale`), so the tray is lifted into that layer above each modal as it opens and let down when the last one closes. It is visible, not interactive: the modal makes everything outside itself inert, so the dismiss control does not answer until the modal closes, and the toast's own timer still dismisses it. |
 
 ## Motion and Reduced Motion
@@ -363,9 +366,9 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 related: [".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/content-editing.md#task-structure", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
-A task row is the product's densest composition: a completion control, a title
-that can be renamed in place, a metadata line, badges and actions, all on one
-line of a list that may be hundreds long.
+A task row is the product's densest composition. One line holds a completion
+control, a title that can be renamed in place, a metadata line, badges and
+actions, and a list may hold hundreds of such rows.
 
 | Rule | Requirement |
 |---|---|
@@ -463,12 +466,9 @@ related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/de
 
 The desktop shell has one side pane, the Devbook, and it opens beside whichever
 main view is showing (see `#shell-header`). The task list is not a pane: it is
-the Tasks view, which is never closed. That is why no pane has to stay open, and
-why the old pane strip's rules — an exclusive plain press, a Ctrl-press to add
-one beside, a disabled last option, a pin on every option — are gone with it.
-The Inbox was a side pane too, before the main view; it takes the whole screen
-now, because triage reads one item at a time and wants the width (local ADR
-0022, amendment of 2026-10-12).
+the Tasks view, which is never closed, so no pane has to stay open. The Inbox is
+not a side pane either. It takes the whole screen, because triage reads one item
+at a time and wants the width (local ADR 0022, amendment of 2026-10-12).
 
 | Rule | Requirement |
 |---|---|
@@ -486,9 +486,9 @@ related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/de
 ```
 
 A group of pressable options in application chrome is drawn in one of two
-shapes, and the shape says how its options belong together — the one thing about
-a group a reader can see before pressing anything. How many are on at once is
-the pressed state's to say, not the shape's.
+shapes. The shape says how its options belong together, which is the one thing
+about a group a reader can see before pressing anything. How many are on at once
+is the pressed state's to say, not the shape's.
 
 | Rule | Requirement |
 |---|---|
@@ -532,12 +532,21 @@ figure typed, a figure refused).
 related: [".devbook/design/typography-and-layout.md#density", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-An act the product performs on an external tool appears on a task, a
-knowledge chapter, a roadmap bar and inside a menu, and the set of acts does not
-change between them. What changes is how many of them survive the room available.
+This section uses four words in a fixed sense:
 
-Density selects a button shape, a size and a visible budget **together**, as one
-choice rather than three, so the three cannot be set inconsistently.
+- An **act** is one thing the product does on an external tool, drawn as a
+  button or a menu item.
+- The **act set** is every act a subject offers. A task, a knowledge chapter, a
+  roadmap bar and a menu show the same act set.
+- The **visible budget** is how many acts a surface shows before the rest go into
+  an overflow menu.
+- A **primary** act is pinned visible at every density; a **standard** act fills
+  the budget in the order it was given.
+
+The act set does not change between surfaces. What changes is how many acts fit
+the room available. Density selects a button shape, a size and a visible budget
+**together**, as one choice rather than three, so the three cannot be set
+inconsistently.
 
 | Density | Shape | Visible budget |
 |---|---|---|
@@ -554,25 +563,25 @@ Rules:
 - **A primary act is pinned and still counts.** It displaces a standard act rather
   than adding a slot, so the budget is the budget.
 - **A copy is pinned and does not count.** A copy is served by the clipboard
-  component, and a menu item has no clipboard interop — a copy in overflow would
+  component, and a menu item has no clipboard interop. A copy in overflow would
   claim to copy and silently not.
 - An act the host explicitly marked as overflow is removed unconditionally and is
   never pulled back out.
 - **One item never gets a menu.** Where the rule would put exactly one act into
-  overflow, it stays visible and no trigger is rendered: a menu holding a single
+  overflow, it stays visible and no trigger is rendered. A menu holding a single
   item costs a click, hides a label, and buys nothing.
 - **A running act is exempt.** Collapse is recomputed as state changes, and an act
   the reader has just pressed MUST NOT be moved out from under them.
 - **Unavailability never affects placement.** An unavailable act occupies the slot
   it would have occupied, disabled, carrying its reason. A reader who never sees an
-  act concludes the product cannot do it, and files that as a missing feature
-  rather than as an unconnected account.
-- In a menu, where a row has no room for a second line, an unavailable act's
+  act concludes the product cannot do it. They file that as a missing feature,
+  not as an account they have not connected.
+- In a menu a row has no room for a second line. There an unavailable act's
   reason MUST be folded into its label, and the item MUST be skipped by the arrow
   keys rather than focused to refuse.
 - Icon-only means **visually** icon-only. Every control keeps its accessible name,
   and is padded to the ≥ 44 × 44 px target
-  (`accessibility.md#target-sizes-and-text`) even where the glyph is 16 px — so a
+  (`accessibility.md#target-sizes-and-text`) even where the glyph is 16 px. A
   compact cluster is the same touch target with less ink in it.
 
 Review surface: storybook → *Integrations* → **Density and overflow**.
@@ -619,27 +628,32 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
-| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The edge autoscroll is one frame loop for every pointer drag: the Board's card drag and the month calendar's drag (a tray item, a chip, a shelf plan) hand themselves to it — the calendar through `window.backlogDragAutoscroll` — rather than each carrying its own bands and cap. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse**; *Task calendar*, for a drag to a day scrolled out of view |
+| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The edge autoscroll is one frame loop for every pointer drag: the Board's card drag and the month calendar's drag (a tray item, a chip, a shelf plan) hand themselves to it, the calendar through `window.backlogDragAutoscroll`, rather than each carrying its own edge zones and speed cap. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse**; *Task calendar*, for a drag to a day scrolled out of view |
 
 Known gaps:
 
-- **Chapter reorder is unbuilt.** Nothing in the product reorders *chapters
-  within a document*: no grip, no keyboard move, no announcement, in the library
-  or in any host. `#keyboard-accessible-reordering` and the chapter half of
-  `#nesting--indent-rules-chapters` are therefore requirements waiting on an
-  implementation, not a built gesture falling short of them — and there is no
-  review surface to ask for until there is something to review.
-- **The roadmap drag does not autoscroll.** `#autoscroll` is written for any
-  scrollable container, and the task list satisfies it — a band at each edge,
-  a speed that rises with depth into it and stops at a cap. The timeline's own
-  gesture, `backlogRoadmapTimeline`, carries no scroll logic at all, so a bar
-  cannot be dragged past the edge of what the timeline is showing. The rule is
-  unmet there rather than misstated here.
-- **No `Offline` or `Conflict` save state.** The `SaveState` enum stops at
-  `Failed`. Both states are specified in `#save-state-indicator-vocabulary` and
-  both need building before sync ships.
+- **The indicator builds three of the five states, under different words.** The
+  `SaveState` enum is `Idle`, `Saving`, `Saved` and `Failed`. `Idle` renders
+  nothing, which is how a surface with no edit in flight stays quiet. The labels
+  are `Saving...`, `Saved` and `Could not save`, where
+  `#save-state-indicator-vocabulary` names `Saving…`, `Saved` and `Couldn't save`.
+  The vocabulary's `Error` state is the enum's `Failed`.
+- **No `Offline` or `Conflict` save state.** Both states are specified in
+  `#save-state-indicator-vocabulary`, and both need building before sync ships.
 - **The indicator has no icon.** It renders a coloured dot rather than the
-  `check-circle` / `loader-2` / `x-circle` glyphs the vocabulary names, because
-  the product has no icon set yet
-  (`typography-and-layout.md#materialization`). The dot is `aria-hidden`, so the
-  state is carried by the text, not by the colour alone.
+  `check-circle`, `loader-2` and `x-circle` glyphs the vocabulary names, because it
+  has not yet adopted the icon set (`typography-and-layout.md#materialization`).
+  The dot is `aria-hidden`, so the text carries the state and the colour does not
+  carry it alone.
+- **Chapter reorder is unbuilt.** Nothing in the product reorders *chapters
+  within a document*. No grip, keyboard move or announcement exists for it in the
+  library or in any host. `#keyboard-accessible-reordering` and the chapter half of
+  `#nesting--indent-rules-chapters` are therefore requirements waiting on an
+  implementation, not a built gesture falling short of them. There is no review
+  surface to ask for until there is something to review.
+- **The roadmap drag does not autoscroll.** `#autoscroll` is written for any
+  scrollable container, and the task list satisfies it. It has an edge zone at
+  each end of the container, where the scroll speed rises with depth into the zone
+  up to a cap. The timeline's own gesture, `backlogRoadmapTimeline`, carries no
+  scroll logic at all, so a bar cannot be dragged past the edge of what the
+  timeline is showing. The rule is unmet there, not misstated here.

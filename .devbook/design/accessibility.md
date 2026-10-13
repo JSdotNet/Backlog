@@ -4,13 +4,12 @@
 related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".devbook/design/interaction-guidelines.md", ".devbook/design/design-principles.md#keyboard-first"]
 ```
 
-> Target: **WCAG 2.1 Level AA** as a
-> minimum across every channel (desktop — .NET MAUI Blazor Hybrid/WebView2,
-> mobile — .NET MAUI Blazor Hybrid, VS Code / Visual Studio webviews). Because the
-> product is dark-mode-only, keyboard-first, and has no save buttons,
-> accessibility here focuses heavily on keyboard operation, save-
-> state and reorder announcements, focus visibility, and reduced motion. Adapted
-> from the JSdotNet design style guide (`04-motion-and-interaction`,
+> Target: **WCAG 2.1 Level AA** as a minimum across every channel: the desktop
+> and mobile .NET MAUI Blazor Hybrid apps, and the VS Code and Visual Studio
+> webviews. The product is dark-mode-only, keyboard-first, and has no save
+> buttons. Accessibility here therefore focuses on keyboard operation, save-state
+> and reorder announcements, focus visibility, and reduced motion. Adapted from
+> the JSdotNet design style guide (`04-motion-and-interaction`,
 > `06-component-patterns`, `07-iconography`, `09-interaction-patterns`).
 
 ## Target and Scope
@@ -21,7 +20,7 @@ related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".de
 | Rule | Requirement |
 |---|---|
 | Conformance | Every channel MUST meet **WCAG 2.1 AA**. Primary body text targets AAA contrast (see `color-scheme.md`). |
-| Platform APIs | Native channels MUST expose correct accessibility semantics via their platform API — UIA/`AutomationProperties` for native shell chrome (desktop's thin MAUI/WinUI 3 shell, WPF) and SemanticProperties (mobile MAUI native XAML); ARIA for webview-rendered content (desktop's Razor/WebView2 UI, VS Code / VS webviews). |
+| Platform APIs | Native channels MUST expose correct accessibility semantics via their platform API — UIA/`AutomationProperties` for native shell chrome (desktop's thin MAUI/WinUI 3 shell, WPF) and SemanticProperties for any native MAUI XAML on mobile; ARIA for webview-rendered content (the desktop's and the mobile head's Razor UI in their WebViews, VS Code / VS webviews). |
 | Parity | Accessibility parity across channels is required; a feature usable by mouse MUST be usable by keyboard and assistive tech on every channel. |
 | Testable | Each rule below is a review acceptance criterion. |
 
@@ -31,16 +30,9 @@ related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".de
 related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum"]
 ```
 
-Contrast values and pairings are declared in
-`color-scheme.md#contrast-rules-wcag-aa-minimum`. Summary of the binding minimums:
-
-| Content | Minimum |
-|---|---|
-| Primary body text (`color-text-primary` on `color-background`) | 7:1 (AAA target) |
-| Secondary text (`color-text-secondary`) | 4.5:1 (AA) |
-| Foreground on semantic surfaces | 4.5:1 (AA) |
-| Large text (≥ 24 px / ≥ 18.66 px bold) | 3:1 |
-| Focus ring, control borders, icons | 3:1 (non-text) |
+The contrast minimums for every pairing are declared in
+`color-scheme.md#contrast-rules-wcag-aa-minimum`, and only there. Icon contrast
+is in `#iconography-accessibility`.
 
 - `color-text-disabled` is exempt (signals unavailability).
 - Color MUST NOT be the only means of conveying information/state — always pair
@@ -82,14 +74,14 @@ The save-state indicator is not a button, so it MUST be announced:
 
 | State | Announcement | Politeness |
 |---|---|---|
-| Saving | "Saving" (announce sparingly; debounce so rapid edits don't spam) | polite (`role="status"`) |
+| Saving | "Saving" | polite (`role="status"`) |
 | Saved | "All changes saved" | polite |
 | Offline | "Offline. Changes are saved locally and will sync when you reconnect." | polite |
 | Conflict | "A newer version was saved. Your change was reconciled." | assertive (`role="alert"`) |
 | Error | "Couldn't save your last change. Retrying." + focusable retry | assertive (`role="alert"`) |
 
-Rules: routine `Saving`/`Saved` transitions MUST be throttled so screen readers
-are not flooded during continuous typing.
+Routine `Saving` and `Saved` announcements MUST be throttled, so a screen reader
+is not flooded while someone types continuously.
 
 ### Reorder Announcements
 
@@ -181,7 +173,7 @@ related: [".devbook/design/component-libraries.md", ".devbook/arc42/04-solution-
 | Channel | Accessibility notes |
 |---|---|
 | Desktop — .NET MAUI Blazor Hybrid | UI is Razor in WebView2 (ADR 0001): use ARIA for the app content, same as the IDE webviews; `AutomationProperties` still applies to the thin native shell/window chrome; verify with Accessibility Insights; ensure High Contrast rendering keeps focus visible (outline-based). |
-| Mobile — .NET MAUI (native) | Use `SemanticProperties`; support platform screen readers (Narrator/VoiceOver/TalkBack) and OS text-scaling; ensure single-column reorder is keyboard/switch accessible. |
+| Mobile — .NET MAUI Blazor Hybrid | UI is Razor in a `BlazorWebView` (`Backlog.Mobile.UI` over the shared library): use ARIA for the app content, as on desktop; `SemanticProperties` applies only to native MAUI XAML; support platform screen readers (Narrator/VoiceOver/TalkBack) and OS text-scaling; ensure single-column reorder is keyboard/switch accessible. |
 | IDE webviews (VS Code / VS) | Use ARIA; announce via `aria-live`; respect the host's reduced-motion and high-contrast signals but keep product tokens for content contrast; keep focus visible against the webview surface. |
 
 `[TODO: clarify]` whether a formal accessibility audit / VPAT is required per
@@ -193,9 +185,9 @@ release, and which assistive technologies are in the supported test matrix.
 related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/interaction-guidelines.md#materialization"]
 ```
 
-The storybook is the review surface: every component renders there in isolation
-with the semantics it ships with, so roles, labels, focus order and focus
-visibility can be checked one component at a time rather than only inside a
+The storybook is the review surface. Every component renders there in isolation
+with the semantics it ships with. Roles, labels, focus order and focus
+visibility can therefore be checked one component at a time, not only inside a
 screen.
 
 What holds today:
@@ -218,21 +210,26 @@ Gaps, tracked rather than assumed:
   `color-scheme.md#surface-and-border-deviation`.
 - **Reorder announces, but politely, and only where the gesture exists.** Item
   reorder carries the live region `#reorder-announcements` asks for, in both
-  library implementations. Two things still fall short of this file. The regions
-  are `polite` where the section asks for assertive during an active grab. And
-  reordering *chapters within a document* is unbuilt altogether
-  (`interaction-guidelines.md#materialization`), so the rule is unmet there for
-  want of a gesture rather than for want of a region — including the indent
-  announcement, which no other surface has anything to say. The pointer grips
-  are `aria-hidden` and take no tab stop, deliberately: they are the pointer's
-  affordance, and the keyboard route is `Alt+Arrow` on the row itself.
-- **No icon set**, so `#iconography-accessibility` has almost nothing to govern
-  yet — the product draws its few glyphs in CSS or borrows an emoji. See
+  library implementations. Two things still fall short of this file:
+  - The regions are `polite`, where the section asks for assertive during an
+    active grab.
+  - Reordering *chapters within a document* is unbuilt altogether
+    (`interaction-guidelines.md#materialization`). The rule is unmet there for
+    want of a gesture, not for want of a region. That includes the indent
+    announcement, which only chapter reorder would make.
+
+  The pointer grips are `aria-hidden` and take no tab stop, deliberately. They
+  are the pointer's affordance, and the keyboard route is `Alt+Arrow` on the row
+  itself.
+- **The icon set is small.** `src/Core/Backlog.UI.Components/Icons/` holds a set
+  of Lucide-idiom outline glyphs, each hidden from assistive technology. There
+  are no icon-size tokens, the status icons the save-state vocabulary names are
+  not in the set, and some metadata-line glyphs are still emoji. See
   `typography-and-layout.md#materialization`.
-- **Target sizes are unverified.** The ≥ 44 × 44 px minimum is not asserted by
-  any test, and dense rows are exactly where it tends to fail.
+- **Target sizes are unverified.** No test asserts the ≥ 44 × 44 px minimum, and
+  dense rows are exactly where it tends to fail.
 - **Both app channels are web-rendered.** The desktop and the Android head each
-  host Razor components in a WebView, the phone's from `Backlog.Mobile.UI` over
-  the shared library, so every rule above applies to both as written and MAUI's
+  host Razor components in a WebView; the phone's come from `Backlog.Mobile.UI`
+  over the shared library. Every rule above applies to both as written, and MAUI's
   `SemanticProperties` has nothing to govern. The IDE webviews have no
   implementation to check.

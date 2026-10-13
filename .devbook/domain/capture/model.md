@@ -34,6 +34,14 @@ classDiagram
         +String name
         +Boolean auto_generated
     }
+    class CaptureAttachment {
+        <<value object>>
+        +String id
+        +String name
+        +String contentType
+        +Long sizeBytes
+        +String sha256
+    }
     class CaptureSource {
         <<enumeration>>
         mobile
@@ -49,12 +57,17 @@ classDiagram
     Capture --> CaptureSource : originated from
     Capture "1" *-- "0..1" SourceMetadata : has
     Capture "1" *-- "0..*" Tag : tagged with
+    Capture "1" *-- "0..*" CaptureAttachment : brings
 ```
 
 ## Relationship notes
 
 - `Capture` is the aggregate root; there are no independently identifiable child
-  entities. `SourceMetadata` and `Tag` are value objects owned by the root.
+  entities. `SourceMetadata`, `Tag` and
+  [`Capture Attachment`](domain.md#capture-attachment) are value objects owned by
+  the root.
+- A `Capture Attachment` is a description only. The bytes it describes live in the
+  attachment store under the same id, outside the aggregate.
 - `Capture Source` selects which `Source Adapter` produced the capture and
   determines the concrete keys present in `SourceMetadata`.
 - Capture holds no reference to the resulting Inbox Item. Delivery is a one-way

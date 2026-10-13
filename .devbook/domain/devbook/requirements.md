@@ -7,9 +7,11 @@ related: [.devbook/domain/devbook/features.md]
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it. The plan
-> `+brain` builds the Brain's requirements, and each gains its `tests` as it
-> lands; one with no `tests` is not built yet.
+> requirement is one SHALL sentence with the scenarios that prove it. The Brain's
+> requirements belong to the plan `+brain`: the roadmap item tagged `brain`, written
+> with its [Plan Sigil](../roadmap/domain.md#plan-sigil). That plan builds local
+> [ADR 0026](../../arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md)
+> and local ADR 0027.
 
 ## Brain scope
 
@@ -30,7 +32,7 @@ status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_leads_the_scope_behind_a_divider_in_band_two, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_no_repository_configured_the_scope_holds_the_brain_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ScopeGlyphIconTests.The_brain_keeps_the_icon_contract]
 ```
 
-The system SHALL render the Brain chip first in the repository scope, behind a divider, in band 2, with no control that removes it.
+The system SHALL render the Brain chip first in the repository scope, behind a divider, in [band 2](../../design/color-scheme.md#the-brains-accent), with no control that removes it.
 
 #### Scenario: Two repositories configured
 

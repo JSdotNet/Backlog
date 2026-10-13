@@ -21,13 +21,31 @@ related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbo
 aliases: [RepositoryRegistry]
 ```
 
-The global singleton that owns all registered repositories, technology/dependency
-baselines, and portfolio analytics. Invariants: a repository must be registered
-before health metrics are calculated; `health_score` is computed from component
-scores (package, GitHub, coverage, security); package manifests are populated on
-scan with outdated packages flagged; GitHub metadata is synced on scan; and each
-scan generates a health-score snapshot. All repository mutations go through the
-root.
+The global singleton that owns all registered repositories, the technology and
+dependency baselines, and portfolio analytics. All repository mutations go
+through the root.
+
+Besides the repositories, the registry remembers what became of names it no
+longer holds, because entries elsewhere still write them:
+
+- a [Rename Record](#rename-record) for each rename, so an old name keeps meaning
+  the repository it became;
+- a [Removal Record](#removal-record) for each removal, so a removed name is not
+  registered again by accident.
+
+A **placeholder** is a repository an import registered because a plan named it
+before anyone had configured it. Renaming the placeholder to the real
+repository's owner and name merges the two, and the real repository keeps its
+own settings ([Following a repository rename](features.md#following-a-repository-rename)).
+
+Scanning and health scoring are planned and not built. Their invariants are:
+
+- A repository must be registered before health metrics are calculated.
+- `health_score` is computed from component scores: package, GitHub, coverage,
+  and security.
+- Package manifests are populated on scan, with outdated packages flagged.
+- GitHub metadata is synced on scan.
+- Each scan generates a health-score snapshot.
 
 ### Repository
 
@@ -37,13 +55,86 @@ status: draft
 aliases: [repo_id, repo_ids]
 ```
 
-A single software repository identified by `RepositoryId` (e.g. "org/repo-name").
-Holds metadata (`repo_url`, `clone_path`, `repo_type`, `primary_language`,
-`team_owner`), scan/commit timestamps, owned package manifests, detected
-technologies, GitHub metadata, health score and breakdown, security alerts, ADR
-links, tags, and daily freshness/health/GitHub/tech-adoption history. Invariant:
-technologies must match `baselines.repo_tech_baseline` or trigger deprecation
-warnings.
+A single software repository, identified by `RepositoryId`: its owner and name on
+GitHub, such as "org/repo-name". The registry holds for each repository:
+
+- its [alias](#repository-alias);
+- its owner and name;
+- an optional local clone directory;
+- its [identity colour](features.md#repository-identity-colour), as one of the
+  colours the design system sanctions;
+- the account it is worked as, and optionally a personal access token;
+- its [knowledge folder settings](features.md#repository-knowledge-folder-settings).
+
+The registry is ordered, and the first repository serves as the default. While
+[Additional repositories](context.md#additional-repositories) is off, every entry
+belongs to it. A knowledge reader asked for no repository also falls back to it.
+
+The scan, when it is built, adds:
+
+- metadata: `repo_url`, `repo_type`, `primary_language`, `team_owner`;
+- scan and commit timestamps;
+- owned package manifests, detected technologies, and GitHub metadata;
+- the health score and its breakdown, and security alerts;
+- ADR links and tags;
+- daily freshness, health, GitHub and tech-adoption history.
+
+A detected technology that the portfolio's technology
+baseline does not allow will then trigger a deprecation warning.
+
+### Repository Alias
+
+```meta
+type: value-object
+status: draft
+aliases: [alias, repository alias]
+related: [.devbook/domain/roadmap/domain.md#repository-scope, .devbook/domain/repository-management/features.md#repository-registry-configuration]
+```
+
+The short name a person and the rest of the product use for a registered
+repository, such as `app`. A task files itself against a repository by naming its
+alias, and a Roadmap [Repository Scope](../roadmap/domain.md#repository-scope)
+holds aliases as opaque strings. Equality is by value: an alias is stored trimmed
+and in lower case. A repository registered without an alias of its own takes its
+name as its alias.
+
+Aliases are unique in the registry, because every consumer keys on them: the
+filters, the colours, and the settings subpages. Relabelling an alias changes
+nothing about which repository is meant.
+
+### Rename Record
+
+```meta
+type: value-object
+status: draft
+aliases: [RepositoryRename, memory of a rename]
+related: [.devbook/domain/repository-management/features.md#following-a-repository-rename]
+```
+
+One rename the registry remembers: the old owner and name, the new one, and when.
+An old name still written on an entry resolves through the records to the
+repository it became, however many renames ago. A name given up twice follows the
+latest record. The records travel with the registry, because the registry and the
+entries reach another workspace by different routes and in no fixed order.
+
+A record lasts until its old name is registered again. A configured repository
+always wins over a record, so a repository re-created under a name once given up
+is that new repository, not the old one.
+
+### Removal Record
+
+```meta
+type: value-object
+status: draft
+aliases: [RepositoryRemoval, memory of a removal]
+related: [.devbook/domain/repository-management/features.md#following-a-repository-rename]
+```
+
+One repository somebody removed, and when. Entries that still name it outlive it.
+Without the record, the next start would read such a name as a repository
+registered on another workspace and register it again, undoing the removal. The
+record lasts until the name is registered again on purpose, from the list or by an
+import that names it.
 
 ### Package Manifest
 
@@ -199,11 +290,17 @@ status: draft
 related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal]
 ```
 
-Runs scheduled or on-demand scans of a repository: parses dependency manifests,
-detects the technology stack, fetches GitHub metadata and security alerts, and
-recomputes the health score from package freshness, GitHub backlog, coverage, and
-security. It is a service because it coordinates external systems (file system,
-GitHub, package registries) to refresh the aggregate. Invocation semantics: scheduled or on-demand orchestration service.
+Runs scheduled or on-demand scans of a repository. A scan:
+
+- parses dependency manifests;
+- detects the technology stack;
+- fetches GitHub metadata and security alerts;
+- recomputes the health score from package freshness, GitHub backlog, coverage,
+  and security.
+
+It is a service because it coordinates external systems (file system, GitHub,
+package registries) to refresh the aggregate. Invocation semantics: scheduled or
+on-demand orchestration service. It is planned and not built.
 
 ## Bulk Operations
 
@@ -213,10 +310,15 @@ status: draft
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
-Coordinates portfolio-wide actions: queue package updates across repos, run
-synchronized upgrades (e.g. "upgrade all ASP.NET Core projects to 9.0") via
-GitHub Actions, and generate migration guides. It is a service because it spans
-many repositories rather than a single aggregate. Invocation semantics: command-invoked orchestration service.
+Coordinates portfolio-wide actions:
+
+- queue package updates across repositories;
+- run synchronized upgrades through GitHub Actions, such as "upgrade all ASP.NET
+  Core projects to 9.0";
+- generate migration guides.
+
+It is a service because it spans many repositories rather than a single
+aggregate. Invocation semantics: command-invoked orchestration service.
 
 ## Shared Enums
 
