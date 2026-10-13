@@ -146,13 +146,32 @@ With the scope's anchor on Brain, or nothing pressed, the pane carries a teal
 picker would be, and one tab per area the Brain declares. The tree, the rendered
 chapter and the editor are the ones a repository devbook uses, and a Brain note
 is always editable. What only a repository has is absent: branch updates, sync
-verdicts and scenario marks.
+verdicts and scenario marks. So are the repository's atlas, its search and
+opening the folder in an editor, until the Brain has its own
+([Unified search](#unified-search), [Atlas edges](#atlas-edges)). Ask AI takes
+no Brain note as the open chapter.
 
 With Brain and a repository both pressed, a `Brain | <repo>` switch beside the
-pane title flips between them without touching the task filter. With no folder
-set up yet, the pane on the Brain asks for one. When the folder holds a OneDrive
-conflict copy, `<name>-<MACHINE>.md` beside `<name>.md`, the pane says so and
-changes neither file: two edits to one note are the person's to merge.
+pane title flips between them without touching the task filter. The switch opens
+on the anchor's side. With Brain as the anchor and several repositories pressed,
+its other side is the first of them. The switch is not remembered: any change to
+the scope puts the pane back on the anchor.
+
+On the Brain, and while the switch shows, the pane names itself *Devbook* at the
+start of its tab strip. The switch sits right after the title, so it stays in
+place as the badge and the path come and go.
+
+With no folder set up yet, the pane on the Brain asks for one. A folder that is
+set but missing, or is not a path, says so in words and shows no tabs. A
+declared area whose folder does not exist yet still has its tab, and the tab
+says the Brain has no such folder yet.
+
+When the folder holds a OneDrive conflict copy, the pane says so and changes
+neither file: two edits to one note are the person's to merge. A conflict copy
+is `<name>-<MACHINE>.md` in the same folder as `<name>.md`. MACHINE is the
+computer name OneDrive writes: 1 to 15 capitals, digits and hyphens, with at
+least one capital. So `plan-2.md`, `plan-draft.md` and `my-plan.md` stay
+ordinary notes. The warning names every pair.
 
 ## Repo links and backlinks
 

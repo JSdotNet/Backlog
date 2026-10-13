@@ -1,0 +1,218 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    One Brain note, read and edited the way a repository chapter is (local ADR 0026,
+    .devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane): the same file
+    view, the same DevbookMarkdownView for reading and the same DevbookChapterEditor
+    for writing. What it leaves out is everything a repository chapter carries and a
+    note does not — no sync scope, no scenario images, no status control. A note is
+    the person's own file in their own folder, so it is always editable.
+*@
+
+<aside class="devbook-pane devbook-pane--brain" data-testid="brain-devbook-panel" aria-label="Brain note">
+    @if (_chapter.Chapter is null || _document is null)
+    {
+        @if (!_loaded)
+        {
+            <Spinner Label="Loading the note" TestId="brain-note-loading" />
+        }
+        else if (string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            @* An area folder that holds no note yet. The menu beside this already
+               says the folder is there, so this says what goes in it. *@
+            <EmptyState BaseClass="devbook-empty"
+                        Title="No notes in this area yet"
+                        TitleCssClass="devbook-empty__title"
+                        DescriptionCssClass="@(null)"
+                        TestId="brain-note-empty"
+                        role="status">
+                <DescriptionContent>
+                    A Markdown file saved in this area's folder shows up here.
+                </DescriptionContent>
+            </EmptyState>
+        }
+        else
+        {
+            <Alert Message="@($"Could not read {SelectedPath} from the Brain.")"
+                   TestId="brain-note-unreadable"
+                   Role="status" />
+        }
+    }
+    else
+    {
+        <article class="devbook-document" data-testid="brain-note" aria-label="@_document.Title">
+            <Alert Message="@_saveError" TestId="brain-note-save-error" Role="status" />
+
+            @* Body is the file's text, so copy works and the view knows the file;
+               BodyContent is what draws it, through the same read view the
+               repository chapters use. Editing swaps in the editor, which writes
+               the file through DevbookChapterWriter — the only write into the Brain
+               folder this pane ever makes. *@
+            <FileView Name="@_document.Title"
+                      Kind="Brain note"
+                      Path="@_chapter.Chapter.RelativePath"
+                      Body="@_chapter.Text"
+                      MaxHeight="@(null)"
+                      TestId="brain-note-file"
+                      AllowCopy="true"
+                      CanEdit="true"
+                      Editing="@_editing"
+                      EditingChanged="OnEditingChangedAsync"
+                      EditBodyContent="@NoteEditor()"
+                      BodyContent="@NoteBody()" />
+        </article>
+    }
+</aside>
+
+@code {
+    /// <summary>The Brain this note is read from. Handed in by the pane, which
+    /// already resolved it, so a host without a Brain never renders this.</summary>
+    [Parameter, EditorRequired]
+    public IBrainFolderSource Brain { get; set; } = null!;
+
+    /// <summary>The note, relative to the Brain's root (<c>projects/plan.md</c>),
+    /// as the menu names it. Null for an area with no note in it.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    private DevbookChapterContent _chapter = DevbookChapterContent.None;
+    private DevbookDocument? _document;
+    private DevbookChapterFileReader _reader = DevbookChapterFileReader.Disk;
+    private DevbookChapterEditor? _editor;
+    private string? _loadedPath;
+    private string? _saveError;
+    private bool _editing;
+    private bool _loaded;
+    private bool _disposed;
+    private int _read;
+
+    /// <summary>The Brain folder the open note was read from. Part of which note
+    /// it is: the same path under another folder is another file, and the chapter
+    /// reference an edit writes through names the folder it was read from.</summary>
+    private string? _loadedRoot;
+
+    protected override void OnInitialized()
+    {
+        _reader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
+        Brain.Changed += OnBrainChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded
+            && string.Equals(_loadedPath, SelectedPath, StringComparison.OrdinalIgnoreCase)
+            && SameFolder(_loadedRoot, Brain.BrainRoot))
+        {
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    /// <summary>
+    /// The Brain changed — its setting moved, or the watch saw a note change, such
+    /// as an edit OneDrive brought down from another machine. A moved folder is
+    /// always read again, because an edit must never go to the folder the setting
+    /// no longer names. A change in the same folder is read again unless the reader
+    /// is writing: their own save raises it too, and the editor holds the newer
+    /// text. Marshalled and guarded, as every <c>async void</c> handler here is.
+    /// </summary>
+    private async void OnBrainChanged()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_disposed) return;
+                if (_editing && SameFolder(_loadedRoot, Brain.BrainRoot)) return;
+
+                _loaded = false;
+                await LoadAsync();
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+        }
+    }
+
+    private static bool SameFolder(string? left, string? right) =>
+        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Reads the note off disk. Only the latest read lands, for the reason the
+    /// repository panels give: a re-render while a file is coming off disk starts a
+    /// second read, and the first finishing last would put one note's text under
+    /// another's name.
+    /// <para>
+    /// The editing mode survives a re-read of the same note — a save re-reads it —
+    /// and is dropped for a different one.
+    /// </para>
+    /// </summary>
+    private async Task LoadAsync()
+    {
+        var path = SelectedPath;
+        var read = ++_read;
+        var location = Brain.Resolve(BrainConventions.FolderKey);
+        var folder = location is { Available: true } ? location.FullPath : null;
+        var chapter = folder is not null
+            ? await DevbookChapterContent.LoadAsync(BrainConventions.FolderKey, folder, path, canEdit: true, reader: _reader)
+            : DevbookChapterContent.None;
+        if (read != _read || _disposed) return;
+
+        var sameNote = string.Equals(_loadedPath, path, StringComparison.OrdinalIgnoreCase) && SameFolder(_loadedRoot, folder);
+        _loadedPath = path;
+        _loadedRoot = folder;
+        _loaded = true;
+        _chapter = chapter;
+        _document = chapter is { Chapter: { } note, Text: { } text } ? DevbookMarkdownParser.Parse(note.RelativePath, text) : null;
+        _saveError = null;
+
+        if (!sameNote) _editing = false;
+        if (_chapter.Chapter is null) _editor = null;
+    }
+
+    /// <summary>Re-reads the open note after a save, so the read view the reader
+    /// returns to is the file as it now is.</summary>
+    private async Task OnSavedAsync()
+    {
+        _loaded = false;
+        await LoadAsync();
+    }
+
+    private void OnSaveFailed(string message) => _saveError = message;
+
+    private async Task OnEditingChangedAsync(bool editing)
+    {
+        if (editing)
+        {
+            _editing = true;
+            return;
+        }
+
+        if (_editor is not null && _chapter.Chapter is not null) await _editor.FlushAsync();
+        _editing = false;
+        _loaded = false;
+        await LoadAsync();
+    }
+
+    private RenderFragment NoteBody() =>
+        @<DevbookMarkdownView Blocks="@(_document?.ContentBlocks ?? [])" />;
+
+    private RenderFragment NoteEditor() => @<DevbookChapterEditor @ref="_editor"
+                                                                    Chapter="@_chapter.Chapter"
+                                                                    InitialText="@_chapter.Text"
+                                                                    Bare="true"
+                                                                    Fill="true"
+                                                                    OnSaved="OnSavedAsync"
+                                                                    OnSaveFailed="OnSaveFailed" />;
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Brain.Changed -= OnBrainChanged;
+    }
+}

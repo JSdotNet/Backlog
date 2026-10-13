@@ -333,9 +333,13 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   write; when a repository's database is first asked for, and again after a quiet
   interval, a background check stats each file against its row and rebuilds the
   whole database when anything differs, never waited on by the read that
-  triggered it. **Not on startup**. The Brain is the one folder that is
-  watched, because its notes change from outside the app through the folder's
-  own sync. Changes inside the quiet interval of 10 s collapse into one check at
+  triggered it. **Not on startup** for a repository. The Brain is the one folder
+  that is watched, because its notes change from outside the app through the
+  folder's own sync. Its watch starts with the app, which also asks for the
+  Brain's first check. It moves when the Brain setting names another folder and
+  stops when the setting is cleared. A folder missing when the watch starts is
+  looked for again every 30 s and watched once it appears. Each rebuild of the
+  Brain reloads an open pane. Changes inside the quiet interval of 10 s collapse into one check at
   its end. A watcher for repositories and an idle pass for repositories nobody
   has opened remain unbuilt optimisations.
 - **The Brain is built the same way, under its own convention** (local ADR

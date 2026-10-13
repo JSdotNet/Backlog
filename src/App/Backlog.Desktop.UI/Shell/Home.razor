@@ -749,6 +749,8 @@
                            the reader was already reading beside — unless an entry's
                            reference asked for another; see DevbookRepositoryAlias. *@
                         <DevbookPane RepositoryAlias="@DevbookRepositoryAlias"
+                                     SwitchRepositoryAlias="@DevbookSwitchRepositoryAlias"
+                                     ShowsBrainChanged="OnDevbookShowsBrainChanged"
                                      OpenReference="@_devbookOpenRequest"
                                      OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
                     </aside>
@@ -859,6 +861,10 @@
         // shows the chip as not yet set up, which still scopes.
         _brainSettings = Services.GetService<IBrainSettings>();
         if (_brainSettings is not null) _brainSettings.Changed += HandleBrainSettingsChanged;
+
+        // The Brain the Devbook pane reads. Optional for the same reason: a host
+        // that composes none offers the pane for repositories only.
+        _brainFolders = Services.GetService<IBrainFolderSource>();
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
@@ -1518,7 +1524,56 @@
         _devbookRepositoryRequest is { } asked
         && string.Equals(asked.Anchor, State.AnchorRepositoryAlias, StringComparison.Ordinal)
             ? asked.RepositoryAlias
-            : State.AnchorRepositoryAlias;
+            : _devbookSwitch is { } chosen
+              && string.Equals(chosen.Scope, DevbookSwitchScope, StringComparison.Ordinal)
+              && DevbookSwitchRepositoryAlias is { } partner
+                ? chosen.ShowsBrain ? BrainScope.Value : partner
+                : State.AnchorRepositoryAlias;
+
+    /// <summary>
+    /// Which side of the Devbook pane's <c>Brain | repo</c> switch the reader
+    /// pressed, and the scope it was pressed under (local ADR 0027 §4).
+    /// <para>
+    /// Shell state beside <see cref="_devbookRepositoryRequest"/>, for the same
+    /// reason: it chooses what the pane reads and must not touch what the header
+    /// scopes, so it never goes near the scope or the task filter. Keyed on the
+    /// whole scope, so any chip press drops it and the pane reopens on the anchor;
+    /// and not remembered across a restart, which keeps the scope alone (ADR 0027
+    /// §5).
+    /// </para>
+    /// </summary>
+    private DevbookSwitchChoice? _devbookSwitch;
+
+    private sealed record DevbookSwitchChoice(string Scope, bool ShowsBrain);
+
+    /// <summary>The scope as one string, in its order, to key the switch on.</summary>
+    private string DevbookSwitchScope => string.Join("|", State.SelectedRepositoryAliases);
+
+    /// <summary>
+    /// The repository on the other side of the switch: drawn only while the Brain
+    /// and at least one repository are in the scope, in a host that composes a
+    /// Brain. The anchor when a repository is the anchor; with the Brain as anchor,
+    /// the first repository taken after it — both are the first repository in the
+    /// scope's order.
+    /// </summary>
+    private string? DevbookSwitchRepositoryAlias =>
+        _brainFolders is not null
+        && IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
+        && State.BrainInScope
+        && BrainScope.Repositories(State.SelectedRepositoryAliases) is [var first, ..]
+            ? first
+            : null;
+
+    /// <summary>A press on the pane's switch. It changes what the pane reads and
+    /// nothing else; an entry's reference the pane was following gives way to it,
+    /// because the reader just chose.</summary>
+    private void OnDevbookShowsBrainChanged(bool showsBrain)
+    {
+        if (DevbookSwitchRepositoryAlias is null) return;
+
+        _devbookSwitch = new DevbookSwitchChoice(DevbookSwitchScope, showsBrain);
+        _devbookRepositoryRequest = null;
+    }
 
     /// <summary>
     /// One of an entry's Devbook references, opened from the entry: the Devbook pane
@@ -1885,7 +1940,18 @@
     /// rather than working it out from folder settings itself.</summary>
     private bool DevbookPaneOptionVisible =>
         IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
-        && Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0;
+        && (DevbookBrainOffered || Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0);
+
+    /// <summary>
+    /// Whether the pane has the Brain to offer (local ADR 0027 §4): it reads the
+    /// Brain whenever nothing is pressed or the Brain is the anchor, and offers it
+    /// beside a repository through the switch. Needs no folder — the Brain is always
+    /// in the scope, and a pane on a Brain with no folder is where the person is
+    /// asked for one. A host that composes no Brain offers none.
+    /// </summary>
+    private bool DevbookBrainOffered =>
+        _brainFolders is not null
+        && (BrainScope.Is(DevbookRepositoryAlias) || DevbookSwitchRepositoryAlias is not null);
 
     private bool DevbookPaneVisible => DevbookPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Devbook);
 
@@ -2429,6 +2495,9 @@
     /// <summary>Where the Brain folder is kept, or null in a host that composes none.
     /// Read for the chip's word: until a folder is set it reads "Set up your Brain".</summary>
     private IBrainSettings? _brainSettings;
+
+    /// <summary>The Brain the Devbook pane reads, or null in a host that composes none.</summary>
+    private IBrainFolderSource? _brainFolders;
 
     private void HandleBrainSettingsChanged() => _ = InvokeAsync(StateHasChanged);
 

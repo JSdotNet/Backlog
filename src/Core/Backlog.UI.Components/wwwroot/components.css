@@ -726,6 +726,19 @@ button.badge:hover {
 }
 
 /*
+  The Brain, by name, in the band painting (.devbook/design/color-scheme.md#band-painting,
+  #the-brains-accent): a 4px band-2 leading border, the band's 24% surface and primary
+  ink. Always drawn — it does not wait on the header's Colors switch — and the word is
+  printed, so the teal is never the only thing saying Brain.
+*/
+.badge--brain {
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+/*
   An alias, drawn as the qualifier it is.
 
   An alias applies to a name rather than standing on its own — `TaskItem` is

@@ -349,7 +349,14 @@ internal static class StorybookIndex
             // person's own (local ADR 0026), and this is where its folder is chosen.
             // It draws a TextField, two AppButtons and an Alert, all introduced in
             // Input and action and Feedback above, and its own card.
-            new("devbook/brain-folder", "Brain folder", "BrainFolderCard: where the person's Brain lives — a folder outside every repository, picked once — whether it is synced, that its database never is, and Create conventions while its README or CONVENTIONS is missing.")
+            new("devbook/brain-folder", "Brain folder", "BrainFolderCard: where the person's Brain lives — a folder outside every repository, picked once — whether it is synced, that its database never is, and Create conventions while its README or CONVENTIONS is missing."),
+
+            // After Brain folder, because the pane reads the folder that page
+            // picks, and its first-use prompt sends the reader back there. It
+            // draws Badge, ButtonGroup, ToggleButton, Alert, EmptyState and
+            // AppButton, all introduced in groups above this one, and no
+            // component of its own: the pane is a module's and cannot render here.
+            new("devbook/brain-pane", "Brain in the pane", "The Devbook pane on the Brain: the Brain badge after its title, the Brain | repository switch, the warning for OneDrive's conflict copies, and the prompt to set up a Brain.")
         ]),
 
         // The second subject-named group with subpages, for the reason recorded

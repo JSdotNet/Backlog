@@ -250,6 +250,10 @@ _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 // at the app's storage, so it has to exist before the first pane opens.
 _ = app.Services.GetRequiredService<DevbookDatabaseRefresher>();
 
+// And the Brain's folder watch, after the refresher, for the desktop head's
+// reason: the Brain is watched from startup and follows the setting.
+app.Services.GetRequiredService<BrainFolderWatch>().Start();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");

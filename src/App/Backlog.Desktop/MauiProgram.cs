@@ -235,6 +235,11 @@ public static class MauiProgram
         // It schedules nothing at startup (local ADR 0015).
         _ = app.Services.GetRequiredService<DevbookDatabaseRefresher>();
 
+        // And the Brain's folder watch, after the refresher it hands the folder
+        // to: it watches the folder the Brain setting names and follows the
+        // setting from here on (local ADR 0026 §4).
+        app.Services.GetRequiredService<BrainFolderWatch>().Start();
+
         return app;
     }
 

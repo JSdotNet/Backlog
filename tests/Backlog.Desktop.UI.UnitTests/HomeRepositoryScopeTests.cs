@@ -627,8 +627,48 @@ public sealed class HomeRepositoryScopeTests
     // the Devbook option — which reads the anchor — is there straight after a restart,
     // without a chip pressed to bring it back.
 
+    /// <summary>Nothing pressed is the Brain to the Devbook pane (local ADR 0027 §4),
+    /// so the option is there before any chip is: the pane opens on the Brain, its
+    /// badge, its folder and its areas.</summary>
     [Fact]
-    public void Without_a_remembered_scope_the_devbook_option_waits_for_a_chip()
+    public void Without_a_remembered_scope_the_devbook_option_offers_the_brain()
+    {
+        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-repository-scope-tests", Guid.NewGuid().ToString("n"), "Brain");
+        Directory.CreateDirectory(Path.Combine(brainFolder, "projects"));
+        File.WriteAllText(Path.Combine(brainFolder, "projects", "plan.md"), "# Plan\n\nThe plan.\n");
+
+        try
+        {
+            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+            var component = Render(harness);
+            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+            Chips(component);
+            Assert.Empty(state.SelectedRepositoryAliases);
+
+            component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal(string.Empty, component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+                Assert.Equal("Brain", component.Find("[data-testid='devbook-brain-badge']").TextContent.Trim());
+                Assert.Equal(brainFolder, component.Find("[data-testid='devbook-brain-path']").TextContent.Trim());
+                Assert.Contains("Projects", component.FindAll(".devbook-stack__nav-item").Select(tab => tab.TextContent.Trim()));
+            });
+
+            // Opening the pane changed what it reads and nothing about the scope.
+            Assert.Empty(state.SelectedRepositoryAliases);
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(brainFolder)!, recursive: true);
+        }
+    }
+
+    /// <summary>A host that composes no Brain has nothing to show with nothing
+    /// pressed, so the option still waits for a chip there.</summary>
+    [Fact]
+    public void Without_a_brain_composed_the_devbook_option_waits_for_a_chip()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -638,6 +678,125 @@ public sealed class HomeRepositoryScopeTests
 
         Assert.Empty(state.SelectedRepositoryAliases);
         Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
+    }
+
+    /// <summary>With no folder set the Brain chip still scopes, and the pane on the
+    /// Brain asks for a folder rather than throwing or drawing tabs.</summary>
+    [Fact]
+    public void Without_a_folder_the_pane_on_the_brain_asks_for_one()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        BrainChip(component).Click();
+        Assert.Equal([BrainScope.Value], state.SelectedRepositoryAliases);
+
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(BrainSetup.SettingsHref, component.Find("[data-testid='devbook-brain-set-up']").GetAttribute("href"));
+            Assert.Empty(component.FindAll(".devbook-stack__nav-item"));
+        });
+    }
+
+    /// <summary>The Brain as the anchor shows the Brain; a repository as the anchor
+    /// shows that repository, exactly as before — and either way, with the Brain in
+    /// the scope beside a repository, the switch is drawn on the anchor's side.</summary>
+    [Fact]
+    public void The_pane_follows_the_anchor_and_the_switch_opens_on_its_side()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+
+        BrainChip(component).Click();
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() => Assert.Equal(string.Empty, component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+        Assert.Empty(component.FindAll("[data-testid='devbook-brain-switch']"));
+
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(string.Empty, component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Equal("true", component.Find("[data-testid='devbook-brain-switch-brain']").GetAttribute("aria-checked"));
+            Assert.Equal("backlog", component.Find("[data-testid='devbook-brain-switch-repository']").TextContent.Trim());
+        });
+
+        // A repository pressed alone is the anchor, and the pane reads it.
+        Chips(component)[0].Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Empty(component.FindAll("[data-testid='devbook-brain-switch']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-brain-badge']"));
+        });
+
+        // And with the Brain added after it, the switch opens on the repository.
+        BrainChip(component).Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Equal("true", component.Find("[data-testid='devbook-brain-switch-repository']").GetAttribute("aria-checked"));
+        });
+    }
+
+    /// <summary>The switch flips what the pane reads and nothing else: the scope, its
+    /// order and the rows it leaves in the list are what they were (requirement
+    /// <em>The switch leaves the task filter alone</em>).</summary>
+    [Fact]
+    public void The_switch_flips_the_pane_and_leaves_the_scope_and_the_rows_alone()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        BrainChip(component).Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForElement("[data-testid='devbook-brain-switch']");
+
+        var scope = state.SelectedRepositoryAliases.ToArray();
+        var rows = state.ScopedRows.Select(row => row.Key).ToArray();
+        Assert.Equal(["backlog", BrainScope.Value], scope);
+
+        component.Find("[data-testid='devbook-brain-switch-brain']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(string.Empty, component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Equal("true", component.Find("[data-testid='devbook-brain-switch-brain']").GetAttribute("aria-checked"));
+        });
+        Assert.Equal(scope, state.SelectedRepositoryAliases);
+        Assert.Equal(rows, state.ScopedRows.Select(row => row.Key));
+
+        component.Find("[data-testid='devbook-brain-switch-repository']").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+        Assert.Equal(scope, state.SelectedRepositoryAliases);
+    }
+
+    /// <summary>The switch's choice is the scope's while it stands: any chip press
+    /// drops it, and the pane goes back to the anchor.</summary>
+    [Fact]
+    public void A_scope_change_resets_the_switch_to_the_anchor()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+
+        Chips(component)[0].Click();
+        BrainChip(component).Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForElement("[data-testid='devbook-brain-switch-brain']").Click();
+        component.WaitForAssertion(() => Assert.Equal(string.Empty, component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Equal("true", component.Find("[data-testid='devbook-brain-switch-repository']").GetAttribute("aria-checked"));
+        });
     }
 
     [Fact]
@@ -944,7 +1103,8 @@ public sealed class HomeRepositoryScopeTests
         Action<GitHubSettingsStore>? configureRepositories = null,
         Action<ShellNavigationStore>? remembered = null,
         string? repositoriesText = null,
-        IBrainSettings? brain = null)
+        IBrainSettings? brain = null,
+        bool composeBrain = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-repository-scope-tests", Guid.NewGuid().ToString("n"));
 
@@ -987,6 +1147,15 @@ public sealed class HomeRepositoryScopeTests
 
         var context = new BunitContext();
         if (brain is not null) context.Services.AddSingleton(brain);
+
+        // The Brain the Devbook pane reads, over the setting above, the way the
+        // application hosts compose it. Off by default, so every test written
+        // before the pane read a Brain sees the shell it was written against.
+        if (composeBrain)
+        {
+            context.Services.AddSingleton<IBrainFolderSource>(new BrainFolderSource(() => brain?.BrainFolder));
+        }
+
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
         context.Services.AddSingleton(new ShellNavigationStore(ShellNavigationPath(root)));
