@@ -360,7 +360,7 @@ public sealed class DashboardDriftPartTests
     [Fact]
     public void The_verdict_bar_is_sized_in_tokens()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         foreach (var opening in new[] { ".dashboard-drift__verdict-track {", ".dashboard-drift__verdict-segment {", ".dashboard-drift__verdict-swatch {" })
         {
@@ -383,7 +383,7 @@ public sealed class DashboardDriftPartTests
     [Fact]
     public void A_long_issue_title_truncates_inside_its_row_rather_than_widening_the_tab()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         foreach (var opening in new[] { ".dashboard-drift__issue-list {", ".dashboard-drift__issue {" })
         {

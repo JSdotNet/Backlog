@@ -172,7 +172,7 @@ public sealed class DashboardPaneHeaderTests
     [Fact]
     public void At_phone_width_the_strip_scrolls_in_one_row_and_the_tasks_split_does_not_clip()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         var strip = Block(css, ".dashboard-tabs__strip {");
         Assert.Contains("overflow-x: auto;", strip, StringComparison.Ordinal);
@@ -195,7 +195,7 @@ public sealed class DashboardPaneHeaderTests
     [Fact]
     public void The_tab_strip_contains_its_absolutely_positioned_screen_reader_text()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         var strip = Block(css, ".dashboard-tabs__strip {");
         Assert.Contains("position: relative;", strip, StringComparison.Ordinal);
@@ -232,14 +232,14 @@ public sealed class DashboardPaneHeaderTests
     [Fact]
     public void The_heatmap_legend_and_the_more_fold_title_wrap_at_phone_width()
     {
-        var app = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var dashboard = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
         var components = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
 
         var item = Block(components, ".metric-heatmap__legend-item {");
         Assert.DoesNotContain("white-space: nowrap;", item, StringComparison.Ordinal);
         Assert.Contains("min-width: 0;", item, StringComparison.Ordinal);
 
-        var title = Block(app, ".dashboard-section__more-title {");
+        var title = Block(dashboard, ".dashboard-section__more-title {");
         Assert.Contains("overflow-wrap: anywhere;", title, StringComparison.Ordinal);
         Assert.Contains("min-width: 0;", title, StringComparison.Ordinal);
     }
@@ -254,13 +254,13 @@ public sealed class DashboardPaneHeaderTests
     [Fact]
     public void The_dashboard_more_fold_label_wraps_and_other_folds_keep_theirs()
     {
-        var app = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var dashboard = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
         var components = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
 
-        var label = Block(app, ".dashboard-section__more .fold__label {");
+        var label = Block(dashboard, ".dashboard-section__more .fold__label {");
         Assert.Contains("white-space: normal;", label, StringComparison.Ordinal);
         Assert.Contains("overflow-wrap: anywhere;", label, StringComparison.Ordinal);
-        Assert.Contains("max-width: 100%;", Block(app, ".dashboard-section__more .fold__trigger {"), StringComparison.Ordinal);
+        Assert.Contains("max-width: 100%;", Block(dashboard, ".dashboard-section__more .fold__trigger {"), StringComparison.Ordinal);
 
         Assert.Contains("white-space: nowrap;", Block(components, ".fold__label {\n    min-width: 0;\n    overflow: hidden;"), StringComparison.Ordinal);
 
