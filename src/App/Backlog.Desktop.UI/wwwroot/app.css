@@ -9952,20 +9952,21 @@ a.pull-request-detail-checks__name:hover {
     min-width: 0;
 }
 
-/* The source the sections are read from, leading the strip. It wears the update
+/* The source the sections are read from, leading the strip: a search field,
+   because a repository can have hundreds of branches. It wears the update
    toggle's shape rather than a field's: on this row it is a quiet pill beside
    the tabs, not a form control, and a bordered input here would out-shout the
-   tabs it qualifies. Sized to its content and never allowed to squeeze the tabs,
-   with a ceiling so a long branch name truncates instead of taking the row. */
+   tabs it qualifies. A fixed width the tabs never lose to, with a ceiling so a
+   long branch name truncates instead of taking the row. */
 .devbook-stack__source {
-    flex: 0 0 auto;
+    flex: 0 1 14rem;
     align-self: center;
-    max-width: 12rem;
+    max-width: 14rem;
     min-width: 0;
 }
 
-.devbook-stack__source-select {
-    max-width: 100%;
+.devbook-stack__source .combobox__input {
+    width: 100%;
     padding: var(--spacing-2xs) var(--spacing-sm);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-full);
@@ -9973,18 +9974,31 @@ a.pull-request-detail-checks__name:hover {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     text-overflow: ellipsis;
-    cursor: pointer;
+    cursor: text;
     transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.devbook-stack__source-select:hover {
+.devbook-stack__source .combobox__input:hover,
+.devbook-stack__source .combobox__input:focus {
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
 }
 
-.devbook-stack__source-select:focus-visible {
+.devbook-stack__source .combobox__input:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
+}
+
+/* Wider than the field, since a branch name is longer than the field shows, but
+   never wider than the window; a name longer still truncates rather than
+   wrapping into a second line per option. */
+.devbook-stack__source .combobox__list {
+    max-width: min(32rem, 90vw);
+}
+
+.devbook-stack__source .combobox__option {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .devbook-stack__source-error {

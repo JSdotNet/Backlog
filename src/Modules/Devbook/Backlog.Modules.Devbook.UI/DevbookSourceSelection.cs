@@ -39,6 +39,23 @@ public sealed class DevbookSourceSelection(
     /// is a request, not a source — see <see cref="IsLoadRequest"/>.</summary>
     public const string LoadBranchesValue = "@load";
 
+    /// <summary>
+    /// The words for the default branch, the local clone, and the load request.
+    /// <para>
+    /// The pane's search field reads and writes these as text, so typed text is
+    /// mapped back through them (see <see cref="ValueFor"/>). Each holds a space,
+    /// which git forbids in a branch name, so none of them can collide with a
+    /// branch — the same guarantee the <c>@</c> gives <see cref="LocalFolderValue"/>.
+    /// </para>
+    /// </summary>
+    public const string DefaultBranchLabel = "Default branch";
+
+    /// <inheritdoc cref="DefaultBranchLabel"/>
+    public const string LocalFolderLabel = "Local clone";
+
+    /// <inheritdoc cref="DefaultBranchLabel"/>
+    public const string LoadBranchesLabel = "Load branches…";
+
     /// <summary>Branch lists already fetched, per repository alias. Fetched once
     /// and kept for the session: the list changes far more slowly than the panes
     /// that ask for it, and nothing here is a decision anybody makes twice.</summary>
@@ -81,7 +98,7 @@ public sealed class DevbookSourceSelection(
 
         var options = new List<SelectorOption>
         {
-            new(string.Empty, "Default branch", "Whatever GitHub calls this repository's default branch")
+            new(string.Empty, DefaultBranchLabel, "Whatever GitHub calls this repository's default branch")
         };
 
         var loaded = Loaded(repository.Alias);
@@ -100,7 +117,7 @@ public sealed class DevbookSourceSelection(
         {
             options.Add(new SelectorOption(
                 LocalFolderValue,
-                "Local clone",
+                LocalFolderLabel,
                 "The only source you can edit the devbook in"));
         }
 
@@ -109,10 +126,77 @@ public sealed class DevbookSourceSelection(
         // being offered once the list is in.
         if (loaded.Count == 0)
         {
-            options.Add(new SelectorOption(LoadBranchesValue, "Load branches…", "Asks GitHub which branches this repository has"));
+            options.Add(new SelectorOption(LoadBranchesValue, LoadBranchesLabel, "Asks GitHub which branches this repository has"));
         }
 
         return options;
+    }
+
+    /// <summary>
+    /// What the pane's search field suggests: the entries of <see cref="Options"/>,
+    /// in the same order, each carrying its label as its value — the field writes a
+    /// picked value into its text, so it has to read as words.
+    /// <para>
+    /// A non-blank query keeps the entries whose label contains it, ignoring case.
+    /// The load entry stays whatever was typed until the list is in, because a
+    /// search over branches nobody has fetched has nothing else to offer.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<SelectorOption> Suggestions(string? repositoryAlias, string? query)
+    {
+        var filter = string.IsNullOrWhiteSpace(query) ? null : query.Trim();
+
+        return
+        [
+            .. Options(repositoryAlias)
+                .Where(option => filter is null
+                    || IsLoadRequest(option.Value)
+                    || option.Label.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                .Select(option => option with { Value = option.Label })
+        ];
+    }
+
+    /// <summary>
+    /// The source value that text typed or picked in the search field names, or
+    /// null when it names nothing this repository has.
+    /// <para>
+    /// Blank text names nothing — an emptied field is no answer, and the default
+    /// branch has its own words. <see cref="DefaultBranchLabel"/> is the default branch;
+    /// <see cref="LocalFolderLabel"/> is the clone where there is one;
+    /// <see cref="LoadBranchesLabel"/> is the load request until the list is in.
+    /// Anything else is a branch: an exact match among the loaded and configured
+    /// branches, else the one branch it matches ignoring case, in that branch's
+    /// own spelling. Two branches differing only in case match neither.
+    /// </para>
+    /// </summary>
+    public string? ValueFor(string? repositoryAlias, string? text)
+    {
+        if (Repository(repositoryAlias) is not { } repository) return null;
+
+        var typed = text?.Trim() ?? string.Empty;
+        if (typed.Length == 0) return null;
+        if (string.Equals(typed, DefaultBranchLabel, StringComparison.Ordinal)) return string.Empty;
+
+        var loaded = Loaded(repository.Alias);
+
+        if (string.Equals(typed, LocalFolderLabel, StringComparison.Ordinal))
+        {
+            return string.IsNullOrWhiteSpace(repository.CloneDirectory) ? null : LocalFolderValue;
+        }
+
+        if (string.Equals(typed, LoadBranchesLabel, StringComparison.Ordinal))
+        {
+            return loaded.Count == 0 ? LoadBranchesValue : null;
+        }
+
+        List<string> known = repository.DevbookBranch is { } stored && !loaded.Contains(stored, StringComparer.Ordinal)
+            ? [.. loaded, stored]
+            : loaded;
+
+        if (known.Contains(typed, StringComparer.Ordinal)) return typed;
+
+        var matches = known.Where(branch => string.Equals(branch, typed, StringComparison.OrdinalIgnoreCase)).Take(2).ToList();
+        return matches.Count == 1 ? matches[0] : null;
     }
 
     /// <summary>The sentence under the control, saying what is being read and
@@ -135,8 +219,8 @@ public sealed class DevbookSourceSelection(
         if (Repository(repositoryAlias) is not { } repository) return string.Empty;
 
         return repository.DevbookSource is DevbookSourceKind.LocalFolder
-            ? "Local clone"
-            : repository.DevbookBranch ?? "Default branch";
+            ? LocalFolderLabel
+            : repository.DevbookBranch ?? DefaultBranchLabel;
     }
 
     /// <summary>Whether the branch list for this repository is already in.</summary>

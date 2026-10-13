@@ -98,23 +98,25 @@
 
         @if (!BrainMode && DevbookSource.CanChoose(ActiveRepositoryAlias))
         {
-            @* The default shape, not Form: a label wrapping the select with the
-               name read aloud rather than drawn, which is exactly what a control
-               sitting on a strip beside tabs wants. *@
-            @* Keyed on what the list contains, so loading the branches rebuilds
-               the control rather than re-rendering it in place. Without this the
-               browser is left holding the value of the entry that was picked to
-               trigger the load — an option that no longer exists once the list is
-               in — and the select shows a branch nobody selected while the
-               configured source is something else entirely. *@
-            <SelectField @key="@($"{ActiveRepositoryAlias}:{DevbookSource.HasBranches(ActiveRepositoryAlias)}")"
-                         BaseClass="devbook-stack__source"
-                         SelectCssClass="devbook-stack__source-select"
-                         Label="@($"Devbook source for {ActiveRepositoryAlias}")"
-                         TestId="devbook-source-select"
-                         CurrentValue="@DevbookSource.CurrentValue(ActiveRepositoryAlias)"
-                         Options="@DevbookSource.Options(ActiveRepositoryAlias)"
-                         OnChanged="ChangeDevbookSourceAsync" />
+            @* A search field rather than a select: a repository with hundreds of
+               branches made the select a list nobody could find anything in. The
+               field shows the source being read, and typing filters the list or
+               names a branch outright. Its name is read aloud rather than drawn,
+               which is what a control on a strip beside tabs wants. *@
+            @* Keyed on the repository, so text typed for one is never left
+               standing in the field of the next — two repositories on their
+               default branch hand the field the same Value, and the field keeps
+               typed text until its Value changes. *@
+            <Combobox @key="@ActiveRepositoryAlias"
+                      CssClass="devbook-stack__source"
+                      Compact="true"
+                      AriaLabel="@($"Devbook source for {ActiveRepositoryAlias}")"
+                      TestId="devbook-source-select"
+                      Placeholder="Search branches"
+                      Value="@DevbookSource.Label(ActiveRepositoryAlias)"
+                      ValueChanged="SetSourceQuery"
+                      Options="@SourceSuggestions"
+                      OnCommit="CommitDevbookSourceAsync" />
             <Alert Message="@_sourceError"
                    TestId="devbook-source-error"
                    CssClass="devbook-stack__source-error"
@@ -853,6 +855,108 @@
     /// row or moves the scope.</summary>
     private string? _sourceStatus;
 
+    /// <summary>What has been typed in the source field since it last committed,
+    /// or null. Only a filter: the source changes on a commit, never a keystroke.</summary>
+    private string? _sourceQuery;
+
+    /// <summary>The source field's list. The field's own label is no filter — a
+    /// click in a field reading "main" should offer every branch, not only
+    /// "main" — so the query counts once it differs from that label.</summary>
+    private IReadOnlyList<SelectorOption> SourceSuggestions
+    {
+        get
+        {
+            var alias = ActiveRepositoryAlias;
+            var query = string.Equals(_sourceQuery, DevbookSource.Label(alias), StringComparison.Ordinal) ? null : _sourceQuery;
+            return DevbookSource.Suggestions(alias, query);
+        }
+    }
+
+    private void SetSourceQuery(string? text) => _sourceQuery = text;
+
+    /// <summary>
+    /// A source was picked from the list or typed and entered.
+    /// <para>
+    /// Typed text naming no branch the pane knows of fetches the list first, when
+    /// it has not been fetched, and asks again — so a branch can be typed without
+    /// loading the list by hand, and is still checked against what GitHub says the
+    /// repository has. Text that still names nothing is refused, which puts the
+    /// field back to the source being read, and the reason goes beside it.
+    /// </para>
+    /// <para>
+    /// Only a pick or Enter goes that far. Leaving the field switches to what the
+    /// text already names and otherwise quietly puts the field back, and a blank
+    /// field is put back whichever way it was committed.
+    /// </para>
+    /// <para>
+    /// The load entry is refused too, once it has done its work: it is a request,
+    /// and the field should go on showing the source rather than the request.
+    /// </para>
+    /// </summary>
+    private async Task CommitDevbookSourceAsync(ComboboxCommit commit)
+    {
+        _sourceQuery = null;
+        _sourceError = null;
+
+        var alias = ActiveRepositoryAlias;
+
+        // An emptied field is no answer: Escape clears it, and leaving it then
+        // commits the blank. The default branch has its own entry for that.
+        if (string.IsNullOrWhiteSpace(commit.Value))
+        {
+            commit.Refuse();
+            return;
+        }
+
+        var value = DevbookSource.ValueFor(alias, commit.Value);
+
+        // Leaving the field is abandoning a search as often as finishing one, so
+        // it switches only to a source the text already names: never a fetch,
+        // never an error about a half-typed name.
+        if (commit.Reason == ComboboxCommitReason.Changed
+            && (value is null || DevbookSourceSelection.IsLoadRequest(value)))
+        {
+            commit.Refuse();
+            return;
+        }
+
+        if (value is null && !DevbookSource.HasBranches(alias))
+        {
+            // A failed fetch is the better answer: it says why the name could
+            // not be checked, where "no branch named" would claim it was.
+            var loadError = await DevbookSource.LoadBranchesAsync(alias, CancellationToken.None);
+            value = DevbookSource.ValueFor(alias, commit.Value);
+
+            if (value is null && loadError is not null)
+            {
+                _sourceError = loadError;
+                commit.Refuse();
+                return;
+            }
+        }
+
+        if (value is null)
+        {
+            _sourceError = $"No branch named \"{commit.Value.Trim()}\" in {DevbookSource.Repository(alias)?.FullName}.";
+            commit.Refuse();
+            return;
+        }
+
+        if (DevbookSourceSelection.IsLoadRequest(value))
+        {
+            commit.Refuse();
+            await ChangeDevbookSourceAsync(value);
+            return;
+        }
+
+        // The source already being read: writing it again would reload every
+        // panel and announce a switch that did not happen.
+        if (string.Equals(value, DevbookSource.CurrentValue(alias), StringComparison.Ordinal)) return;
+
+        await ChangeDevbookSourceAsync(value);
+        if (_sourceError is not null) commit.Refuse();
+    }
+
     /// <summary>
     /// The reader picked a source — or asked for the branch list, which is the
     /// one entry that is a request rather than a source.
@@ -1281,7 +1385,10 @@
 
         // Same reasoning for the source sentence: it named the repository that
         // was just left, and read under another one it would be a lie about it.
+        // And for the search typed into the field: it was typed among that
+        // repository's branches.
         _sourceStatus = null;
+        _sourceQuery = null;
     }
 
     /// <summary>
