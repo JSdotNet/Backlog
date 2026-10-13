@@ -158,19 +158,28 @@ export function renderAnnotation({ kind, status, author, date, quote, body }) {
     const out = [FENCE + "annotation"];
     if (kind && kind !== "comment") out.push(`kind: ${kind}`);
     if (status && status !== "open") out.push(`status: ${status}`);
-    out.push(`author: ${author}`);
+    out.push(`author: ${renderString(author)}`);
     out.push(`date: ${date}`);
-    if (quote) out.push(`quote: ${quote}`);
+    if (quote) out.push(`quote: ${renderString(quote)}`);
     out.push(...renderBody(body, 0));
     out.push(FENCE);
     return out;
 }
 
+// Free text is never written as a plain scalar: `: `, ` #`, or a leading
+// backtick makes one invalid YAML, which every reader but ours drops. A JSON
+// string is a valid YAML double-quoted scalar.
+function renderString(text) {
+    return JSON.stringify(String(text));
+}
+
+// Always a `|` block, one line or many — a block scalar carries any character.
+// Trimmed, because a leading space on the first line would set the block's
+// indentation and a trailing blank line is not kept.
 function renderBody(body, indent) {
     const pad = " ".repeat(indent);
-    const text = String(body);
-    if (!text.includes("\n")) return [`${pad}body: ${text}`];
-    return [`${pad}body: |`, ...text.split("\n").map((line) => `${pad}  ${line}`)];
+    const text = String(body).trim();
+    return [`${pad}body: |`, ...text.split("\n").map((line) => (line.trim() ? `${pad}  ${line}` : ""))];
 }
 
 function today() {
@@ -310,9 +319,9 @@ export async function reply(repoRoot, address, index, { author, date, body }) {
     const { lines } = chapter;
 
     const item = [
-        `  - author: ${author}`,
+        `  - author: ${renderString(author)}`,
         `    date: ${date ?? today()}`,
-        ...renderBody(body, 4).map((line) => (line.startsWith("    ") ? line : `    ${line}`)),
+        ...renderBody(body, 4),
     ];
 
     // Inside the fence body, find `replies:` and the end of its list.

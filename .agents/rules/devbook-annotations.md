@@ -38,12 +38,16 @@ ext:
 |---|---|---|
 | `author` | yes | A person's name, or an agent/skill id. Written, never inferred — a note survives rewrites `git blame` does not follow. |
 | `date` | yes | `YYYY-MM-DD`, the day the note was made. |
-| `body` | yes | Markdown. A `\|` block scalar when it runs to more than a line. |
+| `body` | yes | Markdown. A `\|` block scalar when it runs to more than a line or is no valid plain YAML scalar — it holds `: ` or ` #`, or opens with a backtick or another indicator. The writer always writes one. |
 | `kind` | default `comment` | `comment` · `question` · `suggestion` · `flag`. Closed set — a reader sorts by it, so it is never free text. |
 | `status` | default `open` | `open` · `resolved`. Two states, and `resolved` is short-lived. |
 | `quote` | no | The phrase inside the block above that the note is about. For a person's eye and for highlight rendering — never for resolution. |
 | `replies` | no | Ordered list of `{author, date, body}`. One fence is one thread. |
 | `ext` | no | Namespaced extension state. Opaque here, validated only as a mapping. |
+
+The fence is YAML, and every other reader drops one that does not parse: quote
+`author` and `quote` when either is no valid plain scalar. `--check` fails a fence
+that is not valid YAML.
 
 A note carries no id: a reply is inside its fence and a promoted work item
 points at the chapter, so a thread is addressed as `<path>#<slug>` plus its

@@ -450,11 +450,31 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
 
   Available on any chapter in any folder, and on the file-level blocks of a
   change's `proposal.md` and `solution.md`, per `devbook-changes.md`. A
-  requirement names one walkthrough per scenario, beside its `tests`: the
-  walkthrough shows the scenario, the test proves it, and its id is that
-  scenario's slug. Quote an address whose `flags` lists more than one key, since
-  a comma otherwise ends the entry. Links run from Markdown to
-  the demo only. A demo names no chapter, and its own metadata script,
+  walkthrough is **free** or **linked**:
+
+  - A **free** walkthrough carries its own `text` per step. A requirement names
+    one per inline Given/When/Then scenario, beside its `tests`: the walkthrough
+    shows the case, the test proves it, and its id is that scenario's slug.
+  - A **linked** walkthrough shares its journey with a scenario page part. It
+    keeps its own `id` and adds `part: "<page>.md#<part>"`, the link, and
+    `signature: "<8 hex>"`, the page signature its text was copied at. Each step
+    adds `step`, the 1-based index of the part step it shows — ascending, and
+    a part step may be left out — and keeps
+    `screen`, `anchor`, `role`, `flags`, and `text` — an embedded copy of that
+    step's English text, so the demo plays with nothing fetched. Its screens'
+    copy still follows `domain.md`'s language. A `signature` that is not the
+    page's current one makes it stale until its text is re-copied.
+  - A requirement whose `#### Scenario:` is a `Proved by:` line gets its
+    walkthroughs derived, the way its `e2e` test is: every walkthrough in any
+    `*.demo.html` under `domain/` whose `part` names that part. A hand-written
+    walkthrough entry on such a requirement is redundant (warning); only an
+    inline case's walkthrough is written by hand.
+
+  The shape is the authoring reference opening the demo template. Quote an
+  address whose `flags` lists more than one key, since a comma otherwise ends
+  the entry. Links run from Markdown to the demo; the one link out of a demo
+  is a linked walkthrough's `part`, which names the scenario page part it
+  plays. Beyond it a demo names no chapter, and its own metadata script,
   `<script type="application/json" id="demo-meta">`, holds `question` — the one
   question it was prototyped to answer — and nothing else: no stage, status,
   verdict, or page, because where the file sits already says which it is. What
@@ -785,7 +805,7 @@ is written from the page, from its bounded context, or from the repository root.
 | `actor` | Who is signed in at the start, as `[portal:]<path>#<slug>`; a journey that crosses portals lists one per portal. | A `user`, `organisation`, or `technical` chapter |
 | `data` | The named test data sets imported, in order, before the journey starts. | A data set in `.devbook/scenarios/data/<name>/` |
 | `profile` | The named configuration to run under; absent means `default`. | A profile in `.devbook/scenarios/profiles.json`, when the repository has one |
-| `flags` | The feature flags switched on for this journey; a leading `-` switches one off. | A `feature-flag` chapter |
+| `flags` | The feature flags switched on for this journey; a leading `-` switches one off. A switch modelled as a `setting` goes under `settings` as `=true` or `=false`. | A `feature-flag` chapter |
 | `settings` | The settings set for this journey, as `<path>#<slug>=<value>`. | A `setting` chapter |
 
 The effective configuration is the profile with the page's `flags` and `settings`

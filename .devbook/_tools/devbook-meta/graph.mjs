@@ -36,7 +36,7 @@ import {
 } from "./metadata.mjs";
 import { loadStatusLadder } from "./statuses.mjs";
 import { changeDecisionIssues, changeFiles, checkDelta, readChange } from "./delta.mjs";
-import { demoProblems, demoReader, requirementScenarios } from "./demo.mjs";
+import { demoProblems, demoReader, linkedWalkthroughs, requirementScenarios } from "./demo.mjs";
 import { scenarioProblems } from "./scenario.mjs";
 
 /**
@@ -637,7 +637,8 @@ export async function buildGraph(repoRoot, folders = null) {
             if (chapter.meta?.demo == null) continue;
             const id = chapter.level === 1 ? relPath : `${relPath}#${chapter.slug}`;
             const refs = Array.isArray(chapter.meta.demo) ? chapter.meta.demo : [chapter.meta.demo];
-            demoHolders.push({ id, path: relPath, refs, scenarios: scenarios.get(id) ?? null });
+            const cases = scenarios.get(id);
+            demoHolders.push({ id, path: relPath, refs, scenarios: cases?.inline ?? null, provedBy: cases?.proved ?? null });
         }
 
         // Track the nearest enclosing addressable heading per level so
@@ -728,6 +729,21 @@ export async function buildGraph(repoRoot, folders = null) {
         const node = nodes.get(id);
         if (!node) continue;
         node.tests = [...new Set([...(node.tests ?? []), ...entries])];
+    }
+    // Its `demo` walkthroughs are derived the same way, beside the `tests`:
+    // every walkthrough a demo under domain/ links to the part a `Proved by:`
+    // case names.
+    const linked = await linkedWalkthroughs(repoRoot, scanned, scenarios.register);
+    problems.push(...linked.problems);
+    for (const page of scenarios.register) {
+        for (const part of page.parts) {
+            const entries = linked.links.filter((link) => link.part === part.id).map((link) => `${link.demo}#walkthrough/${link.id}`);
+            if (!entries.length) continue;
+            for (const { requirement } of part.provedBy) {
+                const node = nodes.get(requirement);
+                if (node) node.demo = [...new Set([...asList(node.demo), ...entries])];
+            }
+        }
     }
 
     // Reference edges are resolved only after every node exists, so forward
