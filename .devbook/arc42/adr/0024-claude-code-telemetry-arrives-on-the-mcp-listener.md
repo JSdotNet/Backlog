@@ -107,8 +107,9 @@ duplicate, because an OTLP exporter retries a batch it did not see acknowledged 
 first copy is the one kept. An api_request without a `request_id` is dropped: it could
 not be told from its own retry.
 
-The table is created by idempotent DDL on every open, as ADR 0003 and ADR 0006 have the
-other tables created. Nothing replicates it.
+The table is created by idempotent DDL on any open whose file is not stamped with the
+store's current schema, as ADR 0003 and ADR 0006 have the other tables created. Nothing
+replicates it.
 
 ### 5. Settings shows what to paste
 
