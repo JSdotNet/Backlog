@@ -129,6 +129,14 @@
        read them, so it is offered and not imposed; Technology is the exception,
        and it has a tab of its own because a technology stack *is* a graph. *@
     <ListTrailing>
+        @* Capture, first on the Brain's side of the strip: getting a thought in is
+           the thing a person most often comes to the Brain for, and a note is
+           written into its inbox area whichever tab is open. Only on a Brain the
+           pane can read, and only where the host composed the writer. *@
+        @if (CanCapture)
+        {
+            <BrainCaptureDialog Writer="@(_brainWriter!)" OnCaptured="OnCapturedAsync" />
+        }
         @* The version control comes before the atlas toggle and outlives the
            section: which version of the knowledge you are reading is true of the
            whole clone, not of the tab you happen to be on, so unlike the atlas it
@@ -560,6 +568,37 @@
         _brain = Services.GetService<IBrainFolderSource>();
         if (_brain is not null) _brain.Changed += OnBrainChanged;
         _brainSettings = Services.GetService<IBrainSettings>();
+        _brainWriter = Services.GetService<IBrainNoteWriter>();
+    }
+
+    /// <summary>The writer behind Capture, when the host composes one.</summary>
+    private IBrainNoteWriter? _brainWriter;
+
+    /// <summary>Whether the strip offers Capture: Brain mode, on a Brain that can
+    /// be read, in a host with the writer.</summary>
+    private bool CanCapture => BrainMode && _brainWriter is not null && _brainRoot is not null && _brainUnavailable is null;
+
+    /// <summary>
+    /// A note was captured: the pane opens it, on its area's tab. Selected before
+    /// the menu is read again rather than after, because the reload keeps a
+    /// selection the tree holds and the note is on disk by now — whichever reload
+    /// lands last, this one or the one the writer's change notice started, finds
+    /// it there. A Brain note is selected by its path from the Brain's root, the
+    /// way the menu names it.
+    /// </summary>
+    private async Task OnCapturedAsync(BrainNoteWrite written)
+    {
+        if (_disposed || _brain is null || !BrainMode || written.RelativePath is not { } path) return;
+
+        var areaKey = DevbookMenu.BrainAreaKey(BrainNoteText.InboxArea(_brain.Areas()).Folder);
+        _pendingChapter = null;
+
+        // Search reaches the Brain too and takes the panel while it is open, so
+        // it closes: the reader asked to see the note they just wrote.
+        _searchOpen = false;
+        _selectedSection = areaKey;
+        _selectedChapterPaths[areaKey] = path;
+        await ReloadMenuAsync();
     }
 
     private DevbookScenarioStore? _scenarioStore;

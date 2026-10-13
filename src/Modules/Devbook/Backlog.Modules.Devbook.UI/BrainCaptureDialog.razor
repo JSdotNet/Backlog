@@ -1,0 +1,114 @@
+@*
+    Capture into the Brain (.devbook/domain/devbook/features.md#capture-into-the-brain):
+    a title and a Markdown body, written as a new note in the Brain's inbox area
+    through IBrainNoteWriter — the writer Inbox triage's To Brain and an assistant's
+    capture tool share, so the three cannot write three kinds of note. Whatever is
+    typed stays text; the writer guards it.
+
+    The button opens the dialog and nothing else. The pane draws it only in Brain
+    mode, on a Brain it can read, and hears where the note went through OnCaptured
+    so it can open it.
+*@
+
+<AppButton BaseClass="devbook-stack__capture-toggle"
+           Variant="ButtonVariant.None"
+           TestId="devbook-brain-capture"
+           title="Write a new note into your Brain's inbox"
+           OnClick="OpenAsync">
+    Capture
+</AppButton>
+
+<Modal Open="@_open"
+       OpenChanged="OnOpenChanged"
+       Title="Capture into your Brain"
+       CssClass="devbook-capture"
+       TestId="devbook-brain-capture-dialog">
+    <ChildContent>
+        <div class="devbook-capture__form">
+            <TextField Label="Title"
+                       @bind-Value="_title"
+                       HelpText="The note's heading, and its file name."
+                       TestId="devbook-brain-capture-title" />
+            <TextArea Label="Note"
+                      @bind-Value="_body"
+                      Rows="8"
+                      HelpText="Markdown. A heading or a fence typed here stays text."
+                      TestId="devbook-brain-capture-body" />
+            <Alert Message="@_error" TestId="devbook-brain-capture-error" Role="alert" />
+            <ButtonGroup AriaLabel="Capture actions" CssClass="devbook-capture__actions" TestId="devbook-brain-capture-actions">
+                <AppButton Variant="ButtonVariant.Primary"
+                           OnClick="CaptureAsync"
+                           Disabled="@(string.IsNullOrWhiteSpace(_title) || _busy)"
+                           Busy="_busy"
+                           BusyLabel="Capturing"
+                           TestId="devbook-brain-capture-save">Capture</AppButton>
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Disabled="_busy"
+                           OnClick="CloseAsync"
+                           TestId="devbook-brain-capture-cancel">Cancel</AppButton>
+            </ButtonGroup>
+        </div>
+    </ChildContent>
+</Modal>
+
+@code {
+    /// <summary>The writer every new Brain note goes through.</summary>
+    [Parameter, EditorRequired]
+    public IBrainNoteWriter Writer { get; set; } = null!;
+
+    /// <summary>Raised with what the write did, once a note is written.</summary>
+    [Parameter]
+    public EventCallback<BrainNoteWrite> OnCaptured { get; set; }
+
+    private bool _open;
+    private bool _busy;
+    private string? _title;
+    private string? _body;
+    private string? _error;
+
+    private Task OpenAsync()
+    {
+        _open = true;
+        _error = null;
+        return Task.CompletedTask;
+    }
+
+    private Task OnOpenChanged(bool open) => open ? OpenAsync() : CloseAsync();
+
+    /// <summary>Closing keeps what was typed until a note is written: an Escape
+    /// pressed by mistake should not cost the thought.</summary>
+    private Task CloseAsync()
+    {
+        if (_busy) return Task.CompletedTask;
+
+        _open = false;
+        _error = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task CaptureAsync()
+    {
+        if (_busy || string.IsNullOrWhiteSpace(_title)) return;
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var written = await Writer.WriteAsync(new BrainNoteDraft(_title, _body, BrainNoteSource.Manual));
+            if (!written.Written)
+            {
+                _error = written.Error;
+                return;
+            }
+
+            _open = false;
+            _title = null;
+            _body = null;
+            await OnCaptured.InvokeAsync(written);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

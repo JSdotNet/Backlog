@@ -262,6 +262,7 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
 related: [.devbook/domain/devbook/requirements.md#capture-into-the-brain, .devbook/domain/inbox/features.md#route-to-brain, .devbook/domain/inbox/domain.md#itemtriaged]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests]
 ```
 
 Get a thought into the Brain without leaving what is on screen. In Brain mode
@@ -272,7 +273,17 @@ triage writes the same kind of note through its **To Brain** route, from a
 capture or from an Inbox note, keeping the title and the body.
 
 Whatever the person typed stays text: a heading, a fence or a meta block typed
-into a capture is written so that it cannot become the note's structure.
+into a capture is written so that it cannot become the note's structure. Each
+such line gets a zero-width space just before its marker: invisible when the
+note is read, and enough that no reader takes the line for structure.
+
+The note's file is named after its title (`Ideas for the sync` is
+`ideas-for-the-sync.md`), and a name already taken gets `-2`, `-3` and on:
+nothing in the Brain is ever overwritten. Its `meta` block says `type: note`
+and its [source](domain.md#note-source), `manual` from Capture and `inbox` from
+To Brain. Once written, the pane opens it. One writer, `IBrainNoteWriter`, does
+all of this for Capture and for To Brain alike, and the capture tool an
+assistant calls is to use it too.
 
 ## MCP Brain scope
 

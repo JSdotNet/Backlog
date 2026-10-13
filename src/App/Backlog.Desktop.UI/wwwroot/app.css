@@ -4272,11 +4272,11 @@ h1, h2, h3 {
     margin: 0;
 }
 
-/* The four decisions: large, one row where there is room and two or four
-   where there is not. */
+/* The five decisions: large, one row where there is room and fewer to a
+   row where there is not. */
 .inbox-triage__decisions {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: var(--spacing-sm);
 }
 
@@ -12689,6 +12689,7 @@ a.pull-request-detail-checks__name:hover {
    offered, not advertised. The search toggle wears the same pill for the reason
    the version control does: three differently shaped buttons on one line would
    read as three different kinds of thing. */
+.devbook-stack__capture-toggle,
 .devbook-stack__search-toggle,
 .devbook-stack__atlas-toggle,
 .devbook-stack__atlas-all {
@@ -12704,6 +12705,7 @@ a.pull-request-detail-checks__name:hover {
     transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
+.devbook-stack__capture-toggle:hover,
 .devbook-stack__search-toggle:hover,
 .devbook-stack__atlas-toggle:hover,
 .devbook-stack__atlas-all:hover {
@@ -12711,6 +12713,7 @@ a.pull-request-detail-checks__name:hover {
     border-color: var(--color-border-strong);
 }
 
+.devbook-stack__capture-toggle:focus-visible,
 .devbook-stack__search-toggle:focus-visible,
 .devbook-stack__atlas-toggle:focus-visible,
 .devbook-stack__atlas-all:focus-visible {
@@ -12722,6 +12725,13 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__atlas-toggle[aria-expanded="true"] {
     color: var(--color-text-primary);
     border-color: var(--color-border-focus);
+}
+
+/* Capture's dialog: the two fields stacked, the actions under them. */
+.devbook-capture__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
 }
 
 /* The version control wears the same quiet pill as the atlas toggle — it is the

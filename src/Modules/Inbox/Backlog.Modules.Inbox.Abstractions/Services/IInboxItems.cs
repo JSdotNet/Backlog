@@ -178,6 +178,13 @@ public interface IInboxItems
         string? entryType = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>To Brain: writes the item into the person's Brain as a new note
+    /// in its inbox area, keeping its title and body, and records that it went
+    /// there. An item routes exactly once, whichever way. A Brain that is not set
+    /// up or cannot be written fails with <c>inbox.brain.unavailable</c>, in words
+    /// that say what to do, and the item stays open.</summary>
+    Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>Routes several items as one batch — one plan import whose
     /// entries share a new plan tag. It overloads the single route by name, but
     /// unlike the selection acts above it does not run the single-item command

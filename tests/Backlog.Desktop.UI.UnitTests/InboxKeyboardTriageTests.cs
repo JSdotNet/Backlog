@@ -188,10 +188,10 @@ public sealed class InboxKeyboardTriageTests
         Assert.Equal("Two", DetailTitle(pane));
     }
 
-    /// <summary>Triage's four decision buttons name the keys that take them —
-    /// R, L, D and A — and g still reaches triage's own tag field.</summary>
+    /// <summary>Triage's decision buttons name the keys that take them —
+    /// R, B, L, D and A — and g still reaches triage's own tag field.</summary>
     [Fact]
-    public async Task The_triage_decisions_name_r_l_d_and_a_and_g_reaches_the_tags()
+    public async Task The_triage_decisions_name_r_b_l_d_and_a_and_g_reaches_the_tags()
     {
         using var harness = Harness.Create();
         SeedNewestFirst(harness, "One");
@@ -200,10 +200,10 @@ public sealed class InboxKeyboardTriageTests
         await PressAsync(pane, "t");
 
         Assert.Equal(
-            ["R", "L", "D", "A"],
+            ["R", "B", "L", "D", "A"],
             pane.FindAll("[data-testid='inbox-triage-decisions'] kbd").Select(key => key.TextContent.Trim()));
         Assert.Equal(
-            ["Move to backlog", "Move to list", "Defer", "Archive"],
+            ["Move to backlog", "To Brain", "Move to list", "Defer", "Archive"],
             pane.FindAll("[data-testid='inbox-triage-decisions'] .inbox-triage__decision-label").Select(label => label.TextContent.Trim()));
 
         await PressAsync(pane, "g");
@@ -223,6 +223,9 @@ public sealed class InboxKeyboardTriageTests
 
         Assert.Contains("'g'", line, StringComparison.Ordinal);
         Assert.Contains("'t'", line, StringComparison.Ordinal);
+
+        // And b, To Brain's key, or it never reaches the pane in the app.
+        Assert.Contains("'b'", line, StringComparison.Ordinal);
     }
 
     // --- Finding them -------------------------------------------------------
@@ -235,7 +238,7 @@ public sealed class InboxKeyboardTriageTests
 
         await pane.Find("[data-testid='inbox-pane-shortcuts']").ClickAsync(new());
         var keys = pane.FindAll("[data-testid='inbox-shortcuts-list'] kbd").Select(key => key.TextContent).ToList();
-        Assert.Equal(["t", "j", "k", "a", "d", "l", "r", "g", "1–9", "x", "u", "Esc", "?"], keys);
+        Assert.Equal(["t", "j", "k", "a", "d", "l", "r", "b", "g", "1–9", "x", "u", "Esc", "?"], keys);
         Assert.Equal(
             ["Start triage", "Tags"],
             pane.FindAll("[data-testid='inbox-shortcuts-list'] .inbox-pane__shortcut")

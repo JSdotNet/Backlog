@@ -1849,7 +1849,7 @@
     // Escape is passed on without its default refused: it has none worth
     // stopping, and a pane handler may still want to hear it bubble.
     const shortcutPanes = new Map();
-    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
+    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'b', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
     const TYPING_TARGETS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]';
     let lastShortcutPane = null;
 

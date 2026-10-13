@@ -53,8 +53,10 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
     /// A pane host. <paramref name="brainFolder"/> is the Brain setting: the
     /// harness's own folder by default, null for none set, or any path a test
     /// wants — one that does not exist, or one that is not a path at all.
+    /// <paramref name="noteWriter"/> false composes no <see cref="IBrainNoteWriter"/>,
+    /// as a host without Capture does.
     /// </summary>
-    public static DevbookPaneBrainHarness Create(string? brainFolder = DefaultFolder)
+    public static DevbookPaneBrainHarness Create(string? brainFolder = DefaultFolder, bool noteWriter = true)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-brain-tests", Guid.NewGuid().ToString("n"));
         var clone = Path.Combine(root, "clone");
@@ -95,6 +97,7 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         context.Services.AddSingleton<IDevbookFolderSource>(repositoryFolders);
         context.Services.AddSingleton<IBrainFolderSource>(brain);
         context.Services.AddSingleton<IBrainSettings>(settings);
+        if (noteWriter) context.Services.AddSingleton<IBrainNoteWriter>(new BrainNoteWriter(brain));
         context.Services.AddSingleton<ILocalGitRepositoryService>(new ScriptedGitRepositoryService());
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();

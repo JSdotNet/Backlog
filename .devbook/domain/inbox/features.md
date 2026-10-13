@@ -161,8 +161,8 @@ Route to Tasks, route To Brain, defer, archive, or delete — while tagging,
 assigning repositories, and annotating, and preserving the original source link
 and capture timestamp.
 
-The four decisions — **Move to backlog**, **Move to list**, **Defer** and
-**Archive** — sit in a bar fixed at the foot of the detail, each naming its key.
+The decisions — **Move to backlog**, **To Brain**, **Move to list**, **Defer**
+and **Archive** — sit in a bar fixed at the foot of the detail, each naming its key.
 The bar stays in place while the detail scrolls, so a long article never pushes
 the decisions out of reach. Delete, tags and repositories stay in the detail
 itself, because they are not the decision the item is waiting for.
@@ -213,7 +213,8 @@ A triage session is a run of small decisions, and it is kept short by taking
 them from the keyboard. With the Inbox pane in use, **j** and **k** move to the
 next and previous row, **a** archives, **d** offers review dates to defer to —
 tomorrow, next week, next month, or without a date — **l** opens Move to list,
-**r** moves the item to the backlog, **g** goes to its tags, and **x** picks it
+**r** moves the item to the backlog, **b** routes it [To Brain](#route-to-brain),
+**g** goes to its tags, and **x** picks it
 for an act on several at once. **t** starts [triage mode](#triage-mode), and
 **u** undoes the latest decision of the session ([Undo a
 decision](#undo-a-decision)). Tags moved from **t** to **g** so that **t** could
@@ -265,8 +266,8 @@ From the top down the screen holds:
   **r** makes: "one entry", "n linked entries", or "one entry, no repository".
   Picking more than one makes one task per repository, linked to each other
   ([Route to Tasks](#route-to-tasks)).
-- **The four decisions** as large buttons, each naming its key: Move to
-  backlog (**r**), Move to list (**l**), Defer (**d**) and Archive (**a**).
+- **The decisions** as large buttons, each naming its key: Move to
+  backlog (**r**), To Brain (**b**), Move to list (**l**), Defer (**d**) and Archive (**a**).
 
 Beside the item an **Up next** list shows the next four items in the order
 triage will show them, and under it **Just decided**: the session's last
@@ -352,7 +353,7 @@ tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dot
 
 Every decision taken in this session can be taken back, newest first, until the
 app closes: archive, defer, move to a list, move to the backlog, and merge into
-a task. **u**, or **Undo** beside the last decision, takes back the newest one
+a task, and To Brain. **u**, or **Undo** beside the last decision, takes back the newest one
 not yet undone, and the item is open again where it was before.
 
 Two decisions reach outside the Inbox, and undoing them is bounded by that:
@@ -515,6 +516,7 @@ field), with Enter, or with a click. Taking it does what the chip says:
 - A tag chip adds the tag.
 - A repository chip assigns the repository.
 - *Move to backlog* routes the item.
+- *Keep as knowledge* routes it [To Brain](#route-to-brain).
 - *Archive* archives it.
 
 The × on a chip turns it down. A turned-down suggestion is recorded on the
@@ -523,10 +525,6 @@ next. A decided item — routed or archived — is offered nothing.
 
 Still modelled and not built:
 
-- *Keep as knowledge* is proposed but cannot be taken, because [Route to
-  Brain](#route-to-brain) is not built. The chip says so, has no number,
-  and can still be turned down. Once the route is built, taking the chip routes
-  the item To Brain.
 - Enriching an item with links to related tasks or knowledge notes.
 
 These suggestions are rules, not AI, and they stay as they are with or without a
@@ -707,6 +705,7 @@ status: draft
 aliases: [Route to Devbook, To Brain]
 related: [.devbook/domain/devbook/features.md#knowledge-capture, .devbook/domain/devbook/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests]
 ```
 
 **To Brain** writes the item into the person's
@@ -721,8 +720,15 @@ leaves the queue. What it writes is a Brain note, which never rides the task
 feed: the Brain folder's own sync carries it between machines. So a note routed
 To Brain stays on the phone as the Inbox note it was, as a note routed to Tasks
 does, and the Brain note it became does not reach the phone. The text the item
-carries is written as text, never as structure. With no Brain folder set up the
-route says so and routes nothing. Modelled, not built.
+carries is written as text, never as structure, and a capture that came from a
+link keeps the link as the note's last line. With no Brain folder set up the
+route says so, in the Brain's own words, and routes nothing.
+
+**To Brain** sits beside Move to backlog in triage and in the item's detail,
+and **b** takes it; taking the *Keep as knowledge* suggestion does the same.
+The toast names the note it wrote. Undo returns the item to the queue and
+leaves the note where it is: it is the person's file, in their own folder, by
+then.
 
 ### Defer
 

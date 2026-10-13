@@ -370,9 +370,12 @@ that never heard of it.
 
 **To Brain** writes a capture or a note into the person's
 [Brain](../devbook/domain.md#brain) as a new Knowledge Note in its inbox area,
-title and body kept, and records the routing target as `devbook`. It is
-modelled and not built. It refuses when no Brain folder is set up, and leaves
-the item unrouted when the write fails.
+title and body kept, and records the routing target as `devbook`, with no
+repository and no task. Devbook is asked first, through the `IInboxBrainTarget`
+port, and the item is routed only once the note is written: it refuses when no
+Brain folder is set up, and leaves the item unrouted when the write fails. A
+note routed To Brain stays on the phone as the Inbox note it was, as one routed
+to Tasks does.
 
 ## Classification
 
@@ -408,9 +411,7 @@ It also proposes one destination from the item's own facts:
 
 - `archive` for a newsletter.
 - `tasks` for an item with a repository, or a note of the reader's own.
-- `devbook` for collected material, which is the To Brain route. The `devbook`
-  proposal carries the reason it cannot be taken yet: routing To Brain is not
-  built.
+- `devbook` for collected material, which is the To Brain route.
 
 Each suggestion carries a key, the value it would apply, and a sentence saying
 why it was proposed. It leaves out anything the item already has, and anything
@@ -451,6 +452,8 @@ shape is stable even though the destination-specific fields differ.
 
 - `inbox_item_id` - originating Inbox Item identifier.
 - `route` - `tasks` or `devbook`.
+- `note_path` - the note the `devbook` route wrote, relative to the Brain's
+  root; answered by Devbook rather than sent to it.
 - `title` - normalized title.
 - `body_md` - normalized body.
 - `source_url` - the preserved source link, when the capture had one.
@@ -467,7 +470,8 @@ shape is stable even though the destination-specific fields differ.
 - Tasks, which creates one draft `Task` per targeted repository, each stamped
   with `source_inbox_id`.
 - Devbook, which writes a `Knowledge Note` into the Brain's inbox area for the
-  `devbook` route, To Brain (not built).
+  `devbook` route, To Brain, through the in-process `IInboxBrainTarget` port
+  (realised as `InboxBrainNoteRequestDto`) rather than an event.
 
 ### Published language rules
 

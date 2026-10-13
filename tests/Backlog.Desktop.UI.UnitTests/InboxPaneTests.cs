@@ -736,7 +736,7 @@ public sealed class InboxPaneTests
     /// <summary>The four decisions sit in one bar at the foot of the detail,
     /// outside the part that scrolls, each naming its key.</summary>
     [Fact]
-    public async Task The_four_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys()
+    public async Task The_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys()
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Decide me", bodyMd: string.Join("\n\n", Enumerable.Repeat("A long paragraph.", 40)));
@@ -756,7 +756,7 @@ public sealed class InboxPaneTests
                 Key: button.QuerySelector("kbd")!.TextContent.Trim()))
             .ToList();
         Assert.Equal(
-            [("Move to backlog", "R"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
+            [("Move to backlog", "R"), ("To Brain", "B"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
             decisions);
 
         // Defer in the bar offers the quick review dates.

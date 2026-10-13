@@ -179,15 +179,15 @@ public sealed class SuggestionTests
     }
 
     [Fact]
-    public void Collected_material_is_offered_knowledge_which_cannot_be_taken_yet()
+    public void Collected_material_is_offered_the_brain()
     {
         var destination = Assert.Single(
             Suggest(Item("Local-first patterns", kind: ContentKind.Article)),
             s => s.Kind == InboxSuggestionKind.Destination);
 
         Assert.Equal("devbook", destination.Value);
-        Assert.False(destination.Available);
-        Assert.Equal(InboxClassifier.KnowledgeNotBuilt, destination.UnavailableReason);
+        Assert.True(destination.Available);
+        Assert.Null(destination.UnavailableReason);
     }
 
     [Fact]
