@@ -327,7 +327,12 @@ is the `IBrainBacklinks` port in the Abstractions. `BrainBacklinkReader`, in
 `Backlog.Infrastructure.Devbook`, answers it from `DevbookDatabase.RepoLinks()`
 over the Brain's own database, and the desktop composition registers it over
 `IBrainFolderSource`. The pane's `BrainBacklinksBox` asks it for the chapter on
-screen.
+screen. The Brain's atlas is the third reader: `DevbookAtlasService.ReadBrainAsync`
+opens the Brain's database and `DevbookAtlasReader.ReadBrain` gives every `repo:`
+target a node of its own, resolved through `BrainRepoLinkResolver`. Each link
+becomes a `repo-link` edge carrying the alias as its label, dashed where it does
+not resolve. `GraphAtlas` in the component library draws an edge's optional
+`label` and `dashed`.
 
 The same project reads scenario pages, outside the database. `Scenarios/` ports
 devbook's page parser and page signature, and `ScenarioSignatureVectorTests` holds

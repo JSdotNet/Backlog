@@ -146,10 +146,11 @@ With the scope's anchor on Brain, or nothing pressed, the pane carries a teal
 picker would be, and one tab per area the Brain declares. The tree, the rendered
 chapter and the editor are the ones a repository devbook uses, and a Brain note
 is always editable. What only a repository has is absent: branch updates, sync
-verdicts and scenario marks. So are the repository's atlas, its search and
-opening the folder in an editor, until the Brain has its own
-([Unified search](#unified-search), [Atlas edges](#atlas-edges)). Ask AI takes
-no Brain note as the open chapter.
+verdicts and scenario marks. So are the repository's search and opening the
+folder in an editor, until the Brain has its own
+([Unified search](#unified-search)). The **Atlas** button opens the Brain's own
+map instead of a repository's ([Atlas edges](#atlas-edges)). Ask AI takes no
+Brain note as the open chapter.
 
 With Brain and a repository both pressed, a `Brain | <repo>` switch beside the
 pane title flips between them without touching the task filter. The switch opens
@@ -229,10 +230,22 @@ depends-on: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
 related: [.devbook/domain/devbook/requirements.md#atlas-edges, .devbook/design/component-libraries.md]
 ```
 
-See where the Brain reaches into the repositories. In the Brain's atlas each
-resolved repo link is an edge to a node for the repository chapter, labelled
-with the repository's alias, so the notes that lean on one repository gather
-around it. A link this machine cannot resolve is drawn dashed, like its chip.
+See where the Brain reaches into the repositories. On the Brain, the pane's
+**Atlas** button maps the whole Brain: its notes, grouped by area, and the links
+between them, read from the Brain's own database. Each repo link, in a note's
+`related` or its prose, is an edge to a node for the repository chapter it
+names. The edge is labelled with the repository's alias, and the chapters of one
+repository gather in one group named for that alias. One chapter is one node,
+whichever devbook layout or alias case a note wrote it in. A link this machine
+can follow is a solid edge to a filled node. One it cannot is a dashed edge to a
+hollow node, like its chip. The atlas reads no repository: what a repository
+node shows is the link's own words.
+
+Selecting a repository node shows the link's chip. A gold chip opens that
+repository's devbook at the chapter, as a chip in a note does. A dashed one says
+why it cannot be followed. Selecting a note offers to open it in the pane. Both
+close the map. With no Brain index built yet, the atlas says so rather than
+drawing an empty map.
 
 ## Capture into the Brain
 

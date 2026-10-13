@@ -83,8 +83,10 @@ public sealed class DevbookPaneBrainModeTests
     }
 
     /// <summary>None of what a repository devbook carries — a version to check, a
-    /// sync verdict, a scenario mark, search or the atlas, the editor launch — is
-    /// drawn, and the repository source behind them is not even asked.</summary>
+    /// sync verdict, a scenario mark, search, the editor launch — is drawn, and the
+    /// repository source behind them is not even asked. The atlas is offered, as
+    /// the Brain's own map, and drawing its toggle asks the repository nothing
+    /// either.</summary>
     [Fact]
     public async Task The_repository_only_chrome_is_absent_and_its_services_are_not_asked()
     {
@@ -100,7 +102,8 @@ public sealed class DevbookPaneBrainModeTests
         Assert.Empty(component.FindAll("[data-testid='devbook-update-behind']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-update-status']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-search-toggle']"));
-        Assert.Empty(component.FindAll("[data-testid='devbook-atlas-toggle']"));
+        Assert.Single(component.FindAll("[data-testid='devbook-atlas-toggle']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-atlas-all']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-scenario-mark']"));
         Assert.Empty(component.FindComponents<DevbookSyncVerdictBadges>());
         Assert.Empty(component.FindAll("[data-testid='devbook-open-vscode-button']"));

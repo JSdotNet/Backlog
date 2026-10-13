@@ -465,7 +465,19 @@ The system SHALL draw each resolved repo link in the Brain's atlas as an edge to
 
 - **Given** a Brain note with a resolved repo link into `backlog`
 - **When** the reader opens the Brain's atlas
-- **Then** an edge runs from the note to a node labelled `backlog` for that chapter
+- **Then** an edge labelled `backlog` runs from the note to a node for that chapter, in a group named `backlog`
+
+#### Scenario: Two spellings of one chapter
+
+- **Given** two Brain notes linking one chapter as `repo:backlog/.devbook/arc42/x.md` and `repo:Backlog/.arc42/x.md`
+- **When** the reader opens the Brain's atlas
+- **Then** one node stands for the chapter, with an edge from each note
+
+#### Scenario: Following the chapter
+
+- **Given** the Brain's atlas with a resolved repository node selected
+- **When** the reader presses its chip
+- **Then** the pane shows that repository's devbook at the chapter and the atlas closes
 
 ### Requirement: An unresolved repo link is drawn dashed
 
@@ -480,7 +492,7 @@ The system SHALL draw a repo link this machine cannot resolve as a dashed edge.
 
 - **Given** a Brain note linking an alias not configured here
 - **When** the reader opens the Brain's atlas
-- **Then** the edge is dashed
+- **Then** the edge is dashed, its node is a hollow ring, and the node's chip reads *not on this machine*
 
 ## Capture into the Brain
 

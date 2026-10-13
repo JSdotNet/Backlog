@@ -174,9 +174,12 @@
                 @(_searchOpen ? "Hide search" : "Search")
             </AppButton>
         }
-        @if (!BrainMode && VisibleAreas.Count > 0 && !IsSectionActive("tech") && !_searchOpen)
+        @* On the Brain too: one map of the whole Brain, its notes and the
+           repository chapters they link into (local ADR 0027 §6). A Brain has one
+           reading, so it offers no "All knowledge" widening. *@
+        @if (VisibleAreas.Count > 0 && !IsSectionActive("tech") && !_searchOpen)
         {
-            @if (_atlasOpen)
+            @if (_atlasOpen && !BrainMode)
             {
                 <AppButton BaseClass="devbook-stack__atlas-all"
                            Variant="ButtonVariant.None"
@@ -189,7 +192,7 @@
             <AppButton BaseClass="devbook-stack__atlas-toggle"
                        Variant="ButtonVariant.None"
                        TestId="devbook-atlas-toggle"
-                       title="@(_atlasOpen ? "Close the atlas" : "See how this devbook links together")"
+                       title="@(_atlasOpen ? "Close the atlas" : BrainMode ? "See how the Brain links together, and into your repositories" : "See how this devbook links together")"
                        aria-expanded="@(_atlasOpen ? "true" : "false")"
                        OnClick="ToggleAtlasAsync">
                 @(_atlasOpen ? "Hide atlas" : "Atlas")
@@ -268,11 +271,20 @@
                     <TabPanel Id="@area.Key"
                               Title="@area.Label"
                               BaseClass="@(_atlasOpen || _searchOpen ? "devbook-stack__section devbook-stack__section--atlas" : "devbook-stack__section")">
-                        @if (BrainMode)
+                        @if (BrainMode && _atlasOpen)
                         {
-                            @* No scenario catalog, no atlas, no search: a Brain
-                               note is read and written, and the readings across
-                               the whole Brain are later steps of their own. *@
+                            @* The whole Brain as a map, every repo: link drawn
+                               to the repository chapter it names. *@
+                            <DevbookAtlasView Scope="@DevbookAtlasScope.Brain"
+                                                Brain="@_brain"
+                                                OnNavigateToNote="OpenNoteFromAtlas"
+                                                OnOpenRepositoryChapter="OpenRepositoryChapterFromAtlasAsync" />
+                        }
+                        else if (BrainMode)
+                        {
+                            @* No scenario catalog and no search: a Brain note is
+                               read and written, and searching the whole Brain is
+                               a step of its own. *@
                             @RenderSection(area.Key)
                         }
                         else if (_searchOpen)
@@ -419,10 +431,11 @@
     private bool _parametersShowedBrain;
 
     /// <summary>
-    /// The atlas and the search are readings of a repository's whole devbook. The
-    /// Brain draws neither and offers no control to close them, so crossing from one
-    /// side to the other closes both — in either direction, so neither is found
-    /// still open on coming back.
+    /// The atlas and the search are readings of one side's whole devbook. The
+    /// Brain has a map of its own and no search, and a repository's map open over
+    /// the Brain would be the wrong map, so crossing from one side to the other
+    /// closes both — in either direction, so neither is found still open on coming
+    /// back.
     /// </summary>
     private void CloseRepositoryReadingsOnModeChange()
     {
@@ -991,6 +1004,52 @@
     {
         SelectChapter(target);
         _atlasOpen = false;
+    }
+
+    /// <summary>
+    /// A Brain note followed out of the Brain atlas, by its path relative to the
+    /// Brain's root (<c>projects/plan.md</c>) — the path the Brain's menu rows
+    /// carry, under the area whose folder starts it. A path the menu has not got
+    /// is not followed, for the reason <see cref="SelectChapter"/> gives; the map
+    /// closes either way, because the reader asked to go and read.
+    /// </summary>
+    private void OpenNoteFromAtlas(string notePath)
+    {
+        _atlasOpen = false;
+
+        var path = notePath.Replace('\\', '/').TrimStart('/');
+        var separator = path.IndexOf('/');
+        if (separator <= 0) return;
+
+        var areaKey = DevbookMenu.BrainAreaKey(path[..separator]);
+
+        // The tree the check below asks is the previous one while the menu
+        // loads; the note is taken as the selection then, and the load keeps it
+        // when the new tree has it (EnsureSelectedChapter).
+        if (_menuLoading)
+        {
+            _pendingChapter = null;
+            _selectedSection = areaKey;
+            _selectedChapterPaths[areaKey] = path;
+            return;
+        }
+
+        var root = RootOf(areaKey);
+        if (root is null || !root.Available || !ContainsPath(root, path)) return;
+
+        _pendingChapter = null;
+        _selectedSection = areaKey;
+        _selectedChapterPaths[areaKey] = path;
+        _folderOpenError = null;
+        ExpandAncestorsToSelected(root.Children, path);
+    }
+
+    /// <summary>A resolved repository chapter followed out of the Brain atlas:
+    /// answered by the shell, as a chip in a note is.</summary>
+    private Task OpenRepositoryChapterFromAtlasAsync(BrainRepoLink link)
+    {
+        _atlasOpen = false;
+        return OpenRepositoryChapterAsync(link);
     }
 
     /// <summary>The C4 view a reference from another section asked for, handed to the
