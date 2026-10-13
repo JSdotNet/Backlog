@@ -264,6 +264,50 @@ public sealed class DevbookSourceSelection(
         }
     }
 
+    /// <summary>
+    /// Asks GitHub whether typed text names a branch the loaded list does not
+    /// hold, and returns the branch when it does.
+    /// <para>
+    /// The list is fetched once and stops at a ceiling, so a name missing from it
+    /// may be past the ceiling or newer than the fetch. Refusing it on the list's
+    /// word alone would turn "not in what I fetched" into "does not exist". So one
+    /// call settles it: a head means the branch is there, and it joins the list;
+    /// GitHub's not-found means there is no such branch.
+    /// </para>
+    /// <para>
+    /// Separate from <see cref="ValueFor"/>, which stays a pure lookup in what is
+    /// already known; this is the one step that contacts the network, and only on
+    /// an explicit commit.
+    /// </para>
+    /// </summary>
+    /// <returns>The branch's name, or null when GitHub has no such branch or
+    /// could not be asked.</returns>
+    public async Task<string?> ResolveTypedBranchAsync(string? repositoryAlias, string? text, CancellationToken cancellationToken = default)
+    {
+        if (Repository(repositoryAlias) is not { } repository) return null;
+
+        var typed = text?.Trim() ?? string.Empty;
+
+        // A blank, or text holding a space — the words for the default branch, the
+        // clone and the load request among them — can be no branch's name.
+        if (typed.Length == 0 || typed.Contains(' ', StringComparison.Ordinal)) return null;
+
+        try
+        {
+            var head = await branches.ResolveHeadAsync(repository, typed, cancellationToken).ConfigureAwait(false);
+            if (head is null) return null;
+
+            var loaded = _branches.TryGetValue(repository.Alias, out var list) ? list : _branches[repository.Alias] = [];
+            if (!loaded.Contains(head.Branch, StringComparer.Ordinal)) loaded.Add(head.Branch);
+
+            return head.Branch;
+        }
+        catch (Exception exception) when (exception is GitHubException or GitHubNotConfiguredException)
+        {
+            return null;
+        }
+    }
+
     private List<string> Loaded(string alias) =>
         _branches.TryGetValue(alias, out var loaded) ? loaded : [];
 }

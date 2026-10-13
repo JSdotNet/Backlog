@@ -1,4 +1,5 @@
 @implements IDisposable
+@using Backlog.UI.Components.Compare
 @inject DevbookMenu DevbookMenu
 @inject DevbookFolderOpenService DevbookFolderOpen
 @inject DevbookScope Scope
@@ -117,11 +118,6 @@
                       ValueChanged="SetSourceQuery"
                       Options="@SourceSuggestions"
                       OnCommit="CommitDevbookSourceAsync" />
-            <Alert Message="@_sourceError"
-                   TestId="devbook-source-error"
-                   CssClass="devbook-stack__source-error"
-                   Role="status"
-                   Inline />
         }
     </ListLeading>
 
@@ -167,6 +163,20 @@
                 @DevbookUpdatePresentation.ActionLabel(_updateState)
             </AppButton>
         }
+        @* Beside the version control because it is about the same thing — the
+           branch being read, rather than the tab that happens to be open — and
+           only for a branch: a local clone's changes are its own git's to show. *@
+        @if (CanReviewBranch)
+        {
+            <AppButton BaseClass="devbook-stack__review-toggle"
+                       Variant="ButtonVariant.None"
+                       TestId="devbook-review-toggle"
+                       title="@(_reviewOpen ? "Back to the chapters" : "Review what this branch changed, commit by commit")"
+                       aria-expanded="@(_reviewOpen ? "true" : "false")"
+                       OnClick="ToggleReviewAsync">
+                @(_reviewOpen ? "Hide changes" : "Review changes")
+            </AppButton>
+        }
         @* Search comes before the atlas and, unlike it, stays on Technology: the
            map is a second way of looking at the documents in one section, and
            search is a way into all of them at once, so which tab is open says
@@ -189,7 +199,7 @@
         @* On the Brain too: one map of the whole Brain, its notes and the
            repository chapters they link into (local ADR 0027 §6). A Brain has one
            reading, so it offers no "All knowledge" widening. *@
-        @if (VisibleAreas.Count > 0 && !IsSectionActive("tech") && !_searchOpen)
+        @if (VisibleAreas.Count > 0 && !IsSectionActive("tech") && !_searchOpen && !_reviewOpen)
         {
             @if (_atlasOpen && !BrainMode)
             {
@@ -232,6 +242,14 @@
                BaseClass="devbook-stack__update-status"
                Role="status"
                TestId="devbook-source-status" />
+        @* Why the source field refused what was typed. Under the strip rather than
+           beside the field: a sentence on the strip took the width the field and
+           the tabs needed, squeezing the field to a sliver and the tabs into one
+           column. *@
+        <Alert Message="@_sourceError"
+               BaseClass="devbook-stack__update-status devbook-stack__update-status--blocked"
+               Role="status"
+               TestId="devbook-source-error" />
 
         @* OneDrive kept both copies of a note it could not merge (local ADR 0026
            §5). Said, and nothing more: which of the two is right is the person's
@@ -282,8 +300,14 @@
                        contents. *@
                     <TabPanel Id="@area.Key"
                               Title="@area.Label"
-                              BaseClass="@(_atlasOpen || _searchOpen ? "devbook-stack__section devbook-stack__section--atlas" : "devbook-stack__section")">
-                        @if (_searchOpen)
+                              BaseClass="@(_atlasOpen || _searchOpen || _reviewOpen ? "devbook-stack__section devbook-stack__section--atlas" : "devbook-stack__section")">
+                        @if (_reviewOpen)
+                        {
+                            @* The branch's changes are one reading whichever tab
+                               is pressed, so every panel shows the same review. *@
+                            @RenderReview()
+                        }
+                        else if (_searchOpen)
                         {
                             <DevbookSearchView OnOpen="OpenSearchResultAsync" />
                         }
@@ -464,6 +488,7 @@
         _parametersShowedBrain = brain;
         _atlasOpen = false;
         _searchOpen = false;
+        CloseReview();
     }
 
     /// <summary>
@@ -571,6 +596,7 @@
         if (_brain is not null) _brain.Changed += OnBrainChanged;
         _brainSettings = Services.GetService<IBrainSettings>();
         _brainWriter = Services.GetService<IBrainNoteWriter>();
+        _review = Services.GetService<DevbookBranchReview>();
     }
 
     /// <summary>The writer behind Capture, when the host composes one.</summary>
@@ -681,12 +707,27 @@
             _visibleAreas = null;
             _updateState = DevbookUpdateState.NotChecked;
             _folderOpenError = null;
+            CloseReviewWhenNotApplicable();
             await ReloadMenuAsync();
             StateHasChanged();
+
+            // The source moved somewhere else than the pane — Settings, another
+            // window — while a review was open over the branch it left.
+            if (ReviewSourceMoved)
+            {
+                await LoadReviewAsync();
+                StateHasChanged();
+            }
         });
 
     public void Dispose()
     {
+        // A review answer still on its way lands on a pane that has gone: it is
+        // dropped by the sequence, and starts nothing after it.
+        _reviewSequence++;
+        _reviewCancellation?.Cancel();
+        _reviewCancellation?.Dispose();
+        _reviewCancellation = null;
         DevbookMenu.Changed -= OnDevbookChanged;
         if (_scenarioStore is not null) _scenarioStore.Changed -= OnScenariosChanged;
         if (_brain is not null) _brain.Changed -= OnBrainChanged;
@@ -699,6 +740,7 @@
         _visibleAreas = null;
         ReadBrain();
         CloseRepositoryReadingsOnModeChange();
+        CloseReviewWhenNotApplicable();
         ForgetUpdateStateOnScopeChange();
         TakeOpenRequest();
         await RefreshMenuAsync();
@@ -740,6 +782,7 @@
 
         _atlasOpen = false;
         _searchOpen = false;
+        CloseReview();
         _pendingChapter = target;
     }
 
@@ -935,6 +978,11 @@
             }
         }
 
+        // Not in the list is not yet "no such branch": the list stops at a
+        // ceiling and was fetched a while ago. GitHub is asked about the name
+        // itself before it is refused.
+        value ??= await DevbookSource.ResolveTypedBranchAsync(alias, commit.Value, CancellationToken.None);
+
         if (value is null)
         {
             _sourceError = $"No branch named \"{commit.Value.Trim()}\" in {DevbookSource.Repository(alias)?.FullName}.";
@@ -996,7 +1044,303 @@
         // error beside the control, and a sentence claiming the new source under
         // it would contradict the error.
         _sourceStatus = _sourceError is null ? DevbookSource.Summary(ActiveRepositoryAlias) : null;
+
+        // A review open over the branch just left is about that branch: it
+        // follows the switch to another one, and closes on the way to the clone.
+        if (_reviewOpen && _sourceError is null)
+        {
+            if (!CanReviewBranch) CloseReview();
+            else if (ReviewSourceMoved) await LoadReviewAsync();
+        }
     }
+
+    /// <summary>The branch review, when the host composed one. Resolved rather
+    /// than injected, as the optional stores are: a host without it draws no
+    /// toggle.</summary>
+    private DevbookBranchReview? _review;
+
+    private bool _reviewOpen;
+
+    /// <summary>The repository the open review is about, so moving the scope
+    /// closes it.</summary>
+    private string? _reviewAlias;
+
+    private bool _reviewLoading;
+    private DevbookReviewOutline? _reviewOutline;
+    private string? _reviewScopeId;
+    private bool _reviewFilesLoading;
+    private DevbookReviewFiles? _reviewFiles;
+    private string? _reviewFilePath;
+    private DevbookReviewComparison? _reviewComparison;
+    private bool _reviewCompareLoading;
+
+    /// <summary>The source the open review was loaded for, so a switch made
+    /// anywhere — this pane, Settings, another window — is noticed and the review
+    /// follows it.</summary>
+    private string? _reviewSource;
+
+    /// <summary>Only the latest request lands: a reader arrowing through the
+    /// commits asks faster than GitHub answers, and the answer for a commit
+    /// already stepped past must not overwrite the one on screen.</summary>
+    private int _reviewSequence;
+
+    /// <summary>The wait of the latest request. A new request cancels the one
+    /// before it, so a commit arrowed past stops being waited for; the reads it
+    /// started go on in the service's cache, where the next ask may want them.</summary>
+    private CancellationTokenSource? _reviewCancellation;
+
+    private CancellationToken NextReviewRequest()
+    {
+        _reviewCancellation?.Cancel();
+        _reviewCancellation?.Dispose();
+        _reviewCancellation = new CancellationTokenSource();
+        return _reviewCancellation.Token;
+    }
+
+    private bool ReviewSourceMoved =>
+        _reviewOpen
+        && CanReviewBranch
+        && !string.Equals(_reviewSource, DevbookSource.CurrentValue(ActiveRepositoryAlias), StringComparison.Ordinal);
+
+    /// <summary>The loaded review, which the files and comparisons are asked of.</summary>
+    private DevbookReviewHandle? ReviewHandle => _reviewOutline?.Review;
+
+    /// <summary>Whether the toggle is offered: a repository read from a branch,
+    /// in a host that composed the review.</summary>
+    private bool CanReviewBranch => !BrainMode && _review is not null && _review.CanReview(ActiveRepositoryAlias);
+
+    private ChangedFile? ReviewFile =>
+        _reviewFiles?.Files.FirstOrDefault(file => string.Equals(file.Path, _reviewFilePath, StringComparison.Ordinal));
+
+    private async Task ToggleReviewAsync()
+    {
+        if (_reviewOpen)
+        {
+            CloseReview();
+            return;
+        }
+
+        // The review takes the body the atlas and the search take, so it closes
+        // both rather than stacking over them.
+        _atlasOpen = false;
+        _searchOpen = false;
+        _reviewOpen = true;
+        await LoadReviewAsync();
+    }
+
+    private void CloseReview()
+    {
+        _reviewOpen = false;
+        _reviewAlias = null;
+        _reviewLoading = false;
+        _reviewOutline = null;
+        _reviewScopeId = null;
+        _reviewFilesLoading = false;
+        _reviewFiles = null;
+        _reviewFilePath = null;
+        _reviewComparison = null;
+        _reviewCompareLoading = false;
+        _reviewSource = null;
+        _reviewSequence++;
+        _reviewCancellation?.Cancel();
+    }
+
+    /// <summary>A review is about one repository's branch: moving to another
+    /// repository, to the Brain, or to the local clone closes it.</summary>
+    private void CloseReviewWhenNotApplicable()
+    {
+        if (!_reviewOpen) return;
+
+        if (!CanReviewBranch || !string.Equals(_reviewAlias, ActiveRepositoryAlias, StringComparison.Ordinal)) CloseReview();
+    }
+
+    /// <summary>The branch against the default branch, opened on the whole
+    /// branch and its first chapter — the reading a reviewer starts from.</summary>
+    private async Task LoadReviewAsync()
+    {
+        if (_review is null || _disposed) return;
+
+        var alias = ActiveRepositoryAlias;
+        var request = ++_reviewSequence;
+        var cancellation = NextReviewRequest();
+
+        _reviewAlias = alias;
+        _reviewSource = DevbookSource.CurrentValue(alias);
+        _reviewLoading = true;
+        _reviewOutline = null;
+        _reviewScopeId = null;
+        _reviewFiles = null;
+        _reviewFilePath = null;
+        _reviewComparison = null;
+        _reviewCompareLoading = false;
+
+        // Said now rather than when the answer lands: a reload the source change
+        // starts runs inside a dispatcher callback that renders only when asked,
+        // and a slow GitHub would leave the previous branch's review on screen.
+        StateHasChanged();
+
+        var outline = await _review.LoadAsync(alias, cancellation);
+        if (request != _reviewSequence) return;
+
+        _reviewOutline = outline;
+        _reviewLoading = false;
+
+        if (outline.Error is null && outline.Scopes.Count > 0)
+        {
+            await SelectReviewScopeAsync(outline.Scopes[0].Id);
+        }
+    }
+
+    /// <summary>A scope or a commit was chosen: its chapters load, and the first
+    /// of them opens, so the compare beside the list is never a file the list no
+    /// longer offers.</summary>
+    private async Task SelectReviewScopeAsync(string? scopeId)
+    {
+        if (_review is null || scopeId is null || _disposed) return;
+
+        var request = ++_reviewSequence;
+        var cancellation = NextReviewRequest();
+
+        _reviewScopeId = scopeId;
+        _reviewFilesLoading = true;
+        _reviewFiles = null;
+        _reviewFilePath = null;
+        _reviewComparison = null;
+        _reviewCompareLoading = false;
+
+        var files = await _review.FilesAsync(ReviewHandle, scopeId, cancellation);
+        if (request != _reviewSequence) return;
+
+        _reviewFiles = files;
+        _reviewFilesLoading = false;
+
+        if (files.Files.Count > 0) await SelectReviewFileAsync(files.Files[0]);
+    }
+
+    private async Task SelectReviewFileAsync(ChangedFile file)
+    {
+        if (_review is null || _disposed) return;
+
+        var request = ++_reviewSequence;
+        var cancellation = NextReviewRequest();
+
+        _reviewFilePath = file.Path;
+        _reviewComparison = null;
+        _reviewCompareLoading = true;
+
+        var comparison = await _review.CompareAsync(ReviewHandle, _reviewScopeId, file.Path, cancellation);
+        if (request != _reviewSequence) return;
+
+        _reviewComparison = comparison;
+        _reviewCompareLoading = false;
+    }
+
+    /// <summary>
+    /// The review in place of the chapters: which change, which chapter, and what
+    /// moved in it — the three compare components, laid out as the storybook's
+    /// whole surface lays them out. Loading and refusals are sentences in the
+    /// column they belong to, so a failed file list does not take the commits
+    /// away with it.
+    /// </summary>
+    private RenderFragment RenderReview() => __builder =>
+    {
+        <div class="devbook-review" data-testid="devbook-review">
+            @if (_reviewLoading)
+            {
+                @* The library's spinner, as the other panes load: nothing of
+                   the review's layout is known until GitHub answers. *@
+                <Spinner Label="Reading what this branch changed" TestId="devbook-review-loading" />
+            }
+            else if (_reviewOutline is { Error: { } outlineError })
+            {
+                <Alert Message="@outlineError"
+                       BaseClass="devbook-stack__update-status devbook-stack__update-status--blocked"
+                       Role="status"
+                       TestId="devbook-review-error" />
+            }
+            else if (_reviewOutline is { } outline)
+            {
+                <div class="devbook-review__columns">
+                    <div class="devbook-review__column">
+                        <ChangeScopePicker Scopes="outline.Scopes"
+                                           Commits="outline.Commits"
+                                           SelectedId="@_reviewScopeId"
+                                           SelectedIdChanged="SelectReviewScopeAsync"
+                                           AriaLabel="Changes on this branch"
+                                           CommitsLabel="Commits on this branch"
+                                           TestId="devbook-review-picker" />
+                        <Alert Message="@outline.Notice"
+                               BaseClass="devbook-review__note"
+                               Role="status"
+                               TestId="devbook-review-notice" />
+                    </div>
+
+                    <div class="devbook-review__column">
+                        @if (_reviewFilesLoading)
+                        {
+                            <Spinner Size="SpinnerSize.Small" Label="Reading the chapters" TestId="devbook-review-files-loading" />
+                        }
+                        else if (_reviewFiles is { Error: { } filesError })
+                        {
+                            <Alert Message="@filesError"
+                                   BaseClass="devbook-review__note devbook-stack__update-status--blocked"
+                                   Role="status"
+                                   TestId="devbook-review-files-error" />
+                        }
+                        else if (_reviewFiles is { } files)
+                        {
+                            <ChangedFileList Files="files.Files"
+                                             SelectedPath="@_reviewFilePath"
+                                             OnFileSelected="SelectReviewFileAsync"
+                                             AriaLabel="Changed chapters"
+                                             EmptyTitle="No chapters changed"
+                                             EmptyDescription="This change touches no devbook chapter."
+                                             TestId="devbook-review-files" />
+                            <Alert Message="@files.OtherFilesNote"
+                                   BaseClass="devbook-review__note"
+                                   Role="status"
+                                   TestId="devbook-review-other-files" />
+                            <Alert Message="@files.Notice"
+                                   BaseClass="devbook-review__note"
+                                   Role="status"
+                                   TestId="devbook-review-files-notice" />
+                        }
+                    </div>
+
+                    @if (ReviewFile is not null && _reviewCompareLoading)
+                    {
+                        <Spinner Label="Comparing the chapter" TestId="devbook-review-compare-loading" />
+                    }
+                    else if (ReviewFile is not null && _reviewComparison is { Error: { } compareError })
+                    {
+                        <Alert Message="@compareError"
+                               BaseClass="devbook-review__note devbook-stack__update-status--blocked"
+                               Role="status"
+                               TestId="devbook-review-compare-error" />
+                    }
+                    else if (ReviewFile is { } selected && _reviewComparison is { Section: { } section })
+                    {
+                        <MarkdownCompareView Section="section"
+                                             FileName="@selected.Name"
+                                             Path="@selected.Path"
+                                             BeforeLabel="@(_reviewFiles?.BeforeLabel ?? "Before")"
+                                             AfterLabel="@(_reviewFiles?.AfterLabel ?? "After")"
+                                             Fill="true"
+                                             TestId="devbook-review-compare" />
+                    }
+                    else
+                    {
+                        <MarkdownCompareView Section="null"
+                                             FileName="No chapter"
+                                             EmptyTitle="No chapter selected"
+                                             EmptyDescription="Choose a chapter to see what moved in it."
+                                             Fill="true"
+                                             TestId="devbook-review-compare" />
+                    }
+                </div>
+            }
+        </div>
+    };
 
     private bool CanOpenActiveFolder => !BrainMode &&
         DevbookUpdate.Repository(ActiveRepositoryAlias)?.DevbookSource is not DevbookSourceKind.Branch;
@@ -1007,7 +1351,7 @@
     /// search results are both readings of the whole area rather than of the one
     /// chapter a menu selects, so neither shares the width with it — and Technology
     /// never had a menu to begin with.</summary>
-    private bool ShowMenu => SectionUsesMenu && !_atlasOpen && !_searchOpen && !(BrainMode && VisibleAreas.Count == 0);
+    private bool ShowMenu => SectionUsesMenu && !_atlasOpen && !_searchOpen && !_reviewOpen && !(BrainMode && VisibleAreas.Count == 0);
 
     private string? SelectedChapterPath =>
         SectionUsesMenu && _selectedChapterPaths.TryGetValue(EffectiveSection, out var path) ? path : null;
@@ -1125,7 +1469,10 @@
     private void ToggleSearch()
     {
         _searchOpen = !_searchOpen;
-        if (_searchOpen) _atlasOpen = false;
+        if (!_searchOpen) return;
+
+        _atlasOpen = false;
+        CloseReview();
     }
 
     /// <summary>Following a result out of the list closes the list, for the reason
@@ -1389,6 +1736,7 @@
         // repository's branches.
         _sourceStatus = null;
         _sourceQuery = null;
+        _sourceError = null;
     }
 
     /// <summary>

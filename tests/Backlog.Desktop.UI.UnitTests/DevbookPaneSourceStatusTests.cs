@@ -139,6 +139,35 @@ public sealed class DevbookPaneSourceStatusTests
         Assert.Equal(DevbookSourceKind.LocalFolder, harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookSource);
     }
 
+    /// <summary>Refused while a branch is being read, the field goes back to that
+    /// branch's name, and the reason sits under the strip rather than on it — a
+    /// sentence on the strip squeezed the field to an empty sliver and the tabs into
+    /// one column.</summary>
+    [Fact]
+    public async Task A_refusal_on_a_branch_puts_the_branch_back_and_says_why_under_the_strip()
+    {
+        await using var harness = CreateHarness(branches: ["main", "release/2.0"]);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        CommitSource(component, "release/2.0");
+        component.WaitForAssertion(() => Assert.Equal("release/2.0", SourceInput(component).GetAttribute("value")));
+
+        CommitSource(component, "no-such-branch");
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("release/2.0", SourceInput(component).GetAttribute("value"));
+            Assert.Equal(
+                "No branch named \"no-such-branch\" in JSdotNet/Backlog.",
+                component.Find("[data-testid='devbook-source-error']").TextContent.Trim());
+        });
+
+        Assert.Empty(component.FindAll(".devbook-stack__strip [data-testid='devbook-source-error']"));
+        Assert.Equal("release/2.0", harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookBranch);
+    }
+
     /// <summary>Nobody has to load the list before naming a branch: the name is
     /// checked against the list the pane fetches for it.</summary>
     [Fact]
@@ -161,6 +190,37 @@ public sealed class DevbookPaneSourceStatusTests
         });
 
         Assert.Equal("release/2.0", harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookBranch);
+    }
+
+    /// <summary>The list stops at a ceiling and was fetched a while ago, so a
+    /// typed name it lacks is asked of GitHub before it is refused — and, being
+    /// there, is switched to and joins the list.</summary>
+    [Fact]
+    public async Task Typing_a_branch_the_list_lacks_asks_github_and_switches()
+    {
+        const string Branch = "inbox-redesign/inbox-dialogs-over-panes";
+        await using var harness = CreateHarness(
+            branches: ["main"],
+            heads: new(StringComparer.Ordinal) { [Branch] = new GitHubBranchHead(Branch, "abc123") });
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        CommitSource(component, Branch);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.StartsWith(
+                $"Reading {Branch} as a read-only snapshot.",
+                component.Find("[data-testid='devbook-source-status']").TextContent.Trim(),
+                StringComparison.Ordinal);
+            Assert.Equal(Branch, SourceInput(component).GetAttribute("value"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-source-error']"));
+        });
+
+        Assert.Equal(Branch, harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookBranch);
+        Assert.Contains(Branch, harness.Context.Services.GetRequiredService<DevbookSourceSelection>()
+            .Suggestions(harness.RepositoryAlias, "dialogs").Select(option => option.Value));
     }
 
     [Fact]
@@ -306,7 +366,7 @@ public sealed class DevbookPaneSourceStatusTests
         SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Enter" });
     }
 
-    private static Harness CreateHarness(List<string>? branches = null)
+    private static Harness CreateHarness(List<string>? branches = null, Dictionary<string, GitHubBranchHead>? heads = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-source-status-tests", Guid.NewGuid().ToString("n"));
         var clone = Path.Combine(root, "clone");
@@ -345,7 +405,7 @@ public sealed class DevbookPaneSourceStatusTests
         // rendered without it would fail on inject, as the application hosts would.
         context.Services.AddScoped<DevbookOpenChapter>();
         context.Services.AddSingleton<DevbookUpdateService>();
-        var catalog = new StubBranchCatalog { Branches = branches ?? [] };
+        var catalog = new StubBranchCatalog { Branches = branches ?? [], Heads = heads ?? new(StringComparer.Ordinal) };
         context.Services.AddSingleton<IGitHubBranchCatalog>(catalog);
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
