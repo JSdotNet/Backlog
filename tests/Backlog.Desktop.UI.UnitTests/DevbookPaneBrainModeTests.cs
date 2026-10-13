@@ -79,7 +79,7 @@ public sealed class DevbookPaneBrainModeTests
             Assert.Contains("Second note.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal);
             Assert.Equal("work/beta.md", component.Find("[data-testid='brain-note-file'] .file-view__path").TextContent.Trim());
         });
-        Assert.NotEmpty(component.FindComponents<DevbookMarkdownView>());
+        Assert.NotEmpty(component.FindComponents<MarkdownView>());
     }
 
     /// <summary>"Journal sorts newest first" (the Devbook vs Brain board): the

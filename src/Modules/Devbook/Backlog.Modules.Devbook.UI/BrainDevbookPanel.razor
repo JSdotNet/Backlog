@@ -8,6 +8,14 @@
     for writing. What it leaves out is everything a repository chapter carries and a
     note does not — no sync scope, no scenario images, no status control. A note is
     the person's own file in their own folder, so it is always editable.
+
+    Remarks are the one thing a note keeps exactly as a chapter does (local ADR 0026
+    §3): the reader leaves one on a block, edits, resolves or deletes it, and it is
+    stored in the same IDevbookAnnotationStore under the Brain's unscoped alias
+    (BrainScope.Value), keyed by the note's path from the Brain's root — which is
+    exactly where DevbookTools' list_annotations and resolve_annotation look on
+    #brain. The blocks are parsed from the whole file, as ChapterReading parses it
+    for the agent, so a block index means the same block on both sides.
 *@
 
 <aside class="devbook-pane devbook-pane--brain" data-testid="brain-devbook-panel" aria-label="Brain note">
@@ -88,11 +96,22 @@
     /// host with no repository source, where every such link is unresolved.</summary>
     private BrainRepoLinkResolver? _resolver;
 
-    /// <summary>The prose hook and the <c>related</c> hook, built once: a new
-    /// delegate per render is a changed parameter per render.</summary>
+    /// <summary>The prose hook, built once: a new delegate per render is a
+    /// changed parameter per render.</summary>
     private MarkdownRender.MarkdownInlineTarget? _inlineTarget;
 
-    private Func<string, RenderFragment?>? _relatedTarget;
+    /// <summary>Where remarks live: the host's annotation store, or a
+    /// session-scoped one when the host composed none — the arrangement the
+    /// repository panels have.</summary>
+    private IDevbookAnnotationStore _annotations = null!;
+
+    /// <summary>The open note's remarks as the read view draws them.</summary>
+    private IReadOnlyList<MarkdownComment> _noteComments = [];
+
+    /// <summary>The open note's blocks, parsed from the whole file the way
+    /// ChapterReading parses it, so a remark's block index and digest name the
+    /// same block in the pane and over MCP.</summary>
+    private IReadOnlyList<MdBlock> _blocks = [];
 
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
     private DevbookDocument? _document;
@@ -118,7 +137,8 @@
             kind is MarkdownInlineKind.Link && BrainRepoLink.IsRepoLink(target)
                 ? RepoLinkChipFor(target, string.Equals(target, text, StringComparison.Ordinal) ? null : text)
                 : null;
-        _relatedTarget = related => BrainRepoLink.IsRepoLink(related) ? RepoLinkChipFor(related, null) : null;
+        _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
+        _annotations.Changed += OnAnnotationsChanged;
         Brain.Changed += OnBrainChanged;
     }
 
@@ -193,7 +213,9 @@
         _loaded = true;
         _chapter = chapter;
         _document = chapter is { Chapter: { } note, Text: { } text } ? DevbookMarkdownParser.Parse(note.RelativePath, text) : null;
+        _blocks = chapter.Text is { } body ? MarkdownPreview.ParseDocument(body) : [];
         _saveError = null;
+        RefreshNoteComments();
 
         if (!sameNote) _editing = false;
         if (_chapter.Chapter is null) _editor = null;
@@ -242,10 +264,95 @@
             </p>
         }
 
-        <DevbookMarkdownView Blocks="@(_document?.ContentBlocks ?? [])"
-                             InlineTarget="@_inlineTarget"
-                             RelatedTarget="@_relatedTarget" />
+        @* The read view the repository panels' FileView draws, with the remark
+           affordance on every block — handed the blocks directly because the
+           repo-link line above has to sit inside the body. The note's own `meta`
+           fence is what that line already shows, so the view skips it.
+           Inline, not the margin: the margin falls back to inline on the
+           viewport's width, and this pane is a narrow column of a wide window,
+           where an 18rem gutter leaves the prose a word wide. *@
+        <MarkdownView Blocks="@_blocks"
+                      Source="@_chapter.Text"
+                      RenderDevbookMetadata="true"
+                      RenderFileDevbookMetadata="false"
+                      RenderDevbookMetadataFields="false"
+                      CanEditDevbookStatus="false"
+                      HostInlineTarget="@_inlineTarget"
+                      Comments="@_noteComments"
+                      Layout="MarkdownCommentLayout.Inline"
+                      OnAddComment="AddNoteComment"
+                      OnResolveComment="ResolveNoteComment"
+                      OnEditComment="EditNoteComment"
+                      OnDeleteComment="DeleteNoteComment" />
     };
+
+    /// <summary>The open note's remarks, read back from the store under the
+    /// Brain's alias. Another note's remarks stay with that note.</summary>
+    private void RefreshNoteComments() =>
+        _noteComments = NotePath is { } path
+            ? DevbookAnnotationComments.Comments(_annotations.List(BrainScope.Value, path))
+            : [];
+
+    /// <summary>The open note's path from the Brain's root — the chapter path the
+    /// store and the MCP tools both key a Brain remark by.</summary>
+    private string? NotePath => _chapter.Chapter?.RelativePath;
+
+    /// <summary>The store changed under the panel — another device's remark
+    /// replicated in, or an agent resolved one through MCP. It arrives on whichever
+    /// thread wrote, so the redraw is marshalled.</summary>
+    private void OnAnnotationsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed) return;
+
+            RefreshNoteComments();
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>A fresh, empty remark on the block, which the read view opens
+    /// straight into its textarea — as the repository panels do.</summary>
+    private void AddNoteComment(int blockIndex)
+    {
+        if (NotePath is not { } path) return;
+
+        _annotations.Add(
+            BrainScope.Value,
+            path,
+            blockIndex,
+            DevbookAnnotationComments.LocalAuthor,
+            MdBlockDigest.Of(_blocks, blockIndex));
+
+        RefreshNoteComments();
+    }
+
+    private void ResolveNoteComment(string id)
+    {
+        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+        if (_annotations.Find(annotationId) is not { } annotation) return;
+
+        _annotations.SetResolved(annotationId, !annotation.Resolved);
+        RefreshNoteComments();
+    }
+
+    private void EditNoteComment(MarkdownComment edited)
+    {
+        if (DevbookAnnotationComments.AnnotationId(edited.Id) is not { } annotationId) return;
+
+        _annotations.Edit(annotationId, edited.Body);
+        RefreshNoteComments();
+    }
+
+    private void DeleteNoteComment(string id)
+    {
+        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+
+        _annotations.Delete(annotationId);
+        RefreshNoteComments();
+    }
 
     /// <summary>
     /// One <c>repo:</c> link as its chip: gold and followable when this machine has
@@ -286,5 +393,6 @@
     {
         _disposed = true;
         Brain.Changed -= OnBrainChanged;
+        _annotations.Changed -= OnAnnotationsChanged;
     }
 }

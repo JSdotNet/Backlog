@@ -149,7 +149,10 @@ With the scope's anchor on Brain, or nothing pressed, the pane carries a teal
 **Brain** badge after its title, the folder's path where a repository's branch
 picker would be, and one tab per area the Brain declares. The tree, the rendered
 chapter and the editor are the ones a repository devbook uses, and a Brain note
-is always editable. What only a repository has is absent: branch updates, sync
+is always editable. The reader leaves a remark on a note's block as on a
+chapter's, and edits, resolves or deletes it there. A Brain remark is stored
+under the Brain's scope, by the note's path from the Brain's root, so the agent
+lists and resolves it on `#brain`. What only a repository has is absent: branch updates, sync
 verdicts and scenario marks. So is opening the folder in an editor. Search is
 offered on the Brain as on a repository, because it is one
 [Unified search](#unified-search) wherever it is opened. The **Atlas** button
@@ -233,7 +236,7 @@ own database. A source with no database yet is named as not searchable rather
 than silently left out.
 
 Search by meaning is additive, as it is for one devbook: it is asked only while
-it is switched on, once typing pauses, and the words answer is drawn while it is
+it is switched on and a model is there to answer, once typing pauses, and the words answer is drawn while it is
 on its way. Within a source the two answers are merged by where each put a
 chapter, never by their scores, which are on different scales; a chapter both
 found is one result. Opening a result from the devbook on screen opens it there.

@@ -326,6 +326,22 @@ The system SHALL let the reader edit any Brain note in the pane and save it to i
 - **When** the reader changes its body
 - **Then** the note's file in the folder holds the new body
 
+### Requirement: A remark on a Brain note is the Brain's
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_remark_left_on_a_note_is_stored_under_the_brain_alias_by_the_notes_path, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_remark_resolved_elsewhere_is_drawn_resolved_without_reopening_the_note, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_repository_remark_on_the_same_path_is_not_the_notes, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.Listing_brain_remarks_answers_the_written_live_ones_on_the_brain]
+```
+
+The system SHALL let the reader leave a remark on a block of a Brain note and store it under the Brain's scope by the note's path from the Brain's root.
+
+#### Scenario: A remark the agent can answer
+
+- **Given** the pane shows the Brain note `projects/plan.md`
+- **When** the reader leaves the remark *Which week?* on its second block
+- **Then** the agent lists that remark for `projects/plan.md` on `#brain`, and resolving it there shows it resolved in the pane
+
 ### Requirement: A conflict copy warns and changes nothing
 
 ```meta
