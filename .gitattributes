@@ -28,3 +28,10 @@ tests/**/Fixtures/** binary
 # request diffs; the hand-authored JSON specifications beside them stay visible.
 **/_archify/*.html linguist-generated
 tools/archify/examples/** linguist-documentation
+
+# Third-party builds vendored into the component library, kept byte for byte as
+# published. autocrlf would otherwise rewrite them on a Windows checkout, and a
+# diff of one minified line per file reads as nothing. The README beside each is
+# ours, so it diffs and normalises like any other text file.
+src/Core/Backlog.UI.Components/wwwroot/lib/** -text -diff linguist-vendored
+src/Core/Backlog.UI.Components/wwwroot/lib/**/README.md text diff -linguist-vendored

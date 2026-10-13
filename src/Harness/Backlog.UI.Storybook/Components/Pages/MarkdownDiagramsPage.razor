@@ -3,7 +3,7 @@
 <PageTitle>Diagrams in markdown — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Diagrams in markdown"
-           Summary="A subpage of Markdown, about one block: the fenced code block whose language names a diagram. MarkdownView hands those to DiagramView instead of rendering a code block, so a diagram is something you write in a body rather than something you attach to one. Everything else about fences — that nothing inside them is parsed, that a `- [ ]` in one is a sample — still holds. Mermaid is fetched from a CDN the first time a diagram renders, so on a machine with no egress every diagram here falls back to its source: the last story's case, not a broken page."
+           Summary="A subpage of Markdown, about one block: the fenced code block whose language names a diagram. MarkdownView hands those to DiagramView instead of rendering a code block, so a diagram is something you write in a body rather than something you attach to one. Everything else about fences — that nothing inside them is parsed, that a `- [ ]` in one is a sample — still holds. Mermaid ships with the component library and loads from it the first time a diagram renders, so every diagram here draws with no network; one that cannot be drawn falls back to its source, which is the last story's case and not a broken page."
            Guidelines="@Rules">
 
     <Story Name="A fence that names a diagram becomes one"
@@ -85,7 +85,7 @@ Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and n
 
     <Story Name="When the renderer cannot start"
            Code="@BrokenViewCode"
-           Description="Mermaid is fetched from a CDN on first use. In a WebView with no egress, or behind a proxy that refuses it, the import fails — and the block says so and shows the source rather than leaving an empty frame where a picture was promised. The same path covers a diagram whose syntax mermaid rejects: the message is the renderer's own, and the source is underneath it either way.
+           Description="Mermaid loads from the component library's own copy on first use. If that load fails, or mermaid rejects the diagram's syntax, the block says so and shows the source rather than leaving an empty frame where a picture was promised. For a syntax error the message is the renderer's own, and the source is underneath it either way. A failed load is not remembered, so the next diagram tries again.
 
 A body is content that may have come from a repository file nobody here wrote, so a diagram that fails is an expected outcome and not an error state. Nothing about the surrounding prose is affected by it."
            Source="@BrokenSample">

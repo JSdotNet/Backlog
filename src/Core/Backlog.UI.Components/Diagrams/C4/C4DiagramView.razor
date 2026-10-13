@@ -13,7 +13,7 @@
 *@
 
 <div class="c4-diagram-host" data-testid="@TestId">
-    @((MarkupString)C4SvgWriter.Write(Diagram, Id, AriaLabel))
+    @((MarkupString)Svg())
 </div>
 
 @code {
@@ -34,4 +34,30 @@
 
     [Parameter]
     public string? TestId { get; set; } = "c4-diagram";
+
+    private C4Diagram? _drawn;
+    private string? _drawnId;
+    private string? _drawnLabel;
+    private string _svg = string.Empty;
+
+    /// <summary>The picture as markup, written again only when what it is drawn from
+    /// changed. A host re-renders this for reasons of its own, and the explorer does
+    /// so once per zoom report; writing the same SVG each time costs a full pass over
+    /// the layout for a string Blazor then finds unchanged. Compared by reference,
+    /// because a laid-out diagram is never edited in place: a new layout is a new
+    /// object.</summary>
+    private string Svg()
+    {
+        if (!ReferenceEquals(_drawn, Diagram)
+            || !string.Equals(_drawnId, Id, StringComparison.Ordinal)
+            || !string.Equals(_drawnLabel, AriaLabel, StringComparison.Ordinal))
+        {
+            _svg = C4SvgWriter.Write(Diagram, Id, AriaLabel);
+            _drawn = Diagram;
+            _drawnId = Id;
+            _drawnLabel = AriaLabel;
+        }
+
+        return _svg;
+    }
 }
