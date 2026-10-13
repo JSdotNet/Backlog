@@ -48,8 +48,8 @@ the boundary and the transaction have the same shape. This mirrors
 [Repository Registry](../repository-management/domain.md#repository-registry),
 the other singleton-registry aggregate in this product.
 
-The rules the plan holds are in [its invariants](domain.invariants.md#roadmap-plan).
-A plan with no items is a valid plan: a first run, or everything delivered.
+The rules the plan holds are in [its invariants](domain.invariants.md#roadmap-plan),
+including those of the value objects below.
 
 ### Roadmap Item
 
@@ -161,10 +161,9 @@ status: draft
 aliases: [RepositoryScope, repository_aliases, repos, scope]
 ```
 
-The repositories an item or milestone belongs to: a set of repository aliases,
-normalized, without duplicates. Equality is by value. An empty scope is valid and
-means the work is under no repository; it is not an error, and not a default
-repository.
+The repositories an item or milestone belongs to, as aliases. How the aliases are
+normalized, and what an empty scope means, are
+[invariants of the plan](domain.invariants.md#invariant-scope-aliases-are-normalized-and-distinct).
 
 Aliases are the shared key with
 [Repository Management](../repository-management/domain.md#repository) and
@@ -181,7 +180,8 @@ aliases: [depends_on, depends_on_id, waits on, blocked by]
 
 An edge from the node that must land first to the node that waits for it:
 `depends_on_id`, referencing a [Roadmap Node](#roadmap-node) in the same plan.
-Equality is by value, so the same dependency declared twice is one dependency.
+What the plan accepts as a dependency is in
+[its invariants](domain.invariants.md#invariant-a-dependency-declared-twice-is-one-dependency).
 
 It is held on the waiting node rather than in a separate edge list. "What am I
 waiting for" is the question a reader asks of an item, and the direction in which
@@ -196,8 +196,8 @@ aliases: [PlanningLane, lane, row]
 ```
 
 A free-form row label within a [band](#band), such as "platform" or "migration":
-whatever the person actually calls it. Equality is by value, and blank is
-normalized to the default lane.
+whatever the person actually calls it. What a blank lane reads as is
+[an invariant of the plan](domain.invariants.md#invariant-a-blank-lane-is-the-default-lane).
 
 Deliberately a string rather than an enum, for the same reason `area` is on a
 [Task](../tasks/domain.md#task): the taxonomy is the person's. An enum here would
@@ -227,23 +227,17 @@ status: draft
 aliases: [RoadmapTag, tag, roadmap tag, slug]
 ```
 
-The slug other contexts file work under to say it belongs to this item: a
-lowercase kebab-case string. Equality is by value. Every Roadmap Item has exactly
-one, so it is **not optional**. It is derived from the item's title when the item
-is created, and is then freely editable in its own right.
+The slug other contexts file work under to say it belongs to this item. Equality
+is by value. The tag starts from the item's title and is then freely editable in
+its own right. Its shape, where it comes from, and what a rename does to it are
+[invariants of the plan](domain.invariants.md#invariant-every-item-has-a-tag).
 
-Two rules make the tag load-bearing rather than cosmetic.
-
-- **It does not change when the title is later renamed.** A tag is a word other
-  contexts have already written down: a Task filed under it, or a knowledge
-  chapter naming it in its `roadmap` list. Reslugging it on a rename would make
-  every one of those references silently stop matching, with nothing to report
-  it. So the tag drifts away from the title on purpose. Staying put while the
-  title moves is the whole point of holding it apart rather than deriving it on
-  read.
-- **A title that slugifies to nothing falls back to the constant `item`.**
-  Punctuation, an emoji, or a script the slug rule strips would otherwise leave
-  an empty tag, and there must always be something to file against.
+The tag is load-bearing rather than cosmetic, because it is a word other
+contexts have already written down: a Task filed under it, or a knowledge chapter
+naming it in its `roadmap` list. Reslugging it on a rename would make every one of
+those references silently stop matching, with nothing to report it. So the tag
+drifts away from the title on purpose. Staying put while the title moves is the
+whole point of holding it apart rather than deriving it on read.
 
 Tags are **not required to be unique** across items. Two items may share a tag on
 purpose, because the person means to group them. The plan can report the tags in
