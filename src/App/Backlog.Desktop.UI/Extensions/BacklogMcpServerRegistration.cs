@@ -129,7 +129,11 @@ public static class BacklogMcpServerRegistration
             // groups naming one class; registering a class twice would list its
             // tools twice.
             .WithTools([.. BacklogMcpTools.Groups.Select(group => group.ToolType).Distinct()])
-            .WithRequestFilters(ApplyFeatureGates);
+            .WithRequestFilters(ApplyFeatureGates)
+            // After the gates, so a switched-off tool is unknown before its
+            // arguments are read. See ToolArguments for why the surface's are read
+            // here at all: the SDK answers a binding failure with no reason.
+            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolArguments.Filter));
     }
 
     /// <summary>
