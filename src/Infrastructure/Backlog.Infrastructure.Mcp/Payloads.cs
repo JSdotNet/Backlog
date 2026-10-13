@@ -395,6 +395,17 @@ public sealed record ChapterDemoPayload(
     int? Block,
     bool? Exists);
 
+/// <summary>
+/// A note <c>capture_note</c> wrote into the Brain's inbox area.
+/// </summary>
+/// <param name="Path">The note's path relative to the Brain's root, with <c>/</c>
+/// between segments (<c>_inbox/ideas-for-the-sync.md</c>) — the spelling
+/// <c>read_knowledge_chapter</c> takes under <c>#brain</c>, so a session can read
+/// back what it wrote without translating it.</param>
+/// <param name="Title">The title as the note's heading carries it: one line, the
+/// whitespace the writer folds already folded.</param>
+public sealed record CapturedNotePayload(string Path, string Title);
+
 /// <summary>The live, typed-into notes on one chapter.</summary>
 public sealed record AnnotationsPayload(
     string Repository,

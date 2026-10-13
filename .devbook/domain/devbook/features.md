@@ -262,7 +262,7 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
 related: [.devbook/domain/devbook/requirements.md#capture-into-the-brain, .devbook/domain/inbox/features.md#route-to-brain, .devbook/domain/inbox/domain.md#itemtriaged]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
 ```
 
 Get a thought into the Brain without leaving what is on screen. In Brain mode
@@ -282,8 +282,8 @@ The note's file is named after its title (`Ideas for the sync` is
 nothing in the Brain is ever overwritten. Its `meta` block says `type: note`
 and its [source](domain.md#note-source), `manual` from Capture and `inbox` from
 To Brain. Once written, the pane opens it. One writer, `IBrainNoteWriter`, does
-all of this for Capture and for To Brain alike, and the capture tool an
-assistant calls is to use it too.
+all of this for Capture and for To Brain alike, and so does the capture tool
+an assistant calls over MCP ([MCP Brain scope](#mcp-brain-scope)).
 
 ## MCP Brain scope
 
@@ -292,14 +292,33 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/devbook/features.md#capture-into-the-brain]
 related: [.devbook/domain/devbook/requirements.md#mcp-brain-scope, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#review-notes-in-a-chapter]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.McpToolCreationTests.A_host_without_the_brain_ports_still_builds_the_devbook_tools]
 ```
 
 Let an assistant read and write the Brain through the same tools it uses on a
 repository devbook. The knowledge tools the app serves over MCP (listing the
 contexts, reading a chapter, listing and resolving the reader's remarks) take
-the Brain's reserved scope beside the repository aliases. A capture tool writes
-a note into the Brain's inbox area through the same writer the pane's Capture
-uses, under the same guard on the text.
+the Brain as `#brain` in the place of a repository's `owner/name`.
+
+The spelling is not the empty string the shell stores for the Brain (local
+ADR 0027 §5): an empty repository argument is already refused as missing, and a
+session that forgot it must never be handed the person's own notes. It is not
+`brain` either, which a repository could be called. A GitHub owner or name
+cannot hold a `#`, and a configured repository line that starts with one is a
+comment, so `#brain` matches no repository; it is matched before any repository
+is looked up.
+
+A Brain note is named by its path from the Brain's root (`projects/plan.md`),
+never under a dot-folder and never through a link out of the folder. The
+remarks on it are the ones the reader left on the Brain, and a remark is
+resolved only under the scope it belongs to.
+
+The capture tool, `capture_note`, writes a new note into the Brain's inbox
+area through the same writer the pane's Capture uses, under the same guard on
+the text and with source `manual`. A second capture with the same title is a
+second note, never an overwrite. The tool answers the note's path from the
+Brain's root, which the read tool takes as it is. Where no Brain is set, or the
+host has none, the tools say so in words rather than failing.
 
 ## Repository devbook areas
 

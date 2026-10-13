@@ -569,7 +569,8 @@ hosts it through two explicit-start resources. `ide-vscode-build` runs `npm run 
 Agent sessions are IDE-class hosts, not a container of their own. Local ADR 0012 has them
 call the MCP server that runs inside the desktop app, `Backlog.Infrastructure.Mcp`. Its tools
 read and change the desktop's own store: tasks, the roadmap, devbook chapters and their
-remarks, sessions and delivery runs.
+remarks (the Brain's notes among them, with a new note written into the Brain's inbox
+area), sessions and delivery runs.
 
 Visual Studio has no extension yet, and no project exists for it. `.devbook/tech/ide.md`
 lists Visual Studio extensibility and a VS Code webview UI as candidates.
