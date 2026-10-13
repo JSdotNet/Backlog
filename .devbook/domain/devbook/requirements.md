@@ -624,3 +624,207 @@ The system SHALL write a note sent to the capture tool into the Brain's inbox ar
 - **Given** a Brain folder is set
 - **When** an assistant calls the capture tool with a title and a body
 - **Then** a new note with that title and body is in the Brain's inbox area
+
+## Choosing where the devbook is read from
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-read-from]
+```
+
+> The requirements of the Devbook pane's source field: the local clone or a branch,
+> read from GitHub (local ADR 0008).
+
+### Requirement: Typing narrows the sources
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_query_keeps_the_suggestions_containing_it_whatever_the_case, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_blank_query_is_no_filter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.The_load_entry_survives_any_query_until_the_branches_are_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_narrows_the_list_to_the_branches_that_match, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.A_click_in_the_untouched_field_lists_every_source]
+```
+
+The system SHALL suggest, in the source field, the sources whose names contain the typed text in any case, and every source while the field is blank or untouched.
+
+#### Scenario: Narrowing to a branch
+
+- **Given** the branches of `backlog` are loaded, among them `claude/devbook-branch-search` and `main`
+- **When** the reader types `BRANCH-search` into the source field
+- **Then** `claude/devbook-branch-search` is suggested and `main` is not
+
+### Requirement: Branches are fetched on request, up to a ceiling
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.The_branch_list_is_offered_until_it_has_been_loaded, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.Loading_replaces_the_offer_with_the_branches, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.Loading_the_branches_does_not_change_what_is_current, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_configured_branch_is_listed_even_when_nothing_was_loaded, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.Branches_past_the_first_page_are_listed, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.Listing_stops_at_the_ceiling]
+```
+
+The system SHALL fetch a repository's branches from GitHub only when the reader asks for them, page by page up to 1000 branches, without changing the source being read.
+
+#### Scenario: A repository with many branches
+
+- **Given** `backlog` has 1200 branches on GitHub and the pane reads its clone
+- **When** the reader picks the entry that loads the branches
+- **Then** the field suggests the first 1000 branches and the pane still reads the clone
+
+### Requirement: A typed branch is checked before it is refused
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_a_branch_before_the_list_is_loaded_fetches_it_and_switches, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_a_branch_the_list_lacks_asks_github_and_switches, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Typing_an_unknown_branch_says_so_and_leaves_the_source_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_branch_typed_in_another_case_means_the_branch_as_it_is_spelled, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchCatalogTests.A_branch_that_is_gone_resolves_to_null_rather_than_throwing]
+```
+
+The system SHALL ask GitHub for a branch the reader commits by name that the loaded list does not hold, switch to it when GitHub has it, and otherwise say there is no such branch and leave the source as it was.
+
+#### Scenario: A branch newer than the list
+
+- **Given** the branch list of `backlog` was loaded before `feature/x` was pushed
+- **When** the reader types `feature/x` and presses Enter
+- **Then** the pane reads `feature/x`
+
+#### Scenario: A branch GitHub does not have
+
+- **Given** `backlog` has no branch `nope`
+- **When** the reader types `nope` and presses Enter
+- **Then** the pane says no branch named "nope" is in the repository and keeps reading the source it read
+
+### Requirement: Leaving the field mid-search switches nothing
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Leaving_the_field_mid_search_fetches_nothing_and_switches_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Leaving_an_emptied_field_switches_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Entering_an_emptied_field_switches_nothing_and_fetches_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Leaving_the_field_on_a_named_source_switches_to_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Committing_the_source_already_read_says_nothing]
+```
+
+The system SHALL switch the source when the field is left only if its text names a source, and fetch nothing and switch nothing when it holds partial search text or nothing.
+
+#### Scenario: Clicking away from a search
+
+- **Given** the pane reads the clone of `backlog`
+- **When** the reader types `devb` into the source field and clicks elsewhere
+- **Then** nothing is fetched and the pane still reads the clone
+
+### Requirement: Switching says what is read
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Nothing_is_said_about_the_source_until_somebody_switches_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Switching_to_a_branch_says_the_branch_is_being_read_as_a_snapshot, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.Switching_back_to_the_clone_says_the_clone_is_being_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneSourceStatusTests.A_refusal_on_a_branch_puts_the_branch_back_and_says_why_under_the_strip, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSourceSelectionTests.A_repository_reading_a_branch_says_so_and_says_it_is_read_only]
+```
+
+The system SHALL say under the area strip, after the reader switches the source, whether the pane now reads the local clone or a read-only branch snapshot.
+
+#### Scenario: Switching to a branch
+
+- **Given** the pane reads the clone of `backlog`
+- **When** the reader switches the source to `main`
+- **Then** the strip says `main` is read as a snapshot, and the chapters cannot be edited
+
+## Reviewing what a branch changed
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#reviewing-what-a-branch-changed]
+```
+
+> The requirements of **Review changes** in the Devbook pane, read from GitHub and
+> held in memory for the session.
+
+### Requirement: Only a branch can be reviewed
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.The_toggle_is_offered_for_a_branch_and_not_for_the_local_clone, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_branch_source_can_be_reviewed_and_the_local_clone_cannot, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Switching_to_the_local_clone_closes_the_review, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Moving_to_another_repository_closes_the_review, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Closing_the_review_goes_back_to_the_chapters]
+```
+
+The system SHALL offer **Review changes** only while the pane reads a branch, and close the review when the source becomes the local clone or the pane moves to another repository.
+
+#### Scenario: Back to the clone
+
+- **Given** a review of the branch `feature/x` is open
+- **When** the reader switches the source to the local clone
+- **Then** the review closes, the chapters are shown, and Review changes is not offered
+
+### Requirement: The review lists the branch's own commits
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_comparison_asks_for_the_three_dot_compare_of_the_two_refs, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_comparison_carries_the_merge_base_and_how_far_apart_the_two_are, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.The_branch_is_compared_with_the_default_branch_by_their_heads, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.Commits_are_listed_newest_first_with_short_sha_subject_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Opening_the_review_shows_the_branch_its_chapters_and_the_first_comparison]
+```
+
+The system SHALL list, in a branch review, the commits the branch holds that the repository's default branch does not, newest first with short SHA, subject, and age, beside an entry for all the branch's changes against the default branch.
+
+#### Scenario: Opening a review
+
+- **Given** the pane reads `feature/x`, two commits ahead of `main`
+- **When** the reader presses Review changes
+- **Then** the review lists All changes vs main and the two commits, newest first
+
+### Requirement: A commit is compared with its first parent, the branch with its merge base
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_commit_is_compared_with_its_parent, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_commit_is_read_against_its_first_parent, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_root_commit_adds_every_chapter_and_lists_no_parent_tree, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.Each_chapter_counts_what_moved_between_the_merge_base_and_the_branch, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Choosing_a_commit_lists_the_chapters_that_commit_changed]
+```
+
+The system SHALL compare a chosen commit with its first parent, and the whole branch with its merge base on the default branch.
+
+#### Scenario: Choosing a commit
+
+- **Given** a review of `feature/x` is open
+- **When** the reader chooses a commit that edited `domain/devbook/features.md`
+- **Then** the chapters listed are the ones that commit changed against its first parent
+
+### Requirement: Changed chapters are listed and other files counted
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.The_whole_branch_lists_its_devbook_chapters_and_counts_the_rest, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_folder_pointed_elsewhere_is_where_its_chapters_are_looked_for, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_chapter_renamed_out_of_the_devbook_reads_as_removed]
+```
+
+The system SHALL list the devbook chapters a chosen change touched and count every other file it touched as "+N other files not shown".
+
+#### Scenario: Code beside a chapter
+
+- **Given** a commit changed one devbook chapter and three source files
+- **When** the reader chooses it
+- **Then** one chapter is listed and the review reads +3 other files not shown
+
+### Requirement: A chapter is compared section by section
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_chosen_chapter_is_compared_section_by_section, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.Choosing_a_chapter_compares_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_chapter_the_scope_does_not_hold_is_an_error]
+```
+
+The system SHALL show a chosen chapter's before and after compared section by section.
+
+#### Scenario: Choosing a chapter
+
+- **Given** a commit edited one section of `features.md`
+- **When** the reader chooses `features.md` in the review
+- **Then** the comparison shows that section changed and the others unchanged
+
+### Requirement: A partial or refused answer is said
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_truncated_commit_list_says_how_many_are_shown, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_full_file_list_says_chapters_may_be_missing, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_cut_short_earlier_tree_says_a_chapter_may_read_as_new, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_comparison_with_more_commits_than_listed_says_it_is_truncated, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubBranchComparisonTests.A_full_file_list_says_it_may_be_cut_short, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_branch_that_is_gone_is_said_rather_than_thrown, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookBranchReviewTests.A_refused_comparison_is_said_rather_than_thrown, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBranchReviewTests.What_github_refused_is_said_in_place_of_the_review]
+```
+
+The system SHALL say in the review when GitHub listed only part of a change's commits or files, and show what GitHub refused in place of the review rather than failing.
+
+#### Scenario: A long branch
+
+- **Given** `feature/x` holds more commits than GitHub lists in one comparison
+- **When** the reader opens its review
+- **Then** the review says how many of the commits are shown
