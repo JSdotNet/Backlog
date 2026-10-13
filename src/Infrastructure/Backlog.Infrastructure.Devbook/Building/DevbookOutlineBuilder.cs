@@ -21,7 +21,8 @@ namespace Backlog.Infrastructure.Devbook.Building;
 ///
 /// <para>The areas of the repository scope come in the layout's fixed folder
 /// order (<see cref="DevbookBuildLayout.Folders"/>), as the generator's
-/// discovered folders do.</para>
+/// discovered folders do — a Brain's in the order its <c>CONVENTIONS.md</c>
+/// declares them, with no folder convention applied below them.</para>
 /// </summary>
 internal static class DevbookOutlineBuilder
 {
@@ -65,7 +66,7 @@ internal static class DevbookOutlineBuilder
         var files = new List<string>();
         var directories = new List<string>();
 
-        foreach (var (name, isDirectory) in DevbookBuildFiles.Entries(repositoryRoot, relativeDirectory))
+        foreach (var (name, isDirectory) in DevbookBuildFiles.Entries(repositoryRoot, relativeDirectory, layout.IsBrain))
         {
             // `_`-prefixed folders hold tooling artifacts, not readable content.
             if (name.StartsWith('_') || name.StartsWith('.')) continue;
@@ -80,7 +81,11 @@ internal static class DevbookOutlineBuilder
         foreach (var name in files)
         {
             var relativePath = $"{relativeDirectory}/{name}";
-            var document = DevbookMarkdown.Parse(DevbookBuildFiles.ReadText(repositoryRoot, relativePath));
+            // A cloud-only file is listed by its name and not read until it is
+            // hydrated (DevbookBuildFiles.IsCloudOnly).
+            var document = DevbookBuildFiles.ReadHydratedText(repositoryRoot, relativePath) is { } text
+                ? DevbookMarkdown.Parse(text)
+                : new DevbookParsedDocument(null, null, []);
             var meta = document.FileMeta ?? new Dictionary<string, object?>(StringComparer.Ordinal);
 
             // Dropped here rather than filtered later, so an excluded document can
@@ -94,7 +99,7 @@ internal static class DevbookOutlineBuilder
             parsed[name] = new ParsedFile(relativePath, document.FileTitle, meta, DocumentNumber(name, meta));
         }
 
-        var folderKind = layout.FolderKindForPath($"{relativeDirectory}/x.md");
+        var folderKind = layout.ConventionFolderForPath($"{relativeDirectory}/x.md");
         var convention = DevbookReadingConvention.For(folderKind, Depth(relativeDirectory, folderRoot));
         var rootName = ResolveRoot(relativeDirectory, parsed, excluded, convention, scope, problems);
 
@@ -117,7 +122,7 @@ internal static class DevbookOutlineBuilder
         {
             if (parsed.TryGetValue(name, out var document))
             {
-                var fileFolder = layout.FolderKindForPath(document.Path);
+                var fileFolder = layout.ConventionFolderForPath(document.Path);
                 var type = DevbookBuildLayout.ResolveType(fileFolder, document.Meta);
 
                 outline.Add(new DevbookOutlineEntry(

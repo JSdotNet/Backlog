@@ -133,6 +133,12 @@ the areas, each with its name, its folder and its place in the tab order, and a
 note's area is the top folder it sits in unless its `para` field overrides it.
 Equality is by folder name.
 
+`CONVENTIONS.md` declares the areas under a heading named `Areas`, at any level.
+It uses either a table with a `Folder` column, plus optional `Area` (or `Name`), `Holds`
+and `Order` columns, or a list whose items name the folder in backticks. A
+folder that is not one plain segment, or a folder declared twice, is skipped. The
+order is the order written, unless the `Order` column numbers the rows.
+
 When `CONVENTIONS.md` declares no areas, the PARA set applies, in this order:
 
 - `_inbox` — notes not yet filed; where a capture lands.

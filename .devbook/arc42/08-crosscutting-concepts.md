@@ -333,8 +333,19 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   write; when a repository's database is first asked for, and again after a quiet
   interval, a background check stats each file against its row and rebuilds the
   whole database when anything differs, never waited on by the read that
-  triggered it. **Not on startup**. A debounced watcher and an idle pass for
-  repositories nobody has opened remain unbuilt optimisations.
+  triggered it. **Not on startup**. The Brain is the one folder that is
+  watched, because its notes change from outside the app through the folder's
+  own sync. Changes inside the quiet interval of 10 s collapse into one check at
+  its end. A watcher for repositories and an idle pass for repositories nobody
+  has opened remain unbuilt optimisations.
+- **The Brain is built the same way, under its own convention** (local ADR
+  0026). Its database sits under `_databases/` keyed by the Brain folder's
+  absolute path, and nothing derived is written into the folder, which is often
+  synced. Its folders are the areas its `CONVENTIONS.md` declares. A OneDrive
+  placeholder whose content is still in the cloud is indexed by its name and not
+  opened, since opening it would download it. Once the sync client hydrates it,
+  the changed attributes make the database stale, and the next build reads the
+  note's `meta` and text.
 - **A reader degrades in defined steps** rather than on or off: current row →
   drifted file read from its markdown → unrecognised schema version ignored
   entirely → absent, locked or unreadable database → markdown, which is the path
