@@ -3,7 +3,9 @@
 @using Backlog.Infrastructure.FileSystem
 @using Backlog.Infrastructure.Sync
 @using Backlog.Modules.Inbox.Abstractions.DataTransferObjects
+@using Backlog.SharedKernel
 @using Backlog.SharedKernel.Ai
+@using Backlog.Modules.Devbook.Abstractions
 @inject TasksDesktopState State
 @inject InboxDesktopState InboxState
 @inject IServiceProvider Services
@@ -78,8 +80,10 @@
            word to do it — the region now opens on the repository scope, which is
            what the identity region was actually for. *@
         <div class="app-header__identity">
-            @if (State.Repositories.Count > 0)
-            {
+            @* The scope renders always, with the Brain chip alone when no repository is
+               configured (local ADR 0027): the Brain depends on no machine and no
+               repository, so a person with only the Brain still has a working header. *@
+            @{
                 @* One repository on a plain press, one more with Ctrl held — while the
                    task list, the dashboard or the session list is on screen; see ScopeRepository below.
                    The anchor — the first one taken, the one Devbook reads — is marked only
@@ -96,6 +100,36 @@
                    classes, because the active fill, the identity edge and the anchor
                    mark all key on those. *@
                 <ButtonGroup CssClass="header-group app-header__repository-scope" AriaLabel="Repository scope">
+                    @* The Brain leads the scope, first and permanent: the scope of
+                       everything filed against no repository (local ADR 0027). It presses
+                       as a repository chip does, Ctrl included, and the anchor rules are
+                       the repositories' own. It wears band 2 as its identity edge whether
+                       or not the Colors switch is on, because it marks a place that is
+                       always there rather than a hue somebody chose
+                       (.devbook/design/color-scheme.md#the-brains-accent); the word and the
+                       first place carry the meaning, never the colour alone. No remove
+                       control: there is nothing to remove it from. *@
+                    @{
+                        var brainSelected = State.BrainInScope;
+                        var brainAnchor = brainSelected && State.SelectedRepositoryAliases.Count > 1 && State.BrainIsAnchor;
+                    }
+                    <ToggleButton BaseClass="chip chip--scope"
+                                  CssClass="@BrainScopeChipClass(brainAnchor)"
+                                  PressedCssClass="chip--active"
+                                  Pressed="brainSelected"
+                                  TestId="brain-scope-option"
+                                  Title="@BrainScopeChipTitle(brainSelected, brainAnchor)"
+                                  aria-current="@(brainAnchor ? "true" : null)"
+                                  OnClick="ScopeBrain">
+                        <BrainIcon CssClass="chip__icon" />@BrainChipLabel
+                    </ToggleButton>
+                    @* The divider that sets the Brain off from the repositories, inside
+                       the same border: one fused set, its leading member apart. Only
+                       while there is a repository to set it off from. *@
+                    @if (State.Repositories.Count > 0)
+                    {
+                        <span class="app-header__scope-divider" aria-hidden="true" data-testid="brain-scope-divider"></span>
+                    }
                     @foreach (var repository in State.Repositories)
                     {
                         var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
@@ -139,15 +173,19 @@
                    is no repository to be an identity for, and a control governing the
                    look of an empty set is a control with nothing to do — the same reason
                    the takeover group below hides itself when no takeover is
-                   offered. *@
-                <Toggle CssClass="header-switch"
-                        LabelCssClass="header-switch__label"
-                        ControlCssClass="toggle__track header-switch__track"
-                        Label="Colors"
-                        Id="repository-colours-switch"
-                        TestId="repository-colours-toggle"
-                        Checked="State.RepositoryColoursVisible"
-                        CheckedChanged="ShowRepositoryColours" />
+                   offered. The Brain's edge is not one of those hues, so it does not
+                   keep the switch on screen. *@
+                if (State.Repositories.Count > 0)
+                {
+                    <Toggle CssClass="header-switch"
+                            LabelCssClass="header-switch__label"
+                            ControlCssClass="toggle__track header-switch__track"
+                            Label="Colors"
+                            Id="repository-colours-switch"
+                            TestId="repository-colours-toggle"
+                            Checked="State.RepositoryColoursVisible"
+                            CheckedChanged="ShowRepositoryColours" />
+                }
             }
         </div>
 
@@ -625,6 +663,7 @@
                               RepositoryAlias="@RepositoryAliasFor"
                               RepositoryColour="@RepositoryColourFor"
                               PullRequestTask="PullRequestTaskFor"
+                              PullRequestInBrain="PullRequestInBrain"
                               OnOpenTask="OpenPlanEntryAsync"
                               OnOpenSession="OpenSessionAsync"
                               FocusPullRequest="@_focusPullRequest" />
@@ -815,6 +854,11 @@
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
         State.Changed += HandleStateChanged;
+
+        // Optional, the way Settings reads it: a host that composes no Brain store
+        // shows the chip as not yet set up, which still scopes.
+        _brainSettings = Services.GetService<IBrainSettings>();
+        if (_brainSettings is not null) _brainSettings.Changed += HandleBrainSettingsChanged;
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
@@ -1639,6 +1683,18 @@
     /// pane's "Mine" adds to the pull requests I opened myself.
     /// </para>
     /// </summary>
+    /// <summary>Whether a pull request belongs to a task filed against no repository —
+    /// what puts it in the Brain's scope on the pull requests list (local ADR 0027, §2).
+    /// The same relation <see cref="PullRequestTaskFor"/> answers, asked of the task's
+    /// repository.</summary>
+    private bool PullRequestInBrain(PullRequestTaskSubject pull)
+    {
+        var (matcher, rows) = PullRequestMatcher;
+        return matcher.Match(pull, false) is { } match
+            && rows.TryGetValue(match.Candidate.EntryId, out var row)
+            && State.RepositoryFor(row) is null;
+    }
+
     private DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
     {
         var (matcher, rows) = PullRequestMatcher;
@@ -2370,6 +2426,70 @@
         State.SetRepositoryFilter(alone ? string.Empty : repositoryAlias);
     }
 
+    /// <summary>Where the Brain folder is kept, or null in a host that composes none.
+    /// Read for the chip's word: until a folder is set it reads "Set up your Brain".</summary>
+    private IBrainSettings? _brainSettings;
+
+    private void HandleBrainSettingsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>The Brain chip's word: "Brain", or "Set up your Brain" while no folder
+    /// is set — the words <see cref="BrainSetup"/> keeps for the chip and the Settings
+    /// card alike.</summary>
+    private string BrainChipLabel => _brainSettings is { IsSet: true } ? BrainSetup.Label : BrainSetup.SetUpLabel;
+
+    /// <summary>
+    /// A press on the Brain chip — <see cref="ScopeRepository"/>'s rules, for the Brain:
+    /// a plain press picks it alone, or clears the scope when it already was alone; Ctrl
+    /// adds it beside the repositories already pressed, or takes it back out, while a
+    /// surface that can show several is on screen.
+    /// <para>
+    /// It scopes whether or not a folder is set (local ADR 0027, §1): the tasks filed
+    /// against no repository are there either way. Its tooltip says where the folder is
+    /// set; the Devbook pane on the Brain asks for one.
+    /// </para>
+    /// </summary>
+    private void ScopeBrain(MouseEventArgs args)
+    {
+        if ((args.CtrlKey || args.MetaKey) && RepositoryScopeTakesSeveral)
+        {
+            State.ToggleBrainInScope();
+            return;
+        }
+
+        if (State.SelectedRepositoryAliases is [var only] && BrainScope.Is(only))
+        {
+            State.SetRepositoryFilter(null);
+            return;
+        }
+
+        State.SetBrainFilter();
+    }
+
+    /// <summary>The Brain's identity edge, always band 2, plus the anchor's class while
+    /// there is a second chip for it to be distinct from.</summary>
+    private static string BrainScopeChipClass(bool anchor) =>
+        anchor ? "repo-mark repo-mark--2 app-header__brain-chip chip--anchor" : "repo-mark repo-mark--2 app-header__brain-chip";
+
+    /// <summary>What the Brain chip does next, worded as a repository chip's is, and
+    /// where its folder is set while none is.</summary>
+    private string BrainScopeChipTitle(bool selected, bool anchor)
+    {
+        const string What = "Brain: the tasks filed against no repository";
+        var setUp = _brainSettings is { IsSet: true } ? string.Empty : $" Set up your Brain folder in Settings › Storage.";
+
+        string next;
+        if (!RepositoryScopeTakesSeveral) next = selected ? $"Deselect {What}." : $"{What}.";
+        else if (!selected) next = $"{What}. Ctrl+click to add it to the scope.";
+        else if (State.SelectedRepositoryAliases.Count == 1) next = $"Deselect {What}.";
+        else
+        {
+            var name = anchor ? $"{What} — Devbook follows this one" : What;
+            next = $"{name}. Click to scope to it alone, Ctrl+click to remove it from the scope.";
+        }
+
+        return next + setUp;
+    }
+
     /// <summary>The identity mark, plus the anchor's own class while there is a
     /// second chip for it to be distinct from.</summary>
     private string? RepositoryScopeChipClass(string alias, bool anchor)
@@ -2451,6 +2571,7 @@
     {
         CancelAsk();
         State.Changed -= HandleStateChanged;
+        if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;

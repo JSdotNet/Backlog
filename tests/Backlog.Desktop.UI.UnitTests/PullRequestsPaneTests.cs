@@ -138,6 +138,50 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>
+    /// Every pull request is read from a repository, so the Brain alone holds only those
+    /// linked to a task filed against no repository (local ADR 0027, §2) — the shell
+    /// answers which through <c>PullRequestInBrain</c>.
+    /// </summary>
+    [Fact]
+    public void The_brain_keeps_the_pull_requests_of_tasks_filed_against_no_repository()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, [BrainScope.Value])
+            .Add(p => p.PullRequestInBrain, (Func<PullRequestTaskSubject, bool>)(pull => pull.Number == 1)));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane));
+            Assert.Contains("Narrowed to Brain.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>With no pull request linked to a task filed nowhere, the Brain's list is
+    /// empty, and its empty state says why: pull requests belong to repositories.</summary>
+    [Fact]
+    public void The_brain_alone_with_nothing_linked_says_pull_requests_belong_to_repositories()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, [BrainScope.Value]));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-row']"));
+            var empty = pane.Find("[data-testid='pull-requests-empty']");
+            Assert.Contains("Pull requests belong to repositories", empty.TextContent, StringComparison.Ordinal);
+        });
+    }
+
     /// <summary>A repository GitHub would not answer for is named, in its words, with
     /// a Retry — and every other repository is listed as if it were not there.</summary>
     [Fact]

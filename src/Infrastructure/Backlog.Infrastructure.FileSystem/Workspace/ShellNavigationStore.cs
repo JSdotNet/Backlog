@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -110,7 +111,7 @@ public sealed class ShellNavigationStore
         CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
         InProgressNeedsYouFirst = dto?.InProgressNeedsYouFirst ?? true;
         InProgressIncludeFinishedToday = dto?.InProgressIncludeFinishedToday ?? false;
-        RepositoryScope = dto?.RepositoryScope ?? Empty;
+        RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -180,6 +181,11 @@ public sealed class ShellNavigationStore
     /// The header's repository scope by alias, in the order it was chosen: the first is
     /// the anchor. Empty is every repository, the scope nobody narrowed. Aliases are
     /// kept as written; the shell drops one no longer configured when it restores them.
+    /// <para>
+    /// The Brain is kept here as the reserved <see cref="BrainScope.Value"/>, the empty
+    /// string, in its place (local ADR 0027, §5): no configured alias is ever empty, so
+    /// the value cannot be a repository's. Nothing here drops or rewrites it.
+    /// </para>
     /// </summary>
     public IReadOnlyList<string> RepositoryScope { get; private set; }
 
@@ -320,6 +326,18 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    /// <summary>
+    /// The Tasks filter bar's "No repo" chip, which the Brain replaced (local ADR 0027,
+    /// §5), was never remembered, so no file written by this store carries it. A file
+    /// that does — <c>noRepositoryOnly: true</c>, the name the chip's state went by —
+    /// reopens on the Brain alone: the chip narrowed whatever repositories were scoped
+    /// to the rows filed against none, and "against none" is the Brain. The key is
+    /// never written back, so the next save drops it. A guard, kept so that the old
+    /// name is read as what it meant should it ever turn up.
+    /// </summary>
+    private static IReadOnlyList<string> MigrateNoRepositoryOnly(IReadOnlyList<string> scope, bool? noRepositoryOnly) =>
+        noRepositoryOnly is true ? [BrainScope.Value] : scope;
+
     private void Save()
     {
         try
@@ -404,5 +422,10 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RepositoryScope { get; init; }
+
+        /// <summary>The retired "No repo" chip's state, read only to migrate it — see
+        /// <see cref="MigrateNoRepositoryOnly"/>. Never set on a save, so never written.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? NoRepositoryOnly { get; init; }
     }
 }

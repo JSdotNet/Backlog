@@ -1,3 +1,5 @@
+using Backlog.SharedKernel;
+
 namespace Backlog.Modules.Dashboard.Abstractions;
 
 /// <summary>
@@ -18,6 +20,13 @@ namespace Backlog.Modules.Dashboard.Abstractions;
 /// every render look like a new focus; this compares the aliases, ignoring case,
 /// so an unchanged scope is an equal scope.
 /// </para>
+/// <para>
+/// The Brain (local ADR 0027) is a member like any other, held as the reserved
+/// <see cref="BrainScope.Value"/>: the scope of everything filed against no
+/// repository. It names no repository, so <see cref="Contains"/> never matches an
+/// alias with it; <see cref="IncludesBrain"/> is how a part asks for the work filed
+/// nowhere, and <see cref="RepositoryAliases"/> is the focus with the Brain left out.
+/// </para>
 /// </summary>
 public sealed class RepositoryFocus : IEquatable<RepositoryFocus>
 {
@@ -30,14 +39,15 @@ public sealed class RepositoryFocus : IEquatable<RepositoryFocus>
 
     /// <summary>
     /// The focus on <paramref name="aliases"/>, in the order given, blanks and
-    /// duplicates dropped. Nothing left is <see cref="All"/>.
+    /// duplicates dropped — the Brain's reserved empty value kept, in its place.
+    /// Nothing left is <see cref="All"/>.
     /// </summary>
     public static RepositoryFocus Of(IEnumerable<string?> aliases)
     {
         ArgumentNullException.ThrowIfNull(aliases);
 
         var distinct = aliases
-            .Where(alias => !string.IsNullOrWhiteSpace(alias))
+            .Where(alias => BrainScope.Is(alias) || !string.IsNullOrWhiteSpace(alias))
             .Select(alias => alias!.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -54,6 +64,22 @@ public sealed class RepositoryFocus : IEquatable<RepositoryFocus>
     /// <summary>True when no repository is in focus.</summary>
     public bool IsAll => _aliases.Length == 0;
 
+    /// <summary>True when the Brain is in focus: the work filed against no repository.</summary>
+    public bool IncludesBrain => Array.Exists(_aliases, BrainScope.Is);
+
+    /// <summary>The repositories in focus, the Brain left out, in the order taken.</summary>
+    public IReadOnlyList<string> RepositoryAliases => BrainScope.Repositories(_aliases);
+
+    /// <summary>Whether work filed against <paramref name="aliases"/> is in focus:
+    /// everything is when nothing is focused; work filed against no repository is when
+    /// the Brain is; otherwise work in a focused repository.</summary>
+    public bool Covers(IReadOnlyCollection<string> aliases)
+    {
+        ArgumentNullException.ThrowIfNull(aliases);
+
+        return IsAll || (aliases.Count == 0 ? IncludesBrain : aliases.Any(Contains));
+    }
+
     /// <summary>The first alias in focus, or null for all — what a reader that can
     /// take one repository and not several takes.</summary>
     public string? Anchor => _aliases.Length == 0 ? null : _aliases[0];
@@ -61,7 +87,7 @@ public sealed class RepositoryFocus : IEquatable<RepositoryFocus>
     /// <summary>Whether <paramref name="alias"/> is in focus. Everything is when
     /// nothing is.</summary>
     public bool Contains(string? alias) =>
-        IsAll || (alias is not null && Array.Exists(_aliases, one => string.Equals(one, alias, StringComparison.OrdinalIgnoreCase)));
+        IsAll || (!string.IsNullOrEmpty(alias) && Array.Exists(_aliases, one => string.Equals(one, alias, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>The focus as one cache key: <c>*</c> for all, else the aliases
     /// lower-cased and sorted, so two focuses on the same repositories share one
@@ -70,9 +96,9 @@ public sealed class RepositoryFocus : IEquatable<RepositoryFocus>
         ? "*"
         : string.Join(",", _aliases.Select(alias => alias.ToLowerInvariant()).Order(StringComparer.Ordinal));
 
-    /// <summary>The focus as prose: the aliases in the order taken, comma-separated.
-    /// Empty for all, so a caller writes its own "every repository".</summary>
-    public string Label => string.Join(", ", _aliases);
+    /// <summary>The focus as prose: the aliases in the order taken, comma-separated,
+    /// the Brain by name. Empty for all, so a caller writes its own "every repository".</summary>
+    public string Label => BrainScope.Label(_aliases);
 
     public bool Equals(RepositoryFocus? other) =>
         other is not null && string.Equals(Key, other.Key, StringComparison.Ordinal);

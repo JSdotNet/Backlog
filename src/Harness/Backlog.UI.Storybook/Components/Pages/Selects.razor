@@ -163,7 +163,7 @@ It is outlined rather than filled, and that is the component's own answer rather
     </Story>
 
     <Story Name="RepositorySelector"
-           Description="SelectField over repository aliases. Optional by default — 'No repo' is a real answer — and the options come from the caller, because which repositories exist is a workspace question."
+           Description="SelectField over repository aliases. Optional by default — the empty option leads the list and reads 'Brain', the name for filing a task against no repository (local ADR 0027), so picking it clears the repository — and the options come from the caller, because which repositories exist is a workspace question."
            Code="@RepositorySelectorCode">
         <div class="sb-row">
             <RepositorySelector CurrentValue="@_repository"

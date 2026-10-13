@@ -196,7 +196,6 @@ internal sealed partial class DesktopHarness
     {
         await ShowTasksAsync();
         await SetPressedAsync(Page.GetByTestId("readyinplan-filter-option"), false);
-        await SetPressedAsync(Page.GetByTestId("norepo-filter-option"), false);
         await SetPressedAsync(Page.GetByTestId("myday-filter-option"), true);
 
         var all = Page.Locator("#status-filter-all");

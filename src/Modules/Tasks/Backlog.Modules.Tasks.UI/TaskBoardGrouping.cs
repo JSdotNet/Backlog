@@ -18,7 +18,8 @@ public enum TaskBoardGrouping
     /// <summary>One column per plan tag in view, then "No plan".</summary>
     Plan,
 
-    /// <summary>One column per repository in view, then "No repository".</summary>
+    /// <summary>One column per repository in view, then "Brain" — the tasks filed
+    /// against no repository, under the name the header's scope gives them.</summary>
     Repository,
 
     /// <summary>Critical, High, Medium and Low.</summary>

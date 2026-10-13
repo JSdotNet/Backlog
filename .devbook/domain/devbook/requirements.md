@@ -7,9 +7,9 @@ related: [.devbook/domain/devbook/features.md]
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it. None of
-> the Brain's requirements is built yet: the plan `+brain` builds them, and each
-> gains its `tests` as it lands.
+> requirement is one SHALL sentence with the scenarios that prove it. The plan
+> `+brain` builds the Brain's requirements, and each gains its `tests` as it
+> lands; one with no `tests` is not built yet.
 
 ## Brain scope
 
@@ -27,6 +27,7 @@ related: [.devbook/domain/devbook/features.md#brain-scope]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_leads_the_scope_behind_a_divider_in_band_two, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_no_repository_configured_the_scope_holds_the_brain_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ScopeGlyphIconTests.The_brain_keeps_the_icon_contract]
 ```
 
 The system SHALL render the Brain chip first in the repository scope, behind a divider, in band 2, with no control that removes it.
@@ -48,6 +49,7 @@ The system SHALL render the Brain chip first in the repository scope, behind a d
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_alone_keeps_the_rows_no_repository_claims, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_repo_token_naming_nothing_configured_counts_as_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_brain_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.The_brain_keeps_the_sessions_of_no_configured_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_keeps_the_pull_requests_of_tasks_filed_against_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_alone_with_nothing_linked_says_pull_requests_belong_to_repositories, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests.The_brain_counts_the_tasks_that_name_no_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_brain_keeps_the_rows_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.RepositoryFocusTests.The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere]
 ```
 
 The system SHALL show only the tasks filed against no repository in Tasks, Board, Calendar, In progress, Dashboard, Sessions and Pull requests while Brain is the only chip pressed.
@@ -69,6 +71,7 @@ The system SHALL show only the tasks filed against no repository in Tasks, Board
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_presses_as_a_repository_chip_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_beside_a_repository_keeps_both_and_the_anchor_stays, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_pressed_alone_replaces_the_repositories]
 ```
 
 The system SHALL add Brain to the chips already pressed on a Ctrl-press and press it alone on a plain press.
@@ -90,6 +93,7 @@ The system SHALL add Brain to the chips already pressed on a Ctrl-press and pres
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_is_remembered_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_brain_comes_back_as_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_remembered_brain_comes_back_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.The_brain_survives_a_restart_as_the_empty_value_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.A_remembered_no_repository_only_state_migrates_to_the_brain]
 ```
 
 The system SHALL reopen a remembered scope with Brain in the position it was stored in, the anchor when it was first, and drop a remembered alias that is no longer configured.
@@ -111,6 +115,7 @@ The system SHALL reopen a remembered scope with Brain in the position it was sto
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.MyDayScopeTests.The_scope_group_holds_every_scope_and_the_bar_holds_no_areas]
 ```
 
 The system SHALL offer no *No repo* chip on the Tasks filter bar.
@@ -126,6 +131,7 @@ The system SHALL offer no *No repo* chip on the Tasks filter bar.
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_folder_the_chip_asks_to_be_set_up_and_still_scopes]
 ```
 
 The system SHALL label the Brain chip **Set up your Brain** while no Brain folder is set, and still scope the tasks with it.

@@ -195,6 +195,42 @@ public class TaskInsightsTests
         Assert.Equal(15m, all.Value.Effort);
     }
 
+    /// <summary>The Brain in focus counts the tasks filed against no repository, beside
+    /// the repositories focused with it (local ADR 0027).</summary>
+    [Fact]
+    public async Task The_brain_counts_the_tasks_that_name_no_repository()
+    {
+        var source = new StubSource(
+            Ticked(2026, 9, 21, 1, "backlog"),
+            Ticked(2026, 9, 21, 4),
+            Ticked(2026, 9, 21, 8, "other"));
+
+        var brain = await Insights(source).GetThroughputAsync(
+            FourWeeks with { Repositories = RepositoryFocus.Of(BrainScope.Value) },
+            TestContext.Current.CancellationToken);
+        var both = await Insights(source).GetThroughputAsync(
+            FourWeeks with { Repositories = RepositoryFocus.Of(BrainScope.Value, "backlog") },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, brain.Value!.Completed);
+        Assert.Equal(4m, brain.Value.Effort);
+        Assert.Equal(2, both.Value!.Completed);
+        Assert.Equal(5m, both.Value.Effort);
+    }
+
+    /// <summary>The plan source is asked for repositories only: the Brain names none.</summary>
+    [Fact]
+    public async Task The_plan_source_is_never_asked_for_the_brain()
+    {
+        var plan = new StubPlanSource();
+
+        _ = await Insights(plan).GetPlanAsync(
+            FourWeeks with { Repositories = RepositoryFocus.Of(BrainScope.Value, "backlog") },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(["backlog"], plan.Aliases);
+    }
+
     [Fact]
     public async Task A_source_that_fails_reads_as_unavailable_with_its_reason()
     {

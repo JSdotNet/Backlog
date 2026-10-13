@@ -65,7 +65,7 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
         }
 
         var inScope = completed
-            .Where(task => scope.IsAllRepositories || task.RepositoryAliases.Any(scope.Repositories.Contains))
+            .Where(task => scope.Repositories.Covers([.. task.RepositoryAliases]))
             .ToList();
 
         var counted = WeekBuckets.Count(buckets, inScope, InstantOf);
@@ -102,7 +102,7 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
             reading = await plan.ReadAsync(
                 windowFrom,
                 windowTo,
-                scope.IsAllRepositories ? [] : scope.Repositories.Aliases,
+                scope.IsAllRepositories ? [] : scope.Repositories.RepositoryAliases,
                 cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

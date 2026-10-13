@@ -144,7 +144,9 @@ public sealed class TasksPaneBoardTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["backlog", "sync", "No repository"], ColumnTitles(pane));
+            // The tasks filed against no repository gather under the name the header's
+            // scope gives them (local ADR 0027).
+            Assert.Equal(["backlog", "sync", "Brain"], ColumnTitles(pane));
             Assert.Equal([low.TaskId], CardIdsIn(pane, "repo:backlog"));
             Assert.Equal([critical.TaskId], CardIdsIn(pane, "repo:sync"));
             Assert.Equal([plain.TaskId], CardIdsIn(pane, "repo:"));

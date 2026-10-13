@@ -473,6 +473,153 @@ public sealed class HomeRepositoryScopeTests
     private static IReadOnlyList<IElement> Chips(IRenderedComponent<Home> component) =>
         component.WaitForElements("[data-testid='repository-filter-option']");
 
+    private static IElement BrainChip(IRenderedComponent<Home> component) =>
+        component.WaitForElement("[data-testid='brain-scope-option']");
+
+    // --- The Brain ---------------------------------------------------------------------
+    //
+    // The scope leads with a permanent Brain chip (local ADR 0027): the scope of
+    // everything filed against no repository, pressed and remembered as a repository is.
+
+    /// <summary>The Brain chip leads the scope, behind a divider, wearing band 2 as its
+    /// identity edge whether or not the Colors switch is on, with its glyph before its
+    /// word and no control that removes it.</summary>
+    [Fact]
+    public void The_brain_chip_leads_the_scope_behind_a_divider_in_band_two()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(@"C:\Brain"));
+        var component = Render(harness);
+        Chips(component);
+
+        var group = component.Find(".app-header__identity [aria-label='Repository scope']");
+        var members = group.Children.ToList();
+
+        Assert.Equal("brain-scope-option", members[0].GetAttribute("data-testid"));
+        Assert.Equal("brain-scope-divider", members[1].GetAttribute("data-testid"));
+        Assert.Equal("true", members[1].GetAttribute("aria-hidden"));
+        Assert.Equal("repository-filter-option", members[2].GetAttribute("data-testid"));
+
+        var brain = BrainChip(component);
+        Assert.Contains("chip--scope", brain.ClassList);
+        Assert.Contains("repo-mark--2", brain.ClassList);
+        Assert.Equal("Brain", brain.TextContent.Trim());
+        Assert.NotNull(brain.QuerySelector("svg.brain-icon.chip__icon[aria-hidden='true']"));
+        Assert.Empty(brain.QuerySelectorAll("button"));
+
+        // The repositories' hues are off here, and the Brain's edge is drawn anyway.
+        Assert.DoesNotContain("repo-mark", Chips(component)[0].ClassName ?? string.Empty);
+    }
+
+    /// <summary>With no repository configured the scope still renders, with the Brain
+    /// chip alone — and the Colors switch, which has no repository to colour, does not.</summary>
+    [Fact]
+    public void With_no_repository_configured_the_scope_holds_the_brain_alone()
+    {
+        using var harness = CreateHarness(repositoriesText: string.Empty);
+        var component = Render(harness);
+
+        BrainChip(component);
+
+        Assert.Empty(component.FindAll("[data-testid='repository-filter-option']"));
+        Assert.Empty(component.FindAll("[data-testid='brain-scope-divider']"));
+        Assert.Empty(component.FindAll("[data-testid='repository-colours-toggle']"));
+        Assert.NotNull(component.Find(".app-header__identity [aria-label='Repository scope']"));
+    }
+
+    /// <summary>Until a Brain folder is set the chip reads "Set up your Brain", says in
+    /// its tooltip where the folder is set, and still scopes the tasks.</summary>
+    [Fact]
+    public void Without_a_folder_the_chip_asks_to_be_set_up_and_still_scopes()
+    {
+        var brain = new FakeBrainSettings(null);
+        using var harness = CreateHarness(brain: brain);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Assert.Equal("Set up your Brain", BrainChip(component).TextContent.Trim());
+        Assert.Contains("Settings › Storage", BrainChip(component).GetAttribute("title"), StringComparison.Ordinal);
+
+        BrainChip(component).Click();
+
+        Assert.Equal([BrainScope.Value], state.SelectedRepositoryAliases);
+
+        // Setting a folder renames the chip without a restart.
+        component.InvokeAsync(() => brain.TrySetBrainFolder(@"C:\Brain"));
+        component.WaitForAssertion(() => Assert.Equal("Brain", BrainChip(component).TextContent.Trim()));
+    }
+
+    /// <summary>A plain press picks the Brain alone, replacing a repository, and a
+    /// second clears the scope; Ctrl adds it beside the repository already pressed,
+    /// which stays the anchor.</summary>
+    [Fact]
+    public void The_brain_chip_presses_as_a_repository_chip_does()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        BrainChip(component).Click();
+        Assert.Equal([BrainScope.Value], state.SelectedRepositoryAliases);
+        component.WaitForAssertion(() => Assert.Equal("true", BrainChip(component).GetAttribute("aria-pressed")));
+
+        BrainChip(component).Click();
+        Assert.Empty(state.SelectedRepositoryAliases);
+
+        Chips(component)[0].Click();
+        BrainChip(component).Click(new MouseEventArgs { CtrlKey = true });
+
+        Assert.Equal(["backlog", BrainScope.Value], state.SelectedRepositoryAliases);
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", Chips(component)[0].GetAttribute("aria-current"));
+            Assert.Null(BrainChip(component).GetAttribute("aria-current"));
+        });
+
+        // And the Brain taken first is the anchor, marked as one.
+        BrainChip(component).Click();
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+
+        Assert.Equal([BrainScope.Value, "docs"], state.SelectedRepositoryAliases);
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", BrainChip(component).GetAttribute("aria-current"));
+            Assert.Contains("chip--anchor", BrainChip(component).ClassList);
+        });
+    }
+
+    /// <summary>The Brain is written into shell-navigation.json as its reserved empty
+    /// value, in its place, and a fresh shell reopens on it — the anchor when it was
+    /// first (ADR 0027, §5).</summary>
+    [Fact]
+    public void The_brain_is_remembered_in_its_place()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var path = ShellNavigationPath(harness.Root);
+
+        BrainChip(component).Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForAssertion(() =>
+            Assert.Equal([BrainScope.Value, "backlog"], new ShellNavigationStore(path).RepositoryScope));
+    }
+
+    [Fact]
+    public void A_remembered_brain_comes_back_as_the_anchor()
+    {
+        using var harness = CreateHarness(remembered: shell => shell.SetRepositoryScope([BrainScope.Value, "retired", "docs"]));
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal([BrainScope.Value, "docs"], state.SelectedRepositoryAliases);
+            Assert.Equal("true", BrainChip(component).GetAttribute("aria-pressed"));
+            Assert.Equal("true", BrainChip(component).GetAttribute("aria-current"));
+        });
+    }
+
     // --- Remembered across a restart ---------------------------------------------------
     //
     // The scope is written to shell-navigation.json, anchor first, on every change,
@@ -604,9 +751,10 @@ public sealed class HomeRepositoryScopeTests
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='view-switch']")));
 
         // A change the state announces while the registry is unreadable — here the
-        // No repository scope — is not a reason to write the failed state's scope.
-        component.InvokeAsync(() => state.SetNoRepositoryFilter(true));
-        component.InvokeAsync(() => state.SetNoRepositoryFilter(false));
+        // Board's status filter set aside and back — is not a reason to write the
+        // failed state's scope.
+        component.InvokeAsync(() => state.SetStatusFilterSuspended(true));
+        component.InvokeAsync(() => state.SetStatusFilterSuspended(false));
 
         Assert.Empty(state.SelectedRepositoryAliases);
         Assert.Equal(["docs", "backlog"], new ShellNavigationStore(path).RepositoryScope);
@@ -620,7 +768,7 @@ public sealed class HomeRepositoryScopeTests
         Assert.Null(harness.GitHubSettings.SetRepositories([.. repositories]));
         Assert.Null(harness.GitHubSettings.RegistryError);
 
-        component.InvokeAsync(() => state.SetNoRepositoryFilter(false));
+        component.InvokeAsync(() => state.SetStatusFilterSuspended(true));
 
         component.WaitForAssertion(() =>
         {
@@ -794,7 +942,9 @@ public sealed class HomeRepositoryScopeTests
 
     private static Harness CreateHarness(
         Action<GitHubSettingsStore>? configureRepositories = null,
-        Action<ShellNavigationStore>? remembered = null)
+        Action<ShellNavigationStore>? remembered = null,
+        string? repositoriesText = null,
+        IBrainSettings? brain = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-repository-scope-tests", Guid.NewGuid().ToString("n"));
 
@@ -818,7 +968,7 @@ public sealed class HomeRepositoryScopeTests
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         var (repositories, errors) = GitHubSettings.ParseText(
-            "backlog = JSdotNet/Backlog" + Environment.NewLine + "docs = JSdotNet/Docs");
+            repositoriesText ?? "backlog = JSdotNet/Backlog" + Environment.NewLine + "docs = JSdotNet/Docs");
         Assert.Empty(errors);
 
         Assert.Null(gitHubSettings.SetRepositories(
@@ -836,6 +986,7 @@ public sealed class HomeRepositoryScopeTests
         var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
 
         var context = new BunitContext();
+        if (brain is not null) context.Services.AddSingleton(brain);
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
         context.Services.AddSingleton(new ShellNavigationStore(ShellNavigationPath(root)));
@@ -930,6 +1081,22 @@ public sealed class HomeRepositoryScopeTests
             {
             }
         }
+    }
+
+    /// <summary>A Brain folder setting held in memory, so a test says whether one is
+    /// set without a file behind it.</summary>
+    private sealed class FakeBrainSettings(string? folder) : IBrainSettings
+    {
+        public string? BrainFolder { get; private set; } = folder;
+
+        public string? TrySetBrainFolder(string? path)
+        {
+            BrainFolder = string.IsNullOrWhiteSpace(path) ? null : path;
+            Changed?.Invoke();
+            return null;
+        }
+
+        public event Action? Changed;
     }
 
     private sealed class EmptySessionSource : IAgentSessionSource

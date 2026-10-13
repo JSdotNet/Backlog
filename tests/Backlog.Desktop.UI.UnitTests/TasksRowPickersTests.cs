@@ -178,11 +178,18 @@ public class TasksRowPickersTests
         var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
 
         var pane = host.Render();
+
+        // Brain leads the list, ahead of every repository.
+        var first = Picker(pane, row, "row-repo-badge").QuerySelectorAll("option")[0];
+        Assert.Equal(string.Empty, first.GetAttribute("value"));
+        Assert.Equal("Brain", first.TextContent.Trim());
+
         await Picker(pane, row, "row-repo-badge").ChangeAsync(new() { Value = string.Empty });
 
-        // The empty option is "No repo", and it has to mean it: a picker that could
+        // The empty option is "Brain", and it has to mean it: a picker that could
         // only ever move an entry between repositories would be one that made the
-        // first choice permanent.
+        // first choice permanent. Brain is filing the entry against no repository
+        // (local ADR 0027), so picking it clears the token.
         Assert.Empty(row.PreviewRepoIds);
         Assert.DoesNotContain("repo-mark", Row(pane, row).ClassName);
     }

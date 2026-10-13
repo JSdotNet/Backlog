@@ -93,7 +93,7 @@ internal sealed class TasksAiContentSource(TasksDesktopState state) : IAiContent
     /// names it.</summary>
     private string Title() => state.SelectedRepositoryAliases.Count == 0
         ? AreaTitle
-        : $"{AreaTitle} ({string.Join(", ", state.SelectedRepositoryAliases)})";
+        : $"{AreaTitle} ({Backlog.SharedKernel.BrainScope.Label(state.SelectedRepositoryAliases)})";
 
     private static string Text(EntryRow row) => row.RawText.Trim();
 }

@@ -75,9 +75,10 @@ public sealed class MyDayScopeTests
     /// <para>
     /// Areas are still typed, still shown on rows and still the reader's own pile —
     /// what went is the chip group, on the grounds that the repository scope in the
-    /// header was already answering the question people were asking it. "No repo" is
-    /// the one part of that question the header could not answer, so it arrived here
-    /// as the areas left. "Ready in a plan" is the third: the work a plan has lined up.
+    /// header was already answering the question people were asking it. "Ready in a
+    /// plan" is the second: the work a plan has lined up. The "No repo" chip that sat
+    /// between them is gone: the header's Brain chip answers that part of the question
+    /// now (local ADR 0027), so no chip on the bar reads "No repo".
     /// </para>
     /// </summary>
     [Fact]
@@ -90,10 +91,11 @@ public sealed class MyDayScopeTests
 
         var scopes = pane.FindAll(".filter-group--scope .chip");
 
-        Assert.Equal(3, scopes.Count);
+        Assert.Equal(2, scopes.Count);
         Assert.Contains("My Day", scopes[0].TextContent, StringComparison.Ordinal);
-        Assert.Contains("No repo", scopes[1].TextContent, StringComparison.Ordinal);
-        Assert.Contains("Ready in a plan", scopes[2].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Ready in a plan", scopes[1].TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain(pane.FindAll(".filter-bar .chip"), chip => chip.TextContent.Contains("No repo", StringComparison.Ordinal));
+        Assert.Empty(pane.FindAll("[data-testid='norepo-filter-option']"));
 
         // Same shape as My Day, for the same reason: a state of its own rather than
         // one of a set.
@@ -122,10 +124,10 @@ public sealed class MyDayScopeTests
         var pane = host.Render();
 
         var scopes = pane.FindAll(".filter-group--scope .chip");
-        string[] glyphs = ["sun-icon", "folder-off-icon", "play-icon"];
-        string[] names = ["My Day", "No repo", "Ready in a plan"];
+        string[] glyphs = ["sun-icon", "play-icon"];
+        string[] names = ["My Day", "Ready in a plan"];
 
-        Assert.Equal(3, scopes.Count);
+        Assert.Equal(2, scopes.Count);
 
         for (var i = 0; i < scopes.Count; i++)
         {
@@ -216,22 +218,6 @@ public sealed class MyDayScopeTests
         var pane = host.Render();
 
         Assert.Equal("1", pane.Find($"{Chip} .chip__count").TextContent);
-    }
-
-    /// <summary>No repo counts the same way: the open entries filed against no
-    /// repository, not the finished ones beside them.</summary>
-    [Fact]
-    public async Task The_no_repo_count_leaves_out_what_is_ticked_off()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-
-        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@backlog`\n");
-        await host.WriteEntryAsync($"# Run the QA pass\n`task` `!done` `completed:{Token(Today)}` `@backlog`\n");
-        await host.State.SelectAsync(null);
-
-        var pane = host.Render();
-
-        Assert.Equal("1", pane.Find("[data-testid='norepo-filter-option'] .chip__count").TextContent);
     }
 
     /// <summary>Orthogonal, which is the reason it is a toggle: turning it on narrows
