@@ -55,4 +55,39 @@
         <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
     </ItemGroup>
 
+    <!-- BacklogSyncServiceUrl is the sync service the APK talks to when nothing in
+         its environment says otherwise: release-mobile.yml and
+         build/Install-AndroidApp.ps1 pass it with -p:BacklogSyncServiceUrl=. Empty
+         by default, and deliberately not defaulted from BACKLOG_SYNC_URL: the
+         AppHost sets that variable on the build process to a host-localhost
+         address no phone can reach.
+         It is compiled into SyncServiceBuildDefaults.Url as a constant rather than
+         assembly metadata, so a trimmed Release publish cannot drop it.
+         WriteOnlyWhenDifferent keeps an unchanged value from forcing a recompile;
+         a changed one rewrites the file and does. The URL is MSBuild-escaped
+         before it goes into an item Include, where a ? or * from a query string
+         would otherwise be taken as a wildcard and the line silently dropped. -->
+    <Target Name="GenerateSyncServiceBuildDefaults" BeforeTargets="BeforeCompile">
+        <PropertyGroup>
+            <_BacklogSyncServiceUrlTrimmed>$(BacklogSyncServiceUrl.Trim())</_BacklogSyncServiceUrlTrimmed>
+            <_BacklogSyncServiceUrlLiteral Condition="'$(_BacklogSyncServiceUrlTrimmed)' == ''">null</_BacklogSyncServiceUrlLiteral>
+            <_BacklogSyncServiceUrlLiteral Condition="'$(_BacklogSyncServiceUrlTrimmed)' != ''">&quot;$([MSBuild]::Escape('$(_BacklogSyncServiceUrlTrimmed)'))&quot;</_BacklogSyncServiceUrlLiteral>
+            <_SyncServiceBuildDefaultsFile>$(IntermediateOutputPath)SyncServiceBuildDefaults.g.cs</_SyncServiceBuildDefaultsFile>
+        </PropertyGroup>
+        <ItemGroup>
+            <_SyncServiceBuildDefaultsLine Include="// &lt;auto-generated/&gt; by the GenerateSyncServiceBuildDefaults target in Backlog.Mobile.csproj" />
+            <_SyncServiceBuildDefaultsLine Include="#nullable enable" />
+            <_SyncServiceBuildDefaultsLine Include="namespace Backlog.Mobile%3B" />
+            <_SyncServiceBuildDefaultsLine Include="internal static class SyncServiceBuildDefaults" />
+            <_SyncServiceBuildDefaultsLine Include="{" />
+            <_SyncServiceBuildDefaultsLine Include="    public const string%3F Url = $(_BacklogSyncServiceUrlLiteral)%3B" />
+            <_SyncServiceBuildDefaultsLine Include="}" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(_SyncServiceBuildDefaultsFile)" Lines="@(_SyncServiceBuildDefaultsLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <Compile Include="$(_SyncServiceBuildDefaultsFile)" />
+            <FileWrites Include="$(_SyncServiceBuildDefaultsFile)" />
+        </ItemGroup>
+    </Target>
+
 </Project>

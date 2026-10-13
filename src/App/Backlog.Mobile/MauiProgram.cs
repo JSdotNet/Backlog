@@ -10,11 +10,12 @@ namespace Backlog.Mobile;
 
 public static class MauiProgram
 {
-	// Ports are dynamic (see src/Backlog.Aspire.AppHost/Properties/launchSettings.json), so the
-	// sync address comes from Aspire's service discovery when launched from the AppHost.
-	// Override BACKLOG_SYNC_URL when running the app standalone against a known host;
-	// 10.0.2.2 is the Android emulator's route to the host machine.
-	private const string EmulatorHostFallback = "http://10.0.2.2:5000";
+	// The sync address, in SyncServiceEndpoint.ResolveStandalone's order: Aspire's
+	// services__sync__http__0 (ports are dynamic, see
+	// src/Backlog.Aspire.AppHost/Properties/launchSettings.json), then BACKLOG_SYNC_URL,
+	// then the address compiled in from -p:BacklogSyncServiceUrl= - the release APK's
+	// deployed service - and last 10.0.2.2, the Android emulator's route to the host machine.
+	private static readonly Uri EmulatorHostFallback = new("http://10.0.2.2:5000");
 
 	public static MauiApp CreateMauiApp()
 	{
@@ -28,10 +29,12 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 
-		var syncBaseAddress =
-			Environment.GetEnvironmentVariable("services__sync__http__0")
-			?? Environment.GetEnvironmentVariable("BACKLOG_SYNC_URL")
-			?? EmulatorHostFallback;
+		// Resolved once and handed to both registrations below, so the pairing
+		// client and the data client cannot disagree about which service they talk to.
+		var syncBaseAddress = SyncServiceEndpoint.ResolveStandalone(
+			Environment.GetEnvironmentVariable,
+			SyncServiceBuildDefaults.Url,
+			EmulatorHostFallback).Address;
 
 		// The device half of cloud sync: the registration credential, kept in
 		// Android's Keystore-backed secure storage so a force-stop does not
@@ -46,14 +49,14 @@ public static class MauiProgram
 		// not called here on purpose: it needs an ITaskRepository, and this head has
 		// none - the phone carries the Inbox, not a local task database. Registering
 		// it anyway is not a dormant feature, it is a head that cannot start.
-		builder.Services.AddSyncClient(new Uri(syncBaseAddress));
+		builder.Services.AddSyncClient(syncBaseAddress);
 
 		// The inbox endpoints are bearer-only, so the data client leaves carrying
 		// the same short-lived token the pairing client mints. The handler is
 		// chained here rather than inside AddSyncClient because which of a host's
 		// clients are sync clients is the host's to know.
 		builder.Services.AddHttpClient<CloudSyncClient>(client =>
-			client.BaseAddress = new Uri(syncBaseAddress))
+			client.BaseAddress = syncBaseAddress)
 			.AddHttpMessageHandler<SyncAuthenticationHandler>();
 
 		// The Android recogniser, not the Web Speech one: the System WebView
