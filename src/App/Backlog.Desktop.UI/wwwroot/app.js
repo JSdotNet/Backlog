@@ -109,6 +109,82 @@ window.backlogTakeoverEscape = (() => {
     };
 })();
 
+// The shell header stays one row. When it runs out of room the navigation
+// options give up their words in tiers — `app-header--fold-1` hides the
+// Dashboard's, `--fold-2` the work in progress's as well, `--fold-3` the
+// Inbox's, `--fold-4` the view switch's — and this picks the fewest tiers that
+// fit. Measured rather than set at fixed breakpoints, because what the row holds
+// varies: how many repositories the scope shows, which flags are on.
+//
+// Every fit starts unfolded and folds one tier at a time, so a wider window
+// unfolds again. When even the last tier overflows, `app-header--wrap` hands the
+// row back to wrapping rather than clipping a control.
+//
+// The regions are observed as well as the header: with the row unwrapped the
+// header's own box does not change when a region grows, only the region's does.
+// The fit runs on the next frame rather than inside the observer's callback, so
+// the sizes it changes are not reported back into the same delivery.
+window.backlogHeaderFit = (() => {
+    const tiers = 4;
+    let header = null;
+    let observer = null;
+    let frame = 0;
+
+    const overflows = () => header.scrollWidth > header.clientWidth + 1;
+
+    const apply = (folded, wrap) => {
+        for (let tier = 1; tier <= tiers; tier++) {
+            header.classList.toggle(`app-header--fold-${tier}`, tier <= folded);
+        }
+        header.classList.toggle('app-header--wrap', wrap);
+    };
+
+    const fit = () => {
+        if (!header || !header.isConnected) return;
+        let folded = 0;
+        apply(0, false);
+        while (overflows() && folded < tiers) {
+            folded++;
+            apply(folded, false);
+        }
+        if (overflows()) apply(tiers, true);
+    };
+
+    const schedule = () => {
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+            frame = 0;
+            fit();
+        });
+    };
+
+    const stop = () => {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        observer?.disconnect();
+        observer = null;
+        header = null;
+    };
+
+    // Keyed on the element, unlike the takeover Escape above: a remounted shell's
+    // observe can reach here before the outgoing one's disconnect, and that late
+    // disconnect must not switch off the new header.
+    return {
+        observe: (element) => {
+            stop();
+            if (!element) return;
+            header = element;
+            observer = new ResizeObserver(schedule);
+            observer.observe(header);
+            for (const region of header.children) observer.observe(region);
+            fit();
+        },
+        disconnect: (element) => {
+            if (element === header) stop();
+        }
+    };
+})();
+
 // An attached image is evidence for a bug report, not a photograph: it is
 // committed to the repository and embedded in the issue, so it is held to a
 // budget rather than sent at whatever size it arrived. Named because two

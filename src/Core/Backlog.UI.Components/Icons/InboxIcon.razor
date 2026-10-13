@@ -1,0 +1,47 @@
+@*
+    An inbox tray: a box open at the top, its floor dipping into a slot.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, and in
+    Lucide's idiom on exactly the terms `.devbook/design/typography-and-layout.md#iconography`
+    allows: an outline on the 24x24 grid, stroked at 2, round caps and joins,
+    filled nowhere. Lucide's `inbox`.
+
+    Named for the shape, not for a meaning. The shell header puts it on the
+    Inbox option; the name the option answers to stays on the option.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @* The slot in the floor, then the tray around it. *@
+    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "inbox-icon" : $"inbox-icon {CssClass}";
+}

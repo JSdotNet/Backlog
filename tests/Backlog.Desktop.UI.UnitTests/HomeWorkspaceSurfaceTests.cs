@@ -1398,10 +1398,12 @@ public sealed class HomeWorkspaceSurfaceTests
     [InlineData("in-progress-view-option", "activity-icon", "In progress")]
     [InlineData("sessions-toggle-button", "square-terminal-icon", "Sessions")]
     [InlineData("pull-requests-toggle-button", "git-pull-request-icon", "Pull requests")]
+    [InlineData("inbox-pane-option", "inbox-icon", "Inbox")]
+    [InlineData("dashboard-toggle-button", "layout-dashboard-icon", "Dashboard")]
     public void Each_header_option_leads_with_a_hidden_glyph_and_keeps_its_word_as_its_name(
         string option, string glyph, string name)
     {
-        using var harness = CreateHarness();
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
@@ -1419,6 +1421,39 @@ public sealed class HomeWorkspaceSurfaceTests
             // The name a screen reader reads: the text, which the glyph adds none to.
             // A feature flag's badge may follow the word, so it is the start that counts.
             Assert.StartsWith(name, button.TextContent.Trim(), StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// The header stays one row by folding the options' words away in tiers: the
+    /// Dashboard first, then the work in progress, then the Inbox, then the view
+    /// switch. Each word wears its tier, and the option's title names it, so a
+    /// folded option still says what it is on hover.
+    /// </summary>
+    [Theory]
+    [InlineData("dashboard-toggle-button", "Dashboard", 1)]
+    [InlineData("in-progress-view-option", "In progress", 2)]
+    [InlineData("sessions-toggle-button", "Sessions", 2)]
+    [InlineData("pull-requests-toggle-button", "Pull requests", 2)]
+    [InlineData("inbox-pane-option", "Inbox", 3)]
+    [InlineData("tasks-view-option", "Tasks", 4)]
+    [InlineData("board-view-option", "Board", 4)]
+    [InlineData("calendar-view-option", "Calendar", 4)]
+    [InlineData("roadmap-view-option", "Roadmap", 4)]
+    public void Each_header_option_word_folds_in_its_tier(string option, string name, int tier)
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var button = component.Find($"[data-testid='{option}']");
+            var label = button.QuerySelector(".header-nav-label");
+
+            Assert.NotNull(label);
+            Assert.Equal(name, label!.TextContent);
+            Assert.Contains($"header-nav-label--tier-{tier}", label.ClassList);
+            Assert.False(string.IsNullOrWhiteSpace(button.GetAttribute("title")));
         });
     }
 

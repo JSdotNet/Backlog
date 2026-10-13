@@ -69,8 +69,17 @@
        multi-select, an exclusive view switch, a panel disclosure and two modal
        utilities look like the same kind of control. Grouping them is the whole
        change — almost every behaviour below is the behaviour that was already
-       here. *@
-    <header class="app-header">
+       here.
+
+       One row at every width. When the row runs out of room the navigation
+       options give up their words before anything wraps, in tiers — the
+       Dashboard first, then the work in progress, then the Inbox, then the view
+       switch — and keep their glyphs. backlogHeaderFit in app.js measures the row
+       and picks the fewest tiers that fit; the word stays in the button as a
+       visually hidden span, so the option's name does not change, and its title
+       says what it does on hover. Only when every tier is folded and the row still does
+       not fit does the header wrap. *@
+    <header class="app-header" @ref="_header">
         @* Region A. It used to open with a "Backlog" wordmark, set smaller than the
            other screens' `.app-header h1` to say it was chrome rather than a page
            title. The window border says the name already, so the wordmark was the
@@ -191,7 +200,8 @@
                                   aria-controls="inbox-surface"
                                   Title="@InboxOptionTitle"
                                   OnClick="ToggleInbox">
-                        Inbox
+                        <InboxIcon />
+                        <span class="header-nav-label header-nav-label--tier-3">Inbox</span>
                         <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
                                             Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
                                             TestId="inbox-feature-status" />
@@ -213,11 +223,12 @@
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(ShellView.Tasks)"
                                   id="tasks-view-option"
+                                  Title="Tasks"
                                   TestId="tasks-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Tasks)">
                         <ListIcon />
-                        Tasks
+                        <span class="header-nav-label header-nav-label--tier-4">Tasks</span>
                     </ToggleButton>
 
                     @* The Board: the Tasks pane's filtered rows in columns of cards,
@@ -226,11 +237,12 @@
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(ShellView.Board)"
                                   id="board-view-option"
+                                  Title="Board"
                                   TestId="board-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Board)">
                         <Columns3Icon />
-                        Board
+                        <span class="header-nav-label header-nav-label--tier-4">Board</span>
                     </ToggleButton>
 
                     @* The Calendar: the Tasks pane's filtered rows on a month by due
@@ -239,11 +251,12 @@
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(ShellView.Calendar)"
                                   id="calendar-view-option"
+                                  Title="Calendar"
                                   TestId="calendar-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Calendar)">
                         <CalendarIcon />
-                        Calendar
+                        <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
                     </ToggleButton>
 
                     @if (RoadmapViewOffered)
@@ -252,11 +265,12 @@
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="ViewOptionPressed(ShellView.Roadmap)"
                                       id="roadmap-view-option"
+                                      Title="Roadmap"
                                       TestId="roadmap-view-option"
                                       aria-controls="roadmap-view"
                                       OnClick="() => ShowView(ShellView.Roadmap)">
                             <ChartGanttIcon />
-                            Roadmap
+                            <span class="header-nav-label header-nav-label--tier-4">Roadmap</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
                                                 Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
                                                 TestId="roadmap-feature-status" />
@@ -301,11 +315,12 @@
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(ShellView.InProgress)"
                                   id="in-progress-view-option"
+                                  Title="In progress"
                                   TestId="in-progress-view-option"
                                   aria-controls="in-progress-view"
                                   OnClick="() => ShowView(ShellView.InProgress)">
                         <ActivityIcon />
-                        In progress
+                        <span class="header-nav-label header-nav-label--tier-2">In progress</span>
                     </ToggleButton>
 
                     @if (SessionsOffered)
@@ -314,11 +329,12 @@
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="SessionsVisible"
                                       id="sessions-toggle-button"
+                                      Title="Sessions"
                                       TestId="sessions-toggle-button"
                                       aria-controls="sessions-surface"
                                       PressedChanged="ToggleSessions">
                             <SquareTerminalIcon />
-                            Sessions
+                            <span class="header-nav-label header-nav-label--tier-2">Sessions</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
                                                 Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
                                                 TestId="sessions-feature-status" />
@@ -333,11 +349,12 @@
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="PullRequestsVisible"
                                       id="pull-requests-toggle-button"
+                                      Title="Pull requests"
                                       TestId="pull-requests-toggle-button"
                                       aria-controls="pull-requests-surface"
                                       PressedChanged="TogglePullRequests">
                             <GitPullRequestIcon />
-                            Pull requests
+                            <span class="header-nav-label header-nav-label--tier-2">Pull requests</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
                                                 Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
                                                 TestId="pull-requests-feature-status" />
@@ -364,10 +381,12 @@
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="DashboardVisible"
                                       id="dashboard-toggle-button"
+                                      Title="Dashboard"
                                       TestId="dashboard-toggle-button"
                                       aria-controls="dashboard-surface"
                                       PressedChanged="ToggleDashboard">
-                            Dashboard
+                            <LayoutDashboardIcon />
+                            <span class="header-nav-label header-nav-label--tier-1">Dashboard</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
                                                 Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
                                                 TestId="dashboard-feature-status" />
@@ -730,6 +749,9 @@
     private double _devbookPanelWidthRem = SidePaneWidth.DefaultRem;
     private double _maxSidePaneWidthRem = SidePaneWidth.MaxRem;
     private DotNetObjectReference<Home>? _selfReference;
+
+    /// <summary>The header row backlogHeaderFit folds the navigation's words in.</summary>
+    private ElementReference _header;
     private ElementReference _surfaceElement;
     private bool _focusSurfacePending;
     private bool _workspaceWasHidden;
@@ -882,6 +904,16 @@
             {
                 // Without it Escape still closes a surface from inside the surface;
                 // only the press after focus fell to <body> goes unheard.
+            }
+
+            try
+            {
+                await JS.InvokeVoidAsync("backlogHeaderFit.observe", _header);
+            }
+            catch (Exception)
+            {
+                // Without it every option keeps its word and a narrow window
+                // overflows the row instead of folding it.
             }
         }
 
@@ -2485,6 +2517,7 @@
                 // that a change to that ordering is read as breaking this.
                 await JS.InvokeVoidAsync("backlogPaneResizer.dispose");
                 await JS.InvokeVoidAsync("backlogTakeoverEscape.unregister");
+                await JS.InvokeVoidAsync("backlogHeaderFit.disconnect", _header);
             }
             catch (JSException)
             {
