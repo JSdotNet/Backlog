@@ -25,6 +25,23 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class SettingsDevbookFolderStatusTests
 {
+    /// <summary>
+    /// The Repositories page is the Tasks module's, and the Devbook block is the
+    /// shell's part of each card: the source control and the section rows are still
+    /// drawn inside the repository's card.
+    /// </summary>
+    [Fact]
+    public void The_devbook_source_and_sections_are_drawn_on_the_repository_card()
+    {
+        using var settings = RenderSettings(cloneDirectory: CloneDirectory.WithArchitectureFolder);
+        OpenRepositoriesTab(settings.Component);
+
+        var card = settings.Component.Find("[data-testid='github-repo-card']");
+        Assert.NotNull(card.QuerySelector("[data-testid='repo-devbook-source'] [data-testid='repo-devbook-source-select']"));
+        Assert.NotEmpty(card.QuerySelectorAll("[data-testid='devbook-folder-row']"));
+        Assert.NotEmpty(card.QuerySelectorAll("[data-testid='devbook-folder-status']"));
+    }
+
     [Fact]
     public void The_architecture_section_is_labelled_for_what_it_holds()
     {
@@ -263,6 +280,10 @@ public sealed class SettingsDevbookFolderStatusTests
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store, snapshots));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        // The Repositories page is the Tasks module's section, and the Devbook rows on
+        // each repository card are the shell's part of it.
+        context.Services.AddRepositorySettings();
+        context.Services.AddRepositoryDevbookSettings();
 
         return new SettingsRenderContext(root, clone, context, context.Render<Settings>());
     }

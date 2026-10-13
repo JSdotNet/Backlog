@@ -179,6 +179,10 @@ public sealed class SettingsRepositoryColourTests
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        // The Repositories page is the Tasks module's section, and the Devbook rows on
+        // each repository card are the shell's part of it.
+        context.Services.AddRepositorySettings();
+        context.Services.AddRepositoryDevbookSettings();
 
         return new SettingsRenderContext(root, context, context.Render<Settings>(), githubSettings);
     }

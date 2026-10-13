@@ -268,6 +268,11 @@ public static class DesktopCompositionRegistration
         // syncs. Drawn from the connectors' descriptors, so it needs no change when
         // one is added.
         services.AddTaskConnectorSettings();
+        // The Repositories page: the repository registry and a card per repository.
+        // The Tasks module draws it; the Devbook block on each card is the shell's,
+        // added as a part because the module may not reach Devbook.
+        services.AddRepositorySettings();
+        services.AddRepositoryDevbookSettings();
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();

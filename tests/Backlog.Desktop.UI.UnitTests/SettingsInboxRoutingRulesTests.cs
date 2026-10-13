@@ -91,7 +91,7 @@ public sealed class SettingsInboxRoutingRulesTests
     {
         using var settings = RenderSettings(registerSection: true);
 
-        OpenTab(settings.Component, "Repositories");
+        OpenTab(settings.Component, "Storage");
         Assert.Empty(settings.Component.FindAll("[data-testid='inbox-routing-rules-input']"));
 
         OpenTab(settings.Component, "Inbox");

@@ -14,7 +14,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class SyncSettingsRegistrationTests
 {
     /// <summary>The shell's own pages, which win a collision.</summary>
-    private static readonly string[] ShellPageIds = ["features", "ai", "storage", "accounts", "repositories"];
+    private static readonly string[] ShellPageIds = ["features", "ai", "storage", "accounts"];
 
     [Fact]
     public void The_devices_page_is_registered_as_one_settings_section_behind_the_sync_switch()
@@ -33,5 +33,6 @@ public sealed class SyncSettingsRegistrationTests
         // The tab sat straight after Repositories while the shell drew it, so it
         // stays there: ahead of every other module's section.
         Assert.True(section.Order < TaskConnectorSettingsRegistration.Order);
+        Assert.True(section.Order > RepositorySettingsRegistration.Order);
     }
 }

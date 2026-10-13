@@ -7,7 +7,9 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// <summary>
 /// What the backlog asks of the contexts beside it, answered by adapters that may see
 /// both sides: the state of the agent sessions a task links to
-/// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record.
+/// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record, and
+/// the inbox items a repository rename carries across
+/// (<see cref="IInboxRepositoryRename"/>), asked of the Inbox's own port.
 /// </summary>
 public static class TasksCrossContextAdapterRegistration
 {
@@ -25,6 +27,10 @@ public static class TasksCrossContextAdapterRegistration
             sp.GetService<IAgentSessionSource>() is { } sessions
                 ? new LinkedSessionStates(sessions)
                 : NoLinkedSessionStates.Instance);
+
+        // Scoped like the Inbox port it passes the call to, so a head that holds the
+        // Inbox per window holds this per window too.
+        services.AddScoped<IInboxRepositoryRename, InboxRepositoryRename>();
 
         return services;
     }

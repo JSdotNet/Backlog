@@ -342,6 +342,17 @@ public sealed class SettingsAccountsTests
         Assert.Empty(settings.Component.FindAll("[data-testid='repo-account-select']"));
     }
 
+    /// <summary>Accounts is read before Repositories on purpose, and the Repositories
+    /// page keeps that place now that the Tasks module registers it rather than the
+    /// shell drawing it.</summary>
+    [Fact]
+    public void The_repositories_tab_follows_the_accounts_tab()
+    {
+        using var settings = RenderSettings();
+
+        Assert.Equal(["Features", "Storage", "Accounts", "Repositories"], SettingsTabs(settings.Component));
+    }
+
     /// <summary>
     /// Forgetting the first account leaves the second one's panel standing rather
     /// than handing the first panel the second one's login: each account panel is
@@ -523,6 +534,10 @@ public sealed class SettingsAccountsTests
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        // The Repositories page is the Tasks module's section, and the Devbook rows on
+        // each repository card are the shell's part of it.
+        context.Services.AddRepositorySettings();
+        context.Services.AddRepositoryDevbookSettings();
 
         return new SettingsRenderContext(root, context, context.Render<Settings>(), githubSettings);
     }

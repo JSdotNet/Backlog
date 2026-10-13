@@ -140,6 +140,10 @@ public sealed class SettingsActivityCacheTests
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        // The Repositories page is the Tasks module's section, and the Devbook rows on
+        // each repository card are the shell's part of it.
+        context.Services.AddRepositorySettings();
+        context.Services.AddRepositoryDevbookSettings();
         context.Services.AddSingleton<IPullRequestDetailCache>(cache);
         var listings = new RecordingListingCache();
         context.Services.AddSingleton<IActivityListingCache>(listings);

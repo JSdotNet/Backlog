@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
@@ -313,8 +314,15 @@ public sealed class SettingsRepositoryRenameTests
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        // The Repositories page is the Tasks module's section, and the Devbook rows on
+        // each repository card are the shell's part of it.
+        context.Services.AddRepositorySettings();
+        context.Services.AddRepositoryDevbookSettings();
         context.Services.AddSingleton<ITaskItems>(tasks);
         context.Services.AddSingleton<IInboxItems>(inbox);
+        // The inbox half of a rename reaches the Inbox through the adapter behind
+        // the Tasks module's port, as the desktop composition wires it.
+        context.Services.AddTasksCrossContextAdapters();
 
         return new SettingsRenderContext(root, context, context.Render<Settings>(), githubSettings, tasks, inbox);
     }

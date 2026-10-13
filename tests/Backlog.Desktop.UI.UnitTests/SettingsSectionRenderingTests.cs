@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class SettingsSectionRenderingTests
 {
-    private static readonly string[] AppWidePages = ["Features", "Storage", "Repositories"];
+    private static readonly string[] AppWidePages = ["Features", "Storage"];
 
     [Fact]
     public void With_no_section_registered_only_the_app_wide_pages_are_offered()
