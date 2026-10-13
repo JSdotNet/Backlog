@@ -106,3 +106,100 @@ The system tools pane SHALL reopen on the tab and the host filter it was last le
 - **Given** the reader left the pane on the Checklist tab with the Copilot filter
 - **When** the pane is opened again on this machine
 - **Then** it opens on the Checklist tab with the Copilot filter
+
+## Overview tab
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/dev-pc-management/features.md#overview-tab]
+```
+
+> The requirements of the system tools pane's Overview tab.
+
+### Requirement: Overview is where a new machine opens
+
+```meta
+type: requirement
+status: draft
+```
+
+The system tools pane SHALL open on the Overview tab on a machine that has no remembered tab.
+
+#### Scenario: First open
+
+- **Given** a machine that has never been on a tab of the pane
+- **When** the pane opens
+- **Then** the Overview tab is on show
+
+### Requirement: The headline figures count the entries this machine wants
+
+```meta
+type: requirement
+status: draft
+```
+
+The Overview SHALL show how many entries match the catalog out of the entries this machine wants and whose version was looked up, with the matching, behind, missing and unconfirmed shares said in words, the entries behind split by host, the missing entries split into those installable from here and those installed by hand, and the count of cached versions nothing loads.
+
+#### Scenario: Mixed machine
+
+- **Given** three matching entries, a plugin behind on Claude, an application behind, an application missing that is installed by hand, an unconfirmed checklist item and a switched-off plugin
+- **When** the pane opens
+- **Then** Matches the catalog reads 3 of 7, and Updates reads 2 with Claude 1 and Machine 1
+
+### Requirement: Needs you lists every action in a fixed order
+
+```meta
+type: requirement
+status: draft
+```
+
+The Overview SHALL list one card per entry needing action, updates first, then missing entries, then unconfirmed checklist items, then the stale cache, each carrying exactly one control — Update, Install, a link to the download page for an entry installed by hand, Done here for a checklist item, or Clear for the stale cache.
+
+#### Scenario: Order
+
+- **Given** an unconfirmed checklist item, an application missing that is installed by hand, a missing plugin, a plugin behind and a stale cached version, in that catalog order
+- **When** the pane opens
+- **Then** Needs you reads Update, Install by hand, Install, Confirm, Clear the stale cache, in that order
+
+#### Scenario: Nothing to do
+
+- **Given** a catalog whose every entry matches
+- **When** the pane opens
+- **Then** Needs you says everything matches the catalog and lists nothing
+
+### Requirement: The host filter narrows every Overview figure
+
+```meta
+type: requirement
+status: draft
+```
+
+The Overview SHALL count only the entries the host filter shows, in every tile, in Needs you and in every kind bar.
+
+#### Scenario: Copilot
+
+- **Given** a mixed machine whose only Copilot entry is a matching plugin
+- **When** the reader chooses the Copilot filter
+- **Then** Matches the catalog reads 1 of 1 and Needs you says everything matches the catalog
+
+### Requirement: Last run shows the last finished run
+
+```meta
+type: requirement
+status: draft
+```
+
+The Overview SHALL show this machine's last finished run — its outcome, kind, when it finished, how many of its steps succeeded, how long it took and the last lines of its transcript, with the whole transcript a click away — and SHALL show no Last run card when there is none.
+
+#### Scenario: Partly failed Update all
+
+- **Given** an Update all that updated one of two tools in 72 seconds
+- **When** the pane opens
+- **Then** Last run reads Partly failed, Update all, 1 of 2 steps succeeded and 1 min 12 s
+
+#### Scenario: No run yet
+
+- **Given** a machine that has never finished a run
+- **When** the pane opens
+- **Then** there is no Last run card

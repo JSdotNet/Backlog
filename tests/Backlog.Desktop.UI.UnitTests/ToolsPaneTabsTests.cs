@@ -64,6 +64,7 @@ public sealed class ToolsPaneTabsTests
             Plugin("plugin:claude-behind", DevToolHosts.Claude, behind: true),
             Plugin("plugin:claude-current", DevToolHosts.Claude)));
         var pane = context.Render<ToolsPane>();
+        OpenPlugins(pane);
 
         Assert.Equal("2", pane.Find("[data-testid='tools-tab-plugins-count']").TextContent.Trim());
         Assert.Equal("All (3)", pane.Find("[data-testid='tools-needs-all']").TextContent.Trim());
@@ -163,6 +164,7 @@ public sealed class ToolsPaneTabsTests
             Plugin("plugin:behind", DevToolHosts.Default, behind: true),
             Plugin("plugin:current", DevToolHosts.Default)));
         var pane = context.Render<ToolsPane>();
+        OpenPlugins(pane);
 
         Assert.Equal("true", pane.Find("[data-testid='tools-needs-all']").GetAttribute("aria-checked"));
         Assert.Equal("Needs action (1)", pane.Find("[data-testid='tools-needs-action']").TextContent.Trim());
@@ -184,6 +186,7 @@ public sealed class ToolsPaneTabsTests
             Plugin("plugin:architecture", DevToolHosts.Default),
             Plugin("plugin:delivery", DevToolHosts.Default)));
         var pane = context.Render<ToolsPane>();
+        OpenPlugins(pane);
 
         pane.Find("[data-testid='tools-name-filter'] input").Input("ARCH");
 
@@ -201,6 +204,7 @@ public sealed class ToolsPaneTabsTests
             Plugin("plugin:c", DevToolHosts.Default),
             Tool("mcp:Guidelines", "guidelines")));
         var pane = context.Render<ToolsPane>();
+        OpenPlugins(pane);
 
         Assert.Equal("System tools · Plugins", pane.Find(".tools-panel__eyebrow").TextContent.Trim());
         Assert.Equal("Two of three plugins are behind", pane.Find("#installed-tools-title").TextContent.Trim());
@@ -278,20 +282,20 @@ public sealed class ToolsPaneTabsTests
 
         var pane = context.Render<ToolsPane>();
 
-        Assert.Equal("true", pane.Find("[data-testid='tools-tab-plugins']").GetAttribute("aria-selected"));
+        Assert.Equal("true", pane.Find("[data-testid='tools-tab-overview']").GetAttribute("aria-selected"));
         Assert.Equal("true", pane.Find("[data-testid='tools-host-all']").GetAttribute("aria-checked"));
     }
 
+    /// <summary>A machine that has never been on a tab opens on the Overview.</summary>
     [Fact]
-    public void The_overview_tab_is_a_placeholder_until_its_step_lands()
+    public void The_overview_is_the_default_tab()
     {
         using var context = Context(HostMix());
         var pane = context.Render<ToolsPane>();
 
-        pane.Find("[data-testid='tools-tab-overview']").Click();
-
+        Assert.Equal("true", pane.Find("[data-testid='tools-tab-overview']").GetAttribute("aria-selected"));
         Assert.False(pane.Find("[data-testid='tools-overview']").HasAttribute("hidden"));
-        Assert.NotNull(pane.Find("[data-testid='tools-overview-placeholder']"));
+        Assert.NotNull(pane.Find("[data-testid='tools-overview-board']"));
         Assert.Equal("System tools · Overview", pane.Find(".tools-panel__eyebrow").TextContent.Trim());
     }
 
@@ -341,12 +345,16 @@ public sealed class ToolsPaneTabsTests
         using var missing = Context(FakeDevToolService.With(
             Plugin("plugin:a", DevToolHosts.Default) with { Installed = false, InstalledVersion = "not installed" },
             Plugin("plugin:b", DevToolHosts.Default)));
-        Assert.Equal("One of two plugins is missing", missing.Render<ToolsPane>().Find("#installed-tools-title").TextContent.Trim());
+        var missingPane = missing.Render<ToolsPane>();
+        OpenPlugins(missingPane);
+        Assert.Equal("One of two plugins is missing", missingPane.Find("#installed-tools-title").TextContent.Trim());
 
         using var mixed = Context(FakeDevToolService.With(
             Plugin("plugin:a", DevToolHosts.Default) with { Installed = false, InstalledVersion = "not installed" },
             Plugin("plugin:b", DevToolHosts.Default, behind: true)));
-        Assert.Equal("Two of two plugins need action", mixed.Render<ToolsPane>().Find("#installed-tools-title").TextContent.Trim());
+        var mixedPane = mixed.Render<ToolsPane>();
+        OpenPlugins(mixedPane);
+        Assert.Equal("Two of two plugins need action", mixedPane.Find("#installed-tools-title").TextContent.Trim());
     }
 
     /// <summary>A tab the host filter has emptied says so, rather than claiming the
@@ -385,6 +393,10 @@ public sealed class ToolsPaneTabsTests
         Tool("mcp:desktop", "desktop") with { Hosts = DevToolHosts.ClaudeDesktop },
         Application("Git.Git", "Git"),
         ManualApplication(acknowledged: true));
+
+    /// <summary>Moves off the Overview, which a pane opens on, to the Plugins tab.</summary>
+    private static void OpenPlugins(IRenderedComponent<ToolsPane> pane) =>
+        pane.Find("[data-testid='tools-tab-plugins']").Click();
 
     private static DevToolInfo Plugin(string key, DevToolHosts hosts, bool behind = false) =>
         Tool(key, key["plugin:".Length..]) with
