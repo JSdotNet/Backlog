@@ -86,10 +86,10 @@ ramp. It is gold rather than a semantic surface, so it cannot be read as alert,
 fault or settled. The effort family MUST NOT be added to the stylesheet's badge
 families.
 
-**The outline for low and medium is `color-border-strong`, not the drawn
-`color-border`.** The agreed canvas drew it in `color-border`, which measures
-2.16:1 on `color-background-alt` and 2.49:1 on `color-background`. Both miss the
-3:1 a component boundary owes. `color-border-strong` clears it on both surfaces.
+**The outline for low and medium is `color-border-strong`, not `color-border`.**
+`color-border` measures 2.16:1 on `color-background-alt` and 2.49:1 on
+`color-background`. Both miss the 3:1 a component boundary owes.
+`color-border-strong` clears it on both surfaces.
 
 ### Effort chip contrast
 
@@ -293,15 +293,17 @@ Rules:
 related: [".devbook/design/README.md#living-reference-the-ui-storybook"]
 ```
 
-The effort chip is materialized as `EffortChip` in
-`src/Core/Backlog.UI.Components/Badges/`, drawn by the `effort-chip` rules in
-`components.css`, and shown on the storybook's Session list page (`/session-list`)
-beside `StageStrip`, the compact stage strip a session row draws its run with. The
-Sessions pane wears it on every row after the model and among the detail panel's
-facts.
+| Piece | Component | Stylesheet rules | Review surface |
+|---|---|---|---|
+| Effort chip | `EffortChip` | `effort-chip` | Storybook → *Session list* (`/session-list`) |
+| Mode chips | `ModeChip` | `mode-chip` | Storybook → *Badges* |
+| Stage marks | `StageMark` | `stage-mark` | Storybook → *Badges* |
+| Legend | `StageLegend` | `stage-legend` | Storybook → *Badges* |
 
-The mode chips, the stage marks and the legend are materialized as `ModeChip`,
-`StageMark` and `StageLegend` in the same folder, drawn by the `mode-chip`,
-`stage-mark` and `stage-legend` rules in `components.css`, and shown on the
-storybook's Badges page. The Sessions pane's stage list of a delivery run wears all
-three, with the effort chip, on every stage of an open run.
+All four components live in `src/Core/Backlog.UI.Components/Badges/`, and their
+rules are in `components.css`. The *Session list* page shows the effort chip
+beside `StageStrip`, the compact stage strip a session row draws its run with.
+
+The Sessions pane wears the effort chip on every row after the model, and among
+the detail panel's facts. The stage list of an open delivery run carries the
+legend, and every stage in it wears its mode chip, stage mark and effort chip.

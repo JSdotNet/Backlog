@@ -2,35 +2,36 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Repository Baseline Scan and Health Signal",
+    "title": "IDE Context-aware Capture",
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [1400, 700]
+    "viewBox": [1040, 780]
   },
   "participants": [
-    { "id": "scheduler", "type": "backend", "label": "Desktop Scheduler" },
-    { "id": "repomgmt", "type": "backend", "label": "Repository Management" },
-    { "id": "reporegistry", "type": "database", "label": "Repository Registry" },
-    { "id": "pkg", "type": "external", "label": "Package Registries" },
-    { "id": "techstack", "type": "backend", "label": "Technology Stack" },
-    { "id": "index", "type": "database", "label": "Local JSON Index" },
-    { "id": "monitoring", "type": "backend", "label": "Monitoring Service" }
+    { "id": "me", "type": "external", "label": "ME" },
+    { "id": "ide", "type": "frontend", "label": "IDE Extension" },
+    { "id": "ext", "type": "external", "label": "Extension API" },
+    { "id": "capture", "type": "backend", "label": "Capture Service" },
+    { "id": "api", "type": "backend", "label": "Backend API" },
+    { "id": "store", "type": "database", "label": "Local Markdown" }
   ],
   "segments": [
-    { "from": 150, "to": 248, "label": "Start scan" },
-    { "from": 264, "to": 360, "label": "Loop: for each registered manifest" },
-    { "from": 376, "to": 604, "label": "Compare baselines and signal" }
+    { "from": 150, "to": 292, "label": "Gather repo context" },
+    { "from": 308, "to": 404, "label": "Confirm in dialog" },
+    { "from": 420, "to": 692, "label": "Create item and return deep link" }
   ],
   "messages": [
-    { "id": "start-scan", "from": "scheduler", "to": "repomgmt", "y": 182, "label": "Start dependency scan", "variant": "emphasis" },
-    { "id": "load-repos", "from": "repomgmt", "to": "reporegistry", "y": 226, "label": "Load registered repos and manifests", "variant": "default" },
-    { "id": "query-packages", "from": "repomgmt", "to": "pkg", "y": 294, "label": "Query latest package metadata", "variant": "default" },
-    { "id": "package-versions", "from": "pkg", "to": "repomgmt", "y": 338, "label": "Current versions / advisories", "variant": "return" },
-    { "id": "compare-baselines", "from": "repomgmt", "to": "techstack", "y": 406, "label": "Compare discovered versions to baselines", "variant": "emphasis" },
-    { "id": "drift-evaluation", "from": "techstack", "to": "repomgmt", "y": 450, "label": "Drift and policy evaluation", "variant": "return" },
-    { "id": "persist-snapshot", "from": "repomgmt", "to": "index", "y": 494, "label": "Persist repository health snapshot", "variant": "default" },
-    { "id": "emit-signals", "from": "repomgmt", "to": "monitoring", "y": 538, "label": "Emit ProgressSignal(s)", "variant": "emphasis" },
-    { "id": "state-updated", "from": "monitoring", "to": "scheduler", "y": 582, "label": "Dashboard/alert state updated", "variant": "return" }
+    { "id": "select-code", "from": "me", "to": "ide", "y": 182, "label": "Select code -> right-click Capture", "variant": "default" },
+    { "id": "get-context", "from": "ide", "to": "ext", "y": 226, "label": "Get repo context", "variant": "default" },
+    { "id": "context-values", "from": "ext", "to": "ide", "y": 270, "label": "file_path, line, branch, selection", "variant": "return" },
+    { "id": "show-dialog", "from": "ide", "to": "me", "y": 338, "label": "Show capture dialog (pre-filled context)", "variant": "default" },
+    { "id": "confirm", "from": "me", "to": "ide", "y": 382, "label": "Add title and tags -> confirm", "variant": "default" },
+    { "id": "create-item", "from": "ide", "to": "capture", "y": 450, "label": "createItem(title, body, metadata)", "variant": "emphasis" },
+    { "id": "write-markdown", "from": "capture", "to": "store", "y": 494, "label": "Write to local markdown cache", "variant": "default" },
+    { "id": "post-inbox", "from": "capture", "to": "api", "y": 538, "label": "POST /inbox/items (source=ide-vs-code)", "variant": "emphasis" },
+    { "id": "inbox-created", "from": "api", "to": "capture", "y": 582, "label": "201 Created (id)", "variant": "return" },
+    { "id": "item-created", "from": "capture", "to": "ide", "y": 626, "label": "Item created (id, deep_link)", "variant": "return" },
+    { "id": "confirmation", "from": "ide", "to": "me", "y": 670, "label": "Confirmation + deep-link to item", "variant": "return" }
   ]
 }

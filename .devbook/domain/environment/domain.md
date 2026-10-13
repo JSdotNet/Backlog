@@ -21,10 +21,15 @@ related: [.devbook/domain/repository-management/domain.md#repository-registry, .
 aliases: [EnvironmentCatalog]
 ```
 
-The personal catalog of launchable environments. Invariants: each Environment has
-a stable name, type, target reference, and launch method; shortcuts can be pinned,
-grouped, hidden, or reordered without changing the target environment; secrets are
-never stored in the catalog, only pointers to the owning secret store or platform.
+The personal catalog of launchable environments.
+
+Invariants:
+
+- Each Environment has a stable name, type, target reference, and launch method.
+- Pinning, grouping, hiding, or reordering a shortcut never changes its target
+  environment.
+- The catalog never stores a secret, only a pointer to the owning secret store or
+  platform.
 
 ### Environment
 

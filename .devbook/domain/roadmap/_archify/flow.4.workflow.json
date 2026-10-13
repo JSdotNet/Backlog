@@ -2,370 +2,66 @@
   "schema_version": 1,
   "diagram_type": "workflow",
   "meta": {
-    "title": "Gathering an Item's Work and Totalling Its Effort",
+    "title": "Reading the Plan by Repository",
     "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [
-    {
-      "id": "item",
-      "label": "Roadmap Item"
-    },
-    {
-      "id": "suppliers",
-      "label": "Suppliers"
-    },
-    {
-      "id": "threads",
-      "label": "Gathered two ways"
-    },
-    {
-      "id": "merged",
-      "label": "Merged"
-    },
-    {
-      "id": "totalled",
-      "label": "Totalled"
-    },
-    {
-      "id": "reported",
-      "label": "Reported"
-    }
+    { "id": "plan", "label": "Roadmap Plan" },
+    { "id": "scope", "label": "Repository Scope" },
+    { "id": "registry", "label": "Repository Registry" },
+    { "id": "bands", "label": "Bands" },
+    { "id": "planning", "label": "Planning lanes" },
+    { "id": "drawn", "label": "Drawn" }
   ],
   "nodes": [
-    {
-      "id": "roadmap-item",
-      "lane": "item",
-      "col": 1,
-      "width": 220,
-      "type": "database",
-      "label": "Roadmap Item",
-      "sublabel": "tag, backlog_entry_id",
-      "tag": "knowledge_refs"
-    },
-    {
-      "id": "backlog",
-      "lane": "suppliers",
-      "col": 3,
-      "width": 120,
-      "type": "external",
-      "label": "Tasks",
-      "sublabel": "supplier"
-    },
-    {
-      "id": "devbook",
-      "lane": "suppliers",
-      "col": 5,
-      "width": 110,
-      "type": "external",
-      "label": "Devbook",
-      "sublabel": "supplier"
-    },
-    {
-      "id": "by-name",
-      "lane": "threads",
-      "col": 1,
-      "width": 220,
-      "type": "backend",
-      "label": "By name",
-      "sublabel": "the linked entry",
-      "tag": "+ listed knowledge_refs"
-    },
-    {
-      "id": "by-tag",
-      "lane": "threads",
-      "col": 4,
-      "width": 220,
-      "type": "backend",
-      "label": "By tag",
-      "sublabel": "entries filed under the tag",
-      "tag": "+ chapters whose roadmap list names it"
-    },
-    {
-      "id": "merge",
-      "lane": "merged",
-      "col": 2,
-      "width": 200,
-      "type": "backend",
-      "label": "Merge",
-      "sublabel": "reached both ways is counted once",
-      "tag": "recorded as held by both threads"
-    },
-    {
-      "id": "total",
-      "lane": "totalled",
-      "col": 1,
-      "width": 220,
-      "type": "database",
-      "label": "Total registered effort",
-      "sublabel": "sum of registered story points only"
-    },
-    {
-      "id": "unestimated",
-      "lane": "totalled",
-      "col": 4,
-      "width": 240,
-      "type": "database",
-      "label": "Count of gathered things",
-      "sublabel": "that registered no estimate"
-    },
-    {
-      "id": "report",
-      "lane": "reported",
-      "col": 2,
-      "width": 220,
-      "type": "frontend",
-      "label": "Reported together",
-      "sublabel": "side by side"
-    }
+    { "id": "roadmap-plan", "lane": "plan", "col": 1, "width": 190, "type": "database", "label": "Roadmap Plan" },
+    { "id": "items", "lane": "plan", "col": 4, "width": 190, "type": "database", "label": "Items and milestones" },
+    { "id": "scope-aliases", "lane": "scope", "col": 1, "width": 190, "type": "database", "label": "Repository Scope aliases" },
+    { "id": "resolution", "lane": "scope", "col": 4, "width": 190, "type": "backend", "label": "Repository Scope Resolution" },
+    { "id": "repository-registry", "lane": "registry", "col": 1, "width": 190, "type": "external", "label": "Repository Registry", "sublabel": "supplier" },
+    { "id": "known-band", "lane": "bands", "col": 1, "width": 220, "type": "frontend", "label": "Band per configured repository" },
+    { "id": "unfiled-band", "lane": "bands", "col": 4, "width": 220, "type": "frontend", "label": "No-repository band", "sublabel": "no alias, or alias no longer configured" },
+    { "id": "planning-lanes", "lane": "planning", "col": 1, "width": 220, "type": "frontend", "label": "Planning lanes inside each band" },
+    { "id": "draw", "lane": "drawn", "col": 1, "width": 280, "type": "frontend", "label": "Spans, milestones and dependency arrows", "sublabel": "placed by date" }
   ],
   "edges": [
-    {
-      "id": "item-name",
-      "from": "roadmap-item",
-      "to": "by-name",
-      "role": "main",
-      "route": "straight",
-      "fromSide": "bottom",
-      "toSide": "top"
-    },
-    {
-      "id": "item-tag",
-      "from": "roadmap-item",
-      "to": "by-tag",
-      "role": "main",
-      "fromSide": "right",
-      "toSide": "top",
-      "via": [
-        [
-          500,
-          119
-        ]
-      ]
-    },
-    {
-      "id": "backlog-tag",
-      "from": "backlog",
-      "to": "by-tag",
-      "variant": "dashed",
-      "role": "async",
-      "fromSide": "left",
-      "toSide": "left",
-      "via": [
-        [
-          350,
-          243
-        ],
-        [
-          350,
-          367
-        ]
-      ]
-    },
-    {
-      "id": "backlog-name",
-      "from": "backlog",
-      "to": "by-name",
-      "variant": "dashed",
-      "role": "async",
-      "fromSide": "bottom",
-      "toSide": "right",
-      "via": [
-        [
-          430,
-          314
-        ],
-        [
-          340,
-          314
-        ],
-        [
-          340,
-          367
-        ]
-      ]
-    },
-    {
-      "id": "brain-tag",
-      "from": "devbook",
-      "to": "by-tag",
-      "variant": "dashed",
-      "role": "async",
-      "fromSide": "bottom",
-      "toSide": "right",
-      "via": [
-        [
-          625,
-          367
-        ]
-      ]
-    },
-    {
-      "id": "brain-name",
-      "from": "devbook",
-      "to": "by-name",
-      "variant": "dashed",
-      "role": "async",
-      "fromSide": "left",
-      "toSide": "left",
-      "via": [
-        [
-          540,
-          243
-        ],
-        [
-          540,
-          60
-        ],
-        [
-          70,
-          60
-        ],
-        [
-          70,
-          367
-        ]
-      ]
-    },
-    {
-      "id": "name-merge",
-      "from": "by-name",
-      "to": "merge",
-      "role": "main",
-      "fromSide": "bottom",
-      "toSide": "left",
-      "via": [
-        [
-          220,
-          440
-        ],
-        [
-          150,
-          440
-        ],
-        [
-          150,
-          491
-        ]
-      ]
-    },
-    {
-      "id": "tag-merge",
-      "from": "by-tag",
-      "to": "merge",
-      "role": "main",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "via": [
-        [
-          500,
-          440
-        ],
-        [
-          300,
-          440
-        ]
-      ]
-    },
-    {
-      "id": "merge-total",
-      "from": "merge",
-      "to": "total",
-      "role": "main",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "via": [
-        [
-          300,
-          560
-        ],
-        [
-          220,
-          560
-        ]
-      ]
-    },
-    {
-      "id": "merge-unestimated",
-      "from": "merge",
-      "to": "unestimated",
-      "role": "branch",
-      "fromSide": "right",
-      "toSide": "top",
-      "via": [
-        [
-          450,
-          491
-        ],
-        [
-          450,
-          560
-        ],
-        [
-          500,
-          560
-        ]
-      ]
-    },
-    {
-      "id": "total-report",
-      "from": "total",
-      "to": "report",
-      "role": "main",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "via": [
-        [
-          220,
-          680
-        ],
-        [
-          300,
-          680
-        ]
-      ]
-    },
-    {
-      "id": "unestimated-report",
-      "from": "unestimated",
-      "to": "report",
-      "role": "branch",
-      "fromSide": "bottom",
-      "toSide": "right",
-      "via": [
-        [
-          500,
-          739
-        ]
-      ]
-    }
+    { "id": "plan-items", "from": "roadmap-plan", "to": "items", "role": "main" },
+    { "id": "items-scope", "from": "items", "to": "scope-aliases", "role": "main", "fromSide": "bottom", "toSide": "top" },
+    { "id": "scope-resolution", "from": "scope-aliases", "to": "resolution", "role": "main" },
+    { "id": "registry-supplies", "from": "repository-registry", "to": "resolution", "variant": "dashed", "role": "async", "fromSide": "right", "toSide": "left", "via": [[360, 367], [360, 243]] },
+    { "id": "resolved-known", "from": "resolution", "to": "known-band", "role": "main", "fromSide": "bottom", "toSide": "top", "via": [[500, 430], [220, 430]] },
+    { "id": "resolved-unfiled", "from": "resolution", "to": "unfiled-band", "role": "branch", "fromSide": "right", "toSide": "top", "via": [[640, 243], [640, 440], [500, 440]] },
+    { "id": "known-lanes", "from": "known-band", "to": "planning-lanes", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "unfiled-lanes", "from": "unfiled-band", "to": "planning-lanes", "role": "branch", "fromSide": "bottom", "toSide": "right", "via": [[500, 615]] },
+    { "id": "lanes-draw", "from": "planning-lanes", "to": "draw", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" }
   ],
   "cards": [
     {
       "dot": "cyan",
-      "title": "Gathering on the read path",
+      "title": "Resolution on the read path only",
       "items": [
-        "Nothing is written back — not to the plan, not to an entry, not to a chapter",
-        "An unreachable supplier shrinks a total rather than corrupting a plan",
-        "Roadmap Item Gathering reads effort it never registers"
+        "Nothing in the plan is rewritten when the registry changes",
+        "A repository removed today and configured again tomorrow leaves the plan as it was",
+        "Aliases are opaque strings until the registry resolves them"
       ]
     },
     {
       "dot": "emerald",
-      "title": "Merged, not concatenated",
+      "title": "An item naming several repositories",
       "items": [
-        "A thing linked and tagged is one gathered thing",
-        "The result records that it was reached both ways",
-        "A reader about to remove a link needs to know the tag would still hold the work"
+        "It is drawn once, under the first of its repositories that is configured",
+        "It stays findable under any of them",
+        "The filter is built from what it names rather than from where it was drawn"
       ]
     },
     {
-      "dot": "amber",
-      "title": "Only registered story points",
+      "dot": "slate",
+      "title": "Why not draw it in every band",
       "items": [
-        "Nothing is inferred for an unestimated thing",
-        "The count of unestimated things rides alongside the total",
-        "A small-looking total is not the same as a total that is small"
+        "One piece of work with one set of dates would appear as several bars",
+        "Dragging one of them would move work the reader was not looking at",
+        "The plan would seem to disagree with itself because of how it was drawn"
       ]
     }
   ]

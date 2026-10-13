@@ -20,12 +20,13 @@ date: 2026-09-26
 ```
 
 Before the first write under `src/` or `tests/`, a session routes the work through the
-delivery engine's `flow-code`, whatever the size of the request and whether or not it has a
-specification. The flow derives the kind — feature, fix, refactor, config — in its first
-stage, implements, runs build, tests and validation, and stops at Personal Validation.
-Dependency moves go to `flow-update-packages` instead.
+delivery engine's `flow-code`. This is the
+[gate before the first write](concepts.md#gate-before-the-first-write), applied to code. The
+flow derives the kind of change in its first stage: a feature, a fix, a refactor, or config.
+It then implements the change, runs build, tests and validation, and stops at Personal
+Validation.
 
-- **Used for** — every feature, fix, refactor, and tooling change.
+- **Used for** — every feature, fix, refactor, tooling change, and dependency move.
 - **Adopted by** — every agent session in this repository.
 - **Evidence** — the merged pull requests each carry a flow run on the delivery surfaces.
 - **Limits** — work confined to the devbook folders goes through `flow-spec`.
@@ -42,9 +43,10 @@ date: 2026-09-25
 ```
 
 A session starts from a Backlog entry the person copies out of the app and pastes in.
-`run-plan-item` establishes first whether the item is still outstanding — from the
-entry's status over MCP, else from git — checks its `after:` items have landed, then runs
-the instructions through the gate like any other request. A `UserPromptSubmit` hook in the
+`run-plan-item` first establishes whether the item is still outstanding. It reads the entry's
+status over MCP, and falls back to git when it cannot. It then checks that the item's
+`after:` items have landed and runs the instructions through the gate like any other
+request. A `UserPromptSubmit` hook in the
 same plugin notices the entry marker and nudges the session to invoke the skill.
 
 - **Used for** — every `prompt` step of an imported plan.
@@ -80,10 +82,10 @@ hands that phase to it, and a phase with no entry runs inline in the session.
 
 - **Used for** — scoping and planning, drafting in the folder's own discipline,
   implementation, and validation.
-- **Adopted by** — every flow run; a phase with no agent runs inline in the session.
+- **Adopted by** — every flow run.
 - **Evidence** — the agents named on each run's stages on the delivery surfaces.
-- **Limits** — `product` and `security` have no phase bound: the marketplace these agents
-  come from has no agent for either, and an unbound phase is the honest answer.
+- **Limits** — review, build and test, and the pull-request phases bind no agent, so they run
+  inline in the session.
 
 ## Worktree session per change
 
@@ -104,9 +106,9 @@ ports and user secrets stay per session.
 - **Adopted by** — the repository owner, routinely with several sessions at once.
 - **Evidence** — the parallel worktrees under `.claude/worktrees/` and one branch per
   merged pull request.
-- **Limits** — shared machine state is not isolated: the git stash stack, the debug
-  workspace, and the Playwright profile. A WIP commit is preferred over a bare `git stash`,
-  and a change to another repository gets its own session.
+- **Limits** — the machine state that [isolation per session](concepts.md#isolation-per-session)
+  names as shared stays shared. A WIP commit is preferred over a bare `git stash`, and a
+  change to another repository gets its own session.
 
 ## Rules wrapped per host
 
@@ -142,10 +144,19 @@ date: 2026-09-25
 ```
 
 The product manages its own construction. The running desktop app serves the `backlog` MCP
-server, which `.devbook/config.json` binds as the delivery tracker and on the `spec` and
-`deliver` points: a session reads the entry it was pasted from, moves it to In progress,
-links itself to it, and after the pull request opens links the change, comments, and moves
-it to Done.
+server, and `.devbook/config.json` binds it as the delivery tracker. Both flows also list it
+under `mcp` on `phase-scope` and `phase-create-pr`.
+
+```mermaid
+sequenceDiagram
+    participant S as Session
+    participant B as backlog MCP server
+    participant G as GitHub
+    S->>B: read the entry it was pasted from
+    S->>B: move the entry to In progress, link the session
+    S->>G: open the pull request
+    S->>B: link the change, comment, move the entry to Done
+```
 
 - **Used for** — the status of every plan item and the trail from entry to session to pull
   request.
@@ -165,9 +176,9 @@ depends-on: [".devbook/tech/ai-development.md#delivery-surfaces"]
 date: 2026-09-25
 ```
 
-Every flow run opens on each bound delivery surface — the Backlog app's Sessions pane and a
-local run dashboard — and records its stages, their output, the QA scenarios with their
-evidence, and the Personal Validation decision there as it goes.
+Every flow run opens on each bound delivery surface: the Backlog app's Sessions pane and a
+local run dashboard. As it goes, the run records its stages and their output there, with the
+QA scenarios and their evidence and the Personal Validation decision.
 
 - **Used for** — watching a run, and reattaching a resumed session to the run it left.
 - **Adopted by** — every flow run.
@@ -186,9 +197,9 @@ date: 2026-09-26
 ```
 
 `telemetry-forwarder.mjs` posts each tool call, delegated agent, compaction, and session end
-to the desktop app's `/telemetry` endpoint, and the app attributes them to the delivery run
-the session is driving: tool calls, agents, token use, and the context gauge under the run's
-row.
+to the desktop app's `/telemetry` endpoint. The app attributes them to the delivery run the
+session is driving, and shows the tool calls, agents, token use, and context gauge under the
+run's row.
 
 - **Used for** — seeing where a run's time and tokens went.
 - **Adopted by** — every Claude Code session with `backlog-tools` installed.
@@ -214,9 +225,9 @@ this repository, skipping a title already open.
 - **Adopted by** — nobody.
 - **Evidence** — 95 issues carry its footer, "Filed automatically from a Claude Code
   suggested task".
-- **Limits** — retired because a suggested task is its own handoff and needs no issue, and
-  the hook filed tasks meant for other repositories here as task prompts addressed to an
-  agent, which the issue sweep then had to flag and a person had to close.
+- **Limits** — retired for two reasons. A suggested task is its own handoff and needs no
+  issue. And the hook filed tasks meant for other repositories here, as task prompts
+  addressed to an agent, which the issue sweep then had to flag and a person had to close.
 
 ## Guidance from MCP servers
 
