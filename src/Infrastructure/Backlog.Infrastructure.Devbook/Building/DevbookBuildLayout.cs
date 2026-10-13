@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.Devbook.Building;
 
 /// <summary>
 /// Which folders of a repository the builder indexes and how a path names its
-/// folder — the two things that differ between the two layouts. Neither layout
+/// folder — the two things that differ between the layouts. Neither layout
 /// keeps an authored reading order any more (local ADR 0016); the outline is
 /// derived by <see cref="DevbookOutlineBuilder"/>.
 ///
@@ -14,6 +14,15 @@ namespace Backlog.Infrastructure.Devbook.Building;
 /// same rules and that layout's folder names, which is enough for a repository
 /// the app reads but this project does not control to be searchable; nothing
 /// holds it to the retired generator that used to index it.</para>
+///
+/// <para>The Brain (<see cref="DevbookCorpusKind.Brain"/>) is a third: its
+/// folders are the areas its <c>CONVENTIONS.md</c> declares, in declared order
+/// (<see cref="BrainConventions"/>), and a path's folder is the area it is in. No
+/// devbook folder convention applies to an area — no root document by name, no
+/// resting status, no <c>kind</c> fallback — even one that happens to be called
+/// <c>design</c>, which is what <see cref="ConventionFolderForPath"/> answers;
+/// <c>tools/devbook/brain.mjs</c> gets the same from the generator, which knows
+/// none of a Brain's folders.</para>
 /// </summary>
 internal sealed record DevbookBuildLayout(
     bool IsDevbookLayout,
@@ -25,6 +34,9 @@ internal sealed record DevbookBuildLayout(
     private static readonly string[] DevbookFolderNames = ["arc42", "domain", "tech", "design", "ai"];
 
     private static readonly string[] RootFolderNames = [".arc42", ".domain", ".backlog", ".tech", ".design", ".ai"];
+
+    /// <summary>Whether this is a Brain's layout rather than a repository's.</summary>
+    public bool IsBrain { get; private init; }
 
     /// <summary>
     /// The layout of <paramref name="repositoryRoot"/> and the folders it actually
@@ -50,17 +62,42 @@ internal sealed record DevbookBuildLayout(
         return new DevbookBuildLayout(false, rootFolders);
     }
 
+    /// <summary>The layout of a folder read under <paramref name="kind"/>.</summary>
+    public static DevbookBuildLayout Discover(string root, DevbookCorpusKind kind) =>
+        kind is DevbookCorpusKind.Brain ? DiscoverBrain(root) : Discover(root);
+
+    /// <summary>
+    /// A Brain's layout: the areas <c>CONVENTIONS.md</c> declares, or the PARA
+    /// set, in their order, of those that are folders on disk. A Brain with no
+    /// area folder yet has nothing to build.
+    /// </summary>
+    public static DevbookBuildLayout DiscoverBrain(string brainRoot)
+    {
+        var folders = BrainConventions.Read(brainRoot)
+            .Select(area => area.Folder)
+            .Where(folder => Directory.Exists(Path.Combine(brainRoot, folder)))
+            .ToArray();
+
+        return new DevbookBuildLayout(false, folders) { IsBrain = true };
+    }
+
     /// <summary>The scopes: the repository, then each folder.</summary>
     public IReadOnlyList<string> Scopes => Folders.Count == 0 ? [] : [RepositoryScope, .. Folders];
 
     /// <summary>
     /// The folder a repository-relative path belongs to, as the generator's
     /// <c>folderKindForPath</c> names it — <c>domain</c> for
-    /// <c>.devbook/domain/…</c> — or <see langword="null"/> outside every folder.
+    /// <c>.devbook/domain/…</c>, the area for a Brain's <c>projects/…</c> — or
+    /// <see langword="null"/> outside every folder.
     /// </summary>
     public string? FolderKindForPath(string relativePath)
     {
         var normalized = relativePath.Replace('\\', '/');
+
+        if (IsBrain)
+        {
+            return Folders.FirstOrDefault(folder => normalized.StartsWith(folder + "/", StringComparison.Ordinal));
+        }
 
         if (IsDevbookLayout)
         {
@@ -74,6 +111,14 @@ internal sealed record DevbookBuildLayout(
             ? folder[1..]
             : null;
     }
+
+    /// <summary>
+    /// The devbook folder whose conventions apply to a path — its reading-order
+    /// slots, its resting status, its <c>kind</c> fallback. The path's folder in a
+    /// repository; nothing in a Brain, whose areas carry none of them.
+    /// </summary>
+    public string? ConventionFolderForPath(string relativePath) =>
+        IsBrain ? null : FolderKindForPath(relativePath);
 
     /// <summary>The status a folder's chapters rest at and so omit.</summary>
     public static string? RestingStatusFor(string? folder) =>

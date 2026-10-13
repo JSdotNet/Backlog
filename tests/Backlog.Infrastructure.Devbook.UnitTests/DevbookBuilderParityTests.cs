@@ -119,6 +119,135 @@ public class DevbookBuilderParityTests : IDisposable
         Assert.Equal([new DevbookPageDemoRow(".devbook/domain/zeta/demo.html", null, null, true)], database.Demos(".devbook/domain/zeta/context.md"));
     }
 
+    /// <summary>
+    /// The same comparison on a Brain (local ADR 0026), read under its own
+    /// convention: the areas its <c>CONVENTIONS.md</c> declares — one called
+    /// <c>design</c>, which must get none of the devbook design folder's rules —
+    /// in the order its table numbers them, a folder it does not declare, the
+    /// <c>para</c>, <c>repos</c> and <c>tasks</c> fields, <c>repo:</c> links in
+    /// <c>related</c> and in prose (one inside a fence, one twice), a reference
+    /// into an area that resolves to nothing, one outside every area, a repeated
+    /// slug, the reading-order rules and an open annotation. The Node writer reads
+    /// it with <c>--brain</c>, through this repository's installed generator.
+    /// </summary>
+    [Fact]
+    public void The_app_matches_the_node_writer_on_a_brain()
+    {
+        var brain = Path.Combine(_scratch, "brain");
+        foreach (var (path, text) in BrainCases)
+        {
+            var file = Path.Combine(brain, path.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllText(file, text);
+        }
+
+        var fromNode = Path.Combine(_scratch, "brain-node.db");
+        var fromApp = Path.Combine(_scratch, "brain-app.db");
+
+        RunNodeWriter(brain, fromNode, generator: Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "_tools", "devbook-meta"), brain: true);
+        Assert.True(DevbookDatabaseBuilder.Build(brain, fromApp, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+
+        var differences = CompareDatabases(fromNode, fromApp);
+
+        Assert.True(
+            differences.Count == 0,
+            $"The C# builder and {GeneratorName} --brain disagree on the Brain fixture ({differences.Count} difference(s), first 20 shown):\n"
+            + string.Join('\n', differences.Take(20)));
+
+        // And the fixture exercised what it is for.
+        using var app = Open(fromApp);
+        Assert.Equal(
+            ["name=TEXT:_inbox", "name=TEXT:work", "name=TEXT:design", "name=TEXT:projects"],
+            Rows(app, "outline_entry WHERE scope = '.' AND parent_id IS NULL", "ordinal").Select(row => row.Split(" | ")[5]));
+        Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("path=TEXT:loose/", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:para | value=TEXT:work", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:tasks", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "edge", "id"), row => row.Contains("type=TEXT:repo-link", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "edge", "id"), row => row.Contains("target=TEXT:repo:backlog/.devbook/arc42/05-building-block-view.md#devbook", StringComparison.Ordinal));
+        Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("id=TEXT:repo:", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node", "id"), row => row.Contains("type=TEXT:external", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("open_annotations=INTEGER:1", StringComparison.Ordinal));
+        Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("status=TEXT:active", StringComparison.Ordinal));
+    }
+
+    private static readonly (string Path, string Text)[] BrainCases =
+    [
+        ("README.md", "# My Brain\n\n```meta\nindex: root\n```\n"),
+        ("CONVENTIONS.md", """
+            # Conventions
+
+            ```markdown
+            ## Areas
+
+            - `fenced-not-an-area`
+            ```
+
+            ## Areas
+
+            | Area | Folder | Order |
+            |------|--------|-------|
+            | Projects | projects | 4 |
+            | Inbox | `_inbox` | 1 |
+            | Design | design | 3 |
+            | Work | work | 2 |
+            | Missing | missing | 5 |
+            """),
+        ("_inbox/2026-10-13-idea.md", "# An idea\n\nCaptured on the phone.\n"),
+        ("work/README.md", "# Work\n\n```meta\nindex: root\n```\n"),
+        ("work/standup.md", "# Standup\n\n```meta\npara: journal\n```\n\nDaily notes.\n"),
+        ("work/02-second.md", "# Second\n"),
+        ("work/01-first.md", "# First\n"),
+        ("work/hidden.md", "# Hidden\n\n```meta\nindex: exclude\n```\n"),
+        ("work/clients/acme.md", "# Acme\n\n```meta\nrepos: acme-web\n```\n"),
+        ("design/README.md", "# Design notes\n"),
+        ("design/palette.md", "# Palette\n\n```meta\ntype: guideline\n```\n\n## Teal\n\n```meta\nstatus: draft\n```\n"),
+        ("projects/brain.md", """
+            # Brain
+
+            ```meta
+            repos: [backlog, devbook]
+            tasks: [c5a14485, bb8ce071]
+            related: [repo:backlog/.devbook/arc42/05-building-block-view.md#devbook, work/standup.md#standup, work/missing.md, notes/elsewhere.md]
+            depends-on: [repo:devbook/.devbook/arc42/adr/0001-first.md]
+            ```
+
+            Before any chapter: [the ADR](repo:backlog/.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md).
+
+            ## Scope
+
+            ```meta
+            para: work
+            related: [projects/brain.md]
+            ```
+
+            The scope chip: [ADR 0027](repo:backlog/.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md "the scope")
+            and again [the same](repo:backlog/.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md).
+
+            ```annotation
+            author: ada
+            date: 2026-10-13
+            body: Which repository first?
+            ```
+
+            ### Detail
+
+            Under a chapter with no block: [devbook](<repo:devbook/.devbook/domain/context-map.md>).
+
+            ```markdown
+            [fenced](repo:fenced/nothing.md)
+            ```
+
+            ## Scope
+
+            ```meta
+            tasks: t-dup
+            ```
+
+            A repeated slug: [dup](repo:dup/x.md).
+            """),
+        ("loose/not-an-area.md", "# Loose\n\n[out](repo:loose/x.md)\n")
+    ];
+
     private static readonly (string Path, string Text)[] EdgeCases =
     [
         (".devbook/_reading-order.json", """{ "version": 1, "directories": { ".": { "order": [".devbook/ai"] } } }"""),
@@ -268,7 +397,7 @@ public class DevbookBuilderParityTests : IDisposable
 
     private const string GeneratorName = "tools/devbook/build-database.mjs";
 
-    private static void RunNodeWriter(string repository, string target, string? generator = null)
+    private static void RunNodeWriter(string repository, string target, string? generator = null, bool brain = false)
     {
         var writer = Path.Combine(RepositoryRoot.Root.FullName, "tools", "devbook", "build-database.mjs");
         var start = new ProcessStartInfo("node")
@@ -280,6 +409,7 @@ public class DevbookBuilderParityTests : IDisposable
             UseShellExecute = false
         };
         start.ArgumentList.Add(writer);
+        if (brain) start.ArgumentList.Add("--brain");
         start.ArgumentList.Add("--root");
         start.ArgumentList.Add(repository);
         start.ArgumentList.Add("--out");

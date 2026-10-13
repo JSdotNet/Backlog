@@ -293,6 +293,20 @@ Devbook module's Abstractions, so the builder, the MCP chapter read and the
 Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
+The same builder reads the Brain (local ADR 0026) under `DevbookCorpusKind.Brain`.
+`BrainConventions`, in the Devbook module's Abstractions, reads the areas from the
+Brain's `CONVENTIONS.md`, or gives the PARA set. Those areas are the folders the
+builder indexes, with no devbook folder convention applied to them. `para`,
+`repos` and `tasks` become node attributes. A `repo:` link, in `related` or in
+prose, is stored as an edge whose target is no node. `BrainFolderSource` in
+`Backlog.Infrastructure.FileSystem` resolves the Brain as one local, always
+editable folder keyed `brain`, beside `DevbookFolderSource`. It takes the folder
+path from whoever owns the setting. `DevbookDatabaseLocation` records the folder
+as a Brain, so the folder is its own root and gets its own database in app
+storage. `DevbookDatabaseRefresher.WatchBrain` rebuilds it after a change.
+`tools/devbook/brain.mjs` is the Node side of the same convention, and the parity
+test compares the two on a Brain fixture.
+
 The same project reads scenario pages, outside the database. `Scenarios/` ports
 devbook's page parser and page signature, and `ScenarioSignatureVectorTests` holds
 the port to devbook's shared vector. It also reads a committed `run.json` in both

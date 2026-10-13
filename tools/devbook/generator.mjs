@@ -120,7 +120,7 @@ export async function loadGenerator(repoRoot, { generatorDir = null } = {}) {
         source: path.relative(repoRoot, directory).split(path.sep).join('/') || directory,
         folders: DEVBOOK_FOLDER_NAMES.map((name) => `${DEVBOOK_ROOT}/${name}`),
         REPO_SCOPE: graph.REPO_SCOPE,
-        buildGraph: (root) => graph.buildGraph(root),
+        buildGraph: (root, folders = null) => graph.buildGraph(root, folders),
         discoverScopes: graph.discoverScopes,
         parseDocument: metadata.parseDocument,
         folderKindForPath: metadata.folderKindForPath,

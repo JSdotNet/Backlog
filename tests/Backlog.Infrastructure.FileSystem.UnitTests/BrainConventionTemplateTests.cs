@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
@@ -63,7 +64,7 @@ public sealed class BrainConventionTemplateTests
         var areas = BrainConventionTemplate.ReadDeclaredAreas(markdown);
 
         Assert.Equal(
-            [new BrainArea("Clients", "clients", "One folder per client."), new BrainArea("Inbox", "_inbox", "Unfiled.")],
+            [new BrainArea("Clients", "clients", 1, "One folder per client."), new BrainArea("Inbox", "_inbox", 2, "Unfiled.")],
             areas);
     }
 

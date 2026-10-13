@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Backlog.Infrastructure.Devbook.Building;
 
@@ -16,8 +17,15 @@ namespace Backlog.Infrastructure.Devbook.Building;
 /// inside the devbook folders draws no edge, as there — reporting it is the
 /// checker's job too.</para>
 /// </summary>
-internal static class DevbookGraphBuilder
+internal static partial class DevbookGraphBuilder
 {
+    /// <summary>The scheme a link into a repository devbook starts with (local
+    /// ADR 0027 §6).</summary>
+    public const string RepoScheme = "repo:";
+
+    /// <summary>The edge a <c>repo:</c> link in a Brain note's prose draws.</summary>
+    public const string RepoLinkEdge = "repo-link";
+
     /// <summary>Metadata field → the edge type a reference in it draws.</summary>
     private static readonly (string Field, string EdgeType)[] ReferenceFields =
     [
@@ -42,26 +50,41 @@ internal static class DevbookGraphBuilder
 
         foreach (var folder in layout.Folders)
         {
-            foreach (var relativePath in DevbookBuildFiles.Markdown(repositoryRoot, folder, skipGenerated: false))
+            foreach (var relativePath in DevbookBuildFiles.Markdown(repositoryRoot, folder, skipGenerated: false, layout.IsBrain))
             {
                 var folderKind = layout.FolderKindForPath(relativePath);
-                var document = DevbookMarkdown.Parse(DevbookBuildFiles.ReadText(repositoryRoot, relativePath));
+                var conventionFolder = layout.ConventionFolderForPath(relativePath);
+
+                // A cloud-only file is a node by its name alone until it is
+                // hydrated (DevbookBuildFiles.IsCloudOnly).
+                var markdown = DevbookBuildFiles.ReadHydratedText(repositoryRoot, relativePath);
+                var document = markdown is null ? new DevbookParsedDocument(null, null, []) : DevbookMarkdown.Parse(markdown);
 
                 var fileMeta = document.Chapters.FirstOrDefault(chapter => chapter.Level == 1)?.Meta;
                 var fileNode = new DevbookGraphNode(relativePath, "file")
                 {
-                    Label = FileLabel(document.FileTitle ?? Path.GetFileNameWithoutExtension(relativePath), DevbookBuildLayout.ResolveType(folderKind, fileMeta)),
+                    Label = FileLabel(document.FileTitle ?? Path.GetFileNameWithoutExtension(relativePath), DevbookBuildLayout.ResolveType(conventionFolder, fileMeta)),
                     Folder = folderKind,
                     Path = relativePath
                 };
-                ApplyMeta(fileNode, fileMeta, folderKind);
+                ApplyMeta(fileNode, fileMeta, conventionFolder);
+                if (layout.IsBrain) ApplyBrainFields(fileNode, fileMeta, folderKind);
                 Add(fileNode);
 
                 var ancestors = new List<(int Level, string Id)> { (1, relativePath) };
 
+                // The node each heading's slice belongs to, for the Brain's prose
+                // links: the heading itself when it is a chapter, else the
+                // chapter it sits in, else the file.
+                var owners = new List<(int Line, string Id)>();
+
                 foreach (var chapter in document.Chapters)
                 {
-                    if (chapter.Level == 1) continue;
+                    if (chapter.Level == 1)
+                    {
+                        owners.Add((chapter.Line, relativePath));
+                        continue;
+                    }
 
                     while (ancestors.Count > 0 && ancestors[^1].Level >= chapter.Level) ancestors.RemoveAt(ancestors.Count - 1);
                     var parentId = ancestors.Count > 0 ? ancestors[^1].Id : relativePath;
@@ -69,7 +92,11 @@ internal static class DevbookGraphBuilder
 
                     // The first heading keeps an anchor; a later one that slugs
                     // the same is dropped, as GitHub would suffix it.
-                    if (headingIndex.ContainsKey(id)) continue;
+                    if (headingIndex.ContainsKey(id))
+                    {
+                        owners.Add((chapter.Line, parentId));
+                        continue;
+                    }
 
                     headingIndex[id] = (new DevbookGraphNode(id, "heading")
                     {
@@ -81,7 +108,11 @@ internal static class DevbookGraphBuilder
                         Line = chapter.Line
                     }, parentId);
 
-                    if (chapter.Meta is null) continue;
+                    if (chapter.Meta is null)
+                    {
+                        owners.Add((chapter.Line, parentId));
+                        continue;
+                    }
 
                     var node = new DevbookGraphNode(id, "chapter")
                     {
@@ -92,12 +123,16 @@ internal static class DevbookGraphBuilder
                         Level = chapter.Level,
                         Line = chapter.Line
                     };
-                    ApplyMeta(node, chapter.Meta, folderKind);
+                    ApplyMeta(node, chapter.Meta, conventionFolder);
+                    if (layout.IsBrain) ApplyBrainFields(node, chapter.Meta, area: null);
                     Add(node);
                     ancestors.Add((chapter.Level, id));
+                    owners.Add((chapter.Line, id));
 
                     edges.Add(new DevbookGraphEdge($"contains:{parentId}->{id}", "contains", parentId, id));
                 }
+
+                if (layout.IsBrain && markdown is not null) edges.AddRange(RepoLinkEdges(relativePath, markdown, owners));
             }
         }
 
@@ -119,6 +154,12 @@ internal static class DevbookGraphBuilder
                         {
                             Add(heading.Node);
                             edges.Add(new DevbookGraphEdge($"contains:{heading.Parent}->{reference}", "contains", heading.Parent, reference));
+                        }
+                        else if (layout.IsBrain && reference.StartsWith(RepoScheme, StringComparison.Ordinal))
+                        {
+                            // A link into a repository devbook: nothing in a
+                            // Brain's database can resolve it, so the edge is
+                            // kept and its target is no node.
                         }
                         else
                         {
@@ -176,6 +217,56 @@ internal static class DevbookGraphBuilder
             if (meta.GetValueOrDefault(name) is { } value) node.Attributes.Add((name, DevbookMarkdown.AsList(value)));
         }
     }
+
+    /// <summary>
+    /// A Brain note's own fields as node attributes: <c>para</c> — the note's
+    /// area, from <paramref name="area"/> unless the block overrides it; a chapter
+    /// passes no area and carries one only when it says so — and the
+    /// <c>repos</c> and <c>tasks</c> it names.
+    /// </summary>
+    private static void ApplyBrainFields(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta, string? area)
+    {
+        var para = meta?.GetValueOrDefault("para") is { } declared ? Scalar(declared) : area;
+        if (!string.IsNullOrEmpty(para)) node.Attributes.Add(("para", [para]));
+
+        foreach (var name in (string[])["repos", "tasks"])
+        {
+            var values = DevbookMarkdown.AsList(meta?.GetValueOrDefault(name));
+            if (values.Count > 0) node.Attributes.Add((name, values));
+        }
+    }
+
+    /// <summary>
+    /// One <c>repo-link</c> edge per <c>repo:</c> link in a note's prose, outside
+    /// every fence, from the node whose slice holds it — the last heading at or
+    /// above the line in <paramref name="owners"/>, or the file — once per source
+    /// and target. <c>tools/devbook/brain.mjs</c>'s <c>repoLinkEdges</c> is the
+    /// same walk.
+    /// </summary>
+    private static IEnumerable<DevbookGraphEdge> RepoLinkEdges(string relativePath, string markdown, List<(int Line, string Id)> owners)
+    {
+        var lines = DevbookMarkdown.Lines(markdown);
+        var fenced = DevbookChapterText.FenceMask(lines);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var owner = 0;
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            while (owner < owners.Count && owners[owner].Line <= index + 1) owner++;
+            if (fenced[index]) continue;
+
+            var source = owner == 0 ? relativePath : owners[owner - 1].Id;
+            foreach (Match match in RepoLink().Matches(lines[index]))
+            {
+                var target = match.Groups[1].Value;
+                var id = $"{RepoLinkEdge}:{source}->{target}";
+                if (seen.Add(id)) yield return new DevbookGraphEdge(id, RepoLinkEdge, source, target);
+            }
+        }
+    }
+
+    [GeneratedRegex(@"\]\(\s*<?(repo:[^\s)>]+)>?")]
+    private static partial Regex RepoLink();
 
     /// <summary>A file's label: its title, and its type in parentheses when the
     /// title does not already say it.</summary>
