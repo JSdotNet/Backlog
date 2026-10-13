@@ -6146,6 +6146,229 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* The tab strip and the toolbar that have not arrived yet: one row of tab-wide
+   bars over a rule, as the strip draws them, then the toolbar's two controls. */
+.tools-panel__skeleton-toolbar {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.tools-panel__skeleton-tabs {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+/* The two empty states: where the catalog goes, the choice as cards side by side
+   while there is room and stacked when there is not, and the quieter third way
+   under them. */
+.tools-start {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-start__lead,
+.tools-start__aside {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.tools-start__options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: var(--spacing-md);
+}
+
+.tools-start__option .card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    justify-items: start;
+}
+
+/* The recommended card is the one drawn first and in the accent. */
+.tools-start__option--recommended {
+    border-color: var(--color-primary);
+}
+
+.tools-start__option-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+}
+
+.tools-start__option-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+}
+
+.tools-start__option-body {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tools-start__link {
+    padding-inline: var(--spacing-xs);
+    color: var(--color-text-link);
+}
+
+/* The running state. The bar under the header fills by finished steps. */
+.tools-run__progress {
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--color-border);
+}
+
+.tools-run__progress-fill {
+    display: block;
+    height: 100%;
+    background: var(--color-primary);
+    transition: width 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tools-run__progress-fill {
+        transition: none;
+    }
+}
+
+/* "This run": one line per step — name, versions, state, time — with a failed
+   step's reason on a line of its own under it. */
+.tools-run .card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tools-run__head {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.tools-run__title,
+.tools-run__transcript-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+}
+
+.tools-run__count,
+.tools-run__versions {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.tools-run__steps {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tools-run__step {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto 3.5rem;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-xs) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.tools-run__step:last-child {
+    border-bottom: 0;
+}
+
+.tools-run__name {
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.tools-run__duration {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+}
+
+/* A failed step's reason, under the step in the queue and under the row it went
+   back to. */
+.tools-run__error {
+    grid-column: 1 / -1;
+    color: var(--color-error-text);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.tools-inventory__run-error {
+    display: block;
+    color: var(--color-error-text);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+/* Below the width a line of four fits in, the versions, state and time drop
+   under the name. */
+@container tools-panel (max-width: 32rem) {
+    .tools-run__step {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .tools-run__versions {
+        grid-column: 1;
+    }
+}
+
+/* The live transcript in the rail: its title and its two controls, then the log. */
+.tools-run__transcript {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.tools-run__transcript-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tools-run__transcript-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.tools-run__transcript-log {
+    min-width: 0;
+}
+
+.tools-run__transcript-log .code-view__body {
+    max-height: 28rem;
+}
+
+.tools-run__transcript-empty {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* One heading's worth of the inventory. The kind is the outer heading and the
    catalog's own group is the inner one, because fifty rows in one list lose the
    structure the setup guide they come from is made of. */

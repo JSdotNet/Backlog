@@ -50,7 +50,16 @@
     used to render the same sentence and the same nothing-to-do, which made a
     fresh machine a dead end: the one act that would have helped — write the
     catalog — was not on the screen. CatalogExists is what tells them apart, and
-    each gets the affordance that actually moves it on.
+    each gets the affordance that actually moves it on — two option cards, the
+    same arrangement for both (plan +system-tools-redesign, step 4).
+
+    And a fourth while an Update all runs (step 4 again): the header says
+    "Updating" and counts the steps, a progress bar sits under it, a "This run"
+    queue sits over the rows, and the rail is the live transcript. The port
+    reports where the run stands through IProgress; a port that does not leaves
+    the queue the pane read off its own rows, every step queued. A step that
+    fails goes back to its row with the port's reason under it, and the record
+    of the run stays open beside it.
 
     Every editing affordance is behind CanEditCatalog. A host that answers this
     port read-only says so once, and the create, add, import and remove controls
@@ -95,15 +104,36 @@
             </ButtonGroup>
             @* Checking and updating both read the catalog, so neither is offered
                while there is no catalog to read. *@
+            @* While an Update all is going both say so: the check would re-read rows
+               the run is still changing, and a second run cannot start over the
+               first. *@
             <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
-                @(_toolsLoading ? "Checking..." : "Check for updates")
+                @(Updating ? UpdatingLabel : _toolsLoading ? "Checking..." : "Check for updates")
             </AppButton>
             <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync" TestId="tools-update-all">
-                @(_toolActionKey == UpdateAllKey ? "Updating..." : UpdateAllLabel)
+                @(Updating ? UpdatingLabel : UpdateAllLabel)
             </AppButton>
             <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
+
+    @if (_run is { } progress)
+    {
+        @* Under the header rather than in it: the header's sentence already says
+           the counts, and the bar is the same fact for a reader who glances. A
+           real progressbar — min, max and now in steps rather than a percentage,
+           because steps are what the sentence counts. *@
+        <div class="tools-run__progress"
+             role="progressbar"
+             aria-label="Update all progress"
+             aria-valuemin="0"
+             aria-valuemax="@progress.Total"
+             aria-valuenow="@progress.Finished"
+             aria-valuetext="@($"{progress.Finished} of {progress.Total} finished")"
+             data-testid="tools-run-progress">
+            <span class="tools-run__progress-fill" style="@($"width: {ProgressPercent(progress)}%")"></span>
+        </div>
+    }
 
     @* The library's alert wearing this pane's message class. The fallback behind
        ToolMessage keeps it non-empty, so it never takes the alert's hidden shape. *@
@@ -119,51 +149,135 @@
                 @* The first read walks the machine — plugin manifests, marketplaces,
                    a version probe per application — and on a cold cache that is
                    several seconds of a pane with nothing in it. What stands in for
-                   the inventory is the inventory's own shape: the same group card,
-                   the same table, with bars where the rows will be. Hidden from
-                   assistive technology in one piece: the status line above already
-                   says the catalog is being checked, once. *@
+                   the inventory is the inventory's own shape: the tab strip, the
+                   toolbar, and the same group card and table, with bars where the
+                   rows will be. Hidden from assistive technology in one piece: the
+                   status line above already says the catalog is being checked,
+                   once. *@
                 <div class="tools-panel__skeleton" data-testid="tools-loading" aria-hidden="true">
+                    <div class="tools-panel__skeleton-tabs" data-testid="tools-loading-tabs">
+                        @foreach (var width in SkeletonTabs)
+                        {
+                            <Skeleton Width="@width" />
+                        }
+                    </div>
+                    <div class="tools-panel__skeleton-toolbar">
+                        <Skeleton Shape="SkeletonShape.Block" Width="11rem" />
+                        <Skeleton Shape="SkeletonShape.Block" Width="12rem" />
+                    </div>
                     @foreach (var section in SkeletonSections)
                     {
                         <section class="tools-kind">
-                            <Skeleton Shape="SkeletonShape.Heading" Width="8rem" />
-                            <DataTable TItem="string"
-                                       Columns="Columns"
-                                       Items="section"
-                                       RowNoun="tool"
-                                       CssClass="tools-inventory">
-                                <Row Context="name">
-                                    <td class="tools-inventory__tool">
-                                        <Skeleton Width="@name" />
-                                        <Skeleton Width="55%" />
-                                    </td>
-                                    <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
-                                    <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
-                                    <td class="tools-inventory__status"><Skeleton Width="4rem" /></td>
-                                    <td class="tools-inventory__actions-cell"><Skeleton Shape="SkeletonShape.Block" Width="5rem" /></td>
-                                </Row>
-                            </DataTable>
+                            <Card CssClass="tools-group">
+                                <Skeleton Shape="SkeletonShape.Heading" Width="8rem" />
+                                <DataTable TItem="string"
+                                           Columns="Columns"
+                                           Items="section"
+                                           RowNoun="tool"
+                                           CssClass="tools-inventory">
+                                    <Row Context="name">
+                                        <td class="tools-inventory__tool">
+                                            <Skeleton Width="@name" />
+                                            <Skeleton Width="55%" />
+                                        </td>
+                                        <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
+                                        <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
+                                        <td class="tools-inventory__status"><Skeleton Width="4rem" /></td>
+                                        <td class="tools-inventory__actions-cell"><Skeleton Shape="SkeletonShape.Block" Width="5rem" /></td>
+                                    </Row>
+                                </DataTable>
+                            </Card>
                         </section>
                     }
                 </div>
             }
             else if (!_catalogExists)
             {
-                <EmptyState Title="No tool catalog yet"
-                            Description="@NoCatalogDescription"
-                            Action="@NoCatalogActions"
-                            TestId="tools-empty-no-catalog" />
+                @* The two ways a machine with no catalog moves on, as two cards side
+                   by side rather than two buttons under a sentence: they are two
+                   different afternoons — start this machine's own list, or take the
+                   team's — and each card says which. The header carries the
+                   headline; this carries where the file goes and the choice. *@
+                <section class="tools-start" data-testid="tools-empty-no-catalog" aria-label="Start a tool catalog">
+                    <p class="tools-start__lead">@NoCatalogDescription</p>
+                    @if (CanEdit)
+                    {
+                        <div class="tools-start__options">
+                            <Card CssClass="tools-start__option tools-start__option--recommended" TestId="tools-start-create">
+                                <div class="tools-start__option-head">
+                                    <h3 class="tools-start__option-title">Create from this machine</h3>
+                                    <Badge Kind="tone" Slug="settled" CssClass="tools-start__badge">Recommended</Badge>
+                                </div>
+                                <p class="tools-start__option-body">Write this machine's catalog at the path above, then add what it should have.</p>
+                                <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="CreateCatalogAsync" TestId="tools-create-catalog">
+                                    @(_toolActionKey == CreateKey ? "Creating..." : "Create catalog")
+                                </AppButton>
+                            </Card>
+                            <Card CssClass="tools-start__option" TestId="tools-start-import">
+                                <div class="tools-start__option-head">
+                                    <h3 class="tools-start__option-title">Import a team catalog</h3>
+                                </div>
+                                <p class="tools-start__option-body">Use an ai-tools.json somebody already keeps, from a file or pasted in.</p>
+                                <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                                    Import JSON…
+                                </AppButton>
+                            </Card>
+                        </div>
+                        <p class="tools-start__aside">
+                            Or
+                            <AppButton Variant="ButtonVariant.Ghost" CssClass="tools-start__link" Disabled="@ToolActionBusy" OnClick="StartOneAtATimeAsync" TestId="tools-start-one-at-a-time">
+                                add tools one at a time
+                            </AppButton>
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="tools-start__aside" data-testid="tools-start-read-only">This host can read a catalog but not write one.</p>
+                    }
+                </section>
             }
             else if (_tools.Count == 0)
             {
-                <EmptyState Title="No tools in the catalog yet"
-                            Description="@EmptyCatalogDescription"
-                            Action="@EmptyCatalogActions"
-                            TestId="tools-empty-no-entries" />
+                @* The catalog is there with nothing in it: the same arrangement as
+                   the no-catalog state, with the two acts that fill one. *@
+                <section class="tools-start" data-testid="tools-empty-no-entries" aria-label="Fill the tool catalog">
+                    <p class="tools-start__lead">@EmptyCatalogDescription</p>
+                    @if (CanEdit)
+                    {
+                        <div class="tools-start__options">
+                            <Card CssClass="tools-start__option tools-start__option--recommended" TestId="tools-start-add">
+                                <div class="tools-start__option-head">
+                                    <h3 class="tools-start__option-title">Add a tool</h3>
+                                </div>
+                                <p class="tools-start__option-body">A plugin, a marketplace, an MCP server or an application, one at a time.</p>
+                                <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
+                                    Add tool
+                                </AppButton>
+                            </Card>
+                            <Card CssClass="tools-start__option" TestId="tools-start-import">
+                                <div class="tools-start__option-head">
+                                    <h3 class="tools-start__option-title">Import a team catalog</h3>
+                                </div>
+                                <p class="tools-start__option-body">Replace this empty one with an ai-tools.json somebody already keeps.</p>
+                                <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                                    Import JSON…
+                                </AppButton>
+                            </Card>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="tools-start__aside" data-testid="tools-start-read-only">This host can read the catalog but not add to it.</p>
+                    }
+                </section>
             }
             else
             {
+                @if (_run is { } queue)
+                {
+                    @RunQueue(queue)
+                }
+
                 @* The library's tab strip: role="tablist", a roving tabindex, and the
                    arrow, Home and End keys. One row that scrolls sideways when the
                    pane is narrow, never a wrapped stack. *@
@@ -235,7 +349,38 @@
             }
         </div>
 
-        @if (_commands.Count > 0)
+        @if (_run is { } live)
+        {
+            @* While a run is going the rail is its transcript, open and live,
+               rather than the folded record of the last one: the queue says which
+               step is on, and this is what that step is printing. Polite, so a
+               screen reader hears the run move without being interrupted by
+               every line of it. *@
+            <div class="tools-panel__side" id="tools-transcript">
+                <section class="tools-run__transcript" aria-labelledby="tools-run-transcript-title" data-testid="tools-run-transcript">
+                    <div class="tools-run__transcript-head">
+                        <h3 class="tools-run__transcript-title" id="tools-run-transcript-title">Live transcript</h3>
+                        <div class="tools-run__transcript-actions">
+                            <CopyButton Text="@LiveLog(live)" Label="Copy transcript" TestId="tools-run-transcript-copy">Copy</CopyButton>
+                            <ToggleButton Pressed="@_transcriptWrap"
+                                          PressedChanged="pressed => _transcriptWrap = pressed"
+                                          TestId="tools-run-transcript-wrap">Wrap lines</ToggleButton>
+                        </div>
+                    </div>
+                    <div class="tools-run__transcript-log" aria-live="polite" data-testid="tools-run-transcript-log">
+                        @if (live.Commands.Count == 0)
+                        {
+                            <Alert Message="Waiting for the first command…" BaseClass="tools-run__transcript-empty" Role="status" />
+                        }
+                        else
+                        {
+                            <CodeView Source="@LiveLog(live)" Language="console" Wrap="@_transcriptWrap" AllowCopy="false" TestId="tools-run-transcript-output" />
+                        }
+                    </div>
+                </section>
+            </div>
+        }
+        else if (_commands.Count > 0)
         {
             @* Checking tools runs about a dozen processes, and this is the only
                trace of their output: a refused install or a search that could not
@@ -828,7 +973,7 @@
 
     // ------------------------------------------------------------ the header
 
-    private string Eyebrow => "System tools · " + TabTitle(_activeTab);
+    private string Eyebrow => Updating ? "System tools · Updating" : "System tools · " + TabTitle(_activeTab);
 
     /// <summary>
     /// The header's sentence: what is outstanding on the tab on show, filled from a
@@ -840,8 +985,9 @@
     {
         get
         {
+            if (_run is { } run) return RunHeadline(run);
             if (_toolsLoading && _tools.Count == 0) return "Checking this machine";
-            if (!_catalogExists) return "No tool catalog yet";
+            if (!_catalogExists) return "No tool catalog on this machine yet";
             if (_tools.Count == 0) return "The catalog is empty";
 
             var rows = RowsOn(_activeTab);
@@ -881,6 +1027,7 @@
     {
         get
         {
+            if (_run is { } run) return RunCheckedLine(run);
             if (_toolsLoading && _tools.Count == 0) return "Checking the catalog";
             if (!_catalogExists) return "No catalog on this machine";
 
@@ -910,7 +1057,7 @@
     /// filter: the port's Update all updates every row, and a count that left
     /// some of them out would promise less than the button does.</summary>
     private int UpdatableCount =>
-        _tools.Count(tool => tool.CanUpdate || (tool.Kind is DevToolKind.Marketplace && !tool.Installed));
+        _tools.Count(DevToolRunQueueItem.InUpdateAll);
 
     private string UpdateAllLabel => UpdatableCount > 0 ? $"Update all ({UpdatableCount})" : "Update all";
 
@@ -1123,6 +1270,13 @@
                        exist — and appended to the status they were a
                        sentence nobody finished reading. *@
                     <span class="tools-inventory__note" data-testid="tools-row-note">@note</span>
+                }
+                @if (_runErrors.TryGetValue(tool.Key, out var runError))
+                {
+                    @* A step of the last Update all that did not get there, back
+                       on the row it belongs to: the row is outstanding again, and
+                       this is why — the transcript beside it says the rest. *@
+                    <Alert Message="@($"Update all failed here: {runError}")" BaseClass="tools-inventory__run-error" Inline="true" Role="status" TestId="tools-row-run-error" />
                 }
                 @if (tool.CachedVersions.Count > 0)
                 {
@@ -1490,6 +1644,10 @@
     /// point of standing in for the content rather than announcing its absence.
     /// Two sections rather than the real four: enough to show the pane arrives
     /// grouped, without a screenful of grey where a short catalog is coming.</para></summary>
+    /// <summary>The placeholder tab strip: one bar per tab the strip will draw,
+    /// Overview and the five kinds, each about as wide as its title.</summary>
+    private static readonly string[] SkeletonTabs = ["4.5rem", "4rem", "6rem", "6rem", "6.5rem", "5rem"];
+
     private static readonly string[][] SkeletonSections =
     [
         ["62%", "78%", "45%"],
@@ -1515,9 +1673,11 @@
     /// <summary>Whether "Update all" has anything to do. A marketplace Claude has
     /// never been told about counts, even though it has no version to be behind:
     /// every Claude plugin id resolves against one, so a missing marketplace is a
-    /// whole block of rows failing for a single reason.</summary>
+    /// whole block of rows failing for a single reason. By the port's own rule,
+    /// so a missing application it can install counts too, and the button's
+    /// count is the number of steps the run then takes.</summary>
     private bool CanUpdateAnyTool =>
-        _tools.Any(tool => tool.CanUpdate || (tool.Kind is DevToolKind.Marketplace && !tool.Installed));
+        _tools.Any(DevToolRunQueueItem.InUpdateAll);
 
     /// <summary>How many cached folders across every row nothing loads any more
     /// — what "Clear stale cache" would delete, and whether it is offered at
@@ -1878,22 +2038,54 @@
     private async Task UpdateAllToolsAsync()
     {
         _toolActionKey = UpdateAllKey;
+        _runErrors.Clear();
+
+        // The queue as this pane reads it, by the port's own rule, so the running
+        // state has something to draw before the port's first report — and for a
+        // host whose port reports nothing at all.
+        _run = new DevToolRunProgress(_tools.Where(DevToolRunQueueItem.InUpdateAll).Select(DevToolRunQueueItem.Queue).ToArray(), []);
         try
         {
-            var result = await RecordRunAsync(DevToolRunKind.UpdateAll, () => DevTools.UpdateAllAsync());
-            _toolMessage = result.Message;
-            if (result.Succeeded)
+            var result = await RecordRunAsync(
+                DevToolRunKind.UpdateAll,
+                () => DevTools.UpdateAllWithProgressAsync(new RunProgress(this, OnRunProgress)));
+            var finished = _run;
+
+            // Re-read when any step got there, not only when every one did: a run
+            // that partly failed has rows that moved, and leaving them on their old
+            // versions would show updates still to do that are done.
+            if (result.Succeeded || finished?.Done > 0)
             {
                 await RefreshToolsAsync();
             }
 
+            // Every failed step back on its row, with what the port said about it.
+            foreach (var step in finished?.Items ?? [])
+            {
+                if (step.State is DevToolRunStepState.Failed)
+                {
+                    _runErrors[step.Key] = step.Error ?? "the step did not finish.";
+                }
+            }
+
             // After the refresh rather than before it. The refresh runs a dozen
-            // commands of its own, and letting those land last would replace the
-            // update the reader just asked about with the check that followed it.
+            // commands of its own and a status line of its own, and letting those
+            // land last would replace the update the reader just asked about with
+            // the check that followed it.
+            _toolMessage = result.Message;
             _commands = result.Commands;
+
+            // A failed step keeps its transcript in view: the rail falls back to
+            // the record of the run, opened, rather than folding away the one thing
+            // that says why.
+            if (!result.Succeeded)
+            {
+                _commandsShown = true;
+            }
         }
         finally
         {
+            _run = null;
             _toolActionKey = null;
         }
     }
@@ -1957,6 +2149,140 @@
     }
 
     private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogAsync());
+
+    /// <summary>"Add tools one at a time": the catalog the add form writes into
+    /// has to exist first, so this writes it and then opens the form — the port's
+    /// add refuses a machine with no catalog.</summary>
+    private async Task StartOneAtATimeAsync()
+    {
+        if (await RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogAsync()))
+        {
+            OpenAddDialog();
+        }
+    }
+
+    // ------------------------------------------------------------ the running state
+
+    /// <summary>The run on screen while an Update all is going: every step and
+    /// where it stands, and the transcript so far. Null when no run is.</summary>
+    private DevToolRunProgress? _run;
+
+    /// <summary>Per row, what the last Update all said about a step that did not
+    /// get there. Cleared when the next one starts.</summary>
+    private readonly Dictionary<string, string> _runErrors = new(StringComparer.Ordinal);
+
+    /// <summary>Whether the live transcript wraps its long lines. On by default:
+    /// a console line wider than the rail is read by wrapping, not by scrolling
+    /// a narrow column sideways.</summary>
+    private bool _transcriptWrap = true;
+
+    private const string UpdatingLabel = "Updating…";
+
+    private bool Updating => _run is not null;
+
+    /// <summary>"Updating 4 tools — 1 done, 1 running", and the failures once
+    /// there are any, so a step that did not get there is never only in the
+    /// queue.</summary>
+    private static string RunHeadline(DevToolRunProgress run)
+    {
+        var tools = run.Total == 1 ? "1 tool" : $"{run.Total} tools";
+        var failed = run.Failed > 0 ? $", {run.Failed} failed" : string.Empty;
+
+        return $"Updating {tools} — {run.Done} done, {run.Running} running{failed}";
+    }
+
+    private static string RunCheckedLine(DevToolRunProgress run)
+    {
+        var queued = run.Items.Count(item => item.State is DevToolRunStepState.Queued);
+        return $"{run.Finished} of {run.Total} finished · {queued} queued";
+    }
+
+    private static int ProgressPercent(DevToolRunProgress run) =>
+        run.Total == 0 ? 0 : (int)Math.Round(100d * run.Finished / run.Total);
+
+    private static string LiveLog(DevToolRunProgress run) =>
+        string.Join(Environment.NewLine + Environment.NewLine, run.Commands.Select(Transcribe));
+
+    /// <summary>The "This run" card: one line per step, in the order the run
+    /// takes them, each with its versions, where it stands and — once finished —
+    /// how long it took. A failed step says why on a line under it.</summary>
+    private RenderFragment RunQueue(DevToolRunProgress run) =>
+        @<Card CssClass="tools-run" TestId="tools-run-queue" AriaLabel="This run">
+            <div class="tools-run__head">
+                <h3 class="tools-run__title">This run</h3>
+                <Badge BaseClass="tools-run__count" Kind="" TestId="tools-run-count">@($"{run.Finished} of {run.Total}")</Badge>
+            </div>
+            <ol class="tools-run__steps">
+                @foreach (var step in run.Items)
+                {
+                    <li @key="step.Key" class="tools-run__step tools-run__step--@step.State.ToString().ToLowerInvariant()"
+                        data-testid="tools-run-step" data-step-key="@step.Key" data-state="@step.State">
+                        <span class="tools-run__name">@step.Name</span>
+                        <span class="tools-run__versions" data-testid="tools-run-step-versions">@StepVersions(step)</span>
+                        <Badge Kind="tone" Slug="@StepTone(step.State)" CssClass="tools-run__state" TestId="tools-run-step-state">@StepLabel(step.State)</Badge>
+                        <span class="tools-run__duration" data-testid="tools-run-step-duration">@(step.Duration is { } took ? FormatDuration(took) : string.Empty)</span>
+                        @if (step.State is DevToolRunStepState.Failed && step.Error is { Length: > 0 } error)
+                        {
+                            <Alert Message="@error" BaseClass="tools-run__error" Inline="true" Role="status" TestId="tools-run-step-error" />
+                        }
+                    </li>
+                }
+            </ol>
+        </Card>;
+
+    private static string StepVersions(DevToolRunQueueItem step) => (step.FromVersion, step.ToVersion) switch
+    {
+        (null, null) => string.Empty,
+        (null, { } to) => $"install {to}",
+        ({ } from, null) => from,
+        ({ } from, { } to) when from == to => to,
+        ({ } from, { } to) => $"{from} → {to}"
+    };
+
+    private static string StepLabel(DevToolRunStepState state) => state switch
+    {
+        DevToolRunStepState.Queued => "Queued",
+        DevToolRunStepState.Running => "Running",
+        DevToolRunStepState.Done => "Done",
+        DevToolRunStepState.Failed => "Failed"
+    };
+
+    private static string StepTone(DevToolRunStepState state) => state switch
+    {
+        DevToolRunStepState.Queued => "quiet",
+        DevToolRunStepState.Running => "live",
+        DevToolRunStepState.Done => "settled",
+        DevToolRunStepState.Failed => "fault"
+    };
+
+    /// <summary>A step's time the way the queue reads it: seconds under a
+    /// minute, minutes and seconds past it.</summary>
+    private static string FormatDuration(TimeSpan took) => took.TotalSeconds switch
+    {
+        < 1 => "<1s",
+        < 60 => $"{(int)took.TotalSeconds}s",
+        _ => $"{(int)took.TotalMinutes}m {took.Seconds}s"
+    };
+
+    /// <summary>A report from the port, on whatever thread its step finished on.
+    /// Dropped once the run is over: a report that lands after the result would
+    /// put a finished run back on screen.</summary>
+    private void OnRunProgress(DevToolRunProgress progress)
+    {
+        if (_toolActionKey != UpdateAllKey) return;
+
+        _run = progress;
+        StateHasChanged();
+    }
+
+    /// <summary>The port's reports, marshalled onto the renderer. Not
+    /// <see cref="Progress{T}"/>: that posts to whatever context was current
+    /// when it was made, and this has to land on the component's own
+    /// dispatcher.</summary>
+    private sealed class RunProgress(ToolsPane pane, Action<DevToolRunProgress> report) : IProgress<DevToolRunProgress>
+    {
+        public void Report(DevToolRunProgress value) => _ = pane.InvokeAsync(() => report(value));
+    }
 
     private void OpenAddDialog()
     {

@@ -150,6 +150,17 @@ end of its transcript and the whole of it a click away. An entry switched off on
 this machine, or one whose version could not be looked up, is left out of every
 figure. The host filter narrows every figure here as it does on the kind tabs.
 
+A machine with no catalog yet opens on "No tool catalog on this machine yet",
+where the catalog would be written, and two choices side by side: create this
+machine's catalog — the recommended one — or import a team catalog somebody
+already keeps; a quieter third way creates the catalog and goes straight to adding
+tools one at a time. A catalog that exists with nothing in it offers the same
+arrangement, to add a tool or import a team catalog. Both choices are offered only
+where the host can write the catalog; a read-only host says so instead. While the
+first check of the machine is still running, the pane shows the shape of what is
+coming — the tab strip, the toolbar and group cards with placeholder rows — rather
+than a sentence.
+
 ## Remote tool updates
 
 ```meta
@@ -177,6 +188,17 @@ individual tool on or off for this machine without changing what the catalog
 declares for everyone else. Each action reports back whether it succeeded, and
 tool management is a capability that can be switched off wholesale on machines
 where it does not apply.
+
+While an update of every tool runs, the pane says so: its header reads "Updating"
+with how many tools the run takes, how many are done and how many are running, a
+progress bar under it fills as steps finish, and checking and updating are both
+unavailable until the run ends. A "This run" list names every tool the run takes
+in order — done, running, queued or failed — with the version it is going from
+and to and, once finished, how long it took, beside the run's transcript as it is
+written, which can be copied and read with long lines wrapped or not. The tools
+themselves stay on screen under it. A tool whose step fails goes back to needing
+action, with the reason under its row, and the run's transcript stays open beside
+it.
 
 ### Last run record
 
