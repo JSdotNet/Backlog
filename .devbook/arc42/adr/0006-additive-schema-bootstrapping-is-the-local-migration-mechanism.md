@@ -31,6 +31,13 @@ say where that rule stops being enough.
 > describes the adapter as it was when this record was written; the sections after
 > it are written to the current code.
 
+> **Amended 2026-10-13: an added column may be `NOT NULL` with a constant
+> default.** The rule said "nullable, always", and five added columns already
+> broke it: the tasks store's `devbook_refs` and `planned_hours` (`'[]'`), and the
+> inbox store's `dismissed_suggestions` (`'[]'`), `duplicate_of_task` and
+> `note_push_pending` (`0`). The reason behind the rule admits both definitions, so
+> the rule now says so. **What is forbidden** carries it.
+
 ## Context
 
 **The debt was recorded as missing machinery, and that is the wrong diagnosis.**
@@ -112,7 +119,7 @@ Three shapes, and only these three:
 
 | Shape | How | Why it is safe |
 |---|---|---|
-| **Add a column** | An entry in the definition's `columns` list. The setup reads the table's columns and issues one additive `ALTER TABLE ... ADD COLUMN`, nullable, when the column is absent. | Adds information. No existing value is read, moved, or destroyed. |
+| **Add a column** | An entry in the definition's `columns` list. The setup reads the table's columns and issues one additive `ALTER TABLE ... ADD COLUMN` when the column is absent, nullable or `NOT NULL` with a constant default. | Adds information. No existing value is read, moved, or destroyed. |
 | **Seed a new column for existing rows** | One `UPDATE ... WHERE <column> IS NULL` in `afterColumns`. | Writes only where there was nothing. After it runs no row matches it again. |
 | **Rewrite a retired value to its replacement** | One `UPDATE ... WHERE <column> = '<retired>'` in `afterColumns`. | The retired value is unreadable by definition — the code that understood it is gone — so the row was already lost. Matches nothing once it has run. |
 
@@ -137,12 +144,18 @@ prohibition on destructive automatic migration at startup applies with full
 force, and this mechanism is not a way around it — it is a mechanism that cannot
 express a destructive change in the first place.
 
-**A column added this way is nullable, always.** `ALTER TABLE ADD COLUMN` cannot
-add a `NOT NULL` column to a populated table without a default, so the schema in
-`CREATE TABLE` and the schema an `ALTER` produces must agree on nullability or a
-fresh database and an upgraded one diverge. Where the domain wants a non-nullable
-value, the seeding `UPDATE` supplies it and the read coalesces what the seed
-could not reach.
+**A column added this way is nullable, or `NOT NULL` with a constant default.**
+The schema in `CREATE TABLE` and the schema an `ALTER` produces must agree, or a
+fresh database and an upgraded one diverge. SQLite's `ALTER TABLE ADD COLUMN`
+accepts `NOT NULL` on a populated table only with a non-null constant default, so
+these are the only two definitions both paths can produce.
+
+A default is right when one constant is true of every row that predates the
+column: `'[]'` for a list an older row never had entries in, `0` for a flag it
+never set. Where the true value differs per row, the column is nullable. The
+seeding `UPDATE` supplies what it can and the read coalesces what the seed could
+not reach. `tasks.updated_at` is that case: no single constant is true of every
+existing task, so it is nullable and seeded from `created_at`.
 
 ### The boundary
 
@@ -187,17 +200,19 @@ which is why a database full of tasks gains the table and loses nothing. Any *co
 is this record's business and must take one of the three shapes.
 
 One asymmetry is worth recording, because it looks like a violation and is not.
-`roadmap_plan.updated_at` is `NOT NULL` where `tasks.updated_at` is nullable. The
-nullable-always rule governs a column added by `ALTER TABLE` to a table that already
-has rows, which cannot answer for the rows that predate it; this column shipped with
-its table, so no row has ever been without one. That is also why it needs no seeding
+`roadmap_plan.updated_at` is `NOT NULL` with no default, which no added column may
+be. The rule on added columns governs a column added by `ALTER TABLE` to a table
+that already has rows, which cannot answer for the rows that predate it; this
+column shipped with its table, so no row has ever been without one. That is also why it needs no seeding
 statement of the kind `tasks` required.
 
 The Inbox's three tables — `inbox_items`, `inbox_lists`, `inbox_groups`, in
 `backlog.db` since 2026-09-15 (local ADR 0009) — sit on the same seam: their
 creation is ADR 0003's `IF NOT EXISTS` DDL, their `updated_at` is `NOT NULL` for
 the reason `roadmap_plan`'s is, and any column added to them later takes one of
-the three shapes above, as an entry in the inbox store's `columns` list.
+the three shapes above, as an entry in the inbox store's `columns` list. Six
+have been added to `inbox_items` so far, three of them `NOT NULL` with a constant
+default.
 
 ## Consequences
 
