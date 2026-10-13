@@ -28,17 +28,11 @@ status: draft
 
 - Links to Tasks are bi-directional but each side stores only the other's id;
   the Cross-Linking service reconciles both directions.
-- A chapter's `roadmap` list is **not** a link and reconciles nothing. It names
-  Roadmap Item tag slugs owned by [Roadmap Planning](../roadmap/domain.md#roadmap-tag),
-  not `<path>#<slug>` addresses, so it draws no edge and needs no consistency
-  service — Roadmap reads it when gathering by tag, and a slug matching no current
-  item is harmless. It is a different concept from a `Tag`, which is this context's
-  own discovery `#keyword`.
-
-- A repository's knowledge folders are read **in place and never owned**: they
-  belong to the repository, are edited outside this context, and any prepared view
-  over them is derived, kept outside the repository, and must give way to the
-  folder itself. That is why
-  Roadmap Planning's gather is described as reading chapters by reference and by
-  tag rather than as reading an index — which index exists, and whether one exists
-  at all, is not part of the contract.
+- A chapter's `roadmap` list is **not** a link and reconciles nothing, so it needs
+  no consistency service. Each entry is a
+  [Roadmap Contribution](domain.md#roadmap-contribution).
+- A repository's devbook folders are read **in place and never owned**, as
+  [A devbook that stays current](features.md#a-devbook-that-stays-current) says.
+  That is why Roadmap Planning's gather reads chapters by reference and by tag
+  rather than by reading an index. Which index exists, and whether one exists at
+  all, is not part of the contract.

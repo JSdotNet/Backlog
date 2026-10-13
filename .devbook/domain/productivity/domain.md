@@ -191,5 +191,24 @@ person's [actual hours](../roadmap/domain.md#actual-hours) by it: the time
 the minute. It does not use the hour grids' rule of outlining a whole hour that
 office hours only touch.
 
-The term exists because "working hours" already names a total, such as 8.5
-hours a day, and this split needs a span with a start and an end.
+The term exists because the split needs one date's span, overrides applied.
+*Working hours* is an alias of Roadmap Planning's
+[Working Week](../roadmap/domain.md#working-week), which is the weekly pattern and
+its overrides together, not the hours of one date.
+
+### Spend Provider
+
+```meta
+type: term
+status: draft
+aliases: [spend provider, SpendProvider]
+related: [.devbook/domain/productivity/context.md#monthly-spend-budget, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget]
+```
+
+An assistant whose spend the dashboard reads, kept apart from the others all the
+way to the screen. There are three: **Anthropic**, **Copilot** and **Azure AI
+Foundry**, and the dashboard names them that way wherever it shows them. The
+Anthropic provider is the Claude spend, named for the company because the report
+is Anthropic's bill. The providers report on different terms: an estimate, a
+metered balance, or a bill in the subscription's currency. Their figures are
+therefore never added into one total, except where a budget line has to be a sum.

@@ -9,11 +9,10 @@
 related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
-Container boundaries below are the deployable/runtime split; the domains they
-serve (Capture, Inbox, Tasks, Roadmap Planning, Devbook,
-Monitoring, Technology Stack, Dev PC Management, Sessions, Repository Management) are defined in
-`.devbook/domain/context-map.md` and each context's own `.devbook/domain/<context>/domain.md` —
-this view does not restate domain responsibilities.
+Container boundaries below are the deployable and runtime split. The domains they
+serve are listed in `.devbook/domain/context-map.md#subdomain-landscape` and defined
+in each context's own `.devbook/domain/<context>/domain.md`. This view does not
+restate their responsibilities.
 
 The desktop's canonical store is one SQLite database, `backlog.db` (local ADR 0003);
 a task's content is markdown text held in it. The cloud keeps the replica in Cosmos DB
@@ -21,17 +20,17 @@ a task's content is markdown text held in it. The cloud keeps the replica in Cos
 
 ```mermaid
 C4Container
-    title Container Diagram — Prompt Backlog
+    title Container Diagram — Backlog
 
     Person(user, "ME", "Personal owner of the system")
 
-    System_Boundary(b0, "Prompt Backlog") {
+    System_Boundary(b0, "Backlog") {
         Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid, SQLite", "Local-first Windows client — runs all fetch workers and manages all domains")
-        Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, JSON", "Capture-first mobile client with offline storage")
-        Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code, Visual Studio, and GitHub Copilot App integrations")
+        Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, SQLite", "Capture-first mobile client with offline storage")
+        Container(ide, "IDE Extensions", "TypeScript", "VS Code extension; agent sessions use the desktop's MCP server")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
         ContainerDb(localStore, "Local Storage", "SQLite (backlog.db)", "Desktop canonical data store — tasks, inbox and roadmap plans; task content is markdown text in the database")
-        ContainerDb(cloudDb, "Cloud Database", "Cosmos DB", "Sync state, webhook events, machine registry")
+        ContainerDb(cloudDb, "Cloud Database", "Cosmos DB", "Task, session and annotation replicas; device registry")
         ContainerDb(attachments, "Attachments", "Azure Blob Storage, container attachments", "Capture attachments, owner-scoped, beside the replica")
     }
 
@@ -69,7 +68,7 @@ C4Container
 
 ```mermaid
 flowchart TB
-  subgraph "Prompt Backlog System"
+  subgraph "Backlog System"
     subgraph "Capture Sources"
       Mobile["Mobile App\n(speech, shortcuts)"]
       YTWorker["YouTube Fetcher"]
@@ -81,7 +80,7 @@ flowchart TB
 
     subgraph "Desktop App (standalone or connected)"
       InboxQueue["Inbox Queue\n(triage, route)"]
-      BacklogSvc["Backlog\n(refine, prioritize)"]
+      BacklogSvc["Tasks\n(refine, prioritize)"]
       RoadmapSvc["Roadmap Planning\n(plan, sequence, dependencies)"]
       DevbookSvc["Devbook\n(PARA, links)"]
       MonitoringSvc["Monitoring\n(dashboards, signals)"]
@@ -103,8 +102,9 @@ flowchart TB
     end
 
     subgraph "Local Storage"
-      LocalMD["Local Markdown\n(Canonical)"]
-      JsonIndex["JSON\n(Indexes, Metadata)"]
+      LocalDB["SQLite backlog.db\n(canonical)"]
+      RepoMD["Repository markdown\n(devbook, canonical)"]
+      JsonSettings["JSON\n(registry, per-device settings)"]
     end
 
     subgraph "External Services"
@@ -146,16 +146,16 @@ flowchart TB
   BacklogSvc -->|sync issues| GitHub
   RepoMgmtSvc -->|repo metadata| GitHub
   RepoMgmtSvc -->|dependency scan| PackageRegs
-  CopilotSessions --> DevPCSvc
+  CopilotSessions --> SessionsSvc
   GitHub -.->|webhooks| GitHubWebhooks
   GitHubWebhooks -.->|forward| SyncAPI
 
-  BacklogSvc --> LocalMD
-  DevbookSvc --> LocalMD
-  InboxQueue --> LocalMD
-  BacklogSvc --> JsonIndex
-  RepoMgmtSvc --> JsonIndex
-  DevPCSvc --> JsonIndex
+  BacklogSvc --> LocalDB
+  RoadmapSvc --> LocalDB
+  InboxQueue --> LocalDB
+  DevbookSvc --> RepoMD
+  RepoMgmtSvc --> JsonSettings
+  DevPCSvc --> JsonSettings
 
   SyncAPI -.->|push| Notifications
   Notifications -.->|push| Mobile
@@ -170,8 +170,9 @@ flowchart TB
 related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/domain/tasks/features.md#pairing-a-device"]
 ```
 
-Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes,
-**Standalone** and **Connected**, as `.devbook/arc42/12-glossary.md` defines them.
+The desktop app is the local-first Windows client, and the one channel that serves
+every domain. It runs in the two modes the glossary defines, **Standalone** and
+**Connected** (`.devbook/arc42/12-glossary.md#terms`).
 
 ```mermaid
 graph TB
@@ -286,7 +287,7 @@ forbids it another module's implementation.
 **Devbook database** is `Backlog.Infrastructure.Devbook`: the builder that indexes
 a repository's devbook folders in C#, and the read-only reader over the result.
 It indexes the chapters, the reference graph, the outline, the Archify artifacts
-and the click demos. Since schema 5 the `demo` and `demo_link` tables pair each
+and the click demos. The `demo` and `demo_link` tables (schema 5) pair each
 `*.demo.html` with its page by name and with every chapter whose `demo` field
 names it. The pairing rule itself lives in `DevbookReadingConvention`, in the
 Devbook module's Abstractions, so the builder, the MCP chapter read and the
@@ -294,45 +295,82 @@ Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes th
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
 The same builder reads the Brain (local ADR 0026) under `DevbookCorpusKind.Brain`.
-`BrainConventions`, in the Devbook module's Abstractions, reads the areas from the
-Brain's `CONVENTIONS.md`, or gives the PARA set. Those areas are the folders the
-builder indexes, with no devbook folder convention applied to them. `para`,
-`repos` and `tasks` become node attributes. A `repo:` link, in `related` or in
-prose, is stored as an edge whose target is no node. `BrainFolderSource` in
-`Backlog.Infrastructure.FileSystem` resolves the Brain as one local, always
-editable folder keyed `brain`, beside `DevbookFolderSource`. The Devbook pane
-reads the Brain through `IBrainFolderSource`, a port of its own in the Devbook
-module's Abstractions beside `IDevbookFolderSource`. That keeps the repository
-source the one registration every search, reference, annotation and Archify
-reader resolves. `BrainFolderSource` implements the port, and the desktop
-composition (`AddDevbookAdapters`) builds it over `IBrainSettings.BrainFolder`.
-`BrainFolderWatch`, also in `Backlog.Infrastructure.FileSystem`, ties the setting
-to `DevbookDatabaseRefresher.WatchBrain`. It re-points the watch on
-`IBrainSettings.Changed`, and raises the source's `Changed` after a setting
-change or a Brain rebuild. Both heads resolve it after `Build()` and call
-`Start()`. `BrainConflictCopies`, in the Abstractions, finds OneDrive conflict
-pairs from the note names alone. `DevbookDatabaseLocation` records the folder
-as a Brain, so the folder is its own root and gets its own database in app
-storage. `DevbookDatabaseRefresher.WatchBrain` rebuilds it after a change.
-`tools/devbook/brain.mjs` is the Node side of the same convention, and the parity
-test compares the two on a Brain fixture.
+This is how the Brain is built and kept current:
 
-The `repo:` edges are read back two ways (local ADR 0027 §6). `BrainRepoLink`, in
-the Abstractions, reads a link into its alias, path and slug. In the Devbook UI,
-`BrainRepoLinkResolver` asks `IDevbookFolderSource` whether this machine has the
-alias and its section, and `BrainDevbookPanel` draws each link as the library's
-`RepoLinkChip`. The pane raises `OnOpenRepositoryChapter`, and the shell answers
-it through the same `DevbookOpenRequest` a task's reference takes. The reverse
-is the `IBrainBacklinks` port in the Abstractions. `BrainBacklinkReader`, in
-`Backlog.Infrastructure.Devbook`, answers it from `DevbookDatabase.RepoLinks()`
-over the Brain's own database, and the desktop composition registers it over
-`IBrainFolderSource`. The pane's `BrainBacklinksBox` asks it for the chapter on
-screen. The Brain's atlas is the third reader: `DevbookAtlasService.ReadBrainAsync`
-opens the Brain's database and `DevbookAtlasReader.ReadBrain` gives every `repo:`
-target a node of its own, resolved through `BrainRepoLinkResolver`. Each link
-becomes a `repo-link` edge carrying the alias as its label, dashed where it does
-not resolve. `GraphAtlas` in the component library draws an edge's optional
-`label` and `dashed`.
+```mermaid
+flowchart LR
+  Settings["IBrainSettings\n(BrainFolder)"]
+  Watch["BrainFolderWatch\n(Infrastructure.FileSystem)"]
+  Refresher["DevbookDatabaseRefresher\n.WatchBrain"]
+  Conventions["BrainConventions\n(CONVENTIONS.md areas, or PARA)"]
+  Builder["Devbook builder\n(DevbookCorpusKind.Brain)"]
+  Db[("Brain database\n(app storage)")]
+  Source["BrainFolderSource\n(IBrainFolderSource, key brain)"]
+  Pane["Devbook pane"]
+
+  Settings -->|Changed| Watch
+  Watch -->|re-points the watch| Refresher
+  Refresher -->|rebuild after a change| Builder
+  Conventions --> Builder
+  Builder --> Db
+  Watch -->|raises Changed| Source
+  Settings --> Source
+  Source --> Pane
+```
+
+- **Areas, not devbook folders.** The builder indexes the areas `BrainConventions`
+  (Devbook Abstractions) reads from the Brain's `CONVENTIONS.md`, or the PARA set.
+  No devbook folder convention applies to them. `para`, `repos` and `tasks` become
+  node attributes, and a `repo:` link in `related` or in prose is stored as an
+  edge whose target is no node.
+- **A port of its own.** `BrainFolderSource` resolves the Brain as one local,
+  always editable folder keyed `brain`, beside `DevbookFolderSource`. The pane
+  reads it through `IBrainFolderSource`, a port beside `IDevbookFolderSource` in
+  the Devbook Abstractions. The repository source therefore stays the one
+  registration that every search, reference, annotation and Archify reader
+  resolves. The desktop composition (`AddDevbookAdapters`) builds the source over
+  `IBrainSettings.BrainFolder`.
+- **The watch.** Both heads resolve `BrainFolderWatch` after `Build()` and call
+  `Start()`. It raises the source's `Changed` after a setting change or a Brain
+  rebuild.
+- **Its own root.** `DevbookDatabaseLocation` records the folder as a Brain, so
+  the folder is its own root with its own database in app storage.
+  `BrainConflictCopies` (Abstractions) finds OneDrive conflict pairs from the note
+  names alone.
+- **Parity.** `tools/devbook/brain.mjs` is the Node side of the same convention,
+  and the parity test compares the two on a Brain fixture.
+
+The `repo:` edges are read back by three readers (local ADR 0027 §6):
+
+```mermaid
+flowchart LR
+  Link["BrainRepoLink\n(alias, path, slug)"]
+  Resolver["BrainRepoLinkResolver\n(asks IDevbookFolderSource)"]
+  Panel["BrainDevbookPanel\n(RepoLinkChip)"]
+  Shell["Shell\n(DevbookOpenRequest)"]
+  BrainDb[("Brain database\nDevbookDatabase.RepoLinks()")]
+  Backlinks["BrainBacklinkReader\n(IBrainBacklinks)"]
+  Box["BrainBacklinksBox"]
+  Atlas["Brain atlas\n(DevbookAtlasService.ReadBrainAsync)"]
+
+  Link --> Resolver --> Panel
+  Panel -->|OnOpenRepositoryChapter| Shell
+  BrainDb --> Backlinks --> Box
+  BrainDb --> Atlas
+  Resolver --> Atlas
+```
+
+- **Forward links.** `BrainRepoLinkResolver`, in the Devbook UI, asks whether this
+  machine has the link's alias and section. The shell opens the chapter through
+  the same `DevbookOpenRequest` a task's reference takes.
+- **Backlinks.** `BrainBacklinkReader`, in `Backlog.Infrastructure.Devbook`,
+  answers the `IBrainBacklinks` port from the Brain's own database. The desktop
+  composition registers it over `IBrainFolderSource`, and `BrainBacklinksBox`
+  asks it for the chapter on screen.
+- **The atlas.** `DevbookAtlasReader.ReadBrain` gives every `repo:` target a node
+  of its own. Each link becomes a `repo-link` edge labelled with the alias, and
+  dashed where the link does not resolve. `GraphAtlas` in the component library
+  draws an edge's optional `label` and `dashed`.
 
 The same project reads scenario pages, outside the database. `Scenarios/` ports
 devbook's page parser and page signature, and `ScenarioSignatureVectorTests` holds
@@ -342,68 +380,86 @@ disk reads behind them. The Devbook UI's `DevbookScenarioStore` keeps one catalo
 per repository from those reads. The menu, the Domain panel, and every chapter's
 `scenario:` images draw from that catalog.
 
-**Inbox Service** is `Backlog.Modules.Inbox` since 2026-09-15 — a module with its
-own `Abstractions` project and its own tables in `backlog.db` (`inbox_items`,
-`inbox_lists`, `inbox_groups`), no longer a projection over draft tasks. It holds
-the Inbox Item, List and Group aggregates and one feature slice per action
-(intake, manual capture, tags, repositories, filing, archive, route to backlog,
-create plan, and the list/group organiser). It reaches Tasks only through the
-`IInboxBacklogTarget` port, answered by `InboxBacklogTarget` in
-`Backlog.Infrastructure.FileSystem` over Tasks' published `ITaskItems` — the one
-place an inbox item becomes entry text. A batch of items goes through the same
-port's `CreateBatchTasksAsync` as one multi-entry document into Tasks'
-`ImportPlanAsync`. The adapter maps the created entries back to items by
-`import_item_id` and names each entry's own item as its source. The Inbox reaches the AI plan drafter through
-`IInboxPlanDrafter`, and the AI triage of local ADR 0023 — the cards over an
-item in triage and the triage pass — through `IInboxTriageAdvisor`, both
-answered in `Backlog.Infrastructure.AzureFoundry` over the one configured
-deployment. Either port may be left unregistered, and the Inbox then reads the
-feature as unavailable; the desktop web harness swaps a deterministic advisor
-in for the Foundry one so the triage surfaces can be driven without Azure. The
-`Backlog.Modules.Inbox.UI` pane references its own module's Abstractions and
-nothing of Tasks; the earlier Tasks.UI → Inbox.UI edge is gone. See local ADR 0009.
+**Inbox Service** is `Backlog.Modules.Inbox`, a module with its own `Abstractions`
+project and its own tables in `backlog.db` (`inbox_items`, `inbox_lists`,
+`inbox_groups`). It holds the Inbox Item, List and Group aggregates and one feature
+slice per action: intake, manual capture, tags, repositories, filing, archive,
+route to backlog, create plan, and the list and group organiser.
 
-**Ask AI content** is a port in the shared kernel, `IAiContentSource` under
-`Backlog.SharedKernel.Ai`, and one answer per area in that area's UI project —
-`TasksAiContentSource`, `InboxAiContentSource`, `DevbookAiContentSource`,
-`RoadmapAiContentSource`, `DashboardAiContentSource`, `SessionsAiContentSource`
-and `ToolsAiContentSource`. Each declares what its content is and composes a body
-for a question within a character budget, choosing among its records the one way
-`AiContentBudget` defines; the shell's Ask AI panel collects the sources, offers a
-scope chip per open area, and hands the chosen source's body to the Azure Foundry
-client. The shell learns nothing about what a task, an item or a chapter looks
-like. A source never describes the screen — no filter text, sort, layout or
-selection beyond pinning the open record — but the scope that defines an area's
-records (a dashboard's repositories and period, a task list's repository scope) is
-content, and the body's first line states it. Ask AI used to scrape the visible
-task rows, which was screen state and which exceeded the deployment's quota on
-every press.
+The Inbox reaches Tasks only through the `IInboxBacklogTarget` port.
+`InboxBacklogTarget` in `Backlog.Infrastructure.FileSystem` answers it over Tasks'
+published `ITaskItems`, and it is the one place an inbox item becomes entry text.
+A batch of items goes through the port's `CreateBatchTasksAsync` as one
+multi-entry document into Tasks' `ImportPlanAsync`. The adapter maps the created
+entries back to items by `import_item_id` and names each entry's own item as its
+source. The `Backlog.Modules.Inbox.UI` pane references its own module's
+Abstractions and nothing of Tasks. See local ADR 0009.
+
+Two AI ports reach `Backlog.Infrastructure.AzureFoundry`, over the one configured
+deployment. `IInboxPlanDrafter` serves the plan drafter. `IInboxTriageAdvisor`
+serves the AI triage of local ADR 0023: the cards over an item in triage, and the
+triage pass. Either port may be left unregistered, and the Inbox then reads the
+feature as unavailable. The desktop web harness swaps in a deterministic advisor,
+so the triage surfaces can be driven without Azure.
+
+**Ask AI content** flows from one source per area to the shell's Ask AI panel:
+
+```mermaid
+flowchart LR
+  Budget["AiContentBudget\n(character budget)"]
+  Sources["IAiContentSource, one per area UI\n(Tasks, Inbox, Devbook, Roadmap,\nDashboard, Sessions, Tools)"]
+  Panel["Shell Ask AI panel\n(scope chip per open area)"]
+  Client["Azure Foundry client\n(Infrastructure.AzureFoundry)"]
+  Model["Azure AI Foundry\ndeployment"]
+
+  Budget --> Sources
+  Sources -->|"body; first line states the scope"| Panel
+  Panel -->|"chosen source's body + question"| Client
+  Client --> Model
+```
+
+The port is `IAiContentSource` under `Backlog.SharedKernel.Ai`. Each area's UI
+project answers it: `TasksAiContentSource`, `InboxAiContentSource`,
+`DevbookAiContentSource`, `RoadmapAiContentSource`, `DashboardAiContentSource`,
+`SessionsAiContentSource` and `ToolsAiContentSource`. Each source declares what
+its content is. It composes a body for a question within the character budget,
+choosing among its records the one way `AiContentBudget` defines. The shell
+learns nothing about what a task, an item or a chapter looks like.
+
+A source never describes the screen: no filter text, sort, layout or selection
+beyond pinning the open record. Screen state is left out because the visible task
+rows exceeded the deployment's quota on every press. The scope that defines an
+area's records is content, though, and the body's first line states it. Examples
+are a dashboard's repositories and period, or a task list's repository scope.
 
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and
-both web harnesses (registered separately so the two harnesses pair as two
-distinct devices). It holds the device's registration credential
-(`IDeviceCredentialStore`, DPAPI on Windows via `DpapiDeviceCredentialStore`),
-exchanges it for a device token and caches it (`SyncTokenProvider`, refreshing
-within two minutes of expiry, never retrying a 401), attaches the token to
-outbound requests (`SyncAuthenticationHandler`), and drives the pairing calls
-themselves (`DevicePairingClient`). The Android head keeps the same credential
-in MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`) through
-`SecureValueDeviceCredentialStore`, the platform-neutral half of that adapter,
-so a force-stop does not un-pair the phone; the in-memory store is for tests.
-On the desktop it also carries the capture path: `TaskReplicaMerge` hands every
-`capture`-kind replica document to the Inbox's `IInboxIntake` port before the
-task merge, and `TaskSyncSession` drains the Inbox's `IInboxCaptureOutbox` into
-the ordinary tasks push as tombstones. Both ports are optional constructor
-parameters, so a head without an inbox store — the phone — composes unchanged
+both web harnesses. The harnesses register it separately, so the two pair as two
+distinct devices. Its parts:
+
+- `IDeviceCredentialStore` holds the device's registration credential. On Windows
+  that is `DpapiDeviceCredentialStore`. On Android it is
+  `SecureValueDeviceCredentialStore`, the platform-neutral half of that adapter,
+  over MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`), so a
+  force-stop does not un-pair the phone. The in-memory store is for tests.
+- `SyncTokenProvider` exchanges the credential for a device token and caches it.
+  It refreshes within two minutes of expiry and never retries a 401.
+- `SyncAuthenticationHandler` attaches the token to outbound requests.
+- `DevicePairingClient` drives the pairing calls.
+
+On the desktop the Sync Client also carries the capture path. `TaskReplicaMerge`
+hands every `capture`-kind replica document to the Inbox's `IInboxIntake` port
+before the task merge. `TaskSyncSession` drains the Inbox's `IInboxCaptureOutbox`
+into the ordinary tasks push as tombstones. Both ports are optional constructor
+parameters. A head without an inbox store, such as the phone, composes unchanged
 and leaves captures on the replica.
 
-A second, unrelated caller reaches the same port without touching the replica
-at all: `Backlog.Infrastructure.Capture`'s `InboxCaptureDelivery` answers the
-Capture module's `ICaptureDelivery` port by calling `IInboxIntake` directly,
-in-process, when a source monitor (YouTube channel, website feed) finds a new
-entry on the desktop. The id-keyed idempotency `IInboxIntake` already gives the
-sync path — a known id is a replay, not a duplicate — is what makes a second
-press of Capture free, with no seen-store of its own. See
+A second caller reaches `IInboxIntake` without touching the replica.
+`InboxCaptureDelivery` in `Backlog.Infrastructure.Capture` answers the Capture
+module's `ICaptureDelivery` port by calling `IInboxIntake` in-process. It does so
+when a source monitor (YouTube channel, website feed) finds a new entry on the
+desktop. `IInboxIntake` is idempotent by id: a known id is a replay, not a
+duplicate. A second press of Capture is therefore free, and the delivery keeps no
+record of the ids it has already seen. See
 `.devbook/domain/context-map.md#strategic-rules`.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
@@ -428,33 +484,36 @@ transport, but not domain lifecycle rules.
 The shell (`MainLayout`) is a title bar carrying the sync status, the page, and
 three tabs along the bottom, withheld until the device is paired:
 
-- **Inbox** — a quick-capture field and the list of the phone's own captures
-  the desktop has not taken in yet, each saying whether it is waiting in the
-  outbox or sent. No row triages: triage stays on the desktop.
-- **Capture sheet** (`/capture`, opened from Today's capture button) — one
-  thought sent to the Inbox as a capture, created as a note through the note
-  view, or added to today through `task_view`, with dictation and a photo; a
-  sheet over the screen it was opened from rather than a tab.
-- **Notes** — every note in `note_view`, newest first, searched on the phone,
-  and an editor for one: a title, a dictated Markdown body and attached pictures
-  and files, saved on its own a second after typing stops and sent as outbox
-  kind `note`.
-- **Tasks** — My Day, read from `task_view`, and the writes the phone makes to
-  tasks: adding a task picked for today, and marking a task in today's My Day
-  done or undone, ticking one of its steps, or moving it to tomorrow.
+- **Inbox** — a quick-capture field and the phone's own captures that the desktop
+  has not taken in yet. Each says whether it waits in the outbox or was sent. No
+  row triages: triage stays on the desktop.
+- **Capture sheet** (`/capture`, opened from Today's capture button) is a sheet
+  over the screen it was opened from, not a tab. It sends one thought to the
+  Inbox as a capture, creates it as a note through the note view, or adds it to
+  today through `task_view`. It offers dictation and a photo.
+- **Notes** — every note in `note_view`, newest first and searched on the phone,
+  and an editor for one. A note has a title, a dictated Markdown body, and
+  attached pictures and files. It saves on its own a second after typing stops,
+  and is sent as outbox kind `note`.
+- **Tasks** — My Day, read from `task_view`, and the phone's writes to tasks. It
+  adds a task picked for today. For a task in today's My Day it marks it done or
+  undone, ticks one of its steps, or moves it to tomorrow.
 
-Its local SQLite file holds four things and no canonical task data: the
-outbox, the last inbox it pulled (`inbox_cache`), `task_view`, a fold of the
-owner's task feed, and `note_view`, a fold of the `note` documents on the same
-feed with its own cursor. Everything the phone sends leaves through the outbox,
-oldest first, with backoff and a park after five attempts. An entry's kind
-decides how it is sent: `capture`, `note` or `task`, and `talk-note` only for an
-entry an earlier build left queued. A note's files, and a leftover talk note's,
-wait beside the database in `talk-notes/outbox/` and form the attachment upload
-queue. Each is uploaded before the document that names it, checkpointed into the
-entry so a retry never sends one twice. A note document then goes to
-`POST /api/sync/tasks`, and a leftover talk note's capture to
-`POST /api/sync/inbox`. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`,
+Its local SQLite file holds no canonical task data. It holds:
+
+- the outbox;
+- `inbox_cache`, the last inbox it pulled;
+- `task_view`, a fold of the owner's task feed;
+- `note_view`, a fold of the `note` documents on the same feed, with its own cursor.
+
+Everything the phone sends leaves through the outbox, oldest first, with backoff
+and a park after five attempts. An entry's kind decides how it is sent: `capture`,
+`note` or `task`. Kind `talk-note` only drains an entry an earlier build left
+queued. A note's files, and a leftover talk note's, wait beside the database in
+`talk-notes/outbox/`, the attachment upload queue. Each file is uploaded before
+the document that names it and checkpointed into the entry, so a retry never
+sends one twice. A note document then goes to `POST /api/sync/tasks`, and a
+leftover talk note's capture to `POST /api/sync/inbox`. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`,
 `.devbook/arc42/06-runtime-view.md#talk-note-upload`,
 `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push` and
 `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`.
@@ -510,11 +569,8 @@ graph TB
   Creds -.->|bearer| API
 ```
 
-The phone reaches the cloud only through the sync API. Routing a device's
-store through a consumer file-sync product — OneDrive, Google Drive, or any
-other — is not a supported path and corrupts the store; see
-`.devbook/arc42/02-constraints.md#technical-constraints` and
-`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
+The phone reaches the cloud only through the sync API. No device store goes
+through a file-sync product (`.devbook/arc42/02-constraints.md#technical-constraints`).
 
 ## IDE Extensions
 
@@ -566,18 +622,19 @@ hosts it through two explicit-start resources. `ide-vscode-build` runs `npm run 
 `ide-vscode-host` opens a VS Code Extension Development Host with the extension side-loaded.
 `.devbook/tech/ide.md#vs-code-extension-api` has the detail.
 
-Agent sessions are IDE-class hosts, not a container of their own. Local ADR 0012 has them
-call the MCP server that runs inside the desktop app, `Backlog.Infrastructure.Mcp`. Its tools
-read and change the desktop's own store: tasks, the roadmap, devbook chapters and their
-remarks (the Brain's notes among them, with a new note written into the Brain's inbox
-area), sessions and delivery runs.
+Agent sessions reach Backlog the way an IDE does, and are not a container of their own.
+Local ADR 0012 has them call the MCP server that runs inside the desktop app,
+`Backlog.Infrastructure.Mcp`. Its tools read and change the desktop's own store: tasks,
+the roadmap, devbook chapters and their [remarks](../domain/devbook/domain.md#remark),
+sessions, and delivery runs. The chapters include the Brain's notes, and a new note is
+written into the Brain's inbox area.
 
 Visual Studio has no extension yet, and no project exists for it. `.devbook/tech/ide.md`
 lists Visual Studio extensibility and a VS Code webview UI as candidates.
 
-This capture channel is distinct from Dev PC Management `Copilot Session Tracking`. Tracking
-records active and archived session lifecycle for compliance and monitoring. Capture uses
-session context to create backlog and knowledge items.
+This capture channel is distinct from the session record Sessions keeps
+(`.devbook/domain/sessions/domain.md#session-log`). That record tracks session lifecycle
+for monitoring. Capture uses session context to create backlog and knowledge items.
 
 ## Cloud Service
 
@@ -585,37 +642,57 @@ session context to create backlog and knowledge items.
 related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
-The **thin cloud** `.devbook/arc42/12-glossary.md` defines — deliberately not the backbone. It coordinates
-device sync, receives and forwards GitHub webhooks, sends push notifications, and hosts a Remote PC registry / Wake-on-LAN relay. It persists only sync-oriented state, much of it TTL-based, and never the canonical domain data or external credentials (local ADR 0005).
+The cloud service is the glossary's *Thin cloud* (`.devbook/arc42/12-glossary.md#terms`),
+deliberately not the backbone. It persists only sync-oriented state, much of it
+TTL-based, and never canonical domain data or external credentials (local ADR 0005).
 
 "Cloud Service" names where this container runs; the code is named after what it
 does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appears
 in the Aspire app model as the `sync` resource. Only the Sync Service component
-below is implemented today — the webhook receiver, notification service, and PC
-registry are not built yet.
+below is built. The webhook receiver, notification service, and PC registry are
+not.
 
-Device identity is split across three projects rather than living in the API
-head alone: `Backlog.Modules.Sync.Abstractions` carries the contracts and error
-codes both sides reference, `Backlog.Modules.Sync` holds the domain logic —
-device registration, pairing-code issuance and redemption, and device-token
-issuance — behind ports, and `Backlog.Modules.Sync.Api` wires it to HTTP,
-JWT-bearer authentication, and the owner-scoping filter.
+The sync service is five projects:
 
-Task replication runs the same way, and its adapter is a fourth project:
-`src/Infrastructure/Backlog.Infrastructure.Cosmos` implements the `ITaskReplica`
-port against the Cosmos `tasks` container and is the only place in the solution
-that references the Cosmos SDK, so the API head depends on a port implementation
-rather than on a database driver. The device registry and pairing-code store are
-served from the same project against two more containers, `devices` and
-`pairingCodes`, so a registration survives a restart of the service; the module's
-in-memory adapters remain for the endpoint tests and for a run with no Cosmos
-configured.
+```mermaid
+flowchart LR
+  Api["Backlog.Modules.Sync.Api\n(HTTP, JWT bearer, owner-scope filter)"]
+  Module["Backlog.Modules.Sync\n(device identity; ports and\nin-memory adapters)"]
+  Abs["Backlog.Modules.Sync.Abstractions\n(contracts, error codes)"]
+  Cosmos["Backlog.Infrastructure.Cosmos\n(replica ports, device registry)"]
+  Blob["Backlog.Infrastructure.BlobStorage\n(IAttachmentStore)"]
+  CosmosDb[("Cosmos DB\ntasks, sessions, annotations,\ndevices, pairingCodes")]
+  Storage[("Blob container\nattachments")]
 
-Two more replicas take the task replica's shape. The module declares
-`ISessionReplica` and `IAnnotationReplica` in its `Ports`, each with an
-in-memory stand-in in its `Adapters`. `Backlog.Infrastructure.Cosmos`
-implements them against the `sessions` and `annotations` containers (local
-ADRs 0005 and 0011). The API head serves each as one route,
+  Api --> Module
+  Api --> Abs
+  Module --> Abs
+  Cosmos -->|implements ports| Module
+  Blob -->|implements port| Module
+  Cosmos --> CosmosDb
+  Blob --> Storage
+```
+
+- `Backlog.Modules.Sync.Abstractions` carries the contracts and error codes both
+  sides reference.
+- `Backlog.Modules.Sync` holds the domain logic behind ports: device registration,
+  pairing-code issuance and redemption, and device-token issuance. Its `Ports`
+  declare `ITaskReplica`, `ISessionReplica`, `IAnnotationReplica` and
+  `IAttachmentStore`. Its `Adapters` hold an in-memory stand-in for each, for the
+  endpoint tests and for a run with no Cosmos configured.
+- `Backlog.Modules.Sync.Api` wires the module to HTTP, JWT-bearer authentication,
+  and the owner-scoping filter.
+- `Backlog.Infrastructure.Cosmos` implements the replica ports against the
+  `tasks`, `sessions` and `annotations` containers (local ADRs 0005 and 0011). It
+  serves the device registry and pairing-code store from `devices` and
+  `pairingCodes`, so a registration survives a restart of the service. It is the
+  only project that references the Cosmos SDK, so the API head depends on a port
+  implementation rather than on a database driver.
+- `Backlog.Infrastructure.BlobStorage` implements `IAttachmentStore` against the
+  `attachments` blob container (local ADR 0014). It is the only project that
+  references the Storage SDK.
+
+The API head serves sessions and annotations as one route each,
 `/api/sync/sessions` and `/api/sync/annotations`. A device pushes a batch with
 `POST` and pulls the owner's feed from a cursor with `GET`, as it does on
 `/api/sync/tasks`.
@@ -632,19 +709,13 @@ The Cosmos database therefore holds five containers. `tasks`, `sessions` and
 `annotations` are partitioned on the owner, and `devices` and `pairingCodes`
 on their own id.
 
-Attachment bytes take the same shape with a fifth project (local ADR 0014): the
-module declares an `IAttachmentStore` port beside `ITaskReplica`, with an
-in-memory stand-in in its `Adapters`, and
-`src/Infrastructure/Backlog.Infrastructure.BlobStorage` implements it against
-the `attachments` blob container — the only project that references the Storage
-SDK. It stages an upload as uncommitted blocks and commits them only once the
-handler has checked the size and digest, so a refused upload never becomes a
-blob. The API head exposes it as `PUT`/`GET /api/sync/attachments/{id}`, behind
-the same authorization, owner-scope and replica-fault filters as every other
-sync route, with the per-file cap and the type allowlist as
-`Modules:Sync:Attachments` settings. A capture names its files as metadata, and
-the acknowledgement tombstone — the phone's own or the desktop's pushed one —
-releases them, best effort.
+The blob store stages an upload as uncommitted blocks. It commits them only once
+the handler has checked the size and digest, so a refused upload never becomes a
+blob. The API head exposes it as `PUT`/`GET /api/sync/attachments/{id}`, behind the
+same authorization, owner-scope and replica-fault filters as every other sync
+route. The per-file cap and the type allowlist are `Modules:Sync:Attachments`
+settings. A capture names its files as metadata. The acknowledgement tombstone,
+the phone's own or the desktop's pushed one, releases them, best effort.
 
 ```mermaid
 flowchart TB

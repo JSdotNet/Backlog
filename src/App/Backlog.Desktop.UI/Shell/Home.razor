@@ -318,15 +318,18 @@
 
                 @if (DevbookPaneOptionVisible)
                 {
+                    @* Named for what the pane shows, open or not: the Brain's name and
+                       its accent while the pane reads the Brain, Devbook otherwise. *@
                     <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
+                                  CssClass="@(DevbookPaneShowsBrain ? "header-group__option--brain" : null)"
                                   Pressed="PaneOptionPressed(GlobalPane.Devbook)"
                                   id="devbook-pane-option"
                                   TestId="devbook-pane-option"
                                   aria-controls="repository-devbook-pane"
-                                  Title="@PaneOptionTitle(GlobalPane.Devbook, "Devbook")"
+                                  Title="@PaneOptionTitle(GlobalPane.Devbook, DevbookPaneOptionName)"
                                   OnClick="() => PressPane(GlobalPane.Devbook)">
-                        Devbook
+                        @DevbookPaneOptionName
                         <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
                                             Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
                                             TestId="devbook-feature-status" />
@@ -2063,6 +2066,19 @@
     private bool DevbookBrainOffered =>
         _brainFolders is not null
         && (BrainScope.Is(DevbookRepositoryAlias) || DevbookSwitchRepositoryAlias is not null);
+
+    /// <summary>
+    /// Whether the Devbook pane shows the Brain rather than a repository — the
+    /// shell's side of <c>DevbookPane.BrainMode</c>, so the header option can say so
+    /// before the pane is open. <see cref="DevbookRepositoryAlias"/> already folds in
+    /// nothing pressed, a Brain anchor, an entry's reference and the pane's
+    /// <c>Brain | repo</c> switch, so this asks only whether that alias is the Brain
+    /// in a host that composes one.
+    /// </summary>
+    private bool DevbookPaneShowsBrain => _brainFolders is not null && BrainScope.Is(DevbookRepositoryAlias);
+
+    /// <summary>The Devbook option's word, and the name its title acts on.</summary>
+    private string DevbookPaneOptionName => DevbookPaneShowsBrain ? BrainScope.Name : "Devbook";
 
     private bool DevbookPaneVisible => DevbookPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Devbook);
 
