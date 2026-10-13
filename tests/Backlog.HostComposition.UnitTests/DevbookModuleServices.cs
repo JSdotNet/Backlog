@@ -37,6 +37,7 @@ internal static class DevbookModuleServices
         typeof(DevbookScope),
         typeof(DevbookUpdateService),
         typeof(DevbookSourceSelection),
+        typeof(DevbookBranchReview),
         typeof(DevbookFolderOpenService),
         typeof(Arc42DevbookStore),
         typeof(C4DevbookStore),

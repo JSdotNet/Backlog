@@ -9938,34 +9938,45 @@ a.pull-request-detail-checks__name:hover {
 
 /* The section tabs and the atlas toggle on one line. The tabs take the room and
    the toggle takes what it needs at the end; `align-items: center` is what stops
-   the pill stretching to the height of the tab row. */
+   the pill stretching to the height of the tab row.
+
+   The strip wraps. A branch source puts the most on it — the source field, the
+   version control, the review toggle and the atlas — and in a narrow pane a
+   strip that could not wrap squeezed the tabs under their own width, so the
+   controls at the end sat on top of them. Wrapping, the tabs move to a row of
+   their own when they do not fit beside the field, and the controls after them
+   follow on the next. */
 .devbook-stack__strip {
     display: flex;
     flex: 0 0 auto;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--spacing-md);
+    gap: var(--spacing-xs) var(--spacing-md);
     min-width: 0;
 }
 
 .devbook-stack__strip > .devbook-stack__nav {
     flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%;
 }
 
-/* The source the sections are read from, leading the strip. It wears the update
+/* The source the sections are read from, leading the strip: a search field,
+   because a repository can have hundreds of branches. It wears the update
    toggle's shape rather than a field's: on this row it is a quiet pill beside
    the tabs, not a form control, and a bordered input here would out-shout the
-   tabs it qualifies. Sized to its content and never allowed to squeeze the tabs,
-   with a ceiling so a long branch name truncates instead of taking the row. */
+   tabs it qualifies. A fixed width the tabs never lose to, so a long branch
+   name truncates instead of taking the row. It does not shrink either: with
+   min-width 0 a crowded strip squeezed it to an empty sliver of border and
+   padding, which read as the field having lost its text. */
 .devbook-stack__source {
-    flex: 0 0 auto;
+    flex: 0 0 14rem;
     align-self: center;
-    max-width: 12rem;
-    min-width: 0;
+    width: 14rem;
 }
 
-.devbook-stack__source-select {
-    max-width: 100%;
+.devbook-stack__source .combobox__input {
+    width: 100%;
     padding: var(--spacing-2xs) var(--spacing-sm);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-full);
@@ -9973,24 +9984,31 @@ a.pull-request-detail-checks__name:hover {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     text-overflow: ellipsis;
-    cursor: pointer;
+    cursor: text;
     transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.devbook-stack__source-select:hover {
+.devbook-stack__source .combobox__input:hover,
+.devbook-stack__source .combobox__input:focus {
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
 }
 
-.devbook-stack__source-select:focus-visible {
+.devbook-stack__source .combobox__input:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
 }
 
-.devbook-stack__source-error {
-    flex: 0 0 auto;
-    align-self: center;
-    font-size: var(--font-size-xs);
+/* Wider than the field, since a branch name is longer than the field shows, but
+   never wider than the window; a name longer still truncates rather than
+   wrapping into a second line per option. */
+.devbook-stack__source .combobox__list {
+    max-width: min(32rem, 90vw);
+}
+
+.devbook-stack__source .combobox__option {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* The pane's title, on the strip and only while there can be two devbooks — on
@@ -12121,6 +12139,7 @@ a.pull-request-detail-checks__name:hover {
    the version control does: three differently shaped buttons on one line would
    read as three different kinds of thing. */
 .devbook-stack__capture-toggle,
+.devbook-stack__review-toggle,
 .devbook-stack__search-toggle,
 .devbook-stack__atlas-toggle,
 .devbook-stack__atlas-all {
@@ -12137,6 +12156,7 @@ a.pull-request-detail-checks__name:hover {
 }
 
 .devbook-stack__capture-toggle:hover,
+.devbook-stack__review-toggle:hover,
 .devbook-stack__search-toggle:hover,
 .devbook-stack__atlas-toggle:hover,
 .devbook-stack__atlas-all:hover {
@@ -12145,6 +12165,7 @@ a.pull-request-detail-checks__name:hover {
 }
 
 .devbook-stack__capture-toggle:focus-visible,
+.devbook-stack__review-toggle:focus-visible,
 .devbook-stack__search-toggle:focus-visible,
 .devbook-stack__atlas-toggle:focus-visible,
 .devbook-stack__atlas-all:focus-visible {
@@ -12152,10 +12173,71 @@ a.pull-request-detail-checks__name:hover {
     outline-offset: var(--border-width);
 }
 
+.devbook-stack__review-toggle[aria-expanded="true"],
 .devbook-stack__search-toggle[aria-expanded="true"],
 .devbook-stack__atlas-toggle[aria-expanded="true"] {
     color: var(--color-text-primary);
     border-color: var(--color-border-focus);
+}
+
+/* A branch's changes in place of the chapters: which change, which chapter, and
+   what moved in it, side by side as the storybook's whole compare surface lays
+   them out. The review is its own container, so a narrow pane stacks the picker
+   over the chapter list and gives the comparison the rest of the width, and a
+   narrower one still stacks all three. */
+.devbook-review {
+    container: devbook-review / inline-size;
+    height: 100%;
+    min-height: 0;
+}
+
+.devbook-review__columns {
+    display: grid;
+    grid-template-columns: minmax(12rem, 16rem) minmax(12rem, 18rem) minmax(0, 1fr);
+    gap: var(--spacing-md);
+    height: 100%;
+    min-height: 0;
+}
+
+.devbook-review__column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-height: 0;
+    overflow: auto;
+}
+
+.devbook-review__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+@container devbook-review (max-width: 56rem) {
+    .devbook-review__columns {
+        grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .devbook-review__columns > .md-compare {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+    }
+}
+
+@container devbook-review (max-width: 36rem) {
+    .devbook-review__columns {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: none;
+        height: auto;
+    }
+
+    .devbook-review__columns > .md-compare {
+        grid-column: auto;
+        grid-row: auto;
+        min-height: 24rem;
+    }
 }
 
 /* Capture's dialog: the two fields stacked, the actions under them. */

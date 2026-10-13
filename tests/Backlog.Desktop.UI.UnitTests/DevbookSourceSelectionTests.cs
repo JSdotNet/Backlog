@@ -280,6 +280,171 @@ public sealed class DevbookSourceSelectionTests : IDisposable
         Assert.NotEqual("local", DevbookSourceSelection.LocalFolderValue);
     }
 
+    // --- What the search field suggests --------------------------------------
+
+    /// <summary>The field takes a picked suggestion's value as its text, so every
+    /// value is the words the reader sees, never a marker like <c>@local</c>.</summary>
+    [Fact]
+    public async Task Suggestions_carry_their_labels_as_their_values()
+    {
+        var settings = Settings(withClone: true);
+        var selection = Selection(settings, new StubBranchCatalog { Branches = { "main", "release/2.0" } });
+        Assert.Null(await selection.LoadBranchesAsync("backlog", TestContext.Current.CancellationToken));
+
+        var suggestions = selection.Suggestions("backlog", null);
+
+        Assert.All(suggestions, option => Assert.Equal(option.Label, option.Value));
+        Assert.Equal(
+            [DevbookSourceSelection.DefaultBranchLabel, "main", "release/2.0", DevbookSourceSelection.LocalFolderLabel],
+            suggestions.Select(option => option.Value));
+    }
+
+    [Fact]
+    public async Task A_query_keeps_the_suggestions_containing_it_whatever_the_case()
+    {
+        var selection = Selection(
+            Settings(withClone: true),
+            new StubBranchCatalog { Branches = { "main", "claude/search-picker", "codex/Search-fix", "release/2.0" } });
+        Assert.Null(await selection.LoadBranchesAsync("backlog", TestContext.Current.CancellationToken));
+
+        var suggestions = selection.Suggestions("backlog", "SEARCH");
+
+        Assert.Equal(["claude/search-picker", "codex/Search-fix"], suggestions.Select(option => option.Value));
+    }
+
+    /// <summary>A search with nothing loaded has nothing to find yet, so the entry
+    /// that fetches the list stays on offer whatever was typed.</summary>
+    [Fact]
+    public void The_load_entry_survives_any_query_until_the_branches_are_in()
+    {
+        var selection = Selection(Settings());
+
+        var suggestions = selection.Suggestions("backlog", "feature/x");
+
+        Assert.Equal([DevbookSourceSelection.LoadBranchesLabel], suggestions.Select(option => option.Value));
+    }
+
+    [Fact]
+    public void A_blank_query_is_no_filter()
+    {
+        var selection = Selection(Settings(withClone: true));
+
+        Assert.Equal(
+            selection.Suggestions("backlog", null).Select(option => option.Value),
+            selection.Suggestions("backlog", "  ").Select(option => option.Value));
+    }
+
+    [Fact]
+    public void No_scope_suggests_nothing()
+    {
+        Assert.Empty(Selection(Settings()).Suggestions(null, null));
+    }
+
+    // --- What typed text means ------------------------------------------------
+
+    [Fact]
+    public void The_default_label_means_the_default_branch()
+    {
+        Assert.Equal(string.Empty, Selection(Settings()).ValueFor("backlog", DevbookSourceSelection.DefaultBranchLabel));
+    }
+
+    /// <summary>An emptied field is no answer; the default branch has its own
+    /// words, so blank cannot be mistaken for choosing it.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Blank_text_means_nothing(string? text)
+    {
+        Assert.Null(Selection(Settings()).ValueFor("backlog", text));
+    }
+
+    [Fact]
+    public void The_clone_label_means_the_clone_where_there_is_one()
+    {
+        Assert.Equal(
+            DevbookSourceSelection.LocalFolderValue,
+            Selection(Settings(withClone: true)).ValueFor("backlog", DevbookSourceSelection.LocalFolderLabel));
+    }
+
+    [Fact]
+    public void The_clone_label_means_nothing_without_a_clone()
+    {
+        Assert.Null(Selection(Settings()).ValueFor("backlog", DevbookSourceSelection.LocalFolderLabel));
+    }
+
+    [Fact]
+    public void The_load_label_is_the_load_request_while_nothing_is_loaded()
+    {
+        Assert.Equal(
+            DevbookSourceSelection.LoadBranchesValue,
+            Selection(Settings()).ValueFor("backlog", DevbookSourceSelection.LoadBranchesLabel));
+    }
+
+    [Fact]
+    public async Task A_loaded_branch_means_itself()
+    {
+        var selection = Selection(Settings(), new StubBranchCatalog { Branches = { "main", "release/2.0" } });
+        Assert.Null(await selection.LoadBranchesAsync("backlog", TestContext.Current.CancellationToken));
+
+        Assert.Equal("release/2.0", selection.ValueFor("backlog", "release/2.0"));
+    }
+
+    [Fact]
+    public void The_configured_branch_means_itself_with_nothing_loaded()
+    {
+        var settings = Settings();
+        Assert.Null(settings.SetDevbookSource("backlog", "release/2.0", useLocalFolder: false));
+
+        Assert.Equal("release/2.0", Selection(settings).ValueFor("backlog", "release/2.0"));
+    }
+
+    /// <summary>The stored name is the branch's own spelling: git compares names
+    /// exactly, so a branch typed in the wrong case is taken as the one it matches.</summary>
+    [Fact]
+    public async Task A_branch_typed_in_another_case_means_the_branch_as_it_is_spelled()
+    {
+        var selection = Selection(Settings(), new StubBranchCatalog { Branches = { "main", "Feature/Search" } });
+        Assert.Null(await selection.LoadBranchesAsync("backlog", TestContext.Current.CancellationToken));
+
+        Assert.Equal("Feature/Search", selection.ValueFor("backlog", "feature/search"));
+    }
+
+    [Fact]
+    public async Task A_case_insensitive_match_naming_two_branches_means_nothing()
+    {
+        var selection = Selection(Settings(), new StubBranchCatalog { Branches = { "Fix", "fix" } });
+        Assert.Null(await selection.LoadBranchesAsync("backlog", TestContext.Current.CancellationToken));
+
+        Assert.Null(selection.ValueFor("backlog", "FIX"));
+        Assert.Equal("fix", selection.ValueFor("backlog", "fix"));
+    }
+
+    [Fact]
+    public async Task A_branch_the_repository_does_not_have_means_nothing()
+    {
+        var selection = Selection(Settings(), new StubBranchCatalog { Branches = { "main" } });
+        Assert.Null(await selection.LoadBranchesAsync("backlog", TestContext.Current.CancellationToken));
+
+        Assert.Null(selection.ValueFor("backlog", "no-such-branch"));
+    }
+
+    [Fact]
+    public void An_unknown_branch_means_nothing_before_the_list_is_loaded()
+    {
+        Assert.Null(Selection(Settings()).ValueFor("backlog", "main"));
+    }
+
+    /// <summary>Git forbids a space in a branch name, so a label for one of the
+    /// other entries can never be read as a branch somebody created.</summary>
+    [Fact]
+    public void The_entry_labels_cannot_be_branch_names()
+    {
+        Assert.Contains(' ', DevbookSourceSelection.DefaultBranchLabel);
+        Assert.Contains(' ', DevbookSourceSelection.LocalFolderLabel);
+        Assert.Contains(' ', DevbookSourceSelection.LoadBranchesLabel);
+    }
+
     [Fact]
     public async Task A_refused_branch_listing_comes_back_as_a_message()
     {

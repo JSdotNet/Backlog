@@ -18,11 +18,16 @@ public interface IGitHubBranchCatalog
     /// <summary>
     /// The repository's branches, in the order GitHub lists them.
     /// <para>
-    /// One page, not every page. A branch selector is a list somebody picks from
-    /// and a repository with more branches than one page holds is a repository
-    /// where scrolling to the four-hundredth was never the interaction — the
-    /// branch can still be typed. Paging the whole set would turn opening
-    /// Settings into an unbounded number of calls.
+    /// Every page, up to <see cref="GitHubBranchCatalog.BranchListLimit"/>
+    /// branches. The list is what the source picker searches, so a branch left
+    /// off it could neither be found nor typed — one page of a hundred hid
+    /// seventy-four of this repository's own. The ceiling keeps a repository
+    /// with thousands of branches from turning one click into dozens of calls;
+    /// a list that reaches it may be missing some, and the picker asks GitHub
+    /// for a typed name it does not hold before saying there is no such branch.
+    /// </para>
+    /// <para>
+    /// Fetched only when somebody asks for it, never on opening a screen.
     /// </para>
     /// </summary>
     Task<IReadOnlyList<string>> ListBranchesAsync(
@@ -56,6 +61,12 @@ public sealed record GitHubBranchHead(string Branch, string Sha);
 /// <inheritdoc />
 public sealed class GitHubBranchCatalog(IGitHubTransport transport) : IGitHubBranchCatalog
 {
+    /// <summary>The most branches a listing reads: ten pages of a hundred.</summary>
+    public const int BranchListLimit = 1000;
+
+    /// <summary>The page size GitHub allows at most for branches.</summary>
+    private const int PageSize = 100;
+
     private readonly IGitHubTransport _transport = transport ?? throw new ArgumentNullException(nameof(transport));
 
     public async Task<IReadOnlyList<string>> ListBranchesAsync(
@@ -64,20 +75,31 @@ public sealed class GitHubBranchCatalog(IGitHubTransport transport) : IGitHubBra
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        var payload = await _transport.SendAsync(
-            HttpMethod.Get,
-            $"repos/{repository.Owner}/{repository.Name}/branches?per_page=100",
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var names = new List<string>();
 
-        if (payload.ValueKind is not JsonValueKind.Array) return [];
+        // Paged until a short page rather than by the Link header: the transport
+        // hands back the parsed body only, and a page holding fewer than asked
+        // for is GitHub's own way of saying it was the last.
+        for (var page = 1; names.Count < BranchListLimit; page++)
+        {
+            var payload = await _transport.SendAsync(
+                HttpMethod.Get,
+                $"repos/{repository.Owner}/{repository.Name}/branches?per_page={PageSize}&page={page}",
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        return
-        [
-            .. payload.EnumerateArray()
-                .Select(branch => branch.TryGetProperty("name", out var name) ? name.GetString() : null)
+            if (payload.ValueKind is not JsonValueKind.Array) break;
+
+            var rows = payload.GetArrayLength();
+
+            names.AddRange(payload.EnumerateArray()
+                .Select(branch => branch.ValueKind is JsonValueKind.Object && branch.TryGetProperty("name", out var name) ? name.GetString() : null)
                 .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Select(name => name!.Trim())
-        ];
+                .Select(name => name!.Trim()));
+
+            if (rows < PageSize) break;
+        }
+
+        return names.Count > BranchListLimit ? names.GetRange(0, BranchListLimit) : names;
     }
 
     public async Task<GitHubBranchHead?> ResolveHeadAsync(

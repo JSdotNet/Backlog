@@ -73,6 +73,9 @@ public static class DevbookModuleRegistration
         // Shared by the Devbook pane and the settings screen, and a singleton so
         // the branch list somebody fetched in one is already there in the other.
         services.AddSingleton<DevbookSourceSelection>();
+        // Reviewing the branch the pane reads, commit by commit. A singleton
+        // because what GitHub answered is kept for the session, in memory only.
+        services.AddSingleton<DevbookBranchReview>();
         services.AddSingleton<DevbookFolderOpenService>();
         services.AddSingleton<Arc42DevbookStore>();
         // The C4 model beside the architecture chapters. Registered next to the
