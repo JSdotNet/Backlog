@@ -285,6 +285,14 @@ public static class DesktopCompositionRegistration
             options.WindowStateLifetime));
         services.AddSingleton(options.FolderEditorLauncher);
 
+        // The Brain folder (local ADR 0026): where it is, kept per user and never in
+        // the folder, and the file-system work of setting one up that the Settings
+        // card does. The folder picker behind its Browse is the desktop head's
+        // alone; a host that registers none types the folder instead.
+        services.AddSingleton(options.BrainSettings);
+        services.AddSingleton<IBrainSettings>(sp => sp.GetRequiredService<BrainSettingsStore>());
+        services.AddSingleton(_ => new BrainFolderSetup());
+
         services.AddSingleton(options.AppUpdateService);
         services.AddSingleton(options.DevToolService);
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.

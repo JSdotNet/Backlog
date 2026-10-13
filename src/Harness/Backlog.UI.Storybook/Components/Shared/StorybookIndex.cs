@@ -343,7 +343,13 @@ internal static class StorybookIndex
             // chapter it sits in — heading, record, prose — is everything the pages
             // above have introduced. It draws Badge and MarkdownView, both from
             // groups higher up, so nothing here is shown before its parts.
-            new("devbook/annotations", "Review notes", "DevbookAnnotationNote: the devbook convention's `annotation` fence drawn as a read-only review note under the passage it is about — never as the YAML it is written in, and never as the person's own margin remark.")
+            new("devbook/annotations", "Review notes", "DevbookAnnotationNote: the devbook convention's `annotation` fence drawn as a read-only review note under the passage it is about — never as the YAML it is written in, and never as the person's own margin remark."),
+
+            // After Review notes, last in the chapter: the Brain is a devbook of the
+            // person's own (local ADR 0026), and this is where its folder is chosen.
+            // It draws a TextField, two AppButtons and an Alert, all introduced in
+            // Input and action and Feedback above, and its own card.
+            new("devbook/brain-folder", "Brain folder", "BrainFolderCard: where the person's Brain lives — a folder outside every repository, picked once — whether it is synced, that its database never is, and Create conventions while its README or CONVENTIONS is missing.")
         ]),
 
         // The second subject-named group with subpages, for the reason recorded

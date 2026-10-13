@@ -131,6 +131,12 @@ public sealed class DesktopCompositionOptions
     /// in the installed app, the catalog-only one in the harness.</summary>
     public required Func<IServiceProvider, IDevToolService> DevToolService { get; init; }
 
+    /// <summary>Where the Brain folder setting is kept (local ADR 0026): the
+    /// per-user file beside the workspace settings in the installed app; one under
+    /// the content root in the harness, so a folder picked there is not the
+    /// installed app's.</summary>
+    public required Func<IServiceProvider, BrainSettingsStore> BrainSettings { get; init; }
+
     /// <summary>What opens a devbook folder in an editor.</summary>
     public required Func<IServiceProvider, IFolderEditorLauncher> FolderEditorLauncher { get; init; }
 

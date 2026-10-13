@@ -45,13 +45,14 @@ Turning it on shows the Devbook side pane: for the repository the scope's anchor
 ```meta
 status: draft
 type: setting
-key: brain-folder
+key: brain.settings.json
 scope: user
 default: none
 related: [".devbook/domain/devbook/features.md#brain-folder-setup", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md"]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests]
 ```
 
-The folder that holds the person's Brain, chosen in Settings › Storage. It ships with no value, because no path suits every person: until one is chosen the Brain has no notes, the Brain chip still scopes tasks, and the Devbook pane on the Brain asks for a folder. Any folder outside a repository works, and a OneDrive folder is the expected one. The path is kept in the app's per-user settings beside the workspace settings and is never written into the folder, because the app has to know the path before it can read the folder. Choosing another folder builds another database: the database is keyed by the folder's absolute path, and the old one is left behind.
+The folder that holds the person's Brain, chosen on the Brain card in Settings › Storage. It ships with no value, because no path suits every person: until one is chosen the Brain has no notes, the Brain chip still scopes tasks, and the Devbook pane on the Brain asks for a folder. Any folder outside a repository works, and a OneDrive folder is the expected one; a folder inside a repository's working tree, a relative path or a file is refused in words, and a folder that does not exist yet is created. The path is kept in `brain.settings.json`, a file of its own beside the workspace's `settings.json` in the app's per-user folder, and is never written into the Brain folder, because the app has to know the path before it can read the folder. It is not a key in `settings.json` because that file is one decision, where the backlog lives and where it is backed up, and moving the backlog never moves the Brain. Blanking the field clears the setting. `IBrainSettings` in `Backlog.Modules.Devbook.Abstractions` is the port every reader takes, with `BrainSetup` holding the chip's two names and the link to the card; `BrainSettingsStore` is the file. Choosing another folder builds another database: the database is keyed by the folder's absolute path, and the old one is left behind.
 
 ## Instruction optimization
 

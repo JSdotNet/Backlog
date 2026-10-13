@@ -123,6 +123,14 @@ a template the app ships, the PARA set by default, and never overwrites a file
 that is already there. From then on the folder carries its own convention, so a
 second machine that reads the synced folder sees the same areas.
 
+The shipped `CONVENTIONS.md` declares its areas as a table under an `## Areas`
+heading, one row per area in tab order with its name, its folder and what it
+holds; with no rows, the PARA set applies. The area folders Create conventions
+makes are the ones the folder's own `CONVENTIONS.md` declares, so a person who
+wrote theirs first gets their areas, not the template's. **Browse** opens the
+Windows folder picker in the installed app; a host without one, the browser
+harness among them, takes a typed path.
+
 ## Brain mode of the Devbook pane
 
 ```meta

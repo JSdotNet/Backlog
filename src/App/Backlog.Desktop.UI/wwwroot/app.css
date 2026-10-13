@@ -2470,6 +2470,12 @@ h1, h2, h3 {
     border-top: 0;
 }
 
+/* The Brain card follows the two Storage columns rather than sitting in either,
+   so it takes the gap the columns keep between themselves. */
+.setting-columns + .brain-card {
+    margin-top: var(--spacing-lg);
+}
+
 
 .settings-tabs {
     display: flex;

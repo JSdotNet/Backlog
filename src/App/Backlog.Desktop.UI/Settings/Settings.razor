@@ -52,6 +52,8 @@
    see the note at the top of the file. SelectField is what the account binding
    below is drawn with. *@
 @using Backlog.UI.Components.Selects
+@* The Brain card on the Storage page, drawn by the library and fed here. *@
+@using Backlog.UI.Components.Brain
 @* For the optional logger the Storage page notes a missing backup worker in,
    rather than failing the screen over it. *@
 @using Microsoft.Extensions.Logging
@@ -71,6 +73,9 @@
 @* The pages the modules bring, each registered by its own .UI project; empty in
    a host that registers none, and then only the app-wide pages are drawn. *@
 @inject IEnumerable<SettingsSection> RegisteredSections
+@* Only to bring the Brain card's field into view when a link opened this page
+   at it; see OnAfterRenderAsync. *@
+@inject IJSRuntime JS
 @implements IDisposable
 
 @*
@@ -956,6 +961,29 @@
                     }
                 </div>
             </div>
+
+            @* The person's Brain (local ADR 0026): one folder outside every
+               repository, picked here once. Below the two columns rather than in
+               either, because it is neither the backlog's folder nor its backup -
+               moving the backlog never moves the Brain. Drawn only where the host
+               composes the Brain's setting, so a host without one still renders
+               this screen. The Brain chip reads "Set up your Brain" and links here
+               (BrainSetup.SettingsHref) until a folder is set. *@
+            @if (_brainSettings is not null && _brainSetup is not null)
+            {
+                <BrainFolderCard Id="@BrainSetup.CardId"
+                                 TestId="brain-folder-card"
+                                 Folder="@_draftBrainFolder"
+                                 FolderChanged="value => _draftBrainFolder = value"
+                                 OnCommit="ApplyBrainFolder"
+                                 Status="@_brainStatus"
+                                 CanBrowse="@(_brainPicker is not null)"
+                                 Browsing="@_browsingBrainFolder"
+                                 OnBrowse="BrowseBrainFolderAsync"
+                                 OnCreateConventions="CreateBrainConventions"
+                                 Error="@_brainError"
+                                 Message="@_brainMessage" />
+            }
         </TabPanel>
 
     @if (IsSettingsPageAvailable(SettingsPage.Accounts))
@@ -1956,6 +1984,10 @@
         {
             _activePage = page;
             _activeSectionId = null;
+
+            // The Brain folder is the person's to change by hand, so what the card
+            // says about it is looked at again each time Storage is opened.
+            if (page is SettingsPage.Storage) RefreshBrainStatus();
         }
     }
 
@@ -2425,12 +2457,20 @@
         SyncUsageEndpointDrafts();
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
+        InitializeBrain();
+
+        // A link may open this screen at a page - the Brain chip's "Set up your
+        // Brain" opens Storage. An id that names no page leaves the default.
+        if (!string.IsNullOrWhiteSpace(Page)) ShowSettingsPageById(Page.Trim());
+
         return Task.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+
+        await RevealBrainCardAsync();
 
         // Asking GitHub who we are is a network call, so it happens after the
         // page is on screen rather than holding it up. The usage card reads as
@@ -3601,6 +3641,7 @@
     /// </summary>
     public void Dispose()
     {
+        if (_brainSettings is not null) _brainSettings.Changed -= OnBrainSettingsChanged;
         if (_backup is not null) _backup.Changed -= OnBackupChanged;
         DevbookFolders.Changed -= OnDevbookFoldersChanged;
     }

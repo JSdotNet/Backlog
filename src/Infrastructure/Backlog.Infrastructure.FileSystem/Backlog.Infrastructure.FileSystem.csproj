@@ -74,6 +74,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The convention Create conventions writes into a new Brain (local ADR
+         0026), kept as the Markdown it is so what lands in the person's folder
+         can be reviewed as written. Named by file rather than by folder path so
+         BrainConventionTemplate does not depend on where the files sit. -->
+    <EmbeddedResource Include="Brain\Templates\*.md" LogicalName="Backlog.Brain.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The backup worker logs what a scheduled run did the way the sync
          workers do: a refusal at information, an unplanned exception at error.
          Abstractions only; which sink hears it is the host's business. -->
