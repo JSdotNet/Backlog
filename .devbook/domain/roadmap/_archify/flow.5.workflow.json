@@ -40,7 +40,7 @@
       "width": 220,
       "type": "database",
       "label": "Roadmap Item",
-      "sublabel": "tag, backlog_entry_id",
+      "sublabel": "tag, task_id",
       "tag": "knowledge_refs"
     },
     {
@@ -68,7 +68,7 @@
       "width": 220,
       "type": "backend",
       "label": "By name",
-      "sublabel": "the linked entry",
+      "sublabel": "the named task",
       "tag": "+ listed knowledge_refs"
     },
     {
@@ -78,7 +78,7 @@
       "width": 220,
       "type": "backend",
       "label": "By tag",
-      "sublabel": "entries filed under the tag",
+      "sublabel": "tasks filed under the tag",
       "tag": "+ chapters whose roadmap list names it"
     },
     {
@@ -89,7 +89,7 @@
       "type": "backend",
       "label": "Merge",
       "sublabel": "reached both ways is counted once",
-      "tag": "recorded as held by both threads"
+      "tag": "and recorded as reached both ways"
     },
     {
       "id": "total",
@@ -345,7 +345,7 @@
       "dot": "cyan",
       "title": "Gathering on the read path",
       "items": [
-        "Nothing is written back — not to the plan, not to an entry, not to a chapter",
+        "Nothing is written back — not to the plan, not to a task, not to a chapter",
         "An unreachable supplier shrinks a total rather than corrupting a plan",
         "Roadmap Item Gathering reads effort it never registers"
       ]

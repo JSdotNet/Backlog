@@ -5065,7 +5065,7 @@
         <path data-edge-from="repo" data-edge-to="monitor" data-edge-label="Customer/Supplier — health and scan feed" data-edge-key="10" data-composition-points="2540,358;2540,500;1325,500;1325,880" d="M 2540 358 L 2540 492 Q 2540 500 2532 500 L 1333 500 Q 1325 500 1325 508 L 1325 880" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="devpc" data-edge-to="monitor" data-edge-label="OHS + Published Language — MachineStatusChanged / ComplianceUpdated" data-edge-key="11" data-composition-points="2540,1500;2540,1280;1325,1280;1325,938" d="M 2540 1500 L 2540 1288 Q 2540 1280 2532 1280 L 1333 1280 Q 1325 1280 1325 1272 L 1325 938" class="a-default" data-animate="edge" style="--step:11" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="productivity" data-edge-to="monitor" data-edge-label="OHS + Published Language — ProductivityRecorded" data-edge-key="12" data-composition-points="400,1529;805,1529;805,922;1210,922" d="M 400 1529 L 797 1529 Q 805 1529 805 1521 L 805 930 Q 805 922 813 922 L 1210 922" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="environment" data-edge-to="monitor" data-edge-label="Customer/Supplier — environment availability feed" data-edge-key="13" data-composition-points="2540,958;2540,1060;1325,1060;1325,938" d="M 2540 958 L 2540 1052 Q 2540 1060 2532 1060 L 1333 1060 Q 1325 1060 1325 1052 L 1325 938" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="monitor" data-edge-to="environment" data-edge-label="Customer/Supplier — health and availability signals" data-edge-key="13" data-composition-points="1325,938;1325,1060;2540,1060;2540,958" d="M 1325 938 L 1325 1052 Q 1325 1060 1333 1060 L 2532 1060 Q 2540 1060 2540 1052 L 2540 958" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="monitor" data-edge-to="inbox" data-edge-label="OHS + Published Language — FollowUpCaptured" data-edge-key="14" data-composition-points="1210,909;1085,909;1085,342;960,342" d="M 1210 909 L 1093 909 Q 1085 909 1085 901 L 1085 350 Q 1085 342 1077 342 L 960 342" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="tech" data-edge-to="repo" data-edge-label="Customer/Supplier — technology baselines" data-edge-key="15" data-composition-points="2100,916;2270,916;2270,342;2440,342" d="M 2100 916 L 2262 916 Q 2270 916 2270 908 L 2270 350 Q 2270 342 2278 342 L 2440 342" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="tech" data-edge-to="devpc" data-edge-label="Customer/Supplier — team tools baseline" data-edge-key="16" data-composition-points="2000,938;2000,1529;2440,1529" d="M 2000 938 L 2000 1521 Q 2000 1529 2008 1529 L 2440 1529" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
@@ -5078,10 +5078,11 @@
         <path data-edge-from="environment" data-edge-to="backlog" data-edge-label="Customer/Supplier — launchable environment links" data-edge-key="23" data-composition-points="2640,929;2820,929;2820,40;300,40;300,300" d="M 2640 929 L 2812 929 Q 2820 929 2820 921 L 2820 48 Q 2820 40 2812 40 L 308 40 Q 300 40 300 48 L 300 300" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="environment" data-edge-to="devpc" data-edge-label="Customer/Supplier — environment shortcuts" data-edge-key="24" data-composition-points="2540,958;2540,1500" d="M 2540 958 L 2540 1500" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="devpc" data-edge-to="sessions" data-edge-label="Customer/Supplier (not built) — machine identity for an environment" data-edge-key="25" data-composition-points="2440,1529;1520,1529" d="M 2440 1529 L 1520 1529" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="sessions" data-edge-to="productivity" data-edge-label="Customer/Supplier (not built) — agent session facts" data-edge-key="26" data-composition-points="1320,1542;400,1542" d="M 1320 1542 L 400 1542" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="sessions" data-edge-to="monitor" data-edge-label="Customer/Supplier (not built) — stalled-session observation" data-edge-key="27" data-composition-points="1420,1500;1420,1219;1325,1219;1325,938" d="M 1420 1500 L 1420 1227 Q 1420 1219 1412 1219 L 1333 1219 Q 1325 1219 1325 1211 L 1325 938" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="repo" data-edge-to="backlog" data-edge-label="Customer/Supplier — repo registry lookup" data-edge-key="28" data-composition-points="2540,300;2540,90;300,90;300,300" d="M 2540 300 L 2540 98 Q 2540 90 2532 90 L 308 90 Q 300 90 300 98 L 300 300" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="repo" data-edge-to="roadmap" data-edge-label="Customer/Supplier — repo registry lookup by alias" data-edge-key="29" data-composition-points="2440,316;2080,316" d="M 2440 316 L 2080 316" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="sessions" data-edge-to="productivity" data-edge-label="Customer/Supplier — agent session facts" data-edge-key="26" data-composition-points="1320,1542;400,1542" d="M 1320 1542 L 400 1542" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="sessions" data-edge-to="backlog" data-edge-label="Customer/Supplier — linked session state" data-edge-key="27" data-composition-points="1420,1558;1420,1640;100,1640;100,329;200,329" d="M 1420 1558 L 1420 1632 Q 1420 1640 1412 1640 L 108 1640 Q 100 1640 100 1632 L 100 337 Q 100 329 108 329 L 200 329" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="sessions" data-edge-to="monitor" data-edge-label="Customer/Supplier (not built) — stalled-session observation" data-edge-key="28" data-composition-points="1420,1500;1420,1219;1325,1219;1325,938" d="M 1420 1500 L 1420 1227 Q 1420 1219 1412 1219 L 1333 1219 Q 1325 1219 1325 1211 L 1325 938" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="repo" data-edge-to="backlog" data-edge-label="Customer/Supplier — repo registry lookup" data-edge-key="29" data-composition-points="2540,300;2540,90;300,90;300,300" d="M 2540 300 L 2540 98 Q 2540 90 2532 90 L 308 90 Q 300 90 300 98 L 300 300" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="repo" data-edge-to="roadmap" data-edge-label="Customer/Supplier — repo registry lookup by alias" data-edge-key="30" data-composition-points="2440,316;2080,316" d="M 2440 316 L 2080 316" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
 
         <!-- Components -->
         <g id="node-backlog" data-node-id="backlog" data-node-label="Tasks" tabindex="0" role="button" aria-label="Focus Tasks, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-context="Architecture component">
@@ -5257,9 +5258,9 @@
           <rect x="687.2" y="1205.5" width="235.6" height="14" rx="3" class="c-mask"/>
           <text x="805" y="1215.5" class="t-muted" font-size="8" text-anchor="middle">OHS + Published Language — ProductivityRecorded</text>
         </g>
-        <g data-detail="context" data-edge-from="environment" data-edge-to="monitor" data-edge-label="Customer/Supplier — environment availability feed" data-edge-key="13">
-          <rect x="1809.9" y="1040" width="245.2" height="14" rx="3" class="c-mask"/>
-          <text x="1932.5" y="1050" class="t-muted" font-size="8" text-anchor="middle">Customer/Supplier — environment availability feed</text>
+        <g data-detail="context" data-edge-from="monitor" data-edge-to="environment" data-edge-label="Customer/Supplier — health and availability signals" data-edge-key="13">
+          <rect x="1805.1" y="1040" width="254.79999999999998" height="14" rx="3" class="c-mask"/>
+          <text x="1932.5" y="1050" class="t-muted" font-size="8" text-anchor="middle">Customer/Supplier — health and availability signals</text>
         </g>
         <g data-detail="context" data-edge-from="monitor" data-edge-to="inbox" data-edge-label="OHS + Published Language — FollowUpCaptured" data-edge-key="14">
           <rect x="976.8" y="605.5" width="216.4" height="14" rx="3" class="c-mask"/>
@@ -5309,19 +5310,23 @@
           <rect x="1814.2" y="1509" width="331.59999999999997" height="14" rx="3" class="c-mask"/>
           <text x="1980" y="1519" class="t-messagebus" font-size="8" text-anchor="middle">Customer/Supplier (not built) — machine identity for an environment</text>
         </g>
-        <g data-detail="context" data-edge-from="sessions" data-edge-to="productivity" data-edge-label="Customer/Supplier (not built) — agent session facts" data-edge-key="26">
-          <rect x="732.6" y="1522" width="254.79999999999998" height="14" rx="3" class="c-mask"/>
-          <text x="860" y="1532" class="t-messagebus" font-size="8" text-anchor="middle">Customer/Supplier (not built) — agent session facts</text>
+        <g data-detail="context" data-edge-from="sessions" data-edge-to="productivity" data-edge-label="Customer/Supplier — agent session facts" data-edge-key="26">
+          <rect x="761.4" y="1522" width="197.2" height="14" rx="3" class="c-mask"/>
+          <text x="860" y="1532" class="t-muted" font-size="8" text-anchor="middle">Customer/Supplier — agent session facts</text>
         </g>
-        <g data-detail="context" data-edge-from="sessions" data-edge-to="monitor" data-edge-label="Customer/Supplier (not built) — stalled-session observation" data-edge-key="27">
+        <g data-detail="context" data-edge-from="sessions" data-edge-to="backlog" data-edge-label="Customer/Supplier — linked session state" data-edge-key="27">
+          <rect x="659" y="1620" width="202" height="14" rx="3" class="c-mask"/>
+          <text x="760" y="1630" class="t-muted" font-size="8" text-anchor="middle">Customer/Supplier — linked session state</text>
+        </g>
+        <g data-detail="context" data-edge-from="sessions" data-edge-to="monitor" data-edge-label="Customer/Supplier (not built) — stalled-session observation" data-edge-key="28">
           <rect x="1225.9" y="1199" width="293.2" height="14" rx="3" class="c-mask"/>
           <text x="1372.5" y="1209" class="t-messagebus" font-size="8" text-anchor="middle">Customer/Supplier (not built) — stalled-session observation</text>
         </g>
-        <g data-detail="context" data-edge-from="repo" data-edge-to="backlog" data-edge-label="Customer/Supplier — repo registry lookup" data-edge-key="28">
+        <g data-detail="context" data-edge-from="repo" data-edge-to="backlog" data-edge-label="Customer/Supplier — repo registry lookup" data-edge-key="29">
           <rect x="1319" y="70" width="202" height="14" rx="3" class="c-mask"/>
           <text x="1420" y="80" class="t-muted" font-size="8" text-anchor="middle">Customer/Supplier — repo registry lookup</text>
         </g>
-        <g data-detail="context" data-edge-from="repo" data-edge-to="roadmap" data-edge-label="Customer/Supplier — repo registry lookup by alias" data-edge-key="29">
+        <g data-detail="context" data-edge-from="repo" data-edge-to="roadmap" data-edge-label="Customer/Supplier — repo registry lookup by alias" data-edge-key="30">
           <rect x="2137.4" y="296" width="245.2" height="14" rx="3" class="c-mask"/>
           <text x="2260" y="306" class="t-muted" font-size="8" text-anchor="middle">Customer/Supplier — repo registry lookup by alias</text>
         </g>

@@ -19,12 +19,14 @@
     { "id": "archived", "type": "neutral", "label": "Archived", "lane": "terminal", "col": 1 }
   ],
   "transitions": [
-    { "id": "route-out", "from": "unprocessed", "to": "routed", "label": "Route to Tasks / Create plan" },
+    { "id": "route-out", "from": "unprocessed", "to": "routed", "label": "Route to Tasks / Create plan / To Brain", "fromSide": "right", "toSide": "left", "labelDy": -26 },
     { "id": "defer", "from": "unprocessed", "to": "deferred", "label": "Defer for later review", "fromSide": "bottom", "toSide": "top", "labelDx": -66, "labelDy": 60 },
     { "id": "review-date", "from": "deferred", "to": "unprocessed", "label": "Review date reached / Return to inbox", "fromSide": "top", "toSide": "bottom", "labelDx": 103, "labelDy": -46 },
-    { "id": "dismiss", "from": "unprocessed", "to": "archived", "label": "Dismiss / not actionable", "fromSide": "top", "toSide": "right", "via": [[402, 96], [850, 96], [850, 479]], "labelSegment": 1 },
+    { "id": "dismiss", "from": "unprocessed", "to": "archived", "label": "Dismiss / not actionable", "fromSide": "top", "toSide": "right", "via": [[402, 80], [850, 80], [850, 479]], "labelSegment": 1 },
     { "id": "change-review-date", "from": "deferred", "to": "deferred", "label": "Change the review date", "fromSide": "bottom", "toSide": "left", "via": [[402, 372], [300, 372], [300, 307]] },
-    { "id": "route-deferred", "from": "deferred", "to": "routed", "label": "Route to Tasks / Create plan", "fromSide": "right", "toSide": "bottom" },
-    { "id": "dismiss-deferred", "from": "deferred", "to": "archived", "label": "Dismissed after deferral", "fromSide": "right", "toSide": "top" }
+    { "id": "route-deferred", "from": "deferred", "to": "routed", "label": "Route to Tasks / Create plan / To Brain", "fromSide": "right", "toSide": "bottom" },
+    { "id": "dismiss-deferred", "from": "deferred", "to": "archived", "label": "Dismissed after deferral", "fromSide": "right", "toSide": "top" },
+    { "id": "undo-routed", "from": "routed", "to": "unprocessed", "label": "Undo (return to the inbox)", "fromSide": "left", "toSide": "right", "labelDy": 28 },
+    { "id": "undo-archived", "from": "archived", "to": "unprocessed", "label": "Undo (restore)", "fromSide": "left", "toSide": "left", "via": [[250, 479], [250, 157]], "labelSegment": 1 }
   ]
 }
