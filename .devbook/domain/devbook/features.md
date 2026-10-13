@@ -530,17 +530,17 @@ run says so on its source line.
 
 ```meta
 type: sub-feature
-related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/08-crosscutting-concepts.md#storage-and-sync]
+related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/08-crosscutting-concepts.md#storage-and-sync, .devbook/domain/devbook/requirements.md#remarks-on-a-chapter]
 ```
 
 Let a reader leave a [remark](domain.md#remark) against one block of a chapter
 while reading it, and keep it. A remark can be a question, a flag or a note to
 self, and it sits beside the prose rather than inside it. It belongs to the
 person, not to the repository. The app keeps it, it moves with the person's
-backlog, and it reaches their other devices through sync. It is never written
-into the repository's devbook folders, so a reader can remark on a chapter read
-from a branch nobody can edit. A remark can be resolved, which keeps it visible
-and quiet, or deleted.
+backlog, and it reaches their other devices through sync. Because it stays out
+of the repository, a reader can remark on a chapter read from a branch nobody
+can edit; [the Remark invariants](domain.invariants.md#remark) say how. A remark
+can be resolved, which keeps it visible and quiet, or deleted.
 
 A remark is not a [Review Note](domain.md#review-note), the `annotation` fence a
 repository writes into a chapter; those are shown under
@@ -548,9 +548,9 @@ repository writes into a chapter; those are shown under
 remark into a review note.
 
 A remark is anchored to the block it was left on, and remembers what that block
-said. When the chapter changes above it, the remark follows its own passage to
-wherever it has moved. A remark whose passage has been deleted, or rewritten into
-something else, is shown at the end of the chapter rather than lost.
+said, so the chapter can change under it without the remark being lost. Where the
+read view then shows it is in
+[the requirements of this feature](requirements.md#remarks-on-a-chapter).
 
 ### Review notes in a chapter
 

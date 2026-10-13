@@ -104,3 +104,52 @@ tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemSubItemTests.ParentP
 A task's progress is the share of its sub-items that are done, and zero when it has none.
 
 Enforced at: `Progress`
+
+### Invariant: A blank area is unfiled
+
+```meta
+status: draft
+type: invariant
+```
+
+A blank or whitespace-only area is stored as no area, which reads as unfiled, and any other area is stored trimmed.
+
+Enforced at: `SetArea()`, which every path that writes an area goes through
+
+### Invariant: Effort is never negative
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemEffortTests.SetEffort_Negative_IsRefusedAndLeavesTheValueUnchanged, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemEffortTests.SetEffort_HoldsAnyNonNegativeValue]
+```
+
+A task's Effort is absent or a whole number of zero or more; a negative estimate is refused and leaves the effort as it was.
+
+Enforced at: `SetEffort()`
+
+### Invariant: Readiness is derived and never stored
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.A_task_is_ready_when_everything_it_named_is_finished, unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.Finishing_one_step_frees_every_row_that_named_it]
+```
+
+A task's Readiness is worked out from its `depends_on` and the tasks those ids name on every read, and is never stored on the task.
+A stored readiness would go stale the moment a predecessor was completed.
+
+Enforced at: `TaskChain.Resolve()`, a stateless function in `Backlog.UI.Components.Tasks` rather than in the Tasks module; `TaskItem` holds no readiness
+
+### Invariant: A ticked task reads done
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.UI.Components.UnitTests.TaskPromptTests.Done_wins_over_an_outstanding_dependency
+```
+
+A [Completed](domain.md#completed) task, one the person has ticked off, reads `done` and waits on nothing, even when a task it names is still outstanding.
+Done is a recorded fact where blocked is only a conclusion.
+
+Enforced at: `TaskChain.Resolve()` in `Backlog.UI.Components.Tasks`, over rows whose `Done` the Tasks pane sets from the tick (`completed_on`) and not from `Task Status`

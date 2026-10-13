@@ -15,7 +15,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#session-log]
 ```
 
-> The rules the Session Log holds every reading to. No domain type holds the log: the readers in the sessions infrastructure keep these rules, so `Enforced at:` names them.
+> The rules the Session Log holds every reading and every record to. No domain type holds the log: the readers in the sessions infrastructure, and for a replicated record the Sync module and the sync infrastructure, keep these rules, so `Enforced at:` names them.
 
 ### Invariant: A session appears once
 
@@ -126,3 +126,55 @@ The log's completeness counts only what the reading dropped, never the rows the 
 One number for both would have the log confess to a shortfall the reader asked for.
 
 Enforced at: `AgentSessionCatalog`, whose rows `AgentSessionViews.Of()` narrows only after it has answered
+
+### Invariant: A session is identified by agent and session id together
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemorySessionReplicaTests.Two_agents_reporting_one_session_id_keep_two_records, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.Two_agents_with_one_session_id_are_two_records, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.Activity_is_matched_on_the_agent_and_the_id_together]
+```
+
+A session is identified by its agent and its session id together, never by the session id alone.
+Two agents may issue the same string, and a log keyed on the id alone would silently merge two unrelated sessions.
+
+Enforced at: `SessionRecordKey.For()` (`{machine}:{agent}:{session}`), which `InMemorySessionReplica` and `CosmosSessionReplica` key on; `AgentSessionRecordStore`, which keys the local record the same way
+
+### Invariant: Only the gathering environment writes a session record
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemorySessionReplicaTests.An_appended_record_is_stamped_with_the_scopes_machine, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemorySessionReplicaTests.Two_machines_reporting_one_session_id_keep_two_records, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemorySessionReplicaTests.Re_appending_a_session_replaces_that_machines_record, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.The_pushed_body_names_no_machine_id, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.A_replicated_session_is_never_pushed]
+```
+
+A session record is written only by the environment that gathered it, and a record that arrived through sync is never pushed again.
+A second push of the same session replaces that environment's own record and reaches no other; an environment that re-published another's records would attach somebody else's work to itself.
+
+Enforced at: `SessionRecordKey.For()`, which leads the key with the machine id; `PushSessionsCommandHandler`, which takes the machine from the sender's token because the record carries none; `SessionSyncSession`, which pushes only sessions of local or recorded origin (`IsOwn()`)
+
+### Invariant: Only the published fields travel
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.The_pushed_body_carries_exactly_the_whitelisted_fields, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.The_pushed_body_carries_no_working_folder, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.A_session_with_human_turns_travels_with_their_instants_only]
+```
+
+A replicated session record carries exactly the fields in [the published list](domain.md#session-log) and nothing else, so no prompt, tool output or file content ever leaves the machine.
+That is the whole reason a record may leave the machine at all (local ADR 0005).
+
+Enforced at: the `SessionRecord` wire contract, which only `SessionRecordMapping.ToRecord()` builds
+
+### Invariant: A session record is added to and never taken from
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.A_reading_that_knows_less_takes_nothing_from_the_record, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.Activity_is_kept_before_the_reading_and_hits_are_a_union, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.Human_turns_are_a_union, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.A_reading_without_activity_keeps_the_records, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.A_second_reading_amends_the_record, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.An_unreadable_record_is_never_overwritten]
+```
+
+A reading amends an environment's session record without taking anything from it: a value the reading lacks keeps the recorded one, activity from before the reading's first instant is kept, and limit hits and human turns are a union.
+The record has to answer once the transcript is gone, and a reading that knows less than the record would otherwise erase what only the record still holds.
+
+Enforced at: `AgentSessionRecords.Amend()`; `AgentSessionRecordStore`, which never overwrites a record it cannot read

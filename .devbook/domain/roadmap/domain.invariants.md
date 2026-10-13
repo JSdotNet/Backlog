@@ -15,7 +15,20 @@ type: invariants
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```
 
-> The rules the Roadmap Plan holds its items, milestones and dependencies to, including those its [Planned Window](domain.md#planned-window), [Milestone](domain.md#milestone) and [Roadmap Tag](domain.md#roadmap-tag) enforce.
+> The rules the Roadmap Plan holds its items, milestones and dependencies to, including those its [Planned Window](domain.md#planned-window), [Milestone](domain.md#milestone), [Roadmap Tag](domain.md#roadmap-tag), [Repository Scope](domain.md#repository-scope), [Planning Lane](domain.md#planning-lane) and [Dependency](domain.md#dependency) enforce.
+
+### Invariant: An empty plan is valid
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.EmptyPlan_IsAValidPlan
+```
+
+A plan with no items and no milestones is a valid plan.
+It is what a first run holds, and what is left once everything has been delivered.
+
+Enforced at: `RoadmapPlan.Empty()`
 
 ### Invariant: A cycle is refused
 
@@ -54,6 +67,18 @@ tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.Nothing
 A dependency of a node on itself is refused (`roadmap.self_dependency`).
 
 Enforced at: `AddDependency()`
+
+### Invariant: A dependency declared twice is one dependency
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.DeclaringTheSameDependencyTwice_ChangesNothingAndSucceeds
+```
+
+Declaring a dependency the plan already holds changes nothing and succeeds, so a node never waits twice on the same node.
+
+Enforced at: `AddDependency()`; `Dependencies.Of()` collapses duplicates when a plan is loaded
 
 ### Invariant: A window does not end before it starts
 
@@ -128,6 +153,44 @@ Dropping it would silently delete something the person wrote because a supplier'
 
 Enforced at: constructor (`RepositoryScope`): `Of()` normalizes the aliases and never looks one up
 
+### Invariant: Scope aliases are normalized and distinct
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.AliasesAreNormalizedTheWayTheSettingsStoreWritesThem, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.DuplicatesCollapse_AndTypingOrderDoesNotAffectEquality]
+```
+
+A Repository Scope holds each alias once, trimmed and in lower case, and two scopes naming the same aliases are equal whatever order they were typed in.
+The aliases are written the way the settings store writes them, so a scope and the registry compare without translation.
+
+Enforced at: constructor (`RepositoryScope`): `Of()`
+
+### Invariant: An empty scope is unfiled
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.AnEmptyScopeIsUnfiled_NotAnError
+```
+
+A Repository Scope with no alias, or only blank ones, is valid and means the work is under no repository.
+It is neither an error nor a default repository.
+
+Enforced at: constructor (`RepositoryScope`): `Of()` returns `Unfiled`
+
+### Invariant: A blank lane is the default lane
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningLaneTests.BlankIsTheDefaultLane, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningLaneTests.ALaneIsWhateverThePersonCalledIt]
+```
+
+A blank Planning Lane is the default lane, and any other name is kept as the person wrote it, trimmed.
+
+Enforced at: constructor (`PlanningLane`): `Of()`
+
 ### Invariant: A task link is only an id
 
 ```meta
@@ -164,6 +227,32 @@ Renaming an item's title never changes its tag.
 An update that clears the tag field is an edit of the tag rather than a rename, and derives a new one from the title.
 
 Enforced at: `Rename()`
+
+### Invariant: A tag is lowercase kebab-case
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.EveryProducedTagMatchesTheAgreedShape, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.AnExplicitValueIsNormalizedThroughTheSameRules, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.DiacriticsAreFoldedRatherThanDropped]
+```
+
+A Roadmap Tag is lowercase kebab-case, whether it was derived from a title or typed by the person.
+A tag typed by hand goes through the same slug rule as a derived one, so the two cannot drift apart.
+
+Enforced at: constructor (`PlanningTag`): `From()` and `Of()` slugify every value
+
+### Invariant: A title that slugifies to nothing gets the tag item
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.ATitleThatSlugifiesToNothing_FallsBackToAStableValue
+```
+
+A title the slug rule reduces to nothing gets the tag `item`.
+There must always be something to file work against, and punctuation, an emoji, or a script the slug rule strips would otherwise leave an empty tag.
+
+Enforced at: constructor (`PlanningTag`): `From()` and `Of()`
 
 ### Invariant: A knowledge ref is never read through
 

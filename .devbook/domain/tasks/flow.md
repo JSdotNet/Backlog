@@ -24,10 +24,10 @@ stateDiagram-v2
     Done --> InProgress : Reopened
 ```
 
-- The `Ready → InProgress` transition would emit `TaskProjected`, one artifact
-  per `repo_id`, and `Done` would emit `TaskCompleted` to close all projections.
-  Both are documented, not yet emitted; see
-  [Projection](domain.md#projection).
+- The `Ready → InProgress` transition would emit `TaskProjected`, and `Done`
+  would emit `TaskCompleted`. Both are documented, not yet emitted; see
+  [Projection](domain.md#projection) for the policy and
+  [its requirements](requirements.md#projection) for what it will do on each.
 - The first entry into `InProgress`, by any route, stamps
   [Started](domain.md#started). Pausing or reopening leaves the stamp where it
   is.
@@ -80,16 +80,18 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A{"status is done?"} -->|yes| D["Readiness: done"]
+    A{"ticked off (completed)?"} -->|yes| D["Readiness: done"]
     A -->|no| B{"does every id in depends_on resolve to a completed task?"}
     B -->|yes| R["Readiness: ready"]
     B -->|"no, or an id resolves to nothing"| K["Readiness: blocked"]
 ```
 
-- Readiness is derived on every read and never persisted, so completing one task
-  unblocks its dependents with nothing to recalculate or keep in sync.
-- Readiness is orthogonal to `Task Status`, and a recorded `done` wins over the
-  derivation; see [Readiness](domain.md#readiness).
+- Completing one task unblocks its dependents with nothing to recalculate or keep
+  in sync, because
+  [readiness is derived](domain.invariants.md#invariant-readiness-is-derived-and-never-stored).
+- The first question is the [tick](domain.md#completed), not `Task Status`; see
+  [Readiness](domain.md#readiness) and
+  [A ticked task reads done](domain.invariants.md#invariant-a-ticked-task-reads-done).
 - An id that resolves to no visible task leaves the task blocked, and a
   dependency loop leaves every member blocked. [Dependency](domain.md#dependency)
   says why.

@@ -790,6 +790,51 @@ The system SHALL write a note sent to the capture tool into the Brain's inbox ar
 - **When** an assistant calls the capture tool with a title and a body
 - **Then** a new note with that title and body is in the Brain's inbox area
 
+## Remarks on a chapter
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter]
+```
+
+> The requirements of where the read view shows a reader's remark once the chapter
+> it was left on has changed.
+
+### Requirement: A remark follows its passage
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#remark]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_follows_its_paragraph_when_the_chapter_grows_above_it, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_follows_its_paragraph_when_the_chapter_shrinks_above_it, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_survives_its_paragraph_being_rewrapped, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_repeated_passage_takes_the_copy_nearest_the_remembered_index, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_without_a_digest_is_anchored_by_index_exactly_as_before]
+```
+
+The read view SHALL show a remark beside the passage it was left on after the chapter has changed above that passage.
+
+#### Scenario: Paragraphs are added above the remarked passage
+
+- **Given** a remark on the second paragraph of a chapter
+- **When** two paragraphs are added above it and the reader opens the chapter again
+- **Then** the remark shows beside the same passage, now the fourth paragraph
+
+### Requirement: A remark whose passage has gone shows at the end
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#remark]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_whose_paragraph_was_deleted_shows_at_the_end, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_whose_paragraph_changed_wording_shows_at_the_end]
+```
+
+The read view SHALL show a remark whose passage has been deleted or reworded at the end of the chapter rather than drop it.
+
+#### Scenario: The remarked paragraph is deleted
+
+- **Given** a remark on a paragraph of a chapter
+- **When** that paragraph is deleted and the reader opens the chapter again
+- **Then** the remark shows at the end of the chapter
+
 ## Choosing where the devbook is read from
 
 ```meta
