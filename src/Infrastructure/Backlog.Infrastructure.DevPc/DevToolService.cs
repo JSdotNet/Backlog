@@ -1275,11 +1275,15 @@ public sealed class DevToolService : IDevToolService
     public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
         _catalogOnly?.UpdateAsync(key, ct) ?? ApplyAsync(key, null, ct);
 
-    public async Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default)
+    public Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default) =>
+        _catalogOnly?.UpdateAllAsync(ct) ?? UpdateAllWithProgressAsync(progress: null, ct);
+
+    /// <inheritdoc />
+    public async Task<DevToolActionResult> UpdateAllWithProgressAsync(IProgress<DevToolRunProgress>? progress, CancellationToken ct = default)
     {
         if (_catalogOnly is not null)
         {
-            return await _catalogOnly.UpdateAllAsync(ct).ConfigureAwait(false);
+            return await _catalogOnly.UpdateAllWithProgressAsync(progress, ct).ConfigureAwait(false);
         }
 
         var catalog = await ListAsync(ct).ConfigureAwait(false);
@@ -1305,14 +1309,7 @@ public sealed class DevToolService : IDevToolService
         // package and a manual acknowledgement are all permanently "not
         // installed", and each of them would otherwise be attempted — and reported
         // as a failure — on every sweep forever.
-        var candidates = catalog.Tools
-            .Where(tool => tool.Kind switch
-            {
-                DevToolKind.Marketplace => tool.CanUpdate || !tool.Installed,
-                DevToolKind.Application => tool.CanUpdate || tool.CanInstall,
-                _ => tool.CanUpdate
-            })
-            .ToArray();
+        var candidates = catalog.Tools.Where(DevToolRunQueueItem.InUpdateAll).ToArray();
         if (candidates.Length == 0)
         {
             return DevToolActionResult.Ok("No enabled tools have updates available.", commands);
@@ -1320,10 +1317,39 @@ public sealed class DevToolService : IDevToolService
 
         var updated = 0;
         var failures = new List<string>();
-        foreach (var tool in candidates)
+
+        // One step per tool, timed on its own, for the record of the last run:
+        // which tool failed and how long each took is what that record is for,
+        // and the aggregate message below says neither.
+        var steps = new List<DevToolRunStep>(candidates.Length);
+
+        // The live queue the pane draws while this runs: every step up front, then
+        // a fresh snapshot as each one starts and finishes. Snapshots rather than
+        // the lists themselves, because the reader is on another thread and these
+        // go on changing under it.
+        var queue = candidates.Select(DevToolRunQueueItem.Queue).ToArray();
+        void Report() => progress?.Report(new DevToolRunProgress([.. queue], [.. commands]));
+        Report();
+
+        for (var index = 0; index < candidates.Length; index++)
         {
+            var tool = candidates[index];
+            queue[index] = queue[index] with { State = DevToolRunStepState.Running };
+            Report();
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
             var result = await ApplyAsync(tool.Key, null, ct).ConfigureAwait(false);
+            steps.Add(DevToolRunStep.For(tool, result.Succeeded, clock.Elapsed));
             commands.AddRange(result.Commands);
+
+            queue[index] = queue[index] with
+            {
+                State = result.Succeeded ? DevToolRunStepState.Done : DevToolRunStepState.Failed,
+                Duration = clock.Elapsed,
+                Error = result.Succeeded ? null : result.Message
+            };
+            Report();
+
             if (result.Succeeded)
             {
                 updated++;
@@ -1336,10 +1362,33 @@ public sealed class DevToolService : IDevToolService
 
         if (failures.Count > 0)
         {
-            return DevToolActionResult.Failed($"Updated {updated} tool(s); {failures.Count} failed. {string.Join(" ", failures)}", commands);
+            return DevToolActionResult.Failed($"Updated {updated} tool(s); {failures.Count} failed. {string.Join(" ", failures)}", commands) with { Steps = steps };
         }
 
-        return DevToolActionResult.Ok($"Updated {updated} tool(s).", commands);
+        return DevToolActionResult.Ok($"Updated {updated} tool(s).", commands) with { Steps = steps };
+    }
+
+    /// <inheritdoc />
+    public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) =>
+        _catalogOnly?.ReadLastRunAsync(ct) ?? DevToolLastRunStore.ReadAsync(ConfigurationPaths.LastRunPath, ct);
+
+    /// <inheritdoc />
+    public async Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default)
+    {
+        if (_catalogOnly is not null)
+        {
+            await _catalogOnly.SaveLastRunAsync(run, ct).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            await DevToolLastRunStore.WriteAsync(ConfigurationPaths.LastRunPath, run, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.LogWarning(ex, "The last tool run could not be kept.");
+        }
     }
 
     public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>

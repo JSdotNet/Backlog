@@ -5705,24 +5705,41 @@ h1, h2, h3 {
     box-shadow: var(--shadow-md);
 }
 
+/* The header in the Dashboard's arrangement (dashboard-panel__header): the tab's
+   eyebrow and sentence, and beside them the controls that scope the whole surface.
+   Where the pane is narrow the controls wrap under the sentence rather than
+   squeezing it, and wrap among themselves rather than running off the pane. */
 .tools-panel__header {
     display: flex;
-    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
     align-items: flex-start;
     justify-content: space-between;
+    min-width: 0;
+}
+
+.tools-panel__header > :first-child {
+    flex: 1 1 16rem;
+    min-width: 0;
 }
 
 .tools-panel__header-actions {
     display: flex;
-    flex: none;
-    gap: var(--spacing-xs);
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
     align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
 }
 
+/* The status line names the catalog's full path, which has no break in it; at a
+   phone width it would otherwise push the pane wider than the window. */
 .tools-panel__eyebrow,
 .tools-panel__subtitle,
 .tools-panel__message {
     margin: 0;
+    overflow-wrap: anywhere;
 }
 
 .tools-panel__eyebrow {
@@ -5740,20 +5757,10 @@ h1, h2, h3 {
 }
 
 .tools-panel__subtitle,
-.tools-panel__count,
 .tools-panel__message,
 .tools-inventory__meta {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
-}
-
-.tools-panel__count {
-    border: var(--border-width) solid rgba(242, 193, 78, 0.4);
-    border-radius: 999px;
-    padding: 0.15rem 0.55rem;
-    background: rgba(0, 0, 0, 0.18);
-    color: var(--color-primary);
-    white-space: nowrap;
 }
 
 /* One column until there is room for two: the inventory, and then the transcript
@@ -5803,9 +5810,9 @@ h1, h2, h3 {
   a column barely wider than its own heading — the rail is 20 to 26rem or it is
   the trigger, never an arbitrary width in between.
 
-  70rem is chosen against the table's own restack threshold rather than for its
+  74rem is chosen against the table's own restack threshold rather than for its
   own sake: the rail takes at most 26rem and the grid gap 1rem, which leaves the
-  table 43rem — above the 39rem where its four columns stop fitting. Any lower gate
+  table 47rem — above the 46rem where its five columns stop fitting. Any lower gate
   would buy a second column by restacking every row in the first.
 
   Sticky, because the pane is the scrollport and the rail is at the top of it.
@@ -5816,7 +5823,7 @@ h1, h2, h3 {
   parked on the frame's border reads as a rendering fault. `align-items: start` is
   what gives it room to travel — stretched to the row it would have no distance to
   move within. */
-@container tools-panel (min-width: 70rem) {
+@container tools-panel (min-width: 74rem) {
     .tools-panel__content {
         grid-template-columns: minmax(0, 1fr) fit-content(26rem);
         align-items: start;
@@ -5836,15 +5843,321 @@ h1, h2, h3 {
     }
 }
 
-.tools-panel__toolbar {
+/* The kind tabs: the library's strip and panels in the Dashboard's arrangement
+   (dashboard-tabs). The strip is one row at every width; where the pane is narrow
+   it scrolls sideways rather than wrapping into a stack, and the "Last run
+   transcript" link sits at its end. Positioned, so the screen-reader text in a tab's
+   badge is laid out inside this scroll box rather than against the page. */
+.tools-tabs {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-tabs__strip {
+    position: relative;
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.tools-tabs__strip > .tabs__list {
+    flex: 1 0 auto;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+.tools-tabs__strip > .tabs__list > .tabs__tab,
+.tools-tabs__strip > .tabs__list > .tabs__tab--active {
+    flex: none;
+    white-space: nowrap;
+}
+
+.tools-tabs__transcript {
+    flex: none;
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+/* A kind tab's count of rows needing action, in the tone of the worst of them. */
+.tools-tabs__count {
+    margin-left: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+}
+
+.tools-tabs__panels {
+    min-width: 0;
+}
+
+/* One tab's panel: the toolbar, then the group cards. :not([hidden]) so a panel
+   behind another tab keeps the hidden attribute's display: none. */
+.tools-tab:not([hidden]) {
+    display: grid;
+    gap: var(--spacing-md);
+    align-content: start;
+    min-width: 0;
+}
+
+/* The Overview tab: the Dashboard Overview's arrangement on this pane. Four
+   headline tiles in the Dashboard's tile style across the top, then two columns -
+   Needs you, and By kind with Last run beside it. The tiles and the cards are the
+   Dashboard's own classes; what is here is the arrangement and the bars.
+
+   The breakpoints are the pane's width, not the window's, for the reason the
+   inventory's are: the pane is a surface beside a workspace. 56.25rem is 900px:
+   below it the columns stack. 36rem is a phone: the tiles go two by two. */
+.tools-overview {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-overview__tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-overview__columns {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: var(--spacing-md);
+    align-items: start;
+    min-width: 0;
+}
+
+.tools-overview__main {
+    min-width: 0;
+}
+
+.tools-overview__side {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* The parts are cards, so their rows size to their content rather than the
+   Dashboard part's header-and-body pair (each part also carries
+   dashboard-part, whose rules are the Dashboard module's). */
+.tools-overview .tools-overview__part {
+    grid-template-rows: none;
+    align-content: start;
+    gap: var(--spacing-sm);
+}
+
+.tools-overview__heading {
+    margin: 0;
+    font-size: var(--font-size-base);
+}
+
+.tools-overview__tile-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tools-overview__line-figure {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+/* A stacked bar: the parts side by side on the raised surface, in the fixed order
+   matches, updates, missing, unconfirmed. Decorative - the line under it or the
+   n/m beside it says the same in words. */
+.tools-overview__stack {
+    display: flex;
+    height: 0.5rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+
+.tools-overview__part {
+    flex: none;
+    height: 100%;
+}
+
+.tools-overview__part--match { background: var(--color-success-text); }
+.tools-overview__part--update { background: var(--color-primary); }
+.tools-overview__part--missing { background: var(--color-error-text); }
+.tools-overview__part--unconfirmed { background: var(--color-text-disabled); }
+
+/* Needs you: the Dashboard's card per item, with the control at the end of the
+   row and the dot in the tone of what the row needs. */
+.tools-overview-need {
+    align-items: flex-start;
+}
+
+/* A catalog note can carry a registry path or a URL with no break opportunity,
+   and the body is a column that sizes its lines to their longest word: at phone
+   width one such note widened the card and scrolled the whole pane sideways.
+   Breaking anywhere is what keeps the note inside the card. */
+.tools-overview-need__body {
+    flex: 1 1 auto;
+    overflow-wrap: anywhere;
+}
+
+.tools-overview-need__title-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+    min-width: 0;
+}
+
+.tools-overview-need__control {
+    flex: none;
+    align-self: center;
+}
+
+.tools-overview-need--alert .tools-overview-need__dot { background: var(--color-primary); }
+.tools-overview-need--fault .tools-overview-need__dot { background: var(--color-error-text); }
+.tools-overview-need--quiet .tools-overview-need__dot { background: var(--color-text-disabled); }
+
+.tools-overview-need__tab-link {
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+}
+
+/* By kind: one row per kind tab - its name and n/m on one line, the bar under. */
+.tools-overview-kinds {
     display: grid;
     gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tools-overview-kinds__link {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+}
+
+.tools-overview-kinds__name {
+    color: var(--color-text-primary);
+}
+
+.tools-overview-kinds__link:hover .tools-overview-kinds__name,
+.tools-overview-kinds__link:focus-visible .tools-overview-kinds__name {
+    text-decoration: underline;
+}
+
+.tools-overview-kinds__ratio {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.tools-overview-kinds__bar {
+    grid-column: 1 / -1;
+}
+
+.tools-overview-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: var(--spacing-sm) 0 0;
+    list-style: none;
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tools-overview-legend > li {
+    display: inline-flex;
+    gap: var(--spacing-2xs);
+    align-items: center;
+}
+
+.tools-overview-legend__swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+}
+
+/* Last run: the heading and its outcome chip on one line, then the summary, the
+   transcript's tail and the link to the rest of it. */
+.tools-overview-run__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tools-overview-run__summary {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.tools-overview-run__figures {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tools-overview-run__tail {
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    overflow-x: auto;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: pre;
+}
+
+.tools-overview-run__open {
+    justify-self: start;
+    padding-inline: 0;
+    color: var(--color-text-link);
+}
+
+@container tools-panel (max-width: 56.25rem) {
+    .tools-overview__columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container tools-panel (max-width: 36rem) {
+    .tools-overview__tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* The kind tab's toolbar: the Needs action toggle, the name filter, and the
+   catalog's acts, on one row that wraps when the pane is narrow. */
+.tools-panel__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 0;
+}
+
+.tools-panel__filter {
+    flex: 1 1 12rem;
+    max-width: 20rem;
+    min-width: 0;
 }
 
 .tools-panel__toolbar-actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-sm);
+    margin-inline-start: auto;
 }
 
 /* The inventory that has not arrived yet, in the shape of the one that will.
@@ -5863,6 +6176,229 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* The tab strip and the toolbar that have not arrived yet: one row of tab-wide
+   bars over a rule, as the strip draws them, then the toolbar's two controls. */
+.tools-panel__skeleton-toolbar {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.tools-panel__skeleton-tabs {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+/* The two empty states: where the catalog goes, the choice as cards side by side
+   while there is room and stacked when there is not, and the quieter third way
+   under them. */
+.tools-start {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-start__lead,
+.tools-start__aside {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.tools-start__options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: var(--spacing-md);
+}
+
+.tools-start__option .card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    justify-items: start;
+}
+
+/* The recommended card is the one drawn first and in the accent. */
+.tools-start__option--recommended {
+    border-color: var(--color-primary);
+}
+
+.tools-start__option-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+}
+
+.tools-start__option-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+}
+
+.tools-start__option-body {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tools-start__link {
+    padding-inline: var(--spacing-xs);
+    color: var(--color-text-link);
+}
+
+/* The running state. The bar under the header fills by finished steps. */
+.tools-run__progress {
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--color-border);
+}
+
+.tools-run__progress-fill {
+    display: block;
+    height: 100%;
+    background: var(--color-primary);
+    transition: width 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tools-run__progress-fill {
+        transition: none;
+    }
+}
+
+/* "This run": one line per step — name, versions, state, time — with a failed
+   step's reason on a line of its own under it. */
+.tools-run .card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tools-run__head {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.tools-run__title,
+.tools-run__transcript-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+}
+
+.tools-run__count,
+.tools-run__versions {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.tools-run__steps {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tools-run__step {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto 3.5rem;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-xs) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.tools-run__step:last-child {
+    border-bottom: 0;
+}
+
+.tools-run__name {
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.tools-run__duration {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+}
+
+/* A failed step's reason, under the step in the queue and under the row it went
+   back to. */
+.tools-run__error {
+    grid-column: 1 / -1;
+    color: var(--color-error-text);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.tools-inventory__run-error {
+    display: block;
+    color: var(--color-error-text);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+/* Below the width a line of four fits in, the versions, state and time drop
+   under the name. */
+@container tools-panel (max-width: 32rem) {
+    .tools-run__step {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .tools-run__versions {
+        grid-column: 1;
+    }
+}
+
+/* The live transcript in the rail: its title and its two controls, then the log. */
+.tools-run__transcript {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.tools-run__transcript-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tools-run__transcript-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.tools-run__transcript-log {
+    min-width: 0;
+}
+
+.tools-run__transcript-log .code-view__body {
+    max-height: 28rem;
+}
+
+.tools-run__transcript-empty {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* One heading's worth of the inventory. The kind is the outer heading and the
    catalog's own group is the inner one, because fifty rows in one list lose the
    structure the setup guide they come from is made of. */
@@ -5872,35 +6408,54 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-.tools-kind__header {
-    gap: var(--spacing-sm);
-    align-items: baseline;
-}
-
-.tools-kind__header .section-header__title {
-    color: var(--color-primary);
-    font-size: var(--font-size-base);
-}
-
-/* The count, and how much of it is still outstanding. Quiet: it is a qualifier
-   on the heading, and the number that matters is the second one. */
-.tools-kind__header .section-header__description {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
+/* One catalog group: the library's card, its fold row, and its table. The card's
+   body is the scroll box, so anything the restack below does not foresee scrolls
+   inside the card rather than widening the pane. */
 .tools-group {
+    min-width: 0;
+}
+
+.tools-group .card__body {
     display: grid;
     gap: var(--spacing-xs);
     min-width: 0;
+    overflow-x: auto;
+}
+
+.tools-group__fold-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.tools-group__fold-row .fold__heading {
+    margin: 0;
 }
 
 /* The sub-group's disclosure. It reads at the weight of the table's meta text
    rather than as a heading of its own: the kind above it is the heading, and
    this is a row of the inventory that happens to fold. */
 .tools-group__fold .fold__trigger {
+    max-width: 100%;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+/* The label wraps rather than ellipsizing. Its tail is the count of what is
+   outstanding, the one part of it the reader opened the tab for, and the shared
+   fold's single line pushed it past the card's edge at phone width, where it
+   scrolled inside the card instead of being read. The fold and its heading give
+   up their content width so the label has a width to wrap at. */
+.tools-group__fold,
+.tools-group__fold .fold__heading {
+    min-width: 0;
+}
+
+.tools-group__fold .fold__label {
+    white-space: normal;
 }
 
 /* The inventory: the shared library's DataTable wearing this pane's names.
@@ -5955,13 +6510,14 @@ h1, h2, h3 {
 }
 
 /*
-  The floors the four columns are drawn at, and the arithmetic the restack step at
+  The floors the five columns are drawn at, and the arithmetic the restack step at
   the bottom of this block is derived from. They sit on the heading cells because
   the heading is the one cell in a column this pane does not write — and a column
   is as wide as the widest minimum in it either way.
 
-  17.5rem of actions is the sum of what the cell below actually places in it — a
-  status, a toggle and a Remove side by side — rather than the 8rem it was while
+  7.5rem of status holds the widest chip, "Confirmed by hand". 17.5rem of actions
+  is the sum of what the cell below actually places in it — an action or a note,
+  a toggle and a Remove side by side — rather than the 8rem it was while
   those three could wrap onto a second line. A column narrower than its own cell
   is how the Available column and every action in the row came to be clipped in
   the first place.
@@ -5974,6 +6530,10 @@ h1, h2, h3 {
     min-width: 5.5rem;
 }
 
+.tools-inventory__col-status {
+    min-width: 7.5rem;
+}
+
 .tools-inventory__col-actions {
     min-width: 17.5rem;
 }
@@ -5984,9 +6544,28 @@ h1, h2, h3 {
     opacity: 0.66;
 }
 
-.tools-inventory__tool strong,
 .tools-inventory__meta {
     display: block;
+}
+
+/* The name and its host chips on one line, wrapping under the name when the
+   column is narrow. */
+.tools-inventory__name-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.tools-inventory__host-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+/* The row's status, as one chip from the library's tone family. */
+.tools-inventory__status-chip {
+    white-space: nowrap;
 }
 
 /* Which hosts a row is for. Deliberately quiet — it is a qualifier on the name
@@ -6172,12 +6751,12 @@ h1, h2, h3 {
 /*
   Below the width its own columns need, the table stops being a table.
 
-  39rem is the columns' own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5
-  + 17.5 is 38.5rem of floors, and that is the whole sum. The library does pad every
+  46rem is the columns' own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5
+  + 7.5 + 17.5 is 46rem of floors, and that is the whole sum. The library does pad every
   cell with a --spacing-sm either side, but this sheet sets `box-sizing: border-box`
   on everything, so each floor already contains that padding — counting it a second
   time put the step 4rem past the width the columns actually need, and restacked a
-  table that still fitted. Under 38.5rem the four columns cannot all be drawn. Above
+  table that still fitted. Under 46rem the five columns cannot all be drawn. Above
   it they fit; there is no band left where the row is wider than its box.
 
   The threshold is derived from the column list rather than chosen, so it has to
@@ -6192,11 +6771,11 @@ h1, h2, h3 {
   safety net for whatever the stack does not foresee: an unbreakable version
   string, a label wider than the slot it is in.
 
-  The heading row goes, because four column names above a single column name
+  The heading row goes, because five column names above a single column name
   nothing, and each version cell puts its own label up instead. Precisely one of
   the two is live at any width.
 */
-@container tools-inventory (max-width: 39rem) {
+@container tools-inventory (max-width: 46rem) {
     .tools-inventory .data-table__table,
     .tools-inventory .data-table__section,
     .tools-inventory .data-table__row,
@@ -6242,11 +6821,31 @@ h1, h2, h3 {
        rather than spanning the row. Right-aligning Remove is what lines it up with
        the rows above and below it in a table; in a stack there is no row above to
        line up with, and a cell as wide as the pane puts ten rem of nothing between
-       a status and the buttons that act on it. */
+       a status and the buttons that act on it.
+
+       A wrapping row rather than the table's three tracks, because at phone width
+       the tracks no longer fit: an Install beside Disable and Remove measured
+       364px in a 390px pane's 259px row, and the group scrolled sideways to reach
+       Remove. The reserved widths stay as minimums, so a row that fits reads as
+       the tracks drew it, and one that does not drops its last control onto a
+       line of its own instead of out of the card. A long status or note can
+       shrink and wrap inside its own slot here, which a max-content track never
+       let it do. */
     .tools-inventory__actions {
-        grid-template-columns: max-content 6rem 4rem;
+        display: flex;
+        flex-wrap: wrap;
         justify-content: start;
         margin-block-start: var(--spacing-xs);
+    }
+
+    .tools-inventory__toggle {
+        min-width: 6rem;
+    }
+
+    .tools-inventory__remove {
+        display: flex;
+        justify-content: flex-end;
+        min-width: 4rem;
     }
 }
 

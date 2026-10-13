@@ -101,6 +101,37 @@ status: draft
 A completed tool update: `date`, `tool_name`, `target_version`, `status`
 (success/failed/rollback), `duration_sec`, `initiated_by` (auto/manual/user-id).
 
+### Last Tool Run
+
+```meta
+type: value-object
+status: draft
+aliases: [DevToolLastRun, last run]
+related: [.devbook/domain/dev-pc-management/features.md#last-run-record]
+```
+
+The most recent finished run of the System tools pane on one machine: `kind`
+(Update all, Update, Install, Clear stale cache), `started_at`, `finished_at`,
+`outcome` (succeeded, failed, partly failed), one Tool Run Step per tool the run
+touched, and the full `transcript` of the commands it ran and the message it
+ended on. Invariants: a machine holds at most one, kept beside its per-PC tool
+choices; each finished run replaces the one before it and no history or trend
+is kept; a run still in progress is never recorded; and the outcome is partly
+failed exactly when at least one step succeeded and at least one failed. A
+missing or unreadable record reads as none.
+
+### Tool Run Step
+
+```meta
+type: value-object
+status: draft
+aliases: [DevToolRunStep]
+```
+
+One tool's part in a Last Tool Run: `name`, `from_version` (none for an install),
+`to_version` (the version the run was taking it to), `outcome` (succeeded or
+failed), and `duration`.
+
 ### Tool Baseline
 
 ```meta

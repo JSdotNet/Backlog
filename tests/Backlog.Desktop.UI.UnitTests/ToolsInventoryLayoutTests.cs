@@ -37,15 +37,15 @@ public sealed class ToolsInventoryLayoutTests
 {
     /// <summary>
     /// The step is derived from the column floors and from nothing else:
-    /// 10 + 5.5 + 5.5 + 17.5 = 38.5rem, so the restack has to be in force at 39rem,
-    /// the first round rem step that still covers it.
+    /// 10 + 5.5 + 5.5 + 7.5 + 17.5 = 46rem, so the restack has to be in force at
+    /// 46rem, the first round rem step that still covers it.
     /// <para>The library's <c>--spacing-sm</c> of cell padding is not added on top.
     /// Both sheets set <c>box-sizing: border-box</c> on everything, so a floor
     /// declared as <c>min-width</c> on a cell already contains that padding —
     /// counting it again is what put the step 4rem past the width the columns need,
     /// and restacked a table that still fitted.</para>
     /// </summary>
-    private const string RestackStep = "@container tools-inventory (max-width: 39rem) {";
+    private const string RestackStep = "@container tools-inventory (max-width: 46rem) {";
 
     [Fact]
     public void The_pane_is_what_the_tools_inventory_measures_itself_against()
@@ -216,6 +216,7 @@ public sealed class ToolsInventoryLayoutTests
         // asked twice — what is installed, and what is available.
         var floors = Floor(css, ".tools-inventory__col-tool {")
             + (2 * Floor(css, ".tools-inventory__col-version {"))
+            + Floor(css, ".tools-inventory__col-status {")
             + Floor(css, ".tools-inventory__col-actions {");
 
         // The floors are the whole sum: `box-sizing: border-box` puts the library's
