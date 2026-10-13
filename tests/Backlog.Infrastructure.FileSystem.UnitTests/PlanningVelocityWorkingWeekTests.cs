@@ -356,7 +356,7 @@ public sealed class PlanningVelocityWorkingWeekTests : IDisposable
     }
 
     /// <summary>The roadmap's port toggles through the device's week, and the roadmap
-    /// hears of it at once, so the band re-places its bars (ADR 0019 Verification 23).</summary>
+    /// hears of it at once, so the band re-places its bars (ADR 0019 Verification 31).</summary>
     [Fact]
     public void The_roadmap_port_toggles_a_date_and_announces_it()
     {
