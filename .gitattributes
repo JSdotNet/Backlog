@@ -21,3 +21,10 @@
 # Test fixtures are byte-exact inputs: a PDF's xref offsets and a JPEG's EXIF
 # would break under line-ending conversion.
 tests/**/Fixtures/** binary
+
+# GitHub's language bar (Linguist) counts bytes per language. The rendered
+# Archify pages outweigh the C# source, so the repository was labelled HTML.
+# Marking them generated drops them from the count and collapses them in pull
+# request diffs; the hand-authored JSON specifications beside them stay visible.
+**/_archify/*.html linguist-generated
+tools/archify/examples/** linguist-documentation
