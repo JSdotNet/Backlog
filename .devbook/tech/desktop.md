@@ -168,9 +168,13 @@ alternatives: ["Octokit.NET", "raw REST calls"]
 The local integration path to GitHub from the desktop (`gh`).
 
 - **Used for** — creating and updating issues from backlog items without routing
-  credentials through the cloud service. `GhCliTransport` in
-  `Backlog.Infrastructure.GitHub` is the seam; the clients above it (issues,
-  activity, billing, identity) never see a token.
+  credentials through the cloud service. `ResolvingGitHubTransport` in
+  `Backlog.Infrastructure.GitHub` is the seam. For a call that names no account, it
+  asks `gh api user` who is signed in and borrows that login's github.com token
+  with `gh auth token`. It holds that token in memory only, for five minutes, and
+  sends the call over HTTP. `GhCliTransport`, one `gh api` process per call, is the
+  fallback when `gh` holds no github.com token or points at another host. The
+  clients above the seam (issues, activity, billing, identity) never see a token.
 - **Why** — reuses the developer's existing authenticated GitHub session; also
   already the mandated tool for GitHub operations in this repository.
 
