@@ -5,6 +5,7 @@ using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.DismissSuggestion;
 using Backlog.Modules.Inbox.Features.Suggest;
 using Backlog.Modules.Inbox.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Inbox.UnitTests;
 
@@ -339,6 +340,79 @@ public sealed class SuggestionTests
         Assert.Contains("tag:sync", answer.Value[sync.Id].Select(s => s.Key));
         Assert.DoesNotContain("tag:sync", answer.Value[note.Id].Select(s => s.Key));
         Assert.Equal(1, tags.Reads);
+    }
+
+    /// <summary>
+    /// Keep as knowledge is still offered while the Brain cannot take a note — a
+    /// decision is never hidden — but cannot be taken, and says why in the Brain's
+    /// own words rather than being refused once pressed. Every other suggestion is
+    /// untouched.
+    /// </summary>
+    [Fact]
+    public async Task Keep_as_knowledge_says_why_it_cannot_be_taken_while_no_brain_is_set()
+    {
+        var store = new InMemoryInboxStore();
+        var item = Item("Local-first patterns", kind: ContentKind.Article);
+        var task = Item("Call the dentist");
+        store.Seed(item);
+        store.Seed(task);
+        var target = new StubBrain("Pick a folder for your Brain in Settings › Storage.");
+        var query = new SuggestQueryHandler(store, brainTarget: target);
+
+        var one = await query.Handle(new SuggestQuery(item.Id), TestContext.Current.CancellationToken);
+        var many = await query.Handle(new SuggestManyQuery([item.Id, task.Id]), TestContext.Current.CancellationToken);
+
+        var keep = Assert.Single(one.Value, s => s.Key == "destination:devbook");
+        Assert.False(keep.Available);
+        Assert.Equal("Pick a folder for your Brain in Settings › Storage.", keep.UnavailableReason);
+        Assert.False(Assert.Single(many.Value[item.Id], s => s.Key == "destination:devbook").Available);
+        Assert.True(Assert.Single(many.Value[task.Id], s => s.Key == "destination:tasks").Available);
+        // Once per query, not once per item: the batch asks for the lot.
+        Assert.Equal(2, target.Asked);
+    }
+
+    [Fact]
+    public async Task Keep_as_knowledge_can_be_taken_once_the_brain_can_take_a_note()
+    {
+        var store = new InMemoryInboxStore();
+        var item = Item("Local-first patterns", kind: ContentKind.Article);
+        store.Seed(item);
+
+        var answer = await new SuggestQueryHandler(store, brainTarget: new StubBrain(null))
+            .Handle(new SuggestQuery(item.Id), TestContext.Current.CancellationToken);
+
+        Assert.True(Assert.Single(answer.Value, s => s.Key == "destination:devbook").Available);
+    }
+
+    /// <summary>A host with no Brain at all answers the route with its refusal, and
+    /// the chip says the same thing up front.</summary>
+    [Fact]
+    public async Task Without_a_brain_target_keep_as_knowledge_says_there_is_no_brain_here()
+    {
+        var store = new InMemoryInboxStore();
+        var item = Item("Local-first patterns", kind: ContentKind.Article);
+        store.Seed(item);
+
+        var answer = await new SuggestQueryHandler(store).Handle(new SuggestQuery(item.Id), TestContext.Current.CancellationToken);
+
+        Assert.Equal(InboxErrors.NoBrainHere, Assert.Single(answer.Value, s => s.Key == "destination:devbook").UnavailableReason);
+    }
+
+    private sealed class StubBrain(string? unavailable) : IInboxBrainTarget
+    {
+        public int Asked { get; private set; }
+
+        public string? UnavailableReason
+        {
+            get
+            {
+                Asked++;
+                return unavailable;
+            }
+        }
+
+        public Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("A suggestion writes nothing.");
     }
 
     private sealed class StubTags(params string[] tags) : IBacklogTagSource

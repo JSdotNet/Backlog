@@ -319,7 +319,9 @@ the Brain as `#brain` in the place of a repository's `owner/name`.
 
 The spelling is not the empty string the shell stores for the Brain (local
 ADR 0027 §5): an empty repository argument is already refused as missing, and a
-session that forgot it must never be handed the person's own notes. It is not
+session that forgot it must never be handed the person's own notes. On these
+tools that refusal names both things the argument can be — an `owner/name`, or
+`#brain` for the Brain. It is not
 `brain` either, which a repository could be called. A GitHub owner or name
 cannot hold a `#`, and a configured repository line that starts with one is a
 comment, so `#brain` matches no repository; it is matched before any repository
