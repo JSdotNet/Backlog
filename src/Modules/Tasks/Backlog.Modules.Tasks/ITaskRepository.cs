@@ -23,6 +23,25 @@ public interface ITaskRepository
     /// <summary>Creates or updates a task.</summary>
     Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Creates or updates several tasks as one write — a drag that re-ranks a
+    /// dozen rows is one change, not a dozen.
+    /// <para>
+    /// Implemented by default as one <see cref="SaveAsync"/> per task, so an
+    /// in-memory store needs nothing new; a store that can write them together
+    /// overrides it.
+    /// </para>
+    /// </summary>
+    async Task SaveManyAsync(IReadOnlyCollection<TaskItem> tasks, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tasks);
+
+        foreach (var task in tasks)
+        {
+            await SaveAsync(task, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>Loads a full aggregate, or null if there is no task with that id —
     /// including when the row is there but tombstoned, because a deleted task is
     /// gone as far as every read is concerned.</summary>

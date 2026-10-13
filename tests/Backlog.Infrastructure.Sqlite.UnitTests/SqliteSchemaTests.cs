@@ -5,15 +5,25 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 /// <summary>
 /// The open every repository in this project shares: the folder made if it is
 /// missing, the file created if it is new, WAL set, and the repository's own
-/// schema run before the connection is handed back. The task, inbox and roadmap
-/// repositories each keep their DDL; what they no longer keep is a copy of this.
+/// schema brought up to date before the connection is handed back — once per
+/// file and per version of that schema, which the stamp in the file decides.
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteSchemaTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "sqlite-schema-tests-" + Guid.NewGuid().ToString("N"));
 
-    private static Task NoSchema(SqliteConnection connection, CancellationToken cancellationToken) => Task.CompletedTask;
+    private string DatabasePath => Path.Combine(_dir, "backlog.db");
+
+    private static readonly SqliteSchemaDefinition NoSchema = new("none", "SELECT 1;");
+
+    /// <summary>A setup whose every run leaves a row behind, so a test can count
+    /// how often it ran. <paramref name="variant"/> changes the definition, and
+    /// with it the fingerprint, without changing what it does.</summary>
+    private static SqliteSchemaDefinition Counting(string owner = "probe", string variant = "") => new(
+        owner,
+        $"CREATE TABLE IF NOT EXISTS {owner}_runs (n INTEGER); -- {variant}",
+        afterColumns: [$"INSERT INTO {owner}_runs (n) VALUES (1);"]);
 
     [Fact]
     public async Task A_missing_parent_folder_is_created()
@@ -29,70 +39,140 @@ public sealed class SqliteSchemaTests : IDisposable
     [Fact]
     public async Task The_connection_comes_back_in_wal_mode()
     {
-        var path = Path.Combine(_dir, "backlog.db");
+        await using var connection = await SqliteSchema.OpenAsync(DatabasePath, NoSchema, TestContext.Current.CancellationToken);
 
-        await using var connection = await SqliteSchema.OpenAsync(path, NoSchema, TestContext.Current.CancellationToken);
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = "PRAGMA journal_mode;";
-        var mode = (string?)await command.ExecuteScalarAsync(TestContext.Current.CancellationToken);
-
-        Assert.Equal("wal", mode);
+        Assert.Equal("wal", await ScalarAsync<string>(connection, "PRAGMA journal_mode;"));
     }
 
     [Fact]
-    public async Task The_repository_s_schema_runs_before_the_connection_is_returned()
+    public async Task A_fresh_file_is_set_up_and_stamped_before_the_connection_is_returned()
     {
-        var path = Path.Combine(_dir, "backlog.db");
+        var schema = Counting();
 
-        await using var connection = await SqliteSchema.OpenAsync(
-            path,
-            (open, cancellationToken) => SqliteSchema.EnsureAsync(open, "CREATE TABLE IF NOT EXISTS probe (id TEXT PRIMARY KEY NOT NULL);", cancellationToken),
-            TestContext.Current.CancellationToken);
+        await using var connection = await SqliteSchema.OpenAsync(DatabasePath, schema, TestContext.Current.CancellationToken);
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'probe';";
-        var count = (long?)await command.ExecuteScalarAsync(TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, count);
+        Assert.Equal(1, await ScalarAsync<long>(connection, "SELECT count(*) FROM probe_runs;"));
+        Assert.Equal(schema.Fingerprint, await ScalarAsync<string>(connection, "SELECT fingerprint FROM schema_stamps WHERE owner = 'probe';"));
     }
 
     [Fact]
-    public async Task The_schema_runs_on_every_open_rather_than_once_per_path()
+    public async Task A_file_already_stamped_with_this_schema_is_not_set_up_again()
     {
-        var path = Path.Combine(_dir, "backlog.db");
-        var runs = 0;
+        await using (await SqliteSchema.OpenAsync(DatabasePath, Counting(), TestContext.Current.CancellationToken)) { }
+        await using (await SqliteSchema.OpenAsync(DatabasePath, Counting(), TestContext.Current.CancellationToken)) { }
+        await using var connection = await SqliteSchema.OpenAsync(DatabasePath, Counting(), TestContext.Current.CancellationToken);
 
-        Task Counting(SqliteConnection connection, CancellationToken cancellationToken)
+        Assert.Equal(1, await ScalarAsync<long>(connection, "SELECT count(*) FROM probe_runs;"));
+    }
+
+    /// <summary>The fingerprint is the definition, so any change to it — a column,
+    /// an index, a seed — reruns the setup on a file stamped by the old one,
+    /// without anybody remembering to raise a number.</summary>
+    [Fact]
+    public async Task A_changed_schema_runs_again_on_a_file_stamped_by_the_old_one()
+    {
+        await using (await SqliteSchema.OpenAsync(DatabasePath, Counting(variant: "v1"), TestContext.Current.CancellationToken)) { }
+        await using var connection = await SqliteSchema.OpenAsync(DatabasePath, Counting(variant: "v2"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, await ScalarAsync<long>(connection, "SELECT count(*) FROM probe_runs;"));
+        Assert.Equal(
+            Counting(variant: "v2").Fingerprint,
+            await ScalarAsync<string>(connection, "SELECT fingerprint FROM schema_stamps WHERE owner = 'probe';"));
+    }
+
+    /// <summary>What the old code comment feared from a cache: a file deleted and
+    /// created again under a running app. The stamp is in the file, so the new
+    /// file has none and is set up again.</summary>
+    [Fact]
+    public async Task A_file_deleted_and_recreated_under_the_same_path_is_set_up_again()
+    {
+        await using (await SqliteSchema.OpenAsync(DatabasePath, Counting(), TestContext.Current.CancellationToken)) { }
+
+        DeleteDatabase();
+
+        await using var connection = await SqliteSchema.OpenAsync(DatabasePath, Counting(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, await ScalarAsync<long>(connection, "SELECT count(*) FROM probe_runs;"));
+    }
+
+    /// <summary>Every repository shares one file, so each keeps its own stamp: one
+    /// owner's setup neither satisfies nor resets another's.</summary>
+    [Fact]
+    public async Task Owners_sharing_a_file_keep_separate_stamps()
+    {
+        await using (await SqliteSchema.OpenAsync(DatabasePath, Counting("first"), TestContext.Current.CancellationToken)) { }
+        await using (await SqliteSchema.OpenAsync(DatabasePath, Counting("second"), TestContext.Current.CancellationToken)) { }
+        await using (await SqliteSchema.OpenAsync(DatabasePath, Counting("first"), TestContext.Current.CancellationToken)) { }
+        await using var connection = await SqliteSchema.OpenAsync(DatabasePath, Counting("second"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, await ScalarAsync<long>(connection, "SELECT count(*) FROM first_runs;"));
+        Assert.Equal(1, await ScalarAsync<long>(connection, "SELECT count(*) FROM second_runs;"));
+    }
+
+    [Fact]
+    public async Task Missing_columns_are_added_to_a_table_that_already_exists()
+    {
+        await using (var seed = new SqliteConnection(SqliteSchema.ConnectionString(DatabasePath)))
         {
-            runs++;
-            return Task.CompletedTask;
+            Directory.CreateDirectory(_dir);
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
+            await SqliteSchema.EnsureAsync(seed, "CREATE TABLE things (id TEXT PRIMARY KEY, kept TEXT);", TestContext.Current.CancellationToken);
         }
 
-        await using (await SqliteSchema.OpenAsync(path, Counting, TestContext.Current.CancellationToken)) { }
-        await using (await SqliteSchema.OpenAsync(path, Counting, TestContext.Current.CancellationToken)) { }
+        var schema = new SqliteSchemaDefinition(
+            "things",
+            "CREATE TABLE IF NOT EXISTS things (id TEXT PRIMARY KEY, kept TEXT, added TEXT NULL, defaulted TEXT NOT NULL DEFAULT '[]');",
+            columns:
+            [
+                new("things", "kept", "TEXT"),
+                new("things", "added", "TEXT NULL"),
+                new("things", "defaulted", "TEXT NOT NULL DEFAULT '[]'"),
+            ]);
 
-        Assert.Equal(2, runs);
+        await using var connection = await SqliteSchema.OpenAsync(DatabasePath, schema, TestContext.Current.CancellationToken);
+
+        Assert.Equal(4, await ScalarAsync<long>(connection, "SELECT count(*) FROM pragma_table_info('things');"));
+    }
+
+    /// <summary>The stamp is written last, so a setup that fails part-way leaves
+    /// none and runs again — whole — on the next open.</summary>
+    [Fact]
+    public async Task A_failing_setup_leaves_no_stamp_and_rethrows()
+    {
+        var failing = new SqliteSchemaDefinition(
+            "broken",
+            "CREATE TABLE IF NOT EXISTS broken_runs (n INTEGER);",
+            afterColumns: ["INSERT INTO nowhere (n) VALUES (1);"]);
+
+        await Assert.ThrowsAsync<SqliteException>(() => SqliteSchema.OpenAsync(DatabasePath, failing, TestContext.Current.CancellationToken));
+
+        await using var connection = await SqliteSchema.OpenAsync(DatabasePath, NoSchema, TestContext.Current.CancellationToken);
+        Assert.Equal(0, await ScalarAsync<long>(connection, "SELECT count(*) FROM schema_stamps WHERE owner = 'broken';"));
     }
 
     [Fact]
-    public async Task A_failing_schema_disposes_the_connection_and_rethrows()
+    public void The_fingerprint_does_not_depend_on_the_source_file_s_line_endings()
     {
-        var path = Path.Combine(_dir, "backlog.db");
-        SqliteConnection? seen = null;
+        var lf = new SqliteSchemaDefinition("x", "CREATE TABLE a (\n  id TEXT\n);");
+        var crlf = new SqliteSchemaDefinition("x", "CREATE TABLE a (\r\n  id TEXT\r\n);");
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => SqliteSchema.OpenAsync(
-            path,
-            (connection, _) =>
-            {
-                seen = connection;
-                throw new InvalidOperationException("schema failed");
-            },
-            TestContext.Current.CancellationToken));
+        Assert.Equal(lf.Fingerprint, crlf.Fingerprint);
+    }
 
-        Assert.Equal("schema failed", failure.Message);
-        Assert.NotNull(seen);
-        Assert.Equal(System.Data.ConnectionState.Closed, seen.State);
+    private static async Task<T> ScalarAsync<T>(SqliteConnection connection, string sql)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return (T)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
+    }
+
+    private void DeleteDatabase()
+    {
+        SqliteConnection.ClearAllPools();
+        foreach (var suffix in new[] { "", "-wal", "-shm" })
+        {
+            File.Delete(DatabasePath + suffix);
+        }
     }
 
     public void Dispose()

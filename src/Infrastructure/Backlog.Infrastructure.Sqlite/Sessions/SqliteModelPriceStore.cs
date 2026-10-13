@@ -107,13 +107,11 @@ public sealed class SqliteModelPriceStore : IModelPriceStore
             : decimal.TryParse(reader.GetString(ordinal), NumberStyles.Number, CultureInfo.InvariantCulture, out var rate) ? rate : null;
 
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
 
-    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
-    {
-        await SqliteSchema.EnsureAsync(
-            connection,
-            """
+    internal static readonly SqliteSchemaDefinition Schema = new(
+        owner: "model_prices",
+        ddl: """
             CREATE TABLE IF NOT EXISTS model_prices (
                 model                TEXT PRIMARY KEY NOT NULL COLLATE NOCASE,
                 position             INTEGER NOT NULL,
@@ -122,9 +120,7 @@ public sealed class SqliteModelPriceStore : IModelPriceStore
                 cache_read_per_mtok  TEXT NULL,
                 cache_write_per_mtok TEXT NULL
             );
-            """,
-            cancellationToken).ConfigureAwait(false);
-    }
+            """);
 }
 
 /// <summary>
