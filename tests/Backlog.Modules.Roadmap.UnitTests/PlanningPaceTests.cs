@@ -273,7 +273,7 @@ public class PlanningPaceTests
     }
 
     /// <summary>A toggle goes to the settings, and the pace announces it, so a band
-    /// listening re-places its bars at once (ADR 0019 Verification 23).</summary>
+    /// listening re-places its bars at once (ADR 0019 Verification 31).</summary>
     [Fact]
     public async Task AToggleGoesToTheSettingsAndIsHeard()
     {
