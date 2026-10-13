@@ -2293,6 +2293,156 @@ public sealed class HomeWorkspaceSurfaceTests
     private static PullRequestTaskSubject PullRequestSubject(string repository, int number, string title = "A pull request", string head = "feature") =>
         new(repository, number, title, head, [], SessionId: null);
 
+    // --- What a change draws again ------------------------------------------
+    //
+    // Every keystroke in an entry's body and every move of the selection is a
+    // change the Tasks state announces, and the shell hears every one. The
+    // header draws nothing those change, so the shell is not drawn again for
+    // them; the Tasks pane listens for itself and is. Each change is made on the
+    // renderer's thread, as the editor's own ValueChanged makes it.
+
+    /// <summary>Five keystrokes in the open entry's Markdown: five redraws of the
+    /// pane that shows the entry, none of the shell around it.</summary>
+    [Fact]
+    public async Task Typing_in_the_open_entry_redraws_the_pane_and_not_the_shell()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+
+        var row = state.Rows[0];
+        await component.InvokeAsync(() => state.SelectAsync(row));
+        var (shellBefore, paneBefore) = (ShellRenderCount.Shell(component), ShellRenderCount.TasksPane(component));
+
+        foreach (var body in new[] { "R", "Re", "Rea", "Read", "Read it" })
+        {
+            await component.InvokeAsync(() => state.ChangeBody(row, body));
+        }
+
+        Assert.Equal("Read it", row.PreviewBody.Trim());
+        Assert.Equal(shellBefore, ShellRenderCount.Shell(component));
+        // One pane redraw per keystroke, not the two it took while the shell redrew
+        // too. The debounced save runs on the real clock and may land under load,
+        // adding a redraw, so the count is a range below the old two-per-change.
+        Assert.InRange(ShellRenderCount.TasksPane(component), paneBefore + 5, paneBefore + 9);
+    }
+
+    /// <summary>Opening one entry after another moves the selection the pane draws
+    /// and nothing in the header.</summary>
+    [Fact]
+    public async Task Moving_the_selection_redraws_the_pane_and_not_the_shell()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText, moreSeeds: ["# Second entry\n`task` `!ready`\n"]);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForState(() => state.Rows.Count == 2 && state.Rows.All(row => row.Id is not null));
+
+        var (shellBefore, paneBefore) = (ShellRenderCount.Shell(component), ShellRenderCount.TasksPane(component));
+
+        await component.InvokeAsync(() => state.SelectAsync(state.Rows[0]));
+        await component.InvokeAsync(() => state.SelectAsync(state.Rows[1]));
+
+        Assert.Contains("Second entry", component.Find(".task-item--selected").TextContent, StringComparison.Ordinal);
+        Assert.Equal(shellBefore, ShellRenderCount.Shell(component));
+        Assert.InRange(ShellRenderCount.TasksPane(component), paneBefore + 2, paneBefore + 3);
+    }
+
+    /// <summary>
+    /// The session and pull request lists read their tasks through the shell's
+    /// delegates and do not listen to the Tasks state themselves, so while either is
+    /// on screen every change the shell hears still draws it again — a row's link or
+    /// status that moved in place reaches the list's cells.
+    /// </summary>
+    [Fact]
+    public async Task A_tasks_change_under_the_sessions_or_pull_requests_list_redraws_it()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+
+        OpenSessions(component);
+        var sessions = component.FindComponent<SessionsPane>();
+        var sessionsBefore = sessions.RenderCount;
+
+        await component.InvokeAsync(() => state.SetSelectionMode(true));
+
+        component.WaitForAssertion(() => Assert.True(sessions.RenderCount > sessionsBefore));
+
+        OpenPullRequests(component);
+        var pullRequests = component.FindComponent<PullRequestsPane>();
+        var pullRequestsBefore = pullRequests.RenderCount;
+
+        await component.InvokeAsync(() => state.SetSelectionMode(false));
+
+        component.WaitForAssertion(() => Assert.True(pullRequests.RenderCount > pullRequestsBefore));
+    }
+
+    /// <summary>The question box holds its own text: typing a question, keys and
+    /// all, draws the box again and not the shell around it — and the question
+    /// typed is still the one that is asked.</summary>
+    [Fact]
+    public void Typing_a_question_redraws_the_box_and_not_the_shell()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForElement("[data-testid='ai-question-input']");
+        var shellBefore = ShellRenderCount.Shell(component);
+
+        foreach (var typed in new[] { "W", "Wh", "Wha", "What", "What?" })
+        {
+            var input = component.Find("[data-testid='ai-question-input']");
+            input.KeyDown(new KeyboardEventArgs { Key = typed[^1..] });
+            input.Input(typed);
+        }
+
+        Assert.Equal(shellBefore, ShellRenderCount.Shell(component));
+
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("What?", Assert.Single(harness.FoundryChat.Requests).Question));
+    }
+
+    /// <summary>Ctrl+Enter in the box asks, as the button does, with the question
+    /// typed.</summary>
+    [Fact]
+    public void Ctrl_enter_in_the_question_box_asks_the_typed_question()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForElement("[data-testid='ai-question-input']").Input("What is next?");
+
+        component.Find("[data-testid='ai-question-input']").KeyDown(new KeyboardEventArgs { Key = "Enter", CtrlKey = true });
+
+        component.WaitForAssertion(() => Assert.Equal("What is next?", Assert.Single(harness.FoundryChat.Requests).Question));
+    }
+
+    /// <summary>A question typed and left is still there when the panel opens
+    /// again: closing the panel ends an ask, not the question.</summary>
+    [Fact]
+    public void A_question_typed_survives_closing_and_reopening_the_panel()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForElement("[data-testid='ai-question-input']").Input("Kept for later");
+
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='ai-question-input']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("Kept for later", component.Find("[data-testid='ai-question-input']").GetAttribute("value")));
+    }
+
     /// <summary>A session opened from the pull requests list is the session list on
     /// that session, as it is from a task.</summary>
     [Fact]
@@ -2689,16 +2839,18 @@ public sealed class HomeWorkspaceSurfaceTests
         Action<AppFeatureSettingsStore>? configureFeatures = null,
         ShellNavigationStore? shellNavigation = null,
         string? seed = null,
-        Action<IServiceCollection>? configureServices = null)
+        Action<IServiceCollection>? configureServices = null,
+        string[]? moreSeeds = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
 
-        if (seed is not null)
+        string[] seeds = [.. seed is null ? [] : new[] { seed }, .. moreSeeds ?? []];
+        for (var order = 0; order < seeds.Length; order++)
         {
             // Written through the real use case, so the entry carries the plan and
             // the item id exactly as an import leaves them.
-            var saved = TasksTestHost.EntriesFor(store).SaveFromTextAsync(null, seed, 0).GetAwaiter().GetResult();
+            var saved = TasksTestHost.EntriesFor(store).SaveFromTextAsync(null, seeds[order], order).GetAwaiter().GetResult();
 
             Assert.True(saved.IsSuccess);
         }

@@ -1406,6 +1406,64 @@ public sealed class HomeRepositoryScopeTests
         Assert.Equal(1, harness.GitHubSettings.Current.ColourFor("backlog"));
     }
 
+    // --- Changes made somewhere other than the header ---------------------------------
+    //
+    // The shell draws itself again for a Tasks change only when the change moved
+    // something the header shows. These are changes to exactly that, made through
+    // the state rather than through a press on the header — an MCP write, Settings,
+    // a restore — so nothing but the state's own Changed reaches the shell.
+
+    [Fact]
+    public async Task A_scope_set_outside_the_header_presses_its_chip()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        Assert.All(Chips(component), chip => Assert.Equal("false", chip.GetAttribute("aria-pressed")));
+
+        await component.InvokeAsync(() => state.SetRepositoryFilter("docs"));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("false", Chips(component)[0].GetAttribute("aria-pressed"));
+            Assert.Equal("true", Chips(component)[1].GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public async Task Colours_turned_on_outside_the_header_mark_the_chips_and_check_the_switch()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        Assert.Equal("false", ColourSwitch(component).GetAttribute("aria-checked"));
+
+        await component.InvokeAsync(() => state.SetRepositoryColoursVisible(true));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains("repo-mark--1", Chips(component)[0].ClassName);
+            Assert.Equal("true", ColourSwitch(component).GetAttribute("aria-checked"));
+        });
+    }
+
+    /// <summary>And a Tasks change that moves nothing the header shows does not draw
+    /// the shell again.</summary>
+    [Fact]
+    public async Task A_tasks_change_the_header_does_not_show_leaves_the_shell_alone()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        Chips(component);
+        var before = ShellRenderCount.Shell(component);
+
+        await component.InvokeAsync(() => state.SetSelectionMode(true));
+        await component.InvokeAsync(() => state.SetSelectionMode(false));
+
+        Assert.Equal(before, ShellRenderCount.Shell(component));
+    }
+
     [Fact]
     public void The_sessions_pane_is_handed_the_gated_answer_too()
     {
