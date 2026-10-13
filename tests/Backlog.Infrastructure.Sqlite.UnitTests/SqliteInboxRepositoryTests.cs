@@ -211,6 +211,56 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Equal(item.UpdatedAt, fromGet!.UpdatedAt);
     }
 
+    /// <summary>The batch read answers the ids that name an item — with each
+    /// one's files, and none of another item's — and skips the rest.</summary>
+    [Fact]
+    public async Task A_batch_read_returns_the_named_items_with_their_attachments_and_skips_unknown_ids()
+    {
+        var digest = new string('c', 64);
+        var withFiles = Manual("With files");
+        var photo = InboxAttachment.Named(Guid.CreateVersion7(), "board.jpg", "image/jpeg", 2048, digest);
+        var contract = InboxAttachment.Named(Guid.CreateVersion7(), "contract.pdf", "application/pdf", 9000, digest);
+        withFiles.RecordAttachments([photo, contract]);
+        var plain = Manual("Plain");
+        var notAsked = Manual("Not asked");
+        notAsked.RecordAttachments([InboxAttachment.Named(Guid.CreateVersion7(), "other.txt", "text/plain", 3, digest)]);
+
+        await _repository.SaveAsync(withFiles, TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(plain, TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(notAsked, TestContext.Current.CancellationToken);
+
+        var loaded = await _repository.GetManyAsync(
+            [plain.Id, Guid.CreateVersion7(), withFiles.Id],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(new[] { withFiles.Id, plain.Id }.Order(), loaded.Select(item => item.Id).Order());
+        var files = loaded.Single(item => item.Id == withFiles.Id);
+        Assert.Equal([photo.Id, contract.Id], files.Attachments.Select(attachment => attachment.Id));
+        Assert.Equal("With files", files.Title);
+        Assert.Empty(loaded.Single(item => item.Id == plain.Id).Attachments);
+    }
+
+    [Fact]
+    public async Task A_batch_read_of_no_ids_answers_nothing()
+    {
+        await _repository.SaveAsync(Manual("Saved"), TestContext.Current.CancellationToken);
+
+        Assert.Empty(await _repository.GetManyAsync([], TestContext.Current.CancellationToken));
+        Assert.Empty(await _repository.GetManyAsync([Guid.CreateVersion7()], TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task The_rooted_store_answers_the_batch_read_from_the_current_root()
+    {
+        var item = Manual("Rooted");
+        await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+        var rooted = new RootedSqliteInboxRepository(() => _root);
+
+        var loaded = await rooted.GetManyAsync([item.Id], TestContext.Current.CancellationToken);
+
+        Assert.Equal([item.Id], loaded.Select(found => found.Id));
+    }
+
     [Fact]
     public async Task The_list_is_every_status_newest_capture_first()
     {

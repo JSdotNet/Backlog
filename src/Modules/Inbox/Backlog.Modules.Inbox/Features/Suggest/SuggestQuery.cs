@@ -52,19 +52,24 @@ public sealed class SuggestQueryHandler(
     /// <summary>Each id that names an item, with what it would be offered —
     /// nothing for a decided one. An id with no item is left out rather than
     /// failing the rest: a row can vanish between the list's read and this one.
-    /// The tags and the rules are read once for the whole batch.</summary>
+    /// The items are loaded in one read, and the tags and the rules are read —
+    /// and the tags prepared for matching — once for the whole batch.</summary>
     public async Task<Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>> Handle(SuggestManyQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
 
+        var ids = query.Ids.Distinct().ToList();
+        var loaded = await items.GetManyAsync(ids, cancellationToken).ConfigureAwait(false);
+        var byId = loaded.ToDictionary(item => item.Id);
+
         var answers = new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
-        IReadOnlyList<string>? tags = null;
+        InboxTagVocabulary? vocabulary = null;
         var rules = routingRules?.Current ?? [];
 
-        foreach (var id in query.Ids.Distinct())
+        // In the order asked, so the answers keep the order they always had.
+        foreach (var id in ids)
         {
-            var item = await items.GetAsync(id, cancellationToken).ConfigureAwait(false);
-            if (item is null) continue;
+            if (!byId.TryGetValue(id, out var item)) continue;
 
             if (!item.IsOpen || item.IsRouted)
             {
@@ -72,10 +77,12 @@ public sealed class SuggestQueryHandler(
                 continue;
             }
 
-            tags ??= backlogTags is null
+            // Only once an open item needs them: a batch of decided items reads
+            // no tags at all.
+            vocabulary ??= InboxTagVocabulary.From(backlogTags is null
                 ? []
-                : await backlogTags.TagsInUseAsync(cancellationToken).ConfigureAwait(false);
-            answers[id] = InboxClassifier.Suggest(item, tags, rules);
+                : await backlogTags.TagsInUseAsync(cancellationToken).ConfigureAwait(false));
+            answers[id] = InboxClassifier.Suggest(item, vocabulary, rules);
         }
 
         return Result.Success<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>(answers);

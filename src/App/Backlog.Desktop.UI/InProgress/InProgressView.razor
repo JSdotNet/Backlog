@@ -108,6 +108,9 @@
     {
         Reader.ReadsSessions = ShowSessions;
         Reader.ReadsPullRequests = ShowPullRequests;
+
+        // A new reader, or the same one with other choices: worked out again.
+        Interlocked.Increment(ref _inputsVersion);
     }
 
     /// <summary>Whether the cards that need the person come first. On by default:
@@ -169,32 +172,143 @@
         Reader.Changed -= OnChanged;
     }
 
-    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+    private void OnChanged()
+    {
+        // Before the render is queued: the rows change in place, so the references
+        // the projection is kept against cannot tell an edit from no change.
+        Interlocked.Increment(ref _inputsVersion);
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     private Task RefreshAsync() => Reader.ReadAsync();
 
-    private InProgressProjection Projection => new(
-        State.Rows,
-        Reader.Sessions,
-        Reader.PullRequests,
-        State.RepositoryAliasFor,
-        State.RepositoryColourFor,
-        State.SessionStateOf,
-        _clock.GetLocalNow(),
-        Reader.SessionsRead);
+    /// <summary>Bumped on every change the task list or the reader announces, and on
+    /// every parameter set — what invalidates the kept projection when nothing it
+    /// holds a reference to has been replaced.</summary>
+    private int _inputsVersion;
+
+    /// <summary>
+    /// The projection and the two lists drawn from it, worked out once per change of
+    /// what they are drawn from rather than on every ask — the board, the picker and
+    /// the focus after a link each ask, and every render asked twice. The moment the
+    /// sentences are measured against is taken when they are worked out; the day is
+    /// part of what they are kept against, so "today" never goes stale.
+    /// </summary>
+    private InProgressProjection? _projection;
+    private IReadOnlyList<InProgressTask> _tasks = [];
+    private IReadOnlyList<InProgressLoose> _loose = [];
+
+    // What the kept projection was worked out from.
+    private object? _builtRows;
+    private object? _builtScopedRows;
+    private object? _builtSessionStates;
+    private string[] _builtAliases = [];
+    private object? _builtSessions;
+    private object? _builtPullRequests;
+    private bool _builtSessionsRead;
+    private bool _builtShowSessions;
+    private bool _builtShowPullRequests;
+    private DateOnly _builtDay;
+    private int _builtVersion;
+
+    /// <summary>How many times the projection has been worked out — what a test reads
+    /// to tell a render that reused it from one that rebuilt it.</summary>
+    internal int ProjectionBuilds { get; private set; }
+
+    private void EnsureProjection()
+    {
+        var now = _clock.GetLocalNow();
+        var day = DateOnly.FromDateTime(now.DateTime);
+        var version = Volatile.Read(ref _inputsVersion);
+
+        if (_projection is not null
+            && version == _builtVersion
+            && day == _builtDay
+            && ReferenceEquals(State.Rows, _builtRows)
+            && ReferenceEquals(State.RowsInRepositoryScope, _builtScopedRows)
+            && ReferenceEquals(State.SessionStates, _builtSessionStates)
+            && State.SelectedRepositoryAliases.SequenceEqual(_builtAliases, StringComparer.Ordinal)
+            && ReferenceEquals(Reader.Sessions, _builtSessions)
+            && ReferenceEquals(Reader.PullRequests, _builtPullRequests)
+            && Reader.SessionsRead == _builtSessionsRead
+            && ShowSessions == _builtShowSessions
+            && ShowPullRequests == _builtShowPullRequests)
+        {
+            return;
+        }
+
+        ProjectionBuilds++;
+
+        var projection = new InProgressProjection(
+            State.Rows,
+            Reader.Sessions,
+            Reader.PullRequests,
+            State.RepositoryAliasFor,
+            State.RepositoryColourFor,
+            State.SessionStateOf,
+            now,
+            Reader.SessionsRead);
+
+        // Under the whole repository scope the task list applies, the Brain included.
+        IReadOnlyList<InProgressTask> tasks =
+        [
+            .. projection.Tasks(State.RowsInRepositoryScope).Select(task => task with
+            {
+                Sessions = ShowSessions ? task.Sessions : [],
+                PullRequests = ShowPullRequests ? task.PullRequests : []
+            })
+        ];
+        IReadOnlyList<InProgressLoose> loose =
+        [
+            .. projection.Loose(State.SelectedRepositoryAliases)
+                .Where(item => item.Session is null ? ShowPullRequests : ShowSessions)
+        ];
+
+        // Kept only once worked out whole, so a projection that threw is asked again.
+        _projection = projection;
+        _tasks = tasks;
+        _loose = loose;
+        _builtVersion = version;
+        _builtDay = day;
+        _builtRows = State.Rows;
+        _builtScopedRows = State.RowsInRepositoryScope;
+        _builtSessionStates = State.SessionStates;
+        _builtAliases = [.. State.SelectedRepositoryAliases];
+        _builtSessions = Reader.Sessions;
+        _builtPullRequests = Reader.PullRequests;
+        _builtSessionsRead = Reader.SessionsRead;
+        _builtShowSessions = ShowSessions;
+        _builtShowPullRequests = ShowPullRequests;
+    }
+
+    private InProgressProjection Projection
+    {
+        get
+        {
+            EnsureProjection();
+            return _projection!;
+        }
+    }
 
     /// <summary>Under the whole repository scope the task list applies, the Brain
     /// included.</summary>
-    private IReadOnlyList<InProgressTask> Tasks =>
-        [.. Projection.Tasks(State.RowsInRepositoryScope).Select(task => task with
+    private IReadOnlyList<InProgressTask> Tasks
+    {
+        get
         {
-            Sessions = ShowSessions ? task.Sessions : [],
-            PullRequests = ShowPullRequests ? task.PullRequests : []
-        })];
+            EnsureProjection();
+            return _tasks;
+        }
+    }
 
-    private IReadOnlyList<InProgressLoose> Loose =>
-        [.. Projection.Loose(State.SelectedRepositoryAliases)
-            .Where(loose => loose.Session is null ? ShowPullRequests : ShowSessions)];
+    private IReadOnlyList<InProgressLoose> Loose
+    {
+        get
+        {
+            EnsureProjection();
+            return _loose;
+        }
+    }
 
     private string FailureMessage =>
         string.Join(" ", Reader.Failures.Select(failure => $"Couldn't read {failure.RepositoryFullName}: {failure.Message.TrimEnd('.')}."));
@@ -251,7 +365,12 @@
         // The card that opened the picker is gone once the link lands, and the focus
         // with it. It goes to the card the item now sits under — or, for a task the
         // view does not show, to the view's title, so it is never left on the body.
-        if (await WorkLinker.LinkAsync(State, _toasts, Projection, row, loose) is null)
+        var failure = await WorkLinker.LinkAsync(State, _toasts, Projection, row, loose);
+
+        // The write may have changed the entry, whether or not the task list announced it.
+        Interlocked.Increment(ref _inputsVersion);
+
+        if (failure is null)
         {
             _focusAfterRender = Tasks.Any(task => task.Id == option.Id)
                 ? InProgressBoard.TaskCardId(option.Id)
@@ -267,7 +386,12 @@
         var row = State.Rows.FirstOrDefault(candidate => candidate.Id?.ToString() == unlink.Task.Id);
         if (row is null) return;
 
-        if (await WorkLinker.UnlinkAsync(State, _toasts, row, unlink.Session, unlink.PullRequest) is null)
+        var failure = await WorkLinker.UnlinkAsync(State, _toasts, row, unlink.Session, unlink.PullRequest);
+
+        // The write may have changed the entry, whether or not the task list announced it.
+        Interlocked.Increment(ref _inputsVersion);
+
+        if (failure is null)
         {
             _focusAfterRender = Tasks.Any(task => task.Id == unlink.Task.Id)
                 ? InProgressBoard.TaskCardId(unlink.Task.Id)
