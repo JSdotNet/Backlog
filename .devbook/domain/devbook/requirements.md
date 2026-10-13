@@ -29,7 +29,7 @@ related: [.devbook/domain/devbook/features.md#brain-scope]
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_leads_the_scope_behind_a_divider_in_band_two, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_no_repository_configured_the_scope_holds_the_brain_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ScopeGlyphIconTests.The_brain_keeps_the_icon_contract]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_leads_the_scope_behind_a_divider_in_band_two, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_no_repository_configured_the_scope_holds_the_brain_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ScopeGlyphIconTests.The_brain_keeps_the_icon_contract, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
 The system SHALL render the Brain chip first in the repository scope, behind a divider, in [band 2](../../design/color-scheme.md#the-brains-accent), with no control that removes it.
@@ -51,7 +51,7 @@ The system SHALL render the Brain chip first in the repository scope, behind a d
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_alone_keeps_the_rows_no_repository_claims, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_repo_token_naming_nothing_configured_counts_as_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_brain_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.The_brain_keeps_the_sessions_of_no_configured_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_keeps_the_pull_requests_of_tasks_filed_against_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_alone_with_nothing_linked_says_pull_requests_belong_to_repositories, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests.The_brain_counts_the_tasks_that_name_no_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_brain_keeps_the_rows_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.RepositoryFocusTests.The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_alone_keeps_the_rows_no_repository_claims, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_repo_token_naming_nothing_configured_counts_as_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_brain_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.The_brain_keeps_the_sessions_of_no_configured_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_keeps_the_pull_requests_of_tasks_filed_against_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_alone_with_nothing_linked_says_pull_requests_belong_to_repositories, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests.The_brain_counts_the_tasks_that_name_no_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_brain_keeps_the_rows_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.RepositoryFocusTests.The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
 The system SHALL show only the tasks filed against no repository in Tasks, Board, Calendar, In progress, Dashboard, Sessions and Pull requests while Brain is the only chip pressed.
@@ -73,7 +73,7 @@ The system SHALL show only the tasks filed against no repository in Tasks, Board
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_presses_as_a_repository_chip_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_beside_a_repository_keeps_both_and_the_anchor_stays, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_pressed_alone_replaces_the_repositories]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_presses_as_a_repository_chip_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_beside_a_repository_keeps_both_and_the_anchor_stays, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_pressed_alone_replaces_the_repositories, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
 The system SHALL add Brain to the chips already pressed on a Ctrl-press and press it alone on a plain press.
@@ -95,7 +95,7 @@ The system SHALL add Brain to the chips already pressed on a Ctrl-press and pres
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_is_remembered_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_brain_comes_back_as_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_remembered_brain_comes_back_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.The_brain_survives_a_restart_as_the_empty_value_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.A_remembered_no_repository_only_state_migrates_to_the_brain]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_is_remembered_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_brain_comes_back_as_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_remembered_brain_comes_back_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.The_brain_survives_a_restart_as_the_empty_value_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.A_remembered_no_repository_only_state_migrates_to_the_brain, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_scope_survives_a_restart_with_the_brain_as_its_anchor]
 ```
 
 The system SHALL reopen a remembered scope with Brain in the position it was stored in, the anchor when it was first, and drop a remembered alias that is no longer configured.
@@ -133,7 +133,7 @@ The system SHALL offer no *No repo* chip on the Tasks filter bar.
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_folder_the_chip_asks_to_be_set_up_and_still_scopes, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_folder_the_pane_on_the_brain_asks_for_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainFolderStateTests.With_no_folder_set_the_pane_asks_for_one_and_links_to_settings]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_folder_the_chip_asks_to_be_set_up_and_still_scopes, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_folder_the_pane_on_the_brain_asks_for_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainFolderStateTests.With_no_folder_set_the_pane_asks_for_one_and_links_to_settings, e2e:dotnet:Backlog.EndToEndTests.BrainTests.First_use_asks_for_a_folder_and_create_conventions_scaffolds_it]
 ```
 
 The system SHALL label the Brain chip **Set up your Brain** while no Brain folder is set, and still scope the tasks with it.
@@ -176,7 +176,7 @@ The system SHALL leave the Brain folder unset until the person picks one.
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.Picking_an_empty_folder_leaves_it_empty, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Picking_a_folder_keeps_its_path_in_the_app_settings_and_the_folder_empty]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.Picking_an_empty_folder_leaves_it_empty, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Picking_a_folder_keeps_its_path_in_the_app_settings_and_the_folder_empty, e2e:dotnet:Backlog.EndToEndTests.BrainTests.First_use_asks_for_a_folder_and_create_conventions_scaffolds_it]
 ```
 
 The system SHALL keep the Brain folder's path in the app's settings and write it into no file in the folder.
@@ -192,7 +192,7 @@ The system SHALL keep the Brain folder's path in the app's settings and write it
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_scaffolds_an_empty_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_never_overwrites_a_readme_already_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_scaffolds_the_folder_and_then_goes_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_leaves_the_persons_readme_unchanged]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_scaffolds_an_empty_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_never_overwrites_a_readme_already_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_scaffolds_the_folder_and_then_goes_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_leaves_the_persons_readme_unchanged, e2e:dotnet:Backlog.EndToEndTests.BrainTests.First_use_asks_for_a_folder_and_create_conventions_scaffolds_it]
 ```
 
 The system SHALL write `README.md` marked `index: root`, `CONVENTIONS.md` and every area folder they declare on **Create conventions**, and leave every file already there unchanged.
@@ -241,7 +241,7 @@ related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_remembered_scope_the_devbook_option_offers_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Nothing_pressed_shows_the_brain_with_its_badge_path_and_declared_areas, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_pane_follows_the_anchor_and_the_switch_opens_on_its_side, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.A_repository_anchor_shows_that_repository_unchanged]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Without_a_remembered_scope_the_devbook_option_offers_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Nothing_pressed_shows_the_brain_with_its_badge_path_and_declared_areas, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_pane_follows_the_anchor_and_the_switch_opens_on_its_side, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.A_repository_anchor_shows_that_repository_unchanged, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_pane_shows_the_declared_areas_and_the_journal_newest_first]
 ```
 
 The system SHALL show the Brain in the Devbook pane when nothing is pressed or the scope's anchor is Brain, and the anchor repository's devbook otherwise.
@@ -263,7 +263,7 @@ The system SHALL show the Brain in the Devbook pane when nothing is pressed or t
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Nothing_pressed_shows_the_brain_with_its_badge_path_and_declared_areas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Declared_areas_are_the_roots_in_their_declared_order, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.With_no_areas_declared_the_seven_para_areas_are_the_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.No_declaration_gives_the_para_roots]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Nothing_pressed_shows_the_brain_with_its_badge_path_and_declared_areas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Declared_areas_are_the_roots_in_their_declared_order, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.With_no_areas_declared_the_seven_para_areas_are_the_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.No_declaration_gives_the_para_roots, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_pane_shows_the_declared_areas_and_the_journal_newest_first]
 ```
 
 The system SHALL show one tab per area `CONVENTIONS.md` declares, in its order, and the seven PARA areas when it declares none.
@@ -279,6 +279,22 @@ The system SHALL show one tab per area `CONVENTIONS.md` declares, in its order, 
 - **Given** a `CONVENTIONS.md` declaring no areas
 - **When** the pane shows the Brain
 - **Then** it shows the tabs of the PARA set
+
+### Requirement: A dated area lists newest first
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.The_journal_tab_lists_and_opens_the_newest_entry_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.The_journal_sorts_newest_first_at_every_level_and_other_areas_by_name, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.An_area_conventions_marks_as_dated_sorts_newest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.A_dated_area_is_the_journal_or_one_its_holds_line_calls_dated, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_pane_shows_the_declared_areas_and_the_journal_newest_first]
+```
+
+The system SHALL list the notes of a dated area — the `journal` folder, or an area whose `Holds` line says *dated* — newest first by name, at every level, and every other area by name.
+
+#### Scenario: The journal
+
+- **Given** a journal holding `2026-09-30.md`, `2026-10-01.md` and `2026-10-13.md`
+- **When** the reader opens the Journal tab
+- **Then** the menu lists `2026-10-13.md` first and the pane opens it
 
 ### Requirement: The switch leaves the task filter alone
 
@@ -340,6 +356,22 @@ The system SHALL let the reader edit any Brain note in the pane and save it to i
 - **When** the reader changes its body
 - **Then** the note's file in the folder holds the new body
 
+### Requirement: A remark on a Brain note is the Brain's
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_remark_left_on_a_note_is_stored_under_the_brain_alias_by_the_notes_path, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_remark_resolved_elsewhere_is_drawn_resolved_without_reopening_the_note, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainRemarkTests.A_repository_remark_on_the_same_path_is_not_the_notes, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.Listing_brain_remarks_answers_the_written_live_ones_on_the_brain]
+```
+
+The system SHALL let the reader leave a remark on a block of a Brain note and store it under the Brain's scope by the note's path from the Brain's root.
+
+#### Scenario: A remark the agent can answer
+
+- **Given** the pane shows the Brain note `projects/plan.md`
+- **When** the reader leaves the remark *Which week?* on its second block
+- **Then** the agent lists that remark for `projects/plan.md` on `#brain`, and resolving it there shows it resolved in the pane
+
 ### Requirement: A conflict copy warns and changes nothing
 
 ```meta
@@ -388,7 +420,7 @@ related: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Following_a_repo_link_opens_the_repository_chapter_and_keeps_the_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Following_a_repo_link_to_the_anchor_from_the_switch_leaves_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.Following_a_gold_chip_asks_for_the_repository_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_configured_alias_with_its_section_resolves, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repo_link_reads_as_alias_path_and_slug]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Following_a_repo_link_opens_the_repository_chapter_and_keeps_the_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Following_a_repo_link_to_the_anchor_from_the_switch_leaves_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.Following_a_gold_chip_asks_for_the_repository_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_configured_alias_with_its_section_resolves, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repo_link_reads_as_alias_path_and_slug, e2e:dotnet:Backlog.EndToEndTests.BrainTests.A_repo_link_opens_the_repository_chapter_and_the_brain_chip_brings_the_brain_back]
 ```
 
 The system SHALL open the named repository's devbook at the named chapter when the reader follows a `repo:<alias>/<devbook path>#slug` link whose alias is configured.
@@ -398,6 +430,34 @@ The system SHALL open the named repository's devbook at the named chapter when t
 - **Given** a Brain note linking `repo:backlog/.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`
 - **When** the reader follows the gold chip
 - **Then** the Devbook pane shows that chapter of `backlog`
+
+### Requirement: The Brain chip brings the Brain back after a repo link
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Leaving_the_brain_scope_after_a_repo_link_brings_the_brain_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Pressing_the_brain_chip_after_a_repo_link_from_an_empty_scope_brings_the_brain_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_repo_link_left_behind_by_the_scope_does_not_come_back_with_the_brain, e2e:dotnet:Backlog.EndToEndTests.BrainTests.A_repo_link_opens_the_repository_chapter_and_the_brain_chip_brings_the_brain_back]
+```
+
+The system SHALL show the Brain in the Devbook pane again when the reader presses the Brain chip after following a repo link, and SHALL forget a followed link once the scope has moved away from the one it was followed under.
+
+#### Scenario: Back from the repository chapter
+
+- **Given** Brain is pressed and the reader followed a note's repo link into `backlog`
+- **When** the reader presses the Brain chip
+- **Then** the pane shows the Brain again
+
+#### Scenario: Nothing was pressed
+
+- **Given** no chip is pressed and the reader followed a note's repo link into `backlog`
+- **When** the reader presses the Brain chip
+- **Then** the pane shows the Brain
+
+#### Scenario: The scope moved on
+
+- **Given** the reader followed a repo link under Brain and then pressed another repository
+- **When** the reader presses the Brain chip again
+- **Then** the pane shows the Brain, not the repository the link opened
 
 ### Requirement: An unknown alias is not an error
 
@@ -430,6 +490,81 @@ The system SHALL list under a repository chapter the owner's Brain notes that li
 - **Given** two Brain notes link to a chapter of `backlog`
 - **When** the reader opens that chapter
 - **Then** a From your Brain box lists both notes with Only you see this, and the repository's working tree is unchanged
+
+### Requirement: A backlink opens the note in the Brain
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_from_your_brain_item_is_a_link_that_opens_the_note_on_the_brain_side, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_host_that_cannot_switch_the_pane_lists_the_notes_as_text]
+```
+
+The system SHALL open a note listed in a From your Brain box on the Brain side of the pane when the reader follows it, and leave the header's scope and the task filter unchanged.
+
+#### Scenario: Scope: backlog
+
+- **Given** the scope is `backlog` alone and a chapter's From your Brain box lists `projects/plan.md`
+- **When** the reader follows that note
+- **Then** the pane shows the note on the Brain, and the scope is still `backlog`
+
+## Bi-directional linking
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#bi-directional-linking]
+```
+
+> The requirements of linking Brain notes and tasks both ways through a note's
+> `tasks` field (local ADR 0026 §3, ADR 0027 §6).
+
+### Requirement: A task link is the task's id
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_task_id_is_a_guid_in_one_spelling, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_note_names_its_tasks_in_its_order_each_once_and_keeps_what_is_no_id, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.The_reader_asks_the_brain_s_own_database, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_brain_with_no_database_or_no_brain_links_no_task]
+```
+
+The system SHALL read each value of a Brain note's `tasks` field from the Brain's database as a task's stored id, a GUID compared case-insensitively and with or without braces.
+
+#### Scenario: Two spellings of one task
+
+- **Given** a Brain note whose `tasks` field holds a task's id in upper case and, in a later chapter, in lower case
+- **When** the app reads the note's task links
+- **Then** the note names that task once
+
+### Requirement: A note lists the tasks it names
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainTaskLinkTests.A_note_lists_its_tasks_known_ones_followable_and_unknown_ones_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainTaskLinkTests.A_note_naming_no_task_draws_no_tasks_section, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_known_task_is_a_gold_chip_that_opens_it, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.An_unknown_task_is_a_dashed_chip_saying_so_with_nothing_to_press]
+```
+
+The system SHALL show under a Brain note's links into devbooks a Tasks section with one chip per task its `tasks` field names, opening the task when this backlog holds it and reading *not in this backlog* when it does not.
+
+#### Scenario: A known and an unknown task
+
+- **Given** a Brain note naming one task this backlog holds and one it does not
+- **When** the pane shows the note
+- **Then** the Tasks section shows the first by its title as a chip that opens it, and the second as a dashed chip reading not in this backlog, and no error is shown
+
+### Requirement: A task row counts the notes naming it, for the owner only
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_task_lists_the_notes_naming_it_in_title_order_each_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.A_row_named_by_brain_notes_carries_a_teal_badge_counting_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.With_no_brain_wired_no_row_carries_a_badge, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.Pressing_a_one_note_badge_opens_that_note, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_badge_with_no_note_draws_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_badge_with_several_notes_lists_them_and_opens_the_one_pressed]
+```
+
+The system SHALL draw on a task row a teal ◆ n note badge counting the owner's Brain notes that name the task, read from the owner's own Brain, opening the note in the Devbook pane on the Brain side.
+
+#### Scenario: Two notes name a task
+
+- **Given** two of the owner's Brain notes name one task in their `tasks` field
+- **When** the task list shows that task in a repository scope or the Brain scope
+- **Then** its row carries ◆ 2 notes marked only you see this, and pressing it lists both notes to open
 
 ## Unified search
 
@@ -570,7 +705,7 @@ related: [.devbook/domain/devbook/features.md#capture-into-the-brain]
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests.Capture_writes_a_note_into_inbox_and_opens_it, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_capture_lands_in_inbox_under_the_para_default, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_capture_lands_in_the_area_the_conventions_name_the_inbox, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_taken_name_gets_the_next_free_one_and_nothing_is_overwritten]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests.Capture_writes_a_note_into_inbox_and_opens_it, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_capture_lands_in_inbox_under_the_para_default, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_capture_lands_in_the_area_the_conventions_name_the_inbox, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.A_taken_name_gets_the_next_free_one_and_nothing_is_overwritten, e2e:dotnet:Backlog.EndToEndTests.BrainTests.Capture_writes_a_note_into_the_inbox_area_and_typed_structure_stays_text]
 ```
 
 The system SHALL write a capture's title and body as a new note with a `meta` block in the Brain's inbox area.
@@ -586,7 +721,7 @@ The system SHALL write a capture's title and body as a new note with a `meta` bl
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests.Typed_structure_is_written_as_text, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_typed_fence_in_an_inbox_note_stays_text]
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests.Typed_structure_is_written_as_text, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_typed_fence_in_an_inbox_note_stays_text, e2e:dotnet:Backlog.EndToEndTests.BrainTests.Capture_writes_a_note_into_the_inbox_area_and_typed_structure_stays_text]
 ```
 
 The system SHALL write a capture's text so that no heading, fence or `meta` block typed into it becomes the note's structure.

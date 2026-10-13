@@ -449,8 +449,9 @@
                            Title="@($"{RouteTitle(repos)} (r)")"
                            OnClick="State.RouteToBacklogAsync"
                            TestId="inbox-move-to-backlog"><span class="inbox-pane__decision-label">@RouteLabel(repos)</span> <kbd class="inbox-pane__key inbox-pane__key--on-primary" aria-hidden="true">R</kbd></AppButton>
-                <AppButton Disabled="@Busy"
-                           Title="Keep it as a note in your Brain (b)"
+                var brainUnavailable = State.ToBrainUnavailableReason;
+                <AppButton Disabled="@(Busy || brainUnavailable is not null)"
+                           Title="@(brainUnavailable ?? InboxDesktopState.ToBrainTitle)"
                            OnClick="State.RouteToBrainAsync"
                            TestId="inbox-to-brain"><span class="inbox-pane__decision-label">@InboxDesktopState.ToBrainLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">B</kbd></AppButton>
             }

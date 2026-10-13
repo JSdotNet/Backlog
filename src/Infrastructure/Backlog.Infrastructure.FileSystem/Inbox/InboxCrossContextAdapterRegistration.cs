@@ -46,7 +46,7 @@ public static class InboxCrossContextAdapterRegistration
         // composed without IBrainNoteWriter registers no target, and the route
         // answers inbox.brain.unavailable.
         services.TryAddScoped<IInboxBrainTarget>(sp => sp.GetService<IBrainNoteWriter>() is { } writer
-            ? new InboxBrainTarget(writer)
+            ? new InboxBrainTarget(writer, sp.GetService<IBrainFolderSource>())
             : new NoBrainTarget());
 
         // Where an item's files are kept: under the workspace's inbox folder,

@@ -230,14 +230,13 @@ from errors to warnings. It relaxes nothing else: edge-through-node,
 endpoint-side-direction and label-overlap are enforced identically at both, and a
 `standard` render still fails on any error.
 
-Four diagrams here render at `standard`, and not for want of trying:
+Three diagrams here render at `standard`, and not for want of trying:
 
 | diagram | why |
 | --- | --- |
 | `.devbook/domain/context-map.md` #1 | the relationship graph is non-planar — a K3,3 subdivision drawn straight from the fence |
-| `.devbook/arc42/05-building-block-view.md` #3 | contains a complete K3,3: `{UI Layer, Local Storage, JSON Indexes}` × `{Inbox Service, Backlog Service, Devbook Service}` |
-| `.devbook/tech/technology-graph.md` #1 | two non-planar blocks: the .NET block (23 nodes, 38 edges) needs at least two edges removed to become planar, and the AI/devbook block (24 nodes, 37 edges) at least one, so three crossings are forced; the artifact has five |
-| `.devbook/arc42/05-building-block-view.md` #2 | no proof of impossibility — three residual crossings nobody has managed to remove. See the note below; this one is different from the other two. |
+| `.devbook/arc42/05-building-block-view.md` #3 | the desktop app's project map (35 components, 51 connections) contains a K3,3 subdivision: `{Shell, Tasks, Roadmap}` × `{GitHubInfra, Mcp, Sqlite}`. Removing any one of `RoadmapUI → GitHubInfra`, `TasksUI → Tasks` or `RoadmapUI → Roadmap` would make it planar, so one crossing is forced; the artifact has two |
+| `.devbook/tech/technology-graph.md` #1 | two non-planar blocks: the .NET block (23 nodes, 38 edges) needs at least two edges removed to become planar, and the AI/devbook block (25 nodes, 41 edges) at least one — `Skills → Markdown` is the only single edge that works — so three crossings are forced; the artifact has eight |
 
 `showcase` raises `composition/proper-crossing` as an error for any crossing
 between two relationships that share no endpoint. In a non-planar graph at least
@@ -260,42 +259,35 @@ prints it along with the warning count, and records `quality` in the index entry
 Anything other than `standard` in that position is rejected — it is not a second
 way to name a type.
 
-**This is an exception, not a dial**, and the exceptions are not all of one
-kind. Three of them rest on a proof and one does not, and that difference is worth
-keeping visible rather than blurring the four together:
+**This is an exception, not a dial.** All three rest on a proof: each graph is
+**provably non-planar**, so a crossing is forced in every possible drawing and no
+amount of further effort changes that. `networkx.check_planarity` over the
+specification's connections settles planarity itself. What a proof does not cover
+is the margin above the floor. The technology graph has eight crossings against a
+proven floor of three, and `05-building-block-view.md` #3 has two against a floor
+of one: the crossings above the floor are unfound embeddings, not forced ones.
 
-- `.devbook/domain/context-map.md` #1, `.devbook/arc42/05-building-block-view.md` #3 and
-  `.devbook/tech/technology-graph.md` #1 are **provably non-planar**. A crossing is
-  forced in every possible drawing. No amount of further effort changes that. The
-  technology graph is also two crossings above its proven floor of three: those two
-  are unfound embeddings, not forced ones. `networkx.check_planarity` over the
-  specification's connections settles planarity itself.
-- `.devbook/arc42/05-building-block-view.md` #2 is **not known to be impossible** — it
-  has no K3,3, and the agent that got closest judged the remaining three
-  crossings "unfound, not impossible". It renders at `standard` because two
-  attempts across very large budgets could not close it, and because a complete
-  faithful drawing with three crossings was judged better than no artifact at
-  all. That is a decision about effort, not a theorem. If somebody later finds
-  the clean embedding, this one should move back to `showcase`.
+Before reaching for the opt-out, prove the graph non-planar, and say so. Failing
+to find a clean drawing is not a proof. A ratio of edges to planar capacity (3V−6)
+does *not* answer the question either: `05-building-block-view.md` #3 sits at 0.52
+on that scale, well inside what looks safe, and is non-planar. Only an embedding
+search settles it.
 
-Before reaching for the opt-out, establish which of those two you are in, and say
-so. A ratio of edges to planar capacity (3V−6) does *not* answer the first
-question: `05-building-block-view.md` #3 sits at 0.41 on that scale, well inside
-what looks safe, and is non-planar. Only an embedding search settles it.
-
-Note also that #2's obstruction was **clustered** planarity rather than plain
-planarity — the graph is planar, but the six subgraph rectangles the fence
-declares fix a block topology that forces crossings. Dropping the rectangles and
-carrying group membership as per-node tags plus cards took the same edge set from
-131 diagnostics to 3. If a dense diagram will not lay out, the rectangles are the
-first constraint to question, not the last.
+`05-building-block-view.md` #2 shows why the proof comes first. It rendered at
+`standard` for a while, on a judgement about effort rather than a theorem, and
+its redrawn specification now renders at `showcase` with no crossings. Its graph
+is planar. The obstruction was **clustered** planarity — the six subgraph
+rectangles the fence declares fix a block topology the edges cannot be drawn
+around — so #2 carries group membership as per-node tags plus cards instead of
+rectangles. If a dense diagram will not lay out, the rectangles are the first
+constraint to question, not the last.
 
 The context map's artifact carries 26 warnings: 2 crossings (one forced crossing
 counted twice, because the chapter draws `Technology Stack ↔ Dev PC Management`
 in both directions), 23 label-route-clearance, and 1 desktop-readability. That
-last one is worth knowing: keeping 30 long relationship labels off the context
+last one is worth knowing: keeping 31 long relationship labels off the context
 boxes forces a wide canvas, and node text falls below Archify's own 6px floor
-under roughly 2048px of viewport. It reads well on a large display and is a
+under roughly 2100px of viewport. It reads well on a large display and is a
 squint on a laptop. Shortening the relationship labels is the lever if that ever
 becomes a problem — not tolerating a crossing, which is the part that reads fine.
 

@@ -309,7 +309,10 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
 - **Structural first, semantic optional.** The structural tier is deterministic and
   builds offline. Embeddings are keyed by chapter content hash, need a model, and
   are versioned by it. A reader must work correctly with the semantic tier absent,
-  falling back to full-text search.
+  falling back to full-text search. The app fills it after each check, through the
+  Foundry deployment `text-embedding-3-small`, embedding only the chapter texts the
+  database has no vector for and carrying the rest across a rebuild; with no
+  deployment configured it calls nothing.
 - **The app builds it.** A C# builder beside the reader parses the folders the
   way the devbook generator does and writes every table; the reader stays
   read-only. `tools/devbook/build-database.mjs` remains as CI's build check. It is

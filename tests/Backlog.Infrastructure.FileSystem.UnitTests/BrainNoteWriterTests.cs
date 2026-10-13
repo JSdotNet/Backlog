@@ -91,6 +91,76 @@ public sealed class BrainNoteWriterTests : IDisposable
         Assert.Equal("mine too", File.ReadAllText(Path.Combine(Brain, "_inbox", "standup-2.md")));
     }
 
+    /// <summary>
+    /// Routing an item To Brain, undoing it and routing it again lands on the note
+    /// the first route wrote, while nobody has edited it — no <c>-2</c> copy beside
+    /// it (<c>.devbook/domain/inbox/features.md#route-to-brain</c>).
+    /// </summary>
+    [Fact]
+    public async Task Routing_the_same_item_again_reuses_the_untouched_note_it_wrote()
+    {
+        UseBrain();
+        var (writer, _) = Create();
+        var draft = new BrainNoteDraft("Standup", "Said in the standup.", BrainNoteSource.Inbox);
+
+        var first = await writer.WriteAsync(draft, TestContext.Current.CancellationToken);
+        var second = await writer.WriteAsync(draft, TestContext.Current.CancellationToken);
+
+        Assert.Equal("_inbox/standup.md", first.RelativePath);
+        Assert.Equal(first.RelativePath, second.RelativePath);
+        Assert.Equal(["standup.md"], Directory.GetFiles(Path.Combine(Brain, "_inbox")).Select(Path.GetFileName));
+    }
+
+    /// <summary>A sync client that rewrote the line endings has not edited the note.</summary>
+    [Fact]
+    public async Task A_note_differing_only_in_line_endings_is_still_reused()
+    {
+        UseBrain();
+        var (writer, _) = Create();
+        var draft = new BrainNoteDraft("Standup", "Said in the standup.", BrainNoteSource.Inbox);
+        var first = await writer.WriteAsync(draft, TestContext.Current.CancellationToken);
+        var path = Path.Combine(Brain, "_inbox", "standup.md");
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\n", "\r\n", StringComparison.Ordinal));
+
+        var second = await writer.WriteAsync(draft, TestContext.Current.CancellationToken);
+
+        Assert.Equal(first.RelativePath, second.RelativePath);
+    }
+
+    /// <summary>Once somebody has edited the note, it is theirs: a second route
+    /// writes a new one and leaves the edit alone.</summary>
+    [Fact]
+    public async Task An_edited_note_is_not_reused_and_is_left_as_it_is()
+    {
+        UseBrain();
+        var (writer, _) = Create();
+        var draft = new BrainNoteDraft("Standup", "Said in the standup.", BrainNoteSource.Inbox);
+        await writer.WriteAsync(draft, TestContext.Current.CancellationToken);
+        var path = Path.Combine(Brain, "_inbox", "standup.md");
+        File.AppendAllText(path, "\nMy own line.\n");
+        var edited = File.ReadAllText(path);
+
+        var second = await writer.WriteAsync(draft, TestContext.Current.CancellationToken);
+
+        Assert.Equal("_inbox/standup-2.md", second.RelativePath);
+        Assert.Equal(edited, File.ReadAllText(path));
+    }
+
+    /// <summary>Capture is a new thought each time: two captures with the same
+    /// words are two notes, as they always were.</summary>
+    [Fact]
+    public async Task A_capture_never_reuses_a_note()
+    {
+        UseBrain();
+        var (writer, _) = Create();
+        var draft = new BrainNoteDraft("Standup", "Said in the standup.", BrainNoteSource.Manual);
+
+        await writer.WriteAsync(draft, TestContext.Current.CancellationToken);
+        var second = await writer.WriteAsync(draft, TestContext.Current.CancellationToken);
+
+        Assert.Equal("_inbox/standup-2.md", second.RelativePath);
+    }
+
     [Fact]
     public async Task A_folder_with_the_note_s_name_is_skipped_like_a_file()
     {

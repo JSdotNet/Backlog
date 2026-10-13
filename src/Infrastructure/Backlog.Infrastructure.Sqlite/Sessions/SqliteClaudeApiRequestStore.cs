@@ -12,8 +12,8 @@ namespace Backlog.Infrastructure.Sqlite.Sessions;
 /// same <c>backlog.db</c> the tasks live in.
 /// <para>
 /// The table is this context's and no other adapter reads or creates it (inherited ADR
-/// 0014); it is created by idempotent <c>IF NOT EXISTS</c> DDL on every open (local ADR
-/// 0003), and a column added later goes through local ADR 0006's additive step.
+/// 0014); it is created by idempotent <c>IF NOT EXISTS</c> DDL on any open the file is not yet
+/// stamped for (local ADR 0003), and a column added later goes through local ADR 0006's additive step.
 /// </para>
 /// <para>
 /// <b>Idempotent by <c>request_id</c></b>, the primary key, through
@@ -142,13 +142,11 @@ public sealed class SqliteClaudeApiRequestStore : IClaudeApiRequestStore
     private static long? Number(SqliteDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetInt64(ordinal);
 
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
 
-    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
-    {
-        await SqliteSchema.EnsureAsync(
-            connection,
-            """
+    internal static readonly SqliteSchemaDefinition Schema = new(
+        owner: "claude_api_requests",
+        ddl: """
             CREATE TABLE IF NOT EXISTS claude_api_requests (
                 request_id            TEXT PRIMARY KEY NOT NULL,
                 session_id            TEXT NULL,
@@ -168,9 +166,7 @@ public sealed class SqliteClaudeApiRequestStore : IClaudeApiRequestStore
                 received_at           TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS ix_claude_api_requests_session ON claude_api_requests (session_id, event_timestamp);
-            """,
-            cancellationToken).ConfigureAwait(false);
-    }
+            """);
 }
 
 /// <summary>

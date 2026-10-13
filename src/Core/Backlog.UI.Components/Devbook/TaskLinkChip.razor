@@ -1,0 +1,95 @@
+@*
+    A Brain note's link to a task (local ADR 0026 §3,
+    .devbook/domain/devbook/features.md#bi-directional-linking), drawn as a chip in
+    the note's Tasks section. The sibling of RepoLinkChip, in the same two states
+    (.devbook/design/color-scheme.md#the-brains-accent):
+
+    - resolved: gold, the `live` tone — a followable badge — because pressing it
+      opens the task. The chip is the button and reads the task's title.
+    - unresolved: the `quiet` tone inside a dashed edge, reading "not in this
+      backlog". Never an error: one Brain is read beside more than one backlog, and
+      a note naming a task this machine has not got is ordinary.
+
+    The id as written is the tooltip in both states.
+*@
+
+<span class="@ClassValue"
+      data-testid="@TestId"
+      data-task="@Reference"
+      data-resolved="@(Resolved ? "true" : "false")"
+      title="@Tooltip"
+      @attributes="AdditionalAttributes">
+    @if (Resolved && OnOpen.HasDelegate)
+    {
+        <button type="button"
+                class="repo-link-chip__open"
+                aria-label="@($"Open the task {Label}")"
+                @onclick="OpenAsync">
+            <span class="repo-link-chip__label">@Label</span>
+        </button>
+    }
+    else
+    {
+        <span class="repo-link-chip__label">@Label</span>
+        @if (!Resolved)
+        {
+            <span class="repo-link-chip__problem">@NotInThisBacklog</span>
+        }
+    }
+</span>
+
+@code {
+    /// <summary>What an unresolved chip says.</summary>
+    public const string NotInThisBacklog = "not in this backlog";
+
+    /// <summary>What the chip reads as: the task's title, or the value as written
+    /// when no task here has it.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>The value as the note writes it — the tooltip, and what
+    /// <see cref="OnOpen"/> is raised with.</summary>
+    [Parameter]
+    public string? Reference { get; set; }
+
+    /// <summary>Whether this backlog holds the task, so the link can be
+    /// followed.</summary>
+    [Parameter]
+    public bool Resolved { get; set; }
+
+    /// <summary>Raised with <see cref="Reference"/> when a resolved chip is
+    /// pressed. With no handler the chip is text.</summary>
+    [Parameter]
+    public EventCallback<string?> OnOpen { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Tooltip
+    {
+        get
+        {
+            var raw = string.IsNullOrWhiteSpace(Reference) ? Label : Reference;
+            return Resolved ? raw : $"{raw} — {NotInThisBacklog}";
+        }
+    }
+
+    private string ClassValue
+    {
+        get
+        {
+            var classes = Resolved
+                ? "repo-link-chip repo-link-chip--resolved task-link-chip"
+                : "repo-link-chip repo-link-chip--unresolved task-link-chip";
+            return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
+        }
+    }
+
+    private Task OpenAsync() => OnOpen.InvokeAsync(Reference);
+}

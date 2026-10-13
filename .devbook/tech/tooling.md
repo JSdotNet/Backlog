@@ -393,6 +393,15 @@ flowchart LR
   `CONVENTIONS.md` declares as the folders, the `para`, `repos` and `tasks`
   fields as node attributes, and `repo:` links as edges with no node at their
   target.
+
+  One difference between the writers is deliberate and stays. A Brain kept in
+  a synced folder, OneDrive's Files On-Demand, is all reparse-point placeholders.
+  The C# builder walks and indexes them, a cloud-only file by its name alone and
+  unread. The Node writer skips every reparse point, as the installed
+  generator's own walk does, so over such a Brain it indexes nothing. Matching
+  it would mean changing the generator, which `devbook:update` owns, and reading
+  the attributes Node does not expose; opening a placeholder to look downloads
+  it. The parity test's Brain fixture is plain files, where the two agree.
 - **Why** — twelve committed JSON artifacts were 1.8 MB of derived output that
   every branch collided on (local ADR 0004). A database kept beside the folders
   still had to be ignored per layout, and it existed only if somebody had run

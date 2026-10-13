@@ -993,10 +993,12 @@ Negative:
   definition a second copy that can. The change feed and the tombstones exist to
   bound that, not to eliminate it.
 - **The sparse rank key is a second schema change riding the same mechanism.**
-  ADR 0006 notes that its bootstrap *"runs on every open, so its cost grows with
-  the number of statements"*; this adds a column probe and a seeding `UPDATE` to
-  that list, and moves the mechanism nearer the boundary at which it stops being
-  enough.
+  ADR 0006 noted that its bootstrap ran on every open, so its cost grew with the
+  number of statements; this adds a column and a seeding `UPDATE` to that list,
+  and moves the mechanism nearer the boundary at which it stops being enough.
+  *Amended 2026-10-13: the bootstrap now runs only on an open whose file is not
+  stamped with the store's current schema definition (local ADR 0006), so the
+  list's cost is paid once per file per definition rather than on every open.*
 - **Two callers derive rank from a list index and have to stop.** The importer
   starts new entries at `existing.Count`
   (`src/Modules/Tasks/Backlog.Modules.Tasks/Features/ImportPlan/ImportPlanCommand.cs:101`)

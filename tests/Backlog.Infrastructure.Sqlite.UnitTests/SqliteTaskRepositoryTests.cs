@@ -1210,7 +1210,10 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     /// rather than throwing. <c>ParseType</c> no longer knows the word, so a file
     /// carrying it would fail every read of that row — which is a person's entry
     /// lost to a vocabulary change. Opening normalizes the retired value away
-    /// instead, once, in place.
+    /// instead, once, in place. Once a file is stamped the setup does not run
+    /// again, so the row stands for a file last set up before the stamp existed —
+    /// one that carries none. (A build that old writing into a file this one has
+    /// already stamped would leave its row unfixed; local ADR 0006 records that.)
     /// </summary>
     [Fact]
     public async Task A_row_written_with_the_retired_follow_up_type_reads_back_as_a_task()
@@ -1240,7 +1243,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
             await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        await ForgetSchemaStampAsync();
 
         var loaded = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
 
@@ -1254,7 +1257,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     /// last changed — and only that one. A Done entry changed since the split's
     /// bound is left as it is, because unticked is by then something a person may
     /// have chosen, and a tombstone is not touched at all. The stamp is not moved,
-    /// so the seed is not a sync edit.
+    /// so the seed is not a sync edit. The rows stand for a file last set up
+    /// before the seed existed, so it carries no schema stamp.
     /// </summary>
     [Fact]
     public async Task A_done_entry_from_before_the_tick_split_reads_back_ticked()
@@ -1293,7 +1297,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
             await InsertAsync(open, "in_progress", "2026-09-20T15:30:00.0000000+00:00", null);
         }
 
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        await ForgetSchemaStampAsync();
 
         var ticked = await _repository.GetAsync(before, TestContext.Current.CancellationToken);
 
@@ -1461,6 +1465,141 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
                 stored!,
                 System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.RoundtripKind));
+
+        // And the file now says so: stamped with this schema, with the sync read's
+        // index over a column the old file did not have.
+        Assert.Equal(SqliteTaskRepository.Schema.Fingerprint, await ScalarAsync<string>("SELECT fingerprint FROM schema_stamps WHERE owner = 'tasks';"));
+        Assert.Equal(1, await ScalarAsync<long>("SELECT count(*) FROM sqlite_master WHERE type = 'index' AND name = 'ix_tasks_updated';"));
+    }
+
+    // --- Schema stamp ------------------------------------------------------
+
+    [Fact]
+    public async Task A_fresh_database_is_stamped_and_indexed_for_the_sync_read()
+    {
+        await _repository.SaveAsync(new TaskItem("First", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SqliteTaskRepository.Schema.Fingerprint, await ScalarAsync<string>("SELECT fingerprint FROM schema_stamps WHERE owner = 'tasks';"));
+        Assert.Equal(1, await ScalarAsync<long>("SELECT count(*) FROM sqlite_master WHERE type = 'index' AND name = 'ix_tasks_updated';"));
+    }
+
+    /// <summary>
+    /// The point of the stamp: a file already set up is not set up again, so a
+    /// read takes no write lock for the seeding <c>UPDATE</c>s. Shown by a row the
+    /// setup would rewrite, slipped in behind the stamp — it is still there,
+    /// untouched, after another round of operations.
+    /// </summary>
+    [Fact]
+    public async Task An_already_stamped_database_is_not_set_up_again()
+    {
+        var id = Guid.NewGuid();
+        await _repository.SaveAsync(new TaskItem("First", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+
+        await ExecuteAsync($"""
+            INSERT INTO tasks (id, title, type, status, priority, created_at)
+            VALUES ('{id}', 'Behind the stamp', 'follow_up', 'ready', 'medium', '2026-08-20T09:00:00.0000000+00:00');
+            """);
+
+        await _repository.GetAsync(Guid.NewGuid(), TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(new TaskItem("Second", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+
+        Assert.Equal("follow_up", await ScalarAsync<string>($"SELECT type FROM tasks WHERE id = '{id}';"));
+        Assert.Null(await ReadUpdatedAtAsync(id));
+    }
+
+    /// <summary>
+    /// The case the old every-open setup was kept for: the file deleted and
+    /// created again underneath a running repository. The new file has no stamp,
+    /// so the next operation sets it up and goes on working, rather than failing
+    /// on a table a cached "already prepared" said was there.
+    /// </summary>
+    [Fact]
+    public async Task A_database_deleted_under_a_running_repository_is_set_up_again()
+    {
+        await _repository.SaveAsync(new TaskItem("Before", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        foreach (var suffix in new[] { "", "-wal", "-shm" })
+        {
+            File.Delete(_repository.DatabasePath + suffix);
+        }
+
+        Assert.Empty(await _repository.ListAsync(TestContext.Current.CancellationToken));
+
+        var after = new TaskItem("After", string.Empty, EntryType.Task);
+        await _repository.SaveAsync(after, TestContext.Current.CancellationToken);
+
+        Assert.Equal("After", Assert.Single(await _repository.ListAsync(TestContext.Current.CancellationToken)).Title);
+        Assert.Equal(SqliteTaskRepository.Schema.Fingerprint, await ScalarAsync<string>("SELECT fingerprint FROM schema_stamps WHERE owner = 'tasks';"));
+    }
+
+    // --- Saving several -----------------------------------------------------
+
+    [Fact]
+    public async Task Saving_several_writes_every_one_of_them()
+    {
+        var first = new TaskItem("First", string.Empty, EntryType.Task);
+        var second = new TaskItem("Second", string.Empty, EntryType.Task);
+        await _repository.SaveAsync(first, TestContext.Current.CancellationToken);
+
+        first.SetOrder(1);
+        second.SetOrder(0);
+        await _repository.SaveManyAsync([first, second], TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["Second", "First"],
+            (await _repository.ListAsync(TestContext.Current.CancellationToken)).Select(task => task.Title));
+    }
+
+    /// <summary>One transaction: a batch that fails part-way leaves none of it
+    /// behind, rather than half a drag's new ranks.</summary>
+    [Fact]
+    public async Task Saving_several_writes_none_of_them_when_one_fails()
+    {
+        var first = new TaskItem("First", string.Empty, EntryType.Task);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => _repository.SaveManyAsync([first, null!], TestContext.Current.CancellationToken));
+
+        Assert.Empty(await _repository.ListAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Saving_none_does_not_touch_the_file()
+    {
+        await _repository.SaveManyAsync([], TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(_repository.DatabasePath));
+    }
+
+    /// <summary>Removes the schema stamp, so the file reads as one last opened by a
+    /// build from before the stamp — the next operation sets it up again.</summary>
+    private async Task ForgetSchemaStampAsync()
+    {
+        await ExecuteAsync("DELETE FROM schema_stamps;");
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+    }
+
+    private async Task ExecuteAsync(string sql)
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString());
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task<T> ScalarAsync<T>(string sql)
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString());
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return (T)(await command.ExecuteScalarAsync())!;
     }
 
     /// <summary>Reads the tombstone straight out of the file. Every read through

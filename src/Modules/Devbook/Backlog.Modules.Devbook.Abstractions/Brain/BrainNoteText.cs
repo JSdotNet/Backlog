@@ -81,7 +81,7 @@ public static partial class BrainNoteText
         var heading = TitleOf(title) ?? throw new ArgumentException("A note needs a title.", nameof(title));
 
         var text = new StringBuilder()
-            .Append("# ").Append(heading).Append('\n')
+            .Append("# ").Append(GuardHeading(heading)).Append('\n')
             .Append('\n')
             .Append("```meta\n")
             .Append("type: ").Append(NoteType).Append('\n')
@@ -138,6 +138,23 @@ public static partial class BrainNoteText
     }
 
     private static string Shield(string line, int markerAt) => line.Insert(markerAt, LineShield);
+
+    /// <summary>
+    /// A one-line title as the text of the note's <c>#</c> heading: a run of
+    /// <c>#</c> that ends it after a space — <c>Ideas for C #</c> — or that is the
+    /// whole of it is shielded, because CommonMark reads that run as the heading's
+    /// optional closing sequence and drops it, so the note would render as
+    /// <c>Ideas for C</c> in any Markdown reader that follows the spec. A run
+    /// joined to a word, <c>C#</c>, is text there already and left alone.
+    /// </summary>
+    public static string GuardHeading(string title)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+
+        return ClosingSequence().Match(title) is { Success: true } closing
+            ? Shield(title, closing.Groups[2].Index)
+            : title;
+    }
 
     /// <summary>
     /// The file name <paramref name="title"/> makes, without <c>.md</c>: its
@@ -210,6 +227,11 @@ public static partial class BrainNoteText
 
     [GeneratedRegex(@"^( {0,3})(=+|-+)[ \t]*$")]
     private static partial Regex SetextUnderline();
+
+    /// <summary>CommonMark's closing sequence of an ATX heading: a run of
+    /// <c>#</c> at the end, after a space or a tab or as the whole text.</summary>
+    [GeneratedRegex(@"(^|[ \t])(#+)[ \t]*$")]
+    private static partial Regex ClosingSequence();
 }
 
 /// <summary>Where a note came from (<c>.devbook/domain/devbook/domain.md#note-source</c>):
