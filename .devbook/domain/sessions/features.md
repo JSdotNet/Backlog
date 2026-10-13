@@ -1414,6 +1414,27 @@ recorded with. The entry's repositories stay. A session still live, or a pull re
 the reader's still open, goes back under **Not linked to a task**, one link away from the
 right task. The focus stays on the task's card.
 
+### What a linked pull request is read for
+
+```meta
+type: sub-feature
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests.Linked_pull_requests_are_read_with_their_state_merge_date_and_author, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests.Many_linked_pull_requests_are_read_in_slim_batches]
+```
+
+Every pull request a task links is known by its own state — open, draft, merged or
+closed — by who opened it, and by when it merged. The open read answers for one still
+open in a configured repository. The rest are read by number, once the open read has
+landed, so the open cards never wait on them. That read asks only for what a link
+records, in batches of fifty, and never for checks or branches.
+
+A merged pull request is read once and kept while the app runs. A closed or open one is
+read again with the next read of the open list, at most once a minute, because GitHub
+can reopen a closed one. A number GitHub cannot find is not asked about again. The side
+panel reads none of them.
+
+The cards draw what they drew before. A link carries the state, the author and the merge
+date for a reader that counts what merged and whose it was; no card shows them yet.
+
 ### From a task's side panel
 
 ```meta

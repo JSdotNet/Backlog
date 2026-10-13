@@ -386,6 +386,43 @@ public sealed record PullRequestPin(string RepositoryFullName, int Number)
         Number == number && string.Equals(RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase);
 }
 
+/// <summary>One pull request a task links, by <c>owner/name</c> and number — what
+/// <see cref="GitHubIntegration.ListLinkedPullRequestsAsync"/> is asked to read.</summary>
+public sealed record GitHubPullRequestReference(string RepositoryFullName, int Number);
+
+/// <summary>
+/// One pull request a task links, as a read by number finds it: what it is called,
+/// where it stands, who opened it and when it merged.
+/// <para>
+/// Its own record rather than a <see cref="GitHubOpenPullRequest"/>, because the read
+/// that answers it asks for these facts and no others. The checks, the merge state and
+/// the branches are what an act on an open pull request needs, they cost the most to
+/// read, and a linked pull request is read for the record of its work, not to act on.
+/// </para>
+/// </summary>
+/// <param name="AuthorLogin">Who opened it; null where GitHub no longer knows the
+/// account.</param>
+/// <param name="MergedAt">When it merged; null unless <paramref name="State"/> is
+/// <see cref="GitHubItemState.Merged"/>.</param>
+public sealed record GitHubLinkedPullRequest(
+    int Number,
+    string Url,
+    string Title,
+    string RepositoryFullName,
+    GitHubItemState State,
+    string? AuthorLogin,
+    DateTimeOffset? MergedAt);
+
+/// <summary>The linked pull requests of several repositories, read together, and the
+/// repositories that could not be read — failures beside the answers, as
+/// <see cref="GitHubPullRequestListing"/> keeps them.</summary>
+public sealed record GitHubLinkedPullRequestListing(
+    IReadOnlyList<GitHubLinkedPullRequest> PullRequests,
+    IReadOnlyList<GitHubRepositoryFailure> Failures)
+{
+    public static GitHubLinkedPullRequestListing Empty { get; } = new([], []);
+}
+
 /// <summary>One repository's pull requests merged since a moment, as
 /// <see cref="IGitHubClient.ListMergedPullRequestsAsync"/> read them.</summary>
 /// <param name="Truncated">The read stopped at the client's page cap while still inside

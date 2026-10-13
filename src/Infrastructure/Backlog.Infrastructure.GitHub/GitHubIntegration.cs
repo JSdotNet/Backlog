@@ -296,6 +296,56 @@ public sealed partial class GitHubIntegration(
     }
 
     /// <summary>
+    /// The pull requests tasks link, whatever state each is in — open, draft, merged or
+    /// closed — with when each merged and who opened it: one read per repository, side
+    /// by side, each repository's refusal kept as its failure, as
+    /// <see cref="ListPinnedPullRequestsAsync"/> reads pins.
+    /// <para>
+    /// A link names its repository by <c>owner/name</c> and is read through it whether
+    /// or not that repository is still configured: the work was recorded there, and a
+    /// repository dropped from the settings since does not unmake it. Links differing
+    /// only in the case of their repository are one repository's. A number GitHub cannot
+    /// find is left out.
+    /// </para>
+    /// </summary>
+    public async Task<GitHubLinkedPullRequestListing> ListLinkedPullRequestsAsync(
+        IEnumerable<GitHubPullRequestReference> links,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(links);
+
+        var reads = links
+            .Where(link => link.Number > 0 && !string.IsNullOrWhiteSpace(link.RepositoryFullName))
+            .GroupBy(link => link.RepositoryFullName.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => ReadLinkedAsync(group.Key, [.. group.Select(link => link.Number).Distinct()], cancellationToken))
+            .ToList();
+
+        if (reads.Count == 0) return GitHubLinkedPullRequestListing.Empty;
+
+        var answers = await Task.WhenAll(reads).ConfigureAwait(false);
+
+        return new GitHubLinkedPullRequestListing(
+            [.. answers.SelectMany(answer => answer.PullRequests)],
+            [.. answers.Where(answer => answer.Failure is not null).Select(answer => answer.Failure!)]);
+    }
+
+    private async Task<(IReadOnlyList<GitHubLinkedPullRequest> PullRequests, GitHubRepositoryFailure? Failure)> ReadLinkedAsync(
+        string repositoryFullName,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var repository = RepositoryForFullName(repositoryFullName);
+            return (await client.ReadLinkedPullRequestsAsync(repository, numbers, cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+        {
+            return ([], new GitHubRepositoryFailure(repositoryFullName, ex.Message));
+        }
+    }
+
+    /// <summary>
     /// The pull requests merged within <see cref="RecentlyMergedWindow"/> in every
     /// repository given, newest merge first across all of them — read side by side,
     /// each repository's refusal kept as its failure, exactly as
