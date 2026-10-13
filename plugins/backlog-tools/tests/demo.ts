@@ -57,7 +57,7 @@ export const demoAt = (tick: number): { plan: Plan; workers: Worker[]; isOver: b
       state: finished ? s.outcome : 'running',
       note: finished ? s.note : '',
       flow: reached >= 0 ? 'flow-code' : '',
-      runId: reached >= 0 ? `run-${s.n}` : '',
+      runIds: reached >= 0 ? [`run-${s.n}`] : [],
       stages: reached >= 0 ? STAGES : [],
       stageStatus: reached >= 0 ? stageStatus : [],
       runStatus: finished ? (s.outcome === 'pr' ? 'done' : s.outcome === 'blocked' ? 'blocked' : 'in_progress') : 'in_progress',
