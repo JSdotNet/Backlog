@@ -555,6 +555,54 @@ await run(
     FENCED_HEADING
 );
 
+// Free text that is not a valid plain YAML scalar: every other reader drops the
+// fence, so the writer must never emit one, and `run` lints each written file.
+const AWKWARD = "`Annotatie.Lees` answered by Job: (a) the code leads #1 — see note #2";
+
+await run("add and reply with text that is no plain YAML scalar", async (root) => {
+    await add(root, ADDRESS, {
+        after: "one indexed range read",
+        author: "Job (via claude): reviewer",
+        date: "2026-09-03",
+        body: AWKWARD,
+    });
+    await reply(root, ADDRESS, 2, { author: "Job (via claude)", date: "2026-09-04", body: AWKWARD });
+    const [, thread] = await list(root, ADDRESS);
+    check(thread.body === AWKWARD, "add: a one-line body round-trips unchanged", thread.body);
+    check(thread.author === "Job (via claude): reviewer", "add: an author with `: ` round-trips", thread.author);
+    check(thread.replies?.[0]?.body === AWKWARD, "reply: a one-line body round-trips unchanged", thread.replies?.[0]?.body);
+    const markdown = await readFile(path.join(root, REL), "utf8");
+    check(!markdown.includes(`body: ${AWKWARD}`), "add and reply: a one-line body is written as a block, never plain");
+});
+
+await run(
+    "add --after a quote that opens with a backtick",
+    async (root) => {
+        await add(root, `${REL}#next-chapter`, {
+            after: "`Annotatie.Lees` returns",
+            author: "claude",
+            date: "2026-09-03",
+            body: "Null on a broken fence?",
+        });
+        const [thread] = await list(root, `${REL}#next-chapter`);
+        check(thread?.quote === "`Annotatie.Lees` returns", "add: a backtick quote round-trips", thread?.quote);
+    },
+    SOURCE + ["## Next Chapter", "", "`Annotatie.Lees` returns null.", ""].join("\n")
+);
+
+{
+    const broken = SOURCE.replace("body: An existing thread.", "body: a: b");
+    const errors = validateDocument(REL, broken).filter((issue) => issue.severity === "error");
+    check(
+        errors.some((issue) => /not valid YAML/.test(issue.message)),
+        "--check: a fence with `body: a: b` is an error",
+        errors.map((issue) => issue.message).join(" | ")
+    );
+    const quoted = SOURCE.replace("quote: one indexed range read", 'quote: "one \\"indexed\\" range"');
+    const quotedErrors = validateDocument(REL, quoted).filter((issue) => /not valid YAML/.test(issue.message));
+    check(quotedErrors.length === 0, "--check: a double-quoted scalar with escapes is valid", quotedErrors.map((e) => e.message).join(" | "));
+}
+
 const fencedSlugs = parseDocument(FENCED_HEADING).chapters.map((chapter) => chapter.slug).join(",");
 check(
     fencedSlugs === "building-block-view,devbook-meta,next-chapter",

@@ -15,6 +15,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { documentDigest, testIssues, validateDocument } from "./metadata.mjs";
 import { buildGraph, CONTRACT_VERSION } from "./graph.mjs";
+import { parseScenarioPage } from "../scenarios/parse.mjs";
+import { signatureOf } from "../scenarios/signature.mjs";
 
 let failed = 0;
 const check = (ok, name, detail) => {
@@ -237,6 +239,8 @@ const problemsAbout = (graph, needle) => graph.problems.filter((p) => p.message.
     const graph = await graphOf(base("type: scenario\nactor: features.md#backlog-board\nflags: [context.md#backlog-max-columns]\nsettings: [context.md#nowhere=5]\n"));
     check(problemsAbout(graph, "`actor` entry \"features.md#backlog-board\" that resolves to a `feature` chapter").length === 1, "an actor resolving to a feature is an error", dump(graph.problems));
     check(problemsAbout(graph, "`flags` entry \"context.md#backlog-max-columns\" that resolves to a `setting` chapter").length === 1, "a flag resolving to a setting is an error", dump(graph.problems));
+    // A switch modelled as a setting is set through setSetting, so the error says where it goes.
+    check(problemsAbout(graph, "goes under `settings` as `context.md#backlog-max-columns=true`").length === 1, "a flag resolving to a setting names the settings entry it should be", dump(graph.problems));
     check(problemsAbout(graph, "`settings` entry \"context.md#nowhere\" that does not resolve").length === 1, "an unresolved setting is an error", dump(graph.problems));
 }
 
@@ -328,6 +332,89 @@ const proved = (target) => ({
         ".devbook/domain/shop/set-up-and-fill-the-backlog.md": page("type: scenario\n"),
     }));
     check(problemsAbout(graph, "the stem is ambiguous").length === 1, "a pointer by a duplicated stem is ambiguous", dump(graph.problems));
+}
+
+// ── Linked walkthroughs: a demo walkthrough sharing a part's journey ───────
+
+const DEMO = ".devbook/domain/work/features.demo.html";
+const SIGNATURE = signatureOf(parseScenarioPage(page("type: scenario\n"), NESTED));
+const demoHtml = (walkthroughs) =>
+    `<!doctype html>\n<html><head><title>Work</title>\n<!-- template:begin -->\n<style>body{margin:0}</style>\n<!-- template:end -->\n` +
+    `<script type="application/json" id="demo-meta">{"question":"Does the board read?"}</script>\n` +
+    `<script type="application/json" id="demo-model">${JSON.stringify({
+        screens: [{ id: "statuses", title: "Statuses", anchors: [] }, { id: "board", title: "Board", anchors: [] }],
+        walkthroughs,
+    })}</script>\n</head><body>\n<section id="statuses" data-screen></section>\n<section id="board" data-screen></section>\n</body></html>\n`;
+const linkedWalkthrough = (over = {}) => ({
+    id: "set-up-statuses",
+    title: "Set up statuses",
+    part: "set-up-and-fill-the-backlog.md#statuses-are-set-up",
+    signature: SIGNATURE,
+    steps: [
+        { screen: "statuses", step: 1, text: "a product with no statuses" },
+        { screen: "statuses", step: 2, text: 'When I create "New", "Doing" and "Done"' },
+        { screen: "board", step: 3, text: "they appear as columns in that order" },
+    ],
+    ...over,
+});
+const linkedCorpus = (walkthroughs, extra = {}) =>
+    base("type: scenario\n", { ...proved("set-up-and-fill-the-backlog.md#statuses-are-set-up"), [DEMO]: demoHtml(walkthroughs), ...extra });
+const walkthroughProblems = (graph) => graph.problems.filter((p) => p.path === DEMO || /walkthrough/.test(p.message));
+{
+    const graph = await graphOf(linkedCorpus([linkedWalkthrough()]));
+    const requirement = graph.nodes.find((n) => n.id === `${REQUIREMENTS}#requirement-columns-follow-the-status-order`);
+    check(walkthroughProblems(graph).length === 0, "a linked walkthrough at the page's signature, its text the part's, is clean", dump(walkthroughProblems(graph)));
+    check(
+        JSON.stringify(requirement?.demo) === JSON.stringify([`${DEMO}#walkthrough/set-up-statuses`]),
+        "the Proved by requirement's demo entry is derived from the walkthrough linked to its part",
+        JSON.stringify(requirement)
+    );
+    check(requirement?.tests?.length === 1, "the derived demo entry sits beside the derived tests entry", JSON.stringify(requirement));
+}
+{
+    const graph = await graphOf(linkedCorpus([linkedWalkthrough({ part: `${NESTED}#an-item-is-moved` })]));
+    const requirement = graph.nodes.find((n) => n.id === `${REQUIREMENTS}#requirement-columns-follow-the-status-order`);
+    check(requirement && requirement.demo === undefined, "a walkthrough linked to another part derives nothing onto the requirement", JSON.stringify(requirement));
+    const unresolved = walkthroughProblems(graph).filter((p) => /names no scenario page part|has no part/.test(p.message));
+    check(unresolved.length === 0 && problemsAbout(graph, "drifted from part step").length === 3, "a part by repository path resolves and is checked step by step", dump(walkthroughProblems(graph)));
+}
+{
+    const graph = await graphOf(linkedCorpus([linkedWalkthrough({ part: "set-up-and-fill-the-backlog.md#no-such-part" })]));
+    check(problemsAbout(graph, 'has no part "#no-such-part"').some((p) => p.severity === "error" && p.path === DEMO), "a part the page does not have is an error", dump(graph.problems));
+}
+{
+    const graph = await graphOf(linkedCorpus([linkedWalkthrough({ part: "no-such-page.md#statuses-are-set-up" })]));
+    check(problemsAbout(graph, 'no scenario page has the stem "no-such-page"').some((p) => p.severity === "error" && p.path === DEMO), "a part on no scenario page is an error", dump(graph.problems));
+}
+{
+    const steps = [{ screen: "statuses", step: 1, text: "a product with no statuses" }, { screen: "board", step: 4, text: "they appear" }];
+    const graph = await graphOf(linkedCorpus([linkedWalkthrough({ steps })]));
+    check(problemsAbout(graph, "step 2 on part step 4, but").some((p) => p.severity === "error"), "a step past the part's last step is an error", dump(graph.problems));
+}
+{
+    const graph = await graphOf(linkedCorpus([linkedWalkthrough({ signature: "00000000" })]));
+    check(problemsAbout(graph, `at signature 00000000, but ${NESTED} is at ${SIGNATURE}`).some((p) => p.severity === "warning"), "a walkthrough at an older signature is stale", dump(graph.problems));
+}
+{
+    const steps = [{ screen: "statuses", step: 1, text: "a product with one status" }];
+    const fresh = await graphOf(linkedCorpus([linkedWalkthrough({ steps })]));
+    check(problemsAbout(fresh, "drifted from part step 1").some((p) => p.severity === "error"), "embedded text unlike the part step, at the current signature, is an error", dump(fresh.problems));
+    const stale = await graphOf(linkedCorpus([linkedWalkthrough({ steps, signature: "00000000" })]));
+    check(problemsAbout(stale, "drifted from part step 1").some((p) => p.severity === "warning"), "drifted text under a stale signature is a warning", dump(stale.problems));
+}
+{
+    // A hand-written walkthrough on a Proved by requirement is derived, so redundant.
+    const free = { id: "statuses-are-set-up", title: "Free", steps: [{ screen: "statuses", text: "Statuses" }] };
+    const graph = await graphOf(
+        linkedCorpus([linkedWalkthrough(), free], {
+            [REQUIREMENTS]: requirements("Proved by: set-up-and-fill-the-backlog.md#statuses-are-set-up\n").replace(
+                "type: requirement\n",
+                `type: requirement\ndemo: [${DEMO}#walkthrough/statuses-are-set-up]\n`
+            ),
+        })
+    );
+    const entry = problemsAbout(graph, "#walkthrough/statuses-are-set-up");
+    check(entry.length === 1 && entry[0].severity === "warning" && entry[0].message.includes("only an inline case's is written by hand"), "a hand-written walkthrough on a Proved by requirement warns", dump(graph.problems));
 }
 
 console.log(`\n${failed ? `${failed} failed` : "all passed"}`);

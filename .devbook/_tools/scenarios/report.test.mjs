@@ -1,6 +1,7 @@
 // The run reporter: run.json version 2 with its English fields, one PNG per
 // label, a filtered run writing nothing, an unreached label keeping its file,
-// a dropped label pruned, and the failure screenshot of a failed part.
+// a dropped label pruned, the failure screenshot and the failing step of a
+// failed part, each shot's signature, and a listing writing nothing.
 //
 // Run: `node --test report.test.mjs`
 import { test } from "node:test";
@@ -10,7 +11,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseScenarioPage } from "./parse.mjs";
-import ScenarioReporter, { outcomeOf, writeRun } from "./report.mjs";
+import ScenarioReporter, { failureOf, outcomeOf, plainMessage, specFileOf, writeRun } from "./report.mjs";
 
 const F = "```";
 const PAGE_PATH = ".devbook/domain/work/set-up-and-fill-the-backlog.md";
@@ -97,8 +98,8 @@ test("writeRun writes run.json version 2 and one PNG per label", async () => {
             { title: "An item is moved", anchor: "an-item-is-moved", outcome: "passed", durationMs: 900 },
         ]);
         assert.deepEqual(run.shots, {
-            "statuses-set-up": { file: "statuses-set-up.png", part: "statuses-are-set-up", ranAt: "2026-10-08T08:30:00.000Z" },
-            "item-moved": { file: "item-moved.png", part: "an-item-is-moved", ranAt: "2026-10-08T08:30:00.000Z" },
+            "statuses-set-up": { file: "statuses-set-up.png", part: "statuses-are-set-up", ranAt: "2026-10-08T08:30:00.000Z", signature: "1234abcd" },
+            "item-moved": { file: "item-moved.png", part: "an-item-is-moved", ranAt: "2026-10-08T08:30:00.000Z", signature: "1234abcd" },
         });
         assert.deepEqual((await readdir(runFolder(root))).sort(), ["item-moved.png", "run.json", "statuses-set-up.png"]);
         assert.equal(await readFile(path.join(runFolder(root), "statuses-set-up.png"), "utf8"), "a.png");
@@ -124,14 +125,15 @@ test("an unreached label keeps its file and earlier entry; a dropped label and a
 
         const second = "2026-10-08T00:00:00.000Z";
         const { pruned } = await writeRun({
-            repoRoot: root, page, signature: "1234abcd", ranAt: second, profile: "tenant-acme", effectiveConfig: null,
+            repoRoot: root, page, signature: "5678ef00", ranAt: second, profile: "tenant-acme", effectiveConfig: null,
             parts: { "statuses-are-set-up": { outcome: "failed" } },
             captured: { "statuses-set-up": { path: path.join(root, "out/b.png") } },
         });
         const run = await readRun(root);
         assert.equal(run.parts[1].outcome, "not-run");
-        assert.equal(run.shots["statuses-set-up"].ranAt, second);
-        assert.deepEqual(run.shots["item-moved"], { file: "item-moved.png", part: "an-item-is-moved", ranAt: first });
+        assert.deepEqual(run.shots["statuses-set-up"], { file: "statuses-set-up.png", part: "statuses-are-set-up", ranAt: second, signature: "5678ef00" });
+        // Kept from the first run, with the signature of the run that took it.
+        assert.deepEqual(run.shots["item-moved"], { file: "item-moved.png", part: "an-item-is-moved", ranAt: first, signature: "1234abcd" });
         assert.deepEqual(pruned.sort(), ["fail.an-item-is-moved.png", "old-label.png"]);
         assert.deepEqual((await readdir(runFolder(root))).sort(), ["item-moved.png", "run.json", "statuses-set-up.png"]);
     } finally {
@@ -141,9 +143,17 @@ test("an unreached label keeps its file and earlier entry; a dropped label and a
 
 // The reporter receives Playwright's objects; these are the fields it reads.
 // `results` maps a title to its attempts, or `<project>|<title>` with several projects.
+// As in Playwright, a part's own location is setup.ts, where `part()` calls `test()`;
+// only its file suite names the spec.
 function fakeRun(root, { titles = ["Statuses are set up", "An item is moved"], projects = ["chromium"], results }) {
     const file = path.join(root, "e2e/tests/set-up-and-fill-the-backlog.spec.ts");
-    const tests = projects.flatMap((name) => titles.map((title) => ({ title, location: { file }, parent: { project: () => ({ name }) } })));
+    const setup = path.join(root, ".devbook/_tools/scenarios/setup.ts");
+    const tests = projects.flatMap((name) => {
+        const project = () => ({ name });
+        const fileSuite = { type: "file", location: { file }, project, parent: { type: "project", project } };
+        const group = { type: "describe", title: "set-up-and-fill-the-backlog", location: { file: setup }, project, parent: fileSuite };
+        return titles.map((title) => ({ title, location: { file: setup }, parent: group }));
+    });
     return { config: { grep: /.*/, projects: projects.map((name) => ({ name, grep: /.*/ })) }, suite: { allTests: () => tests }, tests, results };
 }
 
@@ -236,6 +246,66 @@ test("a page that cannot be written is reported and does not stop the others", a
         assert.match(errors[0], /no run written/);
     } finally {
         console.error = original;
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("specFileOf: the file suite's location, else the test's own", () => {
+    const fileSuite = { type: "file", location: { file: "/repo/e2e/tests/journey.spec.ts" } };
+    const declared = { location: { file: "/repo/.devbook/_tools/scenarios/setup.ts" }, parent: { type: "describe", parent: fileSuite } };
+    assert.equal(specFileOf(declared), "/repo/e2e/tests/journey.spec.ts");
+    assert.equal(specFileOf({ location: { file: "/repo/e2e/plain.spec.ts" } }), "/repo/e2e/plain.spec.ts");
+});
+
+test("a listing — every part scheduled, none run — writes nothing", async () => {
+    const root = await repo();
+    try {
+        await report(root, fakeRun(root, { results: {} }));
+        assert.equal(existsSync(runFolder(root)), false);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("failureOf: the page step whose step() threw, numbered across the part, and the message without colours", () => {
+    const part = parseScenarioPage(PAGE, PAGE_PATH).parts[1];
+    const error = { message: "\u001b[31mExpected: 3 columns\u001b[39m\nReceived: 2" };
+    const steps = [
+        { title: "Before Hooks", category: "hook", steps: [] },
+        { title: "When I drag it", category: "test.step", steps: [] },
+        { title: "Then  it moves", category: "test.step", error, steps: [{ title: "expect.toHaveCount", category: "expect", error, steps: [] }] },
+    ];
+    assert.deepEqual(failureOf(part, steps, error), { step: 2, message: "Expected: 3 columns\nReceived: 2" });
+    // Thrown outside every page step — in the setup, say — the message stands alone.
+    assert.deepEqual(failureOf(part, [{ title: "beforeAll hook", category: "hook", error, steps: [] }], error), { step: null, message: "Expected: 3 columns\nReceived: 2" });
+    assert.equal(plainMessage("x".repeat(3000)).length, 2001);
+});
+
+test("failureOf: a step text the part repeats is numbered by the occurrence that threw", () => {
+    const part = { steps: [{ keyword: "When", text: "I press Save" }, { keyword: "Then", text: "it saves" }, { keyword: "When", text: "I press Save" }] };
+    const error = { message: "no Save button" };
+    const steps = [
+        { title: "When I press Save", category: "test.step", steps: [] },
+        { title: "Then it saves", category: "test.step", steps: [] },
+        { title: "When I press Save", category: "test.step", error, steps: [] },
+    ];
+    assert.equal(failureOf(part, steps, error).step, 3);
+});
+
+test("the reporter records a failed part's step and message in run.json, and a passed part none", async () => {
+    const root = await repo();
+    try {
+        const error = { message: "Expected: 3 columns" };
+        await report(root, fakeRun(root, {
+            results: {
+                "Statuses are set up": [{ status: "passed", duration: 1, attachments: [], steps: [] }],
+                "An item is moved": [{ status: "failed", duration: 1, attachments: [], error, steps: [{ title: "Then it moves", category: "test.step", error, steps: [] }] }],
+            },
+        }));
+        const run = await readRun(root);
+        assert.equal(run.parts[0].failure, undefined);
+        assert.deepEqual(run.parts[1].failure, { step: 2, message: "Expected: 3 columns" });
+    } finally {
         await rm(root, { recursive: true, force: true });
     }
 });

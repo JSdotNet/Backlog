@@ -1,10 +1,12 @@
 // The setup runner's logic: the effective configuration (profile, then the
 // page's flags and settings), portals for start and actor, env: values, and
-// the order the repository's setup hook is called in.
+// the order the repository's setup hook is called in, and the parameter type
+// a consumer's tsc reads through setup.ts.
 //
 // Run: `node --test setup.test.mjs`
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { parseScenarioPage } from "./parse.mjs";
 import { effectiveConfig, recordedConfig, resolveEnv, runSetup } from "./setup.mjs";
 
@@ -88,4 +90,16 @@ test("a setting value stays a string unless it reads back the same as a number",
 test("two actors on one portal, or an actor with no portal to sign in on, is an error", () => {
     assert.throws(() => effectiveConfig(page("actor: [actors.md#a, app:actors.md#b]"), PROFILES), /two actors on portal "app"/);
     assert.throws(() => effectiveConfig(page("profile: none\nactor: actors.md#a"), { none: {} }), /without a portal/);
+});
+
+// tsc infers a JS default parameter's type from its value, so without a declared
+// type `dataFolder = () => null` takes no argument, and setup.ts — which passes
+// `(name) => …` — fails a consumer's `tsc --noEmit` with TS2322.
+test("runSetup declares dataFolder as taking the data set's name", async () => {
+    const source = await readFile(new URL("./setup.mjs", import.meta.url), "utf8");
+    const doc = /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*export async function runSetup\(/.exec(source)?.[1] ?? "";
+    assert.match(doc, /@param \{\{[\s\S]*dataFolder\?: \(name: string\) => string \| null[\s\S]*\}\} options/);
+    const folders = [];
+    await runSetup({ hook: { importData: async (_name, _tenant, folder) => folders.push(folder) }, config: { tenant: null, data: ["a"], flags: {}, settings: {}, actors: {} }, open: async () => null });
+    assert.deepEqual(folders, [null], "the default still answers null");
 });
