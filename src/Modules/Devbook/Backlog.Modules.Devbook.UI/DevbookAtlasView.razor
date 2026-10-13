@@ -85,7 +85,37 @@
                                 </p>
                             }
 
-                            @if (DevbookReference.Parse(node.Id) is { } reference)
+                            @* A repository chapter in the Brain atlas opens that
+                               repository's devbook the way a chip in a note does,
+                               and says why not where it cannot (local ADR 0027
+                               §6); a Brain note opens in the pane. *@
+                            @if (node.RepositoryLink is { } repository)
+                            {
+                                <div class="devbook-atlas-open">
+                                    <RepoLinkChip Alias="@repository.Alias"
+                                                  Label="@node.Label"
+                                                  Reference="@repository.Raw"
+                                                  Resolved="@repository.Resolved"
+                                                  Problem="@repository.Problem"
+                                                  TestId="devbook-atlas-repo-link"
+                                                  OnOpen="OpenRepositoryChapterAsync" />
+                                </div>
+                            }
+                            else if (Scope.IsBrain)
+                            {
+                                @if (node.Path is { Length: > 0 } notePath)
+                                {
+                                    <div class="devbook-atlas-open">
+                                        <AppButton BaseClass="devbook-atlas-open__note"
+                                                   Variant="ButtonVariant.None"
+                                                   TestId="devbook-atlas-open-note"
+                                                   OnClick="() => OnNavigateToNote.InvokeAsync(notePath)">
+                                            Open @node.Label
+                                        </AppButton>
+                                    </div>
+                                }
+                            }
+                            else if (DevbookReference.Parse(node.Id) is { } reference)
                             {
                                 <div class="devbook-atlas-open">
                                     <DevbookReferenceLink Reference="@reference"
@@ -152,6 +182,26 @@
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
+    /// <summary>The Brain, read when <see cref="Scope"/> is
+    /// <see cref="DevbookAtlasScope.Brain"/>.</summary>
+    [Parameter]
+    public IBrainFolderSource? Brain { get; set; }
+
+    /// <summary>Raised with a Brain note's path, relative to the Brain's root,
+    /// when the reader opens it out of the Brain atlas.</summary>
+    [Parameter]
+    public EventCallback<string> OnNavigateToNote { get; set; }
+
+    /// <summary>Raised when the reader follows a resolved repository chapter
+    /// out of the Brain atlas.</summary>
+    [Parameter]
+    public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
+
+    private IBrainFolderSource? _subscribedBrain;
+
+    private Task OpenRepositoryChapterAsync(string? raw) =>
+        BrainRepoLink.Parse(raw) is { } link ? OnOpenRepositoryChapter.InvokeAsync(link) : Task.CompletedTask;
+
     private IReadOnlyList<GraphAtlasNode> AtlasNodes => _atlasNodes;
 
     private DevbookAtlasNode? Selected =>
@@ -192,7 +242,17 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        var key = $"{Scope.Key}|{RepositoryAlias}";
+        // The Brain announces a moved setting and a rebuilt index on its own
+        // source, not on the repository one.
+        var brain = Scope.IsBrain ? Brain : null;
+        if (!ReferenceEquals(brain, _subscribedBrain))
+        {
+            if (_subscribedBrain is not null) _subscribedBrain.Changed -= OnDevbookChanged;
+            _subscribedBrain = brain;
+            if (brain is not null) brain.Changed += OnDevbookChanged;
+        }
+
+        var key = $"{Scope.Key}|{RepositoryAlias}|{brain?.BrainRoot}";
         if (string.Equals(_loadedKey, key, StringComparison.Ordinal)) return;
 
         _loadedKey = key;
@@ -201,8 +261,21 @@
 
     private async Task LoadAsync()
     {
-        _view = await DevbookAtlas.ReadAsync(Scope, RepositoryAlias);
-        _selectedId = null;
+        _view = Scope.IsBrain
+            ? Brain is { } brain
+                ? await DevbookAtlas.ReadBrainAsync(brain)
+                : DevbookAtlasGraph.Unavailable(Scope, DevbookAtlasService.NoBrainFolder)
+            : await DevbookAtlas.ReadAsync(Scope, RepositoryAlias);
+
+        // A reread keeps the node the reader has open while it is still there:
+        // the Brain rebuilds its index on every save, and a sheet closing under
+        // the reader because a note changed elsewhere reads as the map losing
+        // their place.
+        if (_selectedId is not null && _view.Nodes.All(node => !string.Equals(node.Id, _selectedId, StringComparison.Ordinal)))
+        {
+            _selectedId = null;
+        }
+
         Project();
     }
 
@@ -248,8 +321,11 @@
                 outDegree = node.OutDegree,
                 isBoundary = node.OutOfScope
             }).ToArray(),
-            edges = _view.Edges.Select(edge => new { source = edge.Source, target = edge.Target }).ToArray(),
-            emptyMessage = "This part of the devbook has nothing linked yet."
+            // The label and the dash are a repo: link's, in the Brain atlas: the
+            // alias drawn on the edge, and dashed where this machine cannot
+            // follow it.
+            edges = _view.Edges.Select(edge => new { source = edge.Source, target = edge.Target, label = edge.Label, dashed = edge.Dashed }).ToArray(),
+            emptyMessage = Scope.IsBrain ? "The Brain has nothing linked yet." : "This part of the devbook has nothing linked yet."
         };
     }
 
@@ -300,5 +376,9 @@
             StateHasChanged();
         });
 
-    public void Dispose() => DevbookAtlas.Changed -= OnDevbookChanged;
+    public void Dispose()
+    {
+        DevbookAtlas.Changed -= OnDevbookChanged;
+        if (_subscribedBrain is not null) _subscribedBrain.Changed -= OnDevbookChanged;
+    }
 }
