@@ -878,9 +878,90 @@ public sealed class SessionSyncSessionTests
         Assert.Equal(2, result.Value.Pulled);
         Assert.Equal(3, fixture.Handler.Requests.Count);
 
-        // Saved after every page, so a pull interrupted half way resumes rather
-        // than restarts.
-        Assert.Equal(["cursor-1", "cursor-2", "cursor-3"], fixture.State.Saved.Select(state => state.PullCursor));
+        // Saved once the feed says it is done, at the last page's cursor: the pages
+        // are kept together and the cursor goes with them — see the next test.
+        Assert.Equal(["cursor-3"], fixture.State.Saved.Select(state => state.PullCursor));
+    }
+
+    /// <summary>
+    /// A pull of several pages writes the held records once and then the cursor that
+    /// covers them, in that order. Once, because each write is the whole history and
+    /// a fresh device's first pull is many pages; in that order, because a cursor
+    /// saved ahead of its records is a crash away from losing them for good — the
+    /// feed will not send them again. A crash between the two re-reads from the last
+    /// cursor, and a re-read record lands where it already is.
+    /// </summary>
+    [Fact]
+    public async Task A_pull_of_several_pages_keeps_them_in_one_write_and_then_saves_the_cursor()
+    {
+        using var fixture = Fixture.Create(state: Mine(DateTimeOffset.MinValue, null), respond: (_, index) => index switch
+        {
+            0 => Page(Entry(OtherDevice, "one"), "cursor-1", hasMore: true),
+            1 => Page(Entry(OtherDevice, "two"), "cursor-2", hasMore: true),
+            _ => Page(Entry(OtherDevice, "three"), "cursor-3", hasMore: false)
+        });
+
+        var order = new List<string>();
+        fixture.Replica.Changed += () => order.Add("records");
+        fixture.State.Changed += () => order.Add($"cursor {fixture.State.Current.PullCursor}");
+
+        var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, result.Value.Applied);
+        Assert.Equal(["one", "two", "three"], Assert.Single(fixture.Replica.Saved).Select(entry => entry.Record.SessionId));
+        Assert.Equal(["records", "cursor cursor-3"], order);
+    }
+
+    /// <summary>
+    /// A pull that fails part way keeps what it read before the failure, and then
+    /// the cursor that covers it, so the next pull resumes after those pages rather
+    /// than reading them again.
+    /// </summary>
+    [Fact]
+    public async Task A_pull_that_fails_part_way_keeps_what_it_read_and_then_its_cursor()
+    {
+        using var fixture = Fixture.Create(state: Mine(DateTimeOffset.MinValue, null), respond: (_, index) => index == 0
+            ? Page(Entry(OtherDevice, "one"), "cursor-1", hasMore: true)
+            : StubHttpMessageHandler.Problem(HttpStatusCode.ServiceUnavailable, "unavailable", "Try later."));
+
+        var order = new List<string>();
+        fixture.Replica.Changed += () => order.Add("records");
+        fixture.State.Changed += () => order.Add($"cursor {fixture.State.Current.PullCursor}");
+
+        var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(["one"], Assert.Single(fixture.Replica.Saved).Select(entry => entry.Record.SessionId));
+        Assert.Equal(["records", "cursor cursor-1"], order);
+    }
+
+    /// <summary>
+    /// A pull cancelled part way — the app closing mid-cycle — keeps what it read
+    /// before it stopped, on the same terms as a failure: the records, then their
+    /// cursor, and the cancellation still reaches the caller.
+    /// </summary>
+    [Fact]
+    public async Task A_cancelled_pull_keeps_what_it_read_and_then_its_cursor()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var fixture = Fixture.Create(state: Mine(DateTimeOffset.MinValue, null), respond: (_, index) =>
+        {
+            if (index == 0) return Page(Entry(OtherDevice, "one"), "cursor-1", hasMore: true);
+
+            cancellation.Cancel();
+
+            throw new TaskCanceledException();
+        });
+
+        var order = new List<string>();
+        fixture.Replica.Changed += () => order.Add("records");
+        fixture.State.Changed += () => order.Add($"cursor {fixture.State.Current.PullCursor}");
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Session.PullAsync(cancellation.Token));
+
+        Assert.Equal(["one"], Assert.Single(fixture.Replica.Saved).Select(entry => entry.Record.SessionId));
+        Assert.Equal(["records", "cursor cursor-1"], order);
     }
 
     /// <summary>
@@ -1034,6 +1115,56 @@ public sealed class SessionSyncSessionTests
         Assert.Equal(SyncItemKind.Session, entry.Kind);
         Assert.Equal("theirs", entry.Id);
         Assert.Equal("claude session on Laptop · backlog on main", entry.Title);
+    }
+
+    /// <summary>
+    /// The log names what a pull received once the pull has kept it, and in the order
+    /// the pages brought it: the pages are held and written together, so the entries
+    /// wait for that write rather than going out page by page.
+    /// </summary>
+    [Fact]
+    public async Task A_pull_of_several_pages_logs_what_it_received_in_page_order()
+    {
+        var activity = new SyncActivityLog();
+        using var fixture = Fixture.Create(
+            state: Mine(DateTimeOffset.MinValue, null),
+            respond: (_, index) => index switch
+            {
+                0 => Page(Entry(OtherDevice, "one") + "," + Entry(ThisDevice, "mine"), "cursor-1", hasMore: true),
+                1 => Page(Entry(OtherDevice, "two"), "cursor-2", hasMore: true),
+                _ => Page(Entry(OtherDevice, "three"), "cursor-3", hasMore: false)
+            },
+            activity: activity);
+
+        await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["three", "two", "one"], activity.Snapshot().Select(entry => entry.Id));
+        Assert.All(activity.Snapshot(), entry => Assert.Equal(SyncDirection.Received, entry.Direction));
+    }
+
+    /// <summary>
+    /// A pull whose records could not be kept — the disk full, the file locked — lists
+    /// nothing as received. Nothing was: the cursor stays where it was, and the next
+    /// pull receives the same records again, so entries logged this time would stand
+    /// beside the next pull's as duplicates of sessions this device never held.
+    /// </summary>
+    [Fact]
+    public async Task A_pull_whose_records_cannot_be_kept_logs_nothing_as_received()
+    {
+        var activity = new SyncActivityLog();
+        using var fixture = Fixture.Create(
+            state: Mine(DateTimeOffset.MinValue, null),
+            respond: (_, index) => index == 0
+                ? Page(Entry(OtherDevice, "one"), "cursor-1", hasMore: true)
+                : Page(Entry(OtherDevice, "two"), "cursor-2", hasMore: false),
+            activity: activity);
+
+        fixture.Replica.Changed += () => throw new IOException("There is not enough space on the disk.");
+
+        await Assert.ThrowsAsync<IOException>(() => fixture.Session.PullAsync(TestContext.Current.CancellationToken));
+
+        Assert.Empty(activity.Snapshot());
+        Assert.Empty(fixture.State.Saved);
     }
 
     // --- Fixture ---------------------------------------------------------------

@@ -358,7 +358,8 @@ public sealed class SessionSyncSession
         (record.Runs?.Count ?? 0) + (record.Waits?.Count ?? 0) + (record.LimitHits?.Count ?? 0) + (record.HumanTurns?.Count ?? 0);
 
     /// <summary>
-    /// Reads the owner's session feed to its end, keeping each page as it arrives.
+    /// Reads the owner's session feed to its end and keeps what it read in one write,
+    /// then the cursor that covers it, then the log of what it received.
     /// <para>
     /// It loops until the service says <c>HasMore</c> is false and
     /// <strong>never infers "caught up" from a short page</strong>. The contract is
@@ -368,11 +369,18 @@ public sealed class SessionSyncSession
     /// where a hundred were asked for says nothing at all about what is behind it.
     /// </para>
     /// <para>
-    /// The cursor is saved after every successful page, so a pull interrupted half
-    /// way resumes rather than restarts. The cost of saving eagerly is a page
-    /// replayed when a run dies between keeping and saving, and a replayed page
-    /// writes the same records over themselves. The cost of saving once at the end
-    /// would be a device that never finishes catching up.
+    /// The records are kept in one write when the pull ends, and the cursor that
+    /// covers them is saved straight after — on every way out: the feed saying it is
+    /// done, a page that failed, an exception, a cancellation. Records before their
+    /// cursor, because a cursor saved ahead of what it covers is a crash away from
+    /// losing those records for good: the feed will not send them again. Once rather
+    /// than per page, because each write is the whole held history, and a fresh
+    /// device's first pull is many pages of it. A pull that fails or is cancelled part
+    /// way still keeps what it read and resumes after it; only a process that dies
+    /// mid-pull re-reads from where the last pull ended, and a re-read record lands
+    /// where it already is. The steady-state pull is one page, where the two rules
+    /// are the same. The sync activity log's "received" entries wait for both writes,
+    /// so a pull whose write fails names nothing it did not keep.
     /// </para>
     /// <para>
     /// <strong>This device's own records are dropped.</strong> They travel the feed
@@ -413,60 +421,88 @@ public sealed class SessionSyncSession
         var applied = 0;
         var startedOver = false;
 
-        while (true)
-        {
-            var page = await _client
-                .PullAsync(cursor, SessionSyncClient.DefaultMaxItems, cancellationToken)
-                .ConfigureAwait(false);
+        // What the pages brought, which of it was the other machines', and where the
+        // feed stood after the last of them, held until the pull ends — see the
+        // finally below.
+        var kept = new List<SessionRecordEntry>();
+        var received = new List<SessionRecordEntry>();
+        var moved = false;
 
-            if (page.IsFailure)
+        try
+        {
+            while (true)
             {
-                if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
+                var page = await _client
+                    .PullAsync(cursor, SessionSyncClient.DefaultMaxItems, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (page.IsFailure)
                 {
-                    return Result.Failure<SessionSyncSummary>(page.Error);
+                    if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
+                    {
+                        return Result.Failure<SessionSyncSummary>(page.Error);
+                    }
+
+                    startedOver = true;
+                    cursor = null;
+                    moved = false;
+                    _state.Save(_state.Current with { PullCursor = null });
+
+                    // The counts go with the cursor. What was kept before the restart
+                    // is about to arrive again, and a summary that added the two would
+                    // tell the person twice as much had arrived as did. The records
+                    // themselves stay: they are real, and arriving again lands them
+                    // where they already are.
+                    pulled = 0;
+                    applied = 0;
+
+                    continue;
                 }
 
-                startedOver = true;
-                cursor = null;
-                _state.Save(_state.Current with { PullCursor = null });
+                pulled += page.Value.Sessions.Count;
 
-                // The counts go with the cursor. What was kept before the restart
-                // is about to arrive again, and a summary that added the two would
-                // tell the person twice as much had arrived as did.
-                pulled = 0;
-                applied = 0;
+                // Every record is kept, this machine's own included. The service holds
+                // them for a year and the transcript behind one is gone after a month,
+                // so the record is the only thing left to answer for a session of this
+                // machine's once the assistant has cleaned its files away. The sources
+                // that read the held set give way to the local reader for a session it
+                // can still read — see CompositeAgentSessionSource. Only the other
+                // machines' records count as received.
+                kept.AddRange(page.Value.Sessions);
 
-                continue;
+                var theirs = page.Value.Sessions
+                    .Where(entry => self is null || entry.MachineId != self)
+                    .ToList();
+
+                applied += theirs.Count;
+                received.AddRange(theirs);
+
+                cursor = page.Value.Since;
+                moved = true;
+
+                if (!page.Value.HasMore) break;
             }
+        }
+        finally
+        {
+            // Every way out keeps what was read and then the cursor that covers it:
+            // the end of the feed, a failed page, an exception, a cancellation. The
+            // records first, so a save that throws leaves the cursor where it was
+            // and the next pull reads them again rather than skipping them.
+            if (kept.Count > 0) _replica.Save(kept);
+            if (moved) _state.Save(_state.Current with { PullCursor = cursor });
 
-            pulled += page.Value.Sessions.Count;
-
-            // Every record is kept, this machine's own included. The service holds
-            // them for a year and the transcript behind one is gone after a month,
-            // so the record is the only thing left to answer for a session of this
-            // machine's once the assistant has cleaned its files away. The sources
-            // that read the held set give way to the local reader for a session it
-            // can still read — see CompositeAgentSessionSource. Only the other
-            // machines' records count as received.
-            _replica.Save(page.Value.Sessions);
-
-            var theirs = page.Value.Sessions
-                .Where(entry => self is null || entry.MachineId != self)
-                .ToList();
-
-            applied += theirs.Count;
-
-            foreach (var entry in theirs)
+            // And only then the log, in the order the pages brought them: a session
+            // is received once it is kept. A save that threw has skipped this, and
+            // the next pull — receiving the same records from the same cursor —
+            // names them then, once, rather than this pull naming sessions this
+            // device never held.
+            foreach (var entry in received)
             {
                 _activity?.Record(
                     SyncDirection.Received, SyncItemKind.Session, entry.Record.SessionId,
                     SessionTitle(entry.Record));
             }
-
-            cursor = page.Value.Since;
-            _state.Save(_state.Current with { PullCursor = cursor });
-
-            if (!page.Value.HasMore) break;
         }
 
         return Result.Success(new SessionSyncSummary(0, pulled, applied, _time.GetUtcNow()));

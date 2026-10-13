@@ -350,6 +350,15 @@ public static class AgentSessionLimits
 /// caller reads what it asked for and a source cannot mistake "no horizon" for "since
 /// forever".
 /// </para>
+/// <para>
+/// Either shape can also be asked for at a <see cref="Detail"/>: in full, which is what
+/// both factories answer, or <see cref="TimestampsOnly"/> — the same sessions, with only
+/// what a source knows without opening a transcript. That is a depth and not a third
+/// shape, because it changes which fields a session carries and never which sessions
+/// are in the list: a source that ignores it returns more than was asked for, which is
+/// still the right answer. See <see cref="AgentSessionDetail.Timestamps"/> for what such
+/// a reading promises, and for who must never ask for one.
+/// </para>
 /// </summary>
 public sealed record AgentSessionQuery
 {
@@ -369,6 +378,42 @@ public sealed record AgentSessionQuery
     /// <summary>Whether this is the newest-per-agent shape. The other is
     /// <see cref="Horizon"/> being set.</summary>
     public bool IsNewest => Horizon is null;
+
+    /// <summary>How much of each session the reading carries: <see cref="AgentSessionDetail.Full"/>
+    /// unless <see cref="TimestampsOnly"/> asked for less.</summary>
+    public AgentSessionDetail Detail { get; private init; } = AgentSessionDetail.Full;
+
+    /// <summary>The same shape, at the <see cref="AgentSessionDetail.Timestamps"/>
+    /// depth.</summary>
+    public AgentSessionQuery TimestampsOnly() => this with { Detail = AgentSessionDetail.Timestamps };
+}
+
+/// <summary>How much of each session a reading carries.</summary>
+public enum AgentSessionDetail
+{
+    /// <summary>Everything a source can say about a session, transcripts read.</summary>
+    Full,
+
+    /// <summary>
+    /// What a source knows without opening a transcript: the session's
+    /// <see cref="AgentSession.Id"/>, <see cref="AgentSession.Kind"/>,
+    /// <see cref="AgentSession.State"/>, <see cref="AgentSession.StartedAt"/> and
+    /// <see cref="AgentSession.LastActivityAt"/>, the same as a full reading gives them.
+    /// <para>
+    /// For a consumer that asks when and in what state — a task's linked-session
+    /// badge, a roadmap entry dated by its sessions — and would otherwise have every
+    /// transcript in the reading parsed to throw the result away. What only a
+    /// transcript states is absent rather than guessed: no branch, turn count, entry
+    /// point or work, and a past session's folder empty and its title the short id. A
+    /// source that has those fields without opening anything may still answer them.
+    /// </para>
+    /// <para>
+    /// <strong>Never the reading a record is built from.</strong> The session record
+    /// keeper and the push both build records from what they read, and a thin reading
+    /// would carry its absences to this machine's log and to every other machine's.
+    /// </para>
+    /// </summary>
+    Timestamps
 }
 
 /// <summary>
@@ -422,7 +467,14 @@ public interface IAgentSessionSource
 
     /// <summary>The reading <paramref name="query"/> names. Two members rather than a
     /// defaulted parameter so an implementation has to say what it does with a horizon
-    /// instead of quietly answering the capped list to a question about a window.</summary>
+    /// instead of quietly answering the capped list to a question about a window.
+    /// <para>
+    /// The query's <see cref="AgentSessionQuery.Detail"/> is a property and not a third
+    /// member, and that is not the same argument lost: a horizon decides which sessions
+    /// are answered, and getting it wrong answers the wrong set. A depth only decides
+    /// which fields are filled, so an implementation that ignores it answers more than
+    /// was asked for, which is still right.
+    /// </para></summary>
     Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default);
 }
 

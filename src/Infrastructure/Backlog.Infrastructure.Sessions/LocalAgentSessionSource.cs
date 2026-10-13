@@ -90,9 +90,10 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         string environment,
         TimeProvider clock,
         ITranscriptFactsCache? facts = null,
-        ISessionRepositoryResolver? repositories = null)
+        ISessionRepositoryResolver? repositories = null,
+        Func<string, Stream>? openTranscript = null)
     {
-        _claude = new ClaudeSessionReader(claudeHome, environmentId, environment, clock, facts);
+        _claude = new ClaudeSessionReader(claudeHome, environmentId, environment, clock, facts, openTranscript);
         _copilot = new CopilotSessionReader(copilotHome, environmentId, environment, clock);
         _repositories = repositories;
     }

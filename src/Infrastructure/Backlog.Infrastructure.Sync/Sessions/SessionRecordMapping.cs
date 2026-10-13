@@ -188,12 +188,10 @@ public static class SessionRecordMapping
 
         var record = entry.Record;
 
-        if (record.Runs is null && record.Waits is null) return null;
+        if (!HasActivityAfter(record, since)) return null;
 
         var runs = Clip(record.Runs ?? [], since, (start, end) => new AgentActivityRun(start, end));
         var waits = Clip(record.Waits ?? [], since, (start, end) => new AgentActivityWait(start, end));
-
-        if (runs.Count == 0 && waits.Count == 0) return null;
 
         var hits = (record.LimitHits ?? [])
             .Where(hit => hit.At >= since)
@@ -246,6 +244,45 @@ public static class SessionRecordMapping
         return all.Count <= cap ? all : all.GetRange(all.Count - cap, cap);
     }
 
+    /// <summary>
+    /// Whether anything on the record ends after the horizon: the one condition under
+    /// which <see cref="ToActivity"/> answers at all, checked without the sorting and
+    /// copying it does. A record with neither list was never measured and has none.
+    /// <para>
+    /// Here rather than beside a caller, so that a reader skipping records ahead of
+    /// <see cref="ToActivity"/> — <see cref="ReplicatedAgentActivitySource"/> does — and
+    /// <see cref="ToActivity"/> itself cannot come to disagree: both ask this, and it
+    /// asks <see cref="EndsAfter"/>, which <c>Clip</c> keeps an interval by.
+    /// </para>
+    /// <para>
+    /// Every interval rather than the last of each list, since the lists are not
+    /// trusted to arrive sorted; an index loop, because it runs over every held
+    /// record on every activity read and most of them answer false.
+    /// </para>
+    /// </summary>
+    internal static bool HasActivityAfter(SessionRecord record, DateTimeOffset since)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+
+        return AnyEndsAfter(record.Runs, since) || AnyEndsAfter(record.Waits, since);
+    }
+
+    private static bool AnyEndsAfter(IReadOnlyList<ActivityInterval>? intervals, DateTimeOffset since)
+    {
+        if (intervals is null) return false;
+
+        for (var index = 0; index < intervals.Count; index++)
+        {
+            if (EndsAfter(intervals[index], since)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether an interval has any part after the horizon. One ending on it
+    /// has none.</summary>
+    private static bool EndsAfter(ActivityInterval interval, DateTimeOffset since) => interval.EndedAt > since;
+
     /// <summary>Ascending, clipped to the horizon, and in the consumer's own
     /// type. One shape for both lists, because the two differ only in what they
     /// are called.</summary>
@@ -255,7 +292,7 @@ public static class SessionRecordMapping
         Func<DateTimeOffset, DateTimeOffset, T> interval) =>
     [
         .. intervals
-            .Where(candidate => candidate.EndedAt > since)
+            .Where(candidate => EndsAfter(candidate, since))
             .OrderBy(candidate => candidate.StartedAt)
             .Select(candidate => interval(candidate.StartedAt >= since ? candidate.StartedAt : since, candidate.EndedAt))
     ];

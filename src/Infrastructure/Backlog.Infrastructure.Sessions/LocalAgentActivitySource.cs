@@ -15,10 +15,20 @@ namespace Backlog.Infrastructure.Sessions;
 /// record stamped with this machine's identity because a session found here ran here.
 /// </para>
 /// <para>
-/// <b>No <see cref="TimeProvider"/>.</b> This source reads recorded instants and never
-/// asks what time it is. The horizon arrives as a parameter, which is what makes it
-/// testable without a clock at all — and what keeps "how far back" a decision the
-/// caller states rather than one buried here.
+/// <b>The clock never decides a figure.</b> The horizon arrives as a parameter, which
+/// keeps "how far back" a decision the caller states rather than one buried here, and
+/// every instant in the answer is one a file recorded. The <see cref="TimeProvider"/> is
+/// asked one thing only: whether a file's write time is far enough behind the read that
+/// the file is no longer being written — which decides what may be remembered, never
+/// what is answered.
+/// </para>
+/// <para>
+/// <b>It remembers what it read.</b> One instance serves every consumer for the app's
+/// lifetime, and it keeps what each file was found to hold, by path, so a refresh opens
+/// only the files that moved and reads only what was appended to them; see
+/// <see cref="EntryOf"/>. The memory is safe to share: a read only ever replaces an
+/// entry with the same file read again, and one that loses a race repeats work rather
+/// than spoiling it.
 /// </para>
 /// <para>
 /// The cache is optional and used through a null-conditional, on
@@ -32,7 +42,15 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     private readonly string _copilotHome;
     private readonly string _environmentId;
     private readonly string _environment;
-    private readonly IAgentActivityCache? _cache;
+    private readonly TimeProvider _clock;
+
+    /// <summary>What every file this reader has read was found to hold, by path, and —
+    /// for the few most recently written — where the read stopped and the events it
+    /// left. In front of the disk cache, which stays the layer that survives a restart.
+    /// The rules it remembers on are the session reader's too, so they have one home:
+    /// <see cref="ResumableFileMemory{TFold, TValue}"/>. Null is what a file that could
+    /// not be read answers, and is never remembered.</summary>
+    private readonly ResumableFileMemory<IActivityEventParser, AgentActivityEntry?> _remembered;
 
     /// <summary>What a host composes: the two agents' own folders in the profile of
     /// whoever is signed in, this device's identity, and whatever cache the host
@@ -49,19 +67,38 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
 
     /// <summary>Every input named, so the fold can be tested against fixture folders
     /// written in the shape the agents really write rather than against whatever this
-    /// machine happens to have been doing.</summary>
+    /// machine happens to have been doing.
+    /// <para>
+    /// The opener and the clock are a test's seams, so a test can count what a read opens
+    /// and how much of it, and say when "now" is; a host leaves them to
+    /// <see cref="TranscriptTail.OpenShared"/> and the system clock.
+    /// </para></summary>
     internal LocalAgentActivitySource(
         string claudeHome,
         string copilotHome,
         string environmentId,
         string environment,
-        IAgentActivityCache? cache = null)
+        IAgentActivityCache? cache = null,
+        Func<string, Stream>? openTranscript = null,
+        TimeProvider? clock = null)
     {
         _claudeHome = claudeHome;
         _copilotHome = copilotHome;
         _environmentId = environmentId;
         _environment = environment;
-        _cache = cache;
+        _clock = clock ?? TimeProvider.System;
+
+        // The disk keys on the write time alone, so the length the memory passes it is
+        // not part of what is stored.
+        _remembered = new ResumableFileMemory<IActivityEventParser, AgentActivityEntry?>(
+            openTranscript ?? TranscriptTail.OpenShared,
+            events => Folded(events.Events),
+            _ => null,
+            (path, _, writtenAt) => cache?.TryRead(path, writtenAt, AgentActivityRuns.IdleAfter),
+            (path, _, writtenAt, entry) =>
+            {
+                if (entry is not null) cache?.Write(path, writtenAt, entry);
+            });
     }
 
     /// <summary>The device id as this contract carries identifiers: a string, in the
@@ -84,7 +121,9 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
         var subagents = new List<SubagentActivity>();
         var unreadable = new List<string>();
 
-        foreach (var reader in Readers(since, cancellationToken))
+        var walk = new Walk(since, _clock.GetUtcNow(), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+        foreach (var reader in Readers(walk, cancellationToken))
         {
             try
             {
@@ -102,6 +141,11 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
                 unreadable.Add(reader.Name);
             }
         }
+
+        // After both agents, so a file either walk returned is kept. A walk that failed
+        // part way forgets what it did not reach, which costs those files a read and
+        // never a wrong answer.
+        _remembered.Prune(walk.Seen);
 
         return new AgentActivityLog(sessions, unreadable, since, AgentActivityRuns.IdleAfter)
         {
@@ -123,11 +167,11 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
         IReadOnlyList<SubagentActivity> Subagents);
 
     private (string Name, Func<Task<AgentRead>> Read)[] Readers(
-        DateTimeOffset since,
+        Walk walk,
         CancellationToken cancellationToken) =>
     [
-        (ClaudeSessionReader.Name, () => ReadClaudeAsync(since, cancellationToken)),
-        (CopilotSessionReader.Name, () => ReadCopilotAsync(since, cancellationToken))
+        (ClaudeSessionReader.Name, () => ReadClaudeAsync(walk, cancellationToken)),
+        (CopilotSessionReader.Name, () => ReadCopilotAsync(walk, cancellationToken))
     ];
 
     /// <summary>
@@ -136,7 +180,7 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     /// is what <see cref="ClaudeTranscripts"/> exists to prevent.
     /// </summary>
     private async Task<AgentRead> ReadClaudeAsync(
-        DateTimeOffset since,
+        Walk walk,
         CancellationToken cancellationToken)
     {
         var sessions = new List<AgentSessionActivity>();
@@ -149,13 +193,14 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
                 id,
                 AgentSessionKind.Claude,
                 transcript,
-                path => ClaudeTranscriptEvents.ReadAsync(path, cancellationToken),
-                since).ConfigureAwait(false);
+                () => new ClaudeTranscriptEvents(),
+                walk,
+                cancellationToken).ConfigureAwait(false);
 
             if (activity is not null) sessions.Add(activity);
         }
 
-        return new AgentRead(sessions, await ReadClaudeSubagentsAsync(since, cancellationToken).ConfigureAwait(false));
+        return new AgentRead(sessions, await ReadClaudeSubagentsAsync(walk, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -172,7 +217,7 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     /// path here would be a second copy of all three, free to lose any of them quietly.
     /// </para>
     /// <para>
-    /// <see cref="ClaudeTranscriptEvents.ReadAsync"/> is reused unchanged, and that is
+    /// <see cref="ClaudeTranscriptEvents"/> is reused unchanged, and that is
     /// checked rather than assumed: the only line types a sidechain file holds are
     /// <c>user</c>, <c>assistant</c> and <c>attachment</c>, which is exactly the closed
     /// list that reader admits.
@@ -189,7 +234,7 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     /// </para>
     /// </remarks>
     private async Task<IReadOnlyList<SubagentActivity>> ReadClaudeSubagentsAsync(
-        DateTimeOffset since,
+        Walk walk,
         CancellationToken cancellationToken)
     {
         var agents = new List<SubagentActivity>();
@@ -200,13 +245,14 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
 
             var entry = await EntryOf(
                 transcript,
-                path => ClaudeTranscriptEvents.ReadAsync(path, cancellationToken),
-                since).ConfigureAwait(false);
+                () => new ClaudeTranscriptEvents(),
+                walk,
+                cancellationToken).ConfigureAwait(false);
 
             if (entry is null) continue;
 
-            var runs = Clip(entry.Runs, since);
-            var hits = Clip(entry.LimitHits, since);
+            var runs = Clip(entry.Runs, walk.Since);
+            var hits = Clip(entry.LimitHits, walk.Since);
 
             // Absent rather than present-and-empty, the rule the sessions are already
             // read under: an agent whose whole record fell outside the horizon has
@@ -241,7 +287,7 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     /// </para>
     /// </summary>
     private async Task<AgentRead> ReadCopilotAsync(
-        DateTimeOffset since,
+        Walk walk,
         CancellationToken cancellationToken)
     {
         var folder = new DirectoryInfo(Path.Combine(_copilotHome, "session-state"));
@@ -265,8 +311,9 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
                 session.Name,
                 AgentSessionKind.Copilot,
                 events,
-                path => CopilotEventStream.ReadAsync(path, cancellationToken),
-                since).ConfigureAwait(false);
+                () => new CopilotEventStream(),
+                walk,
+                cancellationToken).ConfigureAwait(false);
 
             if (activity is not null) sessions.Add(activity);
         }
@@ -283,17 +330,18 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
         string id,
         AgentSessionKind kind,
         FileInfo file,
-        Func<string, Task<IReadOnlyList<ActivityEvent>>> read,
-        DateTimeOffset since)
+        Func<IActivityEventParser> parser,
+        Walk walk,
+        CancellationToken cancellationToken)
     {
-        var entry = await EntryOf(file, read, since).ConfigureAwait(false);
+        var entry = await EntryOf(file, parser, walk, cancellationToken).ConfigureAwait(false);
 
         if (entry is null) return null;
 
-        var runs = Clip(entry.Runs, since);
-        var waits = Clip(entry.Waits, since);
-        var hits = Clip(entry.LimitHits, since);
-        var turns = Clip(entry.HumanTurns, since);
+        var runs = Clip(entry.Runs, walk.Since);
+        var waits = Clip(entry.Waits, walk.Since);
+        var hits = Clip(entry.LimitHits, walk.Since);
+        var turns = Clip(entry.HumanTurns, walk.Since);
 
         // Absent rather than present-and-empty. A session whose whole record fell outside
         // the horizon, or that left one lone event, has nothing to contribute to a
@@ -330,61 +378,76 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     /// it, so the mtime skip, the cache and the guard have one home rather than two free
     /// to drift — and the second read inherits every one of them by construction.
     /// </para>
+    /// <para>
+    /// Past the mtime skip, a file costs what it costs once rather than on every read,
+    /// three ways, in the order and on the rules
+    /// <see cref="ResumableFileMemory{TFold, TValue}"/> keeps for both readers of these
+    /// files: in memory, at the same length and write time; from where the last read
+    /// stopped, for the files written in the last day, so the transcript being written to
+    /// right now — the file whose figure must not be stale, and which misses every other
+    /// way — costs what was appended, its runs folded again over every event it holds;
+    /// and on disk, when a host composes an <see cref="IAgentActivityCache"/>, which is
+    /// what survives a restart.
+    /// </para>
+    /// <para>
+    /// The length is part of the memory's key though the disk's has none: two writes in
+    /// one tick of the file system's clock are told apart by it. It is also why only a
+    /// pass over a settled file that read every line of it is written to disk — keyed on
+    /// the write time alone, a pass that stopped in front of half a line would be
+    /// remembered as the whole file.
+    /// </para>
     /// </summary>
     private async Task<AgentActivityEntry?> EntryOf(
         FileInfo file,
-        Func<string, Task<IReadOnlyList<ActivityEvent>>> read,
-        DateTimeOffset since)
+        Func<IActivityEventParser> parser,
+        Walk walk,
+        CancellationToken cancellationToken)
     {
         var writtenAt = new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero);
 
-        if (writtenAt < since) return null;
+        // Seen before it is skipped: a file outside this horizon is still the walk's, and
+        // a longer read asked for next keeps what this reader knows about it.
+        walk.Seen.Add(file.FullName);
 
-        var entry = _cache?.TryRead(file.FullName, writtenAt, AgentActivityRuns.IdleAfter);
+        if (writtenAt < walk.Since) return null;
 
-        if (entry is null)
+        return await _remembered.ReadAsync(file, parser, walk.Now, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// What a file's events come to: the runs and waits the fold finds in them, and the
+    /// refusals and human turns lifted off them.
+    /// <para>
+    /// Whole-file, before any horizon is applied, because the horizon moves and the file
+    /// does not: the twelve-week read and the four-week one share entries and only the
+    /// clipping differs. The hits are lifted off the events here rather than inside the
+    /// fold, which never looks at them: sorted, so the list is ascending whatever order
+    /// the file recorded them in.
+    /// </para>
+    /// </summary>
+    private static AgentActivityEntry Folded(IReadOnlyList<ActivityEvent> events)
+    {
+        var folded = AgentActivityRuns.Fold(events, AgentActivityRuns.IdleAfter);
+
+        return new AgentActivityEntry(folded.Runs, folded.Waits, AgentActivityRuns.IdleAfter)
         {
-            IReadOnlyList<ActivityEvent> events;
-
-            try
-            {
-                events = await read(file.FullName).ConfigureAwait(false);
-            }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-            {
-                return null;
-            }
-
-            var folded = AgentActivityRuns.Fold(events, AgentActivityRuns.IdleAfter);
-
-            // Stored whole-file, before any horizon is applied, because the horizon moves
-            // and the file does not: the twelve-week read and the four-week one share
-            // entries and only the clipping differs. The hits are lifted off the events
-            // here rather than inside the fold, which never looks at them: sorted, so the
-            // list is ascending whatever order the file recorded them in.
-            entry = new AgentActivityEntry(folded.Runs, folded.Waits, AgentActivityRuns.IdleAfter)
-            {
-                LimitHits =
-                [
-                    .. events
-                        .Where(activity => activity.Limit is not null)
-                        .Select(activity => activity.Limit!)
-                        .OrderBy(hit => hit.At)
-                ],
-                // The person's turns, lifted off the same way and for the same reason.
-                HumanTurns =
-                [
-                    .. events
-                        .Where(activity => activity.IsHumanTurn)
-                        .Select(activity => activity.At)
-                        .Distinct()
-                        .Order()
-                ]
-            };
-            _cache?.Write(file.FullName, writtenAt, entry);
-        }
-
-        return entry;
+            LimitHits =
+            [
+                .. events
+                    .Where(activity => activity.Limit is not null)
+                    .Select(activity => activity.Limit!)
+                    .OrderBy(hit => hit.At)
+            ],
+            // The person's turns, lifted off the same way and for the same reason.
+            HumanTurns =
+            [
+                .. events
+                    .Where(activity => activity.IsHumanTurn)
+                    .Select(activity => activity.At)
+                    .Distinct()
+                    .Order()
+            ]
+        };
     }
 
     /// <summary>
@@ -427,4 +490,8 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     [
         .. turns.Where(turn => turn >= since)
     ];
+
+    /// <summary>One call's reading: the horizon it was asked for, the instant it began,
+    /// and every file its walks returned, which is what the memory is pruned to.</summary>
+    private sealed record Walk(DateTimeOffset Since, DateTimeOffset Now, HashSet<string> Seen);
 }

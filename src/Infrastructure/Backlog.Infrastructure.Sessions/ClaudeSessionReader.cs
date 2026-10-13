@@ -30,18 +30,20 @@ namespace Backlog.Infrastructure.Sessions;
 /// </summary>
 internal sealed class ClaudeSessionReader
 {
-    /// <summary>How far into a transcript to look for the folder it ran in. The
-    /// first few lines are queued prompts and hooks, which carry no <c>cwd</c>; the
-    /// first real turn does, and that is within a handful of lines. A cap so a
-    /// transcript that never states one costs a few reads rather than its whole
-    /// length.</summary>
-    private const int HeaderLines = 40;
+    /// <summary>What a transcript that was not opened is taken to state: nothing.</summary>
+    private static readonly TranscriptFacts Unread = new(string.Empty, null, null);
 
     private readonly string _home;
     private readonly string _environmentId;
     private readonly string _environment;
     private readonly TimeProvider _clock;
-    private readonly ITranscriptFactsCache? _facts;
+
+    /// <summary>What every transcript this reader has read was found to say, by path,
+    /// and — for the few most recently written — where the read stopped and the fold
+    /// it left. In front of the disk cache, which stays the layer that survives a
+    /// restart. The rules it remembers on are the activity reader's too, so they have
+    /// one home: <see cref="ResumableFileMemory{TFold, TValue}"/>.</summary>
+    private readonly ResumableFileMemory<ClaudeTranscriptFactsParser, TranscriptFacts> _remembered;
 
     /// <summary>The environment arrives as an id and a name, not as a name alone: a
     /// session found here ran here, and "here" is a device with an identity that
@@ -50,19 +52,31 @@ internal sealed class ClaudeSessionReader
     /// The cache is optional for the reason every cache in this product is: without
     /// one the reader opens every transcript on every read and is correct, only
     /// slower. See <see cref="ReadTranscriptAsync"/> for what it saves.
+    /// </para>
+    /// <para>
+    /// The opener is a test's seam, so a test can count what a read opens and how much
+    /// of it; a host leaves it to <see cref="TranscriptTail.OpenShared"/>.
     /// </para></summary>
     internal ClaudeSessionReader(
         string home,
         string environmentId,
         string environment,
         TimeProvider clock,
-        ITranscriptFactsCache? facts = null)
+        ITranscriptFactsCache? facts = null,
+        Func<string, Stream>? open = null)
     {
         _home = home;
         _environmentId = environmentId;
         _environment = environment;
         _clock = clock;
-        _facts = facts;
+        _remembered = new ResumableFileMemory<ClaudeTranscriptFactsParser, TranscriptFacts>(
+            open ?? TranscriptTail.OpenShared,
+            parser => parser.Facts(),
+
+            // What a cut-short read may still say is the parser's to answer.
+            parser => (parser ?? new ClaudeTranscriptFactsParser()).Interrupted(),
+            (path, length, writtenAt) => facts?.TryRead(path, length, writtenAt),
+            (path, length, writtenAt, found) => facts?.Write(path, length, writtenAt, found));
     }
 
     /// <summary>What this reader is called when it cannot be read.</summary>
@@ -74,13 +88,19 @@ internal sealed class ClaudeSessionReader
         var live = await ReadLiveAsync(now, cancellationToken).ConfigureAwait(false);
         var transcripts = Transcripts();
 
+        // A timestamps reading opens no transcript, live or past: the walk's metadata
+        // and the live files already answer every field it promises.
+        var opens = query.Detail is AgentSessionDetail.Full;
+
         // Keyed by session id so a live session is not also listed as its own
         // finished transcript. The live file is the better record of the two: it
         // knows the session's name and the folder without being parsed for it — but
         // it holds nothing to count turns from and does not say which branch the
         // session is on, so the transcript it displaces is read for those two facts
         // before it is dropped from the list.
-        var counted = await WithTranscriptFactsAsync(live, transcripts, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<AgentSession> counted = opens
+            ? await WithTranscriptFactsAsync(live, transcripts, now, cancellationToken).ConfigureAwait(false)
+            : live;
 
         var seen = live.Select(session => session.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -100,7 +120,9 @@ internal sealed class ClaudeSessionReader
         // A horizon reading has no cap: the count it feeds is only right if it is over
         // everything, and the facts cache is what makes that affordable on a refresh.
         var room = query.IsNewest ? Math.Max(0, AgentSessionLimits.PerAgent - live.Count) : history.Count;
-        var past = await ReadHistoryAsync(history, room, cancellationToken).ConfigureAwait(false);
+        var past = await ReadHistoryAsync(history, room, opens, now, cancellationToken).ConfigureAwait(false);
+
+        _remembered.Prune(transcripts.Values.Select(transcript => transcript.FullName));
 
         // Sessions found, not files found. A session filed under two folders was never
         // two sessions, and counting it twice would have the subtitle overstate what
@@ -144,6 +166,7 @@ internal sealed class ClaudeSessionReader
     private async Task<List<AgentSession>> WithTranscriptFactsAsync(
         IReadOnlyList<AgentSession> live,
         IReadOnlyDictionary<string, FileInfo> transcripts,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         var read = new List<AgentSession>(live.Count);
@@ -159,7 +182,7 @@ internal sealed class ClaudeSessionReader
                 continue;
             }
 
-            var facts = await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+            var facts = await ReadTranscriptAsync(transcript, now, cancellationToken).ConfigureAwait(false);
 
             read.Add(WithWork(session with { Branch = facts.Branch, TurnCount = facts.Turns }, facts));
         }
@@ -285,12 +308,12 @@ internal sealed class ClaudeSessionReader
 
             if (root.ValueKind is not JsonValueKind.Object) return null;
 
-            var id = Text(root, "sessionId");
+            var id = ClaudeJson.Text(root, "sessionId");
 
             if (string.IsNullOrWhiteSpace(id)) return null;
 
-            var folder = Text(root, "cwd") ?? string.Empty;
-            var name = Text(root, "name");
+            var folder = ClaudeJson.Text(root, "cwd") ?? string.Empty;
+            var name = ClaudeJson.Text(root, "name");
 
             // The file's own timestamp, not the session's start: a running session
             // rewrites this file as it goes, which is exactly what "last activity"
@@ -335,6 +358,8 @@ internal sealed class ClaudeSessionReader
     private async Task<List<AgentSession>> ReadHistoryAsync(
         IReadOnlyCollection<FileInfo> transcripts,
         int room,
+        bool opens,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         var sessions = new List<AgentSession>();
@@ -350,7 +375,11 @@ internal sealed class ClaudeSessionReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var facts = await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+            // Unopened, a transcript states nothing: an empty folder, so the title falls
+            // back to the short id, and nulls for the rest — absent, not guessed.
+            var facts = opens
+                ? await ReadTranscriptAsync(transcript, now, cancellationToken).ConfigureAwait(false)
+                : Unread;
             var (folderPath, branch, turns) = (facts.Folder, facts.Branch, facts.Turns);
 
             var id = Path.GetFileNameWithoutExtension(transcript.Name);
@@ -393,242 +422,54 @@ internal sealed class ClaudeSessionReader
     /// null count where it states none — a transcript holding only queued prompts is a
     /// real thing and not an error.
     /// <para>
-    /// One pass for all three, which is the reason they are one method. The folder is
-    /// in the first handful of lines and a count is in no bounded prefix of the file,
-    /// so answering them separately would open every transcript twice to learn what
-    /// one walk already has in hand.
+    /// One pass for all three, which is the reason they are one fold
+    /// (<see cref="ClaudeTranscriptFactsParser"/>). The folder is in the first handful
+    /// of lines and a count is in no bounded prefix of the file, so answering them
+    /// separately would open every transcript twice to learn what one walk already has
+    /// in hand.
     /// </para>
     /// <para>
     /// <b>Reading the whole file is a real cost change, and it was measured rather than
-    /// assumed.</b> The header scrape stopped at <see cref="HeaderLines"/>; a count
-    /// cannot. On the profile this was validated against — 137 Claude sessions and 705
-    /// Copilot ones, both readers capped at
-    /// <see cref="AgentSessionLimits.PerAgent"/>, so 100 transcripts and about 64 MB
-    /// of them — a whole pane read went from 44-52 ms warm and 170 ms cold to 215-379
-    /// ms across a dozen runs. Roughly 200 ms added, on pane open and on every
-    /// Refresh, for a column that could not otherwise exist. It stays that size
-    /// because of the pre-filter in <see cref="IsTurn"/> and because the file is
+    /// assumed.</b> The header scrape stopped at forty lines; a count cannot. On the
+    /// profile this was validated against — 137 Claude sessions and 705 Copilot ones,
+    /// both readers capped at <see cref="AgentSessionLimits.PerAgent"/>, so 100
+    /// transcripts and about 64 MB of them — a whole pane read went from 44-52 ms warm
+    /// and 170 ms cold to 215-379 ms across a dozen runs. Roughly 200 ms added, on pane
+    /// open and on every Refresh, for a column that could not otherwise exist. It stays
+    /// that size because of the pre-filter in the turn test and because the file is
     /// streamed a line at a time; parsing every line, or reading 64 MB into strings to
     /// count part of it, is the version of this that is too slow to ship.
     /// </para>
     /// <para>
-    /// That cost is now paid once per transcript rather than once per read, when a
-    /// host composes an <see cref="ITranscriptFactsCache"/>: the three facts are
-    /// remembered against the file's path, length and write time, and a transcript
-    /// nothing has appended to since is answered without being opened. The one being
-    /// written to right now misses on every read, which is the file whose count must
-    /// not be stale. Only a pass that reached the end of the file is remembered — an
-    /// interrupted one returns its honest null and is tried again next time.
+    /// That cost is paid once per transcript rather than once per read, three ways, in
+    /// the order and on the rules <see cref="ResumableFileMemory{TFold, TValue}"/> keeps
+    /// for both readers of these files: in memory, at the same length and write time;
+    /// from where the last read stopped, for the transcripts written in the last day, so
+    /// the one being written to right now — the file whose count must not be stale, and
+    /// which misses every other way — costs what was appended; and on disk, when a host
+    /// composes an <see cref="ITranscriptFactsCache"/>, which is what survives a restart.
+    /// </para>
+    /// <para>
+    /// The facts are remembered on disk against the file's path, length and write time,
+    /// and only for a pass over a settled file that read every line of it at that
+    /// length. An interrupted pass returns its honest null and is tried again next time
+    /// — letting the fault out of here would put Claude on the unreadable list over one
+    /// file — and one that stopped in front of half a line would remember the file one
+    /// line short. A settled file's last line with no newline is read as a line when it
+    /// is whole JSON, so a finished transcript whose writer never terminated it is still
+    /// remembered.
     /// </para>
     /// </summary>
-    private async Task<TranscriptFacts> ReadTranscriptAsync(
+    private Task<TranscriptFacts> ReadTranscriptAsync(
         FileInfo transcript,
-        CancellationToken cancellationToken)
-    {
-        var writtenAt = new DateTimeOffset(transcript.LastWriteTimeUtc, TimeSpan.Zero);
-
-        if (_facts?.TryRead(transcript.FullName, transcript.Length, writtenAt) is { } remembered)
-        {
-            return remembered;
-        }
-
-        var (facts, complete) = await ParseTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
-
-        if (complete)
-        {
-            _facts?.Write(transcript.FullName, transcript.Length, writtenAt, facts);
-        }
-
-        return facts;
-    }
-
-    /// <summary>The pass itself, apart from the remembering. <c>Complete</c> is
-    /// false when the read was cut short, which is the one outcome that must not
-    /// be written down as if it were a fact about the file.</summary>
-    private static async Task<(TranscriptFacts Facts, bool Complete)> ParseTranscriptAsync(
-        FileInfo transcript,
-        CancellationToken cancellationToken)
-    {
-        var folder = string.Empty;
-        string? branch = null;
-        var turns = 0;
-        var line = 0;
-        var work = new ClaudeTranscriptWork();
-
-        try
-        {
-            using var reader = new StreamReader(transcript.FullName);
-
-            while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } text)
-            {
-                // The header is still only looked for in the first lines, and still
-                // only until it is found. Widening the read to the whole file is about
-                // the count; a cwd stated three thousand lines in would be a different
-                // session's, from a resume this record has no way to attribute.
-                if (folder.Length == 0 && line++ < HeaderLines)
-                {
-                    var (lineFolder, lineBranch) = Header(text);
-
-                    folder = lineFolder ?? string.Empty;
-                    branch ??= lineBranch;
-                }
-
-                if (IsTurn(text)) turns++;
-
-                work.Observe(text);
-            }
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        {
-            // The agent is appending to this file as it is read, or it is not ours to
-            // open. Either way it costs this transcript's own facts and not the list —
-            // letting it out of here would put Claude on the unreadable list over one
-            // file.
-            //
-            // Null rather than the turns counted so far, and that is the point of
-            // returning here rather than falling through. A count interrupted at line
-            // nine of ninety is not a nearly-right number, it is a wrong one with
-            // nothing on the row to say so, and a reader comparing two sessions would
-            // be comparing one real count against one lost race. The folder and branch
-            // are kept because they are complete or absent, never half-read.
-            return (new TranscriptFacts(folder, branch, null) { Entrypoint = work.Entrypoint }, false);
-        }
-
-        // Zero turns is reported as absent, never as 0. A count of 0 claims a person
-        // opened this session and never spoke in it; what a transcript with nothing
-        // countable in it actually supports is that there is nothing here to count.
-        // See AgentSession.TurnCount, and the Session Log's invariant behind it.
-        return (new TranscriptFacts(folder, branch, turns == 0 ? null : turns)
-        {
-            Entrypoint = work.Entrypoint,
-            PullRequests = work.PullRequests,
-            ModelUsage = work.ModelUsage
-        }, true);
-    }
-
-    /// <summary>
-    /// Whether this line is a turn the person took — one prompt they sent, which is
-    /// what <c>AgentSession.TurnCount</c> defines a turn to be.
-    /// <para>
-    /// Three things have to be true, and each of them rules out a cheaper answer that
-    /// is wrong on this machine's real transcripts.
-    /// </para>
-    /// <list type="number">
-    /// <item><description>The line's <em>root</em> <c>type</c> is <c>user</c>. The
-    /// substring occurs nested as well — an assistant quoting a transcript back, an
-    /// attachment carrying a user object — so counting occurrences over-reads, by
-    /// about a hundred lines in the hundred most recent transcripts here.</description></item>
-    /// <item><description>It was not injected. A skill body arrives as a user-role
-    /// message marked <c>isMeta</c>, and a subagent's task prompt as one marked
-    /// <c>isSidechain</c>; neither was typed by anybody, and the second belongs to a
-    /// transcript this reader lists as its own session anyway.</description></item>
-    /// <item><description>It carries something the person said rather than something a
-    /// tool returned — see <see cref="Prompted"/>, which is where the real difference
-    /// is. Counting every root-level user line instead would have reported about 6,100
-    /// turns across the hundred transcripts where a person sent about 180.</description></item>
-    /// </list>
-    /// </summary>
-    private static bool IsTurn(string line)
-    {
-        // A necessary condition that costs a substring scan, taken before the line is
-        // parsed at all: on this machine's transcripts about three lines in four fail
-        // it, and parsing every line of 64 MB to count part of it is the version of
-        // this that is too slow to ship. Claude writes compact JSON, so this is the
-        // exact byte sequence a user line carries. A future format that spaced its
-        // separators would fail this filter on every line and the count would go
-        // absent rather than wrong — which is the direction this product's counts are
-        // meant to fail in, and the reason a substring is allowed to be load-bearing
-        // here at all.
-        if (!line.Contains("\"type\":\"user\"", StringComparison.Ordinal)) return false;
-
-        if (line.Length == 0 || line[0] is not '{') return false;
-
-        try
-        {
-            using var document = JsonDocument.Parse(line);
-
-            var root = document.RootElement;
-
-            if (root.ValueKind is not JsonValueKind.Object) return false;
-            if (Text(root, "type") is not "user") return false;
-            if (Flag(root, "isMeta") || Flag(root, "isSidechain")) return false;
-
-            return Prompted(root);
-        }
-        catch (JsonException)
-        {
-            // A half-written last line, or a line this reader does not understand. It
-            // is not counted, which loses at most one turn off a running session's
-            // count and never invents one.
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Whether a user-role line holds something the person sent.
-    /// <para>
-    /// This is the check that decides the number. Claude files a tool's output as a
-    /// user-role message — the result is addressed to the model in the person's role —
-    /// so on the hundred most recent transcripts on this machine about 6,100 lines are
-    /// user-role and about 180 of them are prompts. A count that did not draw this line
-    /// would be a tool-call count with a turn count's name on it, off by a factor of
-    /// more than thirty.
-    /// </para>
-    /// <para>
-    /// A string content is a typed prompt. An array is judged by what is in it: a text
-    /// or image block is the person's, a <c>tool_result</c> block is not, and a line
-    /// holding only tool results is not a turn. A user-role line with no message at all
-    /// is not counted either — the reader cannot tell what it was, and the whole point
-    /// of the null is that it does not have to pretend.
-    /// </para>
-    /// </summary>
-    private static bool Prompted(JsonElement root)
-    {
-        if (!root.TryGetProperty("message", out var message)) return false;
-        if (message.ValueKind is not JsonValueKind.Object) return false;
-        if (!message.TryGetProperty("content", out var content)) return false;
-
-        return content.ValueKind switch
-        {
-            JsonValueKind.String => !string.IsNullOrWhiteSpace(content.GetString()),
-            JsonValueKind.Array => content.EnumerateArray().Any(block =>
-                block.ValueKind is JsonValueKind.Object && Text(block, "type") is not "tool_result"),
-            _ => false
-        };
-    }
-
-    /// <summary>Present and true. A flag Claude did not write is not a flag set to
-    /// false, but nothing here needs to tell those apart.</summary>
-    private static bool Flag(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.True;
-
-    private static (string? Folder, string? Branch) Header(string line)
-    {
-        if (line.Length == 0 || line[0] is not '{') return (null, null);
-
-        try
-        {
-            using var document = JsonDocument.Parse(line);
-
-            return document.RootElement.ValueKind is JsonValueKind.Object
-                ? (Text(document.RootElement, "cwd"), Text(document.RootElement, "gitBranch"))
-                : (null, null);
-        }
-        catch (JsonException)
-        {
-            return (null, null);
-        }
-    }
+        DateTimeOffset now,
+        CancellationToken cancellationToken) =>
+        _remembered.ReadAsync(transcript, () => new ClaudeTranscriptFactsParser(), now, cancellationToken);
 
     /// <summary>Epoch milliseconds, which is how the live file dates itself.</summary>
     private static DateTimeOffset? Started(JsonElement root) =>
         root.TryGetProperty("startedAt", out var value) && value.TryGetInt64(out var milliseconds)
             ? DateTimeOffset.FromUnixTimeMilliseconds(milliseconds)
-            : null;
-
-    private static string? Text(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String
-            ? value.GetString()
             : null;
 
     /// <summary>

@@ -1046,6 +1046,106 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.All(catalog.Sessions, session => Assert.Equal(AgentSessionOrigin.Local, session.Origin));
     }
 
+    // --- The timestamps reading -----------------------------------------------
+
+    /// <summary>
+    /// The reading for a consumer that needs to know when and in what state, and
+    /// nothing a transcript has to be opened for: the same sessions, the same ids,
+    /// states and times as a full reading of the same profile — and not one transcript
+    /// opened, live or past.
+    /// </summary>
+    [Fact]
+    public async Task A_timestamps_reading_opens_no_transcript_and_answers_the_same_times_and_states()
+    {
+        GivenClaudeLiveSession("live", @"D:\Repos\Backlog", "running", Noon.AddHours(-1), Noon.AddMinutes(-2));
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "live",
+            Noon.AddMinutes(-2),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"a prompt"}}""");
+        GivenClaudeTranscript("D--Repos-Backlog", "past", @"D:\Repos\Backlog", "main", Noon.AddHours(-5));
+        GivenClaudeTranscript("D--Repos-Backlog", "older", @"D:\Repos\Backlog", "feature", Noon.AddHours(-9));
+        GivenCopilotSession("copilot", @"D:\Repos\Backlog", "JSdotNet/Backlog", "main", Noon.AddHours(-3), Noon.AddHours(-2));
+
+        var opens = 0;
+        var source = new LocalAgentSessionSource(
+            ClaudeHome, CopilotHome, MachineId, Machine, new FakeTimeProvider(Noon), facts: null, repositories: null,
+            path =>
+            {
+                opens++;
+
+                return TranscriptTail.OpenShared(path);
+            });
+
+        var full = await ReadAsync(AgentSessionQuery.Newest);
+        var timestamps = await source.GetSessionsAsync(AgentSessionQuery.Newest.TimestampsOnly(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, opens);
+        Assert.Equal(full.Discovered, timestamps.Discovered);
+        Assert.Equal(
+            full.Sessions.Select(Timing).Order(StringComparer.Ordinal),
+            timestamps.Sessions.Select(Timing).Order(StringComparer.Ordinal));
+
+        static string Timing(AgentSession session) =>
+            $"{session.Id} {session.Kind} {session.State} {session.StartedAt:O} {session.LastActivityAt:O}";
+    }
+
+    /// <summary>What only a transcript knows is absent from a timestamps reading, never
+    /// guessed: no folder, branch, count, entry point or work, and the short id for a
+    /// title where the folder would have named it.</summary>
+    [Fact]
+    public async Task A_timestamps_reading_states_nothing_only_a_transcript_knows()
+    {
+        GivenClaudeLiveSession("live", @"D:\Repos\Backlog", "running", Noon.AddHours(-1), Noon.AddMinutes(-2));
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "live",
+            Noon.AddMinutes(-2),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"a prompt"}}""");
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "5f1c9a2e-past",
+            Noon.AddHours(-5),
+            """{"type":"system","entrypoint":"cli"}""",
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"a prompt"}}""");
+
+        var catalog = await ReadAsync(AgentSessionQuery.Since(Noon.AddDays(-1)).TimestampsOnly());
+
+        var live = Assert.Single(catalog.Sessions, session => session.Id == "live");
+        Assert.Null(live.Branch);
+        Assert.Null(live.TurnCount);
+        Assert.Equal("running", live.Title);
+
+        var past = Assert.Single(catalog.Sessions, session => session.Id == "5f1c9a2e-past");
+        Assert.Equal(string.Empty, past.WorkingFolder);
+        Assert.Equal("5f1c9a2e", past.Title);
+        Assert.Null(past.Branch);
+        Assert.Null(past.TurnCount);
+        Assert.Null(past.Entrypoint);
+        Assert.Null(past.PullRequests);
+        Assert.Null(past.ModelUsage);
+    }
+
+    /// <summary>The depth is a property of a reading and not a third shape: either
+    /// shape can be asked for thinly, keeping its horizon, and nothing asked for the
+    /// usual way is thin.</summary>
+    [Fact]
+    public void The_timestamps_depth_keeps_the_shape_it_was_asked_of()
+    {
+        var horizon = Noon.AddDays(-7);
+
+        Assert.Equal(AgentSessionDetail.Full, AgentSessionQuery.Newest.Detail);
+        Assert.Equal(AgentSessionDetail.Full, AgentSessionQuery.Since(horizon).Detail);
+
+        var newest = AgentSessionQuery.Newest.TimestampsOnly();
+        Assert.True(newest.IsNewest);
+        Assert.Equal(AgentSessionDetail.Timestamps, newest.Detail);
+
+        var since = AgentSessionQuery.Since(horizon).TimestampsOnly();
+        Assert.Equal(horizon, since.Horizon);
+        Assert.Equal(AgentSessionDetail.Timestamps, since.Detail);
+    }
+
     // --- The transcript facts cache ------------------------------------------
 
     /// <summary>
