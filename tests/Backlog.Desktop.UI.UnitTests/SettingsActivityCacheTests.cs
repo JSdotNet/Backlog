@@ -105,7 +105,7 @@ public sealed class SettingsActivityCacheTests
     }
 
     private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
+        SettingsMenu.Open(component, "Repositories");
 
     private static SettingsRenderContext RenderSettings()
     {

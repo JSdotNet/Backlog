@@ -1,0 +1,85 @@
+@*
+    One card on a settings page: a heading, a sentence saying what the card is
+    for, an optional action in the header's corner, and the controls.
+
+    Its own component rather than Card with a description added, because a
+    settings card is a section of a page with a headline above it: its heading is
+    the page's second level, where Card's is a third-level title inside some
+    other surface, and the sentence under it is what the settings search reads
+    alongside the title. The heading names the region, so a screen reader's
+    landmark list reads as the page's list of cards.
+
+    The look is the Dashboard's panel tile: the raised-alt surface, the medium
+    radius and a hairline border, inside the frame's larger panel.
+*@
+
+<section class="@ClassValue" aria-labelledby="@HeadingId" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <header class="settings-card__header">
+        <div class="settings-card__heading">
+            @HeadingFragment
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <p class="settings-card__description">@Description</p>
+            }
+        </div>
+        @if (Action is not null)
+        {
+            <div class="settings-card__action">@Action</div>
+        }
+    </header>
+    @if (ChildContent is not null)
+    {
+        <div class="settings-card__body">@ChildContent</div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>One or two sentences under the heading.</summary>
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// <summary>A control for the whole card, in the header's corner - Add, Test
+    /// connection.</summary>
+    [Parameter]
+    public RenderFragment? Action { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The heading's level. Two by default: a card sits directly under
+    /// the page's h1 headline.</summary>
+    [Parameter]
+    public int HeadingLevel { get; set; } = 2;
+
+    /// <summary>The heading's id, which names the card's region. Generated when
+    /// not given.</summary>
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private readonly string _generatedId = "settings-card-" + Guid.NewGuid().ToString("n")[..8];
+
+    private string HeadingId => string.IsNullOrWhiteSpace(Id) ? _generatedId : Id;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "settings-card" : $"settings-card {CssClass}";
+
+    private RenderFragment HeadingFragment => builder =>
+    {
+        builder.OpenElement(0, $"h{Math.Clamp(HeadingLevel, 2, 6)}");
+        builder.AddAttribute(1, "class", "settings-card__title");
+        builder.AddAttribute(2, "id", HeadingId);
+        builder.AddContent(3, Title);
+        builder.CloseElement();
+    };
+}

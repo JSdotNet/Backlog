@@ -189,7 +189,7 @@ public sealed class SettingsBackupTests
     }
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
+        SettingsMenu.Open(component, "Storage & backup");
 
     private static SettingsRenderContext RenderSettings()
     {

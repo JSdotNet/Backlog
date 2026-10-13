@@ -146,7 +146,7 @@ public sealed class SettingsRepositoryColourTests
     }
 
     internal static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
+        SettingsMenu.Open(component, "Repositories");
 
     internal static SettingsRenderContext RenderSettings()
     {

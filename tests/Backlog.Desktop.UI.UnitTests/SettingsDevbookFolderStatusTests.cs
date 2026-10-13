@@ -207,7 +207,7 @@ public sealed class SettingsDevbookFolderStatusTests
     }
 
     private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
+        SettingsMenu.Open(component, "Repositories");
 
     /// <summary>Keyed on the section's own key chip rather than on row order, so a
     /// section added to the defaults does not move the assertions.</summary>

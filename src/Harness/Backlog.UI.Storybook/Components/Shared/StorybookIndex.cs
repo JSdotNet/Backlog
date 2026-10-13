@@ -437,6 +437,17 @@ internal static class StorybookIndex
             new("session-list", "Session list", "EffortChip and StageStrip: the effort a session ran at on one gold ladder, and how far its delivery run got — the parts the Sessions pane's rows and detail panel are drawn with.")
         ]),
 
+        // A subject of its own after Dashboard, and after it by the rule: a settings
+        // card shows a figure in the MetricTile Dashboard introduces, and the frame
+        // is the Dashboard's panel. Read card, then menu, then the frame that holds
+        // both - nothing is shown before its parts.
+        new("Settings",
+        [
+            new("settings-card", "Settings card", "SettingsCard: one card on a settings page — a heading, a sentence saying what it is for, an action in its corner, and the controls."),
+            new("settings-menu", "Settings menu", "SettingsMenuGroup: one group of the settings menu — a small uppercase label and a link per page, the page on screen marked current."),
+            new("settings-frame", "Settings frame", "SettingsFrame and SettingsHeadline: the panel, the way back, the group and the one-sentence headline a page writes, Saved as you go, and the menu beside the page.")
+        ]),
+
         // Last, and last by the rule rather than by convention: every page here
         // composes several chapters above it into one surface, and a reader who
         // arrives having read them recognises the parts instead of meeting them for

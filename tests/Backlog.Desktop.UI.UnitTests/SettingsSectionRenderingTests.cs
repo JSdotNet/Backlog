@@ -2,6 +2,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.UI.Components.Settings;
 
 using Bunit;
 
@@ -19,7 +20,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class SettingsSectionRenderingTests
 {
-    private static readonly string[] AppWidePages = ["Features", "Storage", "Repositories"];
+    private static readonly string[] AppWidePages = ["Features", "Storage & backup", "Repositories"];
 
     [Fact]
     public void With_no_section_registered_only_the_app_wide_pages_are_offered()
@@ -48,7 +49,8 @@ public sealed class SettingsSectionRenderingTests
         OpenTab(settings.Component, "Sooner");
 
         var panel = settings.Component.Find("section[aria-label='Sooner settings']");
-        Assert.Equal("Sooner", panel.QuerySelector("h2.setting__title")!.TextContent.Trim());
+        Assert.Equal("Sooner", settings.Component.Find("h1").TextContent.Trim());
+        Assert.Null(panel.QuerySelector("h2"));
         Assert.NotNull(panel.QuerySelector("[data-testid='sooner-section']"));
     }
 
@@ -76,7 +78,165 @@ public sealed class SettingsSectionRenderingTests
             .Change(false);
 
         Assert.Equal(AppWidePages, Tabs(settings.Component));
-        Assert.Equal("true", settings.Component.FindAll(".settings-tabs button").Single(tab => tab.TextContent.Trim() == "Features").GetAttribute("aria-selected"));
+        Assert.Equal("Features", SettingsMenu.Current(settings.Component));
+    }
+
+    [Fact]
+    public void Settings_with_no_page_in_its_address_opens_Features()
+    {
+        using var settings = RenderSettings();
+
+        Assert.Equal("Features", SettingsMenu.Current(settings.Component));
+        Assert.Equal("Features", Headline(settings.Component));
+        Assert.Equal("Settings · Workspace", settings.Component.Find("[data-testid='settings-eyebrow']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void An_address_naming_no_page_opens_Features()
+    {
+        using var settings = RenderSettings();
+        SettingsMenu.Navigate(settings.Component, "storage");
+
+        SettingsMenu.Navigate(settings.Component, "no-such-page");
+
+        Assert.Equal("Features", SettingsMenu.Current(settings.Component));
+        Assert.False(settings.Component.Find("section[aria-label='Feature settings']").HasAttribute("hidden"));
+    }
+
+    [Fact]
+    public void Every_page_in_the_menu_links_to_its_own_address()
+    {
+        using var settings = RenderSettings(new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection)));
+
+        var hrefs = settings.Component.FindAll("nav[aria-label='Settings pages'] a")
+            .Select(link => (Page: link.GetAttribute("data-page"), Href: link.GetAttribute("href")))
+            .ToList();
+
+        Assert.Equal(
+            [("features", "settings/features"), ("storage", "settings/storage"), ("repositories", "settings/repositories"), ("sooner", "settings/sooner")],
+            hrefs);
+    }
+
+    [Fact]
+    public void An_address_opens_its_page_and_keeps_the_page_before_alive_hidden()
+    {
+        using var settings = RenderSettings(new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection)));
+
+        SettingsMenu.Navigate(settings.Component, "sooner");
+
+        Assert.Equal("Sooner", SettingsMenu.Current(settings.Component));
+        Assert.Equal("page", settings.Component.Find("a[data-page='sooner']").GetAttribute("aria-current"));
+        Assert.Null(settings.Component.Find("a[data-page='features']").GetAttribute("aria-current"));
+        Assert.False(settings.Component.Find("section[aria-label='Sooner settings']").HasAttribute("hidden"));
+        Assert.True(settings.Component.Find("section[aria-label='Feature settings']").HasAttribute("hidden"));
+        Assert.Equal("Settings · Product areas", settings.Component.Find("[data-testid='settings-eyebrow']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void An_older_query_link_still_opens_the_page_it_names()
+    {
+        using var settings = RenderSettings(
+            [new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection))],
+            inboxPane: false,
+            navigateTo: "settings?page=sooner");
+
+        Assert.Equal("Sooner", SettingsMenu.Current(settings.Component));
+    }
+
+    [Fact]
+    public void The_menu_groups_built_in_pages_first_then_registered_ones_by_order()
+    {
+        using var settings = RenderSettings(
+            new SettingsSection("late-area", "Late area", 20, typeof(LaterSection), Group: SettingsGroup.ProductAreas),
+            new SettingsSection("early-area", "Early area", 10, typeof(SoonerSection), Group: SettingsGroup.ProductAreas),
+            new SettingsSection("pricing", "Pricing", 1, typeof(SoonerSection), Group: SettingsGroup.Ai),
+            new SettingsSection("workspace-extra", "Workspace extra", 5, typeof(SoonerSection), Group: SettingsGroup.Workspace));
+
+        Assert.Equal(
+            ["Workspace", "AI", "Product areas"],
+            settings.Component.FindAll(".settings-menu-group__label").Select(label => label.TextContent.Trim()));
+        Assert.Equal(
+            ["Features", "Storage & backup", "Repositories", "Workspace extra", "Pricing", "Early area", "Late area"],
+            SettingsMenu.Pages(settings.Component));
+    }
+
+    [Fact]
+    public void A_page_supplies_its_own_headline_sentence_while_it_is_on_screen()
+    {
+        using var settings = RenderSettings(new SettingsSection("worded", "Worded", 10, typeof(WordedSection)));
+
+        SettingsMenu.Open(settings.Component, "Worded");
+        Assert.Equal("Say what this page is for in one sentence.", Headline(settings.Component));
+
+        // Kept alive and hidden, the page no longer writes the headline.
+        SettingsMenu.Open(settings.Component, "Features");
+        Assert.Equal("Features", Headline(settings.Component));
+
+        SettingsMenu.Open(settings.Component, "Worded");
+        Assert.Equal("Say what this page is for in one sentence.", Headline(settings.Component));
+    }
+
+    [Fact]
+    public void The_product_menu_lists_every_page_in_its_group_and_order()
+    {
+        var services = new ServiceCollection();
+        services.AddTaskConnectorSettings();
+        services.AddInboxSettings();
+        Backlog.Modules.Sessions.UI.Extensions.SessionsSettingsRegistration.AddSessionsSettings(services);
+        Backlog.Modules.Sync.UI.SyncSettingsRegistration.AddSyncSettings(services);
+        Backlog.Modules.Dashboard.UI.Extensions.DashboardSettingsRegistration.AddDashboardSettings(services);
+        var registered = services.Select(descriptor => descriptor.ImplementationInstance).OfType<SettingsSection>();
+
+        var pages = SettingsPages.InMenuOrder(SettingsPages.BuiltIn, registered);
+
+        Assert.Equal(
+            [
+                (SettingsGroup.Workspace, "Features"),
+                (SettingsGroup.Workspace, "Storage & backup"),
+                (SettingsGroup.Workspace, "Repositories"),
+                (SettingsGroup.Workspace, "GitHub accounts"),
+                (SettingsGroup.Ai, "AI providers"),
+                (SettingsGroup.Ai, "Claude Code"),
+                (SettingsGroup.Ai, "Model prices"),
+                (SettingsGroup.ProductAreas, "Dashboard"),
+                (SettingsGroup.ProductAreas, "Working week"),
+                (SettingsGroup.ProductAreas, "Inbox"),
+                (SettingsGroup.ProductAreas, "Connectors"),
+                (SettingsGroup.ProductAreas, "Devices"),
+            ],
+            pages.Select(page => (page.Group, page.Title)));
+    }
+
+    [Fact]
+    public void Every_built_in_page_declares_the_cards_it_draws()
+    {
+        Assert.All(SettingsPages.BuiltIn, page => Assert.NotNull(page.CardTitles));
+        Assert.Equal(["Product areas", "Cross-cutting"], SettingsPages.BuiltIn.Single(page => page.Id == SettingsPages.Features).CardTitles!);
+    }
+
+    [Fact]
+    public void The_header_says_settings_save_as_you_go_and_keeps_a_way_back()
+    {
+        using var settings = RenderSettings();
+
+        Assert.Contains("Saved as you go", settings.Component.Find("[data-testid='settings-saved']").TextContent);
+        var back = settings.Component.Find("[data-testid='back-link']");
+        Assert.Equal("Back to your tasks", back.GetAttribute("aria-label"));
+        Assert.Equal("", back.GetAttribute("href"));
+        Assert.NotNull(settings.Component.Find("[data-testid='settings-search-slot']"));
+    }
+
+    private static string Headline(IRenderedComponent<Settings> component) =>
+        component.Find("h1").TextContent.Trim();
+
+    public sealed class WordedSection : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<SettingsHeadline>(0);
+            builder.AddAttribute(1, nameof(SettingsHeadline.ChildContent), (RenderFragment)(sentence => sentence.AddContent(0, "Say what this page is for in one sentence.")));
+            builder.CloseComponent();
+        }
     }
 
     public sealed class SoonerSection : ComponentBase
@@ -102,10 +262,10 @@ public sealed class SettingsSectionRenderingTests
     }
 
     private static string[] Tabs(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
+        SettingsMenu.Pages(component);
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
 
     private static SettingsRenderContext RenderSettings(params SettingsSection[] sections) =>
         RenderSettings(sections, inboxPane: false);
@@ -113,7 +273,7 @@ public sealed class SettingsSectionRenderingTests
     private static SettingsRenderContext RenderSettings(SettingsSection section, bool inboxPane) =>
         RenderSettings([section], inboxPane);
 
-    private static SettingsRenderContext RenderSettings(SettingsSection[] sections, bool inboxPane)
+    private static SettingsRenderContext RenderSettings(SettingsSection[] sections, bool inboxPane, string? navigateTo = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-section-tests", Guid.NewGuid().ToString("n"));
 
@@ -143,6 +303,8 @@ public sealed class SettingsSectionRenderingTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         foreach (var section in sections) context.Services.AddSingleton(section);
+
+        if (navigateTo is not null) context.Services.GetRequiredService<NavigationManager>().NavigateTo(navigateTo);
 
         return new SettingsRenderContext(root, context, context.Render<Settings>());
     }

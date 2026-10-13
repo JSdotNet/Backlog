@@ -73,9 +73,9 @@ public sealed class SettingsStorageCopyTests
         using var settings = RenderSettings();
         OpenStorageTab(settings.Component);
 
-        // Tabs names its panels "tabpanel-{id}", and a panel renders its content
-        // only while it is the active one - hence opening the tab above.
-        var tab = settings.Component.Find("#tabpanel-storage").TextContent;
+        // A page renders its content from its first opening - hence opening the
+        // page above.
+        var tab = settings.Component.Find("section[aria-label='Storage settings']").TextContent;
 
         Assert.DoesNotContain("markdown file with YAML", tab, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("travels with it", tab, StringComparison.OrdinalIgnoreCase);
@@ -180,7 +180,7 @@ public sealed class SettingsStorageCopyTests
         component.Find("[data-testid='storage-path-description']").TextContent;
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
+        SettingsMenu.Open(component, "Storage & backup");
 
     /// <summary>Renders the screen over a throwaway workspace, with a sync probe
     /// that finds nothing unless a test hands it one.

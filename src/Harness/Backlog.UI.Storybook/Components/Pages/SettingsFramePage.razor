@@ -1,0 +1,78 @@
+@page "/settings-frame"
+
+<PageTitle>Settings frame — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Settings frame"
+           Summary="SettingsFrame and SettingsHeadline: the settings screen's panel — the way back, the group the page belongs to and a one-sentence headline the page writes, the chip that says settings save as you go, a slot for search, and the menu beside the page."
+           Guidelines="@Rules">
+
+    <Story Name="A page in the frame"
+           Description="The page writes its own headline with a SettingsHeadline; until it does, or on a page that has none, the frame shows the page's title. Press the button to take the sentence away and the title comes back.
+
+A host that keeps hidden pages alive cascades SettingsPageActive per page, so only the page on screen writes the headline. Only one frame can be on a page at a time: the headline is a named section, and a section has one outlet.
+
+The menu and the page sit in one wrapping row: narrow the window and the menu wraps above the page with no breakpoint naming the width."
+           Code="@FrameCode">
+        <div data-testid="settings-frame-story">
+            <SettingsFrame Title="Features" Eyebrow="Settings · Workspace">
+                <Menu>
+                    <SettingsMenuGroup Label="Workspace" Items="@Workspace" />
+                    <SettingsMenuGroup Label="AI" Items="@Ai" />
+                </Menu>
+                <ChildContent>
+                    @if (_sentence)
+                    {
+                        <SettingsHeadline>Choose which parts of Backlog are switched on.</SettingsHeadline>
+                    }
+                    <div class="sb-stack">
+                        <SettingsCard Title="Product areas" Description="Parts of the product with a screen of their own.">
+                            <Toggle Label="Dashboard" Checked="true" />
+                            <Toggle Label="Inbox pane" />
+                        </SettingsCard>
+                        <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _sentence = !_sentence">
+                            @(_sentence ? "Take the sentence away" : "Give the page its sentence")
+                        </AppButton>
+                    </div>
+                </ChildContent>
+            </SettingsFrame>
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private bool _sentence = true;
+
+    private static readonly SettingsMenuItem[] Workspace =
+    [
+        new("features", "Features", "settings-frame", Current: true),
+        new("storage", "Storage & backup", "settings-frame"),
+        new("repositories", "Repositories", "settings-frame"),
+        new("accounts", "GitHub accounts", "settings-frame")
+    ];
+
+    private static readonly SettingsMenuItem[] Ai =
+    [
+        new("ai", "AI providers", "settings-frame"),
+        new("claude-code", "Claude Code", "settings-frame")
+    ];
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the frame says Saved as you go, and why no page under it has a save button."),
+        new("typography-and-layout.md#type-scale", "The step range the one-sentence headline scales between."),
+        new("typography-and-layout.md#shadows-and-elevation", "The medium shadow the panel shares with the Dashboard's."),
+        new("accessibility.md#target-sizes-and-text", "Why the way back is a 44px target around an arrow.")
+    ];
+
+    private const string FrameCode = """
+        <SettingsFrame Title="@page.Title" Eyebrow="Settings · Workspace">
+            <Menu>
+                <SettingsMenuGroup Label="Workspace" Items="@workspace" />
+            </Menu>
+            <ChildContent>
+                <SettingsHeadline>Choose which parts of Backlog are switched on.</SettingsHeadline>
+                <SettingsCard Title="Product areas" Description="...">...</SettingsCard>
+            </ChildContent>
+        </SettingsFrame>
+        """;
+}

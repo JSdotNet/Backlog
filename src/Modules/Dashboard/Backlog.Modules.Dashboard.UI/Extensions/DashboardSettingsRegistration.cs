@@ -18,26 +18,25 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 /// <para>
 /// The usage-reset page is offered behind <see cref="DashboardFeatures.Dashboard"/>,
 /// the switch the pane that reads it is opened under, so the page is not on the
-/// strip while nothing would read it. The working week is offered with no switch:
+/// menu while nothing would read it. The working week is offered with no switch:
 /// the roadmap counts it as well as the dashboard (ADR 0019), so it is read
 /// whether or not the dashboard is on.
 /// </para>
 /// </remarks>
 public static class DashboardSettingsRegistration
 {
-    /// <summary>The Dashboard page's place among the sections modules register:
-    /// after the Inbox's.</summary>
-    public const int Order = 200;
+    /// <summary>The Dashboard page's place among the Product areas pages: first.</summary>
+    public const int Order = 10;
 
     /// <summary>The working week's page: straight after the Dashboard's.</summary>
-    public const int WorkingWeekOrder = 210;
+    public const int WorkingWeekOrder = 20;
 
     public static IServiceCollection AddDashboardSettings(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("dashboard", "Dashboard", Order, typeof(DashboardSettings), DashboardFeatures.Dashboard));
-        services.AddSingleton(new SettingsSection("working-week", "Working week", WorkingWeekOrder, typeof(WorkingWeekSettings)));
+        services.AddSingleton(new SettingsSection("dashboard", "Dashboard", Order, typeof(DashboardSettings), DashboardFeatures.Dashboard, SettingsGroup.ProductAreas));
+        services.AddSingleton(new SettingsSection("working-week", "Working week", WorkingWeekOrder, typeof(WorkingWeekSettings), Group: SettingsGroup.ProductAreas));
 
         return services;
     }

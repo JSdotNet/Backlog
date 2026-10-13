@@ -11,15 +11,15 @@ namespace Backlog.Desktop.UI.Tasks;
 /// </summary>
 public static class TaskConnectorSettingsRegistration
 {
-    /// <summary>The Connectors page's place among the sections modules register:
-    /// ahead of the Inbox's, because it decides what reaches the Tasks list.</summary>
-    public const int Order = 50;
+    /// <summary>The Connectors page's place among the Product areas pages: after
+    /// the Inbox's.</summary>
+    public const int Order = 40;
 
     public static IServiceCollection AddTaskConnectorSettings(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("connectors", "Connectors", Order, typeof(TaskConnectorSettings)));
+        services.AddSingleton(new SettingsSection("connectors", "Connectors", Order, typeof(TaskConnectorSettings), Group: SettingsGroup.ProductAreas));
 
         return services;
     }

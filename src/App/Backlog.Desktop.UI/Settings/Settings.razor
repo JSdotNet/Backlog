@@ -1,4 +1,5 @@
 ﻿@page "/settings"
+@page "/settings/{PageId}"
 @*
     The namespace deliberately does not match the folder, and must not be
     "tidied" to match it — doing so does not compile.
@@ -57,105 +58,115 @@
     The one screen in this app with form controls, and it earns them: a folder
     path is not something you can type inline into a backlog entry. Its pages
     still follow the house rule - no save button. Committing a field (blur or
-    Enter) moves the store.
+    Enter) moves the store, and the frame's "Saved as you go" chip says so.
+
+    Every page has its own address, settings/<page>, and the menu is links to
+    them: choosing a page navigates, so Back returns to the page before. The
+    router hands each address to this same component instance, so the pages a
+    visit has opened stay alive across those moves.
 *@
 
 <div class="shell shell--settings">
-    <header class="app-header">
-        @* The title and the way back, and nothing else. The Report issue button
-           was here because a per-page mount was the only kind there was, and this
-           page needing one of its own is exactly the duplication the app-shell
-           footer removes: MainLayout mounts it once, below this page too. *@
-        <h1>Settings</h1>
-        <a class="icon-link" href="" data-testid="back-link" title="Back to your tasks" aria-label="Back to your tasks">←</a>
-    </header>
+    <SettingsFrame Title="@ActivePage.Title"
+                   Eyebrow="@SettingsPages.Eyebrow(ActivePage.Group)"
+                   TestId="settings-frame">
+        <Menu>
+            @foreach (var group in SettingsPages.Menu(OfferedPages, _activeId))
+            {
+                <SettingsMenuGroup @key="group.Group"
+                                   Label="@SettingsPages.GroupLabel(group.Group)"
+                                   Items="@group.Items"
+                                   TestId="@($"settings-menu-{group.Group.ToString().ToLowerInvariant()}")" />
+            }
+        </Menu>
+        <ChildContent>
+            @* Each app-wide page is a component of its own beside this file, so a
+               change to one page is a change to one file. A page is drawn from its
+               first opening and kept alive, hidden, while another is on screen -
+               what a page holds (a status line, a test result, a half-typed draft)
+               lives as long as the screen. A page whose feature is switched off is
+               withdrawn, and its state with it. The cascade tells the page's
+               SettingsHeadline whether it is the one on screen, so a hidden page
+               never writes the headline. *@
+            @if (IsOpen(SettingsPages.Features))
+            {
+                <CascadingValue Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(SettingsPages.Features)">
+                    <section class="setting" hidden="@(!IsShowing(SettingsPages.Features))" aria-label="Feature settings">
+                        <FeaturesSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPages.Features)" />
+                    </section>
+                </CascadingValue>
+            }
 
-    @* The pill strip is the shared Tabs component wearing this page's classes.
-       Arrow-key movement between the pills comes with it. *@
-    <Tabs Bare="true"
-          ListElement="nav"
-          ListCssClass="settings-tabs"
-          AriaLabel="Settings pages"
-          TabCssClass="settings-tab"
-          ActiveTabCssClass="settings-tab settings-tab--active"
-          ActiveId="@ActivePageId"
-          ActiveIdChanged="ShowSettingsPageById">
+            @if (IsOpen(SettingsPages.Ai))
+            {
+                <CascadingValue Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(SettingsPages.Ai)">
+                    <section class="setting" hidden="@(!IsShowing(SettingsPages.Ai))" aria-label="AI settings">
+                        <AiSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPages.Ai)" />
+                    </section>
+                </CascadingValue>
+            }
 
-        @* Each app-wide page is a component of its own beside this file, so a
-           change to one page is a change to one file. The panels stay here: the
-           strip is this screen's, and a panel registers with it in the order it is
-           written, which a panel inside a page component would not keep. Kept
-           alive for the reason the modules' pages below are - what a page holds
-           (a status line, a test result, a half-typed draft) lives as long as the
-           screen, as it did when this file held every page. The page's state
-           survives a tab switch; its markup does too now, hidden, where before
-           only the open page was drawn. A page whose feature is switched off is
-           withdrawn with its panel, and its state with it. *@
-        <TabPanel Id="features" Title="Features" KeepAlive="true" Element="section" BaseClass="setting" aria-label="Feature settings">
-            <FeaturesSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPage.Features)" />
-        </TabPanel>
+            @if (IsOpen(SettingsPages.Storage))
+            {
+                <CascadingValue Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(SettingsPages.Storage)">
+                    <section class="setting" hidden="@(!IsShowing(SettingsPages.Storage))" aria-label="Storage settings">
+                        <StorageSettingsPage @ref="_storagePage" Screen="@_screen" Active="@IsShowing(SettingsPages.Storage)" />
+                    </section>
+                </CascadingValue>
+            }
 
-    @if (IsSettingsPageAvailable(SettingsPage.Ai))
-    {
-        <TabPanel Id="ai" Title="AI" KeepAlive="true" Element="section" BaseClass="setting" aria-label="AI settings">
-            <AiSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPage.Ai)" />
-        </TabPanel>
-    }
+            @if (IsOpen(SettingsPages.Accounts))
+            {
+                <CascadingValue Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(SettingsPages.Accounts)">
+                    <section class="setting"
+                             hidden="@(!IsShowing(SettingsPages.Accounts))"
+                             data-testid="github-accounts-settings"
+                             aria-label="Account settings">
+                        <GitHubAccountsSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPages.Accounts)" />
+                    </section>
+                </CascadingValue>
+            }
 
-        <TabPanel Id="storage" Title="Storage" KeepAlive="true" Element="section" BaseClass="setting" aria-label="Storage settings">
-            <StorageSettingsPage @ref="_storagePage" Screen="@_screen" Active="@IsShowing(SettingsPage.Storage)" />
-        </TabPanel>
+            @if (IsOpen(SettingsPages.Repositories))
+            {
+                <CascadingValue Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(SettingsPages.Repositories)">
+                    <section class="setting"
+                             hidden="@(!IsShowing(SettingsPages.Repositories))"
+                             data-testid="github-settings"
+                             aria-label="Repository settings">
+                        <RepositoriesSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPages.Repositories)" />
+                    </section>
+                </CascadingValue>
+            }
 
-    @if (IsSettingsPageAvailable(SettingsPage.Accounts))
-    {
-        @* Read before Repositories on purpose: a repository is bound to one of
-           these, so the list it is picked from has to be the thing already in
-           front of somebody by the time they get there. *@
-        <TabPanel Id="accounts"
-                  Title="Accounts"
-                  KeepAlive="true"
-                  Element="section"
-                  BaseClass="setting"
-                  TestId="github-accounts-settings"
-                  aria-label="Account settings">
-            <GitHubAccountsSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPage.Accounts)" />
-        </TabPanel>
-    }
-
-        <TabPanel Id="repositories"
-                  Title="Repositories"
-                  KeepAlive="true"
-                  Element="section"
-                  BaseClass="setting"
-                  TestId="github-settings"
-                  aria-label="Repository settings">
-            <RepositoriesSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPage.Repositories)" />
-        </TabPanel>
-
-    @* The modules' own pages, after the app-wide ones and in their registered
-       order. The shell knows each only as a title and a component: what is on
-       the page, and what it writes, is the module's. Kept alive, so a section's
-       state lives as long as the settings screen, as it did when the shell held
-       it, instead of resetting on every tab switch. *@
-    @foreach (var section in OfferedSections)
-    {
-        <TabPanel @key="section.Id"
-                  Id="@section.Id"
-                  Title="@section.Title"
-                  KeepAlive="true"
-                  Element="section"
-                  BaseClass="setting"
-                  aria-label="@($"{section.Title} settings")">
-            <h2 class="setting__title">@section.Title</h2>
-            <DynamicComponent Type="@section.Component" />
-        </TabPanel>
-    }
-    </Tabs>
+            @* The modules' own pages. The shell knows each only as a title, a group
+               and a component: what is on the page, and what it writes, is the
+               module's. Its headline is its title unless it renders a
+               SettingsHeadline of its own. *@
+            @foreach (var section in OfferedSections.Where(section => IsOpen(section.Id)))
+            {
+                <CascadingValue @key="section.Id" Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(section.Id)">
+                    <section class="setting"
+                             hidden="@(!IsShowing(section.Id))"
+                             aria-label="@($"{section.Title} settings")">
+                        <DynamicComponent Type="@section.Component" />
+                    </section>
+                </CascadingValue>
+            }
+        </ChildContent>
+    </SettingsFrame>
 </div>
 
 @code {
-    /// <summary>The page a link opened this screen at — <c>settings?page=storage</c>
-    /// — or null for the default one.</summary>
+    /// <summary>The page this address names - <c>settings/storage</c> - or null
+    /// for <c>settings</c>, which opens Features. An id that names no page offered
+    /// opens Features too.</summary>
+    [Parameter]
+    public string? PageId { get; set; }
+
+    /// <summary>The page an older link names as a query - <c>settings?page=storage</c>.
+    /// Still honoured where the address names no page, so a link written before the
+    /// pages had addresses of their own opens the page it meant.</summary>
     [SupplyParameterFromQuery(Name = "page")]
     public string? Page { get; set; }
 
@@ -167,86 +178,87 @@
     /// have the Brain card look at its folder again.</summary>
     private StorageSettingsPage? _storagePage;
 
-    private SettingsPage _activePage = SettingsPage.Features;
+    /// <summary>The page on screen.</summary>
+    private string _activeId = SettingsPages.Features;
 
-    private enum SettingsPage
-    {
-        Features,
-        Ai,
-        Storage,
-        Accounts,
-        Repositories,
-    }
+    /// <summary>The pages opened since the screen was, each kept alive until the
+    /// screen closes or its feature is switched off.</summary>
+    private readonly HashSet<string> _opened = new(StringComparer.Ordinal);
 
-    // The strip speaks in ids; the page still thinks in the enum.
-    private static string PageId(SettingsPage page) => page.ToString().ToLowerInvariant();
+    private bool IsOpen(string id) => _opened.Contains(id) && OfferedPages.Any(page => page.Id == id);
 
-    /// <summary>The registered section being shown, or null while one of the
-    /// app-wide pages is.</summary>
-    private string? _activeSectionId;
+    /// <summary>Whether the page is the one on screen; a page that is not does
+    /// not redraw - see <see cref="SettingsPageBase"/>.</summary>
+    private bool IsShowing(string id) => string.Equals(_activeId, id, StringComparison.Ordinal);
 
-    private string ActivePageId => _activeSectionId ?? PageId(_activePage);
+    /// <summary>The page on screen, as the menu and the header know it.</summary>
+    private SettingsSection ActivePage =>
+        OfferedPages.FirstOrDefault(page => page.Id == _activeId) ?? SettingsPages.BuiltIn[0];
 
-    /// <summary>Whether an app-wide page is the one on screen; a page that is not
-    /// does not redraw - see <see cref="SettingsPageBase"/>.</summary>
-    private bool IsShowing(SettingsPage page) => _activeSectionId is null && _activePage == page;
+    /// <summary>Every page the menu offers, in menu order.</summary>
+    private IReadOnlyList<SettingsSection> OfferedPages =>
+        SettingsPages.InMenuOrder(SettingsPages.BuiltIn.Where(page => IsBuiltInPageAvailable(page.Id)), OfferedSections);
 
-    private void ShowSettingsPageById(string id)
-    {
-        if (Enum.TryParse<SettingsPage>(id, ignoreCase: true, out var page)) ShowSettingsPage(page);
-        else if (OfferedSections.Any(section => section.Id == id)) _activeSectionId = id;
-    }
-
-    /// <summary>The registered sections the strip offers, lowest order first: those
+    /// <summary>The registered sections the menu offers, lowest order first: those
     /// whose feature is on, and never one that would take an app-wide page's id.</summary>
     private IEnumerable<SettingsSection> OfferedSections => RegisteredSections
-        .Where(section => !Enum.TryParse<SettingsPage>(section.Id, ignoreCase: true, out _))
+        .Where(section => !SettingsPages.IsBuiltIn(section.Id))
         .Where(section => section.FeatureKey is null || Features.IsEnabled(section.FeatureKey))
         .OrderBy(section => section.Order);
 
-    private bool AiAssistantEnabled => Features.IsEnabled(AppFeatures.AiAssistant);
-
     private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatures.UsageMetrics);
 
-    private void ShowSettingsPage(SettingsPage page)
+    private bool IsBuiltInPageAvailable(string id) => id switch
     {
-        if (IsSettingsPageAvailable(page))
-        {
-            _activePage = page;
-            _activeSectionId = null;
-
-            // The Brain folder is the person's to change by hand, so what the card
-            // says about it is looked at again each time Storage is opened.
-            if (page is SettingsPage.Storage) _storagePage?.RefreshBrainStatus();
-        }
-    }
-
-    private bool IsSettingsPageAvailable(SettingsPage page) => page switch
-    {
-        SettingsPage.Features or SettingsPage.Storage or SettingsPage.Repositories => true,
-        SettingsPage.Ai => AiAssistantEnabled || UsageMetricsEnabled,
+        SettingsPages.Features or SettingsPages.Storage or SettingsPages.Repositories => true,
+        SettingsPages.Ai => Features.IsEnabled(AppFeatures.AiAssistant) || UsageMetricsEnabled,
 
         // An account is only ever used to authenticate a GitHub call, and the two
         // features that make one are the integration itself and the organization
-        // usage reports. With neither on there is nothing for the panel to say, so
+        // usage reports. With neither on there is nothing for the page to say, so
         // it is not offered rather than offered empty.
-        SettingsPage.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
+        SettingsPages.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
         _ => false
     };
 
+    /// <summary>Shows the page <paramref name="id"/> names, or Features where it
+    /// names none on offer.</summary>
+    private void ShowPage(string? id)
+    {
+        var page = string.IsNullOrWhiteSpace(id)
+            ? null
+            : OfferedPages.FirstOrDefault(candidate => string.Equals(candidate.Id, id.Trim(), StringComparison.OrdinalIgnoreCase));
+        var target = page?.Id ?? SettingsPages.Features;
+        var changed = !IsShowing(target);
+
+        _activeId = target;
+        _opened.Add(target);
+
+        // The Brain folder is the person's to change by hand, so what the card
+        // says about it is looked at again each time Storage is opened.
+        if (changed && target == SettingsPages.Storage) _storagePage?.RefreshBrainStatus();
+    }
+
+    /// <summary>Falls back to Features when the page on screen stops being
+    /// offered, and lets go of every page whose feature was switched off, so
+    /// switching it back on starts it afresh.</summary>
     private void EnsureActiveSettingsPage()
     {
-        if (!IsSettingsPageAvailable(_activePage))
-        {
-            _activePage = SettingsPage.Features;
-        }
+        var offered = OfferedPages.Select(page => page.Id).ToHashSet(StringComparer.Ordinal);
 
-        if (_activeSectionId is not null && !OfferedSections.Any(section => section.Id == _activeSectionId))
+        _opened.RemoveWhere(id => !offered.Contains(id));
+
+        if (!offered.Contains(_activeId))
         {
-            _activeSectionId = null;
-            _activePage = SettingsPage.Features;
+            _activeId = SettingsPages.Features;
+            _opened.Add(_activeId);
         }
     }
+
+    /// <summary>The router hands every settings address to this one instance, so
+    /// this runs on each move between pages, not only when the screen opens.</summary>
+    protected override void OnParametersSet() =>
+        ShowPage(string.IsNullOrWhiteSpace(PageId) ? Page : PageId);
 
     protected override Task OnInitializedAsync()
     {
@@ -264,10 +276,6 @@
         // "fetching" until it does - hence the marshal, and hence subscribing at
         // all. Every opened page is redrawn with the screen.
         DevbookFolders.Changed += OnDevbookFoldersChanged;
-
-        // A link may open this screen at a page - the Brain chip's "Set up your
-        // Brain" opens Storage. An id that names no page leaves the default.
-        if (!string.IsNullOrWhiteSpace(Page)) ShowSettingsPageById(Page.Trim());
 
         return Task.CompletedTask;
     }
@@ -298,7 +306,7 @@
     /// is the Storage page's; whether there is one is the Brain setting's.</summary>
     private async Task RevealBrainCardAsync()
     {
-        if (_activePage is not SettingsPage.Storage || Services.GetService<IBrainSettings>() is null) return;
+        if (_activeId != SettingsPages.Storage || Services.GetService<IBrainSettings>() is null) return;
         if (!new Uri(Navigation.Uri).Fragment.Equals("#" + BrainSetup.CardId, StringComparison.OrdinalIgnoreCase)) return;
 
         try
