@@ -1633,6 +1633,9 @@ public sealed class ToolsPaneTests
 
         var remove = Assert.Single(pane.FindAll("[data-testid='tools-row-cache-remove']"));
         Assert.Equal("Remove cached 1.1.0 of devbook", remove.GetAttribute("aria-label"));
+
+        // The toolbar's clear is a kind tab's; on the Overview it is a Needs you card.
+        pane.Find("[data-testid='tools-tab-plugins']").Click();
         Assert.Contains("Clear stale cache (1)", pane.Find("[data-testid='tools-cache-clear']").TextContent, StringComparison.Ordinal);
     }
 
@@ -1711,6 +1714,7 @@ public sealed class ToolsPaneTests
 
         var pane = context.Render<ToolsPane>();
         var readsBefore = service.Reads;
+        pane.Find("[data-testid='tools-tab-plugins']").Click();
         pane.Find("[data-testid='tools-cache-clear']").Click();
 
         Assert.Equal(0, service.StaleCacheClears);
@@ -2088,8 +2092,13 @@ public sealed class ToolsPaneTests
         /// them.</summary>
         public List<DevToolLastRun> SavedRuns { get; } = [];
 
-        public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) =>
-            Task.FromResult(SavedRuns.LastOrDefault());
+        /// <summary>Makes reading the last run throw, as a broken record file
+        /// would.</summary>
+        public bool LastRunReadFails { get; init; }
+
+        public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) => LastRunReadFails
+            ? Task.FromException<DevToolLastRun?>(new IOException("The last-run file could not be read."))
+            : Task.FromResult(SavedRuns.LastOrDefault());
 
         public Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default)
         {

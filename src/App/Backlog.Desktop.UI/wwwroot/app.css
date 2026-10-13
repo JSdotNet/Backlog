@@ -5879,6 +5879,234 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The Overview tab: the Dashboard Overview's arrangement on this pane. Four
+   headline tiles in the Dashboard's tile style across the top, then two columns -
+   Needs you, and By kind with Last run beside it. The tiles and the cards are the
+   Dashboard's own classes; what is here is the arrangement and the bars.
+
+   The breakpoints are the pane's width, not the window's, for the reason the
+   inventory's are: the pane is a surface beside a workspace. 56.25rem is 900px:
+   below it the columns stack. 36rem is a phone: the tiles go two by two. */
+.tools-overview {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-overview__tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-overview__columns {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: var(--spacing-md);
+    align-items: start;
+    min-width: 0;
+}
+
+.tools-overview__main {
+    min-width: 0;
+}
+
+.tools-overview__side {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* The parts are cards, so their rows size to their content rather than the
+   Dashboard part's header-and-body pair. */
+.tools-overview .dashboard-part {
+    grid-template-rows: none;
+    align-content: start;
+    gap: var(--spacing-sm);
+}
+
+.tools-overview__heading {
+    margin: 0;
+    font-size: var(--font-size-base);
+}
+
+.tools-overview__tile-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tools-overview__line-figure {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+/* A stacked bar: the parts side by side on the raised surface, in the fixed order
+   matches, updates, missing, unconfirmed. Decorative - the line under it or the
+   n/m beside it says the same in words. */
+.tools-overview__stack {
+    display: flex;
+    height: 0.5rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+
+.tools-overview__part {
+    flex: none;
+    height: 100%;
+}
+
+.tools-overview__part--match { background: var(--color-success-text); }
+.tools-overview__part--update { background: var(--color-primary); }
+.tools-overview__part--missing { background: var(--color-error-text); }
+.tools-overview__part--unconfirmed { background: var(--color-text-disabled); }
+
+/* Needs you: the Dashboard's card per item, with the control at the end of the
+   row and the dot in the tone of what the row needs. */
+.tools-overview-need {
+    align-items: flex-start;
+}
+
+.tools-overview-need__body {
+    flex: 1 1 auto;
+}
+
+.tools-overview-need__title-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+    min-width: 0;
+}
+
+.tools-overview-need__control {
+    flex: none;
+    align-self: center;
+}
+
+.tools-overview-need--alert .tools-overview-need__dot { background: var(--color-primary); }
+.tools-overview-need--fault .tools-overview-need__dot { background: var(--color-error-text); }
+.tools-overview-need--quiet .tools-overview-need__dot { background: var(--color-text-disabled); }
+
+.tools-overview-need__tab-link {
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+}
+
+/* By kind: one row per kind tab - its name and n/m on one line, the bar under. */
+.tools-overview-kinds {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tools-overview-kinds__link {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+}
+
+.tools-overview-kinds__name {
+    color: var(--color-text-primary);
+}
+
+.tools-overview-kinds__link:hover .tools-overview-kinds__name,
+.tools-overview-kinds__link:focus-visible .tools-overview-kinds__name {
+    text-decoration: underline;
+}
+
+.tools-overview-kinds__ratio {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.tools-overview-kinds__bar {
+    grid-column: 1 / -1;
+}
+
+.tools-overview-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: var(--spacing-sm) 0 0;
+    list-style: none;
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tools-overview-legend > li {
+    display: inline-flex;
+    gap: var(--spacing-2xs);
+    align-items: center;
+}
+
+.tools-overview-legend__swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+}
+
+/* Last run: the heading and its outcome chip on one line, then the summary, the
+   transcript's tail and the link to the rest of it. */
+.tools-overview-run__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tools-overview-run__summary {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.tools-overview-run__figures {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tools-overview-run__tail {
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    overflow-x: auto;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: pre;
+}
+
+.tools-overview-run__open {
+    justify-self: start;
+    padding-inline: 0;
+    color: var(--color-text-link);
+}
+
+@container tools-panel (max-width: 56.25rem) {
+    .tools-overview__columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container tools-panel (max-width: 36rem) {
+    .tools-overview__tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 /* The kind tab's toolbar: the Needs action toggle, the name filter, and the
    catalog's acts, on one row that wraps when the pane is narrow. */
 .tools-panel__toolbar {

@@ -121,7 +121,34 @@ Copilot, and entries for no host at all — applications and checklist items —
 show only under all hosts. Within a tab, a toolbar narrows to the entries that
 need action or by name, and each catalog group is a card that starts folded when
 nothing in it is outstanding. The tab and the host filter are remembered on this
-machine, never synced, so the pane reopens where it was left.
+machine, never synced, so the pane reopens where it was left. A machine that has
+never been on a tab opens on the Overview.
+
+### Overview tab
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
+depends-on: [.devbook/domain/dev-pc-management/features.md#system-tools-pane, .devbook/domain/dev-pc-management/features.md#last-run-record]
+related: [.devbook/domain/dev-pc-management/requirements.md#overview-tab]
+```
+
+Read every kind at once. Four headline figures lead: how many entries match the
+catalog out of how many this machine wants, with the share that is matching,
+behind, missing and not confirmed; how many are behind, by host; how many are
+missing, and how many of those can be installed from here rather than by hand; and
+how many cached plugin versions nothing loads any more. Under them, Needs you lists
+every entry that needs action, updates first, then missing entries, then
+unconfirmed checklist items, then the stale cache, each as one action — update it,
+install it, go to its download page and install it by hand, tick it done here, or
+clear the cache — and says that everything matches the catalog when nothing is
+left. Beside it, one bar per kind says how many of that kind's entries match, and
+opens that kind's tab, and the last run this machine finished says how it ended,
+what it was, when, how many of its steps succeeded and how long it took, with the
+end of its transcript and the whole of it a click away. An entry switched off on
+this machine, or one whose version could not be looked up, is left out of every
+figure. The host filter narrows every figure here as it does on the kind tabs.
 
 A machine with no catalog yet opens on "No tool catalog on this machine yet",
 where the catalog would be written, and two choices side by side: create this

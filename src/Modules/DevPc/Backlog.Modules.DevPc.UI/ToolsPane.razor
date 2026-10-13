@@ -16,7 +16,8 @@
     document nobody finishes, and "a plugin is behind" and "an application is
     missing" are two different afternoons. Applications split in two, because the
     rows confirmed by hand are a checklist somebody walks, not software anything
-    can install. Overview is the landing step 3 fills.
+    can install. Overview (step 3) is the landing: the tab a machine with no
+    remembered tab opens on, and the one place every kind is read at once.
 
     Every panel is Eager — rendered while another tab is shown — for the reason the
     Dashboard gives: switching back brings back what was there, and the strip's
@@ -304,15 +305,13 @@
                     <ChildContent>
                         <TabPanel Id="@OverviewTab" Title="Overview" Eager="true"
                                   BaseClass="tools-tab" TabTestId="tools-tab-overview" TestId="tools-overview">
-                            @* Step 3 of the plan fills this with the overview board.
-                               The catalog's acts stay reachable from here meanwhile. *@
+                            @* The catalog's acts stay reachable from here: Overview is
+                               the tab a machine opens on. *@
                             @if (_activeTab == OverviewTab)
                             {
                                 @KindToolbar(OverviewTab)
                             }
-                            <EmptyState Title="Overview"
-                                        Description="A summary across every kind of tool arrives here. Each kind has its own tab until then."
-                                        TestId="tools-overview-placeholder" />
+                            @OverviewBody
                         </TabPanel>
 
                         @foreach (var tab in KindTabs)
@@ -744,16 +743,32 @@
                OnConfirm="ConfirmCacheRemovalAsync"
                OnCancel="CancelCacheRemoval" />
 
+@* The last run's whole transcript, which the Overview's Last run card shows the
+   tail of. A dialog rather than the rail's fold: the fold is the transcript of
+   whatever this pane last ran or checked, and after a restart that is a check,
+   not the run the card is about. *@
+<Modal Open="@_lastRunTranscriptOpen"
+       OpenChanged="open => _lastRunTranscriptOpen = open"
+       Title="Last run transcript"
+       CssClass="tools-dialog"
+       TestId="tools-last-run-transcript-dialog">
+    <ChildContent>
+        <CodeView Source="@(_lastRun?.Transcript ?? string.Empty)" Language="console" TestId="tools-last-run-transcript" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _lastRunTranscriptOpen = false">Close</AppButton>
+    </Footer>
+</Modal>
+
 @code {
     // ------------------------------------------------------------ tabs and filters
 
-    /// <summary>The Overview tab's panel id. Its body is a placeholder until step 3
-    /// of the redesign fills it.</summary>
+    /// <summary>The Overview tab's panel id.</summary>
     private const string OverviewTab = "tools-overview";
 
-    /// <summary>The tab a machine opens on before it has been on any: the first
-    /// kind, because the Overview has nothing to show yet.</summary>
-    private const string DefaultTab = "tools-plugins";
+    /// <summary>The tab a machine opens on before it has been on any: the
+    /// Overview, which reads every kind at once.</summary>
+    private const string DefaultTab = OverviewTab;
 
     private const string AllHosts = "all";
     private const string ClaudeHosts = "claude";
@@ -1152,7 +1167,9 @@
                            TestId="tools-name-filter" />
             }
             <div class="tools-panel__toolbar-actions">
-                @if (StaleCacheCount > 0)
+                @* Not on the Overview, where the stale cache is a Needs you card
+                   with a Clear of its own. *@
+                @if (StaleCacheCount > 0 && tabId != OverviewTab)
                 {
                     @* Only while some row reports a folder nothing loads: a button
                        that appears is the pane saying there is something to clear. *@
@@ -1533,7 +1550,16 @@
 
         RestoreView();
 
-        return RefreshToolsAsync();
+        return LoadAsync();
+    }
+
+    /// <summary>The listing and the last-run record, read side by side: the
+    /// record is one small file, and the listing is not held up waiting on it.</summary>
+    private async Task LoadAsync()
+    {
+        var lastRun = ReadLastRunAsync();
+        await RefreshToolsAsync();
+        await lastRun;
     }
 
     /// <summary>Lets go of the port's event. The shell renders this pane only
@@ -1999,7 +2025,12 @@
             ? result.Steps
             : [DevToolRunStep.For(tool, result.Succeeded, finishedAt - startedAt)];
 
-        await DevTools.SaveLastRunAsync(DevToolLastRun.From(kind, startedAt, finishedAt, result, steps));
+        var record = DevToolLastRun.From(kind, startedAt, finishedAt, result, steps);
+        await DevTools.SaveLastRunAsync(record);
+
+        // The Overview's Last run card is this record, so it is the one in hand
+        // rather than one read back from the file just written.
+        _lastRun = record;
 
         return result;
     }
@@ -2628,6 +2659,553 @@
         _draftDetectError = null;
         _draftCommandError = null;
     }
+
+    // ------------------------------------------------------------ the overview
+
+    /// <summary>This machine's last finished run, read once when the pane opens
+    /// and replaced by every run the pane finishes. Null when there has been none,
+    /// which hides the Last run card.</summary>
+    private DevToolLastRun? _lastRun;
+
+    private bool _lastRunTranscriptOpen;
+
+    /// <summary>How many of the transcript's last lines the card shows.</summary>
+    private const int LastRunTailLines = 4;
+
+    /// <summary>Reads the record back. A record that cannot be read is no record:
+    /// the card is a convenience, and a broken file must not stop the inventory
+    /// from loading.</summary>
+    private async Task ReadLastRunAsync()
+    {
+        try
+        {
+            _lastRun = await DevTools.ReadLastRunAsync();
+        }
+        catch (Exception)
+        {
+            _lastRun = null;
+        }
+    }
+
+    private void OpenLastRunTranscript() => _lastRunTranscriptOpen = true;
+
+    /// <summary>The headline figures, over the rows the host filter lets through.
+    /// Two kinds of row are not counted at all, so the four parts always add up to
+    /// the total: one this machine has switched off, which wants nothing, and one
+    /// whose version lookup did not answer, which cannot be said to match — nothing
+    /// was found to match against — and is not outstanding either.</summary>
+    private sealed record OverviewFigures(int Total, int Matches, int Updates, int Missing, int Unconfirmed, int StaleCache);
+
+    private OverviewFigures Figures
+    {
+        get
+        {
+            var states = HostRows.Select(StateOf).Where(IsCounted).ToArray();
+            var updates = states.Count(state => state is ToolState.Update);
+            var missing = states.Count(state => state is ToolState.Missing);
+            var unconfirmed = states.Count(state => state is ToolState.NotConfirmed);
+
+            return new OverviewFigures(
+                states.Length,
+                states.Length - updates - missing - unconfirmed,
+                updates,
+                missing,
+                unconfirmed,
+                HostRows.Sum(tool => tool.StaleCachedVersions.Count));
+        }
+    }
+
+    /// <summary>Whether a row's state is one the Overview's figures count.</summary>
+    private static bool IsCounted(ToolState state) => state is not (ToolState.Off or ToolState.Unknown);
+
+    /// <summary>A missing row this pane can install — a press of Install, or Add
+    /// for a marketplace — rather than one somebody installs by hand.</summary>
+    private static bool InstallsFromHere(DevToolInfo tool) =>
+        tool.CanInstall || (tool.Kind is DevToolKind.Marketplace && !tool.Installed);
+
+    /// <summary>The Updates tile's split: one line per host the filter shows, and
+    /// one for machine software, which has no host. A row for both hosts that is
+    /// behind on one counts under that one; a row whose hosts do not say which
+    /// counts under every host it is for.</summary>
+    private IReadOnlyList<(string Label, int Count)> UpdatesByHost
+    {
+        get
+        {
+            var behind = HostRows.Where(tool => StateOf(tool) is ToolState.Update).ToArray();
+            var lines = new List<(string Label, int Count)>();
+
+            if (_hostFilter is AllHosts or CopilotHosts)
+            {
+                lines.Add(("Copilot", behind.Count(tool => UpdatesOn(tool, DevToolHosts.Copilot))));
+            }
+
+            if (_hostFilter is AllHosts or ClaudeHosts)
+            {
+                lines.Add(("Claude", behind.Count(tool => UpdatesOn(tool, DevToolHosts.Claude | DevToolHosts.ClaudeDesktop))));
+            }
+
+            if (_hostFilter is AllHosts)
+            {
+                lines.Add(("Machine", behind.Count(tool => tool.Hosts is DevToolHosts.None)));
+            }
+
+            return lines;
+        }
+    }
+
+    private static bool UpdatesOn(DevToolInfo tool, DevToolHosts hosts)
+    {
+        if ((tool.Hosts & hosts) == DevToolHosts.None) return false;
+
+        var reporting = tool.HostStates.Where(state => state.ReportsUpdate || state.RegistrationDrifted).ToArray();
+
+        return reporting.Length == 0 || reporting.Any(state => (state.Host & hosts) != DevToolHosts.None);
+    }
+
+    /// <summary>What a Needs you card offers: the one control it carries.</summary>
+    private enum NeedControl
+    {
+        Update,
+        Install,
+        DownloadLink,
+        DoneHere,
+        ClearCache
+    }
+
+    /// <summary>One card on Needs you: the row it is about (none for the stale
+    /// cache, which is the machine's), its tone, the action phrase, the hosts it
+    /// is for, the muted detail line, and the one control.</summary>
+    private sealed record NeedItem(
+        string Key,
+        DevToolInfo? Tool,
+        string Tone,
+        string Title,
+        DevToolHosts Hosts,
+        string Detail,
+        NeedControl Control,
+        string? Href = null);
+
+    /// <summary>
+    /// Every row needing action across all kinds, in the order the board reads:
+    /// updates, then missing, then unconfirmed, then the stale cache. Within each,
+    /// catalog order. A row this machine has switched off needs nothing.
+    /// </summary>
+    private IReadOnlyList<NeedItem> NeedsYou
+    {
+        get
+        {
+            var rows = HostRows.Select(tool => (Tool: tool, State: StateOf(tool))).ToArray();
+            var items = new List<NeedItem>();
+
+            items.AddRange(rows.Where(row => row.State is ToolState.Update).Select(row => UpdateNeed(row.Tool)));
+            items.AddRange(rows.Where(row => row.State is ToolState.Missing).Select(row => MissingNeed(row.Tool)));
+            items.AddRange(rows.Where(row => row.State is ToolState.NotConfirmed).Select(row => ConfirmNeed(row.Tool)));
+
+            var stale = Figures.StaleCache;
+            if (stale > 0)
+            {
+                items.Add(new NeedItem(
+                    ClearCacheKey,
+                    null,
+                    "quiet",
+                    "Clear the stale cache",
+                    DevToolHosts.Claude,
+                    stale == 1 ? "1 cached version nothing loads · Claude's plugin cache" : $"{stale} cached versions nothing loads · Claude's plugin cache",
+                    NeedControl.ClearCache));
+            }
+
+            return items;
+        }
+    }
+
+    private static NeedItem UpdateNeed(DevToolInfo tool)
+    {
+        // A drifted registration is behind in where it points, not in a version,
+        // so it says so and shows no version pair.
+        var reRegister = tool.CanReRegister && !tool.CanUpdate;
+        var versions = reRegister || !tool.AvailableVersionKnown
+            ? null
+            : $"{tool.InstalledVersion.Trim()} → {tool.AvailableVersion.Trim()}";
+
+        return new NeedItem(
+            tool.Key,
+            tool,
+            "alert",
+            reRegister ? $"Re-register {tool.Name}" : $"Update {tool.Name}",
+            tool.Hosts,
+            Detail(versions, reRegister ? "registration points elsewhere" : null, KindLabel(tool), NoteOf(tool)),
+            NeedControl.Update);
+    }
+
+    private static NeedItem MissingNeed(DevToolInfo tool)
+    {
+        if (InstallsFromHere(tool))
+        {
+            return new NeedItem(
+                tool.Key,
+                tool,
+                "fault",
+                $"Install {tool.Name}",
+                tool.Hosts,
+                Detail(tool.AvailableVersionKnown ? $"available {tool.AvailableVersion.Trim()}" : null, null, KindLabel(tool), NoteOf(tool)),
+                NeedControl.Install);
+        }
+
+        return new NeedItem(
+            tool.Key,
+            tool,
+            "fault",
+            $"Install {tool.Name} by hand",
+            tool.Hosts,
+            Detail(null, "not installed", KindLabel(tool), NoteOf(tool)),
+            NeedControl.DownloadLink,
+            DownloadPage(tool));
+    }
+
+    private static NeedItem ConfirmNeed(DevToolInfo tool) => new(
+        tool.Key,
+        tool,
+        "quiet",
+        $"Confirm {tool.Name}",
+        tool.Hosts,
+        Detail(null, "not confirmed on this machine", KindLabel(tool), NoteOf(tool)),
+        NeedControl.DoneHere);
+
+    private static string Detail(params string?[] parts) =>
+        string.Join(NoteSeparator, parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>The kind a row is, as one word on its detail line — the kind tab's
+    /// own name for one of it.</summary>
+    private static string KindLabel(DevToolInfo tool) =>
+        Array.Find(KindTabs, tab => tab.Holds(tool)) is { } tab ? Capitalised(tab.NounOne) : tool.Kind.ToString();
+
+    /// <summary>
+    /// Where somebody installing a row by hand gets it.
+    ///
+    /// <para>The catalog names no download page, so the address is derived from
+    /// the mechanism the row already declares: a winget id has a package page on
+    /// winstall.app, which links the publisher's own download, and a VS Code
+    /// extension has its Marketplace page. A row declared any other way — a
+    /// command, a server registered by one — has no address to derive, and its
+    /// card links to its kind tab instead, where the note under the row says what
+    /// to do.</para>
+    /// </summary>
+    private static string? DownloadPage(DevToolInfo tool)
+    {
+        if (tool.Kind is not DevToolKind.Application || !tool.Key.StartsWith("app:", StringComparison.Ordinal)) return null;
+
+        var id = Uri.EscapeDataString(tool.Key["app:".Length..]);
+
+        return tool.Source switch
+        {
+            "winget" => $"https://winstall.app/apps/{id}",
+            "vscode-extension" => $"https://marketplace.visualstudio.com/items?itemName={id}",
+            _ => null
+        };
+    }
+
+    private static string TabIdOf(DevToolInfo tool) =>
+        Array.Find(KindTabs, tab => tab.Holds(tool))?.Id ?? OverviewTab;
+
+    /// <summary>One bar per kind tab: how many of its rows match against how many
+    /// it counts, under the host filter, with the outstanding rest in the parts
+    /// the headline bar uses — so one legend reads both. The rows the headline
+    /// figures leave out are left out here too.</summary>
+    private sealed record KindBar(string TabId, string Slug, string Title, int Matches, int Updates, int Missing, int Unconfirmed)
+    {
+        public int Total => Matches + Updates + Missing + Unconfirmed;
+    }
+
+    private IReadOnlyList<KindBar> KindBars => KindTabs
+        .Select(tab =>
+        {
+            var states = HostRows.Where(tab.Holds).Select(StateOf).Where(IsCounted).ToArray();
+            var updates = states.Count(state => state is ToolState.Update);
+            var missing = states.Count(state => state is ToolState.Missing);
+            var unconfirmed = states.Count(state => state is ToolState.NotConfirmed);
+            return new KindBar(tab.Id, tab.Slug, tab.Title, states.Length - updates - missing - unconfirmed, updates, missing, unconfirmed);
+        })
+        .ToArray();
+
+    /// <summary>A part's width in a bar, written invariant so a comma decimal
+    /// separator never makes the declaration invalid.</summary>
+    private static string Share(int part, int whole) => whole <= 0
+        ? "0"
+        : (part * 100m / whole).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The headline bar's text alternative: every part, named.</summary>
+    private static string MatchesSpoken(OverviewFigures figures) =>
+        $"{figures.Matches} match, {figures.Updates} {(figures.Updates == 1 ? "update" : "updates")}, {figures.Missing} missing, {figures.Unconfirmed} unconfirmed";
+
+    private static string RunKindLabel(DevToolRunKind kind) => kind switch
+    {
+        DevToolRunKind.UpdateAll => "Update all",
+        DevToolRunKind.Update => "Update",
+        DevToolRunKind.Install => "Install",
+        DevToolRunKind.ClearStaleCache => "Clear stale cache",
+        _ => kind.ToString()
+    };
+
+    private static (string Label, string Tone) OutcomeChip(DevToolRunOutcome outcome) => outcome switch
+    {
+        DevToolRunOutcome.Succeeded => ("Succeeded", "settled"),
+        DevToolRunOutcome.PartlyFailed => ("Partly failed", "alert"),
+        _ => ("Failed", "fault")
+    };
+
+    /// <summary>When the run finished, in this machine's time: the time alone
+    /// today, the date and time otherwise.</summary>
+    private string RunWhen(DevToolLastRun run)
+    {
+        var zone = Time.LocalTimeZone;
+        var finished = TimeZoneInfo.ConvertTime(run.FinishedAt, zone);
+        var today = TimeZoneInfo.ConvertTime(Time.GetUtcNow(), zone).Date;
+
+        return finished.Date == today
+            ? $"Today {finished:HH:mm}"
+            : finished.ToString("d MMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>"3 of 4 steps succeeded", or "No tool steps" for a run that touched no
+    /// tool — a Clear stale cache.</summary>
+    private static string RunSteps(DevToolLastRun run)
+    {
+        if (run.Steps.Count == 0) return "No tool steps";
+
+        var succeeded = run.Steps.Count(step => step.Outcome is DevToolRunOutcome.Succeeded);
+        return $"{succeeded} of {run.Steps.Count} {(run.Steps.Count == 1 ? "step" : "steps")} succeeded";
+    }
+
+    private static string RunDuration(TimeSpan duration) => duration switch
+    {
+        { TotalSeconds: < 1 } => "under a second",
+        { TotalMinutes: < 1 } => $"{(int)duration.TotalSeconds} s",
+        { TotalHours: < 1 } => $"{(int)duration.TotalMinutes} min {duration.Seconds} s",
+        _ => $"{(int)duration.TotalHours} h {duration.Minutes} min"
+    };
+
+    /// <summary>The transcript's last few non-blank lines, oldest first.</summary>
+    private static string RunTail(DevToolLastRun run) => string.Join(
+        "\n",
+        run.Transcript
+            .Split('\n')
+            .Select(line => line.TrimEnd('\r'))
+            .Where(line => line.Trim().Length > 0)
+            .TakeLast(LastRunTailLines));
+
+    /// <summary>
+    /// The Overview: four headline tiles across the top, then Needs you in the
+    /// main column and By kind and Last run in the side one — the Dashboard
+    /// Overview's arrangement. Every figure is over the rows the host filter lets
+    /// through; the Last run card is a record of what ran, which no filter changes.
+    /// </summary>
+    private RenderFragment OverviewBody =>
+        @<div class="tools-overview" data-testid="tools-overview-board">
+            @{ var figures = Figures; }
+            <div class="tools-overview__tiles">
+                <article class="dashboard-overview-tile" data-testid="tools-overview-tile-matches" aria-labelledby="tools-overview-tile-matches-label">
+                    <p class="dashboard-overview-tile__label" id="tools-overview-tile-matches-label">Matches the catalog</p>
+                    <p class="dashboard-overview-tile__value" data-testid="tools-overview-tile-matches-value">
+                        @figures.Matches <span class="dashboard-overview-tile__unit">of @figures.Total</span>
+                    </p>
+                    <div class="tools-overview__stack" aria-hidden="true" data-testid="tools-overview-stack">
+                        <span class="tools-overview__part tools-overview__part--match" style="@($"width: {Share(figures.Matches, figures.Total)}%")"></span>
+                        <span class="tools-overview__part tools-overview__part--update" style="@($"width: {Share(figures.Updates, figures.Total)}%")"></span>
+                        <span class="tools-overview__part tools-overview__part--missing" style="@($"width: {Share(figures.Missing, figures.Total)}%")"></span>
+                        <span class="tools-overview__part tools-overview__part--unconfirmed" style="@($"width: {Share(figures.Unconfirmed, figures.Total)}%")"></span>
+                    </div>
+                    <p class="tools-overview__tile-note" data-testid="tools-overview-stack-text">@MatchesSpoken(figures)</p>
+                </article>
+
+                <article class="dashboard-overview-tile" data-testid="tools-overview-tile-updates" aria-labelledby="tools-overview-tile-updates-label">
+                    <p class="dashboard-overview-tile__label" id="tools-overview-tile-updates-label">Updates</p>
+                    <p class="dashboard-overview-tile__value" data-testid="tools-overview-tile-updates-value">@figures.Updates</p>
+                    <ul class="dashboard-overview-tile__lines" data-testid="tools-overview-updates-split">
+                        @foreach (var line in UpdatesByHost)
+                        {
+                            <li class="dashboard-overview-tile__line" data-host="@line.Label">
+                                <span class="dashboard-overview-tile__line-name">@line.Label</span>
+                                <span class="tools-overview__line-figure">@line.Count</span>
+                            </li>
+                        }
+                    </ul>
+                </article>
+
+                <article class="dashboard-overview-tile" data-testid="tools-overview-tile-missing" aria-labelledby="tools-overview-tile-missing-label">
+                    <p class="dashboard-overview-tile__label" id="tools-overview-tile-missing-label">Missing</p>
+                    <p class="dashboard-overview-tile__value" data-testid="tools-overview-tile-missing-value">@figures.Missing</p>
+                    @{
+                        var missingRows = HostRows.Where(tool => StateOf(tool) is ToolState.Missing).ToArray();
+                        var fromHere = missingRows.Count(InstallsFromHere);
+                    }
+                    <p class="tools-overview__tile-note" data-testid="tools-overview-missing-split">@fromHere install from here · @(missingRows.Length - fromHere) by hand</p>
+                </article>
+
+                <article class="dashboard-overview-tile" data-testid="tools-overview-tile-stale" aria-labelledby="tools-overview-tile-stale-label">
+                    <p class="dashboard-overview-tile__label" id="tools-overview-tile-stale-label">Stale cache</p>
+                    <p class="dashboard-overview-tile__value" data-testid="tools-overview-tile-stale-value">@figures.StaleCache</p>
+                    <p class="tools-overview__tile-note">@(figures.StaleCache == 1 ? "cached version nothing loads" : "cached versions nothing loads")</p>
+                </article>
+            </div>
+
+            <div class="tools-overview__columns">
+                <section class="tools-overview__main dashboard-part" aria-labelledby="tools-overview-needs-title" data-testid="tools-overview-needs">
+                    <h3 class="tools-overview__heading" id="tools-overview-needs-title">Needs you</h3>
+                    @{ var needs = NeedsYou; }
+                    @if (needs.Count == 0)
+                    {
+                        <EmptyState Title="Everything matches the catalog"
+                                    Description="Nothing on this machine needs action for the hosts the filter shows."
+                                    TestId="tools-overview-needs-empty" />
+                    }
+                    else
+                    {
+                        <ul class="dashboard-overview-needs__list">
+                            @foreach (var need in needs)
+                            {
+                                <li @key="need.Key" class="@($"dashboard-overview-needs__item tools-overview-need tools-overview-need--{need.Tone}")"
+                                    data-testid="tools-overview-need" data-need-key="@need.Key" data-control="@need.Control">
+                                    <span class="dashboard-overview-needs__dot tools-overview-need__dot" aria-hidden="true"></span>
+                                    <div class="dashboard-overview-needs__body tools-overview-need__body">
+                                        <span class="tools-overview-need__title-line">
+                                            <strong data-testid="tools-overview-need-title">@need.Title</strong>
+                                            @if (need.Hosts is not DevToolHosts.None)
+                                            {
+                                                <span class="tools-inventory__host-chips" data-testid="tools-overview-need-hosts">
+                                                    @foreach (var host in HostsOf(need.Hosts))
+                                                    {
+                                                        <Badge BaseClass="tools-inventory__hosts" Kind="">@HostLabel(host)</Badge>
+                                                    }
+                                                </span>
+                                            }
+                                        </span>
+                                        @if (need.Detail.Length > 0)
+                                        {
+                                            <span class="dashboard-overview-needs__detail" data-testid="tools-overview-need-detail">@need.Detail</span>
+                                        }
+                                    </div>
+                                    <div class="tools-overview-need__control">
+                                        @NeedControlFor(need)
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+
+                <div class="tools-overview__side">
+                    <section class="dashboard-part" aria-labelledby="tools-overview-kinds-title" data-testid="tools-overview-kinds">
+                        <h3 class="tools-overview__heading" id="tools-overview-kinds-title">By kind</h3>
+                        <ul class="tools-overview-kinds">
+                            @foreach (var bar in KindBars)
+                            {
+                                var tabId = bar.TabId;
+                                <li @key="tabId" class="tools-overview-kinds__row">
+                                    <a href="@($"#{tabId}")"
+                                       class="tools-overview-kinds__link"
+                                       data-testid="@($"tools-overview-kind-{bar.Slug}")"
+                                       aria-label="@($"{bar.Title}: {bar.Matches} of {bar.Total} match, open the {bar.Title} tab")"
+                                       @onclick="() => ChooseTab(tabId)"
+                                       @onclick:preventDefault="true">
+                                        <span class="tools-overview-kinds__name">@bar.Title</span>
+                                        <span class="tools-overview-kinds__ratio" data-testid="@($"tools-overview-kind-{bar.Slug}-count")">@bar.Matches/@bar.Total</span>
+                                        <span class="tools-overview__stack tools-overview-kinds__bar" aria-hidden="true">
+                                            <span class="tools-overview__part tools-overview__part--match" style="@($"width: {Share(bar.Matches, bar.Total)}%")"></span>
+                                            <span class="tools-overview__part tools-overview__part--update" style="@($"width: {Share(bar.Updates, bar.Total)}%")"></span>
+                                            <span class="tools-overview__part tools-overview__part--missing" style="@($"width: {Share(bar.Missing, bar.Total)}%")"></span>
+                                            <span class="tools-overview__part tools-overview__part--unconfirmed" style="@($"width: {Share(bar.Unconfirmed, bar.Total)}%")"></span>
+                                        </span>
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                        <ul class="tools-overview-legend" data-testid="tools-overview-legend">
+                            <li><span class="tools-overview-legend__swatch tools-overview__part--match" aria-hidden="true"></span>Matches</li>
+                            <li><span class="tools-overview-legend__swatch tools-overview__part--update" aria-hidden="true"></span>Update</li>
+                            <li><span class="tools-overview-legend__swatch tools-overview__part--missing" aria-hidden="true"></span>Missing</li>
+                            <li><span class="tools-overview-legend__swatch tools-overview__part--unconfirmed" aria-hidden="true"></span>Unconfirmed</li>
+                        </ul>
+                    </section>
+
+                    @if (_lastRun is { } run)
+                    {
+                        var chip = OutcomeChip(run.Outcome);
+                        <section class="dashboard-part" aria-labelledby="tools-overview-run-title" data-testid="tools-overview-last-run">
+                            <div class="tools-overview-run__head">
+                                <h3 class="tools-overview__heading" id="tools-overview-run-title">Last run</h3>
+                                <Badge Kind="tone" Slug="@chip.Tone" TestId="tools-overview-run-outcome">@chip.Label</Badge>
+                            </div>
+                            <p class="tools-overview-run__summary" data-testid="tools-overview-run-summary">
+                                <strong>@RunKindLabel(run.Kind)</strong> · @RunWhen(run)
+                            </p>
+                            <p class="tools-overview-run__figures" data-testid="tools-overview-run-figures">@RunSteps(run) · @RunDuration(run.Duration)</p>
+                            @if (RunTail(run) is { Length: > 0 } tail)
+                            {
+                                <pre class="tools-overview-run__tail" data-testid="tools-overview-run-tail">@tail</pre>
+                            }
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       CssClass="tools-overview-run__open"
+                                       OnClick="OpenLastRunTranscript"
+                                       TestId="tools-overview-run-open">
+                                Open full transcript <span aria-hidden="true">→</span>
+                            </AppButton>
+                        </section>
+                    }
+                </div>
+            </div>
+        </div>;
+
+    /// <summary>The one control a Needs you card carries.</summary>
+    private RenderFragment NeedControlFor(NeedItem need) => need.Control switch
+    {
+        NeedControl.Update =>
+            @<AppButton Variant="ButtonVariant.Secondary"
+                        Disabled="@(_toolsLoading || ToolActionBusy)"
+                        aria-label="@need.Title"
+                        OnClick="() => ApplyToolActionAsync(need.Tool!, DevToolAction.Update)"
+                        TestId="tools-overview-need-update">
+                @(need.Tool!.CanReRegister && !need.Tool.CanUpdate ? "Re-register" : "Update")
+            </AppButton>,
+        NeedControl.Install =>
+            @<AppButton Variant="ButtonVariant.Secondary"
+                        Disabled="@(_toolsLoading || ToolActionBusy)"
+                        aria-label="@need.Title"
+                        OnClick="() => ApplyToolActionAsync(need.Tool!, DevToolAction.Update)"
+                        TestId="tools-overview-need-install">
+                Install
+            </AppButton>,
+        NeedControl.DownloadLink when need.Href is { } href =>
+            @<AppButton Variant="ButtonVariant.Ghost"
+                        Href="@href"
+                        aria-label="@($"Download page for {need.Tool!.Name}, opens in a new window")"
+                        TestId="tools-overview-need-download">
+                Download page
+            </AppButton>,
+        NeedControl.DownloadLink =>
+            @<a href="@($"#{TabIdOf(need.Tool!)}")"
+                class="tools-overview-need__tab-link"
+                data-testid="tools-overview-need-open-tab"
+                @onclick="() => ChooseTab(TabIdOf(need.Tool!))"
+                @onclick:preventDefault="true">
+                See how on @TabTitle(TabIdOf(need.Tool!))
+            </a>,
+        NeedControl.DoneHere =>
+            @<Checkbox Checked="@need.Tool!.Acknowledged"
+                       CheckedChanged="acknowledged => AcknowledgeAsync(need.Tool!, acknowledged)"
+                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                       Label="Done here"
+                       aria-label="@($"Done here: {need.Tool!.Name}")"
+                       CssClass="tools-inventory__ack"
+                       TestId="tools-overview-need-done" />,
+        _ =>
+            @<AppButton Variant="ButtonVariant.Secondary"
+                        Disabled="@(_toolsLoading || ToolActionBusy)"
+                        aria-label="Clear the stale cache"
+                        OnClick="AskToClearStaleCache"
+                        TestId="tools-overview-need-clear">
+                @(_toolActionKey == ClearCacheKey ? "Clearing..." : "Clear")
+            </AppButton>
+    };
 
     /// <summary>A host's name, short enough to sit beside a row's name as a chip.</summary>
     private static string HostLabel(DevToolHosts hosts) => hosts switch

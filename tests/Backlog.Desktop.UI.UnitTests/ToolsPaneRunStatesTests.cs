@@ -44,7 +44,8 @@ public sealed class ToolsPaneRunStatesTests
 
         gate.SetResult(DevToolActionResult.Ok("Updated 3 tool(s)."));
         pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='tools-run-progress']")));
-        Assert.Equal("System tools · Plugins", pane.Find(".tools-panel__eyebrow").TextContent.Trim());
+        // The eyebrow returns to the active tab, the Overview the pane opens on.
+        Assert.Equal("System tools · Overview", pane.Find(".tools-panel__eyebrow").TextContent.Trim());
     }
 
     [Fact]
