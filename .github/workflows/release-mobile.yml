@@ -211,8 +211,52 @@ jobs:
 
           throw "Secret(s) $($missing -join ', ') not set. Refusing to produce an unsigned package."
 
-      - name: Restore signing keystore
+      # The APK is sideloaded and has no Settings URL field, so the address of the
+      # deployed sync service is compiled into it. Without one it would fall back to
+      # 10.0.2.2, the emulator's route to a developer machine, and a phone's Pair
+      # button would wait on an address it can never reach. The value is the
+      # SYNC_SERVICE_URI Deploy Sync prints in its step summary; it is public, so it
+      # is a repository variable rather than a secret, and echoed here on purpose.
+      - name: Check sync service address
         if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        id: sync_service
+        shell: pwsh
+        env:
+          BACKLOG_SYNC_SERVICE_URL: ${{ vars.BACKLOG_SYNC_SERVICE_URL }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $value = "$env:BACKLOG_SYNC_SERVICE_URL".Trim()
+
+          if ([string]::IsNullOrWhiteSpace($value)) {
+            "configured=false" >> $env:GITHUB_OUTPUT
+            if ('${{ github.event_name }}' -ne 'workflow_dispatch' -and '${{ github.ref_type }}' -eq 'branch') {
+              "### Mobile release skipped" >> $env:GITHUB_STEP_SUMMARY
+              "Repository variable BACKLOG_SYNC_SERVICE_URL is not set, so the main-branch release package was not produced: the APK would not know where the sync service is." >> $env:GITHUB_STEP_SUMMARY
+              Write-Output "BACKLOG_SYNC_SERVICE_URL is not set. Skipping main-branch release packaging."
+              return
+            }
+
+            throw "Repository variable BACKLOG_SYNC_SERVICE_URL is not set. Refusing to produce an APK that cannot reach the sync service."
+          }
+
+          # A release never ships a developer address: https only, and none of the
+          # hosts that mean "this machine" or "the emulator's host".
+          $uri = $null
+          if (-not [Uri]::TryCreate($value, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https') {
+            throw "BACKLOG_SYNC_SERVICE_URL must be an absolute https URL (got '$value')."
+          }
+          if ($uri.IsLoopback -or $uri.Host -eq '10.0.2.2') {
+            throw "BACKLOG_SYNC_SERVICE_URL points at a development host ('$($uri.Host)'). Refusing to ship it in a release."
+          }
+
+          "configured=true" >> $env:GITHUB_OUTPUT
+          "url=$($uri.AbsoluteUri)" >> $env:GITHUB_OUTPUT
+          "### Sync service" >> $env:GITHUB_STEP_SUMMARY
+          "The APK talks to $($uri.AbsoluteUri)." >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "Sync service address: $($uri.AbsoluteUri)"
+
+      - name: Restore signing keystore
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true' && steps.sync_service.outputs.configured == 'true'
         id: keystore
         shell: pwsh
         env:
@@ -235,7 +279,7 @@ jobs:
           Write-Output "Restored keystore to $keystorePath ($($bytes.Length) bytes)."
 
       - name: Publish signed APK
-        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true' && steps.sync_service.outputs.configured == 'true'
         shell: pwsh
         env:
           # Passed by name through the env: prefix so the passwords never appear in
@@ -244,6 +288,9 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          # Through env, as the signing values are, rather than spliced into the
+          # script: it started life as a repository variable someone typed.
+          BACKLOG_SYNC_SERVICE_URL: ${{ steps.sync_service.outputs.url }}
         run: |
           $ErrorActionPreference = 'Stop'
           # APK, not AAB: this package is sideloaded from GitHub Releases straight onto
@@ -254,6 +301,7 @@ jobs:
             -p:AndroidPackageFormat=apk `
             -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} `
             -p:ApplicationVersion=${{ steps.version.outputs.code }} `
+            "-p:BacklogSyncServiceUrl=$env:BACKLOG_SYNC_SERVICE_URL" `
             -p:AndroidKeyStore=true `
             "-p:AndroidSigningKeyStore=$env:KEYSTORE_PATH" `
             "-p:AndroidSigningKeyAlias=$env:ANDROID_KEY_ALIAS" `
@@ -262,7 +310,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
       - name: Stage and verify the signed APK
-        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true' && steps.sync_service.outputs.configured == 'true'
         id: stage
         shell: pwsh
         run: |
@@ -291,7 +339,7 @@ jobs:
           "apk=$stagedApk" >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
-        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true' && steps.sync_service.outputs.configured == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

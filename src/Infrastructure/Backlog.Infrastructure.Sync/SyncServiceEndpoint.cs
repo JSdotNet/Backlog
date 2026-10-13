@@ -5,7 +5,8 @@ namespace Backlog.Infrastructure.Sync;
 public enum SyncServiceAddressSource
 {
     /// <summary>Nothing set anywhere. The address is still the service-discovery
-    /// name, and outside an AppHost run it will not resolve.</summary>
+    /// name, and outside an AppHost run it will not resolve — or, for
+    /// <see cref="SyncServiceEndpoint.ResolveStandalone"/>, the head's own fallback.</summary>
     None,
 
     /// <summary>Launched by the Aspire AppHost, which injected the
@@ -16,7 +17,11 @@ public enum SyncServiceAddressSource
     EnvironmentVariable,
 
     /// <summary>The URL entered on the Settings page.</summary>
-    Settings
+    Settings,
+
+    /// <summary>The address compiled into a head at build time — the release
+    /// APK's way to reach the deployed service with nothing set on the phone.</summary>
+    BuildDefault
 }
 
 /// <summary>The address the sync clients will use and why.</summary>
@@ -91,6 +96,43 @@ public sealed class SyncServiceEndpoint
         return new SyncServiceAddress(
             ServiceDiscoveryAddress,
             discovered ? SyncServiceAddressSource.ServiceDiscovery : SyncServiceAddressSource.None);
+    }
+
+    /// <summary>
+    /// The address for a head with no Settings page and no service discovery —
+    /// the phone. Its rungs, in order: the AppHost's <c>services__sync__http__0</c>
+    /// taken literally, because nothing on the device rewrites the discovery name;
+    /// <see cref="EnvironmentVariable"/>; the address compiled in at build time;
+    /// and the head's own <paramref name="fallback"/>.
+    /// <para>
+    /// Pure and resolved once, unlike <see cref="Resolve"/>: the phone has no
+    /// Settings URL to change underneath it, so there is nothing to re-read.
+    /// </para>
+    /// </summary>
+    public static SyncServiceAddress ResolveStandalone(
+        Func<string, string?> environment,
+        string? buildDefault,
+        Uri fallback)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(fallback);
+
+        if (TryParse(environment("services__sync__http__0"), out var discovered))
+        {
+            return new SyncServiceAddress(discovered, SyncServiceAddressSource.ServiceDiscovery);
+        }
+
+        if (TryParse(environment(EnvironmentVariable), out var fromEnvironment))
+        {
+            return new SyncServiceAddress(fromEnvironment, SyncServiceAddressSource.EnvironmentVariable);
+        }
+
+        if (TryParse(buildDefault, out var baked))
+        {
+            return new SyncServiceAddress(baked, SyncServiceAddressSource.BuildDefault);
+        }
+
+        return new SyncServiceAddress(fallback, SyncServiceAddressSource.None);
     }
 
     // A malformed value is skipped, not thrown: this runs inside the client

@@ -54,6 +54,14 @@
     Build and sign the APK but do not install it. Useful for producing an APK to
     copy onto a phone manually.
 
+.PARAMETER SyncServiceUrl
+    The sync service the APK talks to, compiled in as BacklogSyncServiceUrl - the
+    same property the release workflow sets from BACKLOG_SYNC_SERVICE_URL. When
+    omitted, the script reads serviceUrl from the desktop app's
+    %LOCALAPPDATA%\Backlog\sync-service.json, which is the address entered on its
+    Devices page. With neither, the APK falls back to http://10.0.2.2:5000, which
+    only an emulator can reach.
+
 .EXAMPLE
     ./build/Install-AndroidApp.ps1
 
@@ -68,6 +76,12 @@
     ./build/Install-AndroidApp.ps1 -SkipInstall
 
     Produce the APK only, and print its path for manual transfer to a phone.
+
+.EXAMPLE
+    ./build/Install-AndroidApp.ps1 -SyncServiceUrl https://sync.example.test
+
+    Build an APK that pairs against a named sync service rather than the one the
+    desktop app is set to.
 #>
 [CmdletBinding()]
 param(
@@ -79,7 +93,8 @@ param(
     [string]$KeyAlias = 'backlog-dev',
     [string]$KeystorePassword,
     [string]$Device,
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    [string]$SyncServiceUrl
 )
 
 Set-StrictMode -Version Latest
@@ -245,6 +260,84 @@ else {
     Write-Host "Using existing developer keystore $KeystorePath (password from $passwordSource)." -ForegroundColor Cyan
 }
 
+# --- Resolve the sync service address ----------------------------------------
+
+function Test-SyncServiceUrl {
+    # The same rule the app applies to the value: an absolute http(s) URL, or
+    # nothing. Anything else would be skipped on the phone without a word.
+    param([string]$Value)
+
+    $uri = $null
+    return [Uri]::TryCreate($Value, [UriKind]::Absolute, [ref]$uri) -and
+        ($uri.Scheme -eq 'http' -or $uri.Scheme -eq 'https')
+}
+
+$syncServiceSource = 'the -SyncServiceUrl parameter'
+if ($SyncServiceUrl) {
+    $SyncServiceUrl = $SyncServiceUrl.Trim()
+    if (-not (Test-SyncServiceUrl $SyncServiceUrl)) {
+        throw "-SyncServiceUrl must be an absolute http or https URL (got '$SyncServiceUrl')."
+    }
+}
+else {
+    # The desktop app's Devices page writes the address it pairs against here, so
+    # the phone built on the same machine pairs against the same service.
+    $desktopSettingsPath = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Backlog/sync-service.json' } else { $null }
+    $syncServiceSource = $desktopSettingsPath
+    if ($desktopSettingsPath -and (Test-Path -LiteralPath $desktopSettingsPath)) {
+        $fromDesktop = $null
+        try {
+            $settings = Get-Content -LiteralPath $desktopSettingsPath -Raw | ConvertFrom-Json
+        }
+        catch {
+            Write-Warning "Could not read $desktopSettingsPath ($($_.Exception.Message)); ignoring it."
+            $settings = $null
+        }
+
+        # Looked up rather than dotted into: under StrictMode a missing property
+        # throws, and a readable file with no address is not a file that failed to read.
+        $serviceUrlProperty = if ($null -ne $settings) { $settings.PSObject.Properties['serviceUrl'] } else { $null }
+        if ($serviceUrlProperty -and -not [string]::IsNullOrWhiteSpace([string]$serviceUrlProperty.Value)) {
+            $fromDesktop = [string]$serviceUrlProperty.Value
+        }
+        elseif ($null -ne $settings) {
+            Write-Host "$desktopSettingsPath holds no serviceUrl: the desktop app's Devices page has no address entered." -ForegroundColor Yellow
+        }
+
+        if ($fromDesktop -and (Test-SyncServiceUrl $fromDesktop.Trim())) {
+            $SyncServiceUrl = $fromDesktop.Trim()
+        }
+        elseif ($fromDesktop) {
+            Write-Warning "serviceUrl '$fromDesktop' in $desktopSettingsPath is not an absolute http(s) URL; ignoring it."
+        }
+    }
+}
+
+if ($SyncServiceUrl) {
+    Write-Host "Sync service: $SyncServiceUrl (from $syncServiceSource)." -ForegroundColor Cyan
+
+    # The release workflow refuses these outright; a sideload only warns, since a
+    # developer may mean it. On a phone, though, a loopback address is the phone
+    # itself, 10.0.2.2 exists only inside the emulator, and a Release build's
+    # Android blocks plain http - each one a Pair button that never succeeds.
+    $syncUri = [Uri]$SyncServiceUrl
+    if ($Configuration -eq 'Release') {
+        if ($syncUri.IsLoopback -or $syncUri.Host -eq '10.0.2.2') {
+            Write-Warning "The sync address points at a development host ('$($syncUri.Host)'). A phone cannot reach it; only an emulator can, and only for 10.0.2.2."
+        }
+        elseif ($syncUri.Scheme -ne 'https') {
+            Write-Warning "The sync address is plain http. A Release build blocks cleartext traffic, so pairing will fail on the device; use the https address."
+        }
+    }
+}
+else {
+    Write-Host @"
+No sync service address: pass -SyncServiceUrl, or set one on the desktop app's
+Devices page. Building with the fallback http://10.0.2.2:5000, which only an
+emulator can reach.
+"@ -ForegroundColor Yellow
+}
+
 # --- Publish a signed APK ----------------------------------------------------
 
 # The env: prefix keeps the password out of the MSBuild command line and the
@@ -266,6 +359,9 @@ $publishArgs = @(
 )
 if ($DisplayVersion) { $publishArgs += "-p:ApplicationDisplayVersion=$DisplayVersion" }
 if ($PSBoundParameters.ContainsKey('VersionCode')) { $publishArgs += "-p:ApplicationVersion=$VersionCode" }
+# Passed even when empty: a global property outranks an environment variable of
+# the same name, so what this script printed above is what the APK carries.
+$publishArgs += "-p:BacklogSyncServiceUrl=$SyncServiceUrl"
 
 Write-Host "Publishing $targetFramework ($Configuration)..." -ForegroundColor Cyan
 try {

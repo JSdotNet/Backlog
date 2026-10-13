@@ -97,6 +97,17 @@ subscription ("high demand in <region>", `ServiceUnavailable`, zone redundancy o
 verified 2026-09-14; the error points at a region-access request, `aka.ms/cosmosdbquota`).
 Set it to `westeurope` once that request is granted.
 
+One more, on the **repository** rather than the environment: `BACKLOG_SYNC_SERVICE_URL`,
+read by `Release mobile` (`.github/workflows/release-mobile.yml`). The sideloaded APK has
+no Settings field for the address, so the workflow compiles this value into it through the
+`BacklogSyncServiceUrl` MSBuild property. Set it once, after the first deploy, to the
+`SYNC_SERVICE_URI` that `Deploy Sync` prints under "Service endpoint" in its step summary;
+it only changes if the Container Apps environment is recreated. It is a variable rather
+than a secret because the address is public. A tag or manual release fails when it is
+unset, and the nightly skips with a note in its summary. `build/Install-AndroidApp.ps1`
+passes the same property from `-SyncServiceUrl`, or from the address the desktop app's
+Devices page saved in `%LOCALAPPDATA%\Backlog\sync-service.json`.
+
 ### 4. Set a budget alert
 
 ADR 0005 puts the expected cost well under €5/month, and the point of a budget alert

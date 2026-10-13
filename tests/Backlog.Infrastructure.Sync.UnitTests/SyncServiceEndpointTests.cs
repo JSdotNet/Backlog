@@ -108,6 +108,79 @@ public sealed class SyncServiceEndpointTests : IDisposable
         Assert.Equal(new Uri("https://later.example.test"), after);
     }
 
+    // ResolveStandalone: the phone's ladder. No Settings page and no service
+    // discovery, so the discovery variable's value is used literally and the
+    // address baked in at build time sits between the environment and the
+    // emulator fallback.
+
+    private static readonly Uri EmulatorFallback = new("http://10.0.2.2:5000");
+
+    [Fact]
+    public void Standalone_the_discovery_value_wins_over_everything()
+    {
+        var resolved = SyncServiceEndpoint.ResolveStandalone(
+            Environment(
+                ("services__sync__http__0", "http://localhost:5555"),
+                (SyncServiceEndpoint.EnvironmentVariable, "https://env.example.test")),
+            "https://baked.example.test",
+            EmulatorFallback);
+
+        Assert.Equal(new Uri("http://localhost:5555"), resolved.Address);
+        Assert.Equal(SyncServiceAddressSource.ServiceDiscovery, resolved.Source);
+    }
+
+    [Fact]
+    public void Standalone_the_environment_variable_beats_the_build_default()
+    {
+        var resolved = SyncServiceEndpoint.ResolveStandalone(
+            Environment((SyncServiceEndpoint.EnvironmentVariable, "https://env.example.test")),
+            "https://baked.example.test",
+            EmulatorFallback);
+
+        Assert.Equal(new Uri("https://env.example.test"), resolved.Address);
+        Assert.Equal(SyncServiceAddressSource.EnvironmentVariable, resolved.Source);
+    }
+
+    [Fact]
+    public void Standalone_the_build_default_is_used_when_no_variable_is_set()
+    {
+        var resolved = SyncServiceEndpoint.ResolveStandalone(
+            Environment(),
+            "https://baked.example.test",
+            EmulatorFallback);
+
+        Assert.Equal(new Uri("https://baked.example.test"), resolved.Address);
+        Assert.Equal(SyncServiceAddressSource.BuildDefault, resolved.Source);
+    }
+
+    [Fact]
+    public void Standalone_with_nothing_set_the_fallback_is_used()
+    {
+        var resolved = SyncServiceEndpoint.ResolveStandalone(Environment(), null, EmulatorFallback);
+
+        Assert.Equal(new Uri("http://10.0.2.2:5000"), resolved.Address);
+        Assert.Equal(SyncServiceAddressSource.None, resolved.Source);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not a url")]
+    [InlineData("ftp://files.example.test")]
+    [InlineData("/relative/path")]
+    public void Standalone_a_blank_or_unusable_value_at_any_rung_is_skipped_rather_than_thrown(string unusable)
+    {
+        var resolved = SyncServiceEndpoint.ResolveStandalone(
+            Environment(
+                ("services__sync__http__0", unusable),
+                (SyncServiceEndpoint.EnvironmentVariable, unusable)),
+            unusable,
+            EmulatorFallback);
+
+        Assert.Equal(new Uri("http://10.0.2.2:5000"), resolved.Address);
+        Assert.Equal(SyncServiceAddressSource.None, resolved.Source);
+    }
+
     private SyncServiceSettingsStore NewStore() =>
         new(Path.Combine(_root, Guid.NewGuid().ToString("N"), "sync-service.json"));
 

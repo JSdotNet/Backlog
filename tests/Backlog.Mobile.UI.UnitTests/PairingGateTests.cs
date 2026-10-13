@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
@@ -112,6 +114,96 @@ public sealed class PairingGateTests
             StringComparison.OrdinalIgnoreCase));
 
         Assert.NotNull(app.Find("[data-testid='pairing-code-field'] input"));
+        Assert.Null(host.Credentials.Current);
+    }
+
+    /// <summary>
+    /// A pair attempt takes a round trip, and on a phone that can be seconds. The
+    /// button says it is working for as long as the attempt is, and cannot be
+    /// pressed a second time underneath it; once the answer is in, it is the Pair
+    /// button again.
+    /// </summary>
+    [Fact]
+    public void The_pair_button_is_busy_while_an_attempt_is_in_flight()
+    {
+        var answer = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var host = ShellHost.Unpaired(pairAsync: (_, _, _) => answer.Task);
+        var app = host.Open();
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='pairing-code-field'] input")));
+
+        app.Find("[data-testid='pairing-code-field'] input").Input("K7MN9PQR");
+        app.Find("[data-testid='pairing-submit']").Click();
+
+        app.WaitForAssertion(() =>
+        {
+            var button = app.Find("[data-testid='pairing-submit']");
+            Assert.Equal("true", button.GetAttribute("aria-busy"));
+            Assert.True(button.HasAttribute("disabled"));
+            // The visible words change, not only the spinner's hidden label, and the
+            // two say different things so a screen reader does not hear one twice.
+            var spinnerLabel = button.QuerySelector(".spinner .sr-only")?.TextContent;
+            Assert.Equal("Waiting for the sync service", spinnerLabel);
+            Assert.Equal("Pairing…", button.TextContent.Replace(spinnerLabel!, string.Empty).Trim());
+        });
+
+        answer.SetResult(new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = new StringContent(
+                """
+                {"type":"https://backlog.jsdotnet.dev/problems/pairing.code_used","title":"Pairing failed","status":409,"detail":"That code has already paired a device.","code":"pairing.code_used"}
+                """,
+                Encoding.UTF8,
+                "application/problem+json")
+        });
+
+        app.WaitForAssertion(() =>
+        {
+            var button = app.Find("[data-testid='pairing-submit']");
+            Assert.False(button.HasAttribute("aria-busy"));
+            Assert.False(button.HasAttribute("disabled"));
+            Assert.Null(button.QuerySelector(".spinner"));
+            Assert.Equal("Pair", button.TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// A service that never answers — an address the phone cannot route to — is
+    /// not left to the HTTP client's hundred seconds. The gate gives up on its own
+    /// clock and says why in words, not as "A task was canceled.", and the button
+    /// can be pressed again.
+    /// </summary>
+    [Fact]
+    public void A_service_that_never_answers_is_reported_within_the_gates_timeout()
+    {
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-10-13T09:00:00Z", System.Globalization.CultureInfo.InvariantCulture));
+        using var host = ShellHost.Unpaired(
+            pairAsync: async (_, _, cancellationToken) =>
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                throw new InvalidOperationException("Unreachable: the delay only ends by cancellation.");
+            },
+            clock);
+        var app = host.Open();
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='pairing-code-field'] input")));
+
+        app.Find("[data-testid='pairing-code-field'] input").Input("K7MN9PQR");
+        app.Find("[data-testid='pairing-submit']").Click();
+
+        app.WaitForAssertion(() =>
+            Assert.Equal("true", app.Find("[data-testid='pairing-submit']").GetAttribute("aria-busy")));
+        Assert.Empty(app.FindAll("[data-testid='pairing-error']"));
+
+        clock.Advance(TimeSpan.FromSeconds(15));
+
+        app.WaitForAssertion(() => Assert.Equal(
+            "The sync service did not answer in time.",
+            app.Find("[data-testid='pairing-error']").TextContent.Trim()));
+
+        var button = app.Find("[data-testid='pairing-submit']");
+        Assert.False(button.HasAttribute("aria-busy"));
+        Assert.False(button.HasAttribute("disabled"));
         Assert.Null(host.Credentials.Current);
     }
 

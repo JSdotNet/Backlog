@@ -22,7 +22,7 @@ internal sealed class ShellHost : IDisposable
 
     private ShellHost(
         IDeviceCredentialStore credentials,
-        Func<HttpRequestMessage, int, HttpResponseMessage>? pair,
+        Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>>? pair,
         ScriptedInboxService? inbox,
         IDeviceStore? store,
         TimeProvider? clock,
@@ -80,7 +80,19 @@ internal sealed class ShellHost : IDisposable
     public static ShellHost Unpaired(
         Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null,
         ScriptedInboxService? inbox = null) =>
-        new(TestDevices.Unpaired(), pair, inbox, store: null, clock: null);
+        new(
+            TestDevices.Unpaired(),
+            pair is null ? null : (request, index, _) => Task.FromResult(pair(request, index)),
+            inbox,
+            store: null,
+            clock: null);
+
+    /// <summary>An unpaired phone whose pair request answers when the test says
+    /// so, or never: the token is the one the gate's own timeout cancels.</summary>
+    public static ShellHost Unpaired(
+        Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>> pairAsync,
+        TimeProvider? clock = null) =>
+        new(TestDevices.Unpaired(), pairAsync, inbox: null, store: null, clock);
 
     public static ShellHost Paired(
         ScriptedInboxService? inbox = null,
@@ -102,7 +114,7 @@ internal sealed class ShellHost : IDisposable
     public void Dispose() => _context.Dispose();
 
     private sealed class ScriptedSyncHandler(
-        Func<HttpRequestMessage, int, HttpResponseMessage>? pair,
+        Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>>? pair,
         ScriptedInboxService inbox,
         ScriptedTaskService tasks) : HttpMessageHandler
     {
@@ -117,7 +129,7 @@ internal sealed class ShellHost : IDisposable
                 var index = _pairAttempts++;
 
                 return pair is not null
-                    ? pair(request, index)
+                    ? await pair(request, index, cancellationToken)
                     : new HttpResponseMessage(HttpStatusCode.Created)
                     {
                         Content = new StringContent(
