@@ -3046,6 +3046,20 @@ public interface IDevToolService
 
     Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// <see cref="UpdateAllAsync(CancellationToken)"/>, telling
+    /// <paramref name="progress"/> where the run stands as it goes: once when it
+    /// has decided which tools it will take, and again as each step starts and
+    /// finishes.
+    ///
+    /// <para>Defaulted to the plain run, which reports nothing: a host whose Update
+    /// all is a refusal — the browser harness, the unsupported service — has no
+    /// steps to report, and the pane draws its queue from its own reading of the
+    /// rows until a report arrives.</para>
+    /// </summary>
+    Task<DevToolActionResult> UpdateAllWithProgressAsync(IProgress<DevToolRunProgress>? progress, CancellationToken ct = default) =>
+        UpdateAllAsync(ct);
+
     Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default);
 
     Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default);

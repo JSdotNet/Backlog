@@ -1013,11 +1013,15 @@ public sealed class DevToolService : IDevToolService
     public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
         _catalogOnly?.UpdateAsync(key, ct) ?? ApplyAsync(key, null, ct);
 
-    public async Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default)
+    public Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default) =>
+        _catalogOnly?.UpdateAllAsync(ct) ?? UpdateAllWithProgressAsync(progress: null, ct);
+
+    /// <inheritdoc />
+    public async Task<DevToolActionResult> UpdateAllWithProgressAsync(IProgress<DevToolRunProgress>? progress, CancellationToken ct = default)
     {
         if (_catalogOnly is not null)
         {
-            return await _catalogOnly.UpdateAllAsync(ct).ConfigureAwait(false);
+            return await _catalogOnly.UpdateAllWithProgressAsync(progress, ct).ConfigureAwait(false);
         }
 
         var catalog = await ListAsync(ct).ConfigureAwait(false);
@@ -1043,14 +1047,7 @@ public sealed class DevToolService : IDevToolService
         // package and a manual acknowledgement are all permanently "not
         // installed", and each of them would otherwise be attempted — and reported
         // as a failure — on every sweep forever.
-        var candidates = catalog.Tools
-            .Where(tool => tool.Kind switch
-            {
-                DevToolKind.Marketplace => tool.CanUpdate || !tool.Installed,
-                DevToolKind.Application => tool.CanUpdate || tool.CanInstall,
-                _ => tool.CanUpdate
-            })
-            .ToArray();
+        var candidates = catalog.Tools.Where(DevToolRunQueueItem.InUpdateAll).ToArray();
         if (candidates.Length == 0)
         {
             return DevToolActionResult.Ok("No enabled tools have updates available.", commands);
@@ -1063,12 +1060,34 @@ public sealed class DevToolService : IDevToolService
         // which tool failed and how long each took is what that record is for,
         // and the aggregate message below says neither.
         var steps = new List<DevToolRunStep>(candidates.Length);
-        foreach (var tool in candidates)
+
+        // The live queue the pane draws while this runs: every step up front, then
+        // a fresh snapshot as each one starts and finishes. Snapshots rather than
+        // the lists themselves, because the reader is on another thread and these
+        // go on changing under it.
+        var queue = candidates.Select(DevToolRunQueueItem.Queue).ToArray();
+        void Report() => progress?.Report(new DevToolRunProgress([.. queue], [.. commands]));
+        Report();
+
+        for (var index = 0; index < candidates.Length; index++)
         {
+            var tool = candidates[index];
+            queue[index] = queue[index] with { State = DevToolRunStepState.Running };
+            Report();
+
             var clock = System.Diagnostics.Stopwatch.StartNew();
             var result = await ApplyAsync(tool.Key, null, ct).ConfigureAwait(false);
             steps.Add(DevToolRunStep.For(tool, result.Succeeded, clock.Elapsed));
             commands.AddRange(result.Commands);
+
+            queue[index] = queue[index] with
+            {
+                State = result.Succeeded ? DevToolRunStepState.Done : DevToolRunStepState.Failed,
+                Duration = clock.Elapsed,
+                Error = result.Succeeded ? null : result.Message
+            };
+            Report();
+
             if (result.Succeeded)
             {
                 updated++;

@@ -2024,6 +2024,14 @@ public sealed class ToolsPaneTests
 
         public Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default) => Answer();
 
+        /// <summary>What an Update all does when a test drives it step by step:
+        /// handed the pane's progress, it reports what it likes and answers when it
+        /// likes. Null for every test that only wants the run to finish.</summary>
+        public Func<IProgress<DevToolRunProgress>?, Task<DevToolActionResult>>? UpdateAllRun { get; init; }
+
+        public Task<DevToolActionResult> UpdateAllWithProgressAsync(IProgress<DevToolRunProgress>? progress, CancellationToken ct = default) =>
+            UpdateAllRun?.Invoke(progress) ?? Answer();
+
         public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) => Answer();
 
         public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => Answer();
