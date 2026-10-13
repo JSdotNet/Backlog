@@ -76,6 +76,24 @@
     [Parameter]
     public string? SelectedPath { get; set; }
 
+    /// <summary>
+    /// Raised when the reader follows a resolved <c>repo:</c> link out of the note
+    /// (local ADR 0027 §6). The pane hands it on to whoever can put a repository's
+    /// devbook on screen, since this panel reads only the Brain.
+    /// </summary>
+    [Parameter]
+    public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
+
+    /// <summary>Answers whether a <c>repo:</c> link can be followed here. Null in a
+    /// host with no repository source, where every such link is unresolved.</summary>
+    private BrainRepoLinkResolver? _resolver;
+
+    /// <summary>The prose hook and the <c>related</c> hook, built once: a new
+    /// delegate per render is a changed parameter per render.</summary>
+    private MarkdownRender.MarkdownInlineTarget? _inlineTarget;
+
+    private Func<string, RenderFragment?>? _relatedTarget;
+
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
     private DevbookDocument? _document;
     private DevbookChapterFileReader _reader = DevbookChapterFileReader.Disk;
@@ -95,6 +113,12 @@
     protected override void OnInitialized()
     {
         _reader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
+        _resolver = Services.GetService<IDevbookFolderSource>() is { } folders ? new BrainRepoLinkResolver(folders) : null;
+        _inlineTarget = (target, text, kind) =>
+            kind is MarkdownInlineKind.Link && BrainRepoLink.IsRepoLink(target)
+                ? RepoLinkChipFor(target, string.Equals(target, text, StringComparison.Ordinal) ? null : text)
+                : null;
+        _relatedTarget = related => BrainRepoLink.IsRepoLink(related) ? RepoLinkChipFor(related, null) : null;
         Brain.Changed += OnBrainChanged;
     }
 
@@ -199,8 +223,56 @@
         await LoadAsync();
     }
 
-    private RenderFragment NoteBody() =>
-        @<DevbookMarkdownView Blocks="@(_document?.ContentBlocks ?? [])" />;
+    /// <summary>The note's own <c>related</c> entries that link into a repository
+    /// devbook. The title heading and its block are not part of the body the view
+    /// draws, so they get a line of their own above it.</summary>
+    private IEnumerable<string> NoteRepoLinks =>
+        _document?.Metadata.Related.Where(BrainRepoLink.IsRepoLink) ?? [];
+
+    private RenderFragment NoteBody() => __builder =>
+    {
+        var links = NoteRepoLinks.ToList();
+        if (links.Count > 0)
+        {
+            <p class="brain-note__repo-links" data-testid="brain-note-repo-links" aria-label="Linked repository chapters">
+                @foreach (var link in links)
+                {
+                    @RepoLinkChipFor(link, null)
+                }
+            </p>
+        }
+
+        <DevbookMarkdownView Blocks="@(_document?.ContentBlocks ?? [])"
+                             InlineTarget="@_inlineTarget"
+                             RelatedTarget="@_relatedTarget" />
+    };
+
+    /// <summary>
+    /// One <c>repo:</c> link as its chip: gold and followable when this machine has
+    /// the repository, dashed and reading why not when it has not. A link that does
+    /// not parse — no alias, or no path — is left to the ordinary rendering, which
+    /// draws it as words with no destination.
+    /// </summary>
+    private RenderFragment? RepoLinkChipFor(string raw, string? text)
+    {
+        if (BrainRepoLink.Parse(raw) is not { } link) return null;
+
+        var resolution = _resolver?.Resolve(link) ?? new BrainRepoLinkResolution(link, false, BrainRepoLinkResolver.NotOnThisMachine);
+        var label = string.IsNullOrWhiteSpace(text) ? resolution.Label : text;
+
+        return @<RepoLinkChip Alias="@link.Alias"
+                              Label="@label"
+                              Reference="@link.Raw"
+                              Resolved="@resolution.Resolved"
+                              Problem="@resolution.Problem"
+                              TestId="brain-repo-link"
+                              OnOpen="OpenRepoLinkAsync" />;
+    }
+
+    /// <summary>One handler for every chip, so a re-render hands each chip the
+    /// same callback rather than a new one: the chip says which link it is.</summary>
+    private Task OpenRepoLinkAsync(string? raw) =>
+        BrainRepoLink.Parse(raw) is { } link ? OnOpenRepositoryChapter.InvokeAsync(link) : Task.CompletedTask;
 
     private RenderFragment NoteEditor() => @<DevbookChapterEditor @ref="_editor"
                                                                     Chapter="@_chapter.Chapter"
