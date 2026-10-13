@@ -5059,8 +5059,8 @@
         <path data-edge-from="desktop" data-edge-to="appservice" data-edge-label="HTTPS — state sync" data-edge-key="0" data-edge-id="desktop-sync" data-composition-points="190,140;285,140;285,241;380,241" d="M 190 140 L 277 140 Q 285 140 285 148 L 285 233 Q 285 241 293 241 L 380 241" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="ide" data-edge-to="appservice" data-edge-label="HTTPS — state sync" data-edge-key="1" data-edge-id="ide-sync" data-composition-points="190,255;380,255" d="M 190 255 L 380 255" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="mobile" data-edge-to="appservice" data-edge-label="HTTPS — sync and offline flush" data-edge-key="2" data-edge-id="mobile-sync" data-composition-points="190,370;285,370;285,269;380,269" d="M 190 370 L 277 370 Q 285 370 285 362 L 285 277 Q 285 269 293 269 L 380 269" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="appservice" data-edge-to="cosmos" data-edge-label="Managed identity — data-plane role" data-edge-key="3" data-edge-id="appservice-cosmos" data-composition-points="560,248;655,248;655,150;750,150" d="M 560 248 L 647 248 Q 655 248 655 240 L 655 158 Q 655 150 663 150 L 750 150" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="appservice" data-edge-to="keyvault" data-edge-key="4" data-edge-id="appservice-keyvault" data-composition-points="560,262;750,262" d="M 560 262 L 750 262" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="appservice" data-edge-to="cosmos" data-edge-label="Managed identity — data-plane role" data-edge-key="3" data-edge-id="appservice-cosmos" data-composition-points="560,255;635,255;635,150;710,150" d="M 560 255 L 627 255 Q 635 255 635 247 L 635 158 Q 635 150 643 150 L 710 150" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="appservice" data-edge-to="keyvault" data-edge-key="4" data-edge-id="appservice-keyvault" data-composition-points="560,255;750,255" d="M 560 255 L 750 255" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="appservice" data-edge-to="storage" data-edge-label="Managed identity — Blob Data Contributor" data-edge-key="5" data-edge-id="appservice-storage" data-composition-points="560,255;655,255;655,390;750,390" d="M 560 255 L 647 255 Q 655 255 655 263 L 655 382 Q 655 390 663 390 L 750 390" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="github" data-edge-to="appservice" data-edge-label="Webhook events" data-edge-key="6" data-edge-id="webhooks-in" data-composition-points="463,530;463,295" d="M 463 530 L 463 295" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="appservice" data-edge-to="fcm" data-edge-label="Android push" data-edge-key="7" data-edge-id="android-push" data-composition-points="477,295;477,506;925,506;925,530" d="M 477 295 L 477 498 Q 477 506 485 506 L 917 506 Q 925 506 925 514 L 925 530" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead)"/>
@@ -5118,17 +5118,17 @@
         <text data-detail="fine" x="470" y="287" class="t-cloud" font-size="7" text-anchor="middle">Compute</text>
         </g>
 
-        <g id="node-cosmos" data-node-id="cosmos" data-node-label="Azure Cosmos DB (serverless)" tabindex="0" role="button" aria-label="Focus Azure Cosmos DB (serverless), tasks + sessions containers, change feed per container, webhook events, machine registry, Azure" aria-pressed="false" data-node-kind="database" data-node-sublabel="tasks + sessions containers, change feed per container, webhook events, machine registry" data-node-tag="Data" data-node-context="Azure">
-          <title>Azure Cosmos DB (serverless) · tasks + sessions containers, change feed per container, webhook events, machine registry · Azure · Data</title>
-          <rect x="750" y="110" width="440" height="80" rx="6" class="c-mask"/>
-          <rect x="750" y="110" width="440" height="80" rx="6" class="c-database" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(756 116) scale(0.6875)">
+        <g id="node-cosmos" data-node-id="cosmos" data-node-label="Azure Cosmos DB (serverless)" tabindex="0" role="button" aria-label="Focus Azure Cosmos DB (serverless), tasks, sessions, annotations, devices, pairingCodes containers, change feed per replica container, Azure" aria-pressed="false" data-node-kind="database" data-node-sublabel="tasks, sessions, annotations, devices, pairingCodes containers, change feed per replica container" data-node-tag="Data" data-node-context="Azure">
+          <title>Azure Cosmos DB (serverless) · tasks, sessions, annotations, devices, pairingCodes containers, change feed per replica container · Azure · Data</title>
+          <rect x="710" y="110" width="480" height="80" rx="6" class="c-mask"/>
+          <rect x="710" y="110" width="480" height="80" rx="6" class="c-database" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(716 116) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="970" y="148" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Azure Cosmos DB (serverless)</text>
-        <text data-detail="context" x="970" y="164" class="t-muted" font-size="8.1" text-anchor="middle">tasks + sessions containers, change feed per container, webhook events, machine registry</text>
-        <text data-detail="fine" x="970" y="182" class="t-database" font-size="7" text-anchor="middle">Data</text>
+          <text data-node-label="" data-detail-anchor="" x="950" y="148" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Azure Cosmos DB (serverless)</text>
+        <text data-detail="context" x="950" y="164" class="t-muted" font-size="8.1" text-anchor="middle">tasks, sessions, annotations, devices, pairingCodes containers, change feed per replica container</text>
+        <text data-detail="fine" x="950" y="182" class="t-database" font-size="7" text-anchor="middle">Data</text>
         </g>
 
         <g id="node-keyvault" data-node-id="keyvault" data-node-label="Azure Key Vault" tabindex="0" role="button" aria-label="Focus Azure Key Vault, webhook secrets, OAuth tokens, Azure" aria-pressed="false" data-node-kind="security" data-node-sublabel="webhook secrets, OAuth tokens" data-node-tag="Data" data-node-context="Azure">
@@ -5195,8 +5195,8 @@
           <text x="285" y="309.5" class="t-muted" font-size="8" text-anchor="middle">HTTPS — sync and offline flush</text>
         </g>
         <g data-detail="context" data-edge-from="appservice" data-edge-to="cosmos" data-edge-label="Managed identity — data-plane role" data-edge-key="3" data-edge-id="appservice-cosmos">
-          <rect x="568.4" y="179" width="173.2" height="14" rx="3" class="c-mask"/>
-          <text x="655" y="189" class="t-muted" font-size="8" text-anchor="middle">Managed identity — data-plane role</text>
+          <rect x="548.4" y="194" width="173.2" height="14" rx="3" class="c-mask"/>
+          <text x="635" y="204" class="t-muted" font-size="8" text-anchor="middle">Managed identity — data-plane role</text>
         </g>
 
         <g data-detail="context" data-edge-from="appservice" data-edge-to="storage" data-edge-label="Managed identity — Blob Data Contributor" data-edge-key="5" data-edge-id="appservice-storage">
