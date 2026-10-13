@@ -110,11 +110,9 @@ public static class TaskComments
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentException.ThrowIfNullOrWhiteSpace(usageAction);
 
-        var all = await entries.ListAsync(cancellationToken).ConfigureAwait(false);
-
         // The entry first, then the text: a comment on nothing is answered as
         // nothing, whatever it said.
-        if (all.FirstOrDefault(entry => entry.Id == id) is not { } entry)
+        if (await entries.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } entry)
         {
             return Result.Failure<TaskItemDto>(Error.NotFound(NotFoundCode, $"No backlog entry has the id '{id}'."));
         }

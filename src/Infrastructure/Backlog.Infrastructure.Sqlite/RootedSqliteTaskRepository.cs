@@ -83,6 +83,9 @@ public sealed class RootedSqliteTaskRepository(
     public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
         Current.ListAsync(cancellationToken);
 
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        Current.CountAsync(cancellationToken);
+
     public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
         DateTimeOffset since,
         CancellationToken cancellationToken = default) =>

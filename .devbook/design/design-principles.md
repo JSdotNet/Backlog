@@ -19,9 +19,6 @@ review acceptance criteria.
 related: [".devbook/design/color-scheme.md#dark-palette"]
 ```
 
-The product ships a single dark theme. There is no light theme and no theme
-toggle.
-
 | Rule | Requirement |
 |---|---|
 | Single theme | The product MUST render only the dark palette defined in `color-scheme.md`. |
@@ -30,9 +27,9 @@ toggle.
 | Media/embeds | Images, diagrams, and syntax-highlight themes MUST be authored or filtered for dark surfaces (no blinding white blocks). |
 | Elevation by color | Elevation MUST be expressed primarily via raised surface tokens, not heavy shadows (see `color-scheme.md#elevation-by-color`). |
 
-Rationale: the product is a focused, long-session authoring tool; a single dark
-surface reduces eye strain and removes an entire class of theming bugs across
-the MAUI (mobile-native), Razor/webview (desktop, IDE), and webview channels.
+Rationale: the product is a focused, long-session authoring tool. A single dark
+surface reduces eye strain and removes a whole class of theming bugs across the
+channels, whether they render in a webview or in native controls.
 
 ## Local-First, Offline-First UX
 
@@ -56,7 +53,8 @@ The product is **local-first**, as `.devbook/arc42/12-glossary.md` defines it.
 related: [".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
-Every change is persisted automatically. There is no manual save.
+This chapter owns the no-save rule. `interaction-guidelines.md#auto-save-no-save-buttons`
+specifies how auto-save behaves.
 
 | Rule | Requirement |
 |---|---|
@@ -86,8 +84,6 @@ pointer is an accelerator, not a requirement.
 ```meta
 ```
 
-Chrome recedes so the user's Markdown content is the primary surface.
-
 | Rule | Requirement |
 |---|---|
 | Minimize persistent chrome | Toolbars and rails MUST be minimal; prefer contextual and on-demand affordances (hover handles, slash commands) over always-visible button rows. |
@@ -101,8 +97,8 @@ Chrome recedes so the user's Markdown content is the primary surface.
 ```meta
 ```
 
-AI assistance (capture, summarization, routing suggestions, Copilot session
-context) is a designed, first-class surface — not a bolt-on.
+These rules cover every AI assistance surface: capture, summarization, routing
+suggestions and Copilot session context.
 
 | Rule | Requirement |
 |---|---|
@@ -119,8 +115,8 @@ related: [".devbook/design/component-libraries.md"]
 ```
 
 The desktop (.NET MAUI Blazor Hybrid, Razor in WebView2), mobile (.NET MAUI),
-and IDE (VS Code / Visual Studio) channels share one design language even
-though they use different component libraries.
+and IDE (VS Code / Visual Studio) channels share one design language, whatever
+component library each one uses.
 
 | Rule | Requirement |
 |---|---|
@@ -144,8 +140,8 @@ first.
 |---|---|
 | Dark mode only | **Held.** One `:root`, one palette, no light column and no toggle anywhere in the library, the desktop app, or the storybook. The syntax theme is authored for dark surfaces rather than borrowed (`color-scheme.md#syntax-highlighting-tokens`). |
 | No save buttons | **Held.** No save affordance exists; the storybook's *Entry edit* page runs the real save sequence, and its *Feedback* page shows the indicator on its own. |
-| Local-first | **Held in the product; broken in one place** — Mermaid and G6 are fetched from a CDN (`component-libraries.md#materialization`). |
+| Local-first | **Held in the product; broken in one place.** Mermaid is fetched from a CDN (`component-libraries.md#materialization`). |
 | Keyboard-first | **Partly held.** Components are keyboard-operable and reorder has arrow-key equivalents, but there is no command palette and no slash surface, so "primary actions reachable through a command surface" has nothing behind it. |
 | Low-chrome, content-first | **Held in layout, inverted in colour** — the Markdown read view currently uses `color-text-secondary` for body text (`content-editing.md#materialization`). Scrollbars are treated as chrome and dressed in the border tokens by the library itself, so every host gets them rather than only the desktop. |
 | AI-first surfaces | **Partly held.** The desktop integrates the Copilot CLI, but there is no shared command surface to invoke it through, and AI-attributed content has no distinct rendering yet. |
-| Consistency across channels | **Untested.** Only the web-rendered channel exists; mobile MAUI and the IDE extensions have no UI to diverge yet. |
+| Consistency across channels | **Untested.** The desktop and the Android head both render the shared library in a WebView, so they share its tokens by construction. The VS Code extension draws only a native tree view and a command, and no IDE webview exists yet to diverge. |

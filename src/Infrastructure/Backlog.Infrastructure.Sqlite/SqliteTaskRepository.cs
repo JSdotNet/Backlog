@@ -260,6 +260,19 @@ public sealed class SqliteTaskRepository : ITaskRepository
         return tasks;
     }
 
+    /// <summary>The rows <see cref="ListAsync"/> would return, counted by the
+    /// store rather than read and mapped to be counted.</summary>
+    public async Task<int> CountAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM tasks WHERE deleted_at IS NULL;";
+
+        return Convert.ToInt32(
+            await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false),
+            System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     /// <summary>
     /// The sync read. No <c>deleted_at IS NULL</c> clause, deliberately: this is
     /// the one list a tombstone belongs in, because a deletion travels as a

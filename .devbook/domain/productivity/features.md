@@ -79,18 +79,19 @@ Accumulate usage locally, call by call, for the person who has no organization
 behind their AI subscription.
 
 Neither vendor offers a personal usage history. Anthropic documents the Admin
-API as unavailable to individual accounts, and GitHub has no endpoint at all for
-an individual Copilot subscriber's own usage — its billing page is the only
-route, by manual export. For those people the only measurable signal is what
-each response reports about itself: Claude returns per-request token counts on
-every message it answers.
+API as unavailable to individual accounts. GitHub has no endpoint at all for an
+individual Copilot subscriber's own usage; its billing page, by manual export, is
+the only route. For those people the only measurable signal is what each response
+reports about itself: Claude returns per-request token counts on every message it
+answers.
 
-The capability is therefore to record those per-response counts as they arrive
-and roll them up by day, model, and work subject — the same shape the vendor
-import produces, so summaries do not care which route the evidence took. Kept as
-an idea rather than a plan because it only measures work that flows through
-Tasks itself, which is a narrower claim than the vendor reports make, and that
-narrowing has to stay visible to the person reading the numbers.
+What is measured is the tokens each Claude response reports, as it arrives. They
+are rolled up by day, model, and work subject, the same shape the vendor import
+produces, so summaries do not care which route the evidence took.
+
+This is kept as an idea rather than a plan. It only measures work that flows
+through Tasks itself, which is a narrower claim than the vendor reports make.
+That narrowing has to stay visible to the person reading the numbers.
 
 ## Personal productivity dashboard
 
@@ -128,10 +129,11 @@ The pane holds six tabs, in this order:
 | Productivity | How much did I ship, and how much came back? | The throughput tiles, volume over time, the Volume and Quality scores, and rework after review |
 | Tasks | Is the planned work getting done, and will each plan land? | The six task figures, the [roadmap timeline](#whether-each-plan-will-land-in-its-window), and tasks and story points completed per week |
 | Sessions | When and how long did the agents work? | The session figures, agent-active hours per week, the hour grid, [the longest sessions](#the-longest-sessions), [hours worked](#hours-worked), and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped) |
-| Devbook | Which devbook units have drifted from their code? | [Drift at a glance](#drift-at-a-glance) |
+| Devbook | Which devbook [sync units](../devbook/domain.md#sync-unit) have drifted from their code? | [Drift at a glance](#drift-at-a-glance) |
 | Cost | What are my assistants costing this month? | [Spend against a monthly budget](#spend-against-a-monthly-budget) |
 
-The Devbook tab carries a badge with the number of drift issues open. The badge is
+The Devbook tab carries a badge with the number of
+[drift issues](../../ai/05-unattended-runs.md#scheduled-devbook-upkeep) open. The badge is
 hidden when no issue is open, and when the issues could not be read, because a zero or
 a dash on a tab gives the reader nothing to act on. Every tab reads its figures as the
 pane opens, so the badge is there before anyone opens the Devbook tab.
@@ -153,15 +155,33 @@ came back of those reviewed, and shows a dash when none was reviewed.
 
 Below the tiles, the volume chart draws one measure per week, and the person switches
 it between pull requests, issues and commits. The tab opens on pull requests and does
-not remember the choice. Beside the chart, the Volume and Quality scores show each of
-their inputs as a labelled bar, with its reading and its weight printed under it.
-Lines changed is not a Volume input. Each input is set against the best block of the
-baseline record, and that record counts merged pull requests and closed issues only,
-so there is no best block of lines to give full marks from. The score's note says so.
+not remember the choice.
 
-Last comes rework after review, as two labelled groups of tiles: After review, and
-Base syncs. Beside them, churn by repository ranks the repositories by the pull
-requests that came back after review, and ends with a total row.
+Beside the chart, two scores rate the window, kept apart so a reader can tell which
+one fell:
+
+- The **Volume score** sets merged pull requests and closed issues against the
+  person's own record.
+- The **Quality score** is made of proportions of what could have counted: review
+  promptness, freedom from churn, and two size measures.
+
+Each score shows its inputs as labelled bars, with the reading and the weight
+printed under each. The person's own record is the last 24 weeks, read as six
+blocks of four weeks. Full marks come from the block with the most merged pull
+requests, the **best block**. The record counts merged pull requests and closed
+issues only, so lines changed is not a Volume input: there is no best block of
+lines to give full marks from. The score's note says so.
+
+Last comes rework after review, as two labelled groups of tiles:
+
+- **After review**: the pull requests that churned, commits after the first review,
+  force pushes, files touched again, review rounds and changes requested.
+- **Base syncs**: how often a pull request's branch was brought up to date with its
+  base. It counts the conflicted syncs out of the pull requests synced, the sync
+  merges, and the merges that resolved a conflict.
+
+Beside them, churn by repository ranks the repositories by the pull requests that
+came back after review, and ends with a total row.
 
 The Tasks tab opens with its six task figures in one joined row, in this order:
 
@@ -221,7 +241,7 @@ from the figures the tab reads, never written by a model:
 | Devbook | "34 of 42 units agree with the code" |
 | Cost | "€212 this month, heading for €312" |
 
-With several spend providers, the Cost headline gives one clause per provider, each
+With several [spend providers](domain.md#spend-provider), the Cost headline gives one clause per provider, each
 named and in its own currency: "Anthropic €178 this month, heading for €266; Azure AI
 Foundry €34, heading for €46". It never adds them up, for the reason
 [Spend against a monthly budget](#spend-against-a-monthly-budget) gives. When a tab's
@@ -399,19 +419,23 @@ related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import, .devb
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProjectionTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProviderNamesTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DashboardMoneyFormatTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostTabTests]
 ```
 
-Show what each assistant has cost this month, and whether it will stay inside the
-budget the person set for it. The spend providers are Anthropic, Copilot and Azure AI
-Foundry. The dashboard names them that way wherever it shows them: the cards, the
-Overview, the brief, Needs you, the model table and Dashboard settings.
+Show what each [spend provider](domain.md#spend-provider) has cost this month, and
+whether it will stay inside the budget the person set for it. The providers carry
+the same names on the cards, the Overview, the brief, Needs you, the model table
+and Dashboard settings.
 
 Each provider has its own monthly budget, set in Dashboard settings. An empty budget
 means that provider has none. The dashboard projects each provider's month-end spend
-as its spend so far this month, plus its average daily spend over the last 7 days
-times the days left in the month. The 7 days include today and stay inside the
-month: with fewer than 7 days of the month gone, the average is over the days there
-are, so on the first of the month it is that day's spend. The days left are the days
-after today. A provider is projected past its budget only when it has a budget and
-the projection is above it.
+like this:
+
+```text
+projected = spend so far this month + (average daily spend over the last 7 days × days left)
+```
+
+The days left are the days after today. The 7 days include today and stay inside the month. With fewer than 7 days of the
+month gone, the average is over the days there are, so on the first of the month it
+is that day's spend. A provider is projected past its budget only when it has a
+budget and the projection is above it.
 
 A provider with no spend yet this month is shown, projected and budgeted in the
 currency the month's other spend is in. With no spend anywhere this month, it is in US
@@ -467,10 +491,12 @@ The brief's title is a sentence about the week, from a fixed template:
 - "Your quietest shipping week this quarter" when it merged the fewest;
 - otherwise the week's counts: "23 pull requests merged, 18 story points done".
 
-The title adds ", at a cost" when the week is the current one and a provider is
-projected past its budget. A quarter in which every week merged the same names neither
-a best nor a quietest week. Until the shipping figures answer, the title reads "Weekly
-brief", which stays the brief's accessible name throughout.
+The title adds ", at a cost" when a provider is projected past its budget, and only
+on the last completed week, the one the brief opens on. A week paged back to never
+says it, because its month may have stayed within budget. When every week of the
+quarter merged the same number, the title names neither a best nor a quietest week.
+Until the shipping figures answer, the title reads "Weekly brief", which stays the
+brief's accessible name throughout.
 
 The brief has one block each for Shipping, Plan, Sessions and Cost. Each block opens
 with a headline sentence built from a template, adds one supporting sentence, and
@@ -485,25 +511,27 @@ week", which holds the items of [What needs you](#what-needs-you).
 | Sessions | Agent-active hours, against the week before | Sessions last active that week | Agent-active hours |
 | Cost | Spend, against the week before | Whether a provider is on course to pass its monthly budget | Each provider's month to date against its budget: "€178 of €250 · €34 of €50" |
 
-The Plan and Cost figures are running totals, so they show only for the current week.
-A week paged back to shows its own points and its own spend, because the plan and the
-month as they stand now say nothing about that week. A provider with no budget shows
-its month to date alone.
+The Plan and Cost figures are running totals, so they show only for the week the brief
+opens on. A week paged back to shows its own points and its own spend, because the plan
+and the month as they stand now say nothing about that week. A provider with no budget
+shows its month to date alone.
 
 The sentences are fixed templates, never written by a model, filled from the figures
-the tabs read: "23 pull requests merged — 4 more than last week." A figure that did not
-move reads "as many as last week", and a count of one is singular. A week in which no
-merge was reviewed says so in the Shipping sentence rather than leaving the wait out.
-A block whose source cannot answer says so in one line, with the source's reason,
-instead of its sentences.
+the tabs read. For example: "23 pull requests merged — 4 more than last week." A figure
+that did not move reads "as many as last week", and a count of one is singular. A week
+in which no merge was reviewed says so in the Shipping sentence rather than leaving the
+wait out. A block whose source cannot answer says so in one line, with the source's
+reason, instead of its sentences.
 
-The brief reads twelve weeks whatever window is selected, so it goes back four weeks
-before the last completed one and no further: eight bars and the week compared with
-them have to fit inside what was read. Those twelve weeks are the quarter the title
-speaks of. Every block reports the same Monday-to-Sunday week: the Sessions block reads
-the sessions' hours on calendar weeks, not on the Sessions tab's usage weeks, which run
+The brief reads twelve weeks whatever window is selected. Eight bars and the week
+compared with them have to fit inside what was read, so it goes back four weeks before
+the last completed one and no further. Those twelve weeks are the quarter the title
+speaks of.
+
+Every block reports the same Monday-to-Sunday week. The Sessions block reads the
+sessions' hours on calendar weeks, not on the Sessions tab's usage weeks, which run
 from one usage reset to the next. The Cost block adds Anthropic and Azure AI Foundry by
-the week. Copilot reports a month at once, so it has no week and is left out; two
+the week. Copilot reports a month at once, so it has no week and is left out. Two
 currencies cannot be added, so the block then says it has no figure.
 
 ### What the sessions cost and shipped
@@ -516,13 +544,16 @@ tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Lim
 ```
 
 This part sits on the Sessions tab. Beside time, it reads what the session records
-carry: **output tokens**, per usage week and cut by model or by repository,
-and **pull requests linked**, per week and by the repository each lives in — counted
-once however many sessions linked one. Both are charts of their own rather than lines
-on the hours chart, because a count of tokens and a count of hours are two measures.
-Each figure is over the sessions that could say, and says it is partial when that is
-fewer than the sessions counted: Copilot records neither, and a missing figure is
-never read as zero.
+carry:
+
+- **output tokens**, per usage week and cut by model or by repository;
+- **pull requests linked**, per week and by the repository each lives in, counted
+  once however many sessions linked one.
+
+Both are charts of their own rather than lines on the hours chart, because a count
+of tokens and a count of hours are two measures. Each figure is over the sessions
+that could say, and says it is partial when that is fewer than the sessions counted.
+Copilot records neither, and a missing figure is never read as zero.
 
 The limit-hits tile says what overage did about each refusal: fell back to overage, a
 wall for the reason the assistant gave ("org spend cap reached"), or nothing said.
@@ -546,7 +577,7 @@ time, waiting for a prompt, prompts per session, limit hits and last activity. U
 them the weekly chart with its cut and the hour grid with office hours marked sit in a
 wide column, and the **longest sessions** sit beside them. Hours worked follows below.
 
-The list holds the six sessions in which an agent produced longest inside the window,
+The list holds the six sessions with the most agent-active time in the window,
 longest first. Each row names the session as the Sessions pane does, its agent-active
 time, its repository, the model it spent most on and how many prompts the person sent,
 with a bar against the longest. Under a day the time reads to the minute, "2 h 40 m".
@@ -607,7 +638,11 @@ tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DriftInsightsTests, unit
 ```
 
 Show how far each repository's devbook has drifted from its code, without opening a
-chapter. This part is the Devbook tab, framed as "Last verdict per unit". Its subtitle
+chapter. A unit here is a devbook [Sync Unit](../devbook/domain.md#sync-unit), and
+its verdict is the [Sync Verdict](../devbook/domain.md#sync-verdict) a sweep left on
+it. A drift issue is the
+[`devbook-drift` issue](../../ai/05-unattended-runs.md#scheduled-devbook-upkeep) a
+sweep opens. This part is the Devbook tab, framed as "Last verdict per unit". Its subtitle
 counts what the tab holds: "42 units verified · 5 drift issues open · 1 sync failed".
 A stacked bar sums up the last verdict a sweep reached on every unit it has verified:
 aligned, code-ahead, spec-ahead, conflict, and unresolved. A legend gives the count of
@@ -620,12 +655,13 @@ counted on the person's own calendar. The full date shows on hover.
 
 A direction filter narrows the list to All, Code → chapter, or Chapter → code, as one
 choice. Code → chapter is the pull direction, and Chapter → code is the push
-direction. A unit a sync, report, or off sweep owns shows under All only. A verdict
-leads to the pull request or drift issue the sweep opened.
+direction. A unit whose direction is `sync`, `report` or `off` shows under All only. A
+verdict leads to the pull request or drift issue the sweep opened.
 
-Beside the units, a side list holds the `devbook-drift` issues still open, those
-labelled `sync-failed` first and marked with the label's badge: a sweep tried that
-unit, did not finish, and will not try again until a person clears the label. A unit
+Beside the units, a side list holds the `devbook-drift` issues still open. Those
+labelled `sync-failed` come first, marked with the label's badge. That label means a
+sweep tried the unit, did not finish, and will not try again until a person clears
+the label. A unit
 whose drift issue carries the label is marked in its row too. Each issue has a
 sentence and an action. A `sync-failed` issue says the sweep will not retry until the
 label is cleared, and its action is "Clear the label". Any other issue takes its
@@ -639,7 +675,7 @@ picks the sweep that owns the units. A unit no sweep has verified is not listed.
 The repository chips narrow the tab. The window and the machine do not, because a
 verdict is the latest a sweep left and an issue is open now, and the header says so.
 The verdicts are this machine's and the issues are GitHub's, and either shows without
-the other: issues that cannot be read leave the units standing and say why. A
+the other. Issues that cannot be read leave the units standing and say why. A
 repository whose issues cannot be read is named, so the reader knows which account
 binding to fix. An issue matches its repository whatever the case of the repository's
 alias.
@@ -664,8 +700,7 @@ tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:
 ```
 
 See, without opening the roadmap, which plans will land inside the window they
-were given. The Tasks tab draws the roadmap as a week-by-week timeline, which
-replaces the table it used to be. The timeline holds the plans whose window overlaps
+were given. The Tasks tab draws the roadmap as a week-by-week timeline. The timeline holds the plans whose window overlaps
 the weeks the selector picks, together with every plan whose window is still sized
 by its effort. Each plan says how its work stands: finished, on track, behind,
 overdue, not sized, or with no pace to read it at. The Overview's roadmap chart sets
@@ -676,22 +711,43 @@ The timeline starts where the window starts and runs past today to the latest en
 the plans it holds, so a plan still running is drawn whole. It stops 26 weeks past
 today, and a bar running beyond that stays visibly cut. A "Today" line marks today,
 and today's week is emphasised. Without a window, the axis is the plans' own stretch.
-Each row's outlook sentence sits behind an info mark beside its progress, so a
-keyboard or touch user reaches it as well as a mouse user.
+Each row has an outlook sentence: one sentence saying how the plan's work stands and
+why. It sits behind an info mark beside the row's progress, so a keyboard or touch
+user reaches it as well as a mouse user.
 
 A plan is **behind pace** when its projection ends after its window, or when its
-window has ended with work still open. The dashboard counts it one way everywhere: the
-Tasks tab's figures, the Overview's tile and chips, the header, Needs you and the
+window has ended with work still open. The dashboard counts it one way everywhere:
+the Tasks tab's figures, the Overview's tile and chips, the header, Needs you and the
 brief. Both cases share the Behind tone, and the outlook sentence says which one it
 is.
 
-A plan placed by hand or by its due date is projected one repository part at a
-time, the same parts [Placing a plan in time](../roadmap/features.md#placing-a-plan-in-time)
-lays out. Each part's estimated work left is spent at its own repository's pace in
-use. It starts on the later of today and the day after the parts it waits on end.
-The plan is judged on the latest part end: on track when that falls inside its
-window, behind when it falls after. A plan whose window is still sized by its effort
-is already laid out that way, so the part reports the window the roadmap stores.
+Each plan's outlook is decided in this order:
+
+```mermaid
+flowchart TD
+    F{All its work done?} -->|yes| Fin[Finished]
+    F -->|no| E{Window still sized by its effort?}
+    E -->|yes| W[Reports the window the roadmap stores]
+    E -->|no| Z{Anything estimated, with a pace for a part with work left?}
+    Z -->|no| X[Not sized, or no pace]
+    Z -->|yes| P[Projected part by part, below]
+```
+
+A plan placed by hand or by its due date is projected one
+[part](../roadmap/domain.md#part) at a time, the same parts
+[Placing a plan in time](../roadmap/features.md#placing-a-plan-in-time) lays out:
+
+```mermaid
+flowchart TD
+    A[Each part's estimated work left] --> B[Spent at its repository's pace in use]
+    B --> C[From the later of today and the day after the parts it waits on end]
+    C --> D{Has the window already ended?}
+    D -->|yes| O[Overdue]
+    D -->|no| L{Does the latest part end fall inside the window?}
+    L -->|yes| K[On track]
+    L -->|no| H[Behind]
+```
+
 An unestimated task counts nothing here, because the part reports it as unestimated.
 A figure that also guessed at its size would count it twice. A plan has no pace only
 when no part with work left has one. Where the parts with work left run at different
