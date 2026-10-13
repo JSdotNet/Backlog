@@ -739,7 +739,7 @@
                 }
                 else
                 {
-                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
+                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" BrainNotesFor="@BrainNotesForTask" OnOpenBrainNote="OpenBrainNoteAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
                 }
 
                 @if (DevbookPaneVisible)
@@ -773,7 +773,9 @@
                                      OpenSearchResultElsewhere="OpenDevbookSearchResult"
                                      OpenReference="@_devbookOpenRequest"
                                      OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
-                                     OnOpenRepositoryChapter="OpenBrainRepoLinkAsync" />
+                                     OnOpenRepositoryChapter="OpenBrainRepoLinkAsync"
+                                     TaskTitleFor="TaskTitleFor"
+                                     OnOpenTask="OpenTaskFromBrainAsync" />
                     </aside>
                 }
             </div>
@@ -889,6 +891,16 @@
         // The Brain the Devbook pane reads. Optional for the same reason: a host
         // that composes none offers the pane for repositories only.
         _brainFolders = Services.GetService<IBrainFolderSource>();
+
+        // The notes of the owner's Brain that name tasks, for the rows' Brain
+        // badges (local ADR 0026 §3). Read again whenever the Brain announces a
+        // change, which is also how a rebuilt database is announced.
+        _brainTaskLinks = Services.GetService<IBrainTaskLinks>();
+        if (_brainFolders is not null && _brainTaskLinks is not null)
+        {
+            _brainFolders.Changed += HandleBrainFoldersChanged;
+            _ = ReadBrainNotesByTaskAsync();
+        }
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
@@ -2611,6 +2623,98 @@
     /// <summary>The Brain the Devbook pane reads, or null in a host that composes none.</summary>
     private IBrainFolderSource? _brainFolders;
 
+    /// <summary>Where the Brain's task links are read, or null in a host that
+    /// composes none — which then draws no Brain badge on any row.</summary>
+    private IBrainTaskLinks? _brainTaskLinks;
+
+    /// <summary>The owner's Brain notes by the task id they name, as last read.</summary>
+    private IReadOnlyDictionary<string, IReadOnlyList<BrainTaskNote>> _brainNotesByTask =
+        new Dictionary<string, IReadOnlyList<BrainTaskNote>>();
+
+    /// <summary>Only the latest read lands.</summary>
+    private int _brainNotesRead;
+
+    /// <summary>
+    /// Reads which Brain notes name which tasks. A Brain that cannot be read leaves
+    /// the badges as they were: they are a convenience, and the next change reads
+    /// again.
+    /// </summary>
+    private async Task ReadBrainNotesByTaskAsync()
+    {
+        if (_brainTaskLinks is null) return;
+
+        var read = ++_brainNotesRead;
+        IReadOnlyDictionary<string, IReadOnlyList<BrainTaskNote>> notes;
+        try
+        {
+            notes = await _brainTaskLinks.NotesByTaskAsync();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException)
+        {
+            return;
+        }
+
+        if (read != _brainNotesRead) return;
+        _brainNotesByTask = notes;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void HandleBrainFoldersChanged()
+    {
+        try
+        {
+            await InvokeAsync(ReadBrainNotesByTaskAsync);
+        }
+        catch (Exception)
+        {
+            // An async void handler: a badge is not worth the process.
+        }
+    }
+
+    /// <summary>A task row's Brain notes, by the row's stored id.</summary>
+    private IReadOnlyList<Backlog.UI.Components.Brain.BrainNoteLink> BrainNotesForTask(string taskId) =>
+        _brainNotesByTask.TryGetValue(taskId, out var notes)
+            ? [.. notes.Select(note => new Backlog.UI.Components.Brain.BrainNoteLink(note.NotePath, note.Title))]
+            : [];
+
+    /// <summary>
+    /// A Brain note opened from a task row's badge: the Devbook pane on screen, on
+    /// the Brain side, at the note. The road a Brain search result takes, plus the
+    /// pane opened — the reader pressed it from the list.
+    /// </summary>
+    private Task OpenBrainNoteAsync(Backlog.UI.Components.Brain.BrainNoteLink note)
+    {
+        _devbookSwitch = null;
+        _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
+            ? null
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
+        _devbookOpenRequest = new DevbookOpenRequest(note.Path, ++_devbookOpenSequence);
+
+        SynchronizePaneAvailability();
+        _globalPanes.TryOpen(GlobalPane.Devbook);
+        RememberAiScope(AiScopeFor(GlobalPane.Devbook));
+        PersistPaneSelection();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The title of the task with this id in this backlog, or null — a
+    /// Brain note's Tasks section draws that one as "not in this backlog".</summary>
+    private string? TaskTitleFor(string taskId) =>
+        Guid.TryParse(taskId, out var id) && State.Rows.FirstOrDefault(row => row.Id == id) is { } row
+            ? row.PreviewTitle
+            : null;
+
+    /// <summary>A task followed out of a Brain note: the task list on screen, that
+    /// task selected — as a session's entry is opened.</summary>
+    private async Task OpenTaskFromBrainAsync(string taskId)
+    {
+        if (!Guid.TryParse(taskId, out var id) || State.Rows.FirstOrDefault(row => row.Id == id) is not { } row) return;
+
+        ShowView(ShellView.Tasks);
+        await State.SelectAsync(row);
+    }
+
     private void HandleBrainSettingsChanged() => _ = InvokeAsync(StateHasChanged);
 
     /// <summary>The Brain chip's word: "Brain", or "Set up your Brain" while no folder
@@ -2753,6 +2857,7 @@
         CancelAsk();
         State.Changed -= HandleStateChanged;
         if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
+        if (_brainFolders is not null && _brainTaskLinks is not null) _brainFolders.Changed -= HandleBrainFoldersChanged;
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;

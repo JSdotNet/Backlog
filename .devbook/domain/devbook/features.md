@@ -77,12 +77,28 @@ loosely "tags". A chapter may also declare an [Effort](domain.md#effort); like t
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/devbook/requirements.md#bi-directional-linking, .devbook/domain/devbook/domain.md#task-link, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
-Link from tasks to notes (reference or embed inline) and from notes
-back to related tasks or projects, supporting queries that cross both
-domains and embedding knowledge context directly in task details.
+Link a Brain note to the tasks it is about, and see the link from both ends. A
+note names its tasks in its `tasks` field, one [Task Link](domain.md#task-link)
+per task, by the task's stored id. The Brain's database carries the field, and
+the app reads it both ways from there:
+
+- **From the note.** Under its links into devbooks, the note shows a **Tasks**
+  section: each task this backlog holds is a gold chip reading its title, and
+  pressing it opens the task in the task list. An id this backlog does not hold is
+  a dashed chip reading *not in this backlog*, never an error — one Brain is read
+  beside more than one backlog.
+- **From the task.** A task row, in the Brain scope and in a repository scope,
+  carries a teal **◆ n note** badge counting the Brain notes that name it. With one
+  note, pressing it opens that note in the Devbook pane, Brain side; with several,
+  it lists them to pick from.
+
+The reverse is read, never written: a task's record carries no note, and the badge
+is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so
+another reader of the same backlog sees none. Embedding a note's content in a task's
+details is not built.
 
 ## Brain scope
 

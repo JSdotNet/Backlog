@@ -482,6 +482,8 @@
                                     {
                                         @RenderRowDevbook(entry)
                                     }
+
+                                    @RenderRowBrainNotes(entry)
                                 }
                             </Badges>
                         </TaskBoard>
@@ -624,6 +626,8 @@
                                     {
                                         @RenderRowDevbook(entry)
                                     }
+
+                                    @RenderRowBrainNotes(entry)
                                 }
                             </RowBadges>
                             <AfterOpenRows>
@@ -1307,6 +1311,22 @@
     /// </summary>
     [Parameter]
     public RenderFragment<EntryRow>? LinkedWork { get; set; }
+
+    /// <summary>
+    /// The owner's Brain notes that name an entry in their <c>tasks</c> field (local
+    /// ADR 0026 §3), asked by the entry's stored id in its lower-case GUID spelling.
+    /// The host's to answer for the reason <see cref="LinkedWork"/> is: the notes are
+    /// the Devbook's, read from the owner's own Brain, and this pane may not reach
+    /// them. Unset, or answering none, a row carries no Brain badge — which is what
+    /// another reader of the same backlog sees (ADR 0027 §6).
+    /// </summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<Backlog.UI.Components.Brain.BrainNoteLink>>? BrainNotesFor { get; set; }
+
+    /// <summary>Raised with the note a row's Brain badge opens; the host shows it
+    /// in the Devbook pane, Brain side.</summary>
+    [Parameter]
+    public EventCallback<Backlog.UI.Components.Brain.BrainNoteLink> OnOpenBrainNote { get; set; }
 
     /// <summary>The session opener handed to the link, or none when the host wired
     /// nothing, so an unopenable session is inert text.</summary>
@@ -4144,6 +4164,13 @@
                aria-label="@DevbookCountLabel(row.DevbookReferences.Count)"
                title="@DevbookCountLabel(row.DevbookReferences.Count)"
                data-testid="entry-devbook-indicator"><span aria-hidden="true">📖 @row.DevbookReferences.Count</span></span>;
+
+    /// <summary>The row's Brain notes as a teal badge, or nothing when the host
+    /// wired no Brain or no note names the entry.</summary>
+    private RenderFragment? RenderRowBrainNotes(EntryRow row) =>
+        BrainNotesFor is not null && row.Id is { } id && BrainNotesFor(id.ToString("D")) is { Count: > 0 } notes
+            ? @<Backlog.UI.Components.Brain.BrainNotesBadge Notes="@notes" OnOpen="OnOpenBrainNote" TestId="entry-brain-notes" />
+            : null;
 
     private static string? DevbookCountLabel(int count) =>
         count switch
