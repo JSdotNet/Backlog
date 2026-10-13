@@ -151,6 +151,25 @@ declares for everyone else. Each action reports back whether it succeeded, and
 tool management is a capability that can be switched off wholesale on machines
 where it does not apply.
 
+### Last run record
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
+depends-on: [.devbook/domain/dev-pc-management/features.md#local-tool-enablement-and-updates]
+related: [.devbook/domain/dev-pc-management/domain.md#last-tool-run]
+```
+
+Keep the last Update all, Update, Install or Clear stale cache this machine
+finished, so what it did is still there after the app restarts: which kind of run
+it was, when it started and finished, whether it succeeded, failed or partly
+failed, each tool it touched with the version it came from, the version it was
+going to, how that tool's step ended and how long it took, and the whole
+transcript. Only the most recent run is kept, per machine and beside that
+machine's own tool choices; a new run replaces it once it finishes, and a machine
+that has never finished one has none.
+
 ## Security
 
 ```meta

@@ -25,6 +25,72 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class ToolsPaneTests
 {
+    [Fact]
+    public void A_finished_update_is_kept_as_the_last_run()
+    {
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: true, "1.0.0", "1.1.0")) with
+        {
+            Commands = [new DevToolCommand("claude plugin update architecture", 0, "Updated.")]
+        };
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        RowButton(pane, "Update").Click();
+
+        pane.WaitForAssertion(() => Assert.Single(tools.SavedRuns));
+        var run = tools.SavedRuns.Single();
+        Assert.Equal(DevToolRunKind.Update, run.Kind);
+        Assert.Equal(DevToolRunOutcome.Succeeded, run.Outcome);
+        Assert.True(run.FinishedAt >= run.StartedAt);
+        Assert.Equal([new DevToolRunStep("architecture", "1.0.0", "1.1.0", DevToolRunOutcome.Succeeded, run.Steps[0].Duration)], run.Steps);
+        Assert.EndsWith("Done.", run.Transcript, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_failed_install_is_kept_as_a_failed_install()
+    {
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: false, "not installed", "1.1.0")) with { Succeeds = false };
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        RowButton(pane, "Install").Click();
+
+        pane.WaitForAssertion(() => Assert.Single(tools.SavedRuns));
+        var run = tools.SavedRuns.Single();
+        Assert.Equal(DevToolRunKind.Install, run.Kind);
+        Assert.Equal(DevToolRunOutcome.Failed, run.Outcome);
+        Assert.Null(run.Steps.Single().FromVersion);
+        Assert.Contains(FakeDevToolService.RefusalMessage, run.Transcript, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Update_all_is_kept_as_the_last_run()
+    {
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: true, "1.0.0", "1.1.0"));
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        pane.FindAll("button").Single(button => button.TextContent.Trim() == "Update all").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(DevToolRunKind.UpdateAll, Assert.Single(tools.SavedRuns).Kind));
+    }
+
+    [Fact]
+    public void Checking_for_updates_is_not_a_run()
+    {
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: true, "1.0.0", "1.0.0"));
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        pane.Find("[data-testid='tools-refresh']").Click();
+
+        pane.WaitForAssertion(() => Assert.True(tools.Reads >= 2));
+        Assert.Empty(tools.SavedRuns);
+    }
+
+    private static AngleSharp.Dom.IElement RowButton(IRenderedComponent<ToolsPane> pane, string label) =>
+        pane.FindAll(".tools-inventory__action button").Single(button => button.TextContent.Trim() == label);
+
     /// <summary>
     /// The affordance this wave exists for. A registration that points at last
     /// week's port is the one defect the pane could see and could not repair: the
@@ -2009,6 +2075,19 @@ public sealed class ToolsPaneTests
         public List<(string Key, string Version)> CacheRemovals { get; } = [];
 
         public int StaleCacheClears { get; private set; }
+
+        /// <summary>Every run the pane kept as the last one, in the order it kept
+        /// them.</summary>
+        public List<DevToolLastRun> SavedRuns { get; } = [];
+
+        public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) =>
+            Task.FromResult(SavedRuns.LastOrDefault());
+
+        public Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default)
+        {
+            SavedRuns.Add(run);
+            return Task.CompletedTask;
+        }
 
         private Task<DevToolActionResult> Answer() => Task.FromResult(
             Succeeds ? DevToolActionResult.Ok("Done.") : DevToolActionResult.Failed(RefusalMessage));

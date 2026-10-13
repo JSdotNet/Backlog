@@ -1058,9 +1058,16 @@ public sealed class DevToolService : IDevToolService
 
         var updated = 0;
         var failures = new List<string>();
+
+        // One step per tool, timed on its own, for the record of the last run:
+        // which tool failed and how long each took is what that record is for,
+        // and the aggregate message below says neither.
+        var steps = new List<DevToolRunStep>(candidates.Length);
         foreach (var tool in candidates)
         {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
             var result = await ApplyAsync(tool.Key, null, ct).ConfigureAwait(false);
+            steps.Add(DevToolRunStep.For(tool, result.Succeeded, clock.Elapsed));
             commands.AddRange(result.Commands);
             if (result.Succeeded)
             {
@@ -1074,10 +1081,33 @@ public sealed class DevToolService : IDevToolService
 
         if (failures.Count > 0)
         {
-            return DevToolActionResult.Failed($"Updated {updated} tool(s); {failures.Count} failed. {string.Join(" ", failures)}", commands);
+            return DevToolActionResult.Failed($"Updated {updated} tool(s); {failures.Count} failed. {string.Join(" ", failures)}", commands) with { Steps = steps };
         }
 
-        return DevToolActionResult.Ok($"Updated {updated} tool(s).", commands);
+        return DevToolActionResult.Ok($"Updated {updated} tool(s).", commands) with { Steps = steps };
+    }
+
+    /// <inheritdoc />
+    public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) =>
+        _catalogOnly?.ReadLastRunAsync(ct) ?? DevToolLastRunStore.ReadAsync(ConfigurationPaths.LastRunPath, ct);
+
+    /// <inheritdoc />
+    public async Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default)
+    {
+        if (_catalogOnly is not null)
+        {
+            await _catalogOnly.SaveLastRunAsync(run, ct).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            await DevToolLastRunStore.WriteAsync(ConfigurationPaths.LastRunPath, run, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.LogWarning(ex, "The last tool run could not be kept.");
+        }
     }
 
     public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>
