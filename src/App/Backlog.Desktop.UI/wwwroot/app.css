@@ -5943,8 +5943,9 @@ h1, h2, h3 {
 }
 
 /* The parts are cards, so their rows size to their content rather than the
-   Dashboard part's header-and-body pair. */
-.tools-overview .dashboard-part {
+   Dashboard part's header-and-body pair (each part also carries
+   dashboard-part, whose rules are the Dashboard module's). */
+.tools-overview .tools-overview__part {
     grid-template-rows: none;
     align-content: start;
     gap: var(--spacing-sm);

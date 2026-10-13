@@ -3049,7 +3049,7 @@
             </div>
 
             <div class="tools-overview__columns">
-                <section class="tools-overview__main dashboard-part" aria-labelledby="tools-overview-needs-title" data-testid="tools-overview-needs">
+                <section class="tools-overview__main tools-overview__part dashboard-part" aria-labelledby="tools-overview-needs-title" data-testid="tools-overview-needs">
                     <h3 class="tools-overview__heading" id="tools-overview-needs-title">Needs you</h3>
                     @{ var needs = NeedsYou; }
                     @if (needs.Count == 0)
@@ -3094,7 +3094,7 @@
                 </section>
 
                 <div class="tools-overview__side">
-                    <section class="dashboard-part" aria-labelledby="tools-overview-kinds-title" data-testid="tools-overview-kinds">
+                    <section class="tools-overview__part dashboard-part" aria-labelledby="tools-overview-kinds-title" data-testid="tools-overview-kinds">
                         <h3 class="tools-overview__heading" id="tools-overview-kinds-title">By kind</h3>
                         <ul class="tools-overview-kinds">
                             @foreach (var bar in KindBars)
@@ -3130,7 +3130,7 @@
                     @if (_lastRun is { } run)
                     {
                         var chip = OutcomeChip(run.Outcome);
-                        <section class="dashboard-part" aria-labelledby="tools-overview-run-title" data-testid="tools-overview-last-run">
+                        <section class="tools-overview__part dashboard-part" aria-labelledby="tools-overview-run-title" data-testid="tools-overview-last-run">
                             <div class="tools-overview-run__head">
                                 <h3 class="tools-overview__heading" id="tools-overview-run-title">Last run</h3>
                                 <Badge Kind="tone" Slug="@chip.Tone" TestId="tools-overview-run-outcome">@chip.Label</Badge>
