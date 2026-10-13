@@ -256,17 +256,18 @@ status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/shared.md#nodejs"]
 related: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/shared.md#net-aspire", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
-version: "1.19.0"
-date: 2026-10-06
+version: "1.24.0"
+date: 2026-10-13
 ```
 
 The `devbook` plugin from `JSdotNet/devbook`, which owns the devbook folder
 convention this repository follows and the repository procedures.
 
-- **Used for** — all five folders under `.devbook/` at contract 29; the folder
+- **Used for** — all five folders under `.devbook/` at contract 30; the folder
   rules installed as `.agents/rules/devbook-*.md` with a wrapper per host; the
-  checker at `.devbook/_tools/devbook-meta/` and the inventory scripts at
-  `.devbook/_tools/devbook-tech/`; and the chapter skills (`validate`,
+  checker at `.devbook/_tools/devbook-meta/`, the inventory scripts at
+  `.devbook/_tools/devbook-tech/`, and the scenario tools at
+  `.devbook/_tools/scenarios/`; and the chapter skills (`validate`,
   `capture-specs`, `apply-change`, `verify-change`, `prose-check`,
   `tech-update`). Its release, contract, adopted folders, materialized files,
   and migration ledger are stamped under `components.devbook` in
