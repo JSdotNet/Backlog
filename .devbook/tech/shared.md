@@ -420,6 +420,7 @@ status: adopted
 type: package
 version: "10.9.0"
 depends-on: [".devbook/tech/shared.md#microsoftextensionshttp"]
+related: [".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md"]
 ```
 
 Standard retry, timeout, and circuit-breaker handlers for HTTP clients.
@@ -429,7 +430,10 @@ Standard retry, timeout, and circuit-breaker handlers for HTTP clients.
   `Backlog.Infrastructure.Capture` replaces that default with a pipeline of its
   own. Its own pipeline makes one retry, with a 10-second attempt timeout and 15
   seconds in total. It differs because a feed poll is a button press on the
-  user's own machine, not a background job.
+  user's own machine, not a background job. `Backlog.Infrastructure.Sync`
+  references the package directly, because its three replication clients also
+  replace the default. Their pipeline never retries a push, since a re-sent
+  push that already landed reports its items as refused.
 - **Why** — every external call in this system crosses a network the app does not
   control, and the shipped defaults beat per-call ad-hoc retries.
 
