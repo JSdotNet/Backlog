@@ -782,6 +782,10 @@ public sealed class InboxDesktopState
             case InboxSuggestionKind.Destination when suggestion.Value == InboxEnumMap.ToWire(RoutingDomain.Archive):
                 await ArchiveAsync();
                 break;
+
+            case InboxSuggestionKind.Destination when suggestion.Value == InboxEnumMap.ToWire(RoutingDomain.Devbook):
+                await RouteToBrainAsync();
+                break;
         }
     }
 
@@ -1192,6 +1196,46 @@ public sealed class InboxDesktopState
             Changed?.Invoke();
         }
     }
+
+    /// <summary>
+    /// To Brain: writes the selected item into the person's Brain as a note and
+    /// moves on, as a route to the backlog does. A Brain that is not set up, or
+    /// cannot be written, is said in a toast in the Brain's own words, and the
+    /// item stays where it was. Its undo returns the item to the queue; the note
+    /// is the person's file now, in their own folder, and stays.
+    /// </summary>
+    public async Task RouteToBrainAsync()
+    {
+        if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
+
+        var before = VisibleItems;
+        RememberPosition();
+        RouteRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var routed = await _inbox.RouteToBrainAsync(item.Id);
+            if (Report(routed, BrainErrorTestId)) return;
+
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, ToBrainLabel, item.Id, DeleteTasks: false, DeferralOf(item)));
+
+            await ReloadAsync();
+            if (TriageMode) AdvancePast(before, item.Id);
+            _toasts?.Publish(ToastMessage.Info($"Kept \"{ItemTitle(item)}\" in your Brain as {routed.Value.NotePath}.", "inbox-brain-routed"));
+        }
+        finally
+        {
+            RouteRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>To Brain's name, on its button and its undo.</summary>
+    public const string ToBrainLabel = "To Brain";
+
+    /// <summary>The test id of the toast a refused To Brain raises.</summary>
+    internal const string BrainErrorTestId = "inbox-brain-error";
 
     /// <summary>Asks the drafter for a plan about the selected item and imports
     /// it. Refused up front when the drafter is unavailable — the button is
@@ -2036,6 +2080,7 @@ public sealed class InboxDesktopState
             InboxDeferUndoStep => "Deferred",
             InboxMoveUndoStep => item?.ListId is { } listId ? FindList(listId)?.Name ?? "a list" : "Inbox",
             InboxRouteUndoStep { Kind: InboxDecisionKind.LinkToTask } => "Linked to a task",
+            InboxRouteUndoStep { Kind: InboxDecisionKind.ToBrain } => "Brain",
             InboxRouteUndoStep => "Backlog",
             _ => step.Label,
         };
@@ -2191,6 +2236,7 @@ public sealed class InboxDesktopState
         (InboxDecisionKind.Defer, "deferred"),
         (InboxDecisionKind.Archive, "archived"),
         (InboxDecisionKind.MergeIntoTask, "merged"),
+        (InboxDecisionKind.ToBrain, "kept in your Brain"),
     ];
 
     /// <summary>Every decision this session made and kept, of every kind.</summary>

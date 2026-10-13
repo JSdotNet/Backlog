@@ -413,6 +413,7 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(IReadOnlyList<Guid> ids, Guid? listId = null, string? planTitle = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<IReadOnlyList<ProposedDependency>>> InferBatchOrderAsync(IReadOnlyList<Guid> ids, string planTag, IReadOnlyDictionary<Guid, IReadOnlyList<string>>? repositories = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> RenameListAsync(Guid listId, string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> DeleteListAsync(Guid listId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

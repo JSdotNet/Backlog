@@ -35,6 +35,7 @@ using Backlog.Modules.Inbox.Features.RestoreItem;
 using Backlog.Modules.Inbox.Features.ReturnToInbox;
 using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
+using Backlog.Modules.Inbox.Features.RouteToBrain;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.Suggest;
 using Backlog.Modules.Inbox.Features.UngroupLists;
@@ -66,6 +67,7 @@ internal sealed class InboxItems(
     ICommandHandler<ReturnToInboxCommand, Result> returnToInbox,
     ICommandHandler<ResurfaceDueItemsCommand, Result<int>> resurfaceDue,
     ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>> routeToBacklog,
+    ICommandHandler<RouteToBrainCommand, Result<InboxBrainRoutedDto>> routeToBrain,
     ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>> createPlan,
     ICommandHandler<RouteBatchToBacklogCommand, Result<InboxBatchRoutedDto>> routeBatchToBacklog,
     IQueryHandler<ProposeBatchQuery, Result<InboxBatchProposalDto>> proposeBatch,
@@ -185,6 +187,9 @@ internal sealed class InboxItems(
         string? entryType = null,
         CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType), cancellationToken);
+
+    public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default) =>
+        routeToBrain.Handle(new RouteToBrainCommand(id), cancellationToken);
 
     public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,

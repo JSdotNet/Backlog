@@ -372,6 +372,10 @@ public static class DesktopCompositionRegistration
             return new BrainFolderSource(() => settings.BrainFolder);
         });
         services.AddSingleton<IBrainFolderSource>(sp => sp.GetRequiredService<BrainFolderSource>());
+
+        // The one writer of a new note into the Brain's inbox area: the pane's
+        // Capture, triage's To Brain and the capture tool all go through it.
+        services.AddSingleton<IBrainNoteWriter>(sp => new BrainNoteWriter(sp.GetRequiredService<IBrainFolderSource>()));
         services.AddSingleton(sp => new BrainFolderWatch(
             sp.GetRequiredService<IBrainSettings>(),
             sp.GetRequiredService<IBrainFolderSource>(),

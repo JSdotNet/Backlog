@@ -27,7 +27,7 @@ namespace Backlog.Modules.Inbox.Services;
 /// the item matches, in the order the rules are written.</item>
 /// <item><b>Destination.</b> One: archive for a newsletter, the backlog for an
 /// item already assigned a repository or a note of the reader's own, and
-/// knowledge for collected material.</item>
+/// the Brain for collected material.</item>
 /// </list>
 /// </summary>
 internal static partial class InboxClassifier
@@ -35,8 +35,6 @@ internal static partial class InboxClassifier
     /// <summary>How many tag chips an item is offered at most: enough for the
     /// words that matter, few enough that the row stays a glance.</summary>
     internal const int MaxTagSuggestions = 5;
-
-    internal const string KnowledgeNotBuilt = "Keeping an item as knowledge is not built yet.";
 
     /// <summary>The kinds that are a thought of the reader's own rather than
     /// collected material — see <c>Content Kind</c> in the domain chapter, which
@@ -175,10 +173,7 @@ internal static partial class InboxClassifier
         var key = DestinationKey(domain);
         if (item.IsSuggestionDismissed(key)) return null;
 
-        return new InboxSuggestionDto(key, InboxSuggestionKind.Destination, InboxEnumMap.ToWire(domain), reason)
-        {
-            UnavailableReason = domain == RoutingDomain.Devbook ? KnowledgeNotBuilt : null
-        };
+        return new InboxSuggestionDto(key, InboxSuggestionKind.Destination, InboxEnumMap.ToWire(domain), reason);
     }
 
     private static (RoutingDomain Domain, string Reason) DestinationFor(InboxItem item)

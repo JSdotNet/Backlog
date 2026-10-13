@@ -385,7 +385,9 @@
                     <p class="inbox-pane__hint inbox-triage__footnote">More than one repository makes one entry per repository, linked to each other.</p>
                 </section>
 
-                @* The four decisions, each naming its key and doing what it does. *@
+                @* The decisions, each naming its key and doing what it does. To
+                   Brain sits beside Move to backlog because the two are the two
+                   routes: the item becomes work, or it becomes a note to keep. *@
                 <div class="inbox-triage__decisions" role="group" aria-label="Decide" data-testid="inbox-triage-decisions">
                     <AppButton Variant="ButtonVariant.Primary"
                                CssClass="inbox-triage__decision"
@@ -396,6 +398,15 @@
                         <kbd class="inbox-pane__key inbox-pane__key--on-primary" aria-hidden="true">R</kbd>
                         <span class="inbox-triage__decision-label">Move to backlog</span>
                         <span class="inbox-triage__decision-hint">@State.TriageRouteHint</span>
+                    </AppButton>
+                    <AppButton CssClass="inbox-triage__decision"
+                               Disabled="@(!open || Busy)"
+                               Title="Keep it as a note in your Brain (b)"
+                               OnClick="State.RouteToBrainAsync"
+                               TestId="inbox-to-brain">
+                        <kbd class="inbox-pane__key" aria-hidden="true">B</kbd>
+                        <span class="inbox-triage__decision-label">@InboxDesktopState.ToBrainLabel</span>
+                        <span class="inbox-triage__decision-hint">a note to keep</span>
                     </AppButton>
                     <AppButton CssClass="inbox-triage__decision"
                                Disabled="@Busy"

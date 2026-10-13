@@ -31,6 +31,19 @@ public static class InboxErrors
         "inbox.item.invalid_transition",
         detail);
 
+    /// <summary>The code of every To Brain refusal on the Brain's side.</summary>
+    public const string BrainUnavailableCode = "inbox.brain.unavailable";
+
+    /// <summary>To Brain could not write the note — no Brain folder is set up,
+    /// it is missing, or it cannot be written. Carries the Brain's own words,
+    /// which say what to do; the item is left as it was.</summary>
+    public static Error BrainUnavailable(string detail) => Error.Validation(
+        BrainUnavailableCode,
+        string.IsNullOrWhiteSpace(detail) ? NoBrainHere : detail);
+
+    /// <summary>What To Brain says in a host composed without a Brain.</summary>
+    public const string NoBrainHere = "There is no Brain here to keep notes in.";
+
     public static readonly Error AttachmentNotFound = Error.NotFound(
         "inbox.attachment.not_found",
         "That file is not on this item.");
