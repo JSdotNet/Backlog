@@ -295,6 +295,13 @@
                             <CascadingValue TValue="IDevbookImageSource" Value="@_scenarioImages" IsFixed="true">
                                 @RenderSection(area.Key)
                             </CascadingValue>
+
+                            @* The Brain notes linking to the chapter on screen, for
+                               this reader only (local ADR 0027 §6). *@
+                            @if (BacklinkChapterPath(area.Key) is { } backlinkPath)
+                            {
+                                <BrainBacklinksBox RepositoryAlias="@ActiveRepositoryAlias" ChapterPath="@backlinkPath" />
+                            }
                         }
                     </TabPanel>
                 }
@@ -489,6 +496,40 @@
     /// </summary>
     [Parameter]
     public EventCallback<long> OnOpenReferenceFollowed { get; set; }
+
+    /// <summary>
+    /// Raised when the reader follows a resolved <c>repo:</c> link out of a Brain
+    /// note (local ADR 0027 §6). The shell answers it the way it answers a task's
+    /// reference — that repository's devbook on screen, at the chapter, through an
+    /// <see cref="OpenReference"/> — because which repository the pane reads is
+    /// the shell's to choose.
+    /// </summary>
+    [Parameter]
+    public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
+
+    private Task OpenRepositoryChapterAsync(BrainRepoLink link) => OnOpenRepositoryChapter.InvokeAsync(link);
+
+    /// <summary>The devbook folders a Brain note can link into, as section keys.</summary>
+    private static readonly HashSet<string> BacklinkSections = new(["arc42", "domain", "tech", "design", "ai"], StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The repository-relative path of the chapter a section has open, in the
+    /// root layout's spelling the link match accepts either layout against. A
+    /// section's key is its folder's name in both layouts (<c>.arc42</c>,
+    /// <c>.devbook/arc42</c>), which is what lets the path be rebuilt from the key
+    /// and the menu's folder-relative path; a repository whose devbook setting
+    /// points a section at a folder of another name gets no backlinks there. Or
+    /// null where there is nothing for the Brain to have linked to: the Brain
+    /// itself, no repository, no chapter, or a section that is no devbook folder.
+    /// </summary>
+    private string? BacklinkChapterPath(string section)
+    {
+        if (BrainMode || string.IsNullOrEmpty(ActiveRepositoryAlias) || !BacklinkSections.Contains(section)) return null;
+
+        return _selectedChapterPaths.TryGetValue(section, out var path) && !string.IsNullOrWhiteSpace(path)
+            ? $".{section.ToLowerInvariant()}/{path.TrimStart('/')}"
+            : null;
+    }
 
     /// <summary>The last request followed, so a re-render carrying the same one
     /// does not pull the reader back to it.</summary>
@@ -1372,7 +1413,9 @@
     {
         if (DevbookMenu.IsBrainAreaKey(section) && _brain is not null)
         {
-            return @<BrainDevbookPanel Brain="@_brain" SelectedPath="@SelectedChapterPath" />;
+            return @<BrainDevbookPanel Brain="@_brain"
+                                       SelectedPath="@SelectedChapterPath"
+                                       OnOpenRepositoryChapter="OpenRepositoryChapterAsync" />;
         }
 
         if (_brainSettings is { IsSet: false })

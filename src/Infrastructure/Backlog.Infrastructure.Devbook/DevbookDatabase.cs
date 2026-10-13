@@ -300,6 +300,33 @@ public sealed partial class DevbookDatabase : IDisposable
             reader => new DevbookEdgeRow(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
 
     /// <summary>
+    /// Every edge a Brain note draws into a repository devbook — a <c>repo:</c>
+    /// entry in <c>related</c>, or a <c>repo:</c> link in prose (local ADR 0027
+    /// §6) — with the note it comes from: the source node's type, path, label and
+    /// line, and the title of the file it is in. In note path, then line order.
+    /// Empty for a repository's database, which stores no such edge.
+    /// </summary>
+    public IReadOnlyList<DevbookRepoLinkRow> RepoLinks() =>
+        Query(
+            """
+            SELECT edge.type, edge.source, edge.target, node.type, node.path, node.label, node.line,
+                   (SELECT chapter.title FROM chapter WHERE chapter.path = node.path AND chapter.level = 1 ORDER BY chapter.line LIMIT 1)
+            FROM edge
+            JOIN node ON node.id = edge.source
+            WHERE edge.target LIKE 'repo:%' AND edge.type IN ('related', 'repo-link')
+            ORDER BY coalesce(node.path, edge.source), coalesce(node.line, 0), edge.rowid
+            """,
+            _ => { },
+            reader => new DevbookRepoLinkRow(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                Text(reader, 4) ?? reader.GetString(1),
+                Text(reader, 5),
+                Text(reader, 7)));
+
+    /// <summary>
     /// Every value of one list-valued <c>meta</c> field, by node — <c>roadmap</c>,
     /// <c>feature-flag</c>, <c>aliases</c>, <c>alternatives</c>. Asked one name at
     /// a time because a caller wants one: the roadmap rollup has no use for a

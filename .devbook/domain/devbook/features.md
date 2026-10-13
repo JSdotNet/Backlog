@@ -188,13 +188,21 @@ Point a Brain note at the repository chapter it is about. A
 renders as a gold chip that opens that repository's devbook at the chapter. An
 alias this machine does not have renders as a dashed chip reading *not on this
 machine*, never as an error, because the same Brain is read on machines with
-different repositories.
+different repositories. A link resolves when its alias names a repository
+configured here, as a clone or a branch snapshot, whose devbook shows the
+section the path lies in. A configured alias whose path lies in no such section
+is dashed too, and says it is not a chapter in that devbook. Following a gold
+chip leaves the header scope alone: the pane reads the repository as it does for
+a task's reference, and the switch or the scope brings the Brain back.
 
 The reverse is shown, never written. Under a repository chapter a teal **From
 your Brain** box lists the Brain notes that link to it, marked *Only you see
 this*: it reads the owner's own Brain database, and nothing is written into the
-repository, so personal notes never reach shared history. A repository devbook
-has no way to link into a Brain.
+repository, so personal notes never reach shared history. A link to any
+heading of the chapter's file counts. Each note is listed once: under the
+first chapter it links from, when every link it has sits in a chapter, and on
+its own when one is in its `related` or its prose outside every chapter. A chapter no note links to draws no box. A repository devbook has no way
+to link into a Brain.
 
 ## Unified search
 

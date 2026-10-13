@@ -753,7 +753,8 @@
                                      ShowsBrainChanged="OnDevbookShowsBrainChanged"
                                      OpenSearchResultElsewhere="OpenDevbookSearchResult"
                                      OpenReference="@_devbookOpenRequest"
-                                     OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
+                                     OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
+                                     OnOpenRepositoryChapter="OpenBrainRepoLinkAsync" />
                     </aside>
                 }
             </div>
@@ -1625,25 +1626,52 @@
     private const string DevbookUnavailableTestId = "tasks-devbook-unavailable";
 
     /// <summary>
+    /// A Brain note's <c>repo:</c> link, followed (local ADR 0027 §6): that
+    /// repository's devbook in the pane, at the chapter. The same road a task's
+    /// reference takes, so the header scope stays as the reader left it and the
+    /// pane's switch, or the scope, brings the Brain back.
+    /// </summary>
+    private Task OpenBrainRepoLinkAsync(BrainRepoLink link) => OpenRepositoryChapterAsync(link.Alias, link.Reference);
+
+    /// <summary>
     /// A search result from a devbook the pane is not showing: the pane reads that
-    /// devbook — the Brain or another repository — and opens the result there.
+    /// devbook — another repository, or the Brain — and opens the result there.
     /// <para>
-    /// The same move as a task's reference (<see cref="OpenDevbookReferenceAsync"/>):
-    /// it changes what the pane reads and never the header's scope or the task
-    /// filter, and it holds only while the scope it was asked under stands. The
-    /// switch the reader may have pressed gives way to it, because the reader just
-    /// chose again.
+    /// A repository's result takes the road a <c>repo:</c> link takes
+    /// (<see cref="OpenRepositoryChapterAsync"/>). The Brain is no repository, so
+    /// a Brain result is asked of the pane directly, the same way: it changes what
+    /// the pane reads and never the header's scope or the task filter, holds only
+    /// while the scope it was asked under stands, and the switch the reader may
+    /// have pressed gives way to it.
     /// </para>
     /// </summary>
-    private void OpenDevbookSearchResult(DevbookSearchOpen result)
+    private Task OpenDevbookSearchResult(DevbookSearchOpen result)
     {
-        var key = result.Source.Key;
+        if (!result.Source.IsBrain) return OpenRepositoryChapterAsync(result.Source.Key, result.Reference);
 
         _devbookSwitch = null;
-        _devbookRepositoryRequest = string.Equals(key, State.AnchorRepositoryAlias, StringComparison.Ordinal)
+        _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
             ? null
-            : new DevbookRepositoryRequest(State.AnchorRepositoryAlias, key);
+            : new DevbookRepositoryRequest(State.AnchorRepositoryAlias, BrainScope.Value);
         _devbookOpenRequest = new DevbookOpenRequest(result.Reference, ++_devbookOpenSequence);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// One repository's devbook in the pane, at a chapter, for a reader who chose it
+    /// from outside the pane's own menu — a Brain note's link or a search result.
+    /// </summary>
+    private Task OpenRepositoryChapterAsync(string repositoryAlias, string reference)
+    {
+        // The pane was on the Brain, perhaps through the switch: the reader just
+        // chose a repository, so the switch's choice gives way — else a chapter of
+        // the anchor repository would leave the pane on the Brain.
+        _devbookSwitch = null;
+
+        // The alias as configured, not as it was spelled: a link resolves
+        // case-insensitively, and the shell compares aliases exactly.
+        var alias = Devbook.Repository(repositoryAlias)?.Alias ?? repositoryAlias;
+        return OpenDevbookReferenceAsync(new DevbookReferenceRequest(alias, reference));
     }
 
     /// <summary>
