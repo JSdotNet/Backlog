@@ -596,6 +596,61 @@ about.
 Bringing a clone up to date replaces what its folders say, so the knowledge on screen
 becomes the knowledge that arrived with it.
 
+### Choosing where the devbook is read from
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/devbook/context.md#devbook-pane
+related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+```
+
+Read a repository's devbook from its local clone or from any of its branches,
+chosen beside the area strip rather than in settings. Knowledge under review lives
+on a branch long before it reaches the default one, and the reader who wants it is
+rarely the one who has that branch checked out; a repository nobody has cloned has
+only its branches to offer (local ADR 0008).
+
+The choice is one field the reader types into: it suggests the default branch,
+the local clone where there is one, and the repository's branches, narrowed to
+what the typed text contains. A repository can have hundreds of branches, so
+they are fetched from GitHub when somebody asks for them rather than whenever
+the pane opens, and the list stops at a ceiling instead of paging without end.
+A branch the reader types that the list does not hold is asked of GitHub before
+it is turned down, because the list may simply be older than the branch. A
+search is not a choice: only a named source switches what the pane reads.
+Switching says, under the strip, whether the pane now reads the clone or a
+branch snapshot, and a branch snapshot is read-only. The settings screen offers
+the same choice with the same entries.
+
+### Reviewing what a branch changed
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/devbook/context.md#devbook-pane
+depends-on: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-read-from]
+related: [.devbook/domain/devbook/requirements.md#reviewing-what-a-branch-changed, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md]
+```
+
+See what a branch did to the devbook before it is merged, commit by commit, in
+the pane that already shows the branch. A pull request's diff shows Markdown as
+lines; a reader reviewing knowledge wants the chapters that moved and what moved
+in each, beside the devbook they belong to.
+
+**Review changes** is offered while the pane reads a branch, and never for the
+local clone: the clone's history is the reader's own working copy, not a
+proposal. It lists the branch's own commits — the ones it holds that the default
+branch does not — and offers the whole branch against the default branch beside
+them. Choosing either lists the devbook chapters it changed, with a count of the
+other files it touched, and choosing a chapter compares it section by section,
+before and after. Where GitHub answered with only part of the history or the file
+list, the review says so instead of passing a partial answer off as whole. It is
+read from GitHub and held only for the session: nothing is cloned, written to
+disk, or prepared, so a review leaves no trace in the repository or the app's
+storage. Closing it, switching to the clone, or moving to another repository
+returns the pane to the chapters.
+
 ## Instruction optimization
 
 ```meta
