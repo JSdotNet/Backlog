@@ -7,9 +7,11 @@ related: [.devbook/domain/devbook/features.md]
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
-> requirement is one SHALL sentence with the scenarios that prove it. The plan
-> `+brain` builds the Brain's requirements, and each gains its `tests` as it
-> lands; one with no `tests` is not built yet.
+> requirement is one SHALL sentence with the scenarios that prove it. The Brain's
+> requirements belong to the plan `+brain`: the roadmap item tagged `brain`, written
+> with its [Plan Sigil](../roadmap/domain.md#plan-sigil). That plan builds local
+> [ADR 0026](../../arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md)
+> and local ADR 0027.
 
 ## Brain scope
 
@@ -30,7 +32,7 @@ status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.The_brain_chip_leads_the_scope_behind_a_divider_in_band_two, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_no_repository_configured_the_scope_holds_the_brain_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ScopeGlyphIconTests.The_brain_keeps_the_icon_contract, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
-The system SHALL render the Brain chip first in the repository scope, behind a divider, in band 2, with no control that removes it.
+The system SHALL render the Brain chip first in the repository scope, behind a divider, in [band 2](../../design/color-scheme.md#the-brains-accent), with no control that removes it.
 
 #### Scenario: Two repositories configured
 
@@ -309,6 +311,34 @@ The system SHALL flip the pane between the Brain and the repository with the `Br
 - **Given** Brain and `backlog` are pressed and the pane shows the Brain
 - **When** the reader picks `backlog` on the pane's switch
 - **Then** the pane shows the devbook of `backlog` and the task list is unchanged
+
+### Requirement: The header toggle names what the pane shows
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_nothing_pressed_the_devbook_option_names_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_the_brain_as_the_anchor_the_devbook_option_names_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.With_a_repository_as_the_anchor_the_devbook_option_names_the_devbook, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.In_a_mixed_scope_the_devbook_option_follows_the_switch]
+```
+
+The system SHALL label the header's Devbook toggle *Brain* while the pane shows the Brain, or would on opening, and *Devbook* otherwise.
+
+#### Scenario: Nothing pressed, pane closed
+
+- **Given** no chip is pressed and the Devbook pane is closed
+- **When** the reader looks at the header
+- **Then** the toggle reads *Brain* and its tooltip reads *Open Brain beside Tasks*
+
+#### Scenario: A repository anchor
+
+- **Given** `backlog` is pressed
+- **When** the reader looks at the header
+- **Then** the toggle reads *Devbook*
+
+#### Scenario: The switch flips the toggle
+
+- **Given** Brain and `backlog` are pressed and the pane shows the Brain
+- **When** the reader picks `backlog` on the pane's switch
+- **Then** the toggle reads *Devbook*, and picking Brain again makes it read *Brain*
 
 ### Requirement: A Brain note is always editable
 

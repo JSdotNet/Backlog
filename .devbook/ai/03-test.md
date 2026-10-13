@@ -19,9 +19,9 @@ date: 2026-09-25
 ```
 
 After build and tests pass, `flow-code`'s `phase-verify` hands the change to the `qa:qa`
-agent. It starts the application on Aspire through the `run` procedure, drives the Blazor harnesses with
-Playwright, and keeps a monitor on Aspire's logs and traces for the whole run, returning an
-evidence path for every scenario it reports.
+agent. It starts the application on Aspire through the `run` procedure and drives the Blazor
+harnesses with Playwright. It keeps a monitor on Aspire's logs and traces for the whole run,
+and returns an evidence path for every scenario it reports.
 
 - **Used for** — full Playwright QA for new functionality, targeted checks for fixes and
   changes to an existing flow, startup-only for dependency moves.
@@ -45,17 +45,16 @@ How to `run` the application, `capture` evidence, `diagnose` an observed issue, 
 `estimate` work are this repository's own skills. Each is reached through a wrapper per host
 that fixes its goal. `run` is a Claude Code recipe at `.claude/skills/run-backlog/SKILL.md`
 with a Copilot twin at `.github/skills/run/SKILL.md`. The other bodies live under
-`.agents/skills/`. The devbook stamp lists the four under `components.devbook.procedures`.
-`flow-code`'s `phase-verify` starts the application through `run` instead of guessing a
-command.
+`.agents/skills/`. The devbook stamp lists the four under
+`components.devbook.procedures.adopted`. `flow-code`'s `phase-verify` starts the application
+through `run` instead of guessing a command.
 
 - **Used for** — starting the AppHost the way `run` says, taking evidence of a change, and
   finding a cause from logs and traces without handing the person a debugger.
-- **Adopted by** — the flows, since the procedures were seeded on 2026-09-25. The `start`
-  procedure became the `run` recipe on 2026-09-30. With devbook 1.19 the `debug` procedure
-  became `diagnose`, because a `debug` project skill shadowed Claude Code's own `/debug`.
-  The `show` procedure was removed in the same change: a flow walks a change through `run`
-  and `capture`, and a person on Claude Code who wants to see it working uses `/verify`.
+- **Adopted by** — the flows, since the procedures were seeded on 2026-09-25. The procedure
+  is called `diagnose` because a `debug` project skill would shadow Claude Code's own
+  `/debug`. There is no `show` procedure: a flow walks a change through `run` and `capture`,
+  and a person on Claude Code who wants to see it working uses the built-in `/run`.
 - **Evidence** — none yet beyond the flows that started the application this way.
 - **Limits** — the body is the repository's to edit; the goal in the wrapper is not. Devbook
   also ships a `prototype` procedure, which this repository deliberately has not adopted.
@@ -94,8 +93,9 @@ date: 2026-09-25
 ```
 
 No pull request is opened and no flow is marked complete until the repository owner has
-looked at the change — the application started and the review links handed over for code,
-the changed chapters summarized for documentation — and approved it in the session.
+looked at the change and approved it in the session. For code, the owner gets the running
+application and the review links. For documentation, the owner gets a summary of the changed
+chapters.
 
 - **Used for** — every flow, documentation and code alike.
 - **Adopted by** — every flow run; configuration may add gates, but the engine refuses to

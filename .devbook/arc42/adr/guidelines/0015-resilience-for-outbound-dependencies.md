@@ -49,11 +49,14 @@ primary-path result.
 
 ## Deviations and gaps
 
-- **Two clients live outside DI and therefore outside the pipeline.**
-  `TokenTransport` in `Backlog.Infrastructure.GitHub` falls back to
-  `new HttpClient()` when none is injected, with no explicit timeout at all;
-  `DevToolService.Marketplace` is a static client that at least sets a 20-second
-  timeout. Resolving both from `IHttpClientFactory` closes the hole.
+- **One client lives outside DI and therefore outside the pipeline.**
+  `DevToolService.Marketplace` is a static client with a 20-second timeout;
+  resolving it from `IHttpClientFactory` closes the hole. The hosts compose
+  `TokenTransport` with the named `GitHub` client from `GitHubHttpRegistration`.
+  Its pipeline retries reads only and allows 100 s per attempt and 5 minutes in
+  total. Since 2026-10 that client also carries every GitHub call that names no
+  account, sent with the token the `gh` CLI holds. When GitHub answers that token
+  with a 401, the transport does not resend the call.
 - **The Cosmos client is outside the pipeline by construction, and says so.**
   `CosmosClient` owns its own transport and never resolves through
   `IHttpClientFactory`, so `AddStandardResilienceHandler()` cannot reach it —
@@ -65,7 +68,7 @@ primary-path result.
   total, and Gateway connection mode. The mandatory-timeout rule is met; what is
   not is the circuit breaker, which the SDK has no equivalent for, and the retry
   is the SDK's 429-only policy rather than the standard pipeline's transient set.
-- **Two HTTP adapters now set a purposeful per-dependency pipeline; the rest
+- **Three HTTP adapters now set a purposeful per-dependency pipeline; the rest
   still inherit the standard handler's defaults.** The named `capture-feeds`
   client in `Backlog.Infrastructure.Capture` (`FeedFetcher`) configures its own
   — 1 retry, a 10 s attempt timeout, 15 s total — rather than the standard
@@ -84,5 +87,11 @@ primary-path result.
   `TimeoutRejectedException` in the Home page's Ask handler and took the page
   down; the client now translates every transport failure into its own
   `AzureFoundryException` at the adapter boundary, which is the other half of
-  the same fix.
+  the same fix. The named `GitHub` client (`Backlog.Infrastructure.GitHub`,
+  `GitHubHttpRegistration`) removes the host's default pipeline and puts its own
+  on. It carries writes that are not safe to send twice: an issue `POST`, a ref
+  `POST`, and the backup's database `PUT`. Its pipeline therefore retries reads
+  only and sends every unsafe method once. The backup `PUT` and a branch snapshot
+  download run to megabytes, so each attempt gets 100 s and a call 5 minutes in
+  total.
 - Circuit-breaker state changes are not surfaced as metrics.

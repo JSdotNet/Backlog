@@ -1353,7 +1353,7 @@ status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsInboxRoutingRulesTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxRoutingRulesStoreTests]
 ```
 
-The system SHALL keep the routing rules typed on the Repositories page only when every line reads as `pattern => owner/repo`, and otherwise name the line and keep the rules in use.
+The system SHALL keep the routing rules typed on the Inbox settings page only when every line reads as `pattern => owner/repo`, and otherwise name the line and keep the rules in use.
 
 #### Scenario: A line without an arrow
 

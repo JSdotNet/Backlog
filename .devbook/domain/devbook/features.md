@@ -65,12 +65,10 @@ related: [.devbook/domain/devbook/domain.md#tag, .devbook/domain/devbook/domain.
 Group notes by topic (not just project), support cross-cutting tags, and search
 across all knowledge content via the tag index.
 
-These discovery tags are the context's own `#keyword`s and are a different thing
-from a chapter's **roadmap contribution** — the roadmap-item tags a chapter names
-in its `roadmap` metadata to say which planned work it feeds. A discovery tag finds
-notes here; a roadmap contribution is read by Roadmap Planning when it gathers work
-by tag, draws no edge, and is never confused with a `#keyword` even though both are
-loosely "tags". A chapter may also declare an [Effort](domain.md#effort); like the roadmap contribution it is registered here and only read by Roadmap Planning.
+These discovery tags are the context's own `#keyword`s. They are not a chapter's
+[Roadmap Contribution](domain.md#roadmap-contribution). A chapter may also declare
+an [Effort](domain.md#effort), which Devbook registers and Roadmap Planning only
+reads.
 
 ## Bi-directional linking
 
@@ -111,16 +109,18 @@ related: [.devbook/domain/devbook/requirements.md#brain-scope, .devbook/arc42/ad
 Pick the Brain the way a repository is picked. The header's repository scope
 leads with a **Brain** chip, set off from the repository chips by a divider and
 worn in the Brain's teal. It cannot be removed, and it needs no repository, so
-the scope works for a person who has configured none. Brain is the scope of
-everything filed against no repository: pressed alone, it narrows Tasks, Board,
-Calendar, In progress, the Dashboard, Sessions and Pull requests to the tasks
-with no repository, and it opens the Brain in the Devbook pane. Ctrl adds it to
-the repositories already pressed, and nothing pressed still means everything.
+the scope works for a person who has configured none.
+
+Brain is the scope of everything filed against no repository. Pressed alone, it
+narrows Tasks, Board, Calendar, In progress, the Dashboard, Sessions and Pull
+requests to the tasks with no repository. It also opens the Brain in the Devbook
+pane. Ctrl adds it to the repositories already pressed, and nothing pressed still
+means everything.
 
 The scope is remembered with Brain in its place, so a fresh shell reopens on it.
-It replaces the Tasks filter bar's *No repo* chip, which narrowed the same rows
-under a second name and was never remembered. Until a Brain folder is set up the
-chip reads **Set up your Brain** and still scopes the tasks.
+The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows.
+Until a Brain folder is set up, the chip reads **Set up your Brain** and still
+scopes the tasks.
 
 ## Brain folder setup
 
@@ -132,11 +132,13 @@ related: [.devbook/domain/devbook/requirements.md#brain-folder-setup, .devbook/a
 ```
 
 Choose where the Brain lives, once, in Settings › Storage. The person picks a
-folder outside every repository; there is no default, and OneDrive is the
-expected place. The Brain card says whether the folder is synced, as
-information rather than a warning, that its search database is built in the
-app's storage and never synced, and whether the folder's `README.md` and
-`CONVENTIONS.md` are present.
+folder outside every repository. There is no default, and OneDrive is the
+expected place. What the field accepts is in
+[Brain folder](context.md#brain-folder). The Brain card says three things:
+
+- whether the folder is synced, as information rather than a warning;
+- that its search database is built in the app's storage and never synced;
+- whether the folder's `README.md` and `CONVENTIONS.md` are present.
 
 **Create conventions** writes both files and every area folder they declare from
 a template the app ships, the PARA set by default, and never overwrites a file
@@ -144,12 +146,13 @@ that is already there. From then on the folder carries its own convention, so a
 second machine that reads the synced folder sees the same areas.
 
 The shipped `CONVENTIONS.md` declares its areas as a table under an `## Areas`
-heading, one row per area in tab order with its name, its folder and what it
-holds; with no rows, the PARA set applies. The area folders Create conventions
-makes are the ones the folder's own `CONVENTIONS.md` declares, so a person who
-wrote theirs first gets their areas, not the template's. **Browse** opens the
-Windows folder picker in the installed app; a host without one, the browser
-harness among them, takes a typed path.
+heading. It has one row per area in tab order, with the area's name, its folder
+and what it holds. With no rows, the PARA set applies. Create conventions makes the
+area folders the folder's own `CONVENTIONS.md` declares, so a person who wrote
+theirs first gets their areas, not the template's.
+
+**Browse** opens the Windows folder picker in the installed app. A host without
+one, the browser harness among them, takes a typed path.
 
 ## Brain mode of the Devbook pane
 
@@ -157,29 +160,35 @@ harness among them, takes a typed path.
 type: feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/requirements.md#brain-mode-of-the-devbook-pane, .devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+related: [.devbook/domain/devbook/requirements.md#brain-mode-of-the-devbook-pane, .devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/design/interaction-guidelines.md#shell-header]
 ```
 
 Read and write the Brain in the same pane that reads a repository's devbook.
-With the scope's anchor on Brain, or nothing pressed, the pane carries a teal
-**Brain** badge after its title, the folder's path where a repository's branch
-picker would be, and one tab per area the Brain declares. The tree, the rendered
-chapter and the editor are the ones a repository devbook uses, and a Brain note
-is always editable. The reader leaves a remark on a note's block as on a
-chapter's, and edits, resolves or deletes it there. A Brain remark is stored
-under the Brain's scope, by the note's path from the Brain's root, so the agent
-lists and resolves it on `#brain`. What only a repository has is absent: branch updates, sync
-verdicts and scenario marks. So is opening the folder in an editor. Search is
-offered on the Brain as on a repository, because it is one
+Which scope shows the Brain is in
+[Area selection and scope](#area-selection-and-scope). On the Brain, the pane
+carries a teal **Brain** badge after its title. The folder's path sits where a
+repository's branch picker would be, and there is one tab per area the Brain
+declares.
+
+The tree, the rendered chapter and the editor are the ones a repository devbook
+uses, and a Brain note is always editable. The reader leaves a remark on a
+note's block as on a chapter's, and edits, resolves or deletes it there. A Brain
+remark is stored under the Brain's scope, by the note's path from the Brain's
+root, so the agent lists and resolves it on `#brain`. What only a repository
+has is absent: branch updates, sync verdicts and scenario marks. So is opening
+the folder in an editor. Search is offered on the Brain as on a repository, because it is one
 [Unified search](#unified-search) wherever it is opened. The **Atlas** button
 opens the Brain's own map instead of a repository's
 ([Atlas edges](#atlas-edges)). Ask AI takes no Brain note as the open chapter.
 
-With Brain and a repository both pressed, a `Brain | <repo>` switch beside the
-pane title flips between them without touching the task filter. The switch opens
-on the anchor's side. With Brain as the anchor and several repositories pressed,
-its other side is the first of them. The switch is not remembered: any change to
-the scope puts the pane back on the anchor.
+The `Brain | <repo>` switch flips the pane between the Brain and a repository
+without touching the task filter. It is not remembered: any change to the scope
+puts the pane back on the anchor.
+
+The header's toggle for the pane names what it shows: **Brain**, in teal, while
+the pane shows the Brain, and **Devbook** otherwise. It is right before the pane
+opens, so a closed toggle already says which one a press will open, and it flips
+with the switch.
 
 On the Brain, and while the switch shows, the pane names itself *Devbook* at the
 start of its tab strip. The switch sits right after the title, so it stays in
@@ -212,26 +221,32 @@ related: [.devbook/domain/devbook/requirements.md#repo-links-and-backlinks, .dev
 ```
 
 Point a Brain note at the repository chapter it is about. A
-`repo:<alias>/<devbook path>[#slug]` link, in the note's `related` or its body,
-renders as a gold chip that opens that repository's devbook at the chapter. An
-alias this machine does not have renders as a dashed chip reading *not on this
-machine*, never as an error, because the same Brain is read on machines with
-different repositories. A link resolves when its alias names a repository
-configured here, as a clone or a branch snapshot, whose devbook shows the
-section the path lies in. A configured alias whose path lies in no such section
-is dashed too, and says it is not a chapter in that devbook. Following a gold
-chip leaves the header scope alone: the pane reads the repository as it does for
-a task's reference, and the switch or the scope brings the Brain back.
+[repo link](domain.md#repo-link), `repo:<alias>/<devbook path>[#slug]` in the
+note's `related` or its body, renders as a chip naming the repository's alias
+and the chapter:
 
-The reverse is shown, never written. Under a repository chapter a teal **From
+| Link state | Chip | It adds |
+| --- | --- | --- |
+| The alias names a repository configured here, as a clone or a branch snapshot, and its devbook shows the section the path lies in | Gold; opens that repository's devbook at the chapter | Nothing |
+| The alias is not configured on this machine | Dashed | *not on this machine* |
+| The alias is configured, but the path lies in no section its devbook shows | Dashed | *not a chapter in its devbook* |
+
+The chip's tooltip is the raw link in every state. An unresolved link is never an
+error, because the same Brain is read on machines with different repositories.
+Following a gold chip leaves the header scope alone. The pane reads the
+repository as it does for a task's reference, and the switch or the scope brings
+the Brain back.
+
+The reverse is shown, never written. Under a repository chapter, a teal **From
 your Brain** box lists the Brain notes that link to it, marked *Only you see
-this*: it reads the owner's own Brain database, and nothing is written into the
-repository, so personal notes never reach shared history. A link to any
-heading of the chapter's file counts. Each note is listed once: under the
-first chapter it links from, when every link it has sits in a chapter, and on
-its own when one is in its `related` or its prose outside every chapter. A chapter no note links to draws no box. Each note in the box is a link:
-following it puts the note on the Brain side of the pane, the way a Brain
-search result does, and leaves the header's scope and the task filter alone.
+this*. It reads the owner's own Brain database, and nothing is written into the
+repository, so personal notes never reach shared history. A link to any heading
+of the chapter's file counts. A note is listed once. If all its links sit inside
+chapters, it is listed under the first. If any link is in `related` or outside
+every chapter, it is listed on its own. A chapter no note links to draws no box.
+Each note in the box is a link: following it puts the note on the Brain side of
+the pane, the way a Brain search result does, and leaves the header's scope and
+the task filter alone.
 A repository devbook has no way to link into a Brain.
 
 ## Unified search
@@ -300,8 +315,8 @@ tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, u
 
 Get a thought into the Brain without leaving what is on screen. In Brain mode
 the pane header carries **Capture**: a title and a Markdown body, written as a
-new note with its `meta` block in the Brain's inbox area, which is `_inbox`
-under the PARA default or the area `CONVENTIONS.md` marks as the inbox. Inbox
+new note with its `meta` block in the Brain's inbox area. That area is `_inbox`
+under the PARA default, or the area `CONVENTIONS.md` marks as the inbox. Inbox
 triage writes the same kind of note through its **To Brain** route, from a
 capture or from an Inbox note, keeping the title and the body.
 
@@ -329,19 +344,19 @@ tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, u
 ```
 
 Let an assistant read and write the Brain through the same tools it uses on a
-repository devbook. The knowledge tools the app serves over MCP (listing the
-contexts, reading a chapter, listing and resolving the reader's remarks) take
-the Brain as `#brain` in the place of a repository's `owner/name`.
+repository devbook. The knowledge tools the app serves over MCP take the Brain as
+`#brain` in the place of a repository's `owner/name`. They list the contexts, read
+a chapter, and list and resolve the reader's [remarks](domain.md#remark).
 
 The spelling is not the empty string the shell stores for the Brain (local
-ADR 0027 §5): an empty repository argument is already refused as missing, and a
+ADR 0027 §5). An empty repository argument is already refused as missing, and a
 session that forgot it must never be handed the person's own notes. On these
-tools that refusal names both things the argument can be — an `owner/name`, or
+tools that refusal names both things the argument can be: an `owner/name`, or
 `#brain` for the Brain. It is not
-`brain` either, which a repository could be called. A GitHub owner or name
-cannot hold a `#`, and a configured repository line that starts with one is a
-comment, so `#brain` matches no repository; it is matched before any repository
-is looked up.
+`brain` either, which a repository could be called. A GitHub owner or name cannot
+hold a `#`, and a configured repository line that starts with one is a comment.
+So `#brain` matches no repository, and it is matched before any repository is
+looked up.
 
 A Brain note is named by its path from the Brain's root (`projects/plan.md`),
 never under a dot-folder and never through a link out of the folder. The
@@ -365,14 +380,15 @@ related: [.devbook/domain/repository-management/features.md#repository-knowledge
 ```
 
 Read the knowledge a repository already carries alongside its code, next to the
-backlog rather than in a separate tool. Knowledge is grouped into named areas —
-working instructions, domain, architecture, technology, and design — each backed
-by the repository's own folder for that subject. Tasks concerns are not one of
-them: they are their own workspace section, read and written rather than browsed,
-so a repository's backlog folder is not a knowledge area. Areas are browsed from
-a side pane that sits beside the task list so knowledge and work stay in view
-together, and the pane's width is adjustable because the two compete for the same
-screen.
+backlog rather than in a separate tool. Knowledge is grouped into named areas:
+working instructions, domain, architecture, technology, and design. Each is backed
+by the repository's own folder for that subject. Tasks are not an area. They are
+their own workspace section, read and written rather than browsed, so a
+repository's backlog folder is not a knowledge area.
+
+Areas are browsed from a side pane beside the task list, so knowledge and work
+stay in view together. The pane's width is adjustable, because the two compete for
+the same screen.
 
 ### Area selection and scope
 
@@ -384,18 +400,25 @@ related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .d
 ```
 
 Switch between areas, and between repositories when more than one is registered,
-so the knowledge shown always belongs to a known repository or to the Brain. The
-pane reads one devbook at a time even when the backlog beside it is scoped to
-several: it follows the scope's anchor, the first chip taken into that scope, so
-widening the list never moves the knowledge already being read. An anchor of
-Brain, or nothing pressed, shows the [Brain](#brain-mode-of-the-devbook-pane),
-because the Brain is always there; a scope holding Brain and a repository offers
-a `Brain | <repo>` switch in the pane that flips what it shows and leaves the
-task filter alone (local ADR 0027). The folder the backlog is kept in is never
-read as a devbook of its own. Every area is opt-in, and each can be
-switched off on its own or pointed at a non-standard folder; when none is left
-on there is nothing to browse and the pane says so rather than offering an empty
-tab strip.
+so the knowledge shown always belongs to a known repository or to the Brain.
+
+| Scope | The pane shows | The `Brain \| <repo>` switch |
+| --- | --- | --- |
+| Nothing pressed | The [Brain](#brain-mode-of-the-devbook-pane) | Absent |
+| Brain alone | The Brain | Absent |
+| Repositories, no Brain | The anchor's repository | Absent |
+| Brain and at least one repository | The anchor's side | Shown; with Brain as the anchor and several repositories, its other side is the first of them |
+
+The pane reads one devbook at a time, even when the backlog beside it is scoped to
+several. It follows the scope's anchor, the first chip taken into that scope, so
+widening the list never moves the knowledge already being read. Nothing pressed
+shows the Brain because the Brain is always there. The switch flips what the pane
+shows and leaves the task filter alone (local ADR 0027).
+
+The folder the backlog is kept in is never read as a devbook of its own. Every
+area is opt-in. Each can be switched off on its own or pointed at a non-standard
+folder. When none is left on, there is nothing to browse, and the pane says so
+rather than offering an empty tab strip.
 
 ### Rendered devbook documents
 
@@ -407,52 +430,55 @@ status: draft
 Present each area's documents as readable content rather than raw files:
 headings and sections, the metadata each chapter declares, cross-references
 between knowledge documents, and embedded diagrams rendered as diagrams. A
-cross-reference may name a chapter in the repository's backlog folder even though
-that folder is not a browsable area, and it is read with that folder's own status
+cross-reference may name a chapter in the repository's backlog folder, even though
+that folder is not a browsable area. It is read with that folder's own status
 vocabulary rather than as an unknown one.
 
-Documents appear in the order the convention gives them — each directory's
-introducing document first, numbered chapters by their number, a folder's usual
-chapters in their usual places, and the rest by name — so a repository never has
-to write its reading order down, and a file that tries to is ignored. Inside a
-bounded context, the rules a domain page's types enforce are a page of their own
-that reads directly after it, and the menu lists them as that page's invariants
-— "Invariants", or "Order invariants" beside a page split out for one
-aggregate — rather than by their file name. A context that still keeps its rules
-in the older single invariants file has them read and listed where they always
-were.
+Documents appear in the order the convention gives them:
+
+1. each directory's introducing document first;
+2. numbered chapters by their number;
+3. a folder's usual chapters in their usual places;
+4. the rest by name.
+
+A repository therefore never has to write its reading order down, and a file that
+tries to is ignored. Inside a bounded context, the rules a domain page's types
+enforce are a page of their own that reads directly after it. The menu lists that
+page as the page's invariants rather than by its file name: "Invariants", or
+"Order invariants" beside a page split out for one aggregate. A context that still
+keeps its rules in the older single invariants file has them read and listed where
+they always were.
 
 The metadata is read against the devbook convention the repository's own checks
 enforce, folder by folder, so a chapter the app shows as fine is not one those
 checks reject:
 
 - **A status at rest says nothing.** Architecture, domain and design chapters
-  that are simply current carry no status at all and are shown as current;
-  choosing "current" for one removes the word rather than writing it, and a
+  that are simply current carry no status at all and are shown as current.
+  Choosing "current" for one removes the word rather than writing it, and a
   chapter that spells it out anyway is pointed out. Technology and AI-adoption
   chapters are ratings, so theirs is always stated.
-- **A decision is state, not content.** A domain chapter can stand approved —
-  someone agreed it — and above that accepted — someone saw the built work
-  against it and accepted it. Who decided and when, and where a review stands on
-  the way there (requested, changes requested, cleared, and who owes the next
-  move), is shown beside the chapter's status rather than among its fields. The
-  app never offers those two steps as a status to pick: they are recorded by the
-  approval step that makes the decision. Moving a chapter off either step takes
-  its decision record with it. No other area has them, and a chapter outside the
+- **A decision is state, not content.** A domain chapter can stand approved
+  (someone agreed it), and above that accepted (someone saw the built work
+  against it and accepted it). Who decided and when is shown beside the chapter's
+  status rather than among its fields. So is where a review stands on the way
+  there: requested, changes requested or cleared, and who owes the next move. The
+  app never offers those two steps as a status to pick, because the approval step
+  that makes the decision records them. Moving a chapter off either step takes its
+  decision record with it. No other area has them, and a chapter outside the
   domain that carries one is pointed out.
 - **Kinds.** Each area that classifies its chapters is read with its own set of
-  kinds, including a domain context's boundary document, its requirements and
-  invariants and the single rules inside them, its switches and settings, its
-  actors, and a page of its own that the convention does not name. A
-  requirements or invariants page is shown under the title it carries, which
-  names what it holds rather than the context. How a
-  bounded context ships — as a service of its own or as a module inside a shared
-  host — is shown with it, and said out loud when the context map and the
-  context's own boundary document disagree about it.
-- **Everything else a chapter declares** — the tests that back it, its number
-  and place in the reading order, the day it records — is shown as it was
-  written, and state another tool keeps on the chapter under its own name is
-  carried through untouched.
+  kinds. A domain context's set covers its boundary document, its requirements and
+  invariants and the single rules inside them, and its switches and settings. It
+  also covers its actors, and a page of its own that the convention does not name. A requirements
+  or invariants page is shown under the title it carries, which names what it
+  holds rather than the context. How a bounded context ships, as a service of its
+  own or as a module inside a shared host, is shown with it. When the context map
+  and the context's own boundary document disagree about it, the app says so.
+- **Everything else a chapter declares** is shown as it was written: the tests
+  that back it, its number and place in the reading order, and the day it
+  records. State another tool keeps on the chapter under its own name is carried
+  through untouched.
 
 A bounded context's click demo is shown with the page it belongs to. A demo is
 the one HTML file a context holds: a clickable picture of what a person sees. It
@@ -482,9 +508,9 @@ differs by shape as well as by colour, and a screen reader hears its state.
 The run is the one committed beside the scenario folder's copy of the page,
 `<scenario folder>/<stem>/run.json`. The app reads both the current run format
 and the older one spec-manager's test tooling writes. Whether a run is stale is
-worked out, never stored. The app signs the page as it reads now, with devbook's
-signature and against devbook's shared test vector. A run that proved a different
-signature is stale, and so is an older run that proves no signature at all.
+worked out, never stored. The app signs the page as it reads now, the way devbook
+computes a page signature. A run that proved a different signature is stale, and
+so is an older run that proves no signature at all.
 
 Opening a journey shows its run above the page. The run shows the setup the
 journey runs under: where it starts, who is signed in, the profile, the data sets,
@@ -507,24 +533,24 @@ type: sub-feature
 related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/08-crosscutting-concepts.md#storage-and-sync]
 ```
 
-Let a reader leave a remark against one block of a chapter while reading it —
-a question, a flag, a note to self — beside the prose rather than inside it,
-and keep it. A remark belongs to the person, not to the repository: it is kept
-by the app, moves with the person's backlog, reaches their other devices
-through sync, and is never written into the repository's knowledge folders —
-which is what lets a reader remark on a chapter read from a branch nobody can
-edit. A remark can be resolved, which keeps it visible and quiet, or deleted.
+Let a reader leave a [remark](domain.md#remark) against one block of a chapter
+while reading it, and keep it. A remark can be a question, a flag or a note to
+self, and it sits beside the prose rather than inside it. It belongs to the
+person, not to the repository. The app keeps it, it moves with the person's
+backlog, and it reaches their other devices through sync. It is never written
+into the repository's devbook folders, so a reader can remark on a chapter read
+from a branch nobody can edit. A remark can be resolved, which keeps it visible
+and quiet, or deleted.
 
-This is a different thing from the devbook convention's own note, the
-`annotation` fence written into a chapter for a review to read: that is a
-shared repository artefact with its own lifecycle, shown as a
-[review note](#review-notes-in-a-chapter). Turning a private remark into one is a
-possible later step, not something the app does today.
+A remark is not a [Review Note](domain.md#review-note), the `annotation` fence a
+repository writes into a chapter; those are shown under
+[Review notes in a chapter](#review-notes-in-a-chapter). The app does not turn a
+remark into a review note.
 
 A remark is anchored to the block it was left on, and remembers what that block
-said. When the chapter changes above it the remark follows its own passage to
-wherever it has moved to. A remark whose passage has been deleted, or rewritten
-into something else, is shown at the end of the chapter rather than lost.
+said. When the chapter changes above it, the remark follows its own passage to
+wherever it has moved. A remark whose passage has been deleted, or rewritten into
+something else, is shown at the end of the chapter rather than lost.
 
 ### Review notes in a chapter
 
@@ -533,23 +559,20 @@ type: sub-feature
 related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#remarks-on-a-chapter]
 ```
 
-Show the review notes a repository keeps in its own chapters — a comment, a
-question, a suggestion or a flag, written beside the passage it is about, with
-its replies — as notes attached to that passage, open or resolved, rather than
-as the raw text they are stored in. They are the repository's shared review
-state: whoever reviews the chapter reads the same notes, and they leave with the
-change that resolves them.
+Show the [review notes](domain.md#review-note) a repository keeps in its own
+chapters as notes attached to their passage, open or resolved, rather than as the
+raw text they are stored in. Each shows its kind and its replies. Whoever reviews
+the chapter reads the same notes, and they leave with the change that resolves
+them.
 
 A review note is never read as what the chapter says. An open question about
-whether a rule still holds is not the rule, so anything the app hands on as the
-chapter's content — to an assistant, to search, to an excerpt — leaves the notes
-out, together with where the chapter's review stands.
+whether a rule still holds is not the rule. So anything the app hands on as the
+chapter's content leaves the notes out, together with where the chapter's review
+stands. That covers what goes to an assistant, to search, and to an excerpt.
 
 The app shows these notes and does not write them; the convention's own tooling
-does. They are also not the reader's [remarks](#remarks-on-a-chapter): a remark
-is the person's own and stays in the app, a review note is the repository's and
-stays in the chapter, and the two are shown apart and never merged — the
-decision local ADR 0011 records.
+does. They are also not the reader's [remarks](#remarks-on-a-chapter). The two are
+shown apart and never merged, the decision local ADR 0011 records.
 
 ### Sync verdicts beside a chapter
 
@@ -558,15 +581,17 @@ type: sub-feature
 related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/productivity/features.md#drift-at-a-glance]
 ```
 
-Show beside each chapter heading the last verdict a devbook sync sweep reached on it —
-aligned, code ahead, spec ahead, in conflict, or unresolved — and on the root chapter
-of a sync unit the unit's own verdict and what the sweep did about it. Each badge
-leads to the pull request or drift issue the sweep opened, where the verdict is
-argued. Only the latest verdict per chapter is shown, and a sweep replaces only the
-chapters it checked, so a chapter last checked a month ago keeps that month-old word
-until a sweep checks it again. The words are the sweep's, verbatim; a word outside
-its vocabulary is shown as written and flagged rather than coloured like one it is
-not. A chapter no sweep has checked carries nothing.
+Show beside each chapter heading its [Sync Verdict](domain.md#sync-verdict): the
+last verdict a sweep reached on it (aligned, code ahead, spec ahead, in conflict,
+or unresolved). The root chapter of a [Sync Unit](domain.md#sync-unit) also shows
+the unit's own verdict and what the sweep did about it. Each badge leads to the
+pull request or drift issue the sweep opened, where the verdict is argued.
+
+Only the latest verdict per chapter is shown, and a sweep replaces only the
+chapters it checked. A chapter last checked a month ago keeps that month-old word
+until a sweep checks it again. The words are the sweep's, verbatim. A word outside
+its vocabulary is shown as written and flagged, rather than coloured like one it
+is not. A chapter no sweep has checked carries nothing.
 
 Each verdict also keeps the unit's sync direction as the sweep resolved it, and where
 it was inherited from. The dashboard's
@@ -582,26 +607,26 @@ related: [.devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
 Show what a repository's folders actually say, including when a chapter was
-edited outside the app — by another tool, by a pull request, or by hand in an
-editor. The folders are the source of truth and are never owned by the app; a
-prepared view over them is a convenience that has to prove itself current before
-it is shown, and has to give way to reading the folder directly when it cannot.
+edited outside the app: by another tool, by a pull request, or by hand in an
+editor. The folders are the source of truth and the app never owns them. A
+prepared view over them is a convenience. It has to prove itself current before it
+is shown, and it gives way to reading the folder directly when it cannot.
 
 A repository where nothing has been prepared is a normal state, not an error: its
 knowledge is still browsable, only slower. Preparing it is never a precondition
 for reading it.
 
-Preparation happens without being asked for and without being waited on — never
-at the cost of opening the app, and never at the cost of drawing a pane that is
-ready to show something. A chapter edited moments ago is shown from the folder
-itself rather than held back until the prepared view catches up, so what is on
-screen is never older than what is on disk.
+Preparation happens without being asked for and without being waited on. It never
+slows opening the app, and never holds back a pane that is ready to show something.
+A chapter edited moments ago is shown from the folder itself rather than held back
+until the prepared view catches up. What is on screen is never older than what is
+on disk.
 
 The prepared view is the app's own and is kept with the app, never in the
-repository: nothing is added to a repository's folders, and nothing there needs
-to be told to ignore it. It is prepared per copy of the repository, so two
-clones or two worktrees of one repository are each prepared from their own
-files, and a repository read from a branch without a clone is prepared too.
+repository. Nothing is added to a repository's folders, and nothing there needs to
+be told to ignore it. It is prepared per copy of the repository, so two clones or
+two worktrees of one repository are each prepared from their own files. A
+repository read from a branch without a clone is prepared too.
 
 ### The devbook on the repository's latest version
 
@@ -620,13 +645,16 @@ The question is asked only when somebody asks it. Answering means reaching for t
 repository itself, and knowledge that reached out on its own would make opening a
 folder wait on the network for an answer nobody wanted yet.
 
-The answer says how far behind the clone is, and offers to bring it up to date only
-when being behind is all that is in the way. A clone carrying edits nobody has
-committed, one holding revisions the repository does not have, or one whose history
-has parted from the repository's is reported as it stands rather than reconciled on
-the reader's behalf: what to do about any of those belongs to whoever owns the clone.
-Knowledge kept outside a repository has no latest version to be on, and is not asked
-about.
+The answer says how far behind the clone is. It offers to bring the clone up to
+date only when being behind is all that is in the way. Three other states are
+reported as they stand rather than reconciled on the reader's behalf:
+
+- a clone carrying edits nobody has committed;
+- a clone holding revisions the repository does not have;
+- a clone whose history has parted from the repository's.
+
+What to do about any of those belongs to whoever owns the clone. Knowledge kept
+outside a repository has no latest version to be on, and is not asked about.
 
 Bringing a clone up to date replaces what its folders say, so the knowledge on screen
 becomes the knowledge that arrived with it.
@@ -642,21 +670,36 @@ related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-
 
 Read a repository's devbook from its local clone or from any of its branches,
 chosen beside the area strip rather than in settings. Knowledge under review lives
-on a branch long before it reaches the default one, and the reader who wants it is
-rarely the one who has that branch checked out; a repository nobody has cloned has
-only its branches to offer (local ADR 0008).
+on a branch long before it reaches the default one. The reader who wants it is
+rarely the one who has that branch checked out, and a repository nobody has cloned
+has only its branches to offer (local ADR 0008).
 
-The choice is one field the reader types into: it suggests the default branch,
-the local clone where there is one, and the repository's branches, narrowed to
-what the typed text contains. A repository can have hundreds of branches, so
-they are fetched from GitHub when somebody asks for them rather than whenever
-the pane opens, and the list stops at a ceiling instead of paging without end.
-A branch the reader types that the list does not hold is asked of GitHub before
-it is turned down, because the list may simply be older than the branch. A
-search is not a choice: only a named source switches what the pane reads.
-Switching says, under the strip, whether the pane now reads the clone or a
-branch snapshot, and a branch snapshot is read-only. The settings screen offers
-the same choice with the same entries.
+The choice is one field the reader types into. It suggests the default branch, the
+local clone where there is one, and the repository's branches, narrowed to what
+the typed text contains.
+
+```mermaid
+flowchart TD
+    T[The reader types in the source field] --> L[The suggestions narrow to the typed text]
+    L --> N{Does the reader name a source?}
+    N -->|no, leaves the field mid-search| X[Nothing switches]
+    N -->|yes| H{Does the list hold it?}
+    H -->|yes| S[The pane switches and says what it reads]
+    H -->|no| G{Does GitHub have the branch?}
+    G -->|yes| S
+    G -->|no| R[Says so and leaves the source alone]
+```
+
+A repository can have hundreds of branches. They are fetched from GitHub when
+somebody asks for them rather than whenever the pane opens, and the list stops at a
+ceiling instead of paging without end. A typed branch the list does not hold is
+asked of GitHub before it is turned down, because the list may simply be older
+than the branch. A search is not a choice: only a named source switches what the
+pane reads.
+
+Switching says, under the strip, whether the pane now reads the clone or a branch
+snapshot, and a branch snapshot is read-only. The settings screen offers the same
+choice with the same entries.
 
 ### Reviewing what a branch changed
 
@@ -673,18 +716,24 @@ the pane that already shows the branch. A pull request's diff shows Markdown as
 lines; a reader reviewing knowledge wants the chapters that moved and what moved
 in each, beside the devbook they belong to.
 
-**Review changes** is offered while the pane reads a branch, and never for the
-local clone: the clone's history is the reader's own working copy, not a
-proposal. It lists the branch's own commits — the ones it holds that the default
-branch does not — and offers the whole branch against the default branch beside
-them. Choosing either lists the devbook chapters it changed, with a count of the
-other files it touched, and choosing a chapter compares it section by section,
-before and after. Where GitHub answered with only part of the history or the file
-list, the review says so instead of passing a partial answer off as whole. It is
-read from GitHub and held only for the session: nothing is cloned, written to
-disk, or prepared, so a review leaves no trace in the repository or the app's
-storage. Closing it, switching to the clone, or moving to another repository
-returns the pane to the chapters.
+```mermaid
+flowchart LR
+    B[The pane reads a branch] --> R[Review changes]
+    R --> C[The branch's own commits, and the whole branch]
+    C --> H[The devbook chapters it changed, other files counted]
+    H --> S[One chapter compared section by section]
+    R -. close, switch to the clone, or another repository .-> P[Back to the chapters]
+```
+
+**Review changes** is never offered for the local clone: the clone's history is
+the reader's own working copy, not a proposal. The branch's own commits are the
+ones it holds that the default branch does not, and the whole branch is compared
+against the default branch. A chapter is compared before and after.
+
+Where GitHub answered with only part of the history or the file list, the review
+says so instead of passing a partial answer off as whole. The review is read from
+GitHub and held only for the session. Nothing is cloned, written to disk, or
+prepared, so a review leaves no trace in the repository or the app's storage.
 
 ## Instruction optimization
 
@@ -696,17 +745,19 @@ depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
 ```
 
-Review the working instructions as what they are — documents whose readers are
+Review the working instructions as what they are: documents whose readers are
 mostly not people. The coding agents working in the repository read them on every
-run, each tool reads its own files, and the area grows by addition because adding
+run, and each tool reads its own files. The area grows by addition, because adding
 a rule feels safe and removing one feels risky. Findings say what an instruction
-set costs, where it disagrees with itself, and what would make it sharper; the
+set costs, where it disagrees with itself, and what would make it sharper. The
 repository keeps ownership of every word, so a finding is a proposal and nothing
 is rewritten unattended.
 
-Two costs are named separately and never traded silently: [Context Load](domain.md#context-load), and the person's own cost of knowing which document to reach for, which is not a number to drive to zero. An instruction
-set that got smaller while the agents got worse has failed, and the review reports
-that rather than a saving.
+Two costs are named separately and never traded silently. One is the
+[Context Load](domain.md#context-load). The other is the person's own cost of
+knowing which document to reach for, which is not a number to drive to zero. An
+instruction set that got smaller while the agents got worse has failed, and the
+review reports that rather than a saving.
 
 ### Instruction set inventory
 
@@ -732,7 +783,7 @@ related: [.devbook/domain/devbook/domain.md#context-load]
 Weigh a repository's always-loaded instruction weight against a budget and rank
 what carries that weight, heaviest first, with the one change that would lighten
 each. The ranking follows what a line actually costs across the turns that pay for
-it rather than how long its file is, so a short document loaded every run outranks
+it, not how long its file is. A short document loaded every run therefore outranks
 a long one reached twice a month.
 
 ### Duplicate rule detection
@@ -743,8 +794,8 @@ status: draft
 related: [.devbook/domain/devbook/domain.md#instruction-alignment]
 ```
 
-Surface a rule stated in more than one place — across two documents, or twice
-inside one — and name the single place that should own it. The half that matters
+Surface a rule stated in more than one place, across two documents or twice
+inside one, and name the single place that should own it. The half that matters
 is the same meaning in different words; identical sentences are the easy case. A
 candidate is offered for judgement rather than merged, because two rules that read
 alike are sometimes two different rules and collapsing them loses one.
@@ -771,12 +822,15 @@ status: draft
 ```
 
 Judge the wording that is supposed to do the work. A line naming a document held
-elsewhere is judged on whether it will actually make an agent reach for it, and on
-whether the conditions it lists cover the cases that document handles — must-have
-guidance behind wording that only sometimes fires is worse than guidance that is
-absent, because it fails unpredictably rather than visibly. A rule written as a
-prohibition is judged the same way and offered back stated as the behaviour that is
-wanted, since naming the banned behaviour is what puts it in front of the reader.
+elsewhere is judged on two things: whether it will actually make an agent reach
+for that document, and whether the conditions it lists cover the cases the
+document handles. Must-have guidance behind wording that only sometimes fires is
+worse than guidance that is absent, because it fails unpredictably rather than
+visibly.
+
+A rule written as a prohibition is judged the same way. It is offered back stated
+as the behaviour that is wanted, since naming the banned behaviour is what puts it
+in front of the reader.
 
 ### Prune candidates
 
@@ -785,12 +839,15 @@ type: sub-feature
 status: draft
 ```
 
-Surface the lines that no longer earn their load: guidance the agent already
-follows without being told, guidance that has gone stale against the behaviour it
-describes, and guidance that restates what the repository's own configuration,
-scripts, or folder layout already state — a copy that can only drift out of date.
-These are proposals for review, because whether an instruction changes anything is
-settled by running the agent without it rather than by arguing about it.
+Surface the lines that no longer earn their load:
+
+- guidance the agent already follows without being told;
+- guidance that has gone stale against the behaviour it describes;
+- guidance that restates what the repository's own configuration, scripts, or
+  folder layout already state, a copy that can only drift out of date.
+
+These are proposals for review. Whether an instruction changes anything is settled
+by running the agent without it, not by arguing about it.
 
 ### Reviewed change proposals
 
@@ -801,7 +858,7 @@ related: [.devbook/domain/devbook/domain.md#instruction-review]
 ```
 
 Apply an accepted proposal one at a time on an explicit yes, with the previous
-wording recoverable exactly as it was, then measure what the change did and offer
+wording recoverable exactly as it was. Then measure what the change did, and offer
 to withdraw it when the effect is not an improvement. Code blocks, commands, paths,
 and error strings pass through a rewrite unchanged: they are the part of an
 instruction that has to be exact.
@@ -825,8 +882,8 @@ related: [.devbook/domain/devbook/features.md#topic-and-tag-grouping, .devbook/d
 ```
 
 Find the chapter that answers a question across every area and every note at
-once, both by the words a chapter uses and by what it means, so a recollection
-that does not share the author's vocabulary still lands. Results name the chapter
+once. Search works both by the words a chapter uses and by what it means, so a
+recollection that does not share the author's vocabulary still lands. Results name the chapter
 they came from rather than returning loose text, because a chapter address is
 what every other part of this context already links by.
 

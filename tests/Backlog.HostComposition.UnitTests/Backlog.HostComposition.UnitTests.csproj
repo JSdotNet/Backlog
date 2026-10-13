@@ -58,6 +58,14 @@
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
   </ItemGroup>
 
+  <!-- The MAUI head's MCP listener, compiled here from its own source: the head
+       cannot be referenced, and McpServerWorkerTests holds it to building its
+       listener off the thread that constructs it. Everything the file uses
+       arrives through the desktop harness's references. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\App\Backlog.Desktop\Mcp\McpServerWorker.cs" Link="Head\McpServerWorker.cs" />
+  </ItemGroup>
+
   <!-- What Claude Code posted to an OTLP logs endpoint, scrubbed, for ClaudeCodeLogsEndpointGateTests
        to replay. Shared from tests/Fixtures because the reader and the host route
        replay the same capture. -->

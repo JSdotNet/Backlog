@@ -277,7 +277,7 @@ public sealed class GlobalPaneMarkupTests
         {
             Assert.Contains($"Pressed=\"PaneOptionPressed(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
             Assert.Contains($"OnClick=\"() => PressPane(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
-            Assert.Contains($"Title=\"@PaneOptionTitle(GlobalPane.{pane}, \"", home, StringComparison.Ordinal);
+            Assert.Contains($"Title=\"@PaneOptionTitle(GlobalPane.{pane}, ", home, StringComparison.Ordinal);
         }
 
         foreach (var view in new[] { "Tasks", "Roadmap" })

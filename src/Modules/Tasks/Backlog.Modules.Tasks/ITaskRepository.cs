@@ -64,6 +64,18 @@ public interface ITaskRepository
     Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// How many live tasks there are — the length <see cref="ListAsync"/> would
+    /// answer with. Tombstoned tasks are not counted.
+    /// <para>
+    /// Implemented by default over <see cref="ListAsync"/> so an in-memory store
+    /// needs nothing new; a store that can count without reading every row
+    /// overrides it.
+    /// </para>
+    /// </summary>
+    async Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        (await ListAsync(cancellationToken).ConfigureAwait(false)).Count;
+
+    /// <summary>
     /// Every task whose <see cref="TaskItem.UpdatedAt"/> is strictly later than
     /// <paramref name="since"/>, oldest first — <b>tombstones included</b>. The
     /// sync read, and the only list that sees one.

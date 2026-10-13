@@ -91,14 +91,15 @@ classDiagram
 
 ## Relationship notes
 
-- `MachineRegistry` is the single aggregate root (global singleton). `Machine` is
-  its owned entity; everything else is an immutable value object.
-- `TeamToolsBaseline` is a local copy of versions consumed from Technology Stack;
-  compliance is computed against it, not against a live foreign aggregate.
-- Queued vs. executed updates are deliberately split
-  (`PendingUpdate` → `UpdateRecord`).
-- Sessions are not on this diagram at all: that subject belongs to
-  [Sessions](../sessions/model.md), which models it per environment rather than per
+- `MachineRegistry` is the single aggregate root, a global singleton. `Machine`
+  is its owned entity, and everything else is an immutable value object.
+- `TeamToolsBaseline` is a local copy of versions consumed from Technology Stack.
+  Compliance is computed against it, not against a live foreign aggregate.
+- Queued and executed updates are deliberately split
+  (`PendingUpdate` → `UpdateRecord`), as the
+  [Tool update lifecycle](flow.md#tool-update-lifecycle) shows.
+- Sessions are not on this diagram ([context](context.md)).
+  [Sessions](../sessions/model.md) models them per environment rather than per
   machine.
 - `ToolBaseline` and `TrendMetrics` (see `domain.md`) are nested value objects of
   `TeamToolsBaseline` and `FleetAnalytics` respectively.

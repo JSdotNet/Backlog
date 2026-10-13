@@ -224,9 +224,11 @@ public sealed class SessionSyncSession
             pushed += response.Value.Accepted;
             sent += batch.Count;
 
-            foreach (var item in batch)
+            // One RecordRange per batch, so the footer redraws once per request.
+            if (_activity is { } syncLog)
             {
-                _activity?.Record(SyncDirection.Sent, SyncItemKind.Session, item.Session.Id, item.Session.Title);
+                syncLog.RecordRange(batch.Select(item => syncLog.Entry(
+                    SyncDirection.Sent, SyncItemKind.Session, item.Session.Id, item.Session.Title)));
             }
 
             if (ReplicaRoutes.WatermarkAfter([.. batch.Select(item => item.Session)], final: sent >= outgoing.Count, session => session.LastActivityAt) is { } advanced)
@@ -456,11 +458,12 @@ public sealed class SessionSyncSession
 
             applied += theirs.Count;
 
-            foreach (var entry in theirs)
+            // One RecordRange per page, so the footer redraws once per page.
+            if (_activity is { } syncLog)
             {
-                _activity?.Record(
+                syncLog.RecordRange(theirs.Select(entry => syncLog.Entry(
                     SyncDirection.Received, SyncItemKind.Session, entry.Record.SessionId,
-                    SessionTitle(entry.Record));
+                    SessionTitle(entry.Record))));
             }
 
             cursor = page.Value.Since;

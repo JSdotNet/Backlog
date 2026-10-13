@@ -14,8 +14,8 @@ tool versions and compliance against the
 [Technology Stack](../technology-stack/domain.md#technology-registry)
 baseline, and trigger remote updates.
 
-Outside it: which agent ran on a machine, where, and for how long, which
-[Sessions](../sessions/domain.md#session-log) answers — "which agent worked
+Outside it: which agent ran on a machine, where, and for how long. That is
+[Sessions](../sessions/domain.md#session-log)' question. "Which agent worked
 where" is a different question in a different language from "how is this PC
 configured", so a Machine holds no session state. What stays here is the machine.
 
@@ -29,4 +29,11 @@ default: on
 related: [".devbook/domain/dev-pc-management/features.md#catalog-authoring"]
 ```
 
-Turning it on offers the tools pane from the app chrome: check, update, enable, and disable what this machine is configured to have — Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for. On by default and marked `DEV`. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the pane leaves `DEV`.
+Turning it on offers the tools pane from the app chrome. The pane checks,
+updates, enables and disables what the [tool catalog](features.md#copilot-tool-catalog)
+says this machine should have: Copilot and Claude plugins, Claude plugin
+marketplaces, MCP servers, and the applications and checks the setup guide asks
+for. The flag is on by default and marked `DEV`. The settings screen lists it
+from the feature catalog in `AppFeatures.cs`. A person's choice is kept in
+`features.json` beside the app's other per-device choices. The flag is retired
+when the pane leaves `DEV`.

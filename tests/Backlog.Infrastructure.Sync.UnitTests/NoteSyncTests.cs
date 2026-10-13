@@ -120,6 +120,29 @@ public sealed class NoteSyncTests
         Assert.Single(fixture.Bodies);
     }
 
+    /// <summary>A batch of notes pushed is recorded as one change to the log.</summary>
+    [Fact]
+    public async Task A_pushed_batch_of_notes_is_recorded_with_one_change_to_the_log()
+    {
+        var notes = new RecordingNoteReplication();
+        notes.Pending.AddRange(
+        [
+            new InboxNoteDto(Guid.CreateVersion7(), "Standup", null, "mobile", Noon, Noon.AddMinutes(5)),
+            new InboxNoteDto(Guid.CreateVersion7(), "Retro", null, "mobile", Noon, Noon.AddMinutes(9)),
+        ]);
+        var activity = new SyncActivityLog();
+        var raised = 0;
+        activity.Changed += () => raised++;
+
+        using var fixture = Fixture.Create(new InMemoryTaskSyncStateStore(), notes, outbox: null, activity: activity);
+
+        await fixture.Session.PushAsync(Cancellation);
+
+        Assert.Equal(1, raised);
+        Assert.Equal(["Retro", "Standup"], activity.Snapshot().Select(entry => entry.Title).ToArray());
+        Assert.All(activity.Snapshot(), entry => Assert.Equal(SyncItemKind.Note, entry.Kind));
+    }
+
     [Fact]
     public async Task A_failed_push_leaves_the_notes_pending()
     {
@@ -176,7 +199,8 @@ public sealed class NoteSyncTests
             ITaskSyncStateStore state,
             IInboxNoteReplication? notes,
             IInboxCaptureOutbox? outbox,
-            HttpStatusCode status = HttpStatusCode.OK)
+            HttpStatusCode status = HttpStatusCode.OK,
+            SyncActivityLog? activity = null)
         {
             var bodies = new List<string>();
             var handler = new StubHttpMessageHandler((request, _) =>
@@ -210,6 +234,7 @@ public sealed class NoteSyncTests
                     "a-registration-credential")),
                 new FakeTimeProvider(Noon.AddHours(6)),
                 outbox,
+                activity,
                 notes: notes);
 
             return new Fixture(http, session, bodies);

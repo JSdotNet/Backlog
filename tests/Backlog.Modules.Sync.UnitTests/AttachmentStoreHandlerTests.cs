@@ -11,6 +11,7 @@ using Backlog.Modules.Sync.Ports;
 using Backlog.Modules.Sync.Services;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Sync.UnitTests;
@@ -139,7 +140,10 @@ public sealed class AttachmentStoreHandlerTests
         var file = new AttachmentMetadata(fileId, "slide.png", "image/png", bytes.Length, Sha256(bytes));
         var noteId = Guid.CreateVersion7();
         var now = _clock.GetUtcNow();
-        var push = new PushTasksCommandHandler(_replica, new CaptureAttachmentRelease(_store, new RecordingLogger()));
+        var push = new PushTasksCommandHandler(
+            _replica,
+            new CaptureAttachmentRelease(_store, new RecordingLogger()),
+            NullLogger<PushTasksCommandHandler>.Instance);
 
         await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, now, null, file)]), Cancellation);
         await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, now.AddMinutes(1), null, file)]), Cancellation);
@@ -149,6 +153,63 @@ public sealed class AttachmentStoreHandlerTests
         await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, now.AddMinutes(2), now.AddMinutes(2), file)]), Cancellation);
 
         Assert.Null(await _store.Find(Scope.OwnerId, fileId, Cancellation));
+    }
+
+    /// <summary>
+    /// The replica writes a batch several documents at once, so a push that
+    /// fails on one document can already have written others — here the note's
+    /// tombstone. Its files are released all the same, and the device still
+    /// hears the failure the replica raised, unchanged: a retry finds the note
+    /// already a tombstone and would never release them.
+    /// </summary>
+    [Fact]
+    public async Task A_push_that_fails_part_way_still_releases_the_files_of_a_tombstone_that_landed()
+    {
+        var (noteId, file) = await LiveNoteWithFile();
+        var busy = new SyncReplicaException(SyncErrorCodes.ReplicaBusy, "The task replica is busy. Try again shortly.");
+        var push = new PushTasksCommandHandler(
+            new PartlyWrittenReplica(_replica, busy),
+            new CaptureAttachmentRelease(_store, new RecordingLogger()),
+            NullLogger<PushTasksCommandHandler>.Instance);
+        var at = _clock.GetUtcNow().AddMinutes(1);
+
+        var thrown = await Assert.ThrowsAsync<SyncReplicaException>(
+            () => push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, at, at, file)]), Cancellation));
+
+        Assert.Same(busy, thrown);
+        Assert.Null(await _store.Find(Scope.OwnerId, file.Id, Cancellation));
+    }
+
+    /// <summary>The release after a failed push is best effort: when the replica
+    /// cannot even be read back, the device hears the push's own failure, not
+    /// the read's.</summary>
+    [Fact]
+    public async Task A_release_that_fails_after_a_failed_push_does_not_hide_the_push_s_failure()
+    {
+        var (noteId, file) = await LiveNoteWithFile();
+        var busy = new SyncReplicaException(SyncErrorCodes.ReplicaBusy, "The task replica is busy. Try again shortly.");
+        var push = new PushTasksCommandHandler(
+            new PartlyWrittenReplica(_replica, busy, unreadableAfterward: true),
+            new CaptureAttachmentRelease(_store, new RecordingLogger()),
+            NullLogger<PushTasksCommandHandler>.Instance);
+        var at = _clock.GetUtcNow().AddMinutes(1);
+
+        var thrown = await Assert.ThrowsAsync<SyncReplicaException>(
+            () => push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, at, at, file)]), Cancellation));
+
+        Assert.Same(busy, thrown);
+    }
+
+    private async Task<(Guid NoteId, AttachmentMetadata File)> LiveNoteWithFile()
+    {
+        var bytes = Bytes(32);
+        var fileId = Guid.CreateVersion7();
+        await Upload(fileId, bytes, maxBytes: 1_000);
+        var file = new AttachmentMetadata(fileId, "slide.png", "image/png", bytes.Length, Sha256(bytes));
+        var noteId = Guid.CreateVersion7();
+        await _replica.Upsert(Scope, [NoteChange(noteId, _clock.GetUtcNow(), null, file)], Cancellation);
+
+        return (noteId, file);
     }
 
     private static TaskChange NoteChange(Guid id, DateTimeOffset at, DateTimeOffset? deletedAt, AttachmentMetadata file) =>
@@ -221,6 +282,32 @@ public sealed class AttachmentStoreHandlerTests
 
         public Task Delete(OwnerId owner, Guid id, CancellationToken cancellationToken = default) =>
             throw new SyncReplicaException(SyncErrorCodes.AttachmentStoreUnavailable, "The attachment store is not reachable yet.");
+    }
+
+    /// <summary>A replica that writes the whole batch and then fails, the way a
+    /// concurrent write can land beside the one that failed. With
+    /// <c>unreadableAfterward</c>, every read after that failure fails too.</summary>
+    private sealed class PartlyWrittenReplica(ITaskReplica inner, Exception failure, bool unreadableAfterward = false) : ITaskReplica
+    {
+        private bool _failed;
+
+        public async Task<int> Upsert(OwnerScope scope, IReadOnlyList<TaskChange> changes, CancellationToken cancellationToken = default)
+        {
+            await inner.Upsert(scope, changes, cancellationToken);
+            _failed = true;
+            throw failure;
+        }
+
+        public Task<TaskReplicaPage> ReadChanges(OwnerId owner, TaskReplicaCursor? cursor, int maxItems, CancellationToken cancellationToken = default) =>
+            inner.ReadChanges(owner, cursor, maxItems, cancellationToken);
+
+        public Task<IReadOnlyList<TaskChangeRecord>> ListCaptures(OwnerId owner, CancellationToken cancellationToken = default) =>
+            inner.ListCaptures(owner, cancellationToken);
+
+        public Task<TaskChangeRecord?> Find(OwnerId owner, Guid id, CancellationToken cancellationToken = default) =>
+            _failed && unreadableAfterward
+                ? throw new SyncReplicaException(SyncErrorCodes.ReplicaUnavailable, "The task replica is not available yet. Try again shortly.")
+                : inner.Find(owner, id, cancellationToken);
     }
 
     private sealed class RecordingLogger : ILogger<CaptureAttachmentRelease>

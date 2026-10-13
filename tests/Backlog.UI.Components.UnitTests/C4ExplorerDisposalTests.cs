@@ -102,7 +102,7 @@ public sealed class C4ExplorerDisposalTests
         // degrade the same way a missing viewer script does, not fault the circuit.
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.JSInterop.SetupVoid("backlogC4Explorer.attach", _ => true)
+        context.JSInterop.Setup<bool>("backlogC4Explorer.attach", _ => true)
             .SetException(new JSDisconnectedException("The circuit is gone."));
 
         var exception = Record.Exception(() =>

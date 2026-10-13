@@ -4,10 +4,10 @@
 index: root
 ```
 
-Prompt Backlog is a personal, AI-first productivity system that captures input from
-many sources, organizes project knowledge, maintains a personal backlog, and monitors
-progress across multiple repositories and projects. It runs fully standalone on a
-single desktop and optionally connects to a thin cloud layer for multi-device sync.
+Backlog is a personal, AI-first productivity system. It captures input from many
+sources, organizes project knowledge, keeps a personal backlog, and monitors progress
+across repositories and projects. It runs fully standalone on a single desktop and
+optionally connects to a thin cloud layer for multi-device sync.
 
 The overriding architectural driver is **local-first**, as
 `.devbook/arc42/12-glossary.md` defines it; the desktop application also runs all
@@ -19,7 +19,8 @@ capture workers locally.
 ```
 
 The system is decomposed into independent functional domains, each designable,
-buildable, and extendable on its own.
+buildable, and extendable on its own. `.devbook/domain/context-map.md#subdomain-landscape`
+classifies them.
 
 | Domain | Purpose |
 |---|---|
@@ -28,6 +29,8 @@ buildable, and extendable on its own.
 | **Tasks** | Refine, prioritize, and route backlog items with sub-items (multi-repo entries) |
 | **Roadmap Planning** | Plan what happens when across repositories, with its own priorities and the dependencies between planned work |
 | **Devbook** | Organize project knowledge and cross-project context (PARA structure) |
+| **Productivity** | Turn AI-assisted work activity into personal productivity insight |
+| **Environment** | Give quick access to named local, cloud, and project environments |
 | **Monitoring & Dashboard** | Track progress signals, queue health, and operational follow-up views |
 | **Technology Stack** | Define baselines, version requirements, and adoption signals |
 | **Dev PC Management** | Register machines, track compliance, and orchestrate remote updates |

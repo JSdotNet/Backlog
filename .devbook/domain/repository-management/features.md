@@ -15,9 +15,13 @@ type: feature
 status: draft
 ```
 
-Register repositories with metadata (name, clone path, language, team, GitHub
-URL, type), support local and remote-only registrations, auto-discover repos from
-configured folders, and track when each was last scanned.
+Register the repositories the product works with:
+
+- record each one's metadata: name, clone path, language, team, GitHub URL, and
+  type;
+- register a repository with a local clone, or remote-only;
+- discover repositories automatically from configured folders;
+- track when each was last scanned.
 
 ### Repository registry configuration
 
@@ -28,13 +32,14 @@ feature-flag: .devbook/domain/repository-management/context.md#additional-reposi
 related: [.devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/devbook/features.md#repository-devbook-areas]
 ```
 
-Maintain the working set of repositories the app acts on. Each registered
-repository carries a short alias, its owner and name, an optional local clone
-directory, and a flag marking one repository as primary. The alias is the name
-the rest of the product uses: a task files itself against a repository
-by naming that alias, and an entry without one falls back to the primary
-repository. Registering more than one repository is itself an opt-in capability,
-so a single-repository setup stays uncluttered.
+Maintain the [registry](domain.md#repository-registry) of repositories the app
+acts on. Each registered repository carries a short
+[alias](domain.md#repository-alias), its owner and name, and an optional local
+clone directory. The alias is the name the rest of the product uses: a task files
+itself against a repository by naming that alias. Registering more than one
+repository is itself an opt-in capability, so a single-repository setup stays
+uncluttered. While it is off, every entry belongs to the first repository in the
+registry.
 
 ### Following a repository rename
 
@@ -44,61 +49,61 @@ status: draft
 related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions]
 ```
 
-Let a repository that was renamed on GitHub stay the same repository in the
-product. A registered repository is identified by its owner and name, and that is
-also what every entry and inbox item filed against it records — so a change of
-name would otherwise read as a second repository, and everything filed against
-the old name would be left pointing at a coordinate nobody is configured for.
+A registered repository is identified by its owner and name, and every entry and
+inbox item filed against it records that coordinate too. Without a rename, a
+change of name on GitHub would read as a second repository. Everything filed
+against the old name would then point at a coordinate nobody is configured for.
 
-A rename is asked for on the repository itself, by giving it its new owner and
-name; it is never inferred from the registered list. A list cannot tell a rename
-from a replacement, and for a repository registered without an alias of its own
-— whose alias simply is its name — the two edits are the same edit. So editing
-the list is registering and removing, and a change of owner or name made there
-is a removed repository beside a new one; the working set says so and points at
-the rename, which is the edit that keeps things.
+Five edits to the registry look alike and do different things:
 
-Renamed, the repository keeps everything that was decided about it — its clone
-directory, colour, account, and knowledge-folder settings — under the new name,
-and the old name is no longer a registered repository. Every entry and inbox
-item that named the old repository follows it to the new one, including an
-entry's links to issues it created there; an inbox item's record of where it was
-routed is left as written, because that is the record of a decision already
-taken. The working set reports what happened and how many entries and inbox
-items followed. A new name that is not a repository coordinate, or is the name
-the repository already has, is refused.
+| Edit | How it is made | What follows it | What is kept |
+|---|---|---|---|
+| Rename | A new owner and name, given on the repository itself | Every entry and inbox item naming the old repository, including an entry's links to issues it created there | The clone directory, colour, account and knowledge folder settings, under the new name, and a [Rename Record](domain.md#rename-record) of the old name |
+| Merge | A rename to a name another registered repository already has | Everything filed against the old name, to the other repository | The other repository's settings; the renamed one goes |
+| Removal | Removing the repository from the list | Nothing | A [Removal Record](domain.md#removal-record); entries keep the removed name and show no repository |
+| Relabel | Changing the alias alone | Nothing, because the same repository is meant | Everything |
+| Alias swap | Swapping two aliases between two repositories | Nothing, because it is two relabels | Each repository's own settings |
 
-A new name that another registered repository already has merges the two. This
-is how a placeholder, registered when a plan named a repository nobody had yet,
-is folded into the real repository it meant. The renamed repository goes, the
-other one keeps everything that was decided about it, and everything filed
-against the old name follows it there exactly as it would for a rename. The
-working set says it merged rather than renamed, on the card of the repository
-that was kept.
+A rename is asked for on the repository itself and is never inferred from the
+list. A list cannot tell a rename from a replacement. For a repository registered
+without an alias of its own, whose alias is its name, the two edits are the same
+edit. So a change of owner or name made in the list is a removed repository beside
+a new one. The repository list says so and points at the rename, which is the
+edit that keeps things.
 
-The registered list also remembers each rename — the old name, the new one, and
-when — so that the old name keeps meaning the repository it became wherever it
-is still written. The list and the entries reach another workspace of the same
-person by different routes and in no fixed order, and an entry that still names
-the old repository must not read as naming a repository nobody has. A workspace
-that receives the renamed list before the re-pointed entries follows the rename
-itself on its next start, and a name given up twice is followed to where the
-second rename put it. The memory of a rename is kept until its old name is
-registered again: a repository re-created under a name once given up is that
-new repository, not the old one.
+An inbox item's record of where it was routed is left as written, because that is
+the record of a decision already taken. The repository list reports what happened
+and how many entries and inbox items followed. A new name that is not a
+repository coordinate, or is the name the repository already has, is refused.
 
-A removal is remembered in the same way and for the same reason. Entries that
-still name a removed repository outlive it, and an entry naming a repository
-nobody has is otherwise read as one registered on another workspace and
-registered again, so a removal would be undone on the next start. Remembered,
-the removed name stays on those entries, which show no repository. The memory
-lasts until the name is registered again, on purpose, from the list or by an
-import that names it.
+A merge is how a [placeholder](domain.md#repository-registry) is folded into the
+real repository it meant. The list says it merged rather than renamed, on the
+card of the repository that was kept.
 
-Two edits look similar and are not renames. Relabelling the alias alone changes
-nothing about which repository is meant, so nothing has to follow it. Swapping
-two aliases between two registered repositories is two relabels: each
-repository keeps its own settings, and no entry moves.
+The list and the entries reach another workspace of the same person by different
+routes and in no fixed order:
+
+```mermaid
+sequenceDiagram
+    participant A as Workspace A
+    participant Folder as Workspace folder (registry)
+    participant Feed as Sync service (entries)
+    participant B as Workspace B
+
+    A->>A: rename me/old to me/new, re-point the entries
+    A->>Folder: renamed registry, with its rename record
+    A->>Feed: re-pointed entries
+    Folder->>B: renamed registry arrives first
+    B->>B: an entry still names me/old
+    B->>B: the record resolves me/old to me/new
+    B->>B: next start: re-point the entry itself
+    Feed->>B: re-pointed entries arrive, already followed
+```
+
+An entry that still names the old repository must therefore not read as naming a
+repository nobody has. The [Rename Record](domain.md#rename-record) says how long
+the memory lasts and how a name given up twice is followed. A removal is
+remembered for the same reason, in a [Removal Record](domain.md#removal-record).
 
 ### Repository identity colour
 
@@ -110,19 +115,25 @@ related: [.devbook/design/color-scheme.md#band-identity-tokens, .devbook/domain/
 
 Give each registered repository one colour, so a workspace holding several of
 them can be read one project at a time. The colour belongs to the repository
-rather than to any screen showing it: the same project is the same colour on the
-repository filter, on a plan, on a task filed against it, on the agent sessions
-under that task and on the row for a session in the Sessions area, and a screen
-that decided its own would be a second answer to which project is which.
+rather than to any screen showing it. The same project is the same colour
+everywhere it appears:
+
+- on the repository filter;
+- on a plan;
+- on a task filed against it, and on the agent sessions under that task;
+- on the row for a session in the Sessions area.
+
+A screen that decided its own colour would be a second answer to which project is
+which.
 
 The registry records *which* of the colours the design system sanctions, never a
-colour of its own — inventing one is a design decision and is made where design
-decisions are made. A repository nobody has chosen for is placed automatically by
-its position in the working set, stepping over the colours already claimed so it
-never lands on the one a neighbour was deliberately given. Past the end of the
-set the placement wraps and two repositories may share a colour, which is
-acceptable because the colour is not the identifier — the alias is, and it is
-written wherever the colour is shown.
+colour of its own. Inventing a colour is a design decision, and is made where
+design decisions are made. A repository nobody has chosen for is placed
+automatically by its position in the registry. The placement steps over the
+colours already claimed, so it never lands on the one a neighbour was deliberately
+given. Past the end of the set the placement wraps, and two repositories may share
+a colour. That is acceptable, because the colour is not the identifier: the alias
+is, and it is written wherever the colour is shown.
 
 The choice can be given back, which returns the repository to its automatic
 placement rather than leaving it colourless.
@@ -137,10 +148,15 @@ related: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 
 Decide, per repository, which knowledge folders the product may read and where
 they live. Each folder can be switched off entirely, and most can point at a
-non-standard location instead of the conventional one. A folder is only readable
-when the repository has a local clone directory, the folder is switched on, and
-the resolved location actually exists; otherwise the product explains which of
-those conditions is missing rather than silently showing nothing.
+non-standard location instead of the conventional one. A folder is readable only
+when all three of these hold:
+
+- the repository has a local clone directory;
+- the folder is switched on;
+- the resolved location actually exists.
+
+Otherwise the product explains which condition is missing rather than silently
+showing nothing.
 
 ## Package and dependency tracking
 
@@ -150,9 +166,12 @@ status: draft
 depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
 ```
 
-Scan dependency files, parse package versions and constraints, track transitive
-dependencies, detect outdated packages against registries, alert on critical or
-security patches, and support custom feeds.
+Keep track of each repository's dependencies:
+
+- scan dependency files and parse package versions and constraints;
+- track transitive dependencies;
+- detect outdated packages against their registries, including custom feeds;
+- alert on critical or security patches.
 
 ## Technology stack inventory
 
@@ -163,8 +182,9 @@ depends-on: [.devbook/domain/repository-management/features.md#repository-regist
 related: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
 ```
 
-Detect primary languages, framework versions, build tools, runtimes, and
-Docker/Kubernetes/cloud usage, with custom technology tagging.
+Detect each repository's primary languages, framework versions, build tools,
+runtimes, and use of Docker, Kubernetes and the cloud. A person can also tag a
+repository with technologies of their own.
 
 ## GitHub integration
 
@@ -173,9 +193,12 @@ type: feature
 status: draft
 ```
 
-Fetch GitHub metadata (stars, forks, last commit, branch protection), track open
-issues and PRs and their age, detect unmaintained repos, and track GitHub Actions
-CI/CD status.
+Read each repository's GitHub side:
+
+- metadata: stars, forks, last commit, branch protection;
+- open issues and pull requests, and their age;
+- whether the repository looks unmaintained;
+- the status of its GitHub Actions CI/CD runs.
 
 ### GitHub access resolution
 
@@ -186,11 +209,11 @@ related: [.devbook/domain/tasks/features.md#projection]
 ```
 
 Reach GitHub through whichever credential the machine already has. An existing
-signed-in GitHub CLI is preferred so no credential has to be stored in the
-product; a per-repository personal access token is the fallback for machines
-without it. Access can be checked on demand and reports back in plain language
-which route is in use and whether it currently works, and tokens are kept
-outside the backlog folder so the backlog itself stays safe to sync or commit.
+signed-in GitHub CLI is preferred, so no credential has to be stored in the
+product. A per-repository personal access token is the fallback for machines
+without it. Access can be checked on demand. The check reports in plain language
+which route is in use and whether it currently works. Tokens are kept outside the
+backlog folder, so the backlog itself stays safe to sync or commit.
 
 ## Repository health scoring
 
@@ -201,9 +224,10 @@ depends-on: [.devbook/domain/repository-management/features.md#package-and-depen
 related: [.devbook/domain/monitoring/features.md#multi-repo-scanning]
 ```
 
-Compute a health score from package freshness, GitHub issue/PR backlog, test
-coverage, and security alerts, surface low-health repos, and provide actionable
-per-repo recommendations.
+Compute a health score from package freshness, the GitHub issue and pull request
+backlog, test coverage, and security alerts. Low-health repositories surface on
+their own, each with actionable recommendations
+([Health scoring flow](flow.md#health-scoring-flow)).
 
 ## Technology trend analysis
 
@@ -213,9 +237,9 @@ status: draft
 related: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
 ```
 
-Aggregate package versions across repos to identify platform-wide adoption,
-surface deprecated tech still in use, recommend upgrades, and track adoption of
-new libraries/frameworks.
+Aggregate package versions across repositories to see platform-wide adoption.
+The analysis surfaces deprecated technology still in use, recommends upgrades,
+and tracks how new libraries and frameworks are adopted.
 
 ## Bulk operations
 
@@ -226,6 +250,6 @@ depends-on: [.devbook/domain/repository-management/features.md#repository-health
 related: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
-Queue package updates across multiple repos, coordinate synchronized upgrades,
-run custom workflows via GitHub Actions, and generate migration guides for major
-versions.
+Act on many repositories at once: queue package updates, coordinate synchronized
+upgrades, run custom workflows through GitHub Actions, and generate migration
+guides for major versions.

@@ -16,6 +16,24 @@ indent_style = space
 insert_final_newline = true
 trim_trailing_whitespace = true
 
+# Third-party builds vendored into the component library are kept byte for byte
+# as published (.gitattributes keeps git off them the same way), so an editor
+# saving one must not rewrite a byte either. The README beside each is ours and
+# takes the rules above.
+[src/Core/Backlog.UI.Components/wwwroot/lib/**]
+charset = unset
+end_of_line = unset
+indent_style = unset
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+
+[src/Core/Backlog.UI.Components/wwwroot/lib/**/README.md]
+charset = utf-8
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
 [*.{csproj,props,targets,xml,slnf,json,yml,yaml}]
 indent_size = 2
 

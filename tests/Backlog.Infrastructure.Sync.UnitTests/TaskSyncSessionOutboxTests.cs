@@ -70,6 +70,31 @@ public sealed class TaskSyncSessionOutboxTests
         Assert.Equal("acknowledged", entry.Note);
     }
 
+    /// <summary>A batch of acknowledgements is recorded as one change to the log,
+    /// in the order the batch went out.</summary>
+    [Fact]
+    public async Task A_batch_of_acknowledgements_is_recorded_with_one_change_to_the_log()
+    {
+        var outbox = new RecordingInboxOutbox();
+        outbox.Pending.Add(new InboxCaptureAckDto(Guid.CreateVersion7(), "Call the dentist", Noon, Noon.AddHours(1)));
+        outbox.Pending.Add(new InboxCaptureAckDto(Guid.CreateVersion7(), "Standup", Noon, Noon.AddHours(1), Kind: "note"));
+        outbox.Pending.Add(new InboxCaptureAckDto(Guid.CreateVersion7(), "Book the venue", Noon, Noon.AddHours(1)));
+        var activity = new SyncActivityLog();
+        var raised = 0;
+        activity.Changed += () => raised++;
+
+        using var fixture = Fixture.Create(new InMemoryTaskStore(), new InMemoryTaskSyncStateStore(), outbox,
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":3}"""),
+            activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, raised);
+        Assert.Equal(
+            [("Book the venue", "acknowledged"), ("Standup", "archived"), ("Call the dentist", "acknowledged")],
+            activity.Snapshot().Select(entry => (entry.Title, entry.Note)).ToArray());
+    }
+
     [Fact]
     public async Task Acknowledgements_go_after_the_tasks_and_are_counted_with_them()
     {

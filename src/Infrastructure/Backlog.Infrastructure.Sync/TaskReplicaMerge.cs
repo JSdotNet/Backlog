@@ -241,21 +241,34 @@ public sealed class TaskReplicaMerge(
         var applied = 0;
         var skipped = 0;
 
-        foreach (var record in Winners(page))
+        // What the page wrote, recorded once when it stops, so the footer redraws
+        // once per page. In a finally because a write that throws part way leaves
+        // the ones before it written, and the log should still say so. A local
+        // rather than a field: the merge must stay safe for concurrent pages.
+        var moved = new List<SyncActivityEntry>();
+
+        try
         {
-            switch (await ApplyOneAsync(record, cancellationToken).ConfigureAwait(false))
+            foreach (var record in Winners(page))
             {
-                case ApplyOutcome.Written:
-                    applied++;
-                    break;
+                switch (await ApplyOneAsync(record, moved, cancellationToken).ConfigureAwait(false))
+                {
+                    case ApplyOutcome.Written:
+                        applied++;
+                        break;
 
-                case ApplyOutcome.Unreadable:
-                    skipped++;
-                    break;
+                    case ApplyOutcome.Unreadable:
+                        skipped++;
+                        break;
 
-                default:
-                    break;
+                    default:
+                        break;
+                }
             }
+        }
+        finally
+        {
+            _activity?.RecordRange(moved);
         }
 
         return new TaskMergeOutcome(applied, skipped);
@@ -465,6 +478,15 @@ public sealed class TaskReplicaMerge(
         return winners.Values;
     }
 
+    /// <summary>Adds a document this page wrote to <paramref name="moved"/>, for
+    /// <see cref="ApplyAsync"/> to record with the rest of the page. Nothing on a
+    /// head with no activity log.</summary>
+    private void Moved(
+        List<SyncActivityEntry> moved, SyncDirection direction, SyncItemKind kind, string id, string title, string? note = null)
+    {
+        if (_activity is not null) moved.Add(_activity.Entry(direction, kind, id, title, note));
+    }
+
     /// <summary>
     /// Writes one record, unless the local row is already at least that version.
     /// <para>
@@ -499,6 +521,7 @@ public sealed class TaskReplicaMerge(
     /// </summary>
     private async Task<ApplyOutcome> ApplyOneAsync(
         TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
         CancellationToken cancellationToken)
     {
         // Only a document carrying the capture kind token takes this branch. A
@@ -544,13 +567,13 @@ public sealed class TaskReplicaMerge(
             switch (outcome)
             {
                 case InboxIntakeOutcome.Received:
-                    _activity?.Record(
-                        SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                    Moved(
+                        moved, SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title);
                     return ApplyOutcome.Written;
 
                 case InboxIntakeOutcome.Withdrawn:
-                    _activity?.Record(
-                        SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "withdrawn");
+                    Moved(
+                        moved, SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "withdrawn");
                     return ApplyOutcome.Written;
 
                 default:
@@ -560,17 +583,17 @@ public sealed class TaskReplicaMerge(
 
         if (NoteReplicaDocuments.IsNote(record.Change))
         {
-            return await ApplyNoteAsync(record, cancellationToken).ConfigureAwait(false);
+            return await ApplyNoteAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
         if (RoadmapReplicaDocuments.KindOf(record.Change.Task.Type) is { } document)
         {
-            return await ApplyRoadmapAsync(record, document, cancellationToken).ConfigureAwait(false);
+            return await ApplyRoadmapAsync(record, document, moved, cancellationToken).ConfigureAwait(false);
         }
 
         if (GitHubReplicaDocuments.KindOf(record.Change.Task.Type) is { } settings)
         {
-            return await ApplyGitHubSettingsAsync(record, settings, cancellationToken).ConfigureAwait(false);
+            return await ApplyGitHubSettingsAsync(record, settings, moved, cancellationToken).ConfigureAwait(false);
         }
 
         var local = await _tasks
@@ -607,8 +630,8 @@ public sealed class TaskReplicaMerge(
             await _tasks.SaveAsync(task, cancellationToken).ConfigureAwait(false);
         }
 
-        _activity?.Record(
-            SyncDirection.Received, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+        Moved(
+            moved, SyncDirection.Received, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
             task.DeletedAt is null ? null : "deleted");
 
         await SpawnOccurrenceAsync(local, task, cancellationToken).ConfigureAwait(false);
@@ -665,6 +688,7 @@ public sealed class TaskReplicaMerge(
     private async Task<ApplyOutcome> ApplyRoadmapAsync(
         TaskChangeRecord record,
         RoadmapReplicaDocument document,
+        List<SyncActivityEntry> moved,
         CancellationToken cancellationToken)
     {
         if (_roadmap is null)
@@ -687,8 +711,8 @@ public sealed class TaskReplicaMerge(
         switch (outcome)
         {
             case RoadmapReplicaOutcome.Taken:
-                _activity?.Record(
-                    SyncDirection.Received, SyncItemKind.Roadmap, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.Roadmap, record.Change.Id.ToString("D"), record.Change.Task.Title);
                 return ApplyOutcome.Written;
 
             case RoadmapReplicaOutcome.Unreadable:
@@ -711,7 +735,7 @@ public sealed class TaskReplicaMerge(
     /// wrong with the document. A note the Inbox cannot take is skipped rather
     /// than thrown on, for the reason the task path gives.
     /// </summary>
-    private async Task<ApplyOutcome> ApplyNoteAsync(TaskChangeRecord record, CancellationToken cancellationToken)
+    private async Task<ApplyOutcome> ApplyNoteAsync(TaskChangeRecord record, List<SyncActivityEntry> moved, CancellationToken cancellationToken)
     {
         if (_notes is null) return ApplyOutcome.Held;
 
@@ -738,15 +762,15 @@ public sealed class TaskReplicaMerge(
         switch (outcome)
         {
             case InboxIntakeOutcome.Received:
-                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title);
+                Moved(moved, SyncDirection.Received, SyncItemKind.Note, id, title);
                 return ApplyOutcome.Written;
 
             case InboxIntakeOutcome.Updated:
-                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title, "edited");
+                Moved(moved, SyncDirection.Received, SyncItemKind.Note, id, title, "edited");
                 return ApplyOutcome.Written;
 
             case InboxIntakeOutcome.Withdrawn:
-                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title, "archived");
+                Moved(moved, SyncDirection.Received, SyncItemKind.Note, id, title, "archived");
                 return ApplyOutcome.Written;
 
             default:
@@ -761,6 +785,7 @@ public sealed class TaskReplicaMerge(
     private async Task<ApplyOutcome> ApplyGitHubSettingsAsync(
         TaskChangeRecord record,
         GitHubReplicaDocument document,
+        List<SyncActivityEntry> moved,
         CancellationToken cancellationToken)
     {
         if (_github is null)
@@ -783,8 +808,8 @@ public sealed class TaskReplicaMerge(
         switch (outcome)
         {
             case GitHubReplicaOutcome.Taken:
-                _activity?.Record(
-                    SyncDirection.Received, SyncItemKind.GitHubSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.GitHubSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
                 return ApplyOutcome.Written;
 
             case GitHubReplicaOutcome.Unreadable:
