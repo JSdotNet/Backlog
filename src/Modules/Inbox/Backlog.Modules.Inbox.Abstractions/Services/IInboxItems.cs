@@ -308,6 +308,12 @@ public interface IInboxItems
     /// reason rather than hidden — unavailability never hides an act.</summary>
     (bool Available, string? Reason) PlanDrafterAvailability { get; }
 
+    /// <summary>Why To Brain cannot be taken right now — no Brain folder set, one
+    /// missing, a host without a Brain — in the words the route would refuse in;
+    /// null while the Brain can take a note. Read by the pane on render so To Brain
+    /// is shown disabled with its reason rather than refused once pressed.</summary>
+    string? BrainUnavailableReason => null;
+
     /// <summary>Whether a triage advisor is registered and can run. Unlike
     /// <see cref="PlanDrafterAvailability"/> there is no reason to show: while it
     /// is false every AI triage surface is hidden, not disabled (local ADR 0023 §4).</summary>

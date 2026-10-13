@@ -6,7 +6,7 @@
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [1200, 820]
+    "viewBox": [1200, 740]
   },
   "participants": [
     { "id": "me", "type": "external", "label": "ME" },
@@ -16,26 +16,24 @@
     { "id": "sync", "type": "cloud", "label": "Sync Service" }
   ],
   "segments": [
-    { "from": 150, "to": 336, "label": "Captured on the phone" },
-    { "from": 352, "to": 540, "label": "Loop: each file not yet uploaded" },
-    { "from": 556, "to": 746, "label": "Post the note and clean up" }
+    { "from": 150, "to": 256, "label": "Queued by an earlier build" },
+    { "from": 272, "to": 460, "label": "Loop: each file not yet uploaded" },
+    { "from": 476, "to": 666, "label": "Post the note and clean up" }
   ],
   "messages": [
-    { "id": "send-to-inbox", "from": "me", "to": "app", "y": 182, "label": "Send to Inbox (body, speaker, tags, files)", "variant": "default" },
-    { "id": "prepare-files", "from": "app", "to": "files", "y": 226, "label": "Downscale pictures, move files; size + sha256", "variant": "default" },
-    { "id": "insert-outbox", "from": "app", "to": "outbox", "y": 270, "label": "INSERT (id v7, kind=talk-note, capture + uploaded=[])", "variant": "emphasis" },
-    { "id": "marked-waiting", "from": "app", "to": "me", "y": 314, "label": "Inbox row marked waiting; note says \"waiting\"", "variant": "return" },
-    { "id": "put-attachment", "from": "outbox", "to": "sync", "y": 384, "label": "PUT /api/sync/attachments/{id} (X-Attachment-Sha256)", "variant": "emphasis" },
-    { "id": "stored-attachment", "from": "sync", "to": "outbox", "y": 432, "label": "StoredAttachment", "variant": "return", "note": "alt: 201, or 200 for the same bytes; Outbox then checkpoints: uploaded += id, attempts = 0" },
-    { "id": "transient", "from": "sync", "to": "outbox", "y": 480, "label": "Transient — attempts+1, back off, stop the flush", "variant": "return", "note": "else: no network, timeout, 5xx or 401" },
-    { "id": "refused", "from": "sync", "to": "outbox", "y": 528, "label": "Refused — set aside, naming the file", "variant": "return", "note": "else: 409, 413 or 415" },
-    { "id": "post-inbox", "from": "outbox", "to": "sync", "y": 588, "label": "POST /api/sync/inbox (same id, attachments: metadata)", "variant": "emphasis" },
-    { "id": "inbox-created", "from": "sync", "to": "outbox", "y": 636, "label": "201 InboxItem", "variant": "return", "note": "Outbox then: DELETE entry" },
-    { "id": "delete-files", "from": "outbox", "to": "files", "y": 680, "label": "Delete the note's files", "variant": "default" },
-    { "id": "synced", "from": "app", "to": "me", "y": 724, "label": "\"synced\"", "variant": "return" }
+    { "id": "insert-outbox", "from": "app", "to": "outbox", "y": 186, "label": "Entry (id v7, kind=talk-note, capture + uploaded=[])", "variant": "emphasis", "note": "Queued by an earlier build: pictures downscaled, size + sha256 taken" },
+    { "id": "marked-waiting", "from": "app", "to": "me", "y": 234, "label": "Inbox row marked waiting", "variant": "return" },
+    { "id": "put-attachment", "from": "outbox", "to": "sync", "y": 304, "label": "PUT /api/sync/attachments/{id} (X-Attachment-Sha256)", "variant": "emphasis" },
+    { "id": "stored-attachment", "from": "sync", "to": "outbox", "y": 352, "label": "StoredAttachment", "variant": "return", "note": "alt: 201, or 200 for the same bytes; Outbox then checkpoints: uploaded += id, attempts = 0" },
+    { "id": "transient", "from": "sync", "to": "outbox", "y": 400, "label": "Transient — attempts+1, back off, stop the flush", "variant": "return", "note": "else: no network, timeout, 5xx or 401" },
+    { "id": "refused", "from": "sync", "to": "outbox", "y": 448, "label": "Refused — set aside, naming the file", "variant": "return", "note": "else: 409, 413 or 415" },
+    { "id": "post-inbox", "from": "outbox", "to": "sync", "y": 508, "label": "POST /api/sync/inbox (same id, attachments: metadata)", "variant": "emphasis" },
+    { "id": "inbox-created", "from": "sync", "to": "outbox", "y": 556, "label": "201 InboxItem", "variant": "return", "note": "Outbox then: DELETE entry" },
+    { "id": "delete-files", "from": "outbox", "to": "files", "y": 600, "label": "Delete the note's files", "variant": "default" },
+    { "id": "synced", "from": "app", "to": "me", "y": 644, "label": "\"synced\"", "variant": "return" }
   ],
   "activations": [
-    { "participant": "sync", "from": 378, "to": 534, "type": "cloud" },
-    { "participant": "sync", "from": 582, "to": 642, "type": "cloud" }
+    { "participant": "sync", "from": 298, "to": 454, "type": "cloud" },
+    { "participant": "sync", "from": 502, "to": 562, "type": "cloud" }
   ]
 }

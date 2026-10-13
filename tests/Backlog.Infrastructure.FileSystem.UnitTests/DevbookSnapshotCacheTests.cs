@@ -316,6 +316,123 @@ public class DevbookSnapshotCacheTests : IDisposable
         Assert.Null(cache.TryRead(Repository, "main"));
     }
 
+    // --- Parsing once ------------------------------------------------------------
+
+    /// <summary>
+    /// One page open asks about the branch a dozen times — resolving the folder,
+    /// its tree, the listing, the area, each referenced page — and the index can
+    /// be a hundred thousand entries. It is parsed once per change, not once per
+    /// question, and so is the record of what is fetched.
+    /// </summary>
+    [Fact]
+    public async Task An_unchanged_index_is_parsed_once_however_often_it_is_asked_about()
+    {
+        var trees = new StubTreeClient()
+            .WithFile(".domain/context-map.md", "# Contexts")
+            .WithFile(".arc42/01-introduction.md", "# Intro");
+        var cache = Cache(trees, new StubBranchCatalog("main", "sha-1"));
+
+        await cache.EnsureAsync(Repository, "main", [".domain/context-map.md"], Token);
+
+        // The download just rewrote the record of what is fetched, so the first
+        // read after it parses that once; every one after is the same change.
+        Assert.NotNull(cache.TryReadIndex(Repository, "main"));
+        var indexParses = cache.IndexParses;
+        var fetchedParses = cache.FetchedParses;
+
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.NotNull(cache.TryRead(Repository, "main"));
+            Assert.NotNull(cache.TryReadIndex(Repository, "main"));
+            await cache.EnsureAsync(Repository, "main", [".domain/context-map.md"], Token);
+        }
+
+        Assert.Equal(indexParses, cache.IndexParses);
+        Assert.Equal(fetchedParses, cache.FetchedParses);
+        Assert.Equal([".domain/context-map.md"], cache.TryReadIndex(Repository, "main")!.Fetched);
+    }
+
+    /// <summary>Whether a branch is fetched is asked far more often than what is
+    /// in it, so answering it reads the commit at the head of the index and not
+    /// the entries behind it.</summary>
+    [Fact]
+    public async Task Asking_whether_a_branch_is_fetched_does_not_parse_its_entries()
+    {
+        var trees = new StubTreeClient().WithFile("readme.md", "x");
+        await Cache(trees, new StubBranchCatalog("main", "sha-1")).FetchAsync(Repository, "main", Token);
+
+        // A second instance over the same folder: nothing it holds in memory.
+        var fresh = Cache(trees, new StubBranchCatalog("main", "sha-1"));
+
+        Assert.Equal("sha-1", fresh.TryRead(Repository, "main")!.Sha);
+        Assert.Equal(0, fresh.IndexParses);
+    }
+
+    /// <summary>A write is what makes the parsed copy stale, so a write is what
+    /// drops it: the next read after a refresh is the new commit's index and the
+    /// new record of what is here, never the previous one held in memory.</summary>
+    [Fact]
+    public async Task Writing_a_new_index_or_fetching_a_file_drops_the_parsed_copy()
+    {
+        var trees = new StubTreeClient().WithFile("keep.md", "same").WithFile("change.md", "first");
+        var branches = new StubBranchCatalog("main", "sha-1");
+        var cache = Cache(trees, branches);
+
+        await cache.FetchAsync(Repository, "main", Token);
+        Assert.Empty(cache.TryReadIndex(Repository, "main")!.Fetched);
+
+        await cache.EnsureAsync(Repository, "main", ["keep.md"], Token);
+        Assert.Equal(["keep.md"], cache.TryReadIndex(Repository, "main")!.Fetched);
+
+        trees.Reset().WithFile("keep.md", "same").WithFile("added.md", "new");
+        branches.Sha = "sha-2";
+        await cache.FetchAsync(Repository, "main", Token);
+
+        var index = cache.TryReadIndex(Repository, "main")!;
+        Assert.Equal("sha-2", index.Snapshot.Sha);
+        Assert.Contains(index.Entries, entry => entry.Path == "added.md");
+        Assert.DoesNotContain(index.Entries, entry => entry.Path == "change.md");
+        Assert.Equal(["keep.md"], index.Fetched);
+    }
+
+    /// <summary>The cache is this process's; the file is not. An index rewritten
+    /// underneath it — another instance of the app, a person clearing the folder —
+    /// is read again rather than answered from memory.</summary>
+    [Fact]
+    public async Task An_index_rewritten_on_disk_is_read_again()
+    {
+        var cache = Cache(new StubTreeClient().WithFile("readme.md", "x"), new StubBranchCatalog("main", "sha-1"));
+        await cache.FetchAsync(Repository, "main", Token);
+        Assert.DoesNotContain(cache.TryReadIndex(Repository, "main")!.Entries, entry => entry.Path == "later.md");
+
+        var indexPath = Path.Combine(Path.GetDirectoryName(cache.SnapshotPath(Repository, "main"))!, "index.json");
+        File.WriteAllText(
+            indexPath,
+            File.ReadAllText(indexPath).Replace("\"entries\": [", "\"entries\": [ { \"path\": \"later.md\", \"sha\": \"blob-later\", \"dir\": false },", StringComparison.Ordinal));
+
+        Assert.Contains(cache.TryReadIndex(Repository, "main")!.Entries, entry => entry.Path == "later.md");
+    }
+
+    /// <summary>An index written by an older build, or by hand, need not name its
+    /// commit first. The cheap read gives way to the whole one rather than calling
+    /// the branch unfetched.</summary>
+    [Fact]
+    public async Task An_index_whose_commit_comes_after_its_entries_still_reads_as_fetched()
+    {
+        var cache = Cache(new StubTreeClient().WithFile("readme.md", "x"), new StubBranchCatalog("main", "sha-1"));
+        await cache.FetchAsync(Repository, "main", Token);
+
+        var indexPath = Path.Combine(Path.GetDirectoryName(cache.SnapshotPath(Repository, "main"))!, "index.json");
+        File.WriteAllText(
+            indexPath,
+            "{ \"truncated\": false, \"entries\": [ { \"path\": \"readme.md\", \"sha\": \"blob-x\", \"dir\": false } ], \"sha\": \"sha-1\" }");
+
+        var fresh = Cache(new StubTreeClient(), new StubBranchCatalog("main", "sha-1"));
+
+        Assert.Equal("sha-1", fresh.TryRead(Repository, "main")!.Sha);
+        Assert.Equal(["readme.md"], fresh.TryReadIndex(Repository, "main")!.Entries.Select(entry => entry.Path));
+    }
+
     // --- Naming ------------------------------------------------------------------
 
     /// <summary>The cache is keyed on what was configured, not on what that

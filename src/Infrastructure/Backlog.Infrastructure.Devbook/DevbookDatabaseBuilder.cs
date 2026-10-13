@@ -19,7 +19,10 @@ namespace Backlog.Infrastructure.Devbook;
 /// same corpus: the reference graph, the resolved reading outline for every scope,
 /// each chapter's verbatim text, prose and hashes, the full-text index, the
 /// Archify artifact index, and the click demos with what pairs each one with a
-/// page. The embedding table is created and left empty, as it is
+/// page. The embedding table is filled afterwards by
+/// <see cref="DevbookChapterEmbeddings"/>, not here; a rebuild carries over the
+/// vectors the database it replaces already held for text that did not change, so
+/// an edit never re-embeds the corpus. Built fresh, the table is empty, as it is
 /// there. The two writers are held to each other, table by table, by
 /// <c>DevbookBuilderParityTests</c> on this repository's own corpus.</para>
 ///
@@ -78,7 +81,7 @@ public static class DevbookDatabaseBuilder
 
         try
         {
-            Write(repositoryRoot, layout, temporary, cancellationToken);
+            Write(repositoryRoot, layout, temporary, target, cancellationToken);
             DeleteSidecars(temporary);
             MoveIntoPlace(temporary, target, cancellationToken);
         }
@@ -123,7 +126,7 @@ public static class DevbookDatabaseBuilder
     public static bool HasDevbook(string root, DevbookCorpusKind kind) =>
         DevbookBuildLayout.Discover(Path.GetFullPath(root), kind).Folders.Count > 0;
 
-    private static void Write(string root, DevbookBuildLayout layout, string temporary, CancellationToken cancellationToken)
+    private static void Write(string root, DevbookBuildLayout layout, string temporary, string previous, CancellationToken cancellationToken)
     {
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
@@ -140,6 +143,10 @@ public static class DevbookDatabaseBuilder
         // runs leaves a fingerprint that no longer matches: the next check
         // rebuilds rather than calling the half-old database current.
         var inputs = InputsFingerprint(root, layout);
+
+        // Read before the transaction and detached at once: the live database is
+        // only ever read, and never held while the build runs.
+        var carrying = StagePrevious(connection, previous);
 
         using var transaction = connection.BeginTransaction();
         var problems = new List<DevbookBuildProblem>();
@@ -158,6 +165,7 @@ public static class DevbookDatabaseBuilder
         var linkedDemos = InsertChapters(connection, transaction, root, layout, cancellationToken);
         InsertArchify(connection, transaction, root, layout, problems);
         InsertDemos(connection, transaction, root, layout, linkedDemos, problems);
+        var carriedModel = carrying ? CarryEmbeddings(connection, transaction) : null;
 
         using (var insert = Command(connection, transaction, "INSERT INTO problem (scope, severity, path, message) VALUES ($scope, $severity, $path, $message)"))
         {
@@ -176,7 +184,8 @@ public static class DevbookDatabaseBuilder
                     (DevbookDatabaseSchema.GeneratedByKey, GeneratedBy),
                     (DevbookDatabaseSchema.GeneratedAtKey, DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)),
                     (DevbookDatabaseSchema.ScopesKey, string.Join(',', layout.Scopes)),
-                    (InputsKey, inputs)
+                    (InputsKey, inputs),
+                    .. carriedModel is null ? [] : new[] { (DevbookDatabaseSchema.EmbeddingModelKey, carriedModel) }
                 ])
             {
                 Bind(meta, ("$key", key), ("$value", value));
@@ -185,6 +194,91 @@ public static class DevbookDatabaseBuilder
         }
 
         transaction.Commit();
+    }
+
+    /// <summary>
+    /// Copies the vectors of the database this build is about to replace into a
+    /// temporary table of this connection, when that database is in this schema,
+    /// and detaches it again — so the live file is read once, briefly, and never
+    /// locked for the length of the build. Anything else — absent, another
+    /// version, not a database — carries nothing, and the semantic tier re-embeds
+    /// what it needs.
+    /// </summary>
+    private static bool StagePrevious(SqliteConnection connection, string previous)
+    {
+        if (!File.Exists(previous)) return false;
+
+        var attached = false;
+        try
+        {
+            using (var attach = connection.CreateCommand())
+            {
+                attach.CommandText = "ATTACH DATABASE $path AS previous";
+                attach.Parameters.AddWithValue("$path", previous);
+                attach.ExecuteNonQuery();
+                attached = true;
+            }
+
+            using var version = connection.CreateCommand();
+            version.CommandText = "SELECT value FROM previous.meta WHERE key = $key";
+            version.Parameters.AddWithValue("$key", DevbookDatabaseSchema.SchemaVersionKey);
+            if (version.ExecuteScalar() is not string declared
+                || declared != DevbookDatabaseSchema.Version.ToString(CultureInfo.InvariantCulture))
+            {
+                return false;
+            }
+
+            Execute(connection, "CREATE TEMP TABLE carried AS SELECT content_hash, model, dimensions, vector FROM previous.chapter_embedding");
+            return true;
+        }
+        catch (SqliteException)
+        {
+            // Not a database this app can read; nothing to carry.
+            return false;
+        }
+        finally
+        {
+            if (attached) TryDetach(connection);
+        }
+    }
+
+    /// <summary>
+    /// Keeps every staged vector whose text is still a chapter here — the key is
+    /// <c>content_hash</c>, so a chapter that moved keeps its vector and one that
+    /// changed does not. Returns the model the kept vectors were recorded under,
+    /// or <see langword="null"/> when none came across or they disagree.
+    /// </summary>
+    private static string? CarryEmbeddings(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        try
+        {
+            using var copy = Command(connection, transaction, """
+                INSERT INTO main.chapter_embedding (content_hash, model, dimensions, vector)
+                SELECT content_hash, model, dimensions, vector FROM temp.carried
+                WHERE content_hash IN (SELECT content_hash FROM main.chapter)
+                """);
+            if (copy.ExecuteNonQuery() == 0) return null;
+
+            using var model = Command(connection, transaction, "SELECT min(model), count(DISTINCT model) FROM main.chapter_embedding");
+            using var reader = model.ExecuteReader();
+            return reader.Read() && reader.GetInt64(1) == 1 ? reader.GetString(0) : null;
+        }
+        catch (SqliteException)
+        {
+            return null;
+        }
+    }
+
+    private static void TryDetach(SqliteConnection connection)
+    {
+        try
+        {
+            Execute(connection, "DETACH DATABASE previous");
+        }
+        catch (SqliteException)
+        {
+            // Left attached; the connection closes with the build.
+        }
     }
 
     private static void InsertGraph(SqliteConnection connection, SqliteTransaction transaction, DevbookGraph graph)

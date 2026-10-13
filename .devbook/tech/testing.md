@@ -5,9 +5,9 @@ status: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/10-quality-requirements.md"]
 ```
 
-> This layer is fully `adopted`: every
-> technology here runs on every pull request, either in `dotnet test` or in the
-> QA validation phase of an orchestration run.
+> This layer is fully `adopted`: every technology here runs on every pull
+> request, either in `dotnet test` or in the `phase-verify` stage of a `flow-*`
+> run.
 
 ## xUnit v3
 
@@ -24,15 +24,13 @@ The unit-test framework for every test project, referenced once in
 
 - **Used for** — module, infrastructure, UI-component, and architecture tests.
   `Backlog.ArchitectureTests` uses it to enforce repository rules that no
-  compiler can — shared-control adoption, and the fence keeping `src/Harness/`
-  out of shipping code.
+  compiler can, such as shared-control adoption and the fence keeping
+  `src/Harness/` out of shipping code.
 - **Why** — the default .NET test framework, and v3 is what integrates with
   Microsoft.Testing.Platform.
 - **How** — v3 runs each test assembly as its own process, so every test project
-  sets `OutputType=Exe`; the package set and the `Xunit` global using are
-  declared once in `tests/Directory.Build.props`. The v3 analyzer `xUnit1051` is
-  silenced there deliberately, so adopting `TestContext.Current.CancellationToken`
-  stays its own change rather than a rewrite of every await in the suite.
+  sets `OutputType=Exe`. The package set and the `Xunit` global using are
+  declared once in `tests/Directory.Build.props`.
 
 ## Microsoft.Testing.Platform
 
@@ -115,9 +113,9 @@ The code-coverage collector, referenced from `tests/Directory.Build.props`.
   pull-request run, uploaded as an artifact and merged into the line-coverage
   figure on the run summary.
 - **Why** — like the TRX reporter, coverage is an opt-in extension under
-  Microsoft.Testing.Platform, and the `--coverage` options only exist because
-  this package is referenced. It replaced coverlet's collector, a VSTest data
-  collector the platform never loads.
+  Microsoft.Testing.Platform, and the `--coverage` options exist only because
+  this package is referenced. Coverlet's collector is a VSTest data collector
+  the platform never loads, so it is not an option here.
 
 ## bUnit
 
@@ -150,9 +148,9 @@ depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/testing.md#xu
 In-memory hosting of an ASP.NET Core app under test.
 
 - **Used for** — `WebApplicationFactory` in `Backlog.Modules.Sync.Api.UnitTests`
-  and `Backlog.HostComposition.UnitTests`, which exercise the real pipeline —
-  authentication, routing, filters — without a socket.
-- **Why** — the first-party test host; an endpoint test goes through the same
+  and `Backlog.HostComposition.UnitTests`. Both exercise the real pipeline, with
+  its authentication, routing, and filters, without a socket.
+- **Why** — the first-party test host. An endpoint test goes through the same
   middleware a deployed request does.
 
 ## Microsoft.Extensions.TimeProvider.Testing
@@ -166,8 +164,8 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 
 `FakeTimeProvider`, a clock a test moves by hand.
 
-- **Used for** — nine unit-test projects whose code takes a `TimeProvider`:
-  token lifetimes, sync cycles, deferral and resurfacing, roadmap dates.
+- **Used for** — the unit-test projects whose code takes a `TimeProvider`:
+  token lifetimes, sync cycles, deferral and resurfacing, and roadmap dates.
 - **Why** — time-dependent behaviour is asserted without sleeping and without
   flaking on a slow machine.
 
@@ -184,7 +182,7 @@ related: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".de
 Browser automation for end-to-end validation.
 
 - **Used for** — two things:
-  - The Validation phase of a code-modifying `flow-*` run. It drives the Blazor
+  - The `phase-verify` stage of a code-modifying `flow-*` run. It drives the Blazor
     Server harnesses and the storybook, captures screenshots and video as evidence,
     and attaches to the desktop head over WebView2's CDP debugging port.
   - The checked-in end-to-end tests in `tests/Backlog.EndToEndTests`. They use

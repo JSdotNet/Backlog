@@ -109,10 +109,18 @@ public sealed class TokenTransport : IGitHubTransport
     /// Sends one call with a credential already in hand, rather than one the path
     /// resolves to.
     /// <para>
-    /// Internal, and the one caller is the account check: it resolves the credential
-    /// for a path that names the account, then asks <c>GET user</c> with it - a path
-    /// that names nobody, and would otherwise leave as this machine's default
-    /// identity, which is exactly the thing the check is meant to see past.
+    /// Internal, with two callers, both in <see cref="ResolvingGitHubTransport"/>.
+    /// The account check resolves the credential for a path that names the account,
+    /// then asks <c>GET user</c> with it - a path that names nobody, and would
+    /// otherwise leave as this machine's default identity, which is exactly the thing
+    /// the check is meant to see past.
+    /// </para>
+    /// <para>
+    /// The unbound route sends with the token the <c>gh</c> CLI holds for its
+    /// signed-in login. It may skip the resolver because it only does so once the
+    /// resolver has answered that the path is <em>not</em> bound, so there is no
+    /// account's refusal to bypass; and it has to, because the resolver would put a
+    /// repository's own token above the CLI's identity.
     /// </para>
     /// </summary>
     internal async Task<JsonElement> SendAsAsync(
@@ -207,9 +215,7 @@ public sealed class TokenTransport : IGitHubTransport
     internal Uri EndpointUri(string path, string? apiEndpoint = null)
     {
         var raw = string.IsNullOrWhiteSpace(apiEndpoint) ? _apiEndpoint() : apiEndpoint;
-        var endpoint = string.IsNullOrWhiteSpace(raw)
-            ? GitHubSettings.DefaultApiEndpoint
-            : raw.Trim().TrimEnd('/');
+        var endpoint = GitHubSettings.NormalizeApiEndpoint(raw);
 
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri))
         {

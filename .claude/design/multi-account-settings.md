@@ -342,6 +342,21 @@ existing `A_token_never_reaches_the_shared_registry`.
   *"it means the app never holds a credential: `gh` keeps it, refreshes it, and revokes
   it"* (`GhCliTransport.cs:7-11`). Keep it, narrowed to the **default path only**.
 
+> **Note, 2026-10-13 — the default path now borrows the CLI's token for HTTP.** A `gh api`
+> process per unbound call cost 100 to 300 ms on Windows, so `ResolvingGitHubTransport`
+> now asks `gh auth token --user <login> --hostname github.com` for the login `gh api user`
+> reported and sends the call over HTTP through `TokenTransport.SendAsAsync`. The token is
+> held in memory only, for the 5-minute TTL of `GhCliAccountSource`, and is cleared on a
+> 401 and by "Check the connection"; it is never persisted. The CLI identity still wins
+> over a repository token on an unbound path. `gh api` is kept as the fallback: when gh
+> holds no github.com token for that login, and when the install-wide endpoint is not
+> `api.github.com` or `GH_HOST` / `GH_ENTERPRISE_TOKEN` is set. A 401 on a borrowed token
+> is **not** resent (guideline ADR 0015: no resend after an authentication failure): it
+> surfaces as a `GitHubException` with `Status` 401, and the token and the CLI's cached
+> availability are forgotten, so the next call re-probes `gh` and borrows afresh or falls
+> back. This reverses "no credential extraction" for the default path; `GH_TOKEN`
+> injection stays rejected.
+
 ### If `gh auth token --user` were absent
 
 It is not, on gh 2.95.0. For an older `gh`, or GHES, the fallback is

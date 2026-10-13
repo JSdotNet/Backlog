@@ -15,9 +15,10 @@ type: feature
 status: draft
 ```
 
-The desktop component registers itself with the cloud on startup, reporting name,
-OS, IP (local + public), MAC, and status, with a heartbeat that tracks
-online/sleeping/offline state and auto-deregisters after inactivity.
+The desktop app registers its machine with the cloud on startup. It reports the
+machine's name, OS, local and public IP, MAC address, and status. A heartbeat
+tracks whether the machine is online, sleeping or offline, and the registration
+is removed after a period of inactivity.
 
 ## Wake-on-LAN
 
@@ -27,9 +28,30 @@ status: draft
 depends-on: [.devbook/domain/dev-pc-management/features.md#pc-registration]
 ```
 
-Send a magic packet to wake a registered sleeping/powered-off PC over the local
-network or a cloud relay, verifying the wake by resumed heartbeat and queuing
-requests when relay is needed.
+Send a magic packet to wake a registered PC that is sleeping or powered off.
+
+```mermaid
+sequenceDiagram
+    actor Person
+    participant App as Desktop app
+    participant Cloud as Cloud service (relay and registry)
+    participant PC as Target PC
+
+    Person->>App: Wake the PC
+    alt the PC is on the same local network
+        App->>PC: magic packet
+    else the PC is elsewhere
+        App->>Cloud: wake request
+        Cloud->>Cloud: queue the request
+        Cloud->>PC: magic packet, through the relay
+    end
+    PC->>Cloud: heartbeat resumes
+    Cloud-->>App: the PC is online
+    App->>Person: wake verified
+```
+
+A wake counts as done only when the PC's heartbeat resumes. A request that needs
+the relay waits in the cloud's queue until it can be sent.
 
 ## Remote desktop session
 
@@ -39,9 +61,9 @@ status: draft
 depends-on: [.devbook/domain/dev-pc-management/features.md#pc-registration]
 ```
 
-Initiate a remote desktop session (RDP, VNC fallback) to any online PC via
-cloud-brokered connection details, optionally tunneled through a relay for
-machines behind NAT/firewall.
+Start a remote desktop session to any online PC, over RDP with VNC as the
+fallback. The cloud brokers the connection details, and a relay can tunnel the
+session to a machine behind NAT or a firewall.
 
 ## Machine status dashboard
 
@@ -51,8 +73,9 @@ status: draft
 related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards]
 ```
 
-List all registered PCs with current state, last-seen and uptime, running
-desktop-component version, and quick actions (wake, connect, optional shutdown).
+List all registered PCs with their current state, last-seen time, uptime, and the
+desktop app version each runs. Each row offers quick actions: wake, connect, and
+optionally shut down.
 
 ## Configuration and tool version tracking
 
@@ -63,7 +86,7 @@ related: [.devbook/domain/technology-stack/features.md#technology-baseline-defin
 ```
 
 Report installed tool versions on startup and on demand, store version snapshots,
-compare against the team baseline, and alert when a tool is outdated or
+compare them against the team baseline, and alert when a tool is outdated or
 incompatible.
 
 ### Copilot tool catalog
@@ -74,13 +97,23 @@ status: draft
 related: [.devbook/domain/technology-stack/features.md#technology-baseline-definition]
 ```
 
-Track the AI tooling a development machine is expected to run — Copilot plugins
-and MCP servers — as a catalog the repository declares, layered with per-machine
-choices. The catalog states which tools belong to the working setup; the machine
-layer records what this particular PC has enabled and which version is actually
-installed. Each tool reports its installed version against the available one, so
-"behind", "up to date", and "not installed" are distinguishable rather than
-lumped together.
+Track the tooling a development machine is expected to run, as a catalog the
+repository declares, layered with each machine's own choices. The catalog holds
+four kinds of entry:
+
+| Kind | What it is |
+|---|---|
+| Plugin | A Copilot or Claude plugin, which the host CLI installs |
+| Marketplace | A Claude plugin marketplace, which every Claude plugin installed from it needs first |
+| MCP server | A server, installed as a .NET tool or by a command, plus its registration |
+| Application | Software or a check the setup guide asks for: a winget package, a VS Code extension, a command, or a manual check |
+
+The catalog states which tools belong to the working setup. This machine's own
+choices record what the PC has enabled and which version is actually installed.
+Each tool reports its installed version against the available one, so "behind",
+"up to date", and "not installed" are distinguishable rather than lumped
+together. A manual check has nothing to detect, so it carries this machine's
+acknowledgement instead.
 
 ### Catalog authoring
 
@@ -91,13 +124,19 @@ feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
 depends-on: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog]
 ```
 
-Author the catalog itself from the machine, rather than treating it as something only a
-person editing a file can maintain: create it where none exists, naming the resolved path
-before writing it, add or remove a Copilot plugin or MCP server entry, and import a JSON
-file or pasted text to replace the whole catalog in one step, keeping the prior catalog as
-a backup and rejecting invalid input without touching what is already declared. Removing
-an entry also clears any per-machine override recorded against it, so what the catalog
-declares and what a machine has enabled cannot drift into a stale combination.
+Author the catalog itself from the machine, rather than treating it as something
+only a person editing a file can maintain. A person can:
+
+- create the catalog where none exists, after being shown the resolved path it
+  will be written to;
+- add or remove an entry;
+- import a JSON file or pasted text to replace the whole catalog in one step. The
+  prior catalog is kept as a backup, and invalid input is rejected without
+  touching what is already declared.
+
+Removing an entry also clears any override this machine recorded against it.
+What the catalog declares and what a machine has enabled therefore cannot drift
+into a stale combination.
 
 ### System tools pane
 
@@ -178,9 +217,9 @@ status: draft
 depends-on: [.devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking]
 ```
 
-Trigger single, targeted, or bulk tool updates from the dashboard or CLI, queue
-them for offline PCs, report progress with rollback on failure, and optionally
-require explicit confirmation.
+Trigger single, targeted, or bulk tool updates from the dashboard. Updates queue
+for offline PCs, report progress with rollback on failure, and can require
+explicit confirmation ([Tool update lifecycle](flow.md#tool-update-lifecycle)).
 
 ### Local tool enablement and updates
 
@@ -191,12 +230,16 @@ feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
 depends-on: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog]
 ```
 
-Act on the machine the person is sitting at: re-check the catalog for newer
-versions, update one tool or every updatable tool at once, and switch an
-individual tool on or off for this machine without changing what the catalog
-declares for everyone else. Each action reports back whether it succeeded, and
-tool management is a capability that can be switched off wholesale on machines
-where it does not apply.
+Act on the machine the person is sitting at:
+
+- re-check the catalog for newer versions;
+- update one tool, or every updatable tool at once;
+- switch an individual tool on or off for this machine, without changing what the
+  catalog declares for everyone else.
+
+Each action reports back whether it succeeded. Tool management can be switched
+off wholesale on machines where it does not apply, by the
+[System tools](context.md#system-tools) flag.
 
 While an update of every tool runs, the pane says so: its header reads "Updating"
 with how many tools the run takes, how many are done and how many are running, a
@@ -237,6 +280,6 @@ type: feature
 status: draft
 ```
 
-Require authentication for registration and connections, explicit authorization
-for wake/connect/update, encrypted communication, and no storage of target-machine
-credentials in the cloud.
+Require authentication for registration and connections, and explicit
+authorization for wake, connect, and update. Communication is encrypted, and the
+cloud stores no target-machine credentials.

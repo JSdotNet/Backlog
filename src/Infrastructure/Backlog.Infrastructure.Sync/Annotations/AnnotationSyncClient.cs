@@ -30,8 +30,10 @@ public sealed class AnnotationSyncClient
     }
 
     /// <summary>Writes a batch of changes into this owner's replica. Safe to
-    /// retry with no idempotency key: a whole-document upsert lands the same
-    /// documents in the same state however many times it is sent.</summary>
+    /// send twice with no idempotency key: a whole-document upsert lands the same
+    /// documents in the same state however many times it is sent. The pipeline
+    /// still sends it once, on <see cref="TaskSyncClient.PushAsync"/>'s
+    /// terms.</summary>
     public async Task<Result<PushAnnotationsResponse>> PushAsync(
         IReadOnlyList<AnnotationChange> changes,
         CancellationToken cancellationToken = default)

@@ -13,17 +13,6 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "4292822ee7453905a446304416b956623cc31d60665f9439627e0e83f308893c": {
-      "chapter": "flow.md",
-      "ordinal": 1,
-      "type": "lifecycle",
-      "quality": "showcase",
-      "kind": "statediagram-v2",
-      "spec": "flow.1.lifecycle.json",
-      "artifact": "flow.1.lifecycle.html",
-      "checksPassed": 9,
-      "checkCount": 9
-    },
     "4af89fdc197aec0376c18f3d261b521002168235ce82adde2fe33b06edb42fff": {
       "chapter": "flow.md",
       "ordinal": 3,
@@ -32,6 +21,18 @@
       "kind": "flowchart",
       "spec": "flow.3.workflow.json",
       "artifact": "flow.3.workflow.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "cc4f8d0e89e144128a8f396436292cf42800bf3ed79401d5b9bbef6dee094c6d": {
+      "chapter": "flow.md",
+      "ordinal": 1,
+      "type": "lifecycle",
+      "quality": "showcase",
+      "kind": "statediagram-v2",
+      "spec": "flow.1.lifecycle.json",
+      "specSha256": "8b361aeda88212b33f67a9afc8184d81c44e9b836a7db9ed61e5666fdcc78f11",
+      "artifact": "flow.1.lifecycle.html",
       "checksPassed": 9,
       "checkCount": 9
     }

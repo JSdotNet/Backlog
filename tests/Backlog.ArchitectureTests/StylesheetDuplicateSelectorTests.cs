@@ -24,6 +24,7 @@ public class StylesheetDuplicateSelectorTests
     private const string Components = "src/Core/Backlog.UI.Components/wwwroot/components.css";
     private const string Capture = "src/Modules/Capture/Backlog.Modules.Capture.UI/wwwroot/capture.css";
     private const string Roadmap = "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/wwwroot/roadmap.css";
+    private const string Dashboard = "src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/wwwroot/dashboard.css";
 
     /// <summary>A duplicate this test tolerates: the selector, how many top-level
     /// rules declare it, and why it has not been folded.</summary>
@@ -71,8 +72,6 @@ public class StylesheetDuplicateSelectorTests
             new(".tools-panel__subtitle", 2, SharedWithSiblings),
             new(".tools-panel__message", 2, SharedWithSiblings),
             new(".tools-inventory__meta", 2, SharedWithSiblings),
-            new(".dashboard-panel__eyebrow", 2, SharedWithSiblings),
-            new(".dashboard-panel__title", 2, SharedWithSiblings),
             new(".sessions-panel__eyebrow", 2, SharedWithSiblings),
             new(".sessions-panel__title", 2, SharedWithSiblings),
             new(".sessions-panel__subtitle", 2, SharedWithSiblings),
@@ -197,10 +196,16 @@ public class StylesheetDuplicateSelectorTests
             new(".roadmap-pace__value", 2, SharedWithSiblings),
             new(".roadmap-order__meta", 2, SharedWithSiblings),
             new(".roadmap-order__points", 2, SharedWithSiblings),
+        ],
+        // Moved out of the desktop stylesheet with the Dashboard's rules (issue #759).
+        [Dashboard] =
+        [
+            new(".dashboard-panel__eyebrow", 2, SharedWithSiblings),
+            new(".dashboard-panel__title", 2, SharedWithSiblings),
         ]
     };
 
-    public static TheoryData<string> Stylesheets => [App, Components, Capture, Roadmap];
+    public static TheoryData<string> Stylesheets => [App, Components, Capture, Roadmap, Dashboard];
 
     [Theory]
     [MemberData(nameof(Stylesheets))]

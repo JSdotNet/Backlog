@@ -5071,19 +5071,19 @@
         <rect x="307.25" y="532" width="10" height="108" rx="3" class="c-cloud" stroke-width="1"/>
 
         <!-- Messages -->
-        <g data-edge-from="desktop" data-edge-to="cloud" data-edge-label="POST /sync/push (state snapshot)" data-edge-key="0" data-edge-id="sync-push">
+        <g data-edge-from="desktop" data-edge-to="cloud" data-edge-label="POST /api/sync/tasks (changed since watermark)" data-edge-key="0" data-edge-id="sync-push">
           <path data-composition-edge-from="desktop" data-composition-edge-to="cloud" data-composition-edge-id="sync-push" data-composition-points="140.5,182;305.25,182" d="M 140.5 182 L 305.25 182" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="133.675" y="162" width="178.4" height="16" rx="3" class="c-mask"/>
-          <text x="222.875" y="172" class="t-backend" font-size="9" text-anchor="middle">POST /sync/push (state snapshot)</text>
+          <rect x="97.27499999999999" y="162" width="251.20000000000002" height="16" rx="3" class="c-mask"/>
+          <text x="222.875" y="172" class="t-backend" font-size="9" text-anchor="middle">POST /api/sync/tasks (changed since watermark)</text>
         </g>
         </g>
 
-        <g data-edge-from="cloud" data-edge-to="clouddb" data-edge-label="Store SyncPayload (TTL 7 days)" data-edge-key="1" data-edge-id="store-payload">
-          <path data-composition-edge-from="cloud" data-composition-edge-to="clouddb" data-composition-edge-id="store-payload" data-composition-points="319.25,226;484,226" d="M 319.25 226 L 484 226" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="cloud" data-edge-to="clouddb" data-edge-label="Upsert documents (tasks container)" data-edge-key="1" data-edge-id="upsert-documents">
+          <path data-composition-edge-from="cloud" data-composition-edge-to="clouddb" data-composition-edge-id="upsert-documents" data-composition-points="319.25,226;484,226" d="M 319.25 226 L 484 226" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="317.625" y="206" width="168" height="16" rx="3" class="c-mask"/>
-          <text x="401.625" y="216" class="t-backend" font-size="9" text-anchor="middle">Store SyncPayload (TTL 7 days)</text>
+          <rect x="307.225" y="206" width="188.8" height="16" rx="3" class="c-mask"/>
+          <text x="401.625" y="216" class="t-backend" font-size="9" text-anchor="middle">Upsert documents (tasks container)</text>
         </g>
         </g>
 
@@ -5095,46 +5095,46 @@
         </g>
         </g>
 
-        <g data-edge-from="phone" data-edge-to="cloud" data-edge-label="GET /sync/pull?since=token" data-edge-key="3" data-edge-id="sync-pull">
+        <g data-edge-from="phone" data-edge-to="cloud" data-edge-label="GET /api/sync/tasks?since=cursor" data-edge-key="3" data-edge-id="sync-pull">
           <path data-composition-edge-from="phone" data-composition-edge-to="cloud" data-composition-edge-id="sync-pull" data-composition-points="662.75,338;319.25,338" d="M 662.75 338 L 319.25 338" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="417.4" y="318" width="147.20000000000002" height="16" rx="3" class="c-mask"/>
-          <text x="491" y="328" class="t-backend" font-size="9" text-anchor="middle">GET /sync/pull?since=token</text>
+          <rect x="401.8" y="318" width="178.4" height="16" rx="3" class="c-mask"/>
+          <text x="491" y="328" class="t-backend" font-size="9" text-anchor="middle">GET /api/sync/tasks?since=cursor</text>
         </g>
         <text data-detail="fine" x="331.25" y="356" class="t-dim" font-size="7">Phone comes online</text>
         </g>
 
-        <g data-edge-from="cloud" data-edge-to="clouddb" data-edge-label="Query delta for user" data-edge-key="4" data-edge-id="query-delta">
-          <path data-composition-edge-from="cloud" data-composition-edge-to="clouddb" data-composition-edge-id="query-delta" data-composition-points="319.25,382;484,382" d="M 319.25 382 L 484 382" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="cloud" data-edge-to="clouddb" data-edge-label="Read the change feed from the cursor" data-edge-key="4" data-edge-id="read-change-feed">
+          <path data-composition-edge-from="cloud" data-composition-edge-to="clouddb" data-composition-edge-id="read-change-feed" data-composition-points="319.25,382;484,382" d="M 319.25 382 L 484 382" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="343.625" y="362" width="116" height="16" rx="3" class="c-mask"/>
-          <text x="401.625" y="372" class="t-backend" font-size="9" text-anchor="middle">Query delta for user</text>
+          <rect x="302.025" y="362" width="199.20000000000002" height="16" rx="3" class="c-mask"/>
+          <text x="401.625" y="372" class="t-backend" font-size="9" text-anchor="middle">Read the change feed from the cursor</text>
         </g>
         </g>
 
-        <g data-edge-from="clouddb" data-edge-to="cloud" data-edge-label="Changed items since token" data-edge-key="5" data-edge-id="changed-items">
-          <path data-composition-edge-from="clouddb" data-composition-edge-to="cloud" data-composition-edge-id="changed-items" data-composition-points="484,426;319.25,426" d="M 484 426 L 319.25 426" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="clouddb" data-edge-to="cloud" data-edge-label="Changed documents" data-edge-key="5" data-edge-id="changed-documents">
+          <path data-composition-edge-from="clouddb" data-composition-edge-to="cloud" data-composition-edge-id="changed-documents" data-composition-points="484,426;319.25,426" d="M 484 426 L 319.25 426" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="330.625" y="406" width="142" height="16" rx="3" class="c-mask"/>
-          <text x="401.625" y="416" class="t-muted" font-size="9" text-anchor="middle">Changed items since token</text>
+          <rect x="351.425" y="406" width="100.4" height="16" rx="3" class="c-mask"/>
+          <text x="401.625" y="416" class="t-muted" font-size="9" text-anchor="middle">Changed documents</text>
         </g>
         </g>
 
-        <g data-edge-from="cloud" data-edge-to="phone" data-edge-label="200 OK (items, next_sync_token)" data-edge-key="6" data-edge-id="pull-ok">
+        <g data-edge-from="cloud" data-edge-to="phone" data-edge-label="200 OK (documents, next cursor)" data-edge-key="6" data-edge-id="pull-ok">
           <path data-composition-edge-from="cloud" data-composition-edge-to="phone" data-composition-edge-id="pull-ok" data-composition-points="319.25,470;662.75,470" d="M 319.25 470 L 662.75 470" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
           <rect x="404.4" y="450" width="173.20000000000002" height="16" rx="3" class="c-mask"/>
-          <text x="491" y="460" class="t-muted" font-size="9" text-anchor="middle">200 OK (items, next_sync_token)</text>
+          <text x="491" y="460" class="t-muted" font-size="9" text-anchor="middle">200 OK (documents, next cursor)</text>
         </g>
         </g>
 
-        <g data-edge-from="gh" data-edge-to="cloud" data-edge-label="POST /webhooks/github" data-edge-key="7" data-edge-id="webhook-post">
+        <g data-edge-from="gh" data-edge-to="cloud" data-edge-label="POST webhook" data-edge-key="7" data-edge-id="webhook-post">
           <path data-composition-edge-from="gh" data-composition-edge-to="cloud" data-composition-edge-id="webhook-post" data-composition-points="841.5,538;319.25,538" d="M 841.5 538 L 319.25 538" class="a-emphasis" data-animate="edge" style="--step:7" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="519.775" y="518" width="121.2" height="16" rx="3" class="c-mask"/>
-          <text x="580.375" y="528" class="t-backend" font-size="9" text-anchor="middle">POST /webhooks/github</text>
+          <rect x="543.175" y="518" width="74.4" height="16" rx="3" class="c-mask"/>
+          <text x="580.375" y="528" class="t-backend" font-size="9" text-anchor="middle">POST webhook</text>
         </g>
-        <text data-detail="fine" x="331.25" y="556" class="t-dim" font-size="7">GitHub webhook received</text>
+        <text data-detail="fine" x="331.25" y="556" class="t-dim" font-size="7">Not built: GitHub webhook received</text>
         </g>
 
         <g data-edge-from="cloud" data-edge-to="clouddb" data-edge-label="Store WebhookEvent (TTL 24h)" data-edge-key="8" data-edge-id="store-event">
@@ -5172,8 +5172,8 @@
           <text x="62" y="299" class="t-dim" font-size="9" font-weight="600">Phone pull</text>
         </g>
         <g data-graph-role="segment-label" data-segment-id="2">
-          <rect x="56" y="486" width="159.6" height="18" rx="3" class="c-mask"/>
-          <text x="62" y="499" class="t-dim" font-size="9" font-weight="600">Webhook validate and forward</text>
+          <rect x="56" y="486" width="216.8" height="18" rx="3" class="c-mask"/>
+          <text x="62" y="499" class="t-dim" font-size="9" font-weight="600">Not built: webhook validate and forward</text>
         </g>
 
         <!-- Participants -->

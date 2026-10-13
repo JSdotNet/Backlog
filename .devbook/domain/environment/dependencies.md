@@ -26,6 +26,7 @@ status: draft
 
 ## Notes
 
-- Environment does not store credentials; access hints point to the source of
-  credentials or required preconditions only.
-- Repository identity and environment health remain with their supplier contexts.
+- Environment stores no credentials; see [Access Hint](domain.md#access-hint).
+- Repository identity and environment health stay with their supplier contexts;
+  see [the context chapter](context.md#environment).
+- Environment is not built. Every row above is the intended integration.

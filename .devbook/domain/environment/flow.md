@@ -23,7 +23,5 @@ sequenceDiagram
     Env-->>User: Launch action and access hints
 ```
 
-- Environment owns the shortcut and launch preference.
-- Repository Management supplies repository and workspace facts.
-- Monitoring supplies health or availability signals when a view wants to display
-  them.
+- The health read is optional: Environment asks only when a view shows health.
+- Environment is not built, so this flow is the intended design.

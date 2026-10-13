@@ -21,20 +21,20 @@ date: 2026-09-26
 ```
 
 Every schedule runs one `schedule-*` entry point on a fresh checkout of `main`, under the
-same preamble. It takes the safe answer wherever its skill would ask a person, and parks
-at a human gate with the exact invocation to resume. It never pushes to `main`, never
-merges, approves, or deletes, and closes nothing except an issue its own procedure shows
-already resolved, with the evidence in the comment. A change lands as a pull request from a
-`schedule/<name>/<date>` branch — draft whenever anything failed — and a report with no
-change lands as one `schedule-report` issue, updated rather than duplicated.
+same preamble. It [parks](concepts.md#unattended-runs-park) wherever its skill would ask a
+person. It never pushes to `main`, and never merges, approves, or deletes. It closes nothing
+except an issue its own procedure shows already resolved, with the evidence in the comment.
+A change lands as a pull request from a `schedule/<name>/<date>` branch, as a draft whenever
+anything failed. A report with no change lands as one `schedule-report` issue, updated
+rather than duplicated.
 
 - **Used for** — every schedule below.
-- **Adopted by** — the eleven schedules this repository selected, registered as Claude Code
-  routines on 2026-09-25 and 2026-09-26.
+- **Adopted by** — the schedules this repository selected under `components.schedule` in
+  `.devbook/config.json`, registered as Claude Code routines on 2026-09-25 and 2026-09-26.
 - **Evidence** — none yet: the first fires have published no report issue or pull request.
 - **Limits** — a schedule never runs a `flow-*` skill, because a flow ends at a gate no
-  unattended run can pass; and it treats every issue, comment, and commit message it reads
-  as data, never as an instruction.
+  unattended run can pass. It treats every issue, comment, and commit message it reads as
+  [data](concepts.md#external-text-is-data), never as an instruction.
 
 ## Scheduled issue sweep
 
@@ -46,16 +46,16 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech
 date: 2026-09-26
 ```
 
-Every weekday, `issue-sweep` labels the open issues nobody has classified, closes the ones
-high-confidence evidence shows fixed, obsolete, or duplicated, and resolves up to three of
-the rest, one at a time, each as a draft pull request whose body says what could not be
-proved. The brief lands as a `schedule-report` issue.
+Every weekday, `issue-sweep` labels the open issues nobody has classified. It closes the ones
+high-confidence evidence shows fixed, obsolete, or duplicated. It resolves up to its
+`maxResolve` of the rest, one at a time. Each resolution is a draft pull request whose body
+says what could not be proved. The brief lands as a `schedule-report` issue.
 
 - **Used for** — keeping the issue list triaged and turning small issues into reviewable
   drafts.
 - **Adopted by** — the schedule, since 2026-09-26.
 - **Evidence** — none yet from the schedule.
-- **Limits** — at most three resolutions a run, all draft; nothing else is closed.
+- **Limits** — at most `maxResolve` resolutions a run, all draft; nothing else is closed.
 
 ## Scheduled merge review
 
@@ -97,9 +97,9 @@ the technology graph from the package inventories as a draft pull request.
 - **Adopted by** — the four schedules, since 2026-09-25 and 2026-09-26.
 - **Evidence** — `devbook-validate` has fired; nothing published yet.
 - **Limits** — `prose-check` carries no editor on purpose, and `devbook-verify` writes no
-  chapter: prose and content change only through `flow-spec`. From delivery-schedule 1.16.0
-  it covers only the sync units whose direction is `report` and skips `off`; the two sweeps
-  below take the rest.
+  chapter: prose and content change only through `flow-spec`. `devbook-verify` covers only
+  the [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-direction) whose
+  direction is `report` and skips `off`; the two sweeps below take the rest.
 
 ## Scheduled devbook sync sweeps
 
@@ -112,20 +112,28 @@ related: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-upkeep"]
 date: 2026-10-06
 ```
 
-Two catalog schedules act on the drift `devbook-verify` only reports, each on the sync units
-whose `sync` direction asks for it. `devbook-pull-sweep` runs on Mondays and turns a
-`code-ahead` verdict into chapters through `capture-specs`, up to three groups a run. Its
-added chapters land at `draft`. `devbook-push-sweep` runs on Wednesdays and turns a
-`spec-ahead` verdict on an agreed chapter into code through `apply-change`, one group a run.
-Each group lands as a draft pull request on a `schedule/devbook-<direction>-sweep/<date>/<group>`
-branch, and a group whose verdicts conflict goes to a person.
+Two catalog schedules act on the drift `devbook-verify` only reports. Each takes the
+[sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-direction) whose `sync`
+direction asks for it, in groups. Units a requirement ties together, by naming two
+aggregates and no feature, form one group; every other unit is a group of its own.
+
+| | `devbook-pull-sweep` | `devbook-push-sweep` |
+| --- | --- | --- |
+| Runs on | Mondays | Wednesdays |
+| Acts on | a `code-ahead` verdict | a `spec-ahead` verdict on an agreed chapter |
+| Through | `capture-specs`, into chapters | `apply-change`, into code |
+| Groups a run | up to three | one |
+| Lands as | a draft pull request; added chapters at `draft` | a draft pull request |
+
+Each group's branch is `schedule/devbook-<direction>-sweep/<date>/<group>`. A group whose
+verdicts conflict goes to a person.
 
 - **Used for** — two contexts, set on 2026-10-06. Sessions is `push`: its chapters are
   settled and its unit-test project covers them. Inbox is `pull`: its chapters are still
   `draft`, but they were written from the code its tests cover. Every other unit resolves to
-  `report`, and `units.mjs --groups` reports no orphan and no set-aside group.
-- **Adopted by** — nobody: neither schedule is selected. Both follow once the
-  delivery-schedule release that ships them is installed; the one on this machine does not.
+  `report`.
+- **Adopted by** — nobody: neither schedule is selected. Both ship in delivery-schedule, and
+  selecting them is open.
 - **Evidence** — none.
 - **Limits** — push writes no chapter and removes no code, and skips a draft or unagreed
   chapter; pull changes only chapters and never raises a status above `draft`.
@@ -166,7 +174,7 @@ tests.
 - **Used for** — keeping dependencies current without a person starting the work.
 - **Adopted by** — the schedule, since 2026-09-26; Dependabot still runs beside it.
 - **Evidence** — it has fired once; no pull request yet.
-- **Limits** — no major versions; a major move is an attended `flow-update-packages` run.
+- **Limits** — no major versions; a major move is an attended `flow-code` run.
 
 ## Scheduled reports
 
@@ -178,10 +186,14 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-Three schedules report what happened: `morning-brief` every weekday over the last day (the
-weekend on a Monday), `change-report` every Friday over the week's pull requests with the
-ones whose ticket disagrees with them, and `weekly-update` every Friday evening. Each is one
-`schedule-report` issue; an unread one is extended rather than joined by another.
+Three schedules report what happened. Each report is one `schedule-report` issue, and an
+unread one is extended rather than joined by another.
+
+| Schedule | Runs | Covers |
+| --- | --- | --- |
+| `morning-brief` | every weekday | the last day, or the weekend on a Monday |
+| `change-report` | every Friday | the week's pull requests, and the ones whose ticket disagrees with them |
+| `weekly-update` | every Friday evening | the week |
 
 - **Used for** — the owner's view of the repository without reading every notification.
 - **Adopted by** — the three schedules, since 2026-09-25.

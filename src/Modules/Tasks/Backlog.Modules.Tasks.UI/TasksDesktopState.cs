@@ -217,6 +217,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         LinkedTaskSources? linkedSources = null,
         ILinkedSessionStates? sessionStates = null)
     {
+        // First, so it runs before any component's handler can queue a render
+        // that reads the index — see DependencyIndex.
+        Changed += ForgetDependencyIndex;
+
         _store = store;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _entryUseCases = new SelfAttributedTaskItems(entryUseCases, _writingHere);
@@ -2104,7 +2108,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     private List<EntryRow> StatusSortOrder(List<EntryRow> visible)
     {
-        var candidates = DependencyCandidates();
+        var dependencies = DependencyIndex();
         var byId = new Dictionary<string, EntryRow>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in Rows.Where(row => row.Id is not null))
         {
@@ -2114,7 +2118,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var visibleSet = visible.ToHashSet();
         var waitsFor = visible.ToDictionary(
             row => row,
-            row => OpenVisiblePredecessors(row, byId, visibleSet, candidates));
+            row => OpenVisiblePredecessors(row, byId, visibleSet, dependencies));
 
         var rank = visible.ToDictionary(row => row, row => StatusSortRank(row.PreviewStatus));
         foreach (var (row, predecessors) in waitsFor)
@@ -2153,16 +2157,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         EntryRow row,
         Dictionary<string, EntryRow> byId,
         HashSet<EntryRow> visibleSet,
-        List<DependencyResolution.Candidate> candidates)
+        DependencyResolution.CandidateIndex dependencies)
     {
         var found = new HashSet<EntryRow>();
         var seen = new HashSet<EntryRow> { row };
         var pending = new Stack<EntryRow>([row]);
         while (pending.TryPop(out var current))
         {
-            var dependsOn = current.PreviewDependsOn.Count == 0
-                ? current.PreviewDependsOn
-                : DependencyResolution.ResolveAll(current.PreviewDependsOn, candidates, current.ImportPlanId, current.PreviewTags);
+            var dependsOn = ResolvedDependsOn(current, dependencies);
 
             foreach (var id in dependsOn)
             {
@@ -2590,17 +2592,86 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         ArgumentNullException.ThrowIfNull(row);
 
+        return row.PreviewDependsOn.Count == 0
+            ? row.PreviewDependsOn
+            : ResolvedDependsOn(row, DependencyIndex());
+    }
+
+    private static IReadOnlyList<string> ResolvedDependsOn(EntryRow row, DependencyResolution.CandidateIndex index)
+    {
         var dependsOn = row.PreviewDependsOn;
         if (dependsOn.Count == 0) return dependsOn;
 
-        return DependencyResolution.ResolveAll(dependsOn, DependencyCandidates(), row.ImportPlanId, row.PreviewTags);
+        return DependencyResolution.ResolveAll(dependsOn, index, row.ImportPlanId, row.PreviewTags);
     }
 
-    /// <summary>Every persisted row as the resolver sees it. Built per call
-    /// rather than cached: the rows change under every save, and a chain is read
-    /// a handful of times per render, not per keystroke.</summary>
-    private List<DependencyResolution.Candidate> DependencyCandidates() =>
-        [.. Rows
+    /// <summary>One reading of the rows for the resolver, and what it was read
+    /// from. Published as one object so a reader on another thread never pairs
+    /// one change's index with another change's stamp.</summary>
+    private sealed record DependencyIndexCache(
+        List<EntryRow> Rows,
+        int Count,
+        int Version,
+        int EditStamp,
+        DependencyResolution.CandidateIndex Index);
+
+    private volatile DependencyIndexCache? _dependencyIndex;
+
+    /// <summary>Moved on by every <see cref="Changed"/> and every
+    /// <see cref="ApplyFilter"/>; a cached index built under an earlier value is
+    /// not read again.</summary>
+    private int _dependencyIndexVersion;
+
+    private void ForgetDependencyIndex() => Interlocked.Increment(ref _dependencyIndexVersion);
+
+    /// <summary>
+    /// The resolver's index over the rows as they stand, built at most once per
+    /// change rather than once per row asked.
+    /// <para>
+    /// A row's chain, its "Waiting for" line and the picker's chips each resolve
+    /// on every render, and a render follows every keystroke, so building the
+    /// candidates per call made one render quadratic in the rows.
+    /// </para>
+    /// <para>
+    /// The index is read again whenever anything it was built from may have
+    /// moved: a row's text, id or plan (<see cref="EntryRow.EditStamp"/>, which
+    /// also covers a keystroke in the raw editor that raises nothing), the list
+    /// being replaced or growing or shrinking, a reorder in place
+    /// (<see cref="NormalizeOrderAsync"/>), which moves which of two same-named
+    /// steps counts as the first, and every <see cref="Changed"/> and
+    /// <see cref="ApplyFilter"/>.
+    /// </para>
+    /// <para>
+    /// The stamps are read before the build and stored with it: a change landing
+    /// on another thread while this one builds leaves stamps that no longer
+    /// match, so the next read builds again instead of keeping a stale index.
+    /// </para>
+    /// </summary>
+    private DependencyResolution.CandidateIndex DependencyIndex()
+    {
+        var rows = Rows;
+        var count = rows.Count;
+        var version = Volatile.Read(ref _dependencyIndexVersion);
+        var edits = EntryRow.EditStamp;
+
+        var cached = _dependencyIndex;
+        if (cached is not null
+            && cached.Version == version
+            && cached.EditStamp == edits
+            && ReferenceEquals(cached.Rows, rows)
+            && cached.Count == count)
+        {
+            return cached.Index;
+        }
+
+        var index = new DependencyResolution.CandidateIndex(DependencyCandidates(rows));
+        _dependencyIndex = new DependencyIndexCache(rows, count, version, edits, index);
+        return index;
+    }
+
+    /// <summary>Every persisted row as the resolver sees it.</summary>
+    private static List<DependencyResolution.Candidate> DependencyCandidates(List<EntryRow> rows) =>
+        [.. rows
             .Where(row => row.Id is not null)
             .Select(row => new DependencyResolution.Candidate(row.Id!.Value, row.PreviewImportItemId, row.ImportPlanId))];
 
@@ -4827,6 +4898,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// actually moved is the module's problem, not the list's.</summary>
     private async Task NormalizeOrderAsync()
     {
+        // Every reorder of the list in place comes through here, and a reorder
+        // keeps the list, its count and every row's text: none of them tells the
+        // dependency index that which of two same-named steps comes first has
+        // moved. Dropped before the write's await, because a render can land in it.
+        ForgetDependencyIndex();
+
         var ids = Rows.Select(row => row.Id).OfType<Guid>().ToList();
         if (ids.Count == 0) return;
 
@@ -5054,6 +5131,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private void ApplyFilter()
     {
+        // Every caller has just changed what the rows say. Dropping the
+        // resolver's cached index here as well means its freshness does not rest
+        // on a Changed following each of them.
+        ForgetDependencyIndex();
         _readyTaskIds = ReadyTaskIds();
 
         IEnumerable<EntryRow> rows = Rows;
@@ -5137,14 +5218,23 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // would not be hiding an entry, it would be losing one. Only while it is
         // unsaved: once it exists, it is an entry like any other and the rule below
         // applies to it.
-        FilteredRows =
-        [
-            .. rows
-                .Union(Rows.Where(r =>
-                    ReferenceEquals(r, EditingRow)
-                    || (ReferenceEquals(r, SelectedRow) && !r.IsPersisted)))
-                .OrderBy(Rows.IndexOf)
-        ];
+        //
+        // Every row kept comes out of Rows, so walking Rows once and taking each
+        // kept row the first time it appears is the list order — the same answer
+        // ordering by Rows.IndexOf gave, without a linear search per row.
+        var kept = new HashSet<EntryRow>(rows, ReferenceEqualityComparer.Instance);
+        foreach (var row in Rows)
+        {
+            if (ReferenceEquals(row, EditingRow) || (ReferenceEquals(row, SelectedRow) && !row.IsPersisted)) kept.Add(row);
+        }
+
+        var filtered = new List<EntryRow>(kept.Count);
+        foreach (var row in Rows)
+        {
+            if (kept.Remove(row)) filtered.Add(row);
+        }
+
+        FilteredRows = filtered;
 
         // Selection follows the list, which is the only way the pane beside it can
         // be about something. Deleting an entry already closed the pane; changing
@@ -5268,12 +5358,18 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     private HashSet<string> ReadyTaskIds()
     {
-        var tasks = Rows
+        // Built here rather than read through DependencyIndex: the one caller,
+        // ApplyFilter, has just dropped the cached index, and the Changed that
+        // follows the mutation drops it again — so storing this build in the
+        // cache would buy no later read anything.
+        var rows = Rows;
+        var dependencies = new DependencyResolution.CandidateIndex(DependencyCandidates(rows));
+        var tasks = rows
             .Select(row => new TaskRow(
                 row.TaskId,
                 string.Empty,
                 Done: row.IsPreviewCompleted,
-                DependsOn: ResolvedDependsOn(row)))
+                DependsOn: ResolvedDependsOn(row, dependencies)))
             .ToList();
 
         return TaskChain.Resolve(tasks)
@@ -5475,7 +5571,17 @@ public sealed class EntryRow
 
     public Guid Key { get; init; } = Guid.NewGuid();
 
-    public Guid? Id { get; set; }
+    public Guid? Id
+    {
+        get => _id;
+        set
+        {
+            _id = value;
+            Interlocked.Increment(ref _edits);
+        }
+    }
+
+    private Guid? _id;
 
     /// <summary>
     /// How a list names this row: its stored id once it has one, and its
@@ -5490,7 +5596,26 @@ public sealed class EntryRow
     /// </summary>
     public string TaskId => (Id ?? Key).ToString();
 
-    public string RawText { get; set; } = string.Empty;
+    public string RawText
+    {
+        get => _rawText;
+        set
+        {
+            _rawText = value;
+            Interlocked.Increment(ref _edits);
+        }
+    }
+
+    private string _rawText = string.Empty;
+
+    /// <summary>Moved by every write to <see cref="RawText"/>, <see cref="Id"/>
+    /// or <see cref="ImportPlanId"/> on any row — the fields the dependency
+    /// resolver reads. Shared rather than per row so a list can tell whether any
+    /// of its rows changed without visiting each one; a write to a row in another
+    /// list only costs that list one rebuild.</summary>
+    internal static int EditStamp => Volatile.Read(ref _edits);
+
+    private static int _edits;
 
     /// <summary>Whether the last save of this row was refused for being a
     /// <c>plan</c> entry. Held so the toast is raised on the way into that state
@@ -5599,7 +5724,17 @@ public sealed class EntryRow
     /// entry rather than the parse, like <see cref="CreatedAt"/>: the plan id is
     /// the tag the whole import shared, and nothing in this entry's own text says
     /// which of its tags that was.</summary>
-    public string? ImportPlanId { get; set; }
+    public string? ImportPlanId
+    {
+        get => _importPlanId;
+        set
+        {
+            _importPlanId = value;
+            Interlocked.Increment(ref _edits);
+        }
+    }
+
+    private string? _importPlanId;
 
     /// <summary>The local <c>id:</c> this entry goes by inside its plan, or null.
     /// A preview like the scheduling fields, because the token is in the text and
@@ -5651,6 +5786,49 @@ public sealed class EntryRow
     public IReadOnlyList<MdSubItem> PreviewSubItems
     {
         get { Render(); return _subItems; }
+    }
+
+    /// <summary>The body under the title and metadata line — what the pane's
+    /// Markdown editor edits — off the cached parse, so drawing the editor does
+    /// not parse the whole text again.</summary>
+    public string PreviewBody
+    {
+        get { Render(); return _parsed!.Body; }
+    }
+
+    /// <summary>One reading of the steps and the text it was read from, published
+    /// together so another thread never pairs one text with another's steps.</summary>
+    private sealed record StepTextsCache(string From, IReadOnlyList<EntryTextParser.SubItemTitleAndNote> Steps);
+
+    private volatile StepTextsCache? _stepTexts;
+
+    /// <summary>
+    /// Every step's title and notes as <see cref="EntryTextParser.GetSubItemTitle"/>
+    /// and <see cref="EntryTextParser.GetSubItemNote"/> read them, indexed the
+    /// same way — read once per text rather than twice per step per render.
+    /// <para>
+    /// Not <see cref="PreviewSubItems"/>: that list is the Markdown preview's own
+    /// reading of the body, while the steps list writes back by the parser's
+    /// index. Where the two counts differ, an index past the end here is a step
+    /// with no title or notes, which is what the per-index reads return for it.
+    /// </para>
+    /// <para>
+    /// Kept apart from <see cref="Render"/> and built only when asked, because
+    /// only the open entry's steps list reads it.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<EntryTextParser.SubItemTitleAndNote> PreviewStepTexts
+    {
+        get
+        {
+            var text = RawText;
+            var cached = _stepTexts;
+            if (cached is not null && string.Equals(cached.From, text, StringComparison.Ordinal)) return cached.Steps;
+
+            var steps = EntryTextParser.GetSubItemTitlesAndNotes(text);
+            _stepTexts = new StepTextsCache(text, steps);
+            return steps;
+        }
     }
 
     public bool HasExpandableContent

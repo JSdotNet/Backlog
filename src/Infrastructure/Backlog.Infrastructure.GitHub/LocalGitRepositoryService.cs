@@ -43,6 +43,94 @@ public interface ILocalGitRepositoryService
 
 public sealed class LocalGitRepositoryService : ILocalGitRepositoryService
 {
+    /// <summary>
+    /// How long the status may wait on git when the config cannot answer. The
+    /// status is asked for synchronously, on the UI thread, so a git that hangs
+    /// must not hang the screen with it.
+    /// </summary>
+    private static readonly TimeSpan StatusGitTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// The exit code <see cref="RunGit"/> reports when git did not answer in
+    /// time, told apart from git's own failures so a timeout is never remembered.
+    /// </summary>
+    internal const int TimedOutExitCode = -1;
+
+    /// <summary>
+    /// Asks git, from wherever the app runs, for every url rewrite and every
+    /// conditional include it reads, each with the scope it came from. A rewrite
+    /// in the user's or the system's config changes what get-url prints for every
+    /// clone, and the repository's own config cannot show it.
+    /// </summary>
+    private static readonly string[] GlobalRewriteProbe =
+        ["config", "--show-scope", "--get-regexp", @"^(url\..*\.insteadof|includeif\..*\.path)$"];
+
+    /// <summary>
+    /// Bounds the remembered git answers, since the clone directory is typed into
+    /// Settings a keystroke at a time and every prefix that is a clone is a path.
+    /// </summary>
+    private const int MaxRememberedOrigins = 64;
+
+    private readonly Func<IReadOnlyList<string>, GitCommandResult> _runGit;
+    private readonly Func<IReadOnlyList<string>> _globalConfigFiles;
+    private readonly Lock _gate = new();
+    private readonly Dictionary<string, RememberedOrigin> _rememberedOrigins = new(StringComparer.Ordinal);
+    private string? _globalStamp;
+    private bool _globalRewritesUrls;
+
+    public LocalGitRepositoryService()
+        : this(RunGit)
+    {
+    }
+
+    /// <summary>
+    /// The seam the status's git launches go through, so a test can count them.
+    /// Only <see cref="GetStatus"/> uses it; the clone, check and pull paths are
+    /// asked for by a person and start git as they always have.
+    /// </summary>
+    internal LocalGitRepositoryService(Func<IReadOnlyList<string>, GitCommandResult> runGit)
+        : this(runGit, GlobalConfigFiles)
+    {
+    }
+
+    /// <param name="runGit">Runs one git command for the status.</param>
+    /// <param name="globalConfigFiles">
+    /// The user-level git config files whose last-write times decide when the
+    /// global config is asked about url rewrites again.
+    /// </param>
+    internal LocalGitRepositoryService(
+        Func<IReadOnlyList<string>, GitCommandResult> runGit,
+        Func<IReadOnlyList<string>> globalConfigFiles)
+    {
+        ArgumentNullException.ThrowIfNull(runGit);
+        ArgumentNullException.ThrowIfNull(globalConfigFiles);
+        _runGit = runGit;
+        _globalConfigFiles = globalConfigFiles;
+    }
+
+    /// <summary>
+    /// The user-level config files git reads, where they would be: the one
+    /// <c>GIT_CONFIG_GLOBAL</c> names, else <c>~/.gitconfig</c> and the XDG
+    /// <c>git/config</c>. Only their last-write times are read, never their content.
+    /// The system config and files these include are not watched: a rewrite added
+    /// there is seen after a restart or the next write to one of these files.
+    /// </summary>
+    private static IReadOnlyList<string> GlobalConfigFiles()
+    {
+        var explicitGlobal = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
+        if (!string.IsNullOrEmpty(explicitGlobal)) return [explicitGlobal];
+
+        var home = Environment.GetEnvironmentVariable("HOME");
+        if (string.IsNullOrEmpty(home)) home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        var xdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+        var xdgConfig = string.IsNullOrEmpty(xdg)
+            ? Path.Combine(home, ".config", "git", "config")
+            : Path.Combine(xdg, "git", "config");
+
+        return [Path.Combine(home, ".gitconfig"), xdgConfig];
+    }
+
     public LocalGitRepositoryStatus GetStatus(GitHubRepositoryRef repository, string? cloneDirectory)
     {
         var path = CleanPath(cloneDirectory);
@@ -295,36 +383,123 @@ public sealed class LocalGitRepositoryService : ILocalGitRepositoryService
 
     private static string? CleanPath(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
 
-    private static string? GetOriginUrl(string path)
+    /// <summary>
+    /// The clone's origin: from its own config when that answers exactly as git
+    /// would and no user or system config rewrites urls, else from
+    /// <c>git remote get-url origin</c>, and when git cannot say either, from
+    /// whatever url the config holds — the answer this gave before git was asked
+    /// second rather than first.
+    /// <para>
+    /// Git's answer is remembered per path until the clone's config, its
+    /// <c>.git</c> file or the user's config changes, because Settings asks on
+    /// every render and the answer only moves when one of those does.
+    /// </para>
+    /// </summary>
+    private string? GetOriginUrl(string path)
     {
-        var result = RunGit(["-C", path, "remote", "get-url", "origin"]);
-        return result.ExitCode == 0 ? result.StandardOutput.Trim() : ReadOriginUrlFromConfig(path);
-    }
+        var config = GitOriginConfig.Read(path);
+        var globalStamp = Stamp(_globalConfigFiles());
+        if (config.Answered && !GlobalConfigRewritesUrls(globalStamp)) return config.Url;
 
-    private static string? ReadOriginUrlFromConfig(string path)
-    {
-        var configPath = Path.Combine(path, ".git", "config");
-        if (!File.Exists(configPath)) return null;
-
-        var inOrigin = false;
-        foreach (var line in File.ReadLines(configPath))
+        var stamp = $"{GitPointerStamp(path)}|{Stamp(config.ConfigPath is null ? [] : [config.ConfigPath])}|{globalStamp}";
+        lock (_gate)
         {
-            var trimmed = line.Trim();
-            if (trimmed.StartsWith("[", StringComparison.Ordinal))
-            {
-                inOrigin = trimmed.Equals("[remote \"origin\"]", StringComparison.OrdinalIgnoreCase);
-                continue;
-            }
+            if (_rememberedOrigins.TryGetValue(path, out var remembered) && remembered.Stamp == stamp) return remembered.Url;
+        }
 
-            if (inOrigin && trimmed.StartsWith("url", StringComparison.OrdinalIgnoreCase))
+        var result = _runGit(["-C", path, "remote", "get-url", "origin"]);
+        var url = result.ExitCode == 0 ? result.StandardOutput.Trim() : config.Url;
+
+        if (result.ExitCode != TimedOutExitCode)
+        {
+            lock (_gate)
             {
-                var separator = trimmed.IndexOf('=', StringComparison.Ordinal);
-                if (separator >= 0) return trimmed[(separator + 1)..].Trim();
+                if (_rememberedOrigins.Count >= MaxRememberedOrigins && !_rememberedOrigins.ContainsKey(path)) _rememberedOrigins.Clear();
+                _rememberedOrigins[path] = new RememberedOrigin(stamp, url);
             }
         }
 
-        return null;
+        return url;
     }
+
+    /// <summary>
+    /// Whether the user's or the system's git config rewrites urls, or includes
+    /// a file on a condition that might. Asked once, and again only when a
+    /// user-level config file is written. A probe git cannot answer counts as a
+    /// rewrite, which only costs the clones a git call each.
+    /// </summary>
+    private bool GlobalConfigRewritesUrls(string globalStamp)
+    {
+        lock (_gate)
+        {
+            if (_globalStamp == globalStamp) return _globalRewritesUrls;
+        }
+
+        var result = _runGit(GlobalRewriteProbe);
+        var rewrites = result.ExitCode switch
+        {
+            0 => AnyOutsideTheRepository(result.StandardOutput),
+            1 => false,
+            _ => true
+        };
+
+        // A probe that ran out of time is asked again next call rather than
+        // sending every clone in the session to git.
+        if (result.ExitCode == TimedOutExitCode) return rewrites;
+
+        lock (_gate)
+        {
+            _globalStamp = globalStamp;
+            _globalRewritesUrls = rewrites;
+        }
+
+        return rewrites;
+    }
+
+    /// <summary>
+    /// <c>--show-scope</c> prefixes each line with where it came from. The app may
+    /// run inside a clone of its own, whose local config is that clone's business
+    /// and is read for each clone separately.
+    /// </summary>
+    private static bool AnyOutsideTheRepository(string output) =>
+        output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Split('\t', 2)[0].Trim())
+            .Any(scope => scope.Length > 0
+                && !string.Equals(scope, "local", StringComparison.Ordinal)
+                && !string.Equals(scope, "worktree", StringComparison.Ordinal));
+
+    /// <summary>
+    /// A <c>.git</c> file's last write, since it decides which config is read; a
+    /// <c>.git</c> folder is written on every commit and says nothing about the origin.
+    /// </summary>
+    private static string GitPointerStamp(string path)
+    {
+        var dotGit = Path.Combine(path, ".git");
+        return File.Exists(dotGit) ? Stamp([dotGit]) : "folder";
+    }
+
+    private static string Stamp(IReadOnlyList<string> files)
+    {
+        var parts = new string[files.Count];
+        for (var index = 0; index < files.Count; index++)
+        {
+            long ticks;
+            try
+            {
+                ticks = File.GetLastWriteTimeUtc(files[index]).Ticks;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                ticks = 0;
+            }
+
+            parts[index] = $"{files[index]}={ticks}";
+        }
+
+        return string.Join('|', parts);
+    }
+
+    private sealed record RememberedOrigin(string Stamp, string? Url);
 
     private static bool IsRepositoryOrigin(GitHubRepositoryRef repository, string? origin) =>
         string.Equals(NormalizeGitHubRemote(origin), NormalizeGitHubRemote(repository.Url), StringComparison.OrdinalIgnoreCase);
@@ -351,7 +526,12 @@ public sealed class LocalGitRepositoryService : ILocalGitRepositoryService
         return normalized.TrimEnd('/');
     }
 
-    private static GitCommandResult RunGit(IReadOnlyList<string> arguments)
+    /// <summary>
+    /// Runs git for a caller that cannot await, bounded by
+    /// <see cref="StatusGitTimeout"/>: past it the process is killed and the call
+    /// reads as a failed git, which the status already knows how to answer.
+    /// </summary>
+    internal static GitCommandResult RunGit(IReadOnlyList<string> arguments)
     {
         var startInfo = CreateGitStartInfo(arguments);
 
@@ -360,10 +540,20 @@ public sealed class LocalGitRepositoryService : ILocalGitRepositoryService
             using var process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException("git could not be started.");
 
-            var standardOutput = process.StandardOutput.ReadToEnd();
-            var standardError = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            return new GitCommandResult(process.ExitCode, standardOutput, standardError);
+            var elapsed = Stopwatch.StartNew();
+            var standardOutput = process.StandardOutput.ReadToEndAsync();
+            var standardError = process.StandardError.ReadToEndAsync();
+
+            // One deadline for the exit and the output together: a child that
+            // inherited the pipes can hold them open after git itself has exited.
+            if (!process.WaitForExit(StatusGitTimeout)
+                || !Task.WhenAll(standardOutput, standardError).Wait(Remaining(elapsed)))
+            {
+                StopQuietly(process);
+                return new GitCommandResult(TimedOutExitCode, string.Empty, $"git did not answer within {StatusGitTimeout.TotalSeconds:0} seconds.");
+            }
+
+            return new GitCommandResult(process.ExitCode, standardOutput.Result, standardError.Result);
         }
         catch (Win32Exception ex)
         {
@@ -420,7 +610,25 @@ public sealed class LocalGitRepositoryService : ILocalGitRepositoryService
         return startInfo;
     }
 
-    private sealed record GitCommandResult(int ExitCode, string StandardOutput, string StandardError);
+    private static TimeSpan Remaining(Stopwatch elapsed)
+    {
+        var remaining = StatusGitTimeout - elapsed.Elapsed;
+        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+    }
+
+    private static void StopQuietly(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception or NotSupportedException)
+        {
+            // Already gone, or not ours to stop: either way there is nothing to wait for.
+        }
+    }
+
+    internal sealed record GitCommandResult(int ExitCode, string StandardOutput, string StandardError);
 }
 
 public sealed record LocalGitRepositoryStatus(

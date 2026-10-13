@@ -14,8 +14,8 @@ namespace Backlog.ArchitectureTests;
 /// component library serves <c>components.css</c>, and every host that renders
 /// the module links it after the library.</para>
 ///
-/// <para>Capture and Roadmap are moved; the rest of the module rules are still
-/// in <c>app.css</c> until their own moves.</para>
+/// <para>Capture, Roadmap and Dashboard are moved; the rest of the module rules
+/// are still in <c>app.css</c> until their own moves.</para>
 /// </summary>
 public class ModuleStylesheetTests
 {
@@ -69,6 +69,20 @@ public class ModuleStylesheetTests
             [".roadmap-view > .roadmap-band"],
             // Only the desktop UI references the Roadmap module; neither mobile
             // head renders the band.
+            [
+                "src/App/Backlog.Desktop/wwwroot/index.html",
+                "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor"
+            ]),
+        new(
+            "Dashboard",
+            "src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/wwwroot/dashboard.css",
+            "_content/Backlog.Modules.Dashboard.UI/dashboard.css",
+            [".dashboard-"],
+            [],
+            // The takeover the panel fills is the shell's (Home.razor).
+            [".workspace-surface > .dashboard-panel"],
+            // Only the desktop UI references the Dashboard module; neither mobile
+            // head renders the takeover.
             [
                 "src/App/Backlog.Desktop/wwwroot/index.html",
                 "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor"
@@ -172,9 +186,9 @@ public class ModuleStylesheetTests
     }
 
     /// <summary>The move carries the rules over as they were; these are the
-    /// Capture panel's grid and log, and the Roadmap band, its pace and the two
-    /// rules that reach into the library's timeline, as <c>app.css</c> declared
-    /// them.</summary>
+    /// Capture panel's grid and log, the Roadmap band, its pace and the two
+    /// rules that reach into the library's timeline, and the Dashboard's title,
+    /// tab strip and timeline, as <c>app.css</c> declared them.</summary>
     [Theory]
     [InlineData("Capture", ".capture-sources__grid", "align-items: start; display: grid; gap: var(--spacing-md); grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr))")]
     [InlineData("Capture", ".capture-sources__log", "background: color-mix(in srgb, var(--color-text-primary) 3%, transparent); border-radius: var(--border-radius-sm); color: var(--color-text-secondary); display: grid; font-family: var(--font-family-mono); font-size: var(--font-size-xs); gap: var(--spacing-xs); list-style: none; margin: 0; max-height: 14rem; overflow-y: auto; padding: var(--spacing-sm)")]
@@ -186,6 +200,11 @@ public class ModuleStylesheetTests
     [InlineData("Roadmap", ".roadmap-timeline__group-content:has(> .roadmap-pace)", "overflow: visible")]
     [InlineData("Roadmap", ".roadmap-timeline__group--slotted:has(.roadmap-pace__hint) .roadmap-timeline__group-name", "margin-right: 1.25rem")]
     [InlineData("Roadmap", ".roadmap-band__shelf .roadmap-shelf__list", "grid-template-columns: minmax(0, 1fr)")]
+    [InlineData("Dashboard", ".dashboard-panel__title", "font-size: var(--font-size-lg); margin: 0")]
+    [InlineData("Dashboard", ".dashboard-tabs__strip > .tabs__list", "flex: 1 0 auto; flex-wrap: nowrap; min-width: 0")]
+    [InlineData("Dashboard", ".dashboard-timeline__scroll", "min-width: 0; overflow-x: auto")]
+    [InlineData("Dashboard", ".dashboard-timeline__grid", "min-width: calc(var(--dashboard-timeline-label) + var(--dashboard-timeline-weeks, 1) * var(--dashboard-timeline-week)); position: relative")]
+    [InlineData("Dashboard", ".dashboard-timeline__fill", "background: var(--dashboard-timeline-tone); display: block; height: 100%")]
     public void A_moved_rule_keeps_the_declarations_it_had(string module, string selector, string declarations)
     {
         var css = File.ReadAllText(Path.Combine(Repository.Root.FullName, Find(module).File));
@@ -208,6 +227,25 @@ public class ModuleStylesheetTests
 
         Assert.True(narrow.Success, $"{Find(module).File} has no @media (max-width: 72rem) block at its end.");
         Assert.Equal(declarations, Canonical(CssRules.Effective(narrow.Groups["body"].Value, selector)));
+    }
+
+    /// <summary>The Dashboard's narrow-card step moves with its timeline: the
+    /// unnamed <c>@container (max-width: 36rem)</c> block that narrows the names'
+    /// column, as the desktop declared it.</summary>
+    [Fact]
+    public void The_dashboard_narrow_card_step_moves_with_its_timeline()
+    {
+        var css = File.ReadAllText(Path.Combine(Repository.Root.FullName, Find("Dashboard").File));
+        var narrow = Regex.Match(css, @"@container \(max-width: 36rem\) \{(?<body>[^{}]*\{[^{}]*\}\s*)\}");
+
+        Assert.True(narrow.Success, $"{Find("Dashboard").File} has no @container (max-width: 36rem) block.");
+        Assert.Equal(
+            "--dashboard-timeline-label: 8.5rem",
+            Canonical(CssRules.Effective(narrow.Groups["body"].Value, ".dashboard-timeline__scroll")));
+        Assert.True(
+            css.IndexOf(".dashboard-timeline__scroll {", StringComparison.Ordinal) < narrow.Index
+                && narrow.Index < css.IndexOf(".dashboard-timeline__grid {", StringComparison.Ordinal),
+            "The narrow-card step sits between the timeline's scroll and grid rules, as it did in app.css.");
     }
 
     /// <summary>The desktop shell's scoped stylesheet was emptied and still
@@ -255,11 +293,11 @@ public class ModuleStylesheetTests
             .OrderBy(declaration => declaration.Key, StringComparer.Ordinal)
             .Select(declaration => $"{declaration.Key}: {declaration.Value}"));
 
-    /// <summary>The style rules inside each <c>@media</c> block, which
-    /// <see cref="CssRules.TopLevel"/> leaves out: a module's narrow-window rules
-    /// are its rules too.</summary>
+    /// <summary>The style rules inside each <c>@media</c> and <c>@container</c>
+    /// block, which <see cref="CssRules.TopLevel"/> leaves out: a module's
+    /// narrow-window and narrow-card rules are its rules too.</summary>
     private static IEnumerable<CssRules.Rule> Conditional(string css) =>
-        Regex.Matches(css, @"@media[^{]*\{")
+        Regex.Matches(css, @"@(?:media|container)[^{]*\{")
             .SelectMany(match =>
             {
                 var depth = 1;

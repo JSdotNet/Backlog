@@ -138,6 +138,60 @@ public sealed class DevbookPaneBrainLinkTests
     }
 
     [Fact]
+    public async Task A_from_your_brain_item_is_a_link_that_opens_the_note_on_the_brain_side()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote(BrainConventions.FileName, "## Areas\n\n- Work — `work`\n");
+        harness.WriteNote("work/plan.md", "# Plan\n\nThe plan's own words.\n");
+        harness.Context.Services.AddSingleton<IBrainBacklinks>(new FixedBacklinks(harness.RepositoryAlias, Introduction,
+            [new BrainBacklink("work/plan.md", "Plan", null), new BrainBacklink("work/standup.md", "Standup", "Yesterday")]));
+
+        // The shell's part, as Home plays it for a Brain search result: the pane
+        // reads the Brain and is handed the note's path. Nothing else is asked of it.
+        var asked = new List<DevbookSearchOpen>();
+        var component = harness.Context.Render<DevbookPane>(parameters => parameters
+            .Add(pane => pane.RepositoryAlias, harness.RepositoryAlias)
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(Introduction, 1))
+            .Add(pane => pane.OpenSearchResultElsewhere, (DevbookSearchOpen open) => asked.Add(open)));
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='brain-backlink-open']").Count));
+
+        var first = component.FindAll("[data-testid='brain-backlink-open']")[0];
+        Assert.Equal("BUTTON", first.TagName);
+        Assert.Equal("Plan", first.TextContent.Trim());
+        first.Click();
+
+        component.WaitForAssertion(() => Assert.Single(asked));
+        Assert.True(asked[0].Source.IsBrain);
+        Assert.Equal("work/plan.md", asked[0].Reference);
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.RepositoryAlias, string.Empty)
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(asked[0].Reference, 2)));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-brain-badge']"));
+            Assert.Contains("The plan's own words.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task A_host_that_cannot_switch_the_pane_lists_the_notes_as_text()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.Context.Services.AddSingleton<IBrainBacklinks>(new FixedBacklinks(harness.RepositoryAlias, Introduction,
+            [new BrainBacklink("work/plan.md", "Plan", null)]));
+
+        var component = harness.Context.Render<DevbookPane>(parameters => parameters
+            .Add(pane => pane.RepositoryAlias, harness.RepositoryAlias)
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(Introduction, 1)));
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='brain-backlink']")));
+        Assert.Empty(component.FindAll("[data-testid='brain-backlink-open']"));
+        Assert.Equal("Plan", component.Find(".brain-backlinks__note").TextContent.Trim());
+    }
+
+    [Fact]
     public async Task A_chapter_nothing_links_to_draws_no_box_and_the_brain_draws_none_either()
     {
         await using var harness = DevbookPaneBrainHarness.Create();

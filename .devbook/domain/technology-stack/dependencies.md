@@ -29,7 +29,7 @@ status: draft
 
 ## Notes
 
-- Technology Stack is the authoritative baseline owner; Dev PC and Repository
-  Management both consume its baselines and report adoption back.
+- Technology Stack owns the baselines both tables above trade in; see
+  [the context chapter](context.md#technology-stack).
 - External registry lookups sit behind an anti-corruption adapter so registry
   formats never leak into the `Technology` model.

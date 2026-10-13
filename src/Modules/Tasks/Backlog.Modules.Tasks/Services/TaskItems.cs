@@ -1,6 +1,8 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.Features.CountTasks;
 using Backlog.Modules.Tasks.Features.DeleteTask;
+using Backlog.Modules.Tasks.Features.GetTask;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
@@ -34,10 +36,18 @@ internal sealed class TaskItems(
     ICommandHandler<RecordTaskUsageCommand> recordUsage,
     ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>> importPlan,
     ICommandHandler<ReconcileRepositoryIdsCommand, Result<int>> reconcileRepositoryIds,
-    ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository) : ITaskItems
+    ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository,
+    IQueryHandler<GetTaskQuery, TaskItemDto?> get,
+    IQueryHandler<CountTasksQuery, int> count) : ITaskItems
 {
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListTasksQuery(), cancellationToken);
+
+    public Task<TaskItemDto?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+        get.Handle(new GetTaskQuery(id), cancellationToken);
+
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        count.Handle(new CountTasksQuery(), cancellationToken);
 
     public Task<Result<SavedTaskDto>> SaveFromTextAsync(
         Guid? id,

@@ -8,6 +8,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http.Resilience;
 
 namespace Backlog.Infrastructure.Sync.Extensions;
 
@@ -155,10 +156,12 @@ public static class SyncClientRegistration
 
         // Both halves of task replication are bearer, so this one always carries
         // the token. Its own typed client rather than the pairing client's: the
-        // two have different retry and timeout profiles waiting to be set, and
-        // sharing one would mean choosing between them.
+        // two have different retry and timeout profiles — this one's is the
+        // replication pipeline, the pairing client's is still the host default —
+        // and sharing one would mean choosing between them.
         services.AddHttpClient<TaskSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
-            .AddHttpMessageHandler<SyncAuthenticationHandler>();
+            .AddHttpMessageHandler<SyncAuthenticationHandler>()
+            .WithReplicationPipeline();
 
         // Where a pulled capture's files come from (local ADR 0014). Here and
         // not in AddSyncClient because the intake that asks for them is part of
@@ -330,10 +333,12 @@ public static class SyncClientRegistration
 
         // Both halves of session replication are bearer, so this one always
         // carries the token. Its own typed client rather than the task one's: they
-        // have different batch sizes and different failure codes waiting to be
-        // retried differently, and sharing one would mean choosing between them.
+        // have different batch sizes and different failure codes, so a client can
+        // move to its own pipeline without the other. Today both carry the same
+        // replication pipeline.
         services.AddHttpClient<SessionSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
-            .AddHttpMessageHandler<SyncAuthenticationHandler>();
+            .AddHttpMessageHandler<SyncAuthenticationHandler>()
+            .WithReplicationPipeline();
 
         // Optional by construction. GetService rather than GetRequiredService is
         // the whole of the arrangement described above: no directory means no
@@ -436,7 +441,8 @@ public static class SyncClientRegistration
         ArgumentNullException.ThrowIfNull(baseAddress);
 
         services.AddHttpClient<AnnotationSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
-            .AddHttpMessageHandler<SyncAuthenticationHandler>();
+            .AddHttpMessageHandler<SyncAuthenticationHandler>()
+            .WithReplicationPipeline();
 
         // Transient over the typed client above, for the reason the task merge
         // and session are; the state they share is the host's store.
@@ -446,5 +452,73 @@ public static class SyncClientRegistration
         services.TryAddSingleton<AnnotationSyncWorker>();
 
         return services;
+    }
+
+    /// <summary>How long one replication attempt is waited for: the hundred
+    /// seconds a plain <see cref="HttpClient"/> allows, sized for a full batch
+    /// against a cold replica rather than for the typical call.</summary>
+    internal static readonly TimeSpan ReplicationAttemptBudget = TimeSpan.FromSeconds(100);
+
+    /// <summary>How long one replication call is waited for across its retries.
+    /// Only pulls retry, so a push never sees more than one
+    /// <see cref="ReplicationAttemptBudget"/>.</summary>
+    internal static readonly TimeSpan ReplicationTotalBudget = TimeSpan.FromMinutes(5);
+
+    /// <summary>How far past <see cref="ReplicationTotalBudget"/> a replication
+    /// client's own <see cref="HttpClient.Timeout"/> sits: room for the token
+    /// fetch in front of the pipeline, so the pipeline's total is what ends a slow
+    /// call and the client's timeout only bounds what the pipeline cannot.</summary>
+    internal static readonly TimeSpan ReplicationClientMargin = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Takes the host's default pipeline off a replication client and puts its own
+    /// on.
+    /// <para>
+    /// The host's <c>AddServiceDefaults()</c> puts the standard resilience pipeline
+    /// on every client with defaults meant for a service talking to a service:
+    /// retries for every method, ten seconds an attempt, thirty in all. Neither
+    /// half fits a push. A push that runs past ten seconds is cancelled and sent
+    /// again, and a 503 on one does not say the batch did not land. A second send
+    /// of a batch that landed reaches a replica already holding every item, which
+    /// refuses each as not later and answers an accepted count short of what
+    /// landed, so the session reports as refused what the service kept. Guideline
+    /// ADR 0015: never retry a non-idempotent command.
+    /// </para>
+    /// </summary>
+    private static IHttpClientBuilder WithReplicationPipeline(this IHttpClientBuilder client)
+    {
+        // The experimental attribute on RemoveAllResilienceHandlers is a warning
+        // about the API's shape, not its behaviour; it is the one published way
+        // to take the host's default pipeline off a client.
+#pragma warning disable EXTEXP0001
+        client.RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+
+        client.AddStandardResilienceHandler(ConfigureReplicationPipeline);
+
+        // HttpClient.Timeout wraps the whole chain, the token fetch in
+        // SyncAuthenticationHandler included. The resilience handler leaves it
+        // infinite so the pipeline's total is the budget; this puts a finite
+        // outer bound back (guideline ADR 0015: no infinite timeouts), past the
+        // pipeline's total so it never clips it. After the handler, so it is the
+        // setting that stands.
+        client.ConfigureHttpClient(http => http.Timeout = ReplicationTotalBudget + ReplicationClientMargin);
+
+        return client;
+    }
+
+    /// <summary>The options <see cref="WithReplicationPipeline"/> applies, apart
+    /// so a test can hold the pipeline to them without composing a host.</summary>
+    internal static void ConfigureReplicationPipeline(HttpStandardResilienceOptions options)
+    {
+        // The push goes out once; the pull is a read and still retries.
+        options.Retry.DisableForUnsafeHttpMethods();
+        options.AttemptTimeout.Timeout = ReplicationAttemptBudget;
+        options.TotalRequestTimeout.Timeout = ReplicationTotalBudget;
+        // The circuit breaker must sample over at least twice the attempt or the
+        // options fail validation. Its minimum throughput is a hundred calls,
+        // which one device's sync loop does not reach in that window, so the
+        // window is set for the validator, not the breaker.
+        options.CircuitBreaker.SamplingDuration = ReplicationAttemptBudget * 2;
     }
 }

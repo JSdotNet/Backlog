@@ -257,6 +257,40 @@ public class TrackerToolsTests
         Assert.Contains("item.not_found", failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>One entry is one read of one entry. The whole backlog — every
+    /// body and every sub-item, mapped — is what the tool used to read to answer
+    /// for a single id, and a backlog grows.</summary>
+    [Fact]
+    public async Task Read_item_reads_the_one_entry_and_not_the_backlog()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Something else"), Entries.Entry("The one", id: id));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
+
+        await tools.ReadItemAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, entries.Reads);
+        Assert.Equal([id], entries.Gets);
+    }
+
+    /// <summary>The refusal for a missing id comes from the single read too, so
+    /// asking about an entry that is not there costs no more than one that is.</summary>
+    [Fact]
+    public async Task An_id_nothing_answers_to_is_refused_without_listing_the_backlog()
+    {
+        var entries = new FakeTaskItems(Entries.Entry("The one"));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
+        var missing = Guid.NewGuid();
+
+        var failure = await Assert.ThrowsAsync<McpException>(() =>
+            tools.TransitionAsync(missing, "in_progress", cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("item.not_found", failure.Message, StringComparison.Ordinal);
+        Assert.Contains(missing.ToString(), failure.Message, StringComparison.Ordinal);
+        Assert.Equal(0, entries.Reads);
+        Assert.Equal([missing], entries.Gets);
+    }
+
     // --- transition ---------------------------------------------------------
 
     /// <summary>The two moves a delivery session makes: starting work, and
@@ -816,6 +850,21 @@ public class TrackerToolsTests
         Assert.Equal("Write the release notes", answer.Title);
         Assert.Equal("ready", answer.Status);
         Assert.NotEqual(Guid.Empty, answer.Id);
+    }
+
+    /// <summary>Appending needs how many entries there are, and nothing else
+    /// about them: the count is asked for rather than read off the whole list.</summary>
+    [Fact]
+    public async Task Create_item_counts_the_backlog_rather_than_listing_it()
+    {
+        var entries = new FakeTaskItems(Entries.Entry("First"), Entries.Entry("Second"), Entries.Entry("Third"));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
+
+        await tools.CreateItemAsync("# Fourth\n`task` `!ready`", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, Assert.Single(entries.Saves).Order);
+        Assert.Equal(0, entries.Reads);
+        Assert.Equal(1, entries.Counts);
     }
 
     /// <summary>The repository argument is a default, the rule the Import dialog's

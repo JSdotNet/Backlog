@@ -211,9 +211,13 @@ public static class DesktopCompositionRegistration
         // settings, for the drafter's reasons and with its lifetime. A host that
         // wants a stand-in replaces this registration after the call.
         services.Add(new ServiceDescriptor(typeof(IInboxTriageAdvisor), typeof(AzureFoundryInboxTriageAdvisor), options.WindowStateLifetime));
-        // The embedding deployment beside the chat one, registered and dormant:
-        // local ADR 0004's semantic tier is wired and nothing writes vectors yet.
+        // The embedding deployment beside the chat one: the devbook databases'
+        // semantic tier (local ADR 0004), embedded by the refresher below and
+        // asked by the search panel, both through FoundryDevbookEmbedder.
         services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
+        services.AddSingleton(sp => new FoundryDevbookEmbedder(
+            sp.GetRequiredService<IAzureFoundryEmbeddingsClient>,
+            sp.GetRequiredService<AzureFoundrySettingsStore>()));
 
         // Claude usage reporting reports itself unavailable until an Admin API key
         // is configured, so it is safe to register unconditionally.
@@ -355,10 +359,13 @@ public static class DesktopCompositionRegistration
         // The devbook database: built by the app into the same cache folder as the
         // snapshots, one per repository path, in the background when a repository
         // is first read (local ADR 0015). Each head resolves it after Build(), which
-        // is what points every database reader at that folder.
+        // is what points every database reader at that folder. Each check then
+        // embeds the chapters the database has no vector for — into the same file,
+        // never the folder — and asks nothing while no deployment is configured.
         services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-            sp.GetService<ILogger<DevbookDatabaseRefresher>>()));
+            sp.GetService<ILogger<DevbookDatabaseRefresher>>(),
+            sp.GetService<FoundryDevbookEmbedder>));
 
         services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
             sp.GetRequiredService<GitHubSettingsStore>(),
@@ -385,6 +392,7 @@ public static class DesktopCompositionRegistration
         // the Brain's own database (local ADR 0027 §6) — so the repository's
         // devbook shows its owner "From your Brain" and nothing is written there.
         services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
+        services.AddSingleton<IBrainTaskLinks>(sp => new BrainTaskLinkReader(sp.GetRequiredService<IBrainFolderSource>()));
         services.AddSingleton(sp => new BrainFolderWatch(
             sp.GetRequiredService<IBrainSettings>(),
             sp.GetRequiredService<IBrainFolderSource>(),
@@ -401,10 +409,9 @@ public static class DesktopCompositionRegistration
             new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
         // What turns a reader's question into a vector for the search by meaning,
         // over the same Foundry account the chat uses. Asked only while
-        // devbook-semantic-search is on; any failure reads as "no model", and the
-        // words answer alone.
-        services.AddSingleton<IDevbookQueryEmbedder>(sp =>
-            new FoundryDevbookQueryEmbedder(sp.GetRequiredService<IAzureFoundryEmbeddingsClient>));
+        // devbook-semantic-search is on and a deployment is configured; any
+        // failure reads as "no model", and the words answer alone.
+        services.AddSingleton<IDevbookQueryEmbedder>(sp => sp.GetRequiredService<FoundryDevbookEmbedder>());
         // What a task's Devbook references point at, for the Tasks detail panel and
         // the MCP reference tools: Tasks' port, answered over the same database and
         // folders, falling back to the Markdown where there is no database.
