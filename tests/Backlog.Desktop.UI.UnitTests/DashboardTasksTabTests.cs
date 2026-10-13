@@ -28,7 +28,7 @@ public sealed class DashboardTasksTabTests
     [Fact]
     public void The_today_word_has_its_own_line_and_an_open_outlook_rises_above_the_names()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         Assert.Contains(
             "padding-top: calc(var(--font-size-xs) * var(--line-height-normal));",

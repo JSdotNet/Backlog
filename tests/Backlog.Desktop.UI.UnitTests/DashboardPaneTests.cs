@@ -2958,8 +2958,8 @@ public class DashboardPaneTests
 
     /// <summary>
     /// The header is the library SectionHeader now, so what is worth holding is
-    /// that it still renders this pane's own class names - app.css styles all four
-    /// and did not move. Not the shared pane-header assertion: that one expects a
+    /// that it still renders this pane's own class names - the module's dashboard.css
+    /// styles all four. Not the shared pane-header assertion: that one expects a
     /// subtitle, and this pane has none on purpose — the section headings say what
     /// it holds, and a sentence above them saying it again was text in front of the
     /// figures.
