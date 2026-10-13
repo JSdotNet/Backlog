@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 
 namespace Backlog.Infrastructure.GitHub;
@@ -43,9 +44,11 @@ public interface IGitHubAccountProbe
 /// <para>
 /// For an unbound path — the great majority, and everything an install that never
 /// opens the Accounts panel ever sends — the order is what it has always been: the
-/// <c>gh</c> CLI when it is signed in, otherwise a configured token. The CLI comes
-/// first on purpose, because it means the common case needs no secret in this app
-/// at all.
+/// <c>gh</c> CLI's identity when it is signed in, otherwise a configured token. The
+/// CLI comes first on purpose, because it means the common case needs no secret
+/// stored in this app at all. Since 2026-10 that identity travels over HTTP on the
+/// token the CLI hands over, held in memory only, rather than as a <c>gh api</c>
+/// process per call; <c>gh api</c> remains the fallback.
 /// </para>
 /// <para>
 /// A path <em>bound</em> to an account skips that order entirely and goes out over
@@ -57,6 +60,11 @@ public interface IGitHubAccountProbe
 /// </summary>
 public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnectionProbe, IGitHubAccountProbe
 {
+    /// <summary>The host the CLI's token is borrowed for — the only one the HTTP
+    /// route sends it to.</summary>
+    private const string GitHubDotCom = "github.com";
+
+    private readonly GitHubSettingsStore _settings;
     private readonly GhCliTransport _cli;
     private readonly TokenTransport _token;
     private readonly IGitHubCredentialResolver _credentials;
@@ -72,8 +80,12 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        _accounts = accounts ?? new GhCliAccountSource();
+        _settings = settings;
         _cli = cli ?? new GhCliTransport();
+
+        // Over the same executable as the CLI it probes, so the token borrowed for
+        // the CLI's login comes from the same gh that said who is signed in.
+        _accounts = accounts ?? new GhCliAccountSource(_cli.Executable);
 
         // One resolver, not two. Routing here and the credential the token
         // transport actually sends have to be the same answer, or a bound path
@@ -81,6 +93,10 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
         _credentials = credentials ?? token?.Credentials ?? new GitHubCredentialResolver(settings, _accounts);
         _token = token ?? new TokenTransport(_credentials, () => settings.Current.ApiEndpoint, httpClients: httpClients);
     }
+
+    /// <summary>Reads one environment variable. A seam so a test can say "GH_HOST is
+    /// set" without changing the environment every other test in the process reads.</summary>
+    internal Func<string, string?> EnvironmentVariable { get; init; } = Environment.GetEnvironmentVariable;
 
     public string Description => "GitHub CLI, or a personal access token";
 
@@ -176,7 +192,7 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
 
         var endpoint = string.IsNullOrWhiteSpace(credential.ApiEndpoint)
             ? _token.EndpointUri("user").GetLeftPart(UriPartial.Authority)
-            : credential.ApiEndpoint.Trim().TrimEnd('/');
+            : GitHubSettings.NormalizeApiEndpoint(credential.ApiEndpoint);
 
         if (login is null)
         {
@@ -197,6 +213,30 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
                 : $"GitHub recognises the token as {login} at {endpoint}.");
     }
 
+    /// <summary>
+    /// Carries one call the way its path decides.
+    /// <para>
+    /// The credential is resolved before the CLI is even asked, because whether the
+    /// path names an identity is the thing that decides. A bound path goes over
+    /// HTTP no matter what the CLI could do; an unbound one keeps the order it has
+    /// always had — the CLI's identity first, a repository's own token underneath it,
+    /// exactly as its own copy in Settings says.
+    /// </para>
+    /// <para>
+    /// The CLI's identity no longer means a <c>gh api</c> process per call. Its token
+    /// is borrowed once, held in memory for <see cref="GhCliAccountSource.TokenLifetime"/>,
+    /// and the call goes over HTTP with it; <c>gh api</c> stays the fallback whenever
+    /// no github.com token can be had and whenever gh would not be talking to
+    /// github.com. A refused borrowed token surfaces as its 401 and is forgotten,
+    /// together with the CLI's availability, so the next call starts over.
+    /// </para>
+    /// <para>
+    /// The bound route's token transport resolves again when it sends. That is one
+    /// repeated lookup over configuration already in memory, or one cache hit against
+    /// a token fetched moments earlier — cheap enough to be worth the two types each
+    /// answering for themselves rather than passing a credential between them.
+    /// </para>
+    /// </summary>
     public async Task<JsonElement> SendAsync(
         HttpMethod method,
         string path,
@@ -204,37 +244,79 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
         string? apiVersion = null,
         CancellationToken cancellationToken = default)
     {
-        var transport = await ResolveForAsync(path, cancellationToken).ConfigureAwait(false)
-            ?? throw new GitHubNotConfiguredException(
-                "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in repository settings.");
+        var credential = await _credentials.ResolveAsync(path, cancellationToken).ConfigureAwait(false);
 
-        return await transport.SendAsync(method, path, body, apiVersion, cancellationToken).ConfigureAwait(false);
+        if (credential is { IsBound: true })
+        {
+            return await _token.SendAsync(method, path, body, apiVersion, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (await _cli.IsAvailableAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (await CliCredentialAsync(cancellationToken).ConfigureAwait(false) is { } borrowed)
+            {
+                try
+                {
+                    // SendAsAsync, never SendAsync: the token transport's own lookup
+                    // would put the repository's token above the CLI's identity.
+                    return await _token.SendAsAsync(borrowed, method, path, body, apiVersion, cancellationToken).ConfigureAwait(false);
+                }
+                catch (GitHubException ex) when (ex.Status == HttpStatusCode.Unauthorized)
+                {
+                    // Revoked or rotated since it was borrowed. Not sent again:
+                    // guideline 0015 resends nothing after an authentication failure.
+                    // Forgetting the token and the CLI's remembered availability
+                    // makes the next call re-probe gh and borrow afresh — or fall
+                    // back, when gh's own credential is the one that went bad.
+                    _accounts.Invalidate();
+                    _cli.Invalidate();
+                    throw;
+                }
+            }
+
+            return await _cli.SendAsync(method, path, body, apiVersion, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (credential is not null || _credentials.HasAnyCredential)
+        {
+            return await _token.SendAsync(method, path, body, apiVersion, cancellationToken).ConfigureAwait(false);
+        }
+
+        throw new GitHubNotConfiguredException(
+            "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in repository settings.");
     }
 
     /// <summary>
-    /// Which transport carries one call.
+    /// The token gh holds for the login it is signed in as, ready to send — or null
+    /// when the call should stay with <c>gh api</c>.
     /// <para>
-    /// The credential is resolved before the CLI is even asked, because whether the
-    /// path names an identity is the thing that decides. A bound path goes over
-    /// HTTP no matter what the CLI could do; an unbound one keeps the order it has
-    /// always had, and a repository's own token stays underneath the CLI exactly as
-    /// its own copy in Settings says it does.
-    /// </para>
-    /// <para>
-    /// The token transport resolves again when it sends. That is one repeated
-    /// lookup over configuration already in memory, or one cache hit against a token
-    /// fetched moments earlier — cheap enough to be worth the two types each
-    /// answering for themselves rather than passing a credential between them.
+    /// Only on github.com. <c>gh api</c> goes to gh's own default host and has never
+    /// read the install-wide endpoint, so an Enterprise endpoint, or a
+    /// <c>GH_HOST</c> or <c>GH_ENTERPRISE_TOKEN</c> that moves gh elsewhere, keeps the
+    /// call where it has always gone rather than putting a github.com token on
+    /// another host.
     /// </para>
     /// </summary>
-    private async Task<IGitHubTransport?> ResolveForAsync(string? path, CancellationToken cancellationToken)
+    private async Task<GitHubCredential?> CliCredentialAsync(CancellationToken cancellationToken)
     {
-        var credential = await _credentials.ResolveAsync(path, cancellationToken).ConfigureAwait(false);
+        if (_cli.Account is not { } login || !OnGitHubDotCom()) return null;
 
-        if (credential is { IsBound: true }) return _token;
-        if (await _cli.IsAvailableAsync(cancellationToken).ConfigureAwait(false)) return _cli;
-        if (credential is not null || _credentials.HasAnyCredential) return _token;
+        // github.com by name, not gh's default host: a gh signed in only to an
+        // Enterprise host answers `gh api user` from there, and its token must never
+        // be sent to api.github.com. Such a login has no github.com token, so nothing
+        // is borrowed and the call stays with gh api.
+        var token = await _accounts.GetTokenAsync(login, GitHubDotCom, cancellationToken).ConfigureAwait(false);
 
-        return null;
+        return token is null
+            ? null
+            : new GitHubCredential(token, GitHubSettings.DefaultApiEndpoint, Account: null);
+    }
+
+    private bool OnGitHubDotCom()
+    {
+        if (!string.IsNullOrWhiteSpace(EnvironmentVariable("GH_HOST"))) return false;
+        if (!string.IsNullOrWhiteSpace(EnvironmentVariable("GH_ENTERPRISE_TOKEN"))) return false;
+
+        return GitHubSettings.IsDefaultApiEndpoint(_settings.Current.ApiEndpoint);
     }
 }
