@@ -146,10 +146,11 @@ With the scope's anchor on Brain, or nothing pressed, the pane carries a teal
 picker would be, and one tab per area the Brain declares. The tree, the rendered
 chapter and the editor are the ones a repository devbook uses, and a Brain note
 is always editable. What only a repository has is absent: branch updates, sync
-verdicts and scenario marks. So are the repository's atlas, its search and
-opening the folder in an editor, until the Brain has its own
-([Unified search](#unified-search), [Atlas edges](#atlas-edges)). Ask AI takes
-no Brain note as the open chapter.
+verdicts and scenario marks. So are the repository's atlas and opening the
+folder in an editor, until the Brain has its own ([Atlas edges](#atlas-edges)).
+Search is offered on the Brain as on a repository, because it is one
+[Unified search](#unified-search) wherever it is opened. Ask AI takes no Brain
+note as the open chapter.
 
 With Brain and a repository both pressed, a `Brain | <repo>` switch beside the
 pane title flips between them without touching the task filter. The switch opens
@@ -187,13 +188,21 @@ Point a Brain note at the repository chapter it is about. A
 renders as a gold chip that opens that repository's devbook at the chapter. An
 alias this machine does not have renders as a dashed chip reading *not on this
 machine*, never as an error, because the same Brain is read on machines with
-different repositories.
+different repositories. A link resolves when its alias names a repository
+configured here, as a clone or a branch snapshot, whose devbook shows the
+section the path lies in. A configured alias whose path lies in no such section
+is dashed too, and says it is not a chapter in that devbook. Following a gold
+chip leaves the header scope alone: the pane reads the repository as it does for
+a task's reference, and the switch or the scope brings the Brain back.
 
 The reverse is shown, never written. Under a repository chapter a teal **From
 your Brain** box lists the Brain notes that link to it, marked *Only you see
 this*: it reads the owner's own Brain database, and nothing is written into the
-repository, so personal notes never reach shared history. A repository devbook
-has no way to link into a Brain.
+repository, so personal notes never reach shared history. A link to any
+heading of the chapter's file counts. Each note is listed once: under the
+first chapter it links from, when every link it has sits in a chapter, and on
+its own when one is in its `related` or its prose outside every chapter. A chapter no note links to draws no box. A repository devbook has no way
+to link into a Brain.
 
 ## Unified search
 
@@ -211,6 +220,14 @@ first. It searches by words and by meaning, as
 [Devbook retrieval](#devbook-retrieval) does for one devbook, over each source's
 own database. A source with no database yet is named as not searchable rather
 than silently left out.
+
+Search by meaning is additive, as it is for one devbook: it is asked only while
+it is switched on, once typing pauses, and the words answer is drawn while it is
+on its way. Within a source the two answers are merged by where each put a
+chapter, never by their scores, which are on different scales; a chapter both
+found is one result. Opening a result from the devbook on screen opens it there.
+Opening one from another devbook moves the pane to that devbook and opens it,
+without touching the header's scope or the task filter.
 
 ## Atlas edges
 

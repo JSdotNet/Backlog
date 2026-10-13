@@ -1,0 +1,112 @@
+@*
+    A Brain note's link into a repository devbook (local ADR 0027 §6,
+    .devbook/domain/devbook/features.md#repo-links-and-backlinks), drawn as a chip
+    that names the repository and the chapter.
+
+    Two states, told apart in words and shape as well as colour
+    (.devbook/design/color-scheme.md#the-brains-accent):
+
+    - resolved: gold, the `live` tone, because following it opens that repository's
+      devbook — a followable badge says so at rest. The chip is the button.
+    - unresolved: the `quiet` tone inside a dashed edge, reading "not on this
+      machine". Never an error: the same Brain is read on machines with different
+      repositories, and a link to a repository this one has not got is ordinary.
+
+    The alias is always printed, because gold says "a repository devbook" and not
+    which one. The raw link is the tooltip in both states.
+*@
+
+<span class="@ClassValue"
+      data-testid="@TestId"
+      data-reference="@Reference"
+      data-resolved="@(Resolved ? "true" : "false")"
+      title="@Tooltip"
+      @attributes="AdditionalAttributes">
+    @if (Resolved && OnOpen.HasDelegate)
+    {
+        <button type="button"
+                class="repo-link-chip__open"
+                aria-label="@OpenName"
+                @onclick="OpenAsync">
+            <span class="repo-link-chip__alias">@Alias</span>
+            <span class="repo-link-chip__label">@Label</span>
+        </button>
+    }
+    else
+    {
+        <span class="repo-link-chip__alias">@Alias</span>
+        <span class="repo-link-chip__label">@Label</span>
+        @if (!Resolved)
+        {
+            <span class="repo-link-chip__problem">@ProblemText</span>
+        }
+    }
+</span>
+
+@code {
+    /// <summary>What an unresolved chip says when the host gives no reason of its
+    /// own.</summary>
+    public const string NotOnThisMachine = "not on this machine";
+
+    /// <summary>The repository alias the link names.</summary>
+    [Parameter, EditorRequired]
+    public string Alias { get; set; } = string.Empty;
+
+    /// <summary>What the chapter reads as: the author's words, or the chapter's
+    /// short label.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>The link as written, <c>repo:</c> and all — the tooltip.</summary>
+    [Parameter]
+    public string? Reference { get; set; }
+
+    /// <summary>Whether this machine has the repository, so the link can be
+    /// followed.</summary>
+    [Parameter]
+    public bool Resolved { get; set; }
+
+    /// <summary>Why an unresolved link cannot be followed, in words. Defaults to
+    /// <see cref="NotOnThisMachine"/>.</summary>
+    [Parameter]
+    public string? Problem { get; set; }
+
+    /// <summary>Raised with <see cref="Reference"/> when a resolved chip is
+    /// pressed. With no handler the chip is text, not a control that would have to
+    /// refuse the click.</summary>
+    [Parameter]
+    public EventCallback<string?> OnOpen { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ProblemText => string.IsNullOrWhiteSpace(Problem) ? NotOnThisMachine : Problem;
+
+    private string Tooltip
+    {
+        get
+        {
+            var raw = string.IsNullOrWhiteSpace(Reference) ? $"{Alias}/{Label}" : Reference;
+            return Resolved ? raw : $"{raw} — {ProblemText}";
+        }
+    }
+
+    private string OpenName => $"Open {Label} in the {Alias} devbook";
+
+    private string ClassValue
+    {
+        get
+        {
+            var classes = Resolved ? "repo-link-chip repo-link-chip--resolved" : "repo-link-chip repo-link-chip--unresolved";
+            return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
+        }
+    }
+
+    private Task OpenAsync() => OnOpen.InvokeAsync(Reference);
+}

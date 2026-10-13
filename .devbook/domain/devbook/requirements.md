@@ -358,6 +358,7 @@ related: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Following_a_repo_link_opens_the_repository_chapter_and_keeps_the_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Following_a_repo_link_to_the_anchor_from_the_switch_leaves_the_brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.Following_a_gold_chip_asks_for_the_repository_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_configured_alias_with_its_section_resolves, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repo_link_reads_as_alias_path_and_slug]
 ```
 
 The system SHALL open the named repository's devbook at the named chapter when the reader follows a `repo:<alias>/<devbook path>#slug` link whose alias is configured.
@@ -373,6 +374,7 @@ The system SHALL open the named repository's devbook at the named chapter when t
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.An_alias_this_machine_has_not_got_is_unresolved_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_note_draws_its_repo_links_as_chips_gold_when_resolved_and_dashed_when_not]
 ```
 
 The system SHALL render a repo link whose alias is not configured on this machine as a dashed chip reading *not on this machine*.
@@ -388,6 +390,7 @@ The system SHALL render a repo link whose alias is not configured on this machin
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repository_chapter_lists_every_brain_note_linking_to_it_once, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.Reading_backlinks_writes_nothing_into_the_brain, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.The_reader_asks_the_brain_s_own_database, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_repository_chapter_shows_the_brain_notes_linking_to_it_to_its_owner, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.A_chapter_nothing_links_to_draws_no_box_and_the_brain_draws_none_either]
 ```
 
 The system SHALL list under a repository chapter the owner's Brain notes that link to it, marked *Only you see this*, and write nothing into the repository.
@@ -438,6 +441,36 @@ The system SHALL search only the Brain under the Brain chip and only one reposit
 - **Given** a word that occurs in a Brain note and in a chapter of `backlog`
 - **When** the reader searches for it with the Brain chip
 - **Then** only the Brain note is listed
+
+### Requirement: A source with no database is named
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL name a source whose database has not been built as not searchable, beside the groups of the sources that answered, rather than leave it out.
+
+#### Scenario: A repository with no index
+
+- **Given** a configured repository whose devbook database has not been built
+- **When** the reader searches with Everywhere
+- **Then** that repository is listed as not searchable yet, with the reason, after the groups that answered
+
+### Requirement: A result opens in its own devbook
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open a result in the devbook it came from, moving the pane to that devbook when it shows another, and SHALL leave the header's scope and the task filter unchanged.
+
+#### Scenario: A repository chapter found on the Brain
+
+- **Given** the pane shows the Brain and a search lists a chapter of `backlog`
+- **When** the reader opens that result
+- **Then** the pane shows the `backlog` devbook on that chapter, and the header's scope is unchanged
 
 ## Atlas edges
 

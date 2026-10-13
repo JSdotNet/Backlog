@@ -376,6 +376,11 @@ public static class DesktopCompositionRegistration
         // The one writer of a new note into the Brain's inbox area: the pane's
         // Capture, triage's To Brain and the capture tool all go through it.
         services.AddSingleton<IBrainNoteWriter>(sp => new BrainNoteWriter(sp.GetRequiredService<IBrainFolderSource>()));
+
+        // The Brain notes that link to a repository chapter, read in reverse from
+        // the Brain's own database (local ADR 0027 §6) — so the repository's
+        // devbook shows its owner "From your Brain" and nothing is written there.
+        services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
         services.AddSingleton(sp => new BrainFolderWatch(
             sp.GetRequiredService<IBrainSettings>(),
             sp.GetRequiredService<IBrainFolderSource>(),
@@ -390,6 +395,12 @@ public static class DesktopCompositionRegistration
             new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
         services.AddSingleton<IDevbookVectorSearch>(sp =>
             new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
+        // What turns a reader's question into a vector for the search by meaning,
+        // over the same Foundry account the chat uses. Asked only while
+        // devbook-semantic-search is on; any failure reads as "no model", and the
+        // words answer alone.
+        services.AddSingleton<IDevbookQueryEmbedder>(sp =>
+            new FoundryDevbookQueryEmbedder(sp.GetRequiredService<IAzureFoundryEmbeddingsClient>));
         // What a task's Devbook references point at, for the Tasks detail panel and
         // the MCP reference tools: Tasks' port, answered over the same database and
         // folders, falling back to the Markdown where there is no database.

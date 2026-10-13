@@ -317,6 +317,18 @@ storage. `DevbookDatabaseRefresher.WatchBrain` rebuilds it after a change.
 `tools/devbook/brain.mjs` is the Node side of the same convention, and the parity
 test compares the two on a Brain fixture.
 
+The `repo:` edges are read back two ways (local ADR 0027 §6). `BrainRepoLink`, in
+the Abstractions, reads a link into its alias, path and slug. In the Devbook UI,
+`BrainRepoLinkResolver` asks `IDevbookFolderSource` whether this machine has the
+alias and its section, and `BrainDevbookPanel` draws each link as the library's
+`RepoLinkChip`. The pane raises `OnOpenRepositoryChapter`, and the shell answers
+it through the same `DevbookOpenRequest` a task's reference takes. The reverse
+is the `IBrainBacklinks` port in the Abstractions. `BrainBacklinkReader`, in
+`Backlog.Infrastructure.Devbook`, answers it from `DevbookDatabase.RepoLinks()`
+over the Brain's own database, and the desktop composition registers it over
+`IBrainFolderSource`. The pane's `BrainBacklinksBox` asks it for the chapter on
+screen.
+
 The same project reads scenario pages, outside the database. `Scenarios/` ports
 devbook's page parser and page signature, and `ScenarioSignatureVectorTests` holds
 the port to devbook's shared vector. It also reads a committed `run.json` in both

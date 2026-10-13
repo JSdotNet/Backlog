@@ -56,6 +56,28 @@ public sealed class DevbookPaneBrainCaptureTests
         Assert.EndsWith("\n\u200B```meta\ntype: secret\n\u200B```\n\u200B## Not a chapter\n", text, StringComparison.Ordinal);
     }
 
+    /// <summary>Search reaches the Brain and takes the panel while open; a capture
+    /// closes it, so the note just written is what the reader sees.</summary>
+    [Fact]
+    public async Task A_capture_made_while_search_is_open_closes_search_and_opens_the_note()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        var component = harness.RenderBrain();
+        component.WaitForElement("[data-testid='devbook-brain-capture']");
+        await component.Find("[data-testid='devbook-search-toggle']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='devbook-search-toggle']").GetAttribute("aria-expanded")));
+
+        await component.Find("[data-testid='devbook-brain-capture']").ClickAsync(new());
+        component.Find("[data-testid='devbook-brain-capture-title'] input").Input("While searching");
+        await component.Find("[data-testid='devbook-brain-capture-save']").ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("false", component.Find("[data-testid='devbook-search-toggle']").GetAttribute("aria-expanded"));
+            Assert.Equal("_inbox/while-searching.md", component.Find("[data-testid='brain-note-file'] .file-view__path").TextContent.Trim());
+        }, TimeSpan.FromSeconds(5));
+    }
+
     [Fact]
     public async Task Capture_waits_for_a_title()
     {

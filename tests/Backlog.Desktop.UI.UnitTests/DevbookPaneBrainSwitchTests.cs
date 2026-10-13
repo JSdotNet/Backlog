@@ -135,8 +135,9 @@ public sealed class DevbookPaneBrainSwitchTests
     }
 
     /// <summary>The atlas or the search, opened on the repository, does not follow
-    /// the pane onto the Brain: the Brain draws neither and offers no control to
-    /// close them, so the flip closes them and the Brain opens on its note menu.</summary>
+    /// the pane onto the Brain: the Brain draws no atlas, and a flip is the reader
+    /// choosing what to read, so the flip closes them and the Brain opens on its
+    /// note menu.</summary>
     [Theory]
     [InlineData("devbook-atlas-toggle")]
     [InlineData("devbook-search-toggle")]

@@ -140,6 +140,30 @@ The label is the heading's words or the page's title, which only a host that rea
         </div>
     </Story>
 
+    <Story Name="From a Brain note: a link into a repository devbook"
+           Description="A Brain note may point at a repository chapter with `repo:<alias>/<devbook path>[#slug]`, in its `related` or in its body (local ADR 0027 §6). `RepoLinkChip` draws that link, and it prints the alias because the chip's colour says only that it is a repository devbook, not which one.
+
+Resolved — the alias is configured on this machine and its devbook shows the chapter's section — the chip is gold, the `live` tone with no fill, and pressing it opens that repository's Devbook pane at the chapter. Unresolved, it is the `quiet` tone inside a dashed edge and says *not on this machine* in words: never an error, because the same Brain is read on machines with different repositories. The raw link is the tooltip in both states."
+           Code="@RepoLinkCode">
+        <div class="sb-stack" data-testid="devbook-references-repo-links">
+            <div class="sb-row" role="list" aria-label="Repository links">
+                <RepoLinkChip role="listitem"
+                              Alias="backlog"
+                              Label="building blocks"
+                              Reference="repo:backlog/.devbook/arc42/05-building-block-view.md"
+                              Resolved="true"
+                              OnOpen="@((string? reference) => _repoLinkAct = $"Open {reference}")"
+                              TestId="devbook-references-repo-link-resolved" />
+                <RepoLinkChip role="listitem"
+                              Alias="specmanager"
+                              Label="domain.md"
+                              Reference="repo:specmanager/.devbook/domain/specs/domain.md"
+                              TestId="devbook-references-repo-link-unresolved" />
+            </div>
+            <p class="sb-state" data-testid="devbook-references-repo-link-acted">@(_repoLinkAct ?? "Nothing pressed yet. Press the gold chip above.")</p>
+        </div>
+    </Story>
+
     <Story Name="Scenario parts: an acceptance checklist"
            Description="When the references something holds point at parts of a scenario page — a part itself, a whole page, or a requirement whose `Proved by:` lines name parts — a task lists those parts under its chips as its acceptance checklist: `ScenarioPartChecklist`. One row per part: the four-state dot the Devbook pane draws — `ScenarioStateDot`, shown alone in the first row —  the part, the page it belongs to, and when it last ran, under a count of how many pass.
 
@@ -259,6 +283,7 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
     [
         new("content-editing.md#structured-metadata-sigils", "How an address is written, and what may follow it."),
         new("color-scheme.md#badge-and-chip-tones", "The tone a reference wears for each thing it points at."),
+        new("color-scheme.md#the-brains-accent", "Why a link out of the Brain is gold when it resolves and dashed when it does not."),
         new("accessibility.md#keyboard-navigation", "What a reference has to be followable with.")
     ];
 
@@ -402,6 +427,19 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
     private void FollowChip(string reference) => _chipAct = $"Open {reference}";
 
     private void RemoveChip(string reference) => _chipAct = $"Remove {reference}";
+
+    private string? _repoLinkAct;
+
+    private const string RepoLinkCode = """
+        <RepoLinkChip Alias="backlog"
+                      Label="building blocks"
+                      Reference="repo:backlog/.devbook/arc42/05-building-block-view.md"
+                      Resolved="true"
+                      OnOpen="OpenRepositoryChapter" />
+        <RepoLinkChip Alias="specmanager"
+                      Label="domain.md"
+                      Reference="repo:specmanager/.devbook/domain/specs/domain.md" />
+        """;
 
     private const string ChipCode = """
         <DevbookReferenceChip Reference=".devbook/domain/tasks/domain.md#task"
