@@ -42,6 +42,9 @@
          editor, the panels and the stores that stayed here all reach for them,
          so the namespace is imported once, for the .cs and .razor files alike. -->
     <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
+    <!-- The instruction-source readers followed them into the adapter's
+         Instructions/ folder, for the same reason and with the same reach. -->
+    <Using Include="Backlog.Infrastructure.Devbook.Instructions" />
   </ItemGroup>
 
   <ItemGroup>

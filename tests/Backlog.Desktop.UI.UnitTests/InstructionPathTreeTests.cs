@@ -13,7 +13,7 @@ public sealed class InstructionPathTreeTests : IDisposable
         Write("src/Program.cs", "// program");
         Write("README.md", "# Read me");
 
-        var tree = InstructionPathTree.Read(_root);
+        var tree = InstructionPathTreeNodes.Read(_root);
 
         Assert.Equal(["src", "README.md"], tree.Select(node => node.Label));
 
@@ -29,7 +29,7 @@ public sealed class InstructionPathTreeTests : IDisposable
     {
         Write("src/App/Home.razor", "<h1/>");
 
-        var file = Assert.Single(Descendants(InstructionPathTree.Read(_root)), node => node.Label == "Home.razor");
+        var file = Assert.Single(Descendants(InstructionPathTreeNodes.Read(_root)), node => node.Label == "Home.razor");
 
         Assert.Equal("src/App/Home.razor", file.Id);
         Assert.Equal(TreeNodeKind.Item, file.Kind);
@@ -45,7 +45,7 @@ public sealed class InstructionPathTreeTests : IDisposable
         Write(".vs/state.json", "{}");
         Write(".git/HEAD", "ref: refs/heads/main");
 
-        var labels = Descendants(InstructionPathTree.Read(_root)).Select(node => node.Label).ToList();
+        var labels = Descendants(InstructionPathTreeNodes.Read(_root)).Select(node => node.Label).ToList();
 
         Assert.Contains("Home.razor", labels);
         Assert.DoesNotContain("bin", labels);
@@ -67,7 +67,7 @@ public sealed class InstructionPathTreeTests : IDisposable
         Write("README.md", "# Read me");
         Write(".git", "gitdir: D:/Repos/Backlog/.git/worktrees/example");
 
-        var labels = Descendants(InstructionPathTree.Read(_root)).Select(node => node.Label).ToList();
+        var labels = Descendants(InstructionPathTreeNodes.Read(_root)).Select(node => node.Label).ToList();
 
         Assert.Contains("README.md", labels);
         Assert.DoesNotContain(".git", labels);
@@ -77,11 +77,11 @@ public sealed class InstructionPathTreeTests : IDisposable
     [InlineData(null)]
     [InlineData("")]
     public void Reads_nothing_from_nothing(string? root) =>
-        Assert.Empty(InstructionPathTree.Read(root));
+        Assert.Empty(InstructionPathTreeNodes.Read(root));
 
     [Fact]
     public void Reads_nothing_from_a_folder_that_is_not_there() =>
-        Assert.Empty(InstructionPathTree.Read(Path.Combine(_root, "absent")));
+        Assert.Empty(InstructionPathTreeNodes.Read(Path.Combine(_root, "absent")));
 
     private static IEnumerable<TreeNode> Descendants(IEnumerable<TreeNode> nodes)
     {

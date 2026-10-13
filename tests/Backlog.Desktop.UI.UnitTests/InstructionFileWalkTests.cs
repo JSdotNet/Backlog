@@ -64,7 +64,7 @@ public sealed class InstructionFileWalkTests : IDisposable
         Write("node_modules/pkg/index.js");
 
         var ids = new List<string>();
-        Collect(InstructionPathTree.Read(_root), ids);
+        Collect(InstructionPathTreeNodes.Read(_root), ids);
 
         Assert.Contains("src/Program.cs", ids);
         Assert.Contains(".claude/rules/tests.md", ids);

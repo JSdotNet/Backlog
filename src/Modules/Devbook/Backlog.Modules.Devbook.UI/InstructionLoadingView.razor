@@ -416,7 +416,7 @@
 
     private static object MachineKey(UserContextSource source) => source.Path + source.Label;
 
-    private InstructionLoadTotals MachineTotal(string host) => UserContextSources.Total(UserContext, host);
+    private InstructionLoadTotals MachineTotal(string host) => InstructionLoadTotals.FromMachine(UserContext, host);
 
     /// <summary>What a location that loads nothing is. Three different answers,
     /// because a folder nobody created, a folder somebody emptied, and a folder

@@ -1,6 +1,18 @@
-using Backlog.UI.Components.Menus;
+namespace Backlog.Infrastructure.Devbook.Instructions;
 
-namespace Backlog.Desktop.UI.Devbook;
+/// <summary>One row of <see cref="InstructionPathTree"/>: a folder with the rows
+/// under it, or a file with none.</summary>
+/// <param name="Id">The repository-relative path in forward slashes.</param>
+/// <param name="Label">The file or folder name.</param>
+/// <param name="IsFolder">Whether this is a folder, which a picker opens rather
+/// than picks.</param>
+/// <param name="Children">The folders and files under a folder; empty for a
+/// file.</param>
+public sealed record InstructionPathNode(
+    string Id,
+    string Label,
+    bool IsFolder,
+    IReadOnlyList<InstructionPathNode> Children);
 
 /// <summary>
 /// The repository as a pickable tree, for asking the comparison what an
@@ -16,6 +28,10 @@ namespace Backlog.Desktop.UI.Devbook;
 /// on the order of a thousand source files, which is a single enumeration and a
 /// tree small enough to hand to the view whole — and the alternative, expanding a
 /// folder on click, would put a disk read behind a keystroke.</para>
+///
+/// <para>Its rows are <see cref="InstructionPathNode"/>s rather than the tree
+/// control's own nodes: this is the adapter, which references no UI project, and
+/// the screen maps the rows onto its control.</para>
 /// </summary>
 public static class InstructionPathTree
 {
@@ -33,7 +49,7 @@ public static class InstructionPathTree
     /// written against, so nothing has to be translated on the way to the
     /// matcher.
     /// </summary>
-    public static IReadOnlyList<TreeNode> Read(string? root)
+    public static IReadOnlyList<InstructionPathNode> Read(string? root)
     {
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return [];
 
@@ -50,20 +66,18 @@ public static class InstructionPathTree
         }
     }
 
-    private static IReadOnlyList<TreeNode> Children(string root, string directory)
+    private static IReadOnlyList<InstructionPathNode> Children(string root, string directory)
     {
-        var nodes = new List<TreeNode>();
+        var nodes = new List<InstructionPathNode>();
 
         foreach (var child in Directory.EnumerateDirectories(directory).OrderBy(Name, StringComparer.OrdinalIgnoreCase))
         {
             if (!InstructionFileWalk.Descends(root, child)) continue;
 
-            nodes.Add(new TreeNode(
+            nodes.Add(new InstructionPathNode(
                 Relative(root, child),
                 Name(child),
-                TreeNodeKind.Folder,
                 true,
-                null,
                 Children(root, child)));
         }
 
@@ -76,7 +90,7 @@ public static class InstructionPathTree
             // clone everybody tests in does not have it.
             if (InstructionFileWalk.IsExcludedName(Name(file))) continue;
 
-            nodes.Add(TreeNode.Leaf(Relative(root, file), Name(file)));
+            nodes.Add(new InstructionPathNode(Relative(root, file), Name(file), false, []));
         }
 
         return nodes;
