@@ -17,22 +17,16 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
 aliases: [MachineRegistry]
 ```
 
 The global singleton that owns all registered machines, the team tool baseline,
-and fleet analytics. All machine mutations go through the root.
+and fleet analytics.
 
-Invariants:
-
-- A machine must be registered before it can receive updates or remote
-  connections.
-- Status transitions are validated: offline → online requires an explicit
-  heartbeat ([Machine status lifecycle](flow.md#machine-status-lifecycle)).
-- Baseline compliance is computed from each machine's installed tools against the
-  team baseline.
-- Fleet analytics are aggregated from daily snapshots.
+A machine's baseline compliance is computed from its installed tools against the
+team baseline, and fleet analytics are aggregated from daily snapshots. The rules
+the registry holds are in [its invariants](domain.invariants.md#machine-registry).
 
 ### Machine
 
@@ -40,6 +34,7 @@ Invariants:
 type: entity
 status: draft
 aliases: [machine_id]
+related: [.devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
 ```
 
 A single development PC identified by `MachineId` (e.g. "work-laptop-001"). It
@@ -49,9 +44,6 @@ holds:
 - `status`, `last_heartbeat`, and `desktop_version`, the desktop app's version;
 - its installed tool versions and compliance flag;
 - its queued updates, and its daily uptime, compliance and update history.
-
-Invariants: `pending_updates` is bounded per machine, and a completed or failed
-update moves from `pending_updates` to `updates_history`.
 
 An `Environment` in [Sessions](../sessions/domain.md#environment) corresponds to
 a Machine when the two name the same box. That is a lookup rather than a shared
@@ -77,8 +69,7 @@ status: draft
 ```
 
 A queued tool update: `tool_name`, `target_version`, `requested_by`,
-`requested_at`, `status`, optional `error_message`. On completion/failure it is
-archived to an `Update Record`.
+`requested_at`, `status`, optional `error_message`.
 
 ### Uptime Metric
 

@@ -17,27 +17,17 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/domain.invariants.md#task]
 aliases: [TaskItem, task_id, BacklogEntry, backlog_entry_id, backlog_item_id]
 ```
 
 A refined, actionable item in the personal backlog and the consistency boundary
 for all of its sub-items, projections, and usage history. It is the single source
 of truth: one logical item with one priority and one status even when it targets
-multiple repositories.
+multiple repositories. The rules it holds are in
+[its invariants](domain.invariants.md#task).
 
-Invariants:
-
-- Status only moves through the defined lifecycle.
-- All mutations to sub-items, projection references, AI work log events, and
-  usage events go through the root.
-- Parent progress reflects sub-item completion.
-- Projections are to be created on `Ready → In Progress`, one per `repo_id`, and
-  closed on completion. What ships today is a push the person asks for; see
-  [Projection](#projection).
-
-A manually created task starts at `draft` with no `source_inbox_id`. A task
-that stands for an item in an outside system carries a [Source Ref](#source-ref)
+A task that stands for an item in an outside system carries a [Source Ref](#source-ref)
 and is a [Linked Task](#linked-task); the source then owns its title, status
 and assignee (local ADR 0020).
 

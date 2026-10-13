@@ -17,19 +17,12 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/repository-management/domain.md#repository-registry, .devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/repository-management/domain.md#repository-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/domain/environment/domain.invariants.md#environment-catalog]
 aliases: [EnvironmentCatalog]
 ```
 
-The personal catalog of launchable environments.
-
-Invariants:
-
-- Each Environment has a stable name, type, target reference, and launch method.
-- Pinning, grouping, hiding, or reordering a shortcut never changes its target
-  environment.
-- The catalog never stores a secret, only a pointer to the owning secret store or
-  platform.
+The personal catalog of launchable environments. The rules it holds are in
+[its invariants](domain.invariants.md#environment-catalog).
 
 ### Environment
 

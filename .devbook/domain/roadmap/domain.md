@@ -26,7 +26,7 @@ repository rather than one undifferentiated list.
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/roadmap/domain.invariants.md#roadmap-plan]
 aliases: [RoadmapPlan, plan, the plan]
 ```
 
@@ -48,39 +48,7 @@ the boundary and the transaction have the same shape. This mirrors
 [Repository Registry](../repository-management/domain.md#repository-registry),
 the other singleton-registry aggregate in this product.
 
-Invariants:
-
-- Dependencies form a directed acyclic graph. A dependency that would close a
-  cycle, directly or through any number of intermediate nodes, is **rejected**,
-  and the plan is left exactly as it was.
-- A dependency names a node that exists in this plan. An edge to an unknown id is
-  rejected rather than stored, because an edge to nothing is not a weaker plan,
-  it is a wrong one.
-- No node depends on itself.
-- A Planned Window ends on or after the day it starts. Both days are inclusive,
-  so a single-day item has a window of one day rather than none.
-- A Milestone falls on exactly one day and has no duration, which is why it is
-  not a one-day item.
-- Planning Priority is the plan's own. Setting it never writes to a linked Task,
-  and a task's own priority never overwrites it. The two are different
-  judgements made for different reasons, and collapsing them would mean
-  reprioritising a plan by touching an issue.
-- A Repository Scope alias that no longer resolves in the Repository Registry is
-  **kept**, and reads as unresolved. Dropping it would silently delete something
-  the person wrote because a supplier's registry changed.
-- A Task Link is a foreign id and nothing more. The plan never reads
-  through it to make a decision about itself.
-- Every Roadmap Item has exactly one [Roadmap Tag](#roadmap-tag). Renaming the
-  title never changes it, and several items may share one; the tag's chapter
-  holds both rules.
-- A Knowledge Ref is a foreign reference the plan holds and never reads through
-  to decide anything about itself, as with the Task Link. Both may dangle, and
-  neither is validated or repaired.
-- The total registered effort an item reports is plain arithmetic over story
-  points that were actually registered elsewhere. The plan invents no estimate for
-  anything that registered none, and owns none of the values it adds.
-- All mutations to items, milestones, and dependencies go through the root.
-
+The rules the plan holds are in [its invariants](domain.invariants.md#roadmap-plan).
 A plan with no items is a valid plan: a first run, or everything delivered.
 
 ### Roadmap Item
@@ -179,8 +147,7 @@ aliases: [PlannedWindow, start, end, span]
 ```
 
 When an item is intended to run: `start` and `end`, both inclusive. Equality is
-by value. Validation: `end >= start`. Derived: `days = end - start + 1`, never
-less than one.
+by value.
 
 It is inclusive on both ends because that is how a plan is spoken: "through the
 31st" means the 31st. An exclusive end would also make the shortest possible
@@ -246,7 +213,9 @@ aliases: [TaskLink, task_id]
 
 An optional foreign id naming the
 [Task](../tasks/domain.md#task) that executes this
-item. Equality is by value. The link may dangle, because a task can be deleted
+item. Equality is by value. The link
+[may dangle](domain.invariants.md#invariant-links-are-never-validated-or-repaired),
+because a task can be deleted
 while the plan still intends the work. A dangling link reads as unlinked rather
 than as an error.
 
@@ -310,8 +279,8 @@ value; an item may hold several or none.
 It is the knowledge counterpart of the `Task Link`, and it behaves the same way
 on purpose. The reference may **dangle**: the chapter can be moved, renamed, or
 deleted while the plan still points at where it was. A dangling ref reads as
-unresolved rather than as an error. The plan never reads through it to decide
-anything about itself. It holds the ref and resolves it only when a reader asks.
+unresolved rather than as an error. The plan holds the ref and resolves it only
+when a reader asks.
 A plan that refused to hold a reference to something temporarily missing would
 lose the intent the reference recorded.
 
@@ -329,7 +298,7 @@ How much the plan wants this item relative to the others: `low`, `medium`,
 The same four words as [Priority](../tasks/domain.md#priority) in Tasks, chosen on
 purpose: two vocabularies for the same idea would make every conversation about
 priority start with "which kind". They remain different values owned by
-different contexts, and neither overwrites the other.
+different contexts.
 
 ### Milestone Kind
 
@@ -358,7 +327,8 @@ the plan holds a [Contradiction](#contradiction).
 It reports a contradiction and never corrects it. A plan is allowed to be
 temporarily wrong: that is how a person discovers a date does not fit, and
 silently shifting the dependent work would hide exactly the fact worth seeing.
-Cycle rejection is not this service's: it stays an invariant on the root.
+Cycle rejection is not this service's: it stays
+[a rule of the root](domain.invariants.md#invariant-a-cycle-is-refused).
 
 It is a service because every one of these answers needs the whole graph rather
 than one node's own state. Invocation semantics: query/composition-oriented, and
@@ -388,7 +358,7 @@ query/composition-oriented, on the read path.
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/sessions/domain.md#agent-session]
+related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/roadmap/domain.invariants.md#roadmap-item-gathering]
 ```
 
 Assembles, for one Roadmap Item, everything it reaches across Tasks and Devbook,

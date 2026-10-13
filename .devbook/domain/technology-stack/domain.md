@@ -17,20 +17,14 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/technology-stack/domain.invariants.md#technology-registry]
 aliases: [TechnologyRegistry]
 ```
 
 The global singleton that owns all technology definitions, baseline profiles,
-deprecation notices, and portfolio adoption analytics. All changes to
-technologies, baselines, and deprecations go through the root.
-
-Invariants:
-
-- Every version referenced in a baseline matches a `Technology` in the registry
-  and is `>= technology.min_version`.
-- An `unsupported` technology appears in no active baseline.
-- Adoption analytics are populated from daily snapshots.
+deprecation notices, and portfolio adoption analytics. Adoption analytics are
+populated from daily snapshots. The rules the registry holds are in
+[its invariants](domain.invariants.md#technology-registry).
 
 ### Technology
 
@@ -38,6 +32,7 @@ Invariants:
 type: entity
 status: draft
 aliases: [technology_id]
+related: [.devbook/domain/technology-stack/domain.invariants.md#technology-registry]
 ```
 
 A single tool, framework, language, or runtime, identified by `technology_id`
@@ -48,11 +43,6 @@ A single tool, framework, language, or runtime, identified by `technology_id`
 - An optional `eol_date` and `migration_guidance`.
 - Its owned breaking changes and daily adoption snapshots.
 - ADR links and tags.
-
-Invariants:
-
-- `min_version <= recommended_version <= latest_available_version`.
-- When `status = deprecated`, `eol_date` and `migration_guidance` are required.
 
 ### Breaking Change
 
@@ -97,8 +87,9 @@ aliases: [TechnologyBaseline, TeamToolsBaseline, TechBaselines]
 
 An approved set of versions for a context (Default, Frontend, Backend,
 Microservices, dev-pc, repositories): `baseline_name`, `technologies`
-(id → version), `last_updated`, `updated_by`, `description`. Its versions obey
-the [Technology Registry](#technology-registry)'s first invariant.
+(id → version), `last_updated`, `updated_by`, `description`. Its versions
+[name a known technology](domain.invariants.md#invariant-baseline-versions-name-a-known-technology)
+and [meet its minimum](domain.invariants.md#invariant-baseline-versions-meet-the-minimum).
 
 ### Version Constraint
 
