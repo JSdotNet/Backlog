@@ -85,6 +85,18 @@ public static partial class BrainConventions
         }
     }
 
+    /// <summary>
+    /// Whether <paramref name="area"/> holds dated entries, which read newest
+    /// first: the PARA <c>journal</c> folder under any declaration, or an area
+    /// whose <c>Holds</c> line in <c>CONVENTIONS.md</c> says <i>dated</i>.
+    /// </summary>
+    public static bool IsDated(BrainArea area)
+    {
+        ArgumentNullException.ThrowIfNull(area);
+        return string.Equals(area.Folder, "journal", StringComparison.OrdinalIgnoreCase)
+               || DatedWord().IsMatch(area.Holds);
+    }
+
     /// <summary>The areas <paramref name="markdown"/> declares, or the PARA set
     /// when it declares none.</summary>
     public static IReadOnlyList<BrainArea> Parse(string? markdown)
@@ -257,6 +269,10 @@ public static partial class BrainConventions
     /// exactly.</summary>
     [GeneratedRegex("^[0-9]{1,15}$")]
     private static partial Regex OrderNumber();
+
+    /// <summary>The word <i>dated</i> in an area's <c>Holds</c> line.</summary>
+    [GeneratedRegex(@"(?<![A-Za-z])dated(?![A-Za-z])", RegexOptions.IgnoreCase)]
+    private static partial Regex DatedWord();
 }
 
 /// <summary>One area of the Brain: its name as the tab shows it, its top
