@@ -361,6 +361,23 @@ public static class DesktopCompositionRegistration
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<IDevbookSnapshotCache>()));
 
+        // The Brain (local ADR 0026): its folder asked of the person's setting on
+        // every resolve, under a port of its own — registering it as a second
+        // IDevbookFolderSource would replace the repository source every search,
+        // reference and annotation reader resolves. The watch ties the setting to
+        // the refresher above; each head starts it after Build().
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<IBrainSettings>();
+            return new BrainFolderSource(() => settings.BrainFolder);
+        });
+        services.AddSingleton<IBrainFolderSource>(sp => sp.GetRequiredService<BrainFolderSource>());
+        services.AddSingleton(sp => new BrainFolderWatch(
+            sp.GetRequiredService<IBrainSettings>(),
+            sp.GetRequiredService<IBrainFolderSource>(),
+            sp.GetRequiredService<DevbookDatabaseRefresher>(),
+            sp.GetService<ILogger<BrainFolderWatch>>()));
+
         // Retrieval, both tiers. Adapters over the generated database rather than
         // over the Markdown: search is the one capability ADR 0004's ladder does
         // not let degrade to a corpus scan, so where there is no database these

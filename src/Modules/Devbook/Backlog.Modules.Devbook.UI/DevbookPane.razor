@@ -18,7 +18,7 @@
     than reading backlog state, so nothing here knows an entry exists.
 *@
 
-<section @key=@("devbook-pane") class="devbook-stack" id="repository-devbook-pane" data-testid="devbook-stack" aria-label="Repository devbook">
+<section @key=@("devbook-pane") class="devbook-stack @(BrainMode ? "devbook-stack--brain" : null)" id="repository-devbook-pane" data-testid="devbook-stack" aria-label="@(BrainMode ? "Brain devbook" : "Repository devbook")">
     @* No repository line above the strip. The repository was chosen by the scope
        strip over the workspace and is named there, and every file this pane opens
        carries its own path, so a third copy of the name only cost the sections a
@@ -37,13 +37,66 @@
           ActiveTabCssClass="devbook-stack__nav-item devbook-stack__nav-item--active"
           ActiveId="@EffectiveSection"
           ActiveIdChanged="SelectSection"
-          StripCssClass="devbook-stack__strip">
+          StripCssClass="@(ShowsTitle ? "devbook-stack__strip devbook-stack__strip--titled" : "devbook-stack__strip")">
 
     @* Which source the sections are read from, before the sections themselves,
        because it qualifies all five of them at once — the same reason the update
        control outlives the section it was pressed on. *@
     <ListLeading>
-        @if (DevbookSource.CanChoose(ActiveRepositoryAlias))
+        @* The pane's title, only where it has something to qualify (local ADR 0027
+           §4): which devbook this is once there can be two. A pane reading one
+           repository with no Brain beside it keeps the strip it always had. On the
+           strip rather than a row above it, for the reason the repository line was
+           dropped — a row of height for one word. *@
+        @if (ShowsTitle)
+        {
+            <span class="devbook-stack__title" data-testid="devbook-pane-title">Devbook</span>
+
+            @* The switch first, beside the title, because it is what decides the
+               rest of the strip. One choice of two, so a radio group: one tab stop,
+               the arrows move and select, and the pressed side is what the pane
+               shows. Pressing it changes what the pane reads and nothing else —
+               the scope and the task filter are the header's. *@
+            @if (SwitchRepositoryAlias is { Length: > 0 } partner)
+            {
+                <ButtonGroup Radio="true"
+                             AriaLabel="Which devbook the pane shows"
+                             CssClass="devbook-stack__switch"
+                             TestId="devbook-brain-switch">
+                    <ToggleButton Pressed="@BrainMode"
+                                  PressedChanged="@(_ => ShowsBrainChanged.InvokeAsync(true))"
+                                  TestId="devbook-brain-switch-brain">
+                        @BrainScope.Name
+                    </ToggleButton>
+                    <ToggleButton Pressed="@(!BrainMode)"
+                                  PressedChanged="@(_ => ShowsBrainChanged.InvokeAsync(false))"
+                                  TestId="devbook-brain-switch-repository">
+                        @partner
+                    </ToggleButton>
+                </ButtonGroup>
+            }
+
+            @if (BrainMode)
+            {
+                @* The word, always, in the band painting the Brain wears
+                   everywhere (color-scheme.md#the-brains-accent): drawn whether or
+                   not the header's Colors switch is on, and never the only thing
+                   saying Brain. *@
+                <Badge Kind="brain"
+                       CssClass="devbook-stack__brain-badge"
+                       TestId="devbook-brain-badge">@BrainScope.Name</Badge>
+
+                @* Where the branch picker sits on a repository: a Brain has no
+                   branches, and which folder is being read is the thing that
+                   qualifies every tab at once. *@
+                @if (_brainRoot is { } brainRoot)
+                {
+                    <span class="devbook-stack__brain-path" data-testid="devbook-brain-path" title="@brainRoot">@brainRoot</span>
+                }
+            }
+        }
+
+        @if (!BrainMode && DevbookSource.CanChoose(ActiveRepositoryAlias))
         {
             @* The default shape, not Form: a label wrapping the select with the
                name read aloud rather than drawn, which is exactly what a control
@@ -110,7 +163,7 @@
            nothing about whether it is worth offering. Behind a flag because the
            surface is only half the feature - the other half is a generated index
            the repository may not have, which the surface itself reports. *@
-        @if (Scope.SearchOffered && VisibleAreas.Count > 0)
+        @if (!BrainMode && Scope.SearchOffered && VisibleAreas.Count > 0)
         {
             <AppButton BaseClass="devbook-stack__search-toggle"
                        Variant="ButtonVariant.None"
@@ -121,7 +174,7 @@
                 @(_searchOpen ? "Hide search" : "Search")
             </AppButton>
         }
-        @if (VisibleAreas.Count > 0 && !IsSectionActive("tech") && !_searchOpen)
+        @if (!BrainMode && VisibleAreas.Count > 0 && !IsSectionActive("tech") && !_searchOpen)
         {
             @if (_atlasOpen)
             {
@@ -165,6 +218,18 @@
                Role="status"
                TestId="devbook-source-status" />
 
+        @* OneDrive kept both copies of a note it could not merge (local ADR 0026
+           §5). Said, and nothing more: which of the two is right is the person's
+           call, so neither file is touched. Status rather than alert, because it
+           is passive — nothing broke, and nothing here needs answering now. *@
+        @if (BrainMode)
+        {
+            <Alert Message="@ConflictMessage"
+                   BaseClass="devbook-stack__brain-conflict"
+                   Role="status"
+                   TestId="devbook-brain-conflict" />
+        }
+
         <div class="devbook-stack__body @(ShowMenu ? string.Empty : "devbook-stack__body--without-menu")">
             @if (ShowMenu)
             {
@@ -203,7 +268,14 @@
                     <TabPanel Id="@area.Key"
                               Title="@area.Label"
                               BaseClass="@(_atlasOpen || _searchOpen ? "devbook-stack__section devbook-stack__section--atlas" : "devbook-stack__section")">
-                        @if (_searchOpen)
+                        @if (BrainMode)
+                        {
+                            @* No scenario catalog, no atlas, no search: a Brain
+                               note is read and written, and the readings across
+                               the whole Brain are later steps of their own. *@
+                            @RenderSection(area.Key)
+                        }
+                        else if (_searchOpen)
                         {
                             <DevbookSearchView RepositoryAlias="@ActiveRepositoryAlias"
                                                  OnNavigateToChapter="OpenChapterFromSearch" />
@@ -244,15 +316,144 @@
     private bool _searchOpen;
     private string? _loadedMenuRepositoryAlias;
     private string _loadedMenuVisibleKeyFingerprint = string.Empty;
+    private bool? _loadedMenuBrain;
+    private int _menuLoadSequence;
+    private readonly Dictionary<bool, string> _sectionsByMode = [];
     private DevbookUpdateState _updateState = DevbookUpdateState.NotChecked;
     private bool _updateBusy;
     private string? _checkedRepositoryAlias;
 
-    /// <summary>The repository scope to read knowledge for. Empty or null is
-    /// no scope, and the shell does not open the pane for one — every area
-    /// would only say to pick a repository.</summary>
+    /// <summary>The repository scope to read knowledge for. Empty or null is the
+    /// Brain (local ADR 0027 §4) — both "the Brain is the anchor" and "nothing is
+    /// pressed" arrive as the empty string — in a host that composes one; in a host
+    /// that composes no Brain it is no scope, and the pane has nothing to read.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
+
+    /// <summary>
+    /// The repository on the other side of the <c>Brain | repo</c> switch, while
+    /// the Brain and a repository are both in the scope; null or empty draws no
+    /// switch. Which side is pressed follows <see cref="RepositoryAlias"/>: empty is
+    /// the Brain.
+    /// </summary>
+    [Parameter]
+    public string? SwitchRepositoryAlias { get; set; }
+
+    /// <summary>
+    /// Raised when the reader presses a side of the switch: true for the Brain,
+    /// false for <see cref="SwitchRepositoryAlias"/>. The shell holds the choice —
+    /// the pane only asks — so it can drop it when the scope moves and never has
+    /// to write it into the scope or the task filter.
+    /// </summary>
+    [Parameter]
+    public EventCallback<bool> ShowsBrainChanged { get; set; }
+
+    /// <summary>The Brain, when the host composes one. Resolved rather than
+    /// injected, as the optional stores are: a host without a Brain draws the
+    /// repository pane as it always has.</summary>
+    private IBrainFolderSource? _brain;
+
+    /// <summary>Settings, read only to tell "no folder set" from "a folder set and
+    /// not usable" — the first asks to be set up, the second says what is wrong.</summary>
+    private IBrainSettings? _brainSettings;
+
+    /// <summary>What the Brain looked like at the last read: its folder, its tabs,
+    /// why it cannot be read, and the conflict copies in it. Read once per
+    /// parameter set or Brain change rather than per render, because each touches
+    /// the disk.</summary>
+    private string? _brainRoot;
+    private IReadOnlyList<DevbookArea> _brainAreas = [];
+    private string? _brainUnavailable;
+    private IReadOnlyList<BrainConflictCopy> _brainConflicts = [];
+    private bool _disposed;
+
+    /// <summary>Whether the pane shows the Brain rather than a repository.</summary>
+    private bool BrainMode => _brain is not null && string.IsNullOrEmpty(RepositoryAlias) && Scope.BrainOffered;
+
+    /// <summary>The title earns its place once there can be two devbooks: on the
+    /// Brain, and wherever the switch is drawn.</summary>
+    private bool ShowsTitle => BrainMode || (_brain is not null && !string.IsNullOrEmpty(SwitchRepositoryAlias));
+
+    /// <summary>The conflict copies, as one sentence naming every file, or null
+    /// when there are none.</summary>
+    private string? ConflictMessage => _brainConflicts.Count == 0
+        ? null
+        : "OneDrive kept two copies: "
+          + string.Join("; ", _brainConflicts.Select(pair => $"{pair.Original} and {pair.Copy}"))
+          + ". Neither file was changed — keep the one you want and delete the other.";
+
+    /// <summary>
+    /// Reads the Brain again: whether it can be read, its tabs and its conflict
+    /// copies. The tabs are the areas <c>CONVENTIONS.md</c> declares, or the PARA
+    /// set, keyed <see cref="DevbookMenu.BrainAreaKey"/> so that a Brain folder
+    /// called <c>domain</c> meets none of the repository's own special cases.
+    /// </summary>
+    private void ReadBrain()
+    {
+        if (_brain is null || !BrainMode)
+        {
+            _brainRoot = null;
+            _brainAreas = [];
+            _brainUnavailable = null;
+            _brainConflicts = [];
+            return;
+        }
+
+        var location = _brain.Resolve(BrainConventions.FolderKey);
+        _brainRoot = _brain.BrainRoot;
+        _brainUnavailable = location.Available ? null : location.Message;
+        _brainAreas = location.Available
+            ? [.. _brain.Areas().Select(area => new DevbookArea(DevbookMenu.BrainAreaKey(area.Folder), area.Name))]
+            : [];
+        _brainConflicts = location.Available ? _brain.ConflictCopies() : [];
+    }
+
+    /// <summary>Whether the last parameter set showed the Brain.</summary>
+    private bool _parametersShowedBrain;
+
+    /// <summary>
+    /// The atlas and the search are readings of a repository's whole devbook. The
+    /// Brain draws neither and offers no control to close them, so crossing from one
+    /// side to the other closes both — in either direction, so neither is found
+    /// still open on coming back.
+    /// </summary>
+    private void CloseRepositoryReadingsOnModeChange()
+    {
+        var brain = BrainMode;
+        if (brain == _parametersShowedBrain) return;
+
+        _parametersShowedBrain = brain;
+        _atlasOpen = false;
+        _searchOpen = false;
+    }
+
+    /// <summary>
+    /// The Brain changed under the pane — its folder setting moved, or its
+    /// database was rebuilt after a note changed. Raised off the dispatcher, so the
+    /// whole body is marshalled; guarded, because out of an <c>async void</c> a
+    /// folder that vanished mid-read would end the process. The tabs and menu that
+    /// last read stay up, and the next change asks again.
+    /// </summary>
+    private async void OnBrainChanged()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_disposed) return;
+
+                _visibleAreas = null;
+                ReadBrain();
+                if (BrainMode) await ReloadMenuAsync();
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+        }
+    }
 
     /// <summary>
     /// A page or chapter somebody outside the pane asked to read — a task's
@@ -292,6 +493,10 @@
         _scenarioStore = Services.GetService<DevbookScenarioStore>();
         if (_scenarioStore is not null) _scenarioStore.Changed += OnScenariosChanged;
         _scenarioImages = new DevbookScenarioImages(_scenarioStore);
+
+        _brain = Services.GetService<IBrainFolderSource>();
+        if (_brain is not null) _brain.Changed += OnBrainChanged;
+        _brainSettings = Services.GetService<IBrainSettings>();
     }
 
     private DevbookScenarioStore? _scenarioStore;
@@ -303,6 +508,15 @@
     /// waiting on every page's run would wait on the slowest file in the area.</summary>
     private async Task LoadScenariosAsync()
     {
+        // A Brain has no scenario pages, and the store is a repository's: it is
+        // not asked at all, and nothing a repository's catalog said stays on.
+        if (BrainMode)
+        {
+            _scenarios = DevbookScenarioCatalog.Empty;
+            _scenarioImages.Catalog = _scenarios;
+            return;
+        }
+
         var alias = ActiveRepositoryAlias;
         var catalog = _scenarioStore is null ? DevbookScenarioCatalog.Empty : await _scenarioStore.LoadAsync(alias);
         if (!string.Equals(alias, ActiveRepositoryAlias, StringComparison.Ordinal) || ReferenceEquals(catalog, _scenarios)) return;
@@ -371,12 +585,16 @@
     {
         DevbookMenu.Changed -= OnDevbookChanged;
         if (_scenarioStore is not null) _scenarioStore.Changed -= OnScenariosChanged;
+        if (_brain is not null) _brain.Changed -= OnBrainChanged;
+        _disposed = true;
         OpenChapter.Clear();
     }
 
     protected override async Task OnParametersSetAsync()
     {
         _visibleAreas = null;
+        ReadBrain();
+        CloseRepositoryReadingsOnModeChange();
         ForgetUpdateStateOnScopeChange();
         TakeOpenRequest();
         await RefreshMenuAsync();
@@ -428,7 +646,12 @@
     /// than during it, and it costs nothing more than the render already paid.</summary>
     protected override void OnAfterRender(bool firstRender)
     {
-        OpenChapter.Set(ActiveRepositoryAlias, EffectiveSection, SelectedChapterPath);
+        // A Brain note is not offered to Ask AI as a repository chapter: what the
+        // pane has open on the Brain is the person's own, and handing it on as
+        // context belongs to the step that scopes the Brain for AI.
+        if (BrainMode) OpenChapter.Clear();
+        else OpenChapter.Set(ActiveRepositoryAlias, EffectiveSection, SelectedChapterPath);
+
         _visibleAreas = null;
     }
 
@@ -444,7 +667,7 @@
     /// behind it can have moved.
     /// </para>
     /// </summary>
-    private IReadOnlyList<DevbookArea> VisibleAreas => _visibleAreas ??= Scope.VisibleAreas(RepositoryAlias);
+    private IReadOnlyList<DevbookArea> VisibleAreas => _visibleAreas ??= BrainMode ? _brainAreas : Scope.VisibleAreas(RepositoryAlias);
 
     private IReadOnlyList<DevbookArea>? _visibleAreas;
 
@@ -569,7 +792,7 @@
         _sourceStatus = _sourceError is null ? DevbookSource.Summary(ActiveRepositoryAlias) : null;
     }
 
-    private bool CanOpenActiveFolder =>
+    private bool CanOpenActiveFolder => !BrainMode &&
         DevbookUpdate.Repository(ActiveRepositoryAlias)?.DevbookSource is not DevbookSourceKind.Branch;
 
     private bool SectionUsesMenu => !string.Equals(EffectiveSection, "tech", StringComparison.Ordinal);
@@ -578,7 +801,7 @@
     /// search results are both readings of the whole area rather than of the one
     /// chapter a menu selects, so neither shares the width with it — and Technology
     /// never had a menu to begin with.</summary>
-    private bool ShowMenu => SectionUsesMenu && !_atlasOpen && !_searchOpen;
+    private bool ShowMenu => SectionUsesMenu && !_atlasOpen && !_searchOpen && !(BrainMode && VisibleAreas.Count == 0);
 
     private string? SelectedChapterPath =>
         SectionUsesMenu && _selectedChapterPaths.TryGetValue(EffectiveSection, out var path) ? path : null;
@@ -861,7 +1084,7 @@
     /// <summary>Whether this scope has a version to be behind. A repository
     /// configured to read its clone, with no clone on this machine, has none —
     /// a control would only ever say so.</summary>
-    private bool ShowUpdateControl => DevbookUpdate.CanCheck(RepositoryAlias);
+    private bool ShowUpdateControl => !BrainMode && DevbookUpdate.CanCheck(RepositoryAlias);
 
     private string? BehindLabel => DevbookUpdatePresentation.BehindLabel(_updateState);
 
@@ -946,20 +1169,55 @@
     private async Task RefreshMenuAsync()
     {
         var repositoryAlias = ActiveRepositoryAlias;
+        var brain = BrainMode;
         var visibleKeys = VisibleAreas.Select(area => area.Key).ToArray();
-        var fingerprint = string.Join("|", visibleKeys);
+
+        // The Brain's folder is part of what was loaded: a setting moved to
+        // another Brain with the same areas is a different set of notes.
+        var fingerprint = brain
+            ? $"brain:{_brainRoot}|{string.Join("|", visibleKeys)}"
+            : string.Join("|", visibleKeys);
         if (string.Equals(_loadedMenuRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
             && string.Equals(_loadedMenuVisibleKeyFingerprint, fingerprint, StringComparison.Ordinal))
         {
+            // Back on what is already loaded while a load for somewhere else is
+            // still out — the switch pressed twice in quick succession. That load
+            // answers a question nobody is asking any more, so it is dropped.
+            if (_menuLoading)
+            {
+                _menuLoadSequence++;
+                _menuLoading = false;
+            }
+
             return;
         }
 
+        // Only the latest load lands. Two can be out at once — the switch flips
+        // the pane between the Brain and a repository faster than a folder walk —
+        // and the one finishing last is not always the one asked for last.
+        var load = ++_menuLoadSequence;
         _menuLoading = true;
         try
         {
-            _menuTree = await DevbookMenu.LoadAsync(visibleKeys, repositoryAlias);
+            var tree = brain && _brain is not null
+                ? await DevbookMenu.LoadBrainAsync(_brain)
+                : await DevbookMenu.LoadAsync(visibleKeys, repositoryAlias);
+            if (load != _menuLoadSequence) return;
+
+            _menuTree = tree;
             _loadedMenuRepositoryAlias = repositoryAlias;
             _loadedMenuVisibleKeyFingerprint = fingerprint;
+
+            // Flipping the switch and back lands on the tab that was open on
+            // that side. The chapter per tab is kept already; the keys of the two
+            // sides never meet, so neither selection can leak into the other.
+            if (_loadedMenuBrain is { } wasBrain && wasBrain != brain)
+            {
+                _sectionsByMode[wasBrain] = _selectedSection;
+                if (_sectionsByMode.TryGetValue(brain, out var previous)) _selectedSection = previous;
+            }
+
+            _loadedMenuBrain = brain;
 
             var selectedVisible = visibleKeys.Contains(_selectedSection, StringComparer.Ordinal);
             if (!selectedVisible && visibleKeys.Length > 0)
@@ -976,7 +1234,7 @@
         }
         finally
         {
-            _menuLoading = false;
+            if (load == _menuLoadSequence) _menuLoading = false;
         }
 
         await LoadScenariosAsync();
@@ -1058,6 +1316,8 @@
 
     private RenderFragment RenderSection(string section)
     {
+        if (BrainMode) return RenderBrainSection(section);
+
         return section switch
         {
             @* Every section takes the same callback. Two of them used to, and the
@@ -1076,5 +1336,45 @@
             "instructions" => @<InstructionsDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             _ => @<Alert Message="Turn on Devbook in Settings to read the repository's devbook here." BaseClass="devbook-empty" Role="status" />
         };
+    }
+
+    /// <summary>
+    /// A Brain area's panel, or — with no area to show — why not. No folder set is
+    /// the first use, and asks for one through the Settings card that owns the
+    /// setting (<see cref="BrainSetup.SettingsHref"/>); a folder that is set and
+    /// cannot be read says what is wrong in the source's own words.
+    /// </summary>
+    private RenderFragment RenderBrainSection(string section)
+    {
+        if (DevbookMenu.IsBrainAreaKey(section) && _brain is not null)
+        {
+            return @<BrainDevbookPanel Brain="@_brain" SelectedPath="@SelectedChapterPath" />;
+        }
+
+        if (_brainSettings is { IsSet: false })
+        {
+            return @<EmptyState BaseClass="devbook-empty"
+                                Title="@BrainSetup.SetUpLabel"
+                                TitleCssClass="devbook-empty__title"
+                                DescriptionCssClass="@(null)"
+                                TestId="devbook-brain-first-use"
+                                role="status">
+                <DescriptionContent>
+                    Your Brain is a folder of your own notes outside every repository. Pick it once in Settings › Storage and its areas show here.
+                </DescriptionContent>
+                <Action>
+                    <AppButton Href="@BrainSetup.SettingsHref"
+                               Variant="ButtonVariant.Primary"
+                               TestId="devbook-brain-set-up">
+                        @BrainSetup.SetUpLabel
+                    </AppButton>
+                </Action>
+            </EmptyState>;
+        }
+
+        return @<Alert Message="@(_brainUnavailable ?? "The Brain folder cannot be read.")"
+                       BaseClass="devbook-empty"
+                       Role="status"
+                       TestId="devbook-brain-unavailable" />;
     }
 }

@@ -14,6 +14,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Desktop.UI.Inbox;
@@ -232,6 +233,38 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             second.ServiceProvider.GetRequiredService<DomainDevbookStore>());
         Assert.IsType<ArchifyDiagramArtifacts>(provider.GetRequiredService<IDiagramArtifactSource>());
         Assert.IsType<ProcessCopilotCliLauncher>(provider.GetRequiredService<ICopilotCliLauncher>());
+    }
+
+    /// <summary>
+    /// The Brain beside the repositories (local ADR 0026, ADR 0027): its source is a
+    /// port of its own over the Brain setting, the one repository folder source is
+    /// still the repository's, and the watch that ties the setting to the refresher
+    /// resolves and follows the setting once started.
+    /// </summary>
+    [Fact]
+    public void The_maui_head_composes_the_brain_beside_the_repository_devbook()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+
+        var brain = provider.GetRequiredService<IBrainFolderSource>();
+        Assert.IsType<BrainFolderSource>(brain);
+        Assert.IsType<DevbookFolderSource>(provider.GetRequiredService<IDevbookFolderSource>());
+        Assert.Single(provider.GetServices<IDevbookFolderSource>());
+
+        var folder = Path.Combine(_appData, "Brain");
+        Assert.Null(provider.GetRequiredService<IBrainSettings>().TrySetBrainFolder(folder));
+        Assert.Equal(folder, brain.BrainRoot);
+
+        var watch = provider.GetRequiredService<BrainFolderWatch>();
+        Assert.Same(watch, provider.GetRequiredService<BrainFolderWatch>());
+        watch.Start();
+        Assert.Equal(folder, watch.WatchedRoot);
     }
 
     [SupportedOSPlatform("windows")]

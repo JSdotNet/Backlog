@@ -27,7 +27,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// that the shell stores for the Brain scope (local ADR 0027 §5). A repository
 /// alias is a repository's question, and this source has no folders for it.</para>
 /// </summary>
-public sealed class BrainFolderSource : IDevbookFolderSource
+public sealed class BrainFolderSource : IBrainFolderSource
 {
     /// <summary>What the location says while no Brain folder is set.</summary>
     public const string NoBrainFolder = "Pick a folder for your Brain in Settings › Storage.";
@@ -76,6 +76,42 @@ public sealed class BrainFolderSource : IDevbookFolderSource
     /// <summary>The areas the Brain shows, in order: what its
     /// <c>CONVENTIONS.md</c> declares, or the PARA set.</summary>
     public IReadOnlyList<BrainArea> Areas() => BrainConventions.Read(BrainRoot);
+
+    /// <summary>The OneDrive conflict pairs among the Brain's notes, by name
+    /// alone (<see cref="BrainConflictCopies"/>): a listing, never a read of a
+    /// note and never a write. A dot-folder — <c>.obsidian</c>, <c>.trash</c> —
+    /// holds no note and is not walked.</summary>
+    public IReadOnlyList<BrainConflictCopy> ConflictCopies()
+    {
+        if (BrainRoot is not { } root || !Directory.Exists(root)) return [];
+
+        try
+        {
+            return BrainConflictCopies.Find(Notes(root, root));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // A folder that cannot be listed has no pair the pane could show.
+            return [];
+        }
+    }
+
+    private static IEnumerable<string> Notes(string root, string directory)
+    {
+        var options = new EnumerationOptions { IgnoreInaccessible = true };
+
+        foreach (var file in Directory.EnumerateFiles(directory, "*.md", options))
+        {
+            yield return Path.GetRelativePath(root, file);
+        }
+
+        foreach (var child in Directory.EnumerateDirectories(directory, "*", options))
+        {
+            if (Path.GetFileName(child).StartsWith('.')) continue;
+
+            foreach (var note in Notes(root, child)) yield return note;
+        }
+    }
 
     public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) =>
         IsBrainScope(repositoryAlias) ? [Folder] : [];

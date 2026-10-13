@@ -10562,6 +10562,81 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-xs);
 }
 
+/* The pane's title, on the strip and only while there can be two devbooks — on
+   the Brain, or beside the Brain | repository switch (local ADR 0027 §4). One
+   quiet word, so it names the pane without competing with the tabs. */
+.devbook-stack__title {
+    flex: 0 0 auto;
+    align-self: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The Brain | repository switch: sized to its two words, never squeezing the tabs. */
+.devbook-stack__switch {
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+.devbook-stack__brain-badge {
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+/* The strip once it carries a title (the Brain, or the switch beside a repository).
+   Title, switch, badge and path come before the tabs, and on a narrow pane they
+   leave the tabs too little width: squeezed to the width of one tab, the tab list
+   wrapped each tab onto a line of its own down the right edge. Here the tab list
+   keeps its whole row's width — up to the strip's — so when it no longer fits
+   beside the leading items the strip wraps the whole list onto a line of its own,
+   and the tabs only wrap among themselves, in rows, when even a full line is too
+   narrow. The path gives way first. The repository-only strip is untouched. */
+.devbook-stack__strip--titled {
+    flex-wrap: wrap;
+    row-gap: var(--spacing-xs);
+}
+
+.devbook-stack__strip--titled > .devbook-stack__nav {
+    flex: 1 0 auto;
+    max-width: 100%;
+}
+
+.devbook-stack__strip--titled > .devbook-stack__brain-path {
+    flex: 0 3 auto;
+    max-width: 12rem;
+}
+
+/* The Brain's folder where a repository's branch picker sits. A path is long and
+   its end is the part that names it, so it truncates with the whole path in the
+   title, under the same ceiling the picker has. */
+.devbook-stack__brain-path {
+    flex: 0 1 auto;
+    align-self: center;
+    max-width: 16rem;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* OneDrive's conflict copies, above the body as the update answer is: a sentence
+   the strip has no room for. The attention tone as an edge, because the person has
+   two versions of a note to reconcile; never the error tone, because nothing
+   failed. The ink stays primary: the sentence is what carries it. */
+.devbook-stack__brain-conflict {
+    margin: 0;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-2) solid var(--color-warning);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
 .devbook-stack__repositories,
 .devbook-stack__nav {
     flex: 0 0 auto;

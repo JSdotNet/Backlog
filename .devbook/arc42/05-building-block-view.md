@@ -300,8 +300,18 @@ builder indexes, with no devbook folder convention applied to them. `para`,
 `repos` and `tasks` become node attributes. A `repo:` link, in `related` or in
 prose, is stored as an edge whose target is no node. `BrainFolderSource` in
 `Backlog.Infrastructure.FileSystem` resolves the Brain as one local, always
-editable folder keyed `brain`, beside `DevbookFolderSource`. It takes the folder
-path from whoever owns the setting. `DevbookDatabaseLocation` records the folder
+editable folder keyed `brain`, beside `DevbookFolderSource`. The Devbook pane
+reads the Brain through `IBrainFolderSource`, a port of its own in the Devbook
+module's Abstractions beside `IDevbookFolderSource`. That keeps the repository
+source the one registration every search, reference, annotation and Archify
+reader resolves. `BrainFolderSource` implements the port, and the desktop
+composition (`AddDevbookAdapters`) builds it over `IBrainSettings.BrainFolder`.
+`BrainFolderWatch`, also in `Backlog.Infrastructure.FileSystem`, ties the setting
+to `DevbookDatabaseRefresher.WatchBrain`. It re-points the watch on
+`IBrainSettings.Changed`, and raises the source's `Changed` after a setting
+change or a Brain rebuild. Both heads resolve it after `Build()` and call
+`Start()`. `BrainConflictCopies`, in the Abstractions, finds OneDrive conflict
+pairs from the note names alone. `DevbookDatabaseLocation` records the folder
 as a Brain, so the folder is its own root and gets its own database in app
 storage. `DevbookDatabaseRefresher.WatchBrain` rebuilds it after a change.
 `tools/devbook/brain.mjs` is the Node side of the same convention, and the parity

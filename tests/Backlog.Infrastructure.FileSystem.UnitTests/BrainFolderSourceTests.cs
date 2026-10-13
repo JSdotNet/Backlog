@@ -8,6 +8,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// The Brain as a knowledge folder (local ADR 0026): one local folder keyed
 /// <c>brain</c>, always editable, picked by the person and never defaulted.
 /// </summary>
+[Collection(BrainRootCollection.Name)]
 public class BrainFolderSourceTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "brain-folder-source-tests-" + Guid.NewGuid().ToString("N"));
@@ -164,6 +165,82 @@ public class BrainFolderSourceTests : IDisposable
         source.NotifyContentChanged();
 
         Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void The_brain_is_offered_to_the_pane_through_its_own_port()
+    {
+        Directory.CreateDirectory(Brain);
+        _setting = Brain;
+
+        IBrainFolderSource source = Source();
+
+        Assert.Equal(Brain, source.BrainRoot);
+        Assert.Equal(BrainConventions.Para, source.Areas());
+    }
+
+    [Fact]
+    public void A_onedrive_conflict_copy_is_listed_with_its_original()
+    {
+        var original = Write("projects/plan.md", "# Plan\n\nMine.\n");
+        var copy = Write("projects/plan-LAPTOP.md", "# Plan\n\nTheirs.\n");
+        Write("projects/plan-2.md", "# Plan two\n");
+        Write("README.md", "# Brain\n");
+        _setting = Brain;
+
+        var pairs = Source().ConflictCopies();
+
+        Assert.Equal([new BrainConflictCopy("projects/plan.md", "projects/plan-LAPTOP.md")], pairs);
+        Assert.True(File.Exists(original));
+        Assert.True(File.Exists(copy));
+    }
+
+    [Fact]
+    public void Listing_conflict_copies_changes_neither_file()
+    {
+        var original = Write("plan.md", "# Plan\n\nMine.\n");
+        var copy = Write("plan-LAPTOP.md", "# Plan\n\nTheirs.\n");
+        var stamp = new DateTime(2026, 10, 1, 9, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(original, stamp);
+        File.SetLastWriteTimeUtc(copy, stamp);
+        var originalBytes = File.ReadAllBytes(original);
+        var copyBytes = File.ReadAllBytes(copy);
+        _setting = Brain;
+
+        Assert.Single(Source().ConflictCopies());
+
+        Assert.Equal(originalBytes, File.ReadAllBytes(original));
+        Assert.Equal(copyBytes, File.ReadAllBytes(copy));
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(original));
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(copy));
+        Assert.Equal(["plan-LAPTOP.md", "plan.md"], Directory.GetFiles(Brain).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void A_dot_folder_holds_no_conflict_copy()
+    {
+        Write(".obsidian/plan.md", "x");
+        Write(".obsidian/plan-LAPTOP.md", "x");
+        _setting = Brain;
+
+        Assert.Empty(Source().ConflictCopies());
+    }
+
+    [Fact]
+    public void An_unset_or_missing_brain_has_no_conflict_copies()
+    {
+        Assert.Empty(Source().ConflictCopies());
+
+        _setting = Brain;
+        Assert.Empty(Source().ConflictCopies());
+    }
+
+    private string Write(string relativePath, string text)
+    {
+        var file = Path.Combine(Brain, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllText(file, text);
+        return file;
     }
 
     public void Dispose()
