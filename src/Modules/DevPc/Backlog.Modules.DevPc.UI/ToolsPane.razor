@@ -1089,7 +1089,7 @@
         }
         else
         {
-            await RunCatalogEditAsync(ClearCacheKey, () => DevTools.RemoveStaleCacheAsync());
+            await RunCatalogEditAsync(ClearCacheKey, () => RecordRunAsync(DevToolRunKind.ClearStaleCache, () => DevTools.RemoveStaleCacheAsync()));
         }
     }
 
@@ -1421,12 +1421,42 @@
         }
     }
 
+    /// <summary>
+    /// Runs one of the pane's runs and, once it has finished, keeps it as this
+    /// machine's last run so the Last run card survives a restart.
+    ///
+    /// <para>Written after the port answers and never before: a run still going
+    /// is not a last run, and an app closed mid-run leaves the previous record
+    /// standing rather than half of this one.</para>
+    /// </summary>
+    /// <param name="tool">The row a single Update or Install acted on — its one
+    /// step is read off the row as it stood before the run. Null for an Update all,
+    /// whose steps the port reports, and for a Clear stale cache, which touches no
+    /// tool.</param>
+    private async Task<DevToolActionResult> RecordRunAsync(
+        DevToolRunKind kind,
+        Func<Task<DevToolActionResult>> run,
+        DevToolInfo? tool = null)
+    {
+        var startedAt = DateTimeOffset.Now;
+        var result = await run();
+        var finishedAt = DateTimeOffset.Now;
+
+        IReadOnlyList<DevToolRunStep> steps = tool is null
+            ? result.Steps
+            : [DevToolRunStep.For(tool, result.Succeeded, finishedAt - startedAt)];
+
+        await DevTools.SaveLastRunAsync(DevToolLastRun.From(kind, startedAt, finishedAt, result, steps));
+
+        return result;
+    }
+
     private async Task UpdateAllToolsAsync()
     {
         _toolActionKey = UpdateAllKey;
         try
         {
-            var result = await DevTools.UpdateAllAsync();
+            var result = await RecordRunAsync(DevToolRunKind.UpdateAll, () => DevTools.UpdateAllAsync());
             _toolMessage = result.Message;
             if (result.Succeeded)
             {
@@ -1451,7 +1481,7 @@
         {
             var result = action switch
             {
-                DevToolAction.Update => await DevTools.UpdateAsync(tool.Key),
+                DevToolAction.Update => await RecordRunAsync(DevToolLastRun.KindFor(tool), () => DevTools.UpdateAsync(tool.Key), tool),
                 DevToolAction.Enable => await DevTools.EnableAsync(tool.Key),
                 DevToolAction.Disable => await DevTools.DisableAsync(tool.Key),
                 _ => DevToolActionResult.Failed("Unknown tool action.")
