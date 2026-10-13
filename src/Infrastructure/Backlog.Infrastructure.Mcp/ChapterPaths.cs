@@ -111,6 +111,75 @@ internal static class ChapterPaths
             && !segments.Any(DevbookInstructionSources.IsExcludedName);
     }
 
+    /// <summary>
+    /// Whether a path relative to the Brain's root is a note this server will
+    /// open.
+    /// <para>
+    /// The Brain's own rule rather than <see cref="IsReadableChapter"/>, which
+    /// would read the Brain's empty conventional path as the Instructions folder
+    /// and admit only <c>CLAUDE.md</c> and its kind. A Brain note is any Markdown
+    /// file in the folder — and nothing under a dot-folder, which is where a
+    /// notes app keeps its own state (<c>.obsidian</c>, <c>.trash</c>) and which
+    /// the Brain's own listing never walks either. The excluded build and tool
+    /// folders are refused for the reason they are everywhere else.
+    /// </para>
+    /// <para>
+    /// A syntactic check: containment is still <see cref="ResolveWithin"/>'s, on
+    /// the resolved path, because a rooted path passes every rule here and is
+    /// thrown away by <c>Path.Combine</c>'s answer, not by its input.
+    /// </para>
+    /// </summary>
+    internal static bool IsReadableBrainNote(string relativePath)
+    {
+        var path = Normalize(relativePath);
+
+        if (path.Length == 0) return false;
+        if (!path.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) return false;
+
+        var segments = path.Split('/');
+
+        // A colon is never part of a note's name: on NTFS it names an alternate
+        // data stream of a file (plan.md:x.md), and on a drive-letter path it is
+        // a root somewhere else entirely.
+        return !segments.Any(segment => segment.Length == 0 || segment.StartsWith('.') || segment.Contains(':'))
+            && !segments.Any(DevbookInstructionSources.IsExcludedName);
+    }
+
+    /// <summary>
+    /// Whether the file at <paramref name="fullPath"/>, or any folder between it
+    /// and <paramref name="rootPath"/>, is a symbolic link or a junction.
+    /// <para>
+    /// The root itself is not asked: it is the folder the person picked, and a
+    /// Brain kept behind a link of their own making is their arrangement, not an
+    /// escape. Everything below it is reached by a path a client sent, and
+    /// <see cref="ResolveWithin"/> only checks how that path is spelled. A path
+    /// that cannot be inspected counts as a link — refusing a note is cheaper
+    /// than reading something that is not one.
+    /// </para>
+    /// </summary>
+    internal static bool PassesThroughLink(string rootPath, string fullPath)
+    {
+        try
+        {
+            var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath));
+
+            if (new FileInfo(fullPath).LinkTarget is not null) return true;
+
+            for (var directory = Path.GetDirectoryName(fullPath);
+                 directory is not null && directory.Length > root.Length;
+                 directory = Path.GetDirectoryName(directory))
+            {
+                if (new DirectoryInfo(directory).LinkTarget is not null) return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return true;
+        }
+    }
+
     /// <summary>The folder names a path may carry: the key, the configured path,
     /// its last segment, and each of those without a leading dot.</summary>
     private static IEnumerable<string> Prefixes(DevbookFolderSetting folder)

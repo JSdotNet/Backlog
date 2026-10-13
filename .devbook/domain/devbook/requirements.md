@@ -598,6 +598,7 @@ related: [.devbook/domain/devbook/features.md#mcp-brain-scope]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.Reading_a_brain_note_answers_its_text, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.The_brain_scope_lists_the_brain_as_its_one_context, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.Listing_brain_remarks_answers_the_written_live_ones_on_the_brain, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_brain_remark_is_resolved_under_the_brain_scope, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_blank_repository_is_still_required_rather_than_read_as_the_brain]
 ```
 
 The system SHALL answer the tools that list knowledge contexts, read a chapter, and list and resolve remarks for the Brain's reserved scope as they do for a repository alias.
@@ -605,7 +606,7 @@ The system SHALL answer the tools that list knowledge contexts, read a chapter, 
 #### Scenario: Reading a Brain note
 
 - **Given** a Brain note in `projects`
-- **When** an assistant reads it through the read-chapter tool with the Brain scope
+- **When** an assistant reads it through the read-chapter tool with the Brain scope `#brain` and the path `projects/plan.md`
 - **Then** the tool answers with the note's text
 
 ### Requirement: The capture tool writes into the inbox area
@@ -613,6 +614,7 @@ The system SHALL answer the tools that list knowledge contexts, read a chapter, 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_second_capture_under_the_same_title_never_overwrites_the_first]
 ```
 
 The system SHALL write a note sent to the capture tool into the Brain's inbox area through the writer the pane's Capture uses.
