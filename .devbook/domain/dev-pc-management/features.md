@@ -99,6 +99,30 @@ a backup and rejecting invalid input without touching what is already declared. 
 an entry also clears any per-machine override recorded against it, so what the catalog
 declares and what a machine has enabled cannot drift into a stale combination.
 
+### System tools pane
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/dev-pc-management/context.md#system-tools
+depends-on: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog]
+related: [.devbook/domain/dev-pc-management/requirements.md#system-tools-pane]
+```
+
+Read the catalog against this machine one kind at a time. The pane leads with a
+sentence saying what is outstanding on the tab on show — how many of its entries
+are behind, missing or not yet confirmed, or that everything matches the catalog —
+and when the catalog was last checked. Its tabs are an Overview, then Plugins,
+Marketplaces, MCP servers, Applications and a Checklist, which holds the
+applications nothing can check and somebody confirms by hand; each kind tab
+carries a count of the entries needing action. A host filter narrows every tab
+and every count to the entries for Claude (Claude Code or Claude Desktop) or for
+Copilot, and entries for no host at all — applications and checklist items —
+show only under all hosts. Within a tab, a toolbar narrows to the entries that
+need action or by name, and each catalog group is a card that starts folded when
+nothing in it is outstanding. The tab and the host filter are remembered on this
+machine, never synced, so the pane reopens where it was left.
+
 ## Remote tool updates
 
 ```meta

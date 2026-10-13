@@ -1,4 +1,5 @@
 @inject IDevToolService DevTools
+@inject IServiceProvider Services
 @implements IDisposable
 
 @*
@@ -8,11 +9,29 @@
     host is behind that port, and whether that host can do anything but read, is
     not something the pane knows.
 
-    Grouped, because the subject grew. Six rows of AI tooling is a list; the
-    machine's whole software inventory is a document, and the kind heading and
-    the catalog's own group headings are the structure it arrives with. Groups
-    with nothing outstanding fold themselves away: a correctly set-up machine
-    should open this pane to headings and no rows.
+    The Dashboard's shape (plan +system-tools-redesign, step 2): a header that names
+    the tab and says in one sentence what is outstanding on it, the controls that
+    scope the whole surface beside it, then one tab per kind of row. The kind used
+    to be a heading in one long scroll; fifty-odd rows of four kinds read as a
+    document nobody finishes, and "a plugin is behind" and "an application is
+    missing" are two different afternoons. Applications split in two, because the
+    rows confirmed by hand are a checklist somebody walks, not software anything
+    can install. Overview is the landing step 3 fills.
+
+    Every panel is Eager — rendered while another tab is shown — for the reason the
+    Dashboard gives: switching back brings back what was there, and the strip's
+    counts are the counts of rows that already exist rather than of rows a tab has
+    not drawn yet. The kind toolbar is drawn in the active panel only, so its
+    controls exist once.
+
+    The host filter scopes every tab and every count: Claude means Claude Code or
+    Claude Desktop, Copilot means Copilot, and the rows with no host at all —
+    applications and the checklist — show only under All hosts. The tab and the
+    filter are remembered per machine through IToolsViewPreferences, resolved
+    optionally so a host that composes none still renders the pane.
+
+    Groups with nothing outstanding fold themselves away: a correctly set-up machine
+    should open a tab to cards and no rows.
 
     Three shapes of row rather than one. Most rows report a version and offer an
     Update or an Install. A checklist row has no version anywhere and reports
@@ -38,106 +57,71 @@
 *@
 
 <section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
-    @* The same library section header the kind sub-headings below already
-       render, here wearing this pane's own class names. *@
+    @* The library's section header wearing this pane's class names, in the
+       Dashboard's arrangement: eyebrow and headline on the left, the controls that
+       scope the whole surface on the right, wrapping under the sentence when the
+       pane is narrow. *@
     <SectionHeader BaseClass="tools-panel__header"
                    TextCssClass=""
                    EyebrowCssClass="tools-panel__eyebrow"
                    TitleCssClass="tools-panel__title"
                    DescriptionCssClass="tools-panel__subtitle"
+                   DescriptionTestId="tools-checked"
                    ActionsCssClass="tools-panel__header-actions"
-                   Eyebrow="System tools"
+                   Eyebrow="@Eyebrow"
                    TitleId="installed-tools-title"
-                   Title="System tools"
-                   Description="What this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.">
+                   Title="@Headline"
+                   Description="@CheckedLine"
+                   TestId="tools-header">
         <Actions>
-            @* A re-check over rows that are already on screen does not blank them
-               — the versions below stay readable while the newer ones are being
-               looked up — so the only place left to say that something is running
-               is here, beside the count it is about to change. *@
+            @* A re-check over rows that are already on screen does not blank them,
+               so the only place left to say that something is running is here. *@
             @if (_toolsLoading && _tools.Count > 0)
             {
                 <Spinner Size="SpinnerSize.Small" Label="Checking tools" TestId="tools-refreshing" />
             }
-            @* The library's badge wearing this pane's count class. *@
-            <Badge BaseClass="tools-panel__count" Kind="">@CountLabel</Badge>
+            @* One choice of three, so a radio group: one stop in the tab order and
+               the arrows move and select, as the Dashboard's window does. *@
+            <ButtonGroup Radio="true" AriaLabel="Hosts to show" CssClass="tools-panel__hosts" TestId="tools-host-filter">
+                @foreach (var host in HostFilters)
+                {
+                    <ToggleButton Pressed="@(_hostFilter == host.Id)"
+                                  PressedChanged="_ => ChooseHostFilter(host.Id)"
+                                  TestId="@($"tools-host-{host.Id}")">
+                        @host.Label
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+            @* Checking and updating both read the catalog, so neither is offered
+               while there is no catalog to read. *@
+            <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
+                @(_toolsLoading ? "Checking..." : "Check for updates")
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync" TestId="tools-update-all">
+                @(_toolActionKey == UpdateAllKey ? "Updating..." : UpdateAllLabel)
+            </AppButton>
             <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
 
-    <div class="tools-panel__content" id="installed-tools-content">
-        @* Two columns rather than one stack, at the widths that have room
-           for them. The transcript used to be the last thing in the pane,
-           which on a fifty-row inventory put it a scroll and a half below
-           the button that produced it — so the one thing a failed install
-           left behind was the one thing nobody saw. The list keeps the
-           column it always had and the transcript takes a rail beside it;
-           below the width where both fit, the rail simply falls back under
-           the list and this is the stack it was. *@
-        <div class="tools-panel__main">
-            <div class="tools-panel__toolbar">
-                @* The library's alert wearing this pane's message class. The fallback
-                   behind ToolMessage keeps it non-empty, so it never takes the alert's
-                   hidden shape: a toolbar that loses its status line collapses. *@
-                <Alert Message="@ToolMessage" BaseClass="tools-panel__message" Role="status" />
-                <div class="tools-panel__toolbar-actions">
-                    @* Checking and updating both read the catalog, so neither is offered
-                       while there is no catalog to read. *@
-                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
-                        @(_toolsLoading ? "Checking..." : "Check for updates")
-                    </AppButton>
-                    <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
-                        @(_toolActionKey == UpdateAllKey ? "Updating..." : "Update all")
-                    </AppButton>
-                    @if (StaleCacheCount > 0)
-                    {
-                        @* Only while some row reports a folder nothing loads. A
-                           button that is always there reads as a chore to do every
-                           time; one that appears is the pane saying there is
-                           something to clear, and the count is how much. *@
-                        <AppButton Variant="ButtonVariant.Secondary"
-                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                   OnClick="AskToClearStaleCache"
-                                   TestId="tools-cache-clear">
-                            @(_toolActionKey == ClearCacheKey ? "Clearing..." : $"Clear stale cache ({StaleCacheCount})")
-                        </AppButton>
-                    }
-                    @if (CanEdit && _catalogExists && _tools.Count > 0)
-                    {
-                        @* Only alongside a populated table. The two empty states carry
-                           their own copies of these, where they are the point of the
-                           screen rather than one more button on a toolbar. *@
-                        <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
-                            Add tool
-                        </AppButton>
-                        <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
-                            Import
-                        </AppButton>
-                    }
-                </div>
-            </div>
+    @* The library's alert wearing this pane's message class. The fallback behind
+       ToolMessage keeps it non-empty, so it never takes the alert's hidden shape. *@
+    <Alert Message="@ToolMessage" BaseClass="tools-panel__message" Role="status" />
 
+    <div class="tools-panel__content" id="installed-tools-content">
+        @* Two columns rather than one stack, at the widths that have room for them:
+           the inventory, and the transcript of the last run in a rail beside it.
+           Below the width where both fit, the rail falls back under the list. *@
+        <div class="tools-panel__main">
             @if (_toolsLoading && _tools.Count == 0)
             {
                 @* The first read walks the machine — plugin manifests, marketplaces,
                    a version probe per application — and on a cold cache that is
-                   several seconds of a pane with nothing in it. One grey sentence
-                   there was indistinguishable from a pane that had failed to draw,
-                   so what stands in for the inventory is the inventory's own shape:
-                   the same kind sections, the same four columns, the same frame, with
-                   bars where the rows will be.
-
-                   It is the same table rather than a placeholder laid out like one,
-                   which is what keeps it honest: it restacks with the real rows when
-                   the pane is narrow, because it is the same component answering the
-                   same container query. The heading row is the real one too — those
-                   four words are true before any row is, and a bar standing in for a
-                   word nobody was waiting for was noise.
-
-                   Hidden from assistive technology in one piece. A reader who cannot
-                   see the bars gains nothing from forty of them; the toolbar's status
-                   line above already says the catalog is being checked, and it says
-                   it once. *@
+                   several seconds of a pane with nothing in it. What stands in for
+                   the inventory is the inventory's own shape: the same group card,
+                   the same table, with bars where the rows will be. Hidden from
+                   assistive technology in one piece: the status line above already
+                   says the catalog is being checked, once. *@
                 <div class="tools-panel__skeleton" data-testid="tools-loading" aria-hidden="true">
                     @foreach (var section in SkeletonSections)
                     {
@@ -155,6 +139,7 @@
                                     </td>
                                     <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
                                     <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
+                                    <td class="tools-inventory__status"><Skeleton Width="4rem" /></td>
                                     <td class="tools-inventory__actions-cell"><Skeleton Shape="SkeletonShape.Block" Width="5rem" /></td>
                                 </Row>
                             </DataTable>
@@ -178,311 +163,88 @@
             }
             else
             {
-                @* Grouped rather than one list, because the catalog stopped being six
-                   rows of AI tooling and became this machine's whole software
-                   inventory. Fifty-odd ungrouped rows lose the structure the setup
-                   guide they come from is made of — and the kind heading is the first
-                   thing a reader needs, because "a plugin is missing" and "an
-                   application is missing" are two different afternoons. *@
-                @foreach (var kind in ToolKinds)
-                {
-                    <section class="tools-kind" data-tool-kind="@kind.Kind" data-testid="tools-kind">
-                        <SectionHeader Level="3"
-                                       Title="@kind.Title"
-                                       Description="@KindCount(kind)"
-                                       CssClass="tools-kind__header" />
-
-                        @foreach (var group in kind.Groups)
+                @* The library's tab strip: role="tablist", a roving tabindex, and the
+                   arrow, Home and End keys. One row that scrolls sideways when the
+                   pane is narrow, never a wrapped stack. *@
+                <Tabs ActiveId="@_activeTab"
+                      ActiveIdChanged="ChooseTab"
+                      AriaLabel="Kinds of tool"
+                      CssClass="tools-tabs"
+                      StripCssClass="tools-tabs__strip"
+                      PanelCssClass="tools-tabs__panels"
+                      TestId="tools-tabs"
+                      ListTestId="tools-tablist">
+                    <ListTrailing>
+                        @if (_commands.Count > 0)
                         {
-                            <div class="tools-group" data-tool-group="@group.Key">
-                                @if (group.Title is { Length: > 0 } groupTitle)
-                                {
-                                    @* Only the sub-groups fold. A kind with one
-                                       unnamed group is the three plugins and the
-                                       three MCP servers this pane started as, and a
-                                       disclosure over three rows is a control that
-                                       costs more than it saves. *@
-                                    <FoldControl CssClass="tools-group__fold"
-                                                 Expanded="@IsExpanded(group)"
-                                                 ExpandedChanged="expanded => SetExpanded(group, expanded)"
-                                                 Controls="@group.RegionId"
-                                                 Label="@GroupLabel(group, groupTitle)"
-                                                 TestId="tools-group-toggle" />
-                                }
-
-                                <DataTable TItem="DevToolInfo"
-                                           Columns="Columns"
-                                           Items="@group.Tools"
-                                           RowKey="ToolKey"
-                                           RowCssClass="RowClass"
-                                           RowAttributes="RowIdentity"
-                                           RowNoun="tool"
-                                           CssClass="tools-inventory"
-                                           AriaLabel="@group.AriaLabel(kind.Title)"
-                                           id="@group.RegionId"
-                                           hidden="@(!IsExpanded(group))">
-                                    @* The cells are this pane's and the frame is the
-                                       library's, which is the split DataTable is built
-                                       around. The two things the row element itself has
-                                       to carry — the catalog key a driver scopes the
-                                       shared per-row test ids by, and the quieting a
-                                       switched-off row is drawn with — arrive through
-                                       the component rather than through a tr this pane
-                                       writes, because it does not write one. *@
-                                    <Row Context="tool">
-                                        <td class="tools-inventory__tool">
-                                            <strong>@tool.Name</strong>
-                                            @* The library's badge wearing this table's host class.
-                                               Which hosts an entry is for decides what its Update
-                                               actually does, and a catalog that drives two of them
-                                               with one row is unreadable without it being said.
-
-                                               An application has no host at all — it is machine
-                                               software, not a registration with an AI tool — so it
-                                               gets no badge rather than a badge reading "No host",
-                                               which answered a question the row never asked. *@
-                                            @if (tool.Hosts is not DevToolHosts.None)
-                                            {
-                                                <Badge BaseClass="tools-inventory__hosts"
-                                                       Kind=""
-                                                       Title="@HostTitle(tool)"
-                                                       TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
-                                            }
-                                            <span class="tools-inventory__meta">@Humanize(tool.Kind.ToString()) · @StatusOf(tool)</span>
-                                            @if (NoteOf(tool) is { Length: > 0 } note)
-                                            {
-                                                @* The catalog's own warning, on a line of its own
-                                                   rather than run together with the status. Several
-                                                   of these are the only reason a row reads the way it
-                                                   does — a version that legitimately reads backwards,
-                                                   a probe that is a heuristic, a package that does not
-                                                   exist — and appended to the status they were a
-                                                   sentence nobody finished reading. *@
-                                                <span class="tools-inventory__note" data-testid="tools-row-note">@note</span>
-                                            }
-                                            @if (tool.CachedVersions.Count > 0)
-                                            {
-                                                @* What Claude has kept of this plugin, under the row
-                                                   rather than in a column: it is a list, and a fourth
-                                                   column would be one more thing the narrow pane has
-                                                   to stack. Each version says whether an install still
-                                                   loads it, because that is the only fact that decides
-                                                   whether it may go — and the one a person clearing
-                                                   "old versions" by hand gets wrong: a project scope
-                                                   registered months ago still points at the folder it
-                                                   was made against, and deleting that one does not move
-                                                   the project on, it breaks it. Those get no button. *@
-                                                <span class="tools-inventory__cache" data-testid="tools-row-cache">
-                                                    <span class="tools-inventory__cache-label">Cached in Claude</span>
-                                                    @foreach (var cached in tool.CachedVersions)
-                                                    {
-                                                        <span class="tools-inventory__cache-version @(cached.InUse ? "tools-inventory__cache-version--in-use" : "tools-inventory__cache-version--stale")"
-                                                              data-testid="tools-row-cache-version"
-                                                              data-version="@cached.Version"
-                                                              data-in-use="@(cached.InUse ? "true" : "false")"
-                                                              title="@cached.Path">
-                                                            @cached.Version
-                                                            <span class="tools-inventory__cache-use">@CacheUseLabel(cached)</span>
-                                                            @if (!cached.InUse)
-                                                            {
-                                                                <AppButton Variant="ButtonVariant.Ghost"
-                                                                           Size="ButtonSize.Small"
-                                                                           CssClass="tools-inventory__cache-remove"
-                                                                           aria-label="@($"Remove cached {cached.Version} of {tool.Name}")"
-                                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                           TestId="tools-row-cache-remove"
-                                                                           OnClick="() => AskToRemoveCachedVersion(tool, cached)">
-                                                                    Remove
-                                                                </AppButton>
-                                                            }
-                                                        </span>
-                                                    }
-                                                </span>
-                                            }
-                                        </td>
-                                        @* Each version cell names itself. The row's four columns only
-                                           fit while the pane is wide enough for them — it is a surface
-                                           beside a workspace, so it often is not — and below that the
-                                           row stacks and the heading row goes. Two bare version strings
-                                           in a column say nothing about which is which, so the label is
-                                           in the markup at every width and the stylesheet decides when
-                                           it shows. *@
-                                        <td class="tools-inventory__version" data-testid="tools-row-installed">
-                                            <span class="tools-inventory__cell-label">Installed</span>@InstalledLabel(tool)
-                                        </td>
-                                        <td class="tools-inventory__version @(tool.CanUpdate ? "tools-inventory__version--new" : string.Empty)">
-                                            <span class="tools-inventory__cell-label">Available</span>@tool.AvailableVersion
-                                        </td>
-                                        <td class="tools-inventory__actions-cell">
-                                            @* The grid the three slots sit in is an element inside
-                                               the cell rather than the cell itself: a `td` carrying
-                                               `display: grid` is no longer a table-cell box, so it
-                                               loses the row's vertical alignment and has the
-                                               library's bottom rule drawn around the grid instead of
-                                               at the row's edge. The same reasoning the library
-                                               records on `.data-table__group-heading`. *@
-                                            <div class="tools-inventory__actions">
-                                                @* One slot per thing the row lets you do: the action
-                                                   or the status, the toggle, and Remove. Each names
-                                                   its own column in the stylesheet rather than taking
-                                                   the one its order would give it, because a
-                                                   marketplace has no toggle and a read-only host no
-                                                   Remove — and under auto-placement the survivors
-                                                   would slide into the empty track, misaligning
-                                                   exactly the rows that differ from the ones around
-                                                   them. Why the tracks are the widths they are is in
-                                                   `.tools-inventory__actions`. *@
-                                                <span class="tools-inventory__action">
-                                                    @if (tool.Kind is DevToolKind.Marketplace)
-                                                    {
-                                                        @* A marketplace has no version to be behind, so it
-                                                           never earns an Update through CanUpdate the way a
-                                                           tool does. What it has is two states — Claude
-                                                           knows it or does not — and one verb for each. *@
-                                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                            @(tool.Installed ? "Update" : "Add")
-                                                        </AppButton>
-                                                    }
-                                                    else if (tool.ConfirmedByHand && tool.ConfiguredEnabled)
-                                                    {
-                                                        @* The one row whose control is not a verb. Nothing
-                                                           can check it, so the only honest answer on it is
-                                                           somebody's word — and a box, unlike a button, can
-                                                           be taken back. It went through Update once, and
-                                                           that was the defect: ticking it removed the only
-                                                           control the row had, so a mis-click was permanent
-                                                           short of hand-editing the per-PC file.
-
-                                                           Only while the machine wants the row at all. A
-                                                           switched-off row has nothing to confirm, and a
-                                                           tick on one would be a statement about something
-                                                           this machine has said it is not doing. *@
-                                                        <Checkbox Checked="@tool.Acknowledged"
-                                                                  CheckedChanged="acknowledged => AcknowledgeAsync(tool, acknowledged)"
-                                                                  Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                  Label="Done here"
-                                                                  CssClass="tools-inventory__ack"
-                                                                  TestId="tools-row-acknowledge" />
-                                                    }
-                                                    else if (tool.CanUpdate)
-                                                    {
-                                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                            Update
-                                                        </AppButton>
-                                                    }
-                                                    else if (tool.CanInstall)
-                                                    {
-                                                        @* The same action as an update. The port has one
-                                                           verb for "make this machine match the config",
-                                                           and behind it the host already runs
-                                                           "plugin install" or "tool install" for a tool
-                                                           that is enabled and absent — what changes here
-                                                           is only that the row now offers it.
-
-                                                           CanInstall is false for a row with no mechanism
-                                                           behind it, which is what keeps the checklist rows
-                                                           and the install-by-hand packages from being given
-                                                           a button with nothing to run. *@
-                                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                            Install
-                                                        </AppButton>
-                                                    }
-                                                    else if (tool.CanReRegister)
-                                                    {
-                                                        @* A registration that exists and points at the wrong
-                                                           thing, which neither of the two branches above can
-                                                           repair: both are gated on there being something to
-                                                           install, and a server reached over HTTP or started
-                                                           by a command has nothing.
-
-                                                           The same verb, again. Update is the port's one word
-                                                           for "make this machine match the config", and behind
-                                                           it the host already removes and re-adds a
-                                                           registration whose target differs — what changes
-                                                           here is only that the row now offers it, and says
-                                                           what pressing it does in terms of a registration
-                                                           rather than of a version. *@
-                                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)"
-                                                                   TestId="tools-row-reregister">
-                                                            Re-register
-                                                        </AppButton>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="tools-inventory__action-note">@ActionNote(tool)</span>
-                                                    }
-                                                </span>
-                                                @if (tool.Kind is not DevToolKind.Marketplace)
-                                                {
-                                                    <span class="tools-inventory__toggle">
-                                                        @* Not for a marketplace. It is not a tool this
-                                                           machine opts into — it is where the Claude
-                                                           plugins that do come from — so the only way to
-                                                           stop wanting one is to remove it. *@
-                                                        <AppButton Variant="ButtonVariant.Ghost"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? DevToolAction.Disable : DevToolAction.Enable)">
-                                                            @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                                                        </AppButton>
-                                                    </span>
-                                                }
-                                                @if (CanEdit)
-                                                {
-                                                    <span class="tools-inventory__remove">
-                                                        @* The row's test id is shared by every row, so a driver
-                                                           scopes it through the row's data-tool-key. One id per
-                                                           row would be an id nobody could write a selector for
-                                                           without knowing the catalog first. *@
-                                                        <DeleteButton Label="Remove"
-                                                                      AriaLabel="@($"Remove {tool.Name} from the catalog")"
-                                                                      Size="ButtonSize.Small"
-                                                                      ShowIcon="false"
-                                                                      Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                      TestId="tools-row-remove"
-                                                                      OnClick="() => AskToRemove(tool)" />
-                                                    </span>
-                                                }
-                                            </div>
-                                        </td>
-                                    </Row>
-                                </DataTable>
-                            </div>
-
+                            @* A button rather than an anchor: it opens the transcript
+                               fold in the rail rather than navigating anywhere. *@
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       CssClass="tools-tabs__transcript"
+                                       OnClick="ShowTranscript"
+                                       TestId="tools-transcript-link">
+                                Last run transcript <span aria-hidden="true">→</span>
+                            </AppButton>
                         }
-                    </section>
-                }
+                    </ListTrailing>
+                    <ChildContent>
+                        <TabPanel Id="@OverviewTab" Title="Overview" Eager="true"
+                                  BaseClass="tools-tab" TabTestId="tools-tab-overview" TestId="tools-overview">
+                            @* Step 3 of the plan fills this with the overview board.
+                               The catalog's acts stay reachable from here meanwhile. *@
+                            @if (_activeTab == OverviewTab)
+                            {
+                                @KindToolbar(OverviewTab)
+                            }
+                            <EmptyState Title="Overview"
+                                        Description="A summary across every kind of tool arrives here. Each kind has its own tab until then."
+                                        TestId="tools-overview-placeholder" />
+                        </TabPanel>
 
+                        @foreach (var tab in KindTabs)
+                        {
+                            var tabId = tab.Id;
+                            <TabPanel @key="tabId" Id="@tabId" Title="@tab.Title" Eager="true"
+                                      BaseClass="tools-tab" TabTestId="@($"tools-tab-{tab.Slug}")" TestId="@($"tools-{tab.Slug}")">
+                                <TitleContent>
+                                    @* Read from the pane's state when the strip draws it,
+                                       not from the tab record it was built with, so the
+                                       count is the current one even though the strip
+                                       draws before this panel takes its parameters. *@
+                                    @TabTitle(tabId)
+                                    @if (TabAttention(tabId) is { Count: > 0 } attention)
+                                    {
+                                        <Badge Kind="tone"
+                                               Slug="@attention.Tone"
+                                               CssClass="tools-tabs__count"
+                                               TestId="@($"tools-tab-{TabSlug(tabId)}-count")"
+                                               aria-hidden="true">@attention.Count</Badge>
+                                        <span class="sr-only">, @NeedActionSpoken(attention.Count)</span>
+                                    }
+                                </TitleContent>
+                                <ChildContent>
+                                    @if (_activeTab == tabId)
+                                    {
+                                        @KindToolbar(tabId)
+                                    }
+                                    @KindBody(tabId)
+                                </ChildContent>
+                            </TabPanel>
+                        }
+                    </ChildContent>
+                </Tabs>
             }
         </div>
 
         @if (_commands.Count > 0)
         {
-            @* Checking tools runs about a dozen processes, and until this was
-               here the only trace of any of them was the sentence in the status
-               line above. The output was already captured and then dropped, so a
-               refused install or a search that could not reach nuget.org had
-               nowhere left to be read.
-
-               Folded, because it is diagnostics and not the pane's subject: it
-               matters exactly when the one-line summary is not enough — and a
-               rail is what lets it be both: closed it is a line of text beside
-               the list, open it is a column the list is read against rather than
-               a block the list has been pushed off the screen by.
-
-               A plain element and not a landmark: an aside with a name of its own
-               would file a complementary region inside the app's main one and
-               announce it as a word nothing on screen says. FoldControl already
-               gives the transcript a labelled region and its trigger already names
-               it, so a third wrapper here would be structure without content. *@
-            <div class="tools-panel__side">
+            @* Checking tools runs about a dozen processes, and this is the only
+               trace of their output: a refused install or a search that could not
+               reach nuget.org has nowhere else to be read. Folded, because it is
+               diagnostics and not the pane's subject; the strip's "Last run
+               transcript" opens it. A plain element and not a landmark: FoldControl
+               already gives the transcript a labelled region. *@
+            <div class="tools-panel__side" id="tools-transcript">
                 <FoldControl CssClass="tools-panel__log"
                              Expanded="_commandsShown"
                              ExpandedChanged="shown => _commandsShown = shown"
@@ -838,6 +600,710 @@
                OnCancel="CancelCacheRemoval" />
 
 @code {
+    // ------------------------------------------------------------ tabs and filters
+
+    /// <summary>The Overview tab's panel id. Its body is a placeholder until step 3
+    /// of the redesign fills it.</summary>
+    private const string OverviewTab = "tools-overview";
+
+    /// <summary>The tab a machine opens on before it has been on any: the first
+    /// kind, because the Overview has nothing to show yet.</summary>
+    private const string DefaultTab = "tools-plugins";
+
+    private const string AllHosts = "all";
+    private const string ClaudeHosts = "claude";
+    private const string CopilotHosts = "copilot";
+
+    /// <summary>The panel on show, by its id.</summary>
+    private string _activeTab = DefaultTab;
+
+    /// <summary>The host filter, by its id.</summary>
+    private string _hostFilter = AllHosts;
+
+    /// <summary>When the last listing came back, for the header's muted line. Null
+    /// until one has.</summary>
+    private DateTimeOffset? _checkedAt;
+
+    /// <summary>Per tab, whether its toolbar narrows it to the rows that need
+    /// action. All by default; never remembered — a filter on what is outstanding
+    /// today is not a preference.</summary>
+    private readonly Dictionary<string, bool> _needsActionOnly = new(StringComparer.Ordinal);
+
+    /// <summary>Per tab, the text its name filter holds.</summary>
+    private readonly Dictionary<string, string> _nameFilters = new(StringComparer.Ordinal);
+
+    /// <summary>Where the tab and the host filter are remembered, when the host
+    /// composed anywhere. Resolved optionally, the way the Dashboard resolves its
+    /// clock: a host that registers none still renders the pane, and the choices
+    /// then last as long as it.</summary>
+    private IToolsViewPreferences? Preferences => Services.GetService(typeof(IToolsViewPreferences)) as IToolsViewPreferences;
+
+    private TimeProvider Time => Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
+
+    /// <summary>One kind tab: its panel id, the slug its test ids and the
+    /// remembered value use, its title, the kind attribute its section carries, and
+    /// which rows it holds.</summary>
+    private sealed record KindTab(string Id, string Slug, string Title, string KindKey, string Noun, string NounOne, Func<DevToolInfo, bool> Holds);
+
+    /// <summary>The kind tabs in the order the strip draws them. Applications are
+    /// two tabs: the rows confirmed by hand are a checklist somebody walks, and
+    /// filed with the software they read as rows that failed to install.</summary>
+    private static readonly KindTab[] KindTabs =
+    [
+        new("tools-plugins", "plugins", "Plugins", nameof(DevToolKind.Plugin), "plugins", "plugin",
+            tool => tool.Kind is DevToolKind.Plugin),
+        new("tools-marketplaces", "marketplaces", "Marketplaces", nameof(DevToolKind.Marketplace), "marketplaces", "marketplace",
+            tool => tool.Kind is DevToolKind.Marketplace),
+        new("tools-mcp-servers", "mcp-servers", "MCP servers", nameof(DevToolKind.McpServer), "MCP servers", "MCP server",
+            tool => tool.Kind is DevToolKind.McpServer),
+        new("tools-applications", "applications", "Applications", nameof(DevToolKind.Application), "applications", "application",
+            tool => tool.Kind is DevToolKind.Application && !tool.ConfirmedByHand),
+        new("tools-checklist", "checklist", "Checklist", "Checklist", "checklist items", "checklist item",
+            tool => tool.Kind is DevToolKind.Application && tool.ConfirmedByHand)
+    ];
+
+    private static readonly (string Id, string Label)[] HostFilters =
+    [
+        (AllHosts, "All hosts"),
+        (ClaudeHosts, "Claude"),
+        (CopilotHosts, "Copilot")
+    ];
+
+    private static KindTab? KindTabOf(string tabId) => Array.Find(KindTabs, tab => tab.Id == tabId);
+
+    private static string TabSlug(string tabId) => KindTabOf(tabId)?.Slug ?? "overview";
+
+    private static string TabTitle(string tabId) => KindTabOf(tabId)?.Title ?? "Overview";
+
+    private static bool IsKnownTab(string tabId) => tabId == OverviewTab || KindTabOf(tabId) is not null;
+
+    /// <summary>Reads back the tab and the filter this machine last had. A value
+    /// this build does not know — a tab a later build added, a hand edit — falls
+    /// back to the default rather than to a tab with nothing behind it.</summary>
+    private void RestoreView()
+    {
+        if (Preferences is not { } preferences) return;
+
+        if (preferences.Tab is { Length: > 0 } tab && IsKnownTab("tools-" + tab))
+        {
+            _activeTab = "tools-" + tab;
+        }
+
+        if (preferences.HostFilter is AllHosts or ClaudeHosts or CopilotHosts)
+        {
+            _hostFilter = preferences.HostFilter;
+        }
+    }
+
+    private void ChooseTab(string tabId)
+    {
+        _activeTab = tabId;
+        Preferences?.SetTab(TabSlug(tabId));
+    }
+
+    private void ChooseHostFilter(string hostFilter)
+    {
+        _hostFilter = hostFilter;
+        Preferences?.SetHostFilter(hostFilter);
+    }
+
+    /// <summary>Opens the transcript the strip's link names.</summary>
+    private void ShowTranscript() => _commandsShown = true;
+
+    /// <summary>Whether a row is for the hosts the filter shows. Claude is Claude
+    /// Code or Claude Desktop; a row with no host — an application, a checklist
+    /// item — is machine software rather than a registration with either, so it
+    /// shows only under All hosts.</summary>
+    private bool MatchesHost(DevToolInfo tool) => _hostFilter switch
+    {
+        ClaudeHosts => (tool.Hosts & (DevToolHosts.Claude | DevToolHosts.ClaudeDesktop)) != DevToolHosts.None,
+        CopilotHosts => (tool.Hosts & DevToolHosts.Copilot) != DevToolHosts.None,
+        _ => true
+    };
+
+    /// <summary>Every row the host filter lets through, in catalog order.</summary>
+    private IEnumerable<DevToolInfo> HostRows => _tools.Where(MatchesHost);
+
+    /// <summary>The rows a tab holds under the host filter, before its own
+    /// toolbar narrows them. What its counts are counted over.</summary>
+    private IReadOnlyList<DevToolInfo> RowsOn(string tabId) => KindTabOf(tabId) is { } tab
+        ? HostRows.Where(tab.Holds).ToArray()
+        : HostRows.ToArray();
+
+    private bool NeedsActionOnly(string tabId) => _needsActionOnly.TryGetValue(tabId, out var only) && only;
+
+    private void SetNeedsActionOnly(string tabId, bool only) => _needsActionOnly[tabId] = only;
+
+    private string NameFilter(string tabId) => _nameFilters.TryGetValue(tabId, out var text) ? text : string.Empty;
+
+    private void SetNameFilter(string tabId, string? text) => _nameFilters[tabId] = text ?? string.Empty;
+
+    /// <summary>The rows a tab draws: its rows, narrowed by its toolbar.</summary>
+    private IEnumerable<DevToolInfo> VisibleRowsOn(string tabId)
+    {
+        var rows = RowsOn(tabId).AsEnumerable();
+
+        if (NeedsActionOnly(tabId))
+        {
+            rows = rows.Where(NeedsAttention);
+        }
+
+        var text = NameFilter(tabId).Trim();
+        if (text.Length > 0)
+        {
+            rows = rows.Where(tool => tool.Name.Contains(text, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return rows;
+    }
+
+    /// <summary>How many rows on a tab need action.</summary>
+    private int AttentionCount(string tabId) => RowsOn(tabId).Count(NeedsAttention);
+
+    /// <summary>What a tab's badge says and in which tone: the count of rows that
+    /// need action, toned by the worst of them — error for a missing row, warning
+    /// for one that is behind, neutral for one nobody has confirmed. Null while
+    /// nothing on the tab needs action, which draws no badge rather than a zero.</summary>
+    private (int Count, string Tone)? TabAttention(string tabId)
+    {
+        var states = RowsOn(tabId).Select(StateOf).Where(IsOutstanding).ToArray();
+
+        if (states.Length == 0) return null;
+
+        var tone = states.Contains(ToolState.Missing) ? "fault"
+            : states.Contains(ToolState.Update) ? "alert"
+            : "quiet";
+
+        return (states.Length, tone);
+    }
+
+    private static string NeedActionSpoken(int count) =>
+        count == 1 ? "1 needs action" : $"{count} need action";
+
+    /// <summary>The cards a tab draws: one per catalog group, in the order the
+    /// groups first appear, over the rows its toolbar leaves.</summary>
+    private IReadOnlyList<ToolGroup> GroupsOn(string tabId)
+    {
+        var tab = KindTabOf(tabId);
+        if (tab is null) return [];
+
+        var rows = VisibleRowsOn(tabId).ToArray();
+        var named = rows.Any(tool => !string.IsNullOrWhiteSpace(tool.Group));
+
+        return rows
+            .GroupBy(tool => string.IsNullOrWhiteSpace(tool.Group) ? null : tool.Group.Trim())
+            .Select(group => new ToolGroup(
+                // The ungrouped bucket's key ends at the colon: a catalog group is
+                // never blank, so no group name can produce it.
+                $"{tab.KindKey}:{group.Key}",
+                group.Key ?? (named ? "Other" : tab.Title),
+                group.ToArray()))
+            .ToArray();
+    }
+
+    private string EmptyTabTitle(string tabId) => RowsOn(tabId).Count == 0
+        ? $"No {KindTabOf(tabId)?.Noun ?? "rows"} here"
+        : "Nothing matches";
+
+    private string EmptyTabDescription(string tabId) => RowsOn(tabId).Count == 0
+        ? _hostFilter == AllHosts
+            ? "The catalog has none of these for this machine."
+            : "None of these are for the hosts the filter shows."
+        : "No row on this tab matches the toolbar's filters.";
+
+    // ------------------------------------------------------------ the header
+
+    private string Eyebrow => "System tools · " + TabTitle(_activeTab);
+
+    /// <summary>
+    /// The header's sentence: what is outstanding on the tab on show, filled from a
+    /// fixed template — "Two of eighteen plugins are behind", or "Everything matches
+    /// the catalog" when nothing is. A header is never a loading state, so until
+    /// the first listing lands it names the pane's state instead.
+    /// </summary>
+    private string Headline
+    {
+        get
+        {
+            if (_toolsLoading && _tools.Count == 0) return "Checking this machine";
+            if (!_catalogExists) return "No tool catalog yet";
+            if (_tools.Count == 0) return "The catalog is empty";
+
+            var rows = RowsOn(_activeTab);
+            var tab = KindTabOf(_activeTab);
+            var states = rows.Select(StateOf).Where(IsOutstanding).ToArray();
+
+            // A tab the filter has emptied says so, rather than claiming that rows
+            // it hides match the catalog.
+            if (rows.Count == 0)
+            {
+                var none = tab?.Noun ?? "entries";
+                return _hostFilter == AllHosts ? $"No {none} in the catalog" : $"No {none} for these hosts";
+            }
+
+            if (states.Length == 0) return "Everything matches the catalog";
+
+            var noun = tab is null ? (rows.Count == 1 ? "entry" : "entries") : rows.Count == 1 ? tab.NounOne : tab.Noun;
+            var one = states.Length == 1;
+            var finding = states.Distinct().ToArray() switch
+            {
+                [ToolState.Update] => one ? "is behind" : "are behind",
+                [ToolState.Missing] => one ? "is missing" : "are missing",
+                [ToolState.NotConfirmed] => one ? "is not confirmed" : "are not confirmed",
+                _ => one ? "needs action" : "need action"
+            };
+
+            // Both numbers in words or both in digits: "Fourteen of 22" reads as two
+            // registers in one sentence.
+            var words = rows.Count < SmallNumbers.Length;
+            return Capitalised($"{NumberWord(states.Length, words)} of {NumberWord(rows.Count, words)} {noun} {finding}");
+        }
+    }
+
+    /// <summary>The muted line under the sentence: when the catalog was last
+    /// checked, and how many entries the tab on show holds.</summary>
+    private string CheckedLine
+    {
+        get
+        {
+            if (_toolsLoading && _tools.Count == 0) return "Checking the catalog";
+            if (!_catalogExists) return "No catalog on this machine";
+
+            var count = RowsOn(_activeTab).Count;
+            var entries = count == 1 ? "1 entry" : $"{count} entries";
+
+            return _checkedAt is { } at
+                ? $"Checked {TimeZoneInfo.ConvertTime(at, Time.LocalTimeZone):HH:mm} · {entries}"
+                : entries;
+        }
+    }
+
+    private static readonly string[] SmallNumbers =
+    [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"
+    ];
+
+    /// <summary>A count as the headline says it: in words up to twenty, the way
+    /// a sentence would, and in digits past it.</summary>
+    private static string NumberWord(int count, bool words) =>
+        words && count >= 0 && count < SmallNumbers.Length ? SmallNumbers[count] : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Capitalised(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    /// <summary>How many rows Update all would act on. Not narrowed by the host
+    /// filter: the port's Update all updates every row, and a count that left
+    /// some of them out would promise less than the button does.</summary>
+    private int UpdatableCount =>
+        _tools.Count(tool => tool.CanUpdate || (tool.Kind is DevToolKind.Marketplace && !tool.Installed));
+
+    private string UpdateAllLabel => UpdatableCount > 0 ? $"Update all ({UpdatableCount})" : "Update all";
+
+    // ------------------------------------------------------------ row state
+
+    /// <summary>What a row's status chip says: one word for where the row stands,
+    /// which is also what decides whether it needs action.</summary>
+    private enum ToolState
+    {
+        Current,
+        Update,
+        Missing,
+        Off,
+        Confirmed,
+        NotConfirmed,
+        Unknown
+    }
+
+    /// <summary>
+    /// Where a row stands.
+    ///
+    /// <para>Switched off comes first: a row this machine has said it does not
+    /// want wants nothing, whatever it reports. Then the two shapes with no version
+    /// to compare — a row confirmed by hand, a marketplace — and then the version
+    /// rows, where a drifted registration is an update like a newer version is:
+    /// both are a press of the row's one verb away from matching the catalog.</para>
+    ///
+    /// <para>Wider than the rule before the tabs, which counted only a row with an
+    /// Update or an Install to press. A row that is missing is missing whether or not
+    /// anything here can install it — an install by hand, a server registered by a
+    /// command, a checklist probe that found nothing — and a Needs action that hid it
+    /// would hide the one row somebody has to go and do.</para>
+    /// </summary>
+    private static ToolState StateOf(DevToolInfo tool) => tool switch
+    {
+        { ConfiguredEnabled: false } => ToolState.Off,
+        { ConfirmedByHand: true } => tool.Acknowledged ? ToolState.Confirmed : ToolState.NotConfirmed,
+        { Kind: DevToolKind.Marketplace } => tool.Installed ? ToolState.Current : ToolState.Missing,
+        _ when tool.CanUpdate || tool.CanReRegister => ToolState.Update,
+        _ when tool.CanInstall => ToolState.Missing,
+        _ when ReportsDetection(tool) => tool.Installed ? ToolState.Current : ToolState.Missing,
+        { Installed: false } => ToolState.Missing,
+        { AvailableVersionKnown: false } => ToolState.Unknown,
+        _ => ToolState.Current
+    };
+
+    private static bool IsOutstanding(ToolState state) =>
+        state is ToolState.Update or ToolState.Missing or ToolState.NotConfirmed;
+
+    /// <summary>
+    /// Whether a row still wants something done about it — what the tab badges
+    /// count, what Needs action narrows to, and what decides which groups open by
+    /// themselves. A machine that is set up correctly should open a tab to folded
+    /// cards and no rows.
+    /// </summary>
+    private static bool NeedsAttention(DevToolInfo tool) => IsOutstanding(StateOf(tool));
+
+    private static string StateLabel(ToolState state) => state switch
+    {
+        ToolState.Current => "Up to date",
+        ToolState.Update => "Update",
+        ToolState.Missing => "Missing",
+        ToolState.Off => "Off here",
+        ToolState.Confirmed => "Confirmed by hand",
+        ToolState.NotConfirmed => "Not confirmed",
+        ToolState.Unknown => "Unknown"
+    };
+
+    /// <summary>The chip's tone, from the library's tone family
+    /// (color-scheme.md#badge-and-chip-tones).</summary>
+    private static string StateTone(ToolState state) => state switch
+    {
+        ToolState.Current or ToolState.Confirmed => "settled",
+        ToolState.Update => "alert",
+        ToolState.Missing => "fault",
+        ToolState.Off => "archived",
+        ToolState.NotConfirmed or ToolState.Unknown => "quiet"
+    };
+
+    /// <summary>The hosts a row names, one chip each, in a fixed order.</summary>
+    private static IEnumerable<DevToolHosts> HostsOf(DevToolHosts hosts) =>
+        new[] { DevToolHosts.Copilot, DevToolHosts.Claude, DevToolHosts.ClaudeDesktop }.Where(host => hosts.HasFlag(host));
+
+    // ------------------------------------------------------------ the kind tab body
+
+    /// <summary>The toolbar over a tab: the Needs action toggle and the name
+    /// filter on a kind tab, and the acts that edit the catalog on every tab. Drawn
+    /// in the active panel only, so each control exists once.</summary>
+    private RenderFragment KindToolbar(string tabId) =>
+        @<div class="tools-panel__toolbar" data-testid="tools-kind-toolbar">
+            @if (KindTabOf(tabId) is not null)
+            {
+                <ButtonGroup Radio="true" AriaLabel="Rows to show" CssClass="tools-panel__scope" TestId="tools-needs-filter">
+                    <ToggleButton Pressed="@NeedsActionOnly(tabId)"
+                                  PressedChanged="_ => SetNeedsActionOnly(tabId, true)"
+                                  TestId="tools-needs-action">@($"Needs action ({AttentionCount(tabId)})")</ToggleButton>
+                    <ToggleButton Pressed="@(!NeedsActionOnly(tabId))"
+                                  PressedChanged="_ => SetNeedsActionOnly(tabId, false)"
+                                  TestId="tools-needs-all">@($"All ({RowsOn(tabId).Count})")</ToggleButton>
+                </ButtonGroup>
+                <TextField AriaLabel="Filter by name"
+                           Compact="true"
+                           Placeholder="Filter by name"
+                           Value="@NameFilter(tabId)"
+                           ValueChanged="value => SetNameFilter(tabId, value)"
+                           CssClass="tools-panel__filter"
+                           TestId="tools-name-filter" />
+            }
+            <div class="tools-panel__toolbar-actions">
+                @if (StaleCacheCount > 0)
+                {
+                    @* Only while some row reports a folder nothing loads: a button
+                       that appears is the pane saying there is something to clear. *@
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               Disabled="@(_toolsLoading || ToolActionBusy)"
+                               OnClick="AskToClearStaleCache"
+                               TestId="tools-cache-clear">
+                        @(_toolActionKey == ClearCacheKey ? "Clearing..." : $"Clear stale cache ({StaleCacheCount})")
+                    </AppButton>
+                }
+                @if (CanEdit)
+                {
+                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
+                        Add tool
+                    </AppButton>
+                    <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                        Import
+                    </AppButton>
+                }
+            </div>
+        </div>;
+
+    /// <summary>A kind tab's cards: one per catalog group, each with a fold.</summary>
+    private RenderFragment KindBody(string tabId) =>
+        @<section class="tools-kind" data-tool-kind="@KindTabOf(tabId)?.KindKey" data-testid="tools-kind" aria-label="@TabTitle(tabId)">
+            @if (GroupsOn(tabId).Count == 0)
+            {
+                <EmptyState Title="@EmptyTabTitle(tabId)"
+                            Description="@EmptyTabDescription(tabId)"
+                            TestId="tools-kind-empty" />
+            }
+            @foreach (var group in GroupsOn(tabId))
+            {
+                <Card @key="group.Key" CssClass="tools-group" data-tool-group="@group.Key">
+                    <div class="tools-group__fold-row">
+                        <FoldControl CssClass="tools-group__fold"
+                                     Expanded="@IsExpanded(group)"
+                                     ExpandedChanged="expanded => SetExpanded(group, expanded)"
+                                     Controls="@group.RegionId"
+                                     HeadingLevel="3"
+                                     Label="@GroupLabel(group)"
+                                     TestId="tools-group-toggle" />
+                        @if (group.Outstanding == 0)
+                        {
+                            <Badge Kind="tone" Slug="settled" CssClass="tools-group__status" TestId="tools-group-current">All up to date</Badge>
+                        }
+                    </div>
+                    <DataTable TItem="DevToolInfo"
+                               Columns="Columns"
+                               Items="@group.Tools"
+                               RowKey="ToolKey"
+                               RowCssClass="RowClass"
+                               RowAttributes="RowIdentity"
+                               RowNoun="tool"
+                               CssClass="tools-inventory"
+                               AriaLabel="@group.AriaLabel(TabTitle(tabId))"
+                               id="@group.RegionId"
+                               hidden="@(!IsExpanded(group))">
+                        <Row Context="tool">@ToolRow(tool)</Row>
+                    </DataTable>
+                </Card>
+            }
+        </section>;
+
+    /// <summary>One row's cells. The cells are this pane's and the frame is the
+    /// library's, which is the split DataTable is built around: the catalog key a
+    /// driver scopes the shared per-row test ids by, and the quieting a switched-off
+    /// row is drawn with, arrive through the component rather than through a tr
+    /// this pane writes.</summary>
+    private RenderFragment ToolRow(DevToolInfo tool) =>
+        @<text>
+            <td class="tools-inventory__tool">
+                @* The name, and beside it one chip per host the row is for: which
+                   hosts an entry is for decides what its Update actually does. An
+                   application has no host at all — it is machine software, not a
+                   registration with an AI tool — so it gets no chip rather than
+                   one reading "No host". *@
+                <span class="tools-inventory__name-line">
+                    <strong>@tool.Name</strong>
+                    @if (tool.Hosts is not DevToolHosts.None)
+                    {
+                        <span class="tools-inventory__host-chips" title="@HostTitle(tool)" data-testid="tools-row-hosts">
+                            @foreach (var host in HostsOf(tool.Hosts))
+                            {
+                                <Badge BaseClass="tools-inventory__hosts" Kind="">@HostLabel(host)</Badge>
+                            }
+                        </span>
+                    }
+                </span>
+                <span class="tools-inventory__meta">@StatusOf(tool)</span>
+                @if (NoteOf(tool) is { Length: > 0 } note)
+                {
+                    @* The catalog's own warning, on a line of its own
+                       rather than run together with the status. Several
+                       of these are the only reason a row reads the way it
+                       does — a version that legitimately reads backwards,
+                       a probe that is a heuristic, a package that does not
+                       exist — and appended to the status they were a
+                       sentence nobody finished reading. *@
+                    <span class="tools-inventory__note" data-testid="tools-row-note">@note</span>
+                }
+                @if (tool.CachedVersions.Count > 0)
+                {
+                    @* What Claude has kept of this plugin, under the row
+                       rather than in a column: it is a list, and a fourth
+                       column would be one more thing the narrow pane has
+                       to stack. Each version says whether an install still
+                       loads it, because that is the only fact that decides
+                       whether it may go — and the one a person clearing
+                       "old versions" by hand gets wrong: a project scope
+                       registered months ago still points at the folder it
+                       was made against, and deleting that one does not move
+                       the project on, it breaks it. Those get no button. *@
+                    <span class="tools-inventory__cache" data-testid="tools-row-cache">
+                        <span class="tools-inventory__cache-label">Cached in Claude</span>
+                        @foreach (var cached in tool.CachedVersions)
+                        {
+                            <span class="tools-inventory__cache-version @(cached.InUse ? "tools-inventory__cache-version--in-use" : "tools-inventory__cache-version--stale")"
+                                  data-testid="tools-row-cache-version"
+                                  data-version="@cached.Version"
+                                  data-in-use="@(cached.InUse ? "true" : "false")"
+                                  title="@cached.Path">
+                                @cached.Version
+                                <span class="tools-inventory__cache-use">@CacheUseLabel(cached)</span>
+                                @if (!cached.InUse)
+                                {
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Size="ButtonSize.Small"
+                                               CssClass="tools-inventory__cache-remove"
+                                               aria-label="@($"Remove cached {cached.Version} of {tool.Name}")"
+                                               Disabled="@(_toolsLoading || ToolActionBusy)"
+                                               TestId="tools-row-cache-remove"
+                                               OnClick="() => AskToRemoveCachedVersion(tool, cached)">
+                                        Remove
+                                    </AppButton>
+                                }
+                            </span>
+                        }
+                    </span>
+                }
+            </td>
+            @* Each version cell names itself. The row's four columns only
+               fit while the pane is wide enough for them — it is a surface
+               beside a workspace, so it often is not — and below that the
+               row stacks and the heading row goes. Two bare version strings
+               in a column say nothing about which is which, so the label is
+               in the markup at every width and the stylesheet decides when
+               it shows. *@
+            <td class="tools-inventory__version" data-testid="tools-row-installed">
+                <span class="tools-inventory__cell-label">Installed</span>@InstalledLabel(tool)
+            </td>
+            <td class="tools-inventory__version @(tool.CanUpdate ? "tools-inventory__version--new" : string.Empty)">
+                <span class="tools-inventory__cell-label">Available</span>@tool.AvailableVersion
+            </td>
+            <td class="tools-inventory__status" data-testid="tools-row-status" data-state="@StateOf(tool)">
+                <span class="tools-inventory__cell-label">Status</span><Badge Kind="tone" Slug="@StateTone(StateOf(tool))" CssClass="tools-inventory__status-chip">@StateLabel(StateOf(tool))</Badge>
+            </td>
+            <td class="tools-inventory__actions-cell">
+                @* The grid the three slots sit in is an element inside
+                   the cell rather than the cell itself: a `td` carrying
+                   `display: grid` is no longer a table-cell box, so it
+                   loses the row's vertical alignment and has the
+                   library's bottom rule drawn around the grid instead of
+                   at the row's edge. The same reasoning the library
+                   records on `.data-table__group-heading`. *@
+                <div class="tools-inventory__actions">
+                    @* One slot per thing the row lets you do: the action
+                       or the status, the toggle, and Remove. Each names
+                       its own column in the stylesheet rather than taking
+                       the one its order would give it, because a
+                       marketplace has no toggle and a read-only host no
+                       Remove — and under auto-placement the survivors
+                       would slide into the empty track, misaligning
+                       exactly the rows that differ from the ones around
+                       them. Why the tracks are the widths they are is in
+                       `.tools-inventory__actions`. *@
+                    <span class="tools-inventory__action">
+                        @if (tool.Kind is DevToolKind.Marketplace)
+                        {
+                            @* A marketplace has no version to be behind, so it
+                               never earns an Update through CanUpdate the way a
+                               tool does. What it has is two states — Claude
+                               knows it or does not — and one verb for each. *@
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                @(tool.Installed ? "Update" : "Add")
+                            </AppButton>
+                        }
+                        else if (tool.ConfirmedByHand && tool.ConfiguredEnabled)
+                        {
+                            @* The one row whose control is not a verb. Nothing
+                               can check it, so the only honest answer on it is
+                               somebody's word — and a box, unlike a button, can
+                               be taken back. It went through Update once, and
+                               that was the defect: ticking it removed the only
+                               control the row had, so a mis-click was permanent
+                               short of hand-editing the per-PC file.
+
+                               Only while the machine wants the row at all. A
+                               switched-off row has nothing to confirm, and a
+                               tick on one would be a statement about something
+                               this machine has said it is not doing. *@
+                            <Checkbox Checked="@tool.Acknowledged"
+                                      CheckedChanged="acknowledged => AcknowledgeAsync(tool, acknowledged)"
+                                      Disabled="@(_toolsLoading || ToolActionBusy)"
+                                      Label="Done here"
+                                      CssClass="tools-inventory__ack"
+                                      TestId="tools-row-acknowledge" />
+                        }
+                        else if (tool.CanUpdate)
+                        {
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                Update
+                            </AppButton>
+                        }
+                        else if (tool.CanInstall)
+                        {
+                            @* The same action as an update. The port has one
+                               verb for "make this machine match the config",
+                               and behind it the host already runs
+                               "plugin install" or "tool install" for a tool
+                               that is enabled and absent — what changes here
+                               is only that the row now offers it.
+
+                               CanInstall is false for a row with no mechanism
+                               behind it, which is what keeps the checklist rows
+                               and the install-by-hand packages from being given
+                               a button with nothing to run. *@
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                Install
+                            </AppButton>
+                        }
+                        else if (tool.CanReRegister)
+                        {
+                            @* A registration that exists and points at the wrong
+                               thing, which neither of the two branches above can
+                               repair: both are gated on there being something to
+                               install, and a server reached over HTTP or started
+                               by a command has nothing.
+
+                               The same verb, again. Update is the port's one word
+                               for "make this machine match the config", and behind
+                               it the host already removes and re-adds a
+                               registration whose target differs — what changes
+                               here is only that the row now offers it, and says
+                               what pressing it does in terms of a registration
+                               rather than of a version. *@
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)"
+                                       TestId="tools-row-reregister">
+                                Re-register
+                            </AppButton>
+                        }
+                        else
+                        {
+                            <span class="tools-inventory__action-note">@ActionNote(tool)</span>
+                        }
+                    </span>
+                    @if (tool.Kind is not DevToolKind.Marketplace)
+                    {
+                        <span class="tools-inventory__toggle">
+                            @* Not for a marketplace. It is not a tool this
+                               machine opts into — it is where the Claude
+                               plugins that do come from — so the only way to
+                               stop wanting one is to remove it. *@
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? DevToolAction.Disable : DevToolAction.Enable)">
+                                @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                            </AppButton>
+                        </span>
+                    }
+                    @if (CanEdit)
+                    {
+                        <span class="tools-inventory__remove">
+                            @* The row's test id is shared by every row, so a driver
+                               scopes it through the row's data-tool-key. One id per
+                               row would be an id nobody could write a selector for
+                               without knowing the catalog first. *@
+                            <DeleteButton Label="Remove"
+                                          AriaLabel="@($"Remove {tool.Name} from the catalog")"
+                                          Size="ButtonSize.Small"
+                                          ShowIcon="false"
+                                          Disabled="@(_toolsLoading || ToolActionBusy)"
+                                          TestId="tools-row-remove"
+                                          OnClick="() => AskToRemove(tool)" />
+                        </span>
+                    }
+                </div>
+            </td>
+        </text>;
+
     /// <summary>The keys the busy state is held under for acts that are not one
     /// tool's. A tool's own key is its catalog key, and none of those can collide
     /// with these: a key is <c>plugin:</c> or <c>mcp:</c> prefixed.</summary>
@@ -911,6 +1377,8 @@
         // on its own.
         DevTools.Changed += OnToolsChanged;
 
+        RestoreView();
+
         return RefreshToolsAsync();
     }
 
@@ -967,6 +1435,7 @@
         new("Tool", "tools-inventory__col-tool"),
         new("Installed", "tools-inventory__col-version"),
         new("Available", "tools-inventory__col-version"),
+        new("Status", "tools-inventory__col-status"),
         new("Actions", "tools-inventory__col-actions")
     ];
 
@@ -1000,19 +1469,6 @@
         ["62%", "78%", "45%"],
         ["70%", "52%"]
     ];
-
-    /// <summary>"No catalog" is a different fact from "no tools", and the badge is
-    /// where it is said in one glance.
-    ///
-    /// <para>Three facts, not two: until the first read comes back, neither of the
-    /// others is known. <c>_catalogExists</c> starts false, so the badge used to
-    /// open on "No catalog" and correct itself — a claim the pane had not checked,
-    /// beside a placeholder promising rows were coming.</para></summary>
-    private string CountLabel => _toolsLoading && _tools.Count == 0
-        ? "Checking"
-        : !_catalogExists
-            ? "No catalog"
-            : _tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools";
 
     private string NoCatalogDescription => _catalogPath.Length == 0
         ? "This machine has no tool catalog. Create one, or import a catalog you already have."
@@ -1182,68 +1638,14 @@
             : (status[..index], status[(index + NoteSeparator.Length)..]);
     }
 
-    /// <summary>
-    /// The rows, filed under a heading per kind and — for applications — a
-    /// sub-heading per group.
-    ///
-    /// <para>Grouped in the order the rows arrive rather than in an order this
-    /// pane decides: <see cref="Enumerable.GroupBy{TSource, TKey}(IEnumerable{TSource}, Func{TSource, TKey})"/>
-    /// yields groups by first appearance, and the sequence the port answers in is
-    /// the sequence the catalog is written in — which for a setup guide is the
-    /// order somebody is meant to do the steps in.</para>
-    /// </summary>
-    private IReadOnlyList<ToolKindGroup> ToolKinds =>
-        _tools
-            .GroupBy(tool => tool.Kind)
-            .Select(kind => new ToolKindGroup(
-                kind.Key,
-                KindTitle(kind.Key),
-                kind
-                    .GroupBy(tool => string.IsNullOrWhiteSpace(tool.Group) ? null : tool.Group.Trim())
-                    .Select(group => new ToolGroup($"{kind.Key}:{group.Key ?? "all"}", group.Key, group.ToArray()))
-                    .ToArray()))
-            .ToArray();
-
-    /// <summary>The heading a kind files under, spelled out with no catch-all for
-    /// the reason the port's own key mint has none: a kind added to the enum and
-    /// not named here should fail to compile rather than inherit a heading that
-    /// is about something else.</summary>
-    private static string KindTitle(DevToolKind kind) => kind switch
-    {
-        DevToolKind.Plugin => "Plugins",
-        DevToolKind.McpServer => "MCP servers",
-        DevToolKind.Marketplace => "Claude marketplaces",
-        DevToolKind.Application => "Applications"
-    };
-
-    /// <summary>How much is under a heading, and how much of it still wants
-    /// something. The second number is the one worth reading: a closed group has
-    /// to be able to say it is closed because there is nothing in it to do.</summary>
-    private static string KindCount(ToolKindGroup kind) => Counted(kind.Count, kind.Outstanding);
-
-    private static string GroupLabel(ToolGroup group, string title) =>
-        $"{title} — {Counted(group.Tools.Count, group.Outstanding)}";
+    /// <summary>What a group's fold says: its title, how many rows, and how many of
+    /// them are outstanding — so a folded group can be read without opening it.</summary>
+    private static string GroupLabel(ToolGroup group) =>
+        $"{group.Title} — {Counted(group.Tools.Count, group.Outstanding)}";
 
     private static string Counted(int count, int outstanding) => outstanding == 0
         ? $"{count} row(s), nothing outstanding"
         : $"{count} row(s), {outstanding} outstanding";
-
-    /// <summary>
-    /// Whether a row still wants something done about it.
-    ///
-    /// <para>What decides which groups open by themselves. A machine that is set
-    /// up correctly should open this pane to headings and no rows; the fifty-odd
-    /// rows behind them are worth having and are not worth scrolling past every
-    /// time. A row this machine has switched off wants nothing by definition —
-    /// that is what switching it off said.</para>
-    /// </summary>
-    private static bool NeedsAttention(DevToolInfo tool) => tool switch
-    {
-        { ConfiguredEnabled: false } => false,
-        { ConfirmedByHand: true } => !tool.Acknowledged,
-        { Kind: DevToolKind.Marketplace } => !tool.Installed,
-        _ => tool.CanUpdate || tool.CanInstall
-    };
 
     /// <summary>Whichever groups somebody has opened or closed by hand. Held per
     /// group key so it survives a refresh: checking for updates re-reads every row
@@ -1251,18 +1653,17 @@
     private readonly Dictionary<string, bool> _expanded = new(StringComparer.Ordinal);
 
     /// <summary>A hand toggle wins; otherwise a group opens when it has something
-    /// outstanding, and an ungrouped kind is always open — it is the three-row
-    /// list this pane started as, and there is nothing there to fold away.</summary>
+    /// outstanding and starts folded when it has nothing — a correctly set-up
+    /// machine opens a tab to cards and no rows.</summary>
     private bool IsExpanded(ToolGroup group) => _expanded.TryGetValue(group.Key, out var expanded)
         ? expanded
-        : group.Title is null || group.Outstanding > 0;
+        : group.Outstanding > 0;
 
     private void SetExpanded(ToolGroup group, bool expanded) => _expanded[group.Key] = expanded;
 
-    /// <summary>One heading's worth of rows: a kind's whole list when the entries
-    /// file themselves under nothing, and one of a kind's sub-groups when they
-    /// do.</summary>
-    private sealed record ToolGroup(string Key, string? Title, IReadOnlyList<DevToolInfo> Tools)
+    /// <summary>One card's worth of rows: one of the catalog's groups on a tab,
+    /// or the tab's ungrouped rows.</summary>
+    private sealed record ToolGroup(string Key, string Title, IReadOnlyList<DevToolInfo> Tools)
     {
         public int Outstanding => Tools.Count(NeedsAttention);
 
@@ -1272,17 +1673,8 @@
         public string RegionId => "tools-group-" + new string(Key.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
 
         /// <summary>The table's own label. A screen reader landing in one of a
-        /// dozen tables needs to know which, and "Configured tools" said twelve
-        /// times is the same as saying nothing.</summary>
-        public string AriaLabel(string kindTitle) => Title is { Length: > 0 } title ? $"{kindTitle}: {title}" : kindTitle;
-    }
-
-    /// <summary>Every group under one kind's heading.</summary>
-    private sealed record ToolKindGroup(DevToolKind Kind, string Title, IReadOnlyList<ToolGroup> Groups)
-    {
-        public int Count => Groups.Sum(group => group.Tools.Count);
-
-        public int Outstanding => Groups.Sum(group => group.Outstanding);
+        /// dozen tables needs to know which.</summary>
+        public string AriaLabel(string tabTitle) => Title == tabTitle ? tabTitle : $"{tabTitle}: {Title}";
     }
 
     private const string ImportPlaceholder = """{ "plugins": [], "mcpServers": [] }""";
@@ -1410,6 +1802,7 @@
             _catalogPath = catalog.CatalogPath;
             _canEditCatalog = catalog.CanEditCatalog;
             _commands = catalog.Commands;
+            _checkedAt = Time.GetUtcNow();
         }
         catch (Exception ex)
         {
@@ -1880,14 +2273,12 @@
         _draftCommandError = null;
     }
 
-    /// <summary>Which hosts a row is for, short enough to sit beside the name.
-    /// Both hosts is spelled out rather than left blank: a row that says nothing about
-    /// hosts is indistinguishable from one whose badge failed to render, and the
-    /// whole point of the badge is that the answer is never assumed.</summary>
+    /// <summary>A host's name, short enough to sit beside a row's name as a chip.</summary>
     private static string HostLabel(DevToolHosts hosts) => hosts switch
     {
         DevToolHosts.Copilot => "Copilot",
         DevToolHosts.Claude => "Claude",
+        DevToolHosts.ClaudeDesktop => "Claude Desktop",
         DevToolHosts.Default => "Copilot + Claude",
         _ => "No host"
     };
@@ -1901,9 +2292,4 @@
 
     private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string Humanize(string enumName)
-    {
-        var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
-        return text.ToLowerInvariant();
-    }
 }

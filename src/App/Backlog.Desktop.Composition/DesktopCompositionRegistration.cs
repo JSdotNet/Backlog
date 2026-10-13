@@ -295,6 +295,10 @@ public static class DesktopCompositionRegistration
 
         services.AddSingleton(options.AppUpdateService);
         services.AddSingleton(options.DevToolService);
+        // The tools pane's tab and host filter, kept per device in the shell's own
+        // navigation file beside the surface it reopens on.
+        services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
+            new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 
