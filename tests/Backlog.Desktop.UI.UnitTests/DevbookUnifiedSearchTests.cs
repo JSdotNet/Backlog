@@ -105,6 +105,25 @@ public sealed class DevbookUnifiedSearchTests
         Assert.False(search.SearchesByMeaning);
     }
 
+    /// <summary>With meaning on but no deployment to answer, the question is not
+    /// sent: a typing pause costs no call that could only fail.</summary>
+    [Fact]
+    public async Task With_no_deployment_configured_the_question_is_not_embedded()
+    {
+        var embedder = new FixedEmbedder([1f, 0f]) { Available = false };
+        var search = Create(
+            repositoryWords: Answers(("backlog", "words.md", "standup")),
+            repositoryMeaning: Nearest(("backlog", "meaning.md")),
+            embedder: embedder,
+            meaningOn: true);
+
+        var groups = await search.SearchAsync("standup", only: null, limit: 30, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["words.md"], Assert.Single(groups).Hits.Select(hit => hit.Chapter.Reference));
+        Assert.Equal(0, embedder.Calls);
+        Assert.False(search.SearchesByMeaning);
+    }
+
     /// <summary>A model that cannot be reached leaves the words answering: the
     /// meaning tier is additive, never a precondition.</summary>
     [Fact]
@@ -242,6 +261,10 @@ public sealed class DevbookUnifiedSearchTests
     private sealed class FixedEmbedder(float[]? vector) : IDevbookQueryEmbedder
     {
         public int Calls { get; private set; }
+
+        public bool Available { get; init; } = true;
+
+        public bool IsAvailable => Available;
 
         public Task<IReadOnlyList<float>?> EmbedAsync(string text, CancellationToken cancellationToken = default)
         {
