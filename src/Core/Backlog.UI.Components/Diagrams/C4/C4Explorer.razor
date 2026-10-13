@@ -4,16 +4,17 @@
 @*
     The exploration layer over a C4 workspace.
 
-    The diagram itself is still a mermaid render through DiagramView, the same as a
-    chapter fence. What this adds is everything c4hero calls Explore: a Views panel
+    The diagram itself is drawn by C4DiagramView, which lays the view out with
+    C4LayoutEngine and writes the SVG with C4SvgWriter; mermaid is not involved.
+    What this adds is everything c4hero calls Explore: a Views panel
     over the four levels, drilling into a system or container by clicking it, a
     breadcrumb that says where that left you, search, the Highlighter, and a viewer
     with pan, zoom, a minimap and a presentation mode.
 
     Two things are worth knowing before reading it.
 
-    The bridge from the picture back to the model is the node alias. Mermaid writes
-    each element as `<g class="node" id="<svg id>-<alias>">`, and that alias came from
+    The bridge from the picture back to the model is the node alias. C4SvgWriter
+    writes each element as `<g class="node" id="<svg id>-<alias>">`, and that alias came from
     this repository's own writer — so a click resolves by identifier, never by
     matching label text.
 
@@ -150,7 +151,7 @@
 
             <div class="c4-explorer__stage">
                 <div class="c4-explorer__frame" id="@_frameId" data-testid="c4-frame">
-                    <C4DiagramView Diagram="@C4LayoutEngine.Build(Workspace, _view)"
+                    <C4DiagramView Diagram="@DiagramFor(_view)"
                                    Id="@_svgId"
                                    AriaLabel="@C4Exploration.Label(Workspace, _view)"
                                    TestId="c4-diagram" />
@@ -256,6 +257,18 @@
     /// it would dispose through has no circuit behind it.</summary>
     private bool _attached;
 
+    /// <summary>The laid-out picture of the open view, and what it was built from.
+    /// Kept because every render would otherwise lay the view out again — a zoom
+    /// report re-renders once per wheel tick — and because its reference is the
+    /// identity the viewer is attached to.</summary>
+    private C4Diagram? _diagram;
+    private C4Workspace? _diagramWorkspace;
+    private string? _diagramViewKey;
+
+    /// <summary>The picture the viewer was last handed. A render that draws the same
+    /// one leaves the viewer alone.</summary>
+    private C4Diagram? _attachedDiagram;
+
     [Parameter, EditorRequired]
     public C4Workspace Workspace { get; set; } = C4Workspace.Empty;
 
@@ -304,7 +317,36 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_view is not null) await AttachAsync();
+        // Nothing drawn means nothing attached: the next picture is a new element,
+        // whatever it was built from.
+        if (_view is null || _diagram is null)
+        {
+            _attachedDiagram = null;
+            return;
+        }
+
+        if (!ReferenceEquals(_diagram, _attachedDiagram)) await AttachAsync(_diagram);
+    }
+
+    /// <summary>
+    /// The open view's picture, laid out once per workspace and view.
+    /// <para>
+    /// Keyed on the workspace's reference as well as the view key: a reload hands
+    /// over a fresh workspace for the same key, and its picture may have changed.
+    /// </para>
+    /// </summary>
+    private C4Diagram DiagramFor(C4View view)
+    {
+        if (_diagram is null
+            || !ReferenceEquals(_diagramWorkspace, Workspace)
+            || !string.Equals(_diagramViewKey, view.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            _diagram = C4LayoutEngine.Build(Workspace, view);
+            _diagramWorkspace = Workspace;
+            _diagramViewKey = view.Key;
+        }
+
+        return _diagram;
     }
 
     protected override void OnParametersSet()
@@ -519,7 +561,7 @@
     // ---- the viewer ------------------------------------------------------------
 
     /// <summary>
-    /// Takes over the drawn SVG after every render.
+    /// Takes over the drawn SVG after a render that drew a new picture.
     /// <para>
     /// From <c>OnAfterRenderAsync</c> rather than from a render callback, because this
     /// renderer is synchronous: by the time Blazor has put the markup in the DOM the
@@ -527,27 +569,43 @@
     /// later, on its own schedule.
     /// </para>
     /// <para>
-    /// Re-attaching on every pass is deliberate and cheap — the viewer disposes the
-    /// previous attachment itself, so this does not have to track whether one is live
-    /// across a view change.
+    /// Only when the picture changed. Attaching after every render handed the viewer
+    /// an SVG it had already zoomed, because Blazor leaves unchanged markup in place,
+    /// and the attach reported the zoom back, which rendered again. The highlight
+    /// survives a render that does not attach: the classes sit on markup Blazor left
+    /// alone, and every control that changes them calls the viewer itself.
     /// </para>
     /// </summary>
-    private async Task AttachAsync()
+    private async Task AttachAsync(C4Diagram diagram)
     {
         _self ??= DotNetObjectReference.Create(this);
         _attached = true;
+
+        // Marked before the call, not after it: the attach reports the zoom, and the
+        // render that report causes runs while this call is still awaited.
+        _attachedDiagram = diagram;
 
         try
         {
             string[] drillable = [.. _nodes.Where(node => node.DrillViewKey is not null).Select(node => node.Alias)];
 
-            await Js.InvokeVoidAsync(
+            var took = await Js.InvokeAsync<bool>(
                 "backlogC4Explorer.attach",
                 _frameId,
                 $"#{_frameId} .c4-diagram-host",
                 _self,
                 _view?.Key,
                 drillable);
+
+            // False is the viewer finding no frame or no svg to take over. The
+            // picture is not attached, so the next render tries again rather than
+            // leaving this view without pan, zoom or a click to drill.
+            if (!took)
+            {
+                ForgetAttached(diagram);
+                return;
+            }
+
             await ApplyHighlightAsync();
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
@@ -555,8 +613,19 @@
             // No viewer, or no circuit left to reach one through. The diagram is
             // still on screen and every control that does not need it — the Views
             // panel, the breadcrumb, the drill list — still works, which is the
-            // degradation worth having.
+            // degradation worth having. Forgetting the picture lets the next render
+            // try again, as every render used to.
+            ForgetAttached(diagram);
         }
+    }
+
+    /// <summary>Forgets that <paramref name="diagram"/> is attached, unless a newer
+    /// attach has already replaced it: a view change while this call was awaited
+    /// marked its own picture, and clearing that mark would attach it a second
+    /// time on the next render.</summary>
+    private void ForgetAttached(C4Diagram diagram)
+    {
+        if (ReferenceEquals(_attachedDiagram, diagram)) _attachedDiagram = null;
     }
 
     private async Task ZoomAsync(double factor)
