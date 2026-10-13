@@ -1,0 +1,927 @@
+﻿@*
+    One page of the Settings screen, in a file of its own so a change to this
+    page is a change to this file. The screen (Settings.razor) keeps the tab
+    strip and the panel this is drawn in; what is on the page, and what it
+    writes, is here.
+
+    The namespace is the screen's rather than the folder's, and this folder has
+    no _Imports.razor, for the reason the note at the top of Settings.razor
+    gives.
+*@
+@namespace Backlog.Desktop.UI.Shell
+@inherits SettingsPageBase
+@using Backlog.SharedKernel
+@using Backlog.Infrastructure.Claude
+@inject GitHubIntegration GitHub
+@inject IAppFeatureSettings Features
+@inject AzureFoundrySettingsStore AzureFoundry
+@inject ClaudeSettingsStore Claude
+@* The connection probes are read off this rather than injected, so a host
+   that composes none of them can still render the page. *@
+@inject IServiceProvider Services
+
+@* Two cards that configure unrelated things, so on a window with
+   the room they stand side by side rather than one under the other. *@
+<div class="setting-columns">
+    @if (UsageMetricsEnabled)
+    {
+        @* Claude and GitHub are two vendors, two credentials and two failure
+           modes, so they are two cards. One card mixing them meant a change to
+           either endpoint saved both and reported through a single status line
+           that could not say which vendor it was talking about. *@
+        <section class="setting" data-testid="claude-usage-settings" aria-label="Claude usage API settings">
+            <h2 class="setting__title">Claude usage API</h2>
+            <p class="setting__body">
+                What Backlog needs to read your Claude usage and cost reports. One card per
+                organization you belong to - a personal Console beside an employer's - and
+                the dashboard adds their spend up.
+            </p>
+
+            <p class="setting__status" data-testid="claude-accounts-status" role="status">
+                <span>@ClaudeAccountsSummary()</span>
+            </p>
+
+            @* One subpage per account, the same shared strip the GitHub account
+               cards use - only what is inside the card differs. There is always
+               at least one: the store keeps a blank account rather than an empty
+               list, so a fresh install sees the fields straight away. *@
+            <Tabs Bare="true"
+                  ListCssClass="repo-subpages"
+                  ListTestId="claude-account-subpages"
+                  AriaLabel="Claude account pages"
+                  TabCssClass="repo-subpage"
+                  ActiveTabCssClass="repo-subpage repo-subpage--active"
+                  ActiveId="@ActiveClaudeAccount.Id"
+                  ActiveIdChanged="ShowClaudeAccountPage">
+                @foreach (var account in Claude.Current.Accounts)
+                {
+                    var claudeAccount = account;
+
+                    @* A plain Title rather than TitleContent: the label changes as
+                       the card is filled in, and a string title is what the strip
+                       knows how to notice changing. Keyed by the account, so
+                       forgetting one disposes its card rather than handing the
+                       next account to the component in that slot. *@
+                    <TabPanel @key="claudeAccount.Id"
+                              Id="@claudeAccount.Id"
+                              Title="@claudeAccount.Label"
+                              TabTestId="claude-account-subpage-tab"
+                              Element="article"
+                              BaseClass="repo-card"
+                              TestId="claude-account-card"
+                              aria-label="@($"{claudeAccount.Label} Claude account settings")">
+                        <ChildContent>
+                            <header class="repo-card__header">
+                                <div>
+                                    <h3 class="repo-card__title">@claudeAccount.Label</h3>
+                                    <p class="repo-card__meta">
+                                        <code>@claudeAccount.ApiEndpoint</code>
+                                    </p>
+                                </div>
+
+                                @* There is always one card, so the only account is blanked
+                                   rather than removed - and a blank one has nothing left to
+                                   forget. Offering the button anyway made a click look like
+                                   it did nothing. *@
+                                <AppButton Variant="ButtonVariant.None"
+                                           TestId="remove-claude-account-button"
+                                           Disabled="@(!CanForgetClaudeAccount(claudeAccount))"
+                                           title="@(CanForgetClaudeAccount(claudeAccount) ? null : "This is the only Claude account and it is already blank. Fill it in, or add another.")"
+                                           OnClick="() => RemoveClaudeAccount(claudeAccount)">
+                                    Forget this account
+                                </AppButton>
+                            </header>
+
+                            @* What to do, in order, ticking off as the fields below are
+                               filled. The list is derived from the account each render,
+                               so it never disagrees with the card under it. *@
+                            <SetupSteps AriaLabel="Setting up this Claude account"
+                                        TestId="claude-account-setup-steps"
+                                        Steps="@ClaudeSetupSteps(claudeAccount)" />
+
+                            @* Every field on this page is the shared TextField wearing
+                               the page's own label and input classes. Bare, because a
+                               settings section lays its label and box out itself, and a
+                               grid wrapper between them would move the spacing. *@
+                            <TextField Bare="true"
+                                       LabelCssClass="setting__label"
+                                       InputCssClass="setting__input"
+                                       Label="Name (optional)"
+                                       Id="@($"claude-account-name-{claudeAccount.Id}")"
+                                       data-testid="claude-account-name-input"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       Placeholder="personal, work..."
+                                       HelpText="Only for telling two accounts apart on this page."
+                                       Value="@Draft(_draftClaudeNames, claudeAccount)"
+                                       ValueChanged="value => _draftClaudeNames[claudeAccount.Id] = value"
+                                       @onchange="() => ApplyClaudeUsageSettings(claudeAccount)"
+                                       @onkeydown="e => OnClaudeUsageKeyDown(e, claudeAccount)" />
+
+                            <TextField Bare="true"
+                                       LabelCssClass="setting__label"
+                                       InputCssClass="setting__input"
+                                       Label="Organization API endpoint"
+                                       Id="@($"claude-usage-endpoint-{claudeAccount.Id}")"
+                                       data-testid="claude-usage-endpoint-input"
+                                       Type="url"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       Value="@Draft(_draftClaudeEndpoints, claudeAccount)"
+                                       ValueChanged="value => _draftClaudeEndpoints[claudeAccount.Id] = value"
+                                       @onchange="() => ApplyClaudeUsageSettings(claudeAccount)"
+                                       @onkeydown="e => OnClaudeUsageKeyDown(e, claudeAccount)" />
+
+                            @* Which actor in this Claude organization is you. Not an endpoint
+                               and not a secret, but it belongs beside them rather than in a
+                               section of its own: it is the third thing needed before an
+                               organization-scoped usage report can be read as a personal one.
+                               The Claude Code report lists every actor in the organization, and
+                               there is no endpoint that says which one an admin key belongs to
+                               - an admin key belongs to the organization, not to a person. *@
+                            <TextField Bare="true"
+                                       LabelCssClass="setting__label"
+                                       InputCssClass="setting__input"
+                                       Label="Your Claude account"
+                                       Id="@($"claude-usage-actor-{claudeAccount.Id}")"
+                                       data-testid="claude-usage-actor-input"
+                                       Type="email"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       Value="@Draft(_draftClaudeActors, claudeAccount)"
+                                       ValueChanged="value => _draftClaudeActors[claudeAccount.Id] = value"
+                                       @onchange="() => ApplyClaudeUsageSettings(claudeAccount)"
+                                       @onkeydown="e => OnClaudeUsageKeyDown(e, claudeAccount)" />
+
+                            <TextField Bare="true"
+                                       LabelCssClass="setting__label"
+                                       InputCssClass="setting__input"
+                                       Label="Claude API key"
+                                       Id="@($"claude-api-key-{claudeAccount.Id}")"
+                                       data-testid="claude-api-key-input"
+                                       Type="password"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       HelpText="@ClaudeApiKeyHint(claudeAccount)"
+                                       Placeholder="@(claudeAccount.AdminApiKey is null ? "sk-ant-admin01-..." : "stored - hidden")"
+                                       Value="@Draft(_draftClaudeApiKeys, claudeAccount)"
+                                       ValueChanged="value => _draftClaudeApiKeys[claudeAccount.Id] = value"
+                                       @onchange="() => ApplyClaudeApiKey(claudeAccount)"
+                                       @onkeydown="e => OnClaudeApiKeyDown(e, claudeAccount)" />
+
+                            @* The workspace narrows the message and cost reports. It does not
+                               narrow the Claude Code report, which is per-actor - that is what
+                               the account field above is for. *@
+                            <TextField Bare="true"
+                                       LabelCssClass="setting__label"
+                                       InputCssClass="setting__input"
+                                       Label="Workspace (optional)"
+                                       Id="@($"claude-workspace-{claudeAccount.Id}")"
+                                       data-testid="claude-workspace-input"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       Placeholder="wrkspc_..."
+                                       HelpText="Reports one workspace instead of the whole organization. Leave it empty for everything."
+                                       Value="@Draft(_draftClaudeWorkspaces, claudeAccount)"
+                                       ValueChanged="value => _draftClaudeWorkspaces[claudeAccount.Id] = value"
+                                       @onchange="() => ApplyClaudeUsageSettings(claudeAccount)"
+                                       @onkeydown="e => OnClaudeUsageKeyDown(e, claudeAccount)" />
+
+                            <p class="setting__status" data-testid="claude-usage-status" role="status">
+                                @if (_claudeAccountMessages.GetValueOrDefault(claudeAccount.Id) is { } claudeMessage)
+                                {
+                                    <span>@claudeMessage</span>
+                                }
+                                else
+                                {
+                                    <span>
+                                        Usage metrics calls Claude at <code>@claudeAccount.ApiEndpoint</code>.
+                                        @if (!claudeAccount.IsConfigured)
+                                        {
+                                            <text> Claude needs a key before it can report anything.</text>
+                                        }
+                                        @if (string.IsNullOrWhiteSpace(claudeAccount.Actor))
+                                        {
+                                            <text> The dashboard needs your Claude account before it can show your spend rather than the whole organization's.</text>
+                                        }
+                                        else
+                                        {
+                                            <text> The dashboard reports Claude usage for <code>@claudeAccount.Actor</code>.</text>
+                                        }
+                                    </span>
+                                }
+                            </p>
+
+                            @* What Anthropic said, one line per question, so a card
+                               that fails at step two still shows step one passed. *@
+                            @if (_claudeAccountChecks.GetValueOrDefault(claudeAccount.Id) is { } claudeCheck)
+                            {
+                                <ul class="setting__check" data-testid="claude-account-check" role="status" aria-label="Test result">
+                                    @foreach (var step in claudeCheck.Steps)
+                                    {
+                                        <li class="@ClaudeCheckStepClass(step)"
+                                            data-testid="claude-account-check-step"
+                                            data-outcome="@step.Outcome.ToString().ToLowerInvariant()">
+                                            <span class="setting__check-subject">@step.Subject</span>
+                                            <span class="setting__check-detail">@step.Detail</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+
+                            <div class="setting__actions">
+                                <AppButton Variant="ButtonVariant.None"
+                                           TestId="test-claude-account-button"
+                                           Disabled="@(!claudeAccount.IsConfigured)"
+                                           Busy="@_claudeAccountsTesting.Contains(claudeAccount.Id)"
+                                           BusyLabel="Asking Anthropic"
+                                           title="@(claudeAccount.IsConfigured ? null : "Paste an Admin API key first.")"
+                                           OnClick="() => TestClaudeAccountAsync(claudeAccount)">
+                                    Test this account
+                                </AppButton>
+                                <AppButton Variant="ButtonVariant.None"
+                                           data-testid="claude-clear-key-button"
+                                           Disabled="@(claudeAccount.AdminApiKey is null)"
+                                           OnClick="() => ClearClaudeApiKey(claudeAccount)">
+                                    Forget Claude key
+                                </AppButton>
+                            </div>
+                        </ChildContent>
+                    </TabPanel>
+                }
+            </Tabs>
+
+            <div class="setting__actions">
+                <AppButton Variant="ButtonVariant.None"
+                           TestId="add-claude-account-button"
+                           OnClick="AddClaudeAccount">
+                    Add another Claude account
+                </AppButton>
+            </div>
+
+            <p class="setting__note">
+                Everything here is auto-saved. The keys are kept in <code>@Claude.SettingsPath</code> - outside the backlog folder, so they are never synced or committed with entries.
+            </p>
+        </section>
+
+        <section class="setting" data-testid="github-usage-settings" aria-label="GitHub usage API settings">
+            <h2 class="setting__title">GitHub usage API</h2>
+            <p class="setting__body">
+                What Backlog needs to read organization Copilot seat activity.
+            </p>
+
+            <SetupSteps AriaLabel="Setting up GitHub usage reporting"
+                        TestId="github-usage-setup-steps"
+                        Steps="@GitHubUsageSetupSteps" />
+
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="Organization API endpoint"
+                       Id="github-usage-endpoint"
+                       data-testid="github-usage-endpoint-input"
+                       Type="url"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Value="@_draftGitHubUsageEndpoint"
+                       ValueChanged="value => _draftGitHubUsageEndpoint = value"
+                       @onchange="ApplyGitHubUsageSettings"
+                       @onkeydown="OnGitHubUsageKeyDown" />
+
+            <p class="setting__status" data-testid="github-usage-status" role="status">
+                @if (_gitHubUsageMessage is not null)
+                {
+                    <span>@_gitHubUsageMessage</span>
+                }
+                else
+                {
+                    <span>Usage metrics calls GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code> as whichever account this machine is signed in as. Copilot metrics are organization-scoped and owner-only.</span>
+                }
+            </p>
+
+            @* Every configured account is read as well, each at its own endpoint
+               - a login on an Enterprise Server is a login on a different API.
+               Listed here so the whole picture is on one card; edited on the
+               account's own card, because the endpoint is a fact about the
+               account rather than about usage reporting. *@
+            @foreach (var account in Screen.ConfiguredAccounts)
+            {
+                <p class="setting__status" data-testid="github-usage-account-endpoint" role="status">
+                    <span>
+                        Usage for <code>@account.Login</code> is read at
+                        <code>@(account.ApiEndpoint ?? GitHub.Settings.Current.ApiEndpoint)</code>@(account.ApiEndpoint is null ? " - the endpoint above." : ".")
+                    </span>
+                </p>
+            }
+
+            @* What GitHub said, one line for this machine and one per
+               configured account, so a card with two accounts says which
+               one is wrong. *@
+            @if (_gitHubUsageCheck is { } usageCheck)
+            {
+                <ul class="setting__check" data-testid="github-usage-check" role="status" aria-label="Test result">
+                    @foreach (var line in usageCheck)
+                    {
+                        <li class="@(line.Passed ? "setting__check-step setting__check-step--passed" : "setting__check-step setting__check-step--failed")"
+                            data-testid="github-usage-check-line"
+                            data-outcome="@(line.Passed ? "passed" : "failed")">
+                            <span class="setting__check-subject">@line.Subject</span>
+                            <span class="setting__check-detail">@line.Detail</span>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <div class="setting__actions">
+                <AppButton Variant="ButtonVariant.None"
+                           TestId="test-github-usage-button"
+                           Busy="@_gitHubUsageTesting"
+                           BusyLabel="Asking GitHub"
+                           OnClick="TestGitHubUsageAsync">
+                    Test the connection
+                </AppButton>
+            </div>
+
+            @* No token field here. GitHub authenticates per account, on the
+               Accounts tab, and signing in with the GitHub CLI is preferred
+               over a token at all - so a second place to type one would be a
+               second place for it to go stale. *@
+            <p class="setting__note">
+                Auto-saved. GitHub access and a per-account endpoint are set up on the Accounts tab, or by signing in with the GitHub CLI.
+            </p>
+        </section>
+    }
+
+    @if (AiAssistantEnabled)
+    {
+        <section class="setting" data-testid="azure-foundry-settings" aria-label="Azure Foundry AI settings">
+            <h2 class="setting__title">Azure Foundry AI</h2>
+            <p class="setting__body">
+                Connect Backlog to an Azure Foundry chat deployment. The app sends the
+                visible backlog content and your question to that deployment only when
+                you ask.
+            </p>
+
+            <SetupSteps AriaLabel="Setting up Azure Foundry AI"
+                        TestId="azure-foundry-setup-steps"
+                        Steps="@AzureFoundrySetupSteps" />
+
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="Endpoint"
+                       Id="azure-foundry-endpoint"
+                       data-testid="azure-foundry-endpoint-input"
+                       Type="url"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Placeholder="https://your-resource.openai.azure.com"
+                       Value="@_draftAzureFoundryEndpoint"
+                       ValueChanged="value => _draftAzureFoundryEndpoint = value"
+                       @onchange="ApplyAzureFoundryConnection"
+                       @onkeydown="OnAzureFoundryKeyDown" />
+
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="Deployment"
+                       Id="azure-foundry-deployment"
+                       data-testid="azure-foundry-deployment-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Placeholder="gpt-5.4"
+                       Value="@_draftAzureFoundryDeployment"
+                       ValueChanged="value => _draftAzureFoundryDeployment = value"
+                       @onchange="ApplyAzureFoundryConnection"
+                       @onkeydown="OnAzureFoundryKeyDown" />
+
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="API version"
+                       Id="azure-foundry-api-version"
+                       data-testid="azure-foundry-api-version-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Value="@_draftAzureFoundryApiVersion"
+                       ValueChanged="value => _draftAzureFoundryApiVersion = value"
+                       @onchange="ApplyAzureFoundryConnection"
+                       @onkeydown="OnAzureFoundryKeyDown" />
+
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="API key"
+                       Id="azure-foundry-api-key"
+                       data-testid="azure-foundry-api-key-input"
+                       Type="password"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Placeholder="@(AzureFoundry.Current.ApiKey is null ? "key" : "stored - hidden")"
+                       Value="@_draftAzureFoundryApiKey"
+                       ValueChanged="value => _draftAzureFoundryApiKey = value"
+                       @onchange="ApplyAzureFoundryApiKey"
+                       @onkeydown="OnAzureFoundryApiKeyDown" />
+
+            <p class="setting__status" data-testid="azure-foundry-status" role="status">
+                @if (_azureFoundryMessage is not null)
+                {
+                    <span>@_azureFoundryMessage</span>
+                }
+                else if (AzureFoundry.Current.IsConfigured)
+                {
+                    <span>AI is connected to <code>@AzureFoundry.Current.Deployment</code>.</span>
+                }
+                else
+                {
+                    <span>AI needs an endpoint, deployment, and API key before it can answer questions.</span>
+                }
+            </p>
+
+            @if (_azureFoundryCheck is { } foundryCheck)
+            {
+                <p class="setting__status" data-testid="azure-foundry-check-status" role="status">
+                    @if (foundryCheck.Passed)
+                    {
+                        <span>@foundryCheck.Summary</span>
+                    }
+                    else
+                    {
+                        <span class="setting__status--error">@foundryCheck.Summary</span>
+                    }
+                </p>
+            }
+
+            <div class="setting__actions">
+                <AppButton Variant="ButtonVariant.None"
+                           TestId="test-azure-foundry-button"
+                           Disabled="@(!AzureFoundry.Current.IsConfigured)"
+                           Busy="@_azureFoundryTesting"
+                           BusyLabel="Asking Azure Foundry"
+                           title="@(AzureFoundry.Current.IsConfigured ? null : "Fill in the endpoint, the deployment and the API key first.")"
+                           OnClick="TestAzureFoundryAsync">
+                    Test the connection
+                </AppButton>
+                <AppButton Variant="ButtonVariant.None"
+                           data-testid="azure-foundry-clear-key-button"
+                           Disabled="@(AzureFoundry.Current.ApiKey is null)"
+                           OnClick="ClearAzureFoundryApiKey">
+                    Forget API key
+                </AppButton>
+            </div>
+
+            <p class="setting__note">
+                The key is kept in <code>@AzureFoundry.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+            </p>
+
+            <h3 class="setting__subtitle">Spend</h3>
+            <p class="setting__body">
+                The dashboard's Cost section reads what this resource cost from Azure Cost
+                Management. Paste the resource ID of the Foundry account - or of its resource
+                group or subscription, to include everything in it.
+            </p>
+
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="Azure resource ID"
+                       Id="azure-foundry-cost-scope"
+                       data-testid="azure-foundry-cost-scope-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Placeholder="/subscriptions/<id>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<name>"
+                       Value="@_draftAzureFoundryCostScope"
+                       ValueChanged="value => _draftAzureFoundryCostScope = value"
+                       @onchange="ApplyAzureFoundryCostScope"
+                       @onkeydown="OnAzureFoundryCostScopeKeyDown" />
+
+            <p class="setting__status" data-testid="azure-foundry-cost-status" role="status">
+                @if (AzureFoundry.Current.IsCostConfigured)
+                {
+                    <span>Spend is read for <code>@AzureFoundry.Current.CostScope</code>.</span>
+                }
+                else
+                {
+                    <span>Spend needs a resource ID before the dashboard can read it.</span>
+                }
+            </p>
+
+            <p class="setting__note">
+                No key is stored for this: spend is read with the Azure sign-in already on this
+                machine - the Azure CLI (<code>az login</code>), the Azure Developer CLI, or Visual
+                Studio - as an account with the Cost Management Reader role on the resource.
+            </p>
+        </section>
+    }
+</div>
+
+@code {
+    private bool AiAssistantEnabled => Features.IsEnabled(AppFeatures.AiAssistant);
+
+    private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatures.UsageMetrics);
+
+    private string _draftAzureFoundryEndpoint = string.Empty;
+    private string _draftAzureFoundryDeployment = string.Empty;
+    private string _draftAzureFoundryApiVersion = AzureFoundrySettingsStore.DefaultApiVersion;
+    private string _draftAzureFoundryApiKey = string.Empty;
+    private string _draftAzureFoundryCostScope = string.Empty;
+    private string? _azureFoundryMessage;
+    private string _draftGitHubUsageEndpoint = string.Empty;
+    private string? _gitHubUsageMessage;
+
+    // One draft per Claude account per field, keyed by the account's id. The
+    // dictionaries are refilled from the store after every apply, so a card that
+    // was just saved shows what was saved rather than what was typed.
+    private readonly Dictionary<string, string> _draftClaudeNames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftClaudeEndpoints = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftClaudeActors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftClaudeWorkspaces = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string?> _claudeAccountMessages = new(StringComparer.Ordinal);
+    private string? _activeClaudeAccountId;
+
+    /// <summary>Typed, never loaded. A stored key is not read back into its field -
+    /// the placeholder is what says one is already there.</summary>
+    private readonly Dictionary<string, string> _draftClaudeApiKeys = new(StringComparer.Ordinal);
+
+    /// <summary>What Azure Foundry said the last time the connection was tested.
+    /// Not persisted, and forgotten the moment any field under it changes.</summary>
+    private AzureFoundryCheck? _azureFoundryCheck;
+
+    private bool _azureFoundryTesting;
+
+    private const string FoundryPortalUrl = "https://ai.azure.com";
+
+    private IReadOnlyList<SetupStep> AzureFoundrySetupSteps =>
+    [
+        new("Enter the endpoint of your Azure Foundry resource", !string.IsNullOrWhiteSpace(AzureFoundry.Current.Endpoint),
+            "The resource's URL, as the Foundry portal shows it under Keys and endpoint.",
+            FoundryPortalUrl, "Open the Azure Foundry portal"),
+        new("Name the chat deployment to ask", !string.IsNullOrWhiteSpace(AzureFoundry.Current.Deployment),
+            "The deployment name, not the model name - the two differ when a deployment was renamed."),
+        new("Paste one of the resource's API keys", !string.IsNullOrWhiteSpace(AzureFoundry.Current.ApiKey),
+            "From the same Keys and endpoint page."),
+        new("Test the connection", _azureFoundryCheck?.Passed == true,
+            "Sends one small question to the deployment, so the endpoint, the deployment, the API version and the key are proved together.")
+    ];
+
+    private async Task TestAzureFoundryAsync()
+    {
+        if (_azureFoundryTesting) return;
+
+        _azureFoundryTesting = true;
+        _azureFoundryCheck = null;
+        StateHasChanged();
+
+        try
+        {
+            var probe = Services.GetService<IAzureFoundryConnectionProbe>();
+            _azureFoundryCheck = probe is null
+                ? new AzureFoundryCheck(false, "This host cannot test an Azure Foundry connection.")
+                : await probe.TestConnectionAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _azureFoundryCheck = new AzureFoundryCheck(false, $"Couldn't ask Azure Foundry: {ex.Message}");
+        }
+        finally
+        {
+            _azureFoundryTesting = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private void ApplyAzureFoundryConnection()
+    {
+        _azureFoundryCheck = null;
+        var error = AzureFoundry.SetConnection(
+            _draftAzureFoundryEndpoint,
+            _draftAzureFoundryDeployment,
+            null,
+            _draftAzureFoundryApiVersion);
+        _azureFoundryMessage = error ?? "Azure Foundry settings updated.";
+        SyncAzureFoundryDrafts();
+    }
+
+    private void ApplyAzureFoundryApiKey()
+    {
+        if (string.IsNullOrWhiteSpace(_draftAzureFoundryApiKey)) return;
+
+        _azureFoundryCheck = null;
+        var error = AzureFoundry.SetApiKey(_draftAzureFoundryApiKey);
+        _azureFoundryMessage = error ?? "Azure Foundry API key stored.";
+        _draftAzureFoundryApiKey = string.Empty;
+        SyncAzureFoundryDrafts();
+    }
+
+    private void ClearAzureFoundryApiKey()
+    {
+        _azureFoundryCheck = null;
+        var error = AzureFoundry.ClearApiKey();
+        _azureFoundryMessage = error ?? "Azure Foundry API key forgotten.";
+        _draftAzureFoundryApiKey = string.Empty;
+        SyncAzureFoundryDrafts();
+    }
+
+    private void OnAzureFoundryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyAzureFoundryConnection();
+        else if (e.Key == "Escape") SyncAzureFoundryDrafts();
+    }
+
+    private void OnAzureFoundryApiKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyAzureFoundryApiKey();
+        else if (e.Key == "Escape") _draftAzureFoundryApiKey = string.Empty;
+    }
+
+    /// <summary>Idempotent, like the connection above it: Enter raises keydown
+    /// and then change, and the second call stores what the first did.</summary>
+    private void ApplyAzureFoundryCostScope()
+    {
+        var error = AzureFoundry.SetCostScope(_draftAzureFoundryCostScope);
+        _azureFoundryMessage = error ?? (AzureFoundry.Current.IsCostConfigured
+            ? "Azure Foundry cost scope updated."
+            : "Azure Foundry cost scope cleared.");
+        SyncAzureFoundryDrafts();
+    }
+
+    private void OnAzureFoundryCostScopeKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyAzureFoundryCostScope();
+        else if (e.Key == "Escape") SyncAzureFoundryDrafts();
+    }
+
+    private void SyncAzureFoundryDrafts()
+    {
+        _draftAzureFoundryEndpoint = AzureFoundry.Current.Endpoint ?? string.Empty;
+        _draftAzureFoundryDeployment = AzureFoundry.Current.Deployment ?? string.Empty;
+        _draftAzureFoundryApiVersion = AzureFoundry.Current.ApiVersion;
+        _draftAzureFoundryCostScope = AzureFoundry.Current.CostScope ?? string.Empty;
+    }
+
+    /// <summary>The account whose subpage is open - the chosen one while it still
+    /// exists, otherwise the first. The store never leaves the list empty, so there
+    /// is always a first.</summary>
+    private ClaudeAccount ActiveClaudeAccount =>
+        Claude.Current.Account(_activeClaudeAccountId) ?? Claude.Current.Accounts[0];
+
+    private void ShowClaudeAccountPage(string id) => _activeClaudeAccountId = id;
+
+    private string ClaudeAccountsSummary() => Claude.Current.Accounts.Count switch
+    {
+        1 => "One Claude organization. Add another below if you also belong to a second one.",
+        var count => $"{count} Claude organizations. The dashboard adds their spend up."
+    };
+
+    private static string Draft(Dictionary<string, string> drafts, ClaudeAccount account) =>
+        drafts.GetValueOrDefault(account.Id) ?? string.Empty;
+
+    private void AddClaudeAccount()
+    {
+        var error = Claude.AddAccount();
+        var added = Claude.Current.Accounts[^1];
+
+        _activeClaudeAccountId = added.Id;
+        _claudeAccountMessages[added.Id] = error;
+        SyncUsageEndpointDrafts();
+    }
+
+    private const string AdminKeysConsoleUrl = "https://console.anthropic.com/settings/admin-keys";
+
+    /// <summary>What Anthropic said the last time each account was tested, by id.
+    /// Not persisted: it was true of the moment the button was pressed.</summary>
+    private readonly Dictionary<string, ClaudeAccountCheck> _claudeAccountChecks = new(StringComparer.Ordinal);
+
+    private readonly HashSet<string> _claudeAccountsTesting = new(StringComparer.Ordinal);
+
+    /// <summary>The probe, when this host registered one. Resolved rather than
+    /// injected so a host without it - the unit-test fixtures around other tabs -
+    /// still renders the page; the button then says so instead of throwing.</summary>
+    private IClaudeAccountProbe? ClaudeProbe => Services.GetService<IClaudeAccountProbe>();
+
+    /// <summary>The card's checklist, derived from the account each render so it
+    /// cannot disagree with the fields under it. The last step ticks on a test that
+    /// passed for this account, and only until the account changes.</summary>
+    private IReadOnlyList<SetupStep> ClaudeSetupSteps(ClaudeAccount account) =>
+    [
+        new("Create an Admin API key in the Claude Console and paste it below", account.IsConfigured,
+            "Only an organization admin can create one; a regular API key cannot read usage reports.",
+            AdminKeysConsoleUrl, "Open the Console's Admin keys page"),
+        new("Enter the email address Anthropic attributes your Claude Code use to", !string.IsNullOrWhiteSpace(account.Actor),
+            "The report covers the whole organization; this is what narrows it to you."),
+        new("Narrow the report to one workspace", !string.IsNullOrWhiteSpace(account.WorkspaceId), Optional: true),
+        new("Test this account", _claudeAccountChecks.GetValueOrDefault(account.Id)?.Passed == true,
+            "Asks Anthropic whether the key, the account and the workspace are what they should be.")
+    ];
+
+    private static string ClaudeCheckStepClass(ClaudeAccountCheckStep step) => step.Outcome switch
+    {
+        ClaudeCheckOutcome.Passed => "setting__check-step setting__check-step--passed",
+        ClaudeCheckOutcome.Failed => "setting__check-step setting__check-step--failed",
+        _ => "setting__check-step setting__check-step--skipped"
+    };
+
+    private async Task TestClaudeAccountAsync(ClaudeAccount account)
+    {
+        if (!_claudeAccountsTesting.Add(account.Id)) return;
+
+        _claudeAccountChecks.Remove(account.Id);
+        StateHasChanged();
+
+        try
+        {
+            var probe = ClaudeProbe;
+            _claudeAccountChecks[account.Id] = probe is null
+                ? new ClaudeAccountCheck([new ClaudeAccountCheckStep("Admin API key", ClaudeCheckOutcome.Failed, "This host cannot test a Claude account.")])
+                : await probe.CheckAsync(account);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _claudeAccountChecks[account.Id] = new ClaudeAccountCheck(
+                [new ClaudeAccountCheckStep("Admin API key", ClaudeCheckOutcome.Failed, $"Couldn't ask Anthropic: {ex.Message}")]);
+        }
+        finally
+        {
+            _claudeAccountsTesting.Remove(account.Id);
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>The store keeps one account at least, so forgetting the only one blanks
+    /// it - which is nothing when it is blank already.</summary>
+    private bool CanForgetClaudeAccount(ClaudeAccount account) =>
+        Claude.Current.Accounts.Count > 1 || !account.IsBlank;
+
+    private void RemoveClaudeAccount(ClaudeAccount account)
+    {
+        var error = Claude.RemoveAccount(account.Id);
+
+        _claudeAccountMessages.Remove(account.Id);
+        _draftClaudeApiKeys.Remove(account.Id);
+        if (ClaudeAccount.IsSameId(_activeClaudeAccountId, account.Id)) _activeClaudeAccountId = null;
+
+        if (error is not null) _claudeAccountMessages[ActiveClaudeAccount.Id] = error;
+        SyncUsageEndpointDrafts();
+    }
+
+    private void ApplyClaudeUsageSettings(ClaudeAccount account)
+    {
+        var id = account.Id;
+        _claudeAccountChecks.Remove(id);
+        var errors = new[]
+        {
+            Claude.SetDisplayName(id, Draft(_draftClaudeNames, account)),
+            Claude.SetApiEndpoint(id, Draft(_draftClaudeEndpoints, account)),
+            Claude.SetActor(id, Draft(_draftClaudeActors, account)),
+            Claude.SetWorkspaceId(id, Draft(_draftClaudeWorkspaces, account))
+        };
+
+        var message = string.Join(" ", errors.Where(error => !string.IsNullOrWhiteSpace(error)));
+        _claudeAccountMessages[id] = string.IsNullOrWhiteSpace(message) ? "Claude usage API settings updated." : message;
+
+        SyncUsageEndpointDrafts();
+    }
+
+    private void OnClaudeUsageKeyDown(KeyboardEventArgs e, ClaudeAccount account)
+    {
+        if (e.Key == "Enter") ApplyClaudeUsageSettings(account);
+        else if (e.Key == "Escape") SyncUsageEndpointDrafts();
+    }
+
+    /// <summary>One line of the GitHub usage card's test: whose answer it is, and
+    /// what they said.</summary>
+    private sealed record GitHubUsageCheckLine(string Subject, bool Passed, string Detail);
+
+    /// <summary>What GitHub said the last time the usage connection was tested.
+    /// Not persisted; forgotten when the endpoint under it changes.</summary>
+    private IReadOnlyList<GitHubUsageCheckLine>? _gitHubUsageCheck;
+
+    private bool _gitHubUsageTesting;
+
+    /// <summary>The usage card's checklist. Usage is read as this machine's
+    /// signed-in identity and as every configured account, so the first step is
+    /// done when either exists; the endpoint is a GitHub Enterprise Server
+    /// concern; the test ticks only when every line of it passed.</summary>
+    private IReadOnlyList<SetupStep> GitHubUsageSetupSteps =>
+    [
+        new("Sign in with the GitHub CLI, or add an account on the Accounts tab",
+            Screen.Connection?.IsConnected == true || Screen.ConfiguredAccounts.Count > 0,
+            "Copilot metrics are organization-scoped and owner-only, so the identity has to be an owner of the organization."),
+        new("Name the organization API endpoint for a GitHub Enterprise Server",
+            !string.Equals(GitHub.Settings.Current.ApiEndpoint, GitHubSettings.DefaultApiEndpoint, StringComparison.OrdinalIgnoreCase),
+            "Leave it as it is for github.com.", Optional: true),
+        new("Test the connection", _gitHubUsageCheck is { Count: > 0 } lines && lines.All(line => line.Passed),
+            "Asks GitHub whom this machine is signed in as, and whether each account's credential is really that account's.")
+    ];
+
+    private async Task TestGitHubUsageAsync()
+    {
+        if (_gitHubUsageTesting) return;
+
+        _gitHubUsageTesting = true;
+        _gitHubUsageCheck = null;
+        StateHasChanged();
+
+        var lines = new List<GitHubUsageCheckLine>();
+        try
+        {
+            var connection = await GitHub.DescribeConnectionAsync();
+            Screen.ReportConnection(connection);
+            lines.Add(new GitHubUsageCheckLine("This machine", connection.IsConnected, connection.Summary));
+
+            foreach (var account in Screen.ConfiguredAccounts)
+            {
+                var check = await GitHub.CheckAccountAsync(account);
+                lines.Add(new GitHubUsageCheckLine(account.Login, check.Passed, check.Summary));
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            lines.Add(new GitHubUsageCheckLine("GitHub", false, $"Couldn't ask GitHub: {ex.Message}"));
+        }
+        finally
+        {
+            _gitHubUsageTesting = false;
+        }
+
+        _gitHubUsageCheck = lines;
+        StateHasChanged();
+    }
+
+    private void ApplyGitHubUsageSettings()
+    {
+        _gitHubUsageCheck = null;
+        var error = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
+
+        _gitHubUsageMessage = string.IsNullOrWhiteSpace(error) ? "GitHub usage API settings updated." : error;
+
+        SyncUsageEndpointDrafts();
+    }
+
+    private void OnGitHubUsageKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyGitHubUsageSettings();
+        else if (e.Key == "Escape") SyncUsageEndpointDrafts();
+    }
+
+    private void SyncUsageEndpointDrafts()
+    {
+        foreach (var account in Claude.Current.Accounts)
+        {
+            _draftClaudeNames[account.Id] = account.DisplayName ?? string.Empty;
+            _draftClaudeEndpoints[account.Id] = account.ApiEndpoint;
+            _draftClaudeActors[account.Id] = account.Actor ?? string.Empty;
+            _draftClaudeWorkspaces[account.Id] = account.WorkspaceId ?? string.Empty;
+        }
+
+        _draftGitHubUsageEndpoint = GitHub.Settings.Current.ApiEndpoint;
+    }
+
+    /// <summary>
+    /// Said, not enforced. Anthropic accepts a personal or service account key that
+    /// isn't scoped to a workspace as well as an admin key, and a workspace-scoped key
+    /// - which it refuses - looks the same. So this names the one that fails rather
+    /// than claiming the key is wrong.
+    /// </summary>
+    private static string? ClaudeApiKeyHint(ClaudeAccount account) =>
+        account.IsConfigured && !account.LooksLikeAdminKey
+            ? "That isn't an Admin API key. It will still be sent - Anthropic also takes a personal or "
+              + "service account key - but a key scoped to a workspace is refused."
+            : null;
+
+    private void ApplyClaudeApiKey(ClaudeAccount account)
+    {
+        // Blank never clears: that is what the button is for, and a blur on an empty
+        // field is far more likely than a deliberate erasure.
+        var draft = Draft(_draftClaudeApiKeys, account);
+        if (string.IsNullOrWhiteSpace(draft)) return;
+
+        _claudeAccountChecks.Remove(account.Id);
+
+        var error = Claude.SetAdminApiKey(account.Id, draft);
+        _claudeAccountMessages[account.Id] = error ?? "Claude API key stored.";
+        _draftClaudeApiKeys[account.Id] = string.Empty;
+    }
+
+    private void ClearClaudeApiKey(ClaudeAccount account)
+    {
+        _claudeAccountChecks.Remove(account.Id);
+        var error = Claude.ClearAdminApiKey(account.Id);
+        _claudeAccountMessages[account.Id] = error ?? "Claude API key forgotten.";
+        _draftClaudeApiKeys[account.Id] = string.Empty;
+    }
+
+    private void OnClaudeApiKeyDown(KeyboardEventArgs e, ClaudeAccount account)
+    {
+        if (e.Key == "Enter") ApplyClaudeApiKey(account);
+        else if (e.Key == "Escape") _draftClaudeApiKeys[account.Id] = string.Empty;
+    }
+
+    protected override void OnInitialized()
+    {
+        SyncAzureFoundryDrafts();
+        SyncUsageEndpointDrafts();
+    }
+}
