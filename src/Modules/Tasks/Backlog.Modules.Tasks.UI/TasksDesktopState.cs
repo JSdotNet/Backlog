@@ -499,6 +499,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public bool IsTagSelected(string? tag) =>
         !string.IsNullOrEmpty(tag) && _selectedTags.Contains(tag);
 
+    /// <summary>The plan tag pressed on the bar, <c>+</c> and all, or null while none
+    /// is — "No plan" names no plan. At most one: pressing a plan lets go of the
+    /// other, see <see cref="ToggleTagFilter"/>.</summary>
+    public string? SelectedPlan =>
+        _selectedTags.FirstOrDefault(tag => TagText.Kind(tag) is TagKind.Plan);
+
     /// <summary>Sentinel for "entries with no tags" — a real tag can never be this
     /// because the parser strips the leading <c>#</c>, lower-cases, and would never
     /// produce a leading space.</summary>

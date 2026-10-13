@@ -977,6 +977,51 @@ public sealed class TagFilterTests
             pane.Find("[data-testid='tag-filter-more']").GetAttribute("aria-controls"));
     }
 
+    /// <summary>The plan in view is something a reader pastes elsewhere — a session
+    /// title, a commit, a chat — so while one is pressed the bar offers its tag,
+    /// sigil and all, one press from the clipboard.</summary>
+    [Fact]
+    public async Task A_pressed_plan_can_be_copied_as_its_tag()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+        host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var pane = host.Render();
+
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-copy-plan']"));
+
+        host.State.ToggleTagFilter("+release-q4");
+        pane.Render();
+
+        Assert.Equal("+release-q4", host.State.SelectedPlan);
+
+        pane.Find("[data-testid='tag-filter-copy-plan-button']").Click();
+
+        pane.WaitForAssertion(() => Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]));
+        Assert.Equal("+release-q4", host.Context.JSInterop.Invocations["backlogClipboard.copy"][0].Arguments[0]);
+
+        host.State.ToggleTagFilter("+release-q4");
+        pane.Render();
+
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-copy-plan']"));
+    }
+
+    /// <summary>"No plan" names no plan, and a general tag is not one: neither
+    /// offers a copy.</summary>
+    [Fact]
+    public async Task No_plan_and_general_tags_offer_no_plan_to_copy()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
+        host.State.ToggleTagFilter("sync");
+
+        Assert.Null(host.State.SelectedPlan);
+        Assert.Empty(host.Render().FindAll("[data-testid='tag-filter-copy-plan']"));
+    }
+
     private static TagFilterOption Option(TasksPaneHost host, string value) =>
         host.State.TagFilters.Single(option => option.Value == value);
 

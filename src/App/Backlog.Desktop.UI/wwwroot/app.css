@@ -639,6 +639,12 @@ h1, h2, h3 {
     display: none;
 }
 
+/* The pressed plan's copy button. Pinned beside the toggle so a long strip never
+   squeezes it out, and only there while a plan is pressed. */
+.filter-bar__copy-plan {
+    flex: 0 0 auto;
+}
+
 /* The one group in the bar that is not a filter. It keeps its room for the same
    reason the scopes do, and more strongly: it is the only way into the selection
    gutter and the only way back out of the mode, so a chip squeezed out of view
