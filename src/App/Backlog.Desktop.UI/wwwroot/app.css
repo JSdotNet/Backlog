@@ -253,11 +253,31 @@ h1, h2, h3 {
     }
 }
 
+/*
+  One row at every width. Nothing in the header wraps and no region shrinks:
+  when the row runs out of room the navigation options fold their words away
+  instead, tier by tier (Header navigation folds, below), and backlogHeaderFit in
+  app.js picks how many tiers. Only `--wrap`, which it sets when every tier is
+  folded and the row still overflows, gives wrapping back.
+*/
 .app-header {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    flex-wrap: nowrap;
+}
+
+.app-header > * {
+    flex-shrink: 0;
+}
+
+.app-header--wrap,
+.app-header--wrap :is(.app-header__identity, .app-header__nav, .app-header__status, .app-header__utilities, .app-header__workspace, .app-header__repository-scope) {
     flex-wrap: wrap;
+}
+
+.app-header--wrap > * {
+    flex-shrink: 1;
 }
 
 .app-header h1 {
@@ -279,7 +299,7 @@ h1, h2, h3 {
 .app-header__utilities {
     display: inline-flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     min-width: 0;
 }
 
@@ -299,7 +319,7 @@ h1, h2, h3 {
 .app-header__workspace {
     display: inline-flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--spacing-xs);
     min-width: 0;
 }
@@ -312,6 +332,15 @@ h1, h2, h3 {
 
 .app-header__utilities {
     gap: var(--spacing-xs);
+}
+
+/* Once the row has wrapped the utilities may land on a row of their own, and
+   the cross-cutting cluster belongs at the right edge whichever row that is. On
+   one row the status margin already puts them there, and a second auto margin
+   would only split the free space and drag the status back toward the
+   navigation. */
+.app-header--wrap .app-header__utilities {
+    margin-left: auto;
 }
 
 .header-link {
@@ -345,15 +374,15 @@ h1, h2, h3 {
   fused shape: one border, a shared fill, the outer corners rounded. What is left
   to say here is what the chips inside give up to sit in it — see
   `.app-header__repository-scope > .chip` there. No gap, because a gap is the one
-  thing a fused group cannot have; it still wraps, because seven repositories at a
-  narrow width have to go somewhere, and a fused group two rows deep is still one
-  bordered box.
+  thing a fused group cannot have. It stays on one row with the rest of the
+  header, and wraps only once the header itself has had to (`.app-header--wrap`):
+  a fused group two rows deep is still one bordered box.
 */
 .app-header__repository-scope {
     display: inline-flex;
     align-items: center;
     gap: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     min-width: 0;
 }
 
@@ -2045,23 +2074,12 @@ h1, h2, h3 {
     }
 
     .app-header {
-        flex-wrap: wrap;
         gap: var(--spacing-sm);
     }
 
-    /* Wrapped rows, so the regions tighten rather than overflow. The utilities
-       take an auto margin of their own here, because once they wrap onto a row
-       below the status they would otherwise land against the left edge — and the
-       cross-cutting cluster belongs at the right edge whichever row it ends up
-       on. Above this width both regions share one row and the status margin
-       already puts them there, so a second auto margin would only split the free
-       space and drag the status back toward the navigation. */
+    /* The regions tighten before the navigation has to fold a word. */
     .app-header__nav {
         gap: var(--spacing-sm);
-    }
-
-    .app-header__utilities {
-        margin-left: auto;
     }
 
     .header-group__option {
@@ -3299,6 +3317,38 @@ h1, h2, h3 {
 */
 .header-group__option--loose.header-group__option--selected {
     border-color: var(--color-primary);
+}
+
+/* --- Header navigation folds ---------------------------------------------- */
+/*
+  The tiers backlogHeaderFit folds, in order: the Dashboard, the work in
+  progress, the Inbox, the view switch. A folded option keeps its glyph and
+  loses its word from sight only — the word stays in the button, hidden with the
+  declarations `.sr-only` uses (a class cannot be applied from a selector, so they
+  are restated), so the option's accessible name is unchanged and its title still
+  says what it does on hover. With the word gone the option is a glyph in a box,
+  so its sides step in.
+*/
+.app-header--fold-1 .header-nav-label--tier-1,
+.app-header--fold-2 .header-nav-label--tier-2,
+.app-header--fold-3 .header-nav-label--tier-3,
+.app-header--fold-4 .header-nav-label--tier-4 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.app-header--fold-1 .header-group__option:has(> .header-nav-label--tier-1),
+.app-header--fold-2 .header-group__option:has(> .header-nav-label--tier-2),
+.app-header--fold-3 .header-group__option:has(> .header-nav-label--tier-3),
+.app-header--fold-4 .header-group__option:has(> .header-nav-label--tier-4) {
+    padding-inline: var(--spacing-sm);
 }
 
 /* --- Header accent and utilities ------------------------------------------ */
