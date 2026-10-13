@@ -270,13 +270,16 @@ public sealed class DevbookStackLayoutTests
     [Fact]
     public void The_roadmap_fills_its_view_and_scrolls_inside_the_chart()
     {
-        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var shell = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
         // The roadmap is a view in the pane row's main column now, and fills it.
-        var view = RuleBody(css, ".roadmap-view {");
+        var view = RuleBody(shell, ".roadmap-view {");
         Assert.Contains("min-height: 0;", view, StringComparison.Ordinal);
         Assert.Contains("overflow: hidden;", view, StringComparison.Ordinal);
-        Assert.Contains("flex: 1 1 auto;", RuleBody(css, ".roadmap-view > .roadmap-band {"), StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", RuleBody(shell, ".roadmap-view > .roadmap-band {"), StringComparison.Ordinal);
+
+        // The band inside it is the Roadmap module's, and so are its rules.
+        var css = NormalizeLineEndings(File.ReadAllText(FindRoadmapCss()));
 
         var band = RuleBody(css, "\n.roadmap-band {");
         Assert.Contains("min-height: 0;", band, StringComparison.Ordinal);
@@ -314,7 +317,7 @@ public sealed class DevbookStackLayoutTests
     [Fact]
     public void The_roadmap_keeps_its_horizontal_scrollbar_and_week_ruler_in_view()
     {
-        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var css = NormalizeLineEndings(File.ReadAllText(FindRoadmapCss()));
 
         var sidebar = RuleBody(css, ".roadmap-band__timeline .roadmap-timeline__sidebar {");
         Assert.Contains("overflow-y: auto;", sidebar, StringComparison.Ordinal);
@@ -336,7 +339,7 @@ public sealed class DevbookStackLayoutTests
     [Fact]
     public void The_unplanned_work_sits_beside_the_chart_and_scrolls_on_its_own()
     {
-        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var css = NormalizeLineEndings(File.ReadAllText(FindRoadmapCss()));
 
         Assert.Contains(
             "grid-template-columns: minmax(0, 1fr) 22rem;",
@@ -354,6 +357,7 @@ public sealed class DevbookStackLayoutTests
         // A surface of its own has the whole height, so the short-window steps that
         // dropped the band's description and then the band are gone.
         Assert.DoesNotContain("@media (max-height: 34rem)", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("@media (max-height: 34rem)", File.ReadAllText(FindAppCss()), StringComparison.Ordinal);
     }
 
     private static string RuleBody(string css, string opening)
@@ -456,4 +460,7 @@ public sealed class DevbookStackLayoutTests
 
     private static string FindAppCss() =>
         RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
+
+    private static string FindRoadmapCss() =>
+        RepositoryRoot.File("src", "Modules", "Roadmap", "Backlog.Modules.Roadmap.UI", "wwwroot", "roadmap.css");
 }
