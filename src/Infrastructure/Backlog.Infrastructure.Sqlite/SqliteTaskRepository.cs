@@ -64,7 +64,37 @@ public sealed class SqliteTaskRepository : ITaskRepository
         ArgumentNullException.ThrowIfNull(task);
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await WriteAsync(connection, transaction: null, task, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Every task in one transaction on one connection: one open, one
+    /// fsync, and either all of a drag's new ranks land or none do.</summary>
+    public async Task SaveManyAsync(IReadOnlyCollection<TaskItem> tasks, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tasks);
+        if (tasks.Count == 0) return;
+
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var transaction = (SqliteTransaction)await connection
+            .BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (var task in tasks)
+        {
+            ArgumentNullException.ThrowIfNull(task, nameof(tasks));
+            await WriteAsync(connection, transaction, task, cancellationToken).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task WriteAsync(
+        SqliteConnection connection,
+        SqliteTransaction? transaction,
+        TaskItem task,
+        CancellationToken cancellationToken)
+    {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
 
         // One statement for create and update alike: the aggregate is written
         // whole either way, so there is nothing for two code paths to disagree
@@ -277,16 +307,25 @@ public sealed class SqliteTaskRepository : ITaskRepository
     // --- Schema -------------------------------------------------------------
 
     /// <summary>Creates the database and its schema if they are not there yet.
-    /// Called on the way into every operation: the statements are idempotent, and
-    /// the alternative — caching which paths have been prepared — would be wrong
-    /// the first time somebody moved or deleted the file underneath a running
-    /// app.</summary>
+    /// Called on the way into every operation; the setup itself runs only on a file
+    /// not yet stamped with this <see cref="Schema"/>, for the reasons
+    /// <see cref="SqliteSchema.OpenAsync"/> gives.</summary>
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
 
-    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
-    {
-        await SqliteSchema.EnsureAsync(connection, """
+    /// <summary>The instant the Done-entry tick seed below is bounded by: after
+    /// the tick split had shipped and the stripped copies had spread, and before
+    /// any build carrying the backfill existed — so nothing written on this build,
+    /// an untick included, can ever fall inside it. It has to be in the past for
+    /// every build that runs it: a bound still ahead of the clock ticks a Done
+    /// entry the moment it is saved unticked, which is the choice this seed must
+    /// never overrule. Written in the <c>"O"</c> UTC form the column holds, because
+    /// the comparison is ordinal (see <see cref="ListChangedSinceAsync"/>).</summary>
+    private const string TickSplitSeedBefore = "2026-09-24T09:00:00.0000000+00:00";
+
+    internal static readonly SqliteSchemaDefinition Schema = new(
+        owner: "tasks",
+        ddl: """
             CREATE TABLE IF NOT EXISTS tasks (
                 id                   TEXT PRIMARY KEY NOT NULL,
                 title                TEXT NOT NULL,
@@ -330,202 +369,112 @@ public sealed class SqliteTaskRepository : ITaskRepository
             );
 
             CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
-            """, cancellationToken).ConfigureAwait(false);
+            """,
 
         // CREATE TABLE IF NOT EXISTS leaves a table that already exists exactly
         // as it was, so a column added to the schema above never reaches a
         // database an earlier build created. This store keeps no migration
         // machinery on purpose (see the class remarks), so an additive column
-        // is brought in by hand: ask the table what it has and add only what it
-        // is missing. Cheap — one PRAGMA against a single-table file — and
-        // idempotent, so it is safe to run on the way into every operation the
-        // same way the CREATE above is. Additive-only, which is the only shape
+        // is brought in by hand: the setup reads the table's columns once and
+        // adds only what it is missing. Additive-only, which is the only shape
         // of change this local store's one table has ever needed.
-        await EnsureColumnAsync(connection, "effort", "INTEGER NULL", cancellationToken).ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "import_plan_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "import_item_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "updated_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "deleted_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "attachment_path", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "completed_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        columns:
+        [
+            new("tasks", "effort", "INTEGER NULL"),
+            new("tasks", "import_plan_id", "TEXT NULL"),
+            new("tasks", "import_item_id", "TEXT NULL"),
+            new("tasks", "updated_at", "TEXT NULL"),
+            new("tasks", "deleted_at", "TEXT NULL"),
+            new("tasks", "attachment_path", "TEXT NULL"),
+            new("tasks", "completed_on", "TEXT NULL"),
 
-        // No backfill: nobody recorded when older work started, and the
-        // roadmap falls back to the creation date for a row without one.
-        await EnsureColumnAsync(connection, "started_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+            // No backfill: nobody recorded when older work started, and the
+            // roadmap falls back to the creation date for a row without one.
+            new("tasks", "started_on", "TEXT NULL"),
 
-        // A JSON list like depends_on, and defaulted the same way, so a row from
-        // before the column reads as pointing at no Devbook chapter — which it
-        // did not. SQLite accepts NOT NULL on an added column with a default.
-        await EnsureColumnAsync(connection, "devbook_refs", "TEXT NOT NULL DEFAULT '[]'", cancellationToken).ConfigureAwait(false);
+            // A JSON list like depends_on, and defaulted the same way, so a row from
+            // before the column reads as pointing at no Devbook chapter — which it
+            // did not. SQLite accepts NOT NULL on an added column with a default.
+            new("tasks", "devbook_refs", "TEXT NOT NULL DEFAULT '[]'"),
 
-        // A date like completed_on, and nullable for the same reason: a row from
-        // before the column was never marked blocked by hand, and null is exactly
-        // that. (Only the hand-set mark has a column: the Blocked readiness a
-        // dependency chain derives is never stored.)
-        await EnsureColumnAsync(connection, "blocked_since", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+            // A date like completed_on, and nullable for the same reason: a row from
+            // before the column was never marked blocked by hand, and null is exactly
+            // that. (Only the hand-set mark has a column: the Blocked readiness a
+            // dependency chain derives is never stored.)
+            new("tasks", "blocked_since", "TEXT NULL"),
 
-        // One JSON object rather than a list, and null rather than '{}' on a row
-        // with none: null is what "local work" is, so a row from before the column
-        // reads as the local task it was (local ADR 0020, §2).
-        await EnsureColumnAsync(connection, "source_ref", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+            // One JSON object rather than a list, and null rather than '{}' on a row
+            // with none: null is what "local work" is, so a row from before the column
+            // reads as the local task it was (local ADR 0020, §2).
+            new("tasks", "source_ref", "TEXT NULL"),
 
-        // The agenda time as its two tokens' values: the `at:` start as HH:mm and
-        // the duration in minutes. Null on a row from before the columns, which
-        // had no slot in its day.
-        await EnsureColumnAsync(connection, "agenda_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "agenda_minutes", "INTEGER NULL", cancellationToken).ConfigureAwait(false);
+            // The agenda time as its two tokens' values: the `at:` start as HH:mm and
+            // the duration in minutes. Null on a row from before the columns, which
+            // had no slot in its day.
+            new("tasks", "agenda_at", "TEXT NULL"),
+            new("tasks", "agenda_minutes", "INTEGER NULL"),
 
-        // A JSON list like devbook_refs, and defaulted the same way, so a row from
-        // before the column reads as having no hours set aside on any day — which it
-        // had not.
-        await EnsureColumnAsync(connection, "planned_hours", "TEXT NOT NULL DEFAULT '[]'", cancellationToken).ConfigureAwait(false);
+            // A JSON list like devbook_refs, and defaulted the same way, so a row from
+            // before the column reads as having no hours set aside on any day — which it
+            // had not.
+            new("tasks", "planned_hours", "TEXT NOT NULL DEFAULT '[]'"),
+        ],
+        afterColumns:
+        [
+            // The sync read's predicate and order (ListChangedSinceAsync). After the
+            // columns rather than in the DDL, because on a database from before
+            // updated_at the column does not exist until the step above adds it.
+            "CREATE INDEX IF NOT EXISTS ix_tasks_updated ON tasks (updated_at);",
 
-        // And one value the vocabulary retired. `follow_up` was a task type until
-        // a follow-up became a relationship between two entries instead of a
-        // classification of one, and `EnumMap.ParseType` no longer knows the
-        // word — so a row still carrying it would throw on every read, which is
-        // somebody's entry lost to a rename. This rewrites the retired value to
-        // the type those entries always were.
-        //
-        // Deliberately not the start of a migration system: there is no version
-        // column, no ordered script list, and nothing here reads what ran
-        // before. It is the same shape as the additive columns above — a
-        // statement that is true after it runs and true again the next time, so
-        // it is safe on every open. An UPDATE that matches no row is a scan of a
-        // one-table local file and costs nothing, which is what makes running it
-        // unconditionally cheaper than remembering whether it has run.
-        await NormalizeRetiredTypeAsync(connection, cancellationToken).ConfigureAwait(false);
+            // And one value the vocabulary retired. `follow_up` was a task type until
+            // a follow-up became a relationship between two entries instead of a
+            // classification of one, and `EnumMap.ParseType` no longer knows the
+            // word — so a row still carrying it would throw on every read, which is
+            // somebody's entry lost to a rename. This rewrites the retired value to
+            // the type those entries always were. Idempotent by construction: after
+            // it runs, no row matches it again (local ADR 0006's third shape).
+            "UPDATE tasks SET type = 'task' WHERE type = 'follow_up';",
 
-        // And one value the new columns need seeding with. A row written before
-        // updated_at existed has no idea when it last changed, and the only true
-        // thing this machine knows about it is when it was created — which is
-        // also the weakest correct statement, since a task nobody has edited
-        // since really did last change when it was made.
-        //
-        // Not left null, because null is unusable rather than merely unknown:
-        // the push asks for documents changed since a watermark, and
-        // `null > watermark` is never true, so a row left null would never
-        // travel and would stay invisible to the person's other machine for
-        // good. deleted_at gets no equivalent — there, null is the value.
-        //
-        // Same shape and the same disclaimer as the normalization above: no
-        // version column, no ordered script list, nothing reads what ran
-        // before, and after it runs no row matches it again. Additive and
-        // non-destructive, which is the only kind of change this schema has
-        // needed and the boundary at which this approach stops being enough —
-        // see .devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md.
-        await BackfillUpdatedAtAsync(connection, cancellationToken).ConfigureAwait(false);
+            // And one value the new columns need seeding with. A row written before
+            // updated_at existed has no idea when it last changed, and the only true
+            // thing this machine knows about it is when it was created — which is
+            // also the weakest correct statement, since a task nobody has edited
+            // since really did last change when it was made.
+            //
+            // Not left null, because null is unusable rather than merely unknown:
+            // the push asks for documents changed since a watermark, and
+            // `null > watermark` is never true, so a row left null would never
+            // travel and would stay invisible to the person's other machine for
+            // good. deleted_at gets no equivalent — there, null is the value.
+            // After it runs no row matches it again — see
+            // .devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md.
+            "UPDATE tasks SET updated_at = created_at WHERE updated_at IS NULL;",
 
-        // And one value the tick needs seeding with. Until the checkbox became
-        // its own fact, a Done entry *was* a ticked one; the split read every
-        // existing Done row as unticked, and a sync service built before the
-        // split then stripped the tick from every copy it stored, so a person's
-        // finished work kept coming back onto their list.
-        //
-        // The seed shape of ADR 0006, with one bound that makes it idempotent by
-        // construction: `WHERE completed_on IS NULL` alone is not, because
-        // unticked is also a value a person sets — a Done entry deliberately
-        // unticked would be ticked again on every open. So only rows last
-        // changed before a fixed instant match. Any later write, an untick
-        // included, stamps updated_at past it, and the row never matches again.
-        // Not restamped: each device runs this on its own rows, and a restamp
-        // would make every one a fresh edit that beats whatever the other
-        // machine has not pushed yet.
-        await BackfillCompletedOnForDoneAsync(connection, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>Rewrites the one retired <c>type</c> value to the type it became.
-    /// Idempotent by construction: after it runs, no row matches it again. See the
-    /// comment at the call site for why this is a normalization rather than a
-    /// migration.</summary>
-    private static async Task NormalizeRetiredTypeAsync(
-        SqliteConnection connection,
-        CancellationToken cancellationToken)
-    {
-        await using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE tasks SET type = 'task' WHERE type = 'follow_up';";
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>Gives a row that predates the <c>updated_at</c> column the only
-    /// honest value available for it — its own <c>created_at</c>. Idempotent by
-    /// construction: after it runs, no row matches it again. See the comment at the
-    /// call site for why this is a bootstrap rather than a migration.</summary>
-    private static async Task BackfillUpdatedAtAsync(
-        SqliteConnection connection,
-        CancellationToken cancellationToken)
-    {
-        await using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE tasks SET updated_at = created_at WHERE updated_at IS NULL;";
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>The instant <see cref="BackfillCompletedOnForDoneAsync"/> is bounded
-    /// by: after the tick split had shipped and the stripped copies had spread, and
-    /// before any build carrying the backfill existed — so nothing written on this
-    /// build, an untick included, can ever fall inside it. It has to be in the past
-    /// for every build that runs it: a bound still ahead of the clock ticks a Done
-    /// entry the moment it is saved unticked, which is the choice this seed must
-    /// never overrule. Written in the <c>"O"</c> UTC form the column holds, because
-    /// the comparison is ordinal (see <see cref="ListChangedSinceAsync"/>).</summary>
-    private const string TickSplitSeedBefore = "2026-09-24T09:00:00.0000000+00:00";
-
-    /// <summary>Ticks every live Done entry last changed before
-    /// <see cref="TickSplitSeedBefore"/> on the UTC day it last changed — the
-    /// nearest honest date for when it was finished. Idempotent by construction:
-    /// a row it ticks no longer matches, and a row changed since never did. See the
-    /// comment at the call site for why the bound is there.</summary>
-    private static async Task BackfillCompletedOnForDoneAsync(
-        SqliteConnection connection,
-        CancellationToken cancellationToken)
-    {
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+            // And one value the tick needs seeding with. Until the checkbox became
+            // its own fact, a Done entry *was* a ticked one; the split read every
+            // existing Done row as unticked, and a sync service built before the
+            // split then stripped the tick from every copy it stored, so a person's
+            // finished work kept coming back onto their list.
+            //
+            // Ticks every live Done entry last changed before TickSplitSeedBefore on
+            // the UTC day it last changed — the nearest honest date for when it was
+            // finished. `WHERE completed_on IS NULL` alone is not idempotent, because
+            // unticked is also a value a person sets — a Done entry deliberately
+            // unticked would be ticked again on every setup. So only rows last
+            // changed before a fixed instant match. Any later write, an untick
+            // included, stamps updated_at past it, and the row never matches again.
+            // Not restamped: each device runs this on its own rows, and a restamp
+            // would make every one a fresh edit that beats whatever the other
+            // machine has not pushed yet. The bound is a compile-time constant, so
+            // writing it into the statement is safe.
+            $"""
             UPDATE tasks SET completed_on = substr(updated_at, 1, 10)
             WHERE status = 'done'
               AND completed_on IS NULL
               AND deleted_at IS NULL
-              AND updated_at < $before;
-            """;
-        command.Parameters.AddWithValue("$before", TickSplitSeedBefore);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>Adds a column to the tasks table when it is not already there, and
-    /// does nothing when it is. The presence check is a read of
-    /// <c>PRAGMA table_info(tasks)</c> rather than a catch around a failing
-    /// <c>ALTER</c>, so the ordinary case — the column is present — costs no
-    /// exception. <paramref name="column"/> and <paramref name="definition"/> are
-    /// compile-time constants from this class and never anything a caller supplies,
-    /// which is what makes composing the DDL by string safe here.</summary>
-    private static async Task EnsureColumnAsync(
-        SqliteConnection connection,
-        string column,
-        string definition,
-        CancellationToken cancellationToken)
-    {
-        var present = false;
-        await using (var probe = connection.CreateCommand())
-        {
-            probe.CommandText = "PRAGMA table_info(tasks);";
-            await using var reader = await probe.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-            var nameOrdinal = reader.GetOrdinal("name");
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-            {
-                if (string.Equals(reader.GetString(nameOrdinal), column, StringComparison.OrdinalIgnoreCase))
-                {
-                    present = true;
-                    break;
-                }
-            }
-        }
-
-        if (present) return;
-
-        await using var alter = connection.CreateCommand();
-        alter.CommandText = $"ALTER TABLE tasks ADD COLUMN {column} {definition};";
-        await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-    }
+              AND updated_at < '{TickSplitSeedBefore}';
+            """,
+        ]);
 
     // --- Reading ------------------------------------------------------------
 
