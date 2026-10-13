@@ -12558,12 +12558,71 @@ a.pull-request-detail-checks__name:hover {
     max-width: 32rem;
 }
 
-.devbook-search__results {
+/* The scope chips: Everywhere, the Brain, one per repository. A radio group of
+   toggles, so they wrap under the box rather than pushing it off a narrow pane. */
+.devbook-search__scopes {
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+}
+
+/* The one region that scrolls: every source's group, read down. */
+.devbook-search__body {
     flex: 1 1 auto;
     min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: var(--spacing-md);
+    align-content: start;
+}
+
+/* One devbook's results. The heading says whose they are before any row does,
+   because the same path means different things in two repositories. */
+.devbook-search__group {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.devbook-search__group-heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-tight);
+}
+
+.devbook-search__group-name {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+}
+
+.devbook-search__group-count {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+}
+
+/* A devbook with no index yet, named in its place among the groups. A line,
+   not a dead end: the other groups beside it are still the answer. */
+.devbook-search__unavailable.empty-state {
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: left;
+}
+
+.devbook-search__unavailable .empty-state__title {
+    font-size: var(--font-size-sm);
+}
+
+.devbook-search__unavailable .empty-state__body {
+    margin: 0;
+    font-size: var(--font-size-xs);
+}
+
+.devbook-search__results {
     margin: 0;
     padding: 0;
-    overflow-y: auto;
     list-style: none;
     display: grid;
     gap: var(--spacing-xs);
