@@ -5970,8 +5970,13 @@ h1, h2, h3 {
     align-items: flex-start;
 }
 
+/* A catalog note can carry a registry path or a URL with no break opportunity,
+   and the body is a column that sizes its lines to their longest word: at phone
+   width one such note widened the card and scrolled the whole pane sideways.
+   Breaking anywhere is what keeps the note inside the card. */
 .tools-overview-need__body {
     flex: 1 1 auto;
+    overflow-wrap: anywhere;
 }
 
 .tools-overview-need__title-line {
@@ -6409,8 +6414,23 @@ h1, h2, h3 {
    rather than as a heading of its own: the kind above it is the heading, and
    this is a row of the inventory that happens to fold. */
 .tools-group__fold .fold__trigger {
+    max-width: 100%;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+/* The label wraps rather than ellipsizing. Its tail is the count of what is
+   outstanding, the one part of it the reader opened the tab for, and the shared
+   fold's single line pushed it past the card's edge at phone width, where it
+   scrolled inside the card instead of being read. The fold and its heading give
+   up their content width so the label has a width to wrap at. */
+.tools-group__fold,
+.tools-group__fold .fold__heading {
+    min-width: 0;
+}
+
+.tools-group__fold .fold__label {
+    white-space: normal;
 }
 
 /* The inventory: the shared library's DataTable wearing this pane's names.
@@ -6776,11 +6796,31 @@ h1, h2, h3 {
        rather than spanning the row. Right-aligning Remove is what lines it up with
        the rows above and below it in a table; in a stack there is no row above to
        line up with, and a cell as wide as the pane puts ten rem of nothing between
-       a status and the buttons that act on it. */
+       a status and the buttons that act on it.
+
+       A wrapping row rather than the table's three tracks, because at phone width
+       the tracks no longer fit: an Install beside Disable and Remove measured
+       364px in a 390px pane's 259px row, and the group scrolled sideways to reach
+       Remove. The reserved widths stay as minimums, so a row that fits reads as
+       the tracks drew it, and one that does not drops its last control onto a
+       line of its own instead of out of the card. A long status or note can
+       shrink and wrap inside its own slot here, which a max-content track never
+       let it do. */
     .tools-inventory__actions {
-        grid-template-columns: max-content 6rem 4rem;
+        display: flex;
+        flex-wrap: wrap;
         justify-content: start;
         margin-block-start: var(--spacing-xs);
+    }
+
+    .tools-inventory__toggle {
+        min-width: 6rem;
+    }
+
+    .tools-inventory__remove {
+        display: flex;
+        justify-content: flex-end;
+        min-width: 4rem;
     }
 }
 

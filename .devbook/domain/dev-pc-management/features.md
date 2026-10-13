@@ -124,6 +124,15 @@ nothing in it is outstanding. The tab and the host filter are remembered on this
 machine, never synced, so the pane reopens where it was left. A machine that has
 never been on a tab opens on the Overview.
 
+At phone width the pane never scrolls sideways: the tab strip stays on one row and
+scrolls on its own, a group's label wraps rather than running past its card, a
+row's actions wrap onto a second line when they no longer fit beside each other,
+and a long note — a registry path, a URL — breaks inside its card. The keyboard
+reaches every control in reading order; the arrow keys move along the host filter
+and the tab strip. Escape in one of the pane's dialogs — adding a tool, importing a
+catalog, reading the last run's transcript — closes that dialog and leaves the pane
+open; the next Escape closes the pane.
+
 ### Overview tab
 
 ```meta
@@ -217,7 +226,9 @@ failed, each tool it touched with the version it came from, the version it was
 going to, how that tool's step ended and how long it took, and the whole
 transcript. Only the most recent run is kept, per machine and beside that
 machine's own tool choices; a new run replaces it once it finishes, and a machine
-that has never finished one has none.
+that has never finished one has none. An Update all the host refuses before any
+tool is touched — a host that only reads the catalog — still finishes, and is kept
+as a failed run with no tool steps and the refusal as its transcript.
 
 ## Security
 

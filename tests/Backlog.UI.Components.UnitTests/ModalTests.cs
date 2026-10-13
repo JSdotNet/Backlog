@@ -229,6 +229,36 @@ public sealed class ModalTests
     }
 
     [Fact]
+    public void A_key_pressed_in_the_dialog_does_not_reach_the_host_behind_it()
+    {
+        // The shell closes a whole surface on Escape through an @onkeydown on the
+        // surface's <main>, and a dialog opened from that surface is a DOM child of
+        // it. Without a boundary the one Escape closed the dialog and then the
+        // System tools pane under it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var closed = 0;
+        var hostHeard = 0;
+
+        var host = context.Render(builder =>
+        {
+            builder.OpenElement(0, "main");
+            builder.AddAttribute(1, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, () => hostHeard++));
+            builder.OpenComponent<Modal>(2);
+            builder.AddComponentParameter(3, nameof(Modal.Open), true);
+            builder.AddComponentParameter(4, nameof(Modal.OnClosed), EventCallback.Factory.Create(this, () => closed++));
+            builder.AddComponentParameter(5, nameof(Modal.ChildContent), (RenderFragment)(b => b.AddMarkupContent(0, "<p>Body</p>")));
+            builder.CloseComponent();
+            builder.CloseElement();
+        });
+
+        host.Find("[role='dialog']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(1, closed);
+        Assert.Equal(0, hostHeard);
+    }
+
+    [Fact]
     public void A_backdrop_click_closes_the_dialog_only_when_it_is_allowed_to()
     {
         using var context = new BunitContext();
