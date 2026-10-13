@@ -222,7 +222,7 @@ own database. A source with no database yet is named as not searchable rather
 than silently left out.
 
 Search by meaning is additive, as it is for one devbook: it is asked only while
-it is switched on, once typing pauses, and the words answer is drawn while it is
+it is switched on and a model is there to answer, once typing pauses, and the words answer is drawn while it is
 on its way. Within a source the two answers are merged by where each put a
 chapter, never by their scores, which are on different scales; a chapter both
 found is one result. Opening a result from the devbook on screen opens it there.

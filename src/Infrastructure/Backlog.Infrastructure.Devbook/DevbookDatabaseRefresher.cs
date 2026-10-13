@@ -31,6 +31,13 @@ namespace Backlog.Infrastructure.Devbook;
 /// edit of a burst is always built. A folder recorded as a Brain
 /// (<see cref="DevbookDatabaseLocation.ForBrainFolder"/>) is built under the
 /// Brain's convention.</para>
+///
+/// <para>Each check then fills the semantic tier: the chapters the database has no
+/// vector for are embedded through the <see cref="IDevbookChapterEmbedder"/> the
+/// app supplies (<see cref="DevbookChapterEmbeddings"/>), into the same file in
+/// app storage. With no embedder, or one that is not available — no deployment
+/// configured, or one that refused — nothing is called and the database answers
+/// by words alone.</para>
 /// </summary>
 public sealed class DevbookDatabaseRefresher : IDisposable
 {
@@ -46,13 +53,15 @@ public sealed class DevbookDatabaseRefresher : IDisposable
     private readonly ILogger _logger;
     private readonly TimeProvider _time;
     private readonly Func<string, IDisposable?> _watch;
+    private readonly Func<IDevbookChapterEmbedder?> _embedder;
 
     public DevbookDatabaseRefresher(
         Func<string?> devbookCacheDirectory,
         ILogger<DevbookDatabaseRefresher>? logger = null,
         TimeSpan? quietInterval = null,
         TimeProvider? time = null,
-        Func<string, Action, IDisposable?>? watchFolder = null)
+        Func<string, Action, IDisposable?>? watchFolder = null,
+        Func<IDevbookChapterEmbedder?>? embedder = null)
     {
         ArgumentNullException.ThrowIfNull(devbookCacheDirectory);
 
@@ -60,6 +69,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         _logger = logger ?? NullLogger<DevbookDatabaseRefresher>.Instance;
         _time = time ?? TimeProvider.System;
         QuietInterval = quietInterval ?? DefaultQuietInterval;
+        _embedder = embedder ?? (static () => null);
 
         var watch = watchFolder ?? WatchFolder;
         _watch = root => watch(root, () => NotifyChanged(root));
@@ -71,9 +81,12 @@ public sealed class DevbookDatabaseRefresher : IDisposable
     /// <see cref="DevbookDatabaseLocation"/> answers, which it is pointed at the
     /// same folder for. One per process, created by the composition root.
     /// </summary>
-    public static DevbookDatabaseRefresher StartForApp(Func<string?> devbookCacheDirectory, ILogger<DevbookDatabaseRefresher>? logger = null)
+    public static DevbookDatabaseRefresher StartForApp(
+        Func<string?> devbookCacheDirectory,
+        ILogger<DevbookDatabaseRefresher>? logger = null,
+        Func<IDevbookChapterEmbedder?>? embedder = null)
     {
-        var refresher = new DevbookDatabaseRefresher(devbookCacheDirectory, logger);
+        var refresher = new DevbookDatabaseRefresher(devbookCacheDirectory, logger, embedder: embedder);
         DevbookDatabaseLocation.Configure(devbookCacheDirectory, refresher.Request);
         return refresher;
     }
@@ -106,7 +119,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
 
             entry.LastChecked = now;
             var stopping = _stopping.Token;
-            entry.Running = Task.Run(() => RefreshCore(repositoryRoot, stopping));
+            entry.Running = Task.Run(() => RefreshCoreAsync(repositoryRoot, stopping));
         }
     }
 
@@ -225,7 +238,8 @@ public sealed class DevbookDatabaseRefresher : IDisposable
 
     /// <summary>
     /// Checks <paramref name="repositoryRoot"/> now and rebuilds its database if
-    /// it is not current, waiting for the answer. Returns whether a build ran.
+    /// it is not current, then embeds what it is missing, waiting for the answer.
+    /// Returns whether a build ran.
     /// For a caller that must have the database — a test, a command. The walk and
     /// the build run on the pool, so a caller on the UI thread waits without
     /// blocking it.
@@ -237,7 +251,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(_stopping.Token, cancellationToken);
         var token = linked.Token;
 
-        return await Task.Run(() => Refresh(repositoryRoot, token), token).ConfigureAwait(false);
+        return await Task.Run(() => RefreshAsyncCore(repositoryRoot, token), token).ConfigureAwait(false);
     }
 
     /// <summary>The check in flight or last run for a repository, for a caller
@@ -249,11 +263,11 @@ public sealed class DevbookDatabaseRefresher : IDisposable
             ? running
             : Task.CompletedTask;
 
-    private void RefreshCore(string repositoryRoot, CancellationToken cancellationToken)
+    private async Task RefreshCoreAsync(string repositoryRoot, CancellationToken cancellationToken)
     {
         try
         {
-            Refresh(repositoryRoot, cancellationToken);
+            await RefreshAsyncCore(repositoryRoot, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -272,14 +286,25 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         }
     }
 
-    private bool Refresh(string repositoryRoot, CancellationToken cancellationToken)
+    private async Task<bool> RefreshAsyncCore(string repositoryRoot, CancellationToken cancellationToken)
     {
         if (_devbookCacheDirectory() is not { Length: > 0 } cache) return false;
         if (DevbookDatabaseLocation.PathFor(Path.Combine(cache, DevbookDatabaseLocation.DatabasesFolderName), repositoryRoot) is not { } target) return false;
         var kind = DevbookDatabaseLocation.KindFor(repositoryRoot);
         if (!Directory.Exists(repositoryRoot) || !DevbookDatabaseBuilder.HasDevbook(repositoryRoot, kind)) return false;
-        if (DevbookDatabaseBuilder.IsCurrent(repositoryRoot, target, kind)) return false;
 
+        var built = !DevbookDatabaseBuilder.IsCurrent(repositoryRoot, target, kind) && Build(repositoryRoot, target, kind, cancellationToken);
+
+        // Raised before the vectors: a panel waiting on "unavailable" has its
+        // database now, and search by meaning is asked per question anyway.
+        if (built) Rebuilt?.Invoke(repositoryRoot);
+
+        await EmbedAsync(repositoryRoot, target, cancellationToken).ConfigureAwait(false);
+        return built;
+    }
+
+    private bool Build(string repositoryRoot, string target, DevbookCorpusKind kind, CancellationToken cancellationToken)
+    {
         var started = _time.GetTimestamp();
         if (!DevbookDatabaseBuilder.Build(repositoryRoot, target, kind, cancellationToken)) return false;
 
@@ -289,8 +314,43 @@ public sealed class DevbookDatabaseRefresher : IDisposable
             target,
             (long)_time.GetElapsedTime(started).TotalMilliseconds);
 
-        Rebuilt?.Invoke(repositoryRoot);
         return true;
+    }
+
+    /// <summary>
+    /// The semantic tier for the database at <paramref name="target"/>: the
+    /// chapters it has no vector for, embedded. A failure here costs search by
+    /// meaning and nothing else, so it is logged and the database the build just
+    /// wrote stays exactly as useful as it was.
+    /// </summary>
+    private async Task<int> EmbedAsync(string repositoryRoot, string target, CancellationToken cancellationToken)
+    {
+        if (_embedder() is not { IsAvailable: true } embedder) return 0;
+
+        try
+        {
+            var started = _time.GetTimestamp();
+            var written = await DevbookChapterEmbeddings.EmbedMissingAsync(target, embedder, cancellationToken).ConfigureAwait(false);
+
+            if (written > 0)
+            {
+                _logger.LogInformation(
+                    "Embedded {ChapterCount} devbook chapters for {RepositoryRoot} with {EmbeddingModel} in {ElapsedMilliseconds} ms.",
+                    written,
+                    repositoryRoot,
+                    embedder.Model,
+                    (long)_time.GetElapsedTime(started).TotalMilliseconds);
+            }
+
+            return written;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            // Anything at all: the build before this succeeded and stays, and a
+            // failure here must not be reported as the build's.
+            _logger.LogWarning(exception, "Embedding the devbook chapters for {RepositoryRoot} failed; search by meaning waits for the next check.", repositoryRoot);
+            return 0;
+        }
     }
 
     /// <summary>Cancels any build in flight. The token source is deliberately not
