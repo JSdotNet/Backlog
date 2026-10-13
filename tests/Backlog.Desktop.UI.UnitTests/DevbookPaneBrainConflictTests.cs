@@ -41,6 +41,50 @@ public sealed class DevbookPaneBrainConflictTests
         Assert.Empty(component.FindAll("[data-testid='devbook-brain-conflict']"));
     }
 
+    /// <summary>
+    /// The Brain is read when the pane crosses onto it and when the Brain says it
+    /// changed — not on every parameter set, because the read walks the whole
+    /// folder. A pair that appears between two parameter sets is not looked for
+    /// until the Brain announces a change, and then it is named.
+    /// </summary>
+    [Fact]
+    public async Task A_parameter_set_does_not_read_the_brain_again_but_a_brain_change_does()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote("_inbox/plan.md", "# Plan\n\nBody.\n");
+
+        var component = harness.RenderBrain();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".devbook-menu__item--file")));
+
+        harness.WriteNote("_inbox/plan-LAPTOP.md", "# Plan\n\nThe one OneDrive kept.\n");
+        component.Render(parameters => parameters.Add(pane => pane.RepositoryAlias, string.Empty));
+        Assert.Empty(component.FindAll("[data-testid='devbook-brain-conflict']"));
+
+        await Task.Run(harness.Brain.NotifyContentChanged, TestContext.Current.CancellationToken);
+
+        var warning = component.WaitForElement("[data-testid='devbook-brain-conflict']");
+        Assert.Contains("_inbox/plan-LAPTOP.md", warning.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A Brain folder that goes away under the pane — a drive unmounted,
+    /// the folder renamed — raises no change, so the next parameter set notices it
+    /// is gone rather than keeping its tabs up over nothing.</summary>
+    [Fact]
+    public async Task A_brain_folder_that_vanished_is_noticed_on_the_next_parameter_set()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote("_inbox/plan.md", "# Plan\n\nBody.\n");
+
+        var component = harness.RenderBrain();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".devbook-menu__item--file")));
+
+        Directory.Delete(harness.BrainFolder, recursive: true);
+        component.Render(parameters => parameters.Add(pane => pane.RepositoryAlias, string.Empty));
+
+        var message = component.WaitForElement("[data-testid='devbook-brain-unavailable']");
+        Assert.Contains("was not found", message.TextContent, StringComparison.Ordinal);
+    }
+
     private static string Snapshot(params string[] paths) => string.Join(
         "|",
         paths.Select(path => $"{Convert.ToBase64String(File.ReadAllBytes(path))}@{File.GetLastWriteTimeUtc(path).Ticks}"));

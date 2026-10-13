@@ -129,6 +129,17 @@ public class DevbookBuilderParityTests : IDisposable
     /// into an area that resolves to nothing, one outside every area, a repeated
     /// slug, the reading-order rules and an open annotation. The Node writer reads
     /// it with <c>--brain</c>, through this repository's installed generator.
+    /// <para>
+    /// The fixture is plain files on purpose. Over a Brain in a synced folder —
+    /// OneDrive's placeholders, every one a reparse point — the two writers differ
+    /// and are meant to: the C# builder walks placeholders and indexes a cloud-only
+    /// note by its name (<c>DevbookBuildFiles.Entries</c> with placeholders), while
+    /// <c>tools/devbook/brain.mjs</c> and the generator it imports skip every reparse
+    /// point, as Node's <c>Dirent</c> reports them, and index nothing there. The
+    /// generator is <c>devbook:update</c>'s to change, and Node cannot tell a
+    /// cloud-only file without opening it, which downloads it. <c>.devbook/tech/tooling.md</c>
+    /// states the difference.
+    /// </para>
     /// </summary>
     [Fact]
     public void The_app_matches_the_node_writer_on_a_brain()

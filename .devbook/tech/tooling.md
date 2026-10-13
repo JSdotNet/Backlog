@@ -367,7 +367,14 @@ writer it is held to.
   Brain (local ADR 0026) under its own convention, `tools/devbook/brain.mjs`:
   the areas its `CONVENTIONS.md` declares as the folders, the `para`, `repos` and
   `tasks` fields as node attributes, and `repo:` links as edges with no node at
-  their target.
+  their target. One difference is deliberate and stays: a Brain kept in a synced
+  folder — OneDrive's Files On-Demand — is all reparse-point placeholders, which
+  the C# builder walks and indexes, a cloud-only file by its name alone and
+  unread. The Node writer skips every reparse point, as the installed
+  generator's own walk does, so over such a Brain it indexes nothing. Matching
+  it would mean changing the generator, which `devbook:update` owns, and reading
+  the attributes Node does not expose — opening a placeholder to look downloads
+  it. The parity test's Brain fixture is plain files, where the two agree.
 - **Why** — twelve committed JSON artifacts were 1.8 MB of derived output that
   every branch collided on (local ADR 0004), and a database kept beside the
   folders still had to be ignored per layout and was only there if somebody had

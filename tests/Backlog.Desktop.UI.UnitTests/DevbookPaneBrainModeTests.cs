@@ -82,6 +82,27 @@ public sealed class DevbookPaneBrainModeTests
         Assert.NotEmpty(component.FindComponents<MarkdownView>());
     }
 
+    /// <summary>"Journal sorts newest first" (the Devbook vs Brain board): the
+    /// journal tab lists today's entry on top and opens on it, while every other
+    /// area keeps its order by name.</summary>
+    [Fact]
+    public async Task The_journal_tab_lists_and_opens_the_newest_entry_first()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote(BrainConventions.FileName, "## Areas\n\n- Journal — `journal`\n");
+        harness.WriteNote("journal/2026-10-01.md", "# October first\n\nOlder entry.\n");
+        harness.WriteNote("journal/2026-10-13.md", "# October thirteenth\n\nNewest entry.\n");
+        harness.WriteNote("journal/2026-09-30.md", "# September thirtieth\n\nOldest entry.\n");
+
+        var component = harness.RenderBrain();
+
+        component.WaitForAssertion(() =>
+            Assert.Contains("Newest entry.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal));
+        Assert.Equal(
+            ["2026 10 13", "2026 10 01", "2026 09 30"],
+            component.FindAll(".devbook-menu__item--file").Select(item => item.TextContent.Trim()));
+    }
+
     /// <summary>None of what a repository devbook carries — a version to check, a
     /// sync verdict, a scenario mark, the editor launch — is drawn, and the
     /// repository source behind them is not even asked. Search is drawn: it asks

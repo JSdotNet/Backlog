@@ -8497,6 +8497,9 @@ a.pull-request-detail-checks__name:hover {
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    /* The pane's width is what lays out its body (@container devbook-stack). */
+    container-type: inline-size;
+    container-name: devbook-stack;
 }
 
 /* The section tabs and the atlas toggle on one line. The tabs take the room and
@@ -8688,6 +8691,34 @@ a.pull-request-detail-checks__name:hover {
 
 .brain-backlinks__heading {
     color: var(--color-text-secondary);
+}
+
+/* Each note is a link to it: it reads as a link in the prose colour of one, and
+   opens the note on the Brain side of the pane. */
+.brain-backlinks__link {
+    /* A button is an inline-block whatever it is told, and its baseline is its
+       last line: top-aligned, a wrapped title keeps the list's bullet on its
+       first line. */
+    vertical-align: top;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    text-align: start;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+}
+
+.brain-backlinks__link:hover {
+    text-decoration-thickness: 2px;
+}
+
+.brain-backlinks__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
 }
 
 /* A Brain note's own `related` links into repository devbooks: one line of chips
@@ -9394,6 +9425,36 @@ a.pull-request-detail-checks__name:hover {
     .devbook-stack__menu {
         position: static;
         max-height: none;
+    }
+}
+
+/* The pane's own width, not the window's, decides whether the menu sits beside
+   the chapter (.devbook-stack is the container). At the side pane's minimum
+   (24rem) a 10rem menu beside the chapter left the note card some 9rem: its
+   title cut and its body wrapping word by word. Narrower than a menu plus a
+   readable column, the menu goes above the chapter, capped so the chapter still
+   starts on screen and scrolls on its own. */
+@container devbook-stack (max-width: 40rem) {
+    /* Only with the menu: a body without one (the atlas, a map) keeps its
+       single row filling the pane. */
+    .devbook-stack__body:not(.devbook-stack__body--without-menu) {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .devbook-stack__menu {
+        position: static;
+        max-height: 12rem;
+    }
+
+    /* A note's title is the one thing its card says it is, so in a pane this
+       narrow it wraps above its path rather than ending in an ellipsis. */
+    .devbook-pane--brain .file-view__identity:not(.file-view__identity--record) {
+        flex-wrap: wrap;
+    }
+
+    .devbook-pane--brain .file-view__name {
+        white-space: normal;
     }
 }
 .folder-devbook,
