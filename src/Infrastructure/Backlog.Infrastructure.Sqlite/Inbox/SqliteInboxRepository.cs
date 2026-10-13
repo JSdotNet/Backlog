@@ -237,6 +237,43 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         return item;
     }
 
+    /// <summary>The items among <paramref name="ids"/> that exist, with their
+    /// files, over one connection: the ids go in as one JSON array parameter, so
+    /// a batch of any size is one statement for the items and one for their
+    /// attachments. No promised order.</summary>
+    public async Task<IReadOnlyList<InboxItem>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if (ids.Count == 0) return [];
+
+        var idsJson = TaskPayloads.Write<string>([.. ids.Select(id => id.ToString())]);
+
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        var items = new List<InboxItem>();
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"SELECT {ItemColumns} FROM inbox_items WHERE id IN (SELECT value FROM json_each($ids));";
+            command.Parameters.AddWithValue("$ids", idsJson);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                items.Add(ReadItem(reader));
+            }
+        }
+
+        if (items.Count == 0) return items;
+
+        var attachments = await ReadAttachmentsAsync(connection, idsJson, cancellationToken).ConfigureAwait(false);
+        foreach (var item in items)
+        {
+            if (attachments.TryGetValue(item.Id, out var files)) item.LoadAttachments(files);
+        }
+
+        return items;
+    }
+
     /// <summary>Every attachment row, or one item's, grouped by item and in the
     /// order they were recorded. One read for a whole list, rather than one per
     /// item: the inbox is read whole on every reload.</summary>
@@ -251,6 +288,28 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             : $"SELECT {AttachmentColumns} FROM inbox_item_attachments WHERE item_id = $item_id ORDER BY sort_order;";
         if (itemId is { } id) command.Parameters.AddWithValue("$item_id", id.ToString());
 
+        return await ReadAttachmentRowsAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The attachment rows of the items whose ids <paramref name="idsJson"/>
+    /// lists as a JSON array — a batch's files, and nobody else's.</summary>
+    private static async Task<Dictionary<Guid, List<InboxAttachment>>> ReadAttachmentsAsync(
+        SqliteConnection connection,
+        string idsJson,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            $"SELECT {AttachmentColumns} FROM inbox_item_attachments WHERE item_id IN (SELECT value FROM json_each($ids)) ORDER BY item_id, sort_order;";
+        command.Parameters.AddWithValue("$ids", idsJson);
+
+        return await ReadAttachmentRowsAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<Dictionary<Guid, List<InboxAttachment>>> ReadAttachmentRowsAsync(
+        SqliteCommand command,
+        CancellationToken cancellationToken)
+    {
         var byItem = new Dictionary<Guid, List<InboxAttachment>>();
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);

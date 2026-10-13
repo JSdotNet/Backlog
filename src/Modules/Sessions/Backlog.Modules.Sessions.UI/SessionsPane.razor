@@ -254,11 +254,11 @@ else
         }
         else
         {
-            // The sections and the row in the panel, worked out once per render: the
-            // grouping sorts every row, and asking for it per row would sort the list
-            // once for each of them.
+            // The sections and the row in the panel, both kept by the derived view until
+            // an input changes: the grouping sorts every row, and asking for it per row
+            // would sort the list once for each of them.
             var sections = Sections;
-            var selected = SelectedOf(sections);
+            var selected = Selected;
             _shownKey = selected?.Key;
 
             <div class="sessions-layout">
@@ -751,21 +751,29 @@ else
         !string.IsNullOrWhiteSpace(pull.Title) ? pull.Title : StatusOf(pull)?.Title;
 
     /// <summary>Asks the host about the selected row's pull requests it has not asked
-    /// about yet. Each answer redraws the panel as it lands; one that fails leaves
-    /// that card without a chip rather than failing the pane.</summary>
+    /// about yet — all of them at once — and redraws the panel once, when the last
+    /// answer is in, rather than once per answer. One that fails leaves that card
+    /// without a chip rather than failing the pane.</summary>
     private void AskAboutPullRequests()
     {
         if (PullRequestStatus is not { } read || Selected is not { } row) return;
+
+        var generation = _statusGeneration;
+        List<Task>? asks = null;
 
         foreach (var pull in PullRequestsOf(row))
         {
             var key = PullKey(pull);
             if (!_asked.Add(key)) continue;
 
-            _ = AskAsync(read, pull, key, _statusGeneration);
+            (asks ??= []).Add(AskAsync(read, pull, key, generation));
         }
+
+        if (asks is not null) _ = RedrawWhenAnsweredAsync(asks, generation);
     }
 
+    /// <summary>One read, its answer kept — unless a refresh started a new reading
+    /// while it was out. The redraw is the batch's.</summary>
     private async Task AskAsync(Func<DeliveryRunReference, Task<SessionPullRequestStatus?>> read, DeliveryRunReference pull, string key, int generation)
     {
         SessionPullRequestStatus? status;
@@ -782,7 +790,20 @@ else
         if (_disposed || generation != _statusGeneration) return;
 
         _statuses[key] = status;
-        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RedrawWhenAnsweredAsync(List<Task> asks, int generation)
+    {
+        try
+        {
+            await Task.WhenAll(asks);
+        }
+        finally
+        {
+            // Drawn even when a read was cancelled: the answers that did land are kept,
+            // and the cancellation still surfaces on this task as it did on its read.
+            if (!_disposed && generation == _statusGeneration) await InvokeAsync(StateHasChanged);
+        }
     }
 
     public void Dispose() => _disposed = true;
@@ -939,9 +960,19 @@ else
         // reads up to thirty runs' requests, and the row's cost should not wait on them.
         _costs[row.Key] = new RowCosts(session, stages, new Dictionary<DeliveryRun, DeliveryRunCostComparison>());
 
+        // Whether something changed since the last redraw. A redraw is spent only
+        // before waiting on work still out, and once at the end: a row whose week and
+        // earlier pricing are already in from another row draws once, not three times.
+        var undrawn = true;
+
         // The costs are drawn before the week is read: the week reads every request,
-        // and the row's own figures should not wait on it.
-        await InvokeAsync(StateHasChanged);
+        // and the row's own figures should not wait on it. A week already read is no
+        // wait at all.
+        if (_weekly is not { IsCompleted: true })
+        {
+            await InvokeAsync(StateHasChanged);
+            undrawn = false;
+        }
 
         WeeklyUsage? weekly;
 
@@ -970,21 +1001,47 @@ else
                 // not read shows no share rather than failing the pane.
                 _shares.Remove(row.Key);
             }
+
+            undrawn = true;
         }
 
-        await InvokeAsync(StateHasChanged);
+        var comparing = CompareAllAsync(stages, comparisons, generation);
 
+        // The shares are drawn before the comparisons are worked out when those still
+        // have earlier runs to price.
+        if (undrawn && !comparing.IsCompleted)
+        {
+            await InvokeAsync(StateHasChanged);
+            undrawn = false;
+        }
+
+        if (!await comparing) return;
+
+        if (comparisons.Count > 0)
+        {
+            _costs[row.Key] = new RowCosts(session, stages, comparisons);
+            undrawn = true;
+        }
+
+        if (undrawn) await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Each run's comparison into <paramref name="comparisons"/>, one run
+    /// after the other; false when the pane went or a refresh started a new reading
+    /// while one was out, which leaves nothing of this row's to draw.</summary>
+    private async Task<bool> CompareAllAsync(
+        Dictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>> stages,
+        Dictionary<DeliveryRun, DeliveryRunCostComparison> comparisons,
+        int generation)
+    {
         foreach (var (run, costs) in stages)
         {
             if (await CompareAsync(run, costs, generation) is { } comparison) comparisons[run] = comparison;
 
-            if (_disposed || generation != _statusGeneration) return;
+            if (_disposed || generation != _statusGeneration) return false;
         }
 
-        if (comparisons.Count == 0) return;
-
-        _costs[row.Key] = new RowCosts(session, stages, comparisons);
-        await InvokeAsync(StateHasChanged);
+        return true;
     }
 
     /// <summary>What each earlier run cost, by run, once asked: the baseline of a flow
@@ -1416,6 +1473,10 @@ else
 
     protected override void OnParametersSet()
     {
+        // The scope and the alias callback may answer differently now, behind the
+        // same references; the derived view is worked out again on the next ask.
+        _derived = null;
+
         if (string.Equals(FocusSessionId, _focusApplied, StringComparison.OrdinalIgnoreCase)) return;
 
         _focusApplied = FocusSessionId;
@@ -1540,7 +1601,28 @@ else
     /// admit it, else the first row the list draws. Never a row the list does not
     /// show — a panel about a session the filters hid would contradict the list.
     /// </summary>
-    private SessionRow? Selected => SelectedOf(Sections);
+    private SessionRow? Selected
+    {
+        get
+        {
+            var view = View;
+
+            if (!ReferenceEquals(_selectedFor, view) || !string.Equals(_selectedForKey, _selectedKey, StringComparison.Ordinal))
+            {
+                _selected = SelectedOf(view.Sections);
+                _selectedFor = view;
+                _selectedForKey = _selectedKey;
+            }
+
+            return _selected;
+        }
+    }
+
+    /// <summary>The row <see cref="Selected"/> last worked out, and the derived view
+    /// and the picked key it was worked out against.</summary>
+    private SessionRow? _selected;
+    private SessionsView? _selectedFor;
+    private string? _selectedForKey;
 
     private SessionRow? SelectedOf(IReadOnlyList<AgentSessionGroup> sections)
     {
@@ -1584,36 +1666,94 @@ else
         RepositoryAlias?.Invoke(repository) is { } alias
         && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase);
 
-    private IReadOnlyList<SessionRow> ScopedSessions =>
-        Scoped ? [.. _rows.Where(InScope)] : _rows;
+    /// <summary>
+    /// Everything the filters derive from the reading, worked out together and kept
+    /// for the inputs it was worked out from. The markup, the tally, the badge and the
+    /// detail panel each ask for these several times a render, and every asking used
+    /// to re-filter, re-resolve each row's repository against the scope and re-sort
+    /// the sections.
+    /// </summary>
+    private sealed record SessionsView(
+        IReadOnlyList<SessionRow> Rows,
+        string? EnvironmentId,
+        bool WithRuns,
+        AgentSessionView Choice,
+        AgentSessionGrouping Grouping,
+        DateTimeOffset ReadAt,
+        IReadOnlyList<SessionRow> ScopedRows,
+        int OnEnvironment,
+        IReadOnlyList<SessionRow> Narrowed,
+        IReadOnlyList<SessionRow> Visible,
+        int LiveTally,
+        IReadOnlyList<AgentSessionGroup> Sections)
+    {
+        public bool IsFor(IReadOnlyList<SessionRow> rows, string? environmentId, bool withRuns, AgentSessionView choice, AgentSessionGrouping grouping, DateTimeOffset readAt) =>
+            ReferenceEquals(Rows, rows)
+            && string.Equals(EnvironmentId, environmentId, StringComparison.Ordinal)
+            && WithRuns == withRuns
+            && Choice == choice
+            && Grouping == grouping
+            && ReadAt == readAt;
+    }
 
-    /// <summary>The rows every filter but Show admits: the scope, the machine and the
-    /// runs toggle. What Live's tally counts the live rows of.</summary>
-    private IReadOnlyList<SessionRow> Narrowed
+    /// <summary>The derived view last worked out; null once the parent set the
+    /// parameters again, because the scope and the alias callback can answer
+    /// differently behind the same references.</summary>
+    private SessionsView? _derived;
+
+    /// <summary>How many times the derived view has been worked out — what a test
+    /// reads to tell a render that reused it from one that rebuilt it.</summary>
+    internal int ViewBuilds { get; private set; }
+
+    private SessionsView View
     {
         get
         {
-            var rows = AgentSessionEnvironments.On(ScopedSessions, _environmentId);
+            if (_derived is { } derived && derived.IsFor(_rows, _environmentId, _withRuns, _view, _grouping, _readAt)) return derived;
 
-            return _withRuns ? [.. rows.Where(row => row.Runs.Count > 0)] : rows;
+            ViewBuilds++;
+
+            IReadOnlyList<SessionRow> scoped = Scoped ? [.. _rows.Where(InScope)] : _rows;
+            var onEnvironment = AgentSessionEnvironments.On(scoped, _environmentId);
+            IReadOnlyList<SessionRow> narrowed = _withRuns ? [.. onEnvironment.Where(row => row.Runs.Count > 0)] : onEnvironment;
+            var visible = AgentSessionViews.Of(narrowed, _view);
+
+            return _derived = new SessionsView(
+                _rows,
+                _environmentId,
+                _withRuns,
+                _view,
+                _grouping,
+                _readAt,
+                scoped,
+                onEnvironment.Count,
+                narrowed,
+                visible,
+                AgentSessionViews.Of(narrowed, AgentSessionView.Live).Count,
+                AgentSessionGroups.Of(visible, _grouping, _readAt, TimeZoneInfo.Local));
         }
     }
 
+    private IReadOnlyList<SessionRow> ScopedSessions => View.ScopedRows;
+
+    /// <summary>The rows every filter but Show admits: the scope, the machine and the
+    /// runs toggle. What Live's tally counts the live rows of.</summary>
+    private IReadOnlyList<SessionRow> Narrowed => View.Narrowed;
+
     /// <summary>The rows the filters admit, before any grouping. Neither narrowing
     /// reorders, and the grouping never sees what any of them left out.</summary>
-    private IReadOnlyList<SessionRow> Visible => AgentSessionViews.Of(Narrowed, _view);
+    private IReadOnlyList<SessionRow> Visible => View.Visible;
 
     /// <summary>How many rows Live would show under the other filters.</summary>
-    private int LiveTally => AgentSessionViews.Of(Narrowed, AgentSessionView.Live).Count;
+    private int LiveTally => View.LiveTally;
 
     /// <summary>How many sessions the chosen environment has a record of, whatever the
     /// view. The number the empty state offers as the way back out.</summary>
-    private int OnEnvironment => AgentSessionEnvironments.On(ScopedSessions, _environmentId).Count;
+    private int OnEnvironment => View.OnEnvironment;
 
     /// <summary>The sections, from the module's own grouping, against the reading's
     /// clock and the reader's own time zone.</summary>
-    private IReadOnlyList<AgentSessionGroup> Sections =>
-        AgentSessionGroups.Of(Visible, _grouping, _readAt, TimeZoneInfo.Local);
+    private IReadOnlyList<AgentSessionGroup> Sections => View.Sections;
 
     /// <summary>What the reading found. The subtitle's number and the badge's total.</summary>
     private int Total => _rows.Count;
