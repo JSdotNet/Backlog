@@ -68,9 +68,9 @@ public sealed class DevbookTools(
     private const string NoBrainHere = "The Brain is not available in this host.";
 
     /// <summary>The Brain's folder as a catalog names it, for the answer given
-    /// when no source is there to name it.</summary>
-    private static readonly DevbookFolderSetting BrainFolder =
-        new(BrainConventions.FolderKey, BrainScope.Name, string.Empty, SupportsPathOverride: false);
+    /// when no source is there to name it: the one definition the folder source
+    /// answers too.</summary>
+    private static DevbookFolderSetting BrainFolder => BrainConventions.Folder;
 
     // OpenWorld, unlike every tool outside this class. A repository whose devbook
     // is read from a branch snapshot (local ADR 0008) has no clone to resolve
@@ -89,7 +89,7 @@ public sealed class DevbookTools(
     {
         if (BrainMcpScope.Is(repository)) return BrainContexts();
 
-        var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+        var scope = RepositoryScope.Resolve(repositories, repository, acceptsBrain: true).ValueOrThrow();
 
         // Resolve rather than Prepare: this is a catalog, and a call that fetched
         // a branch snapshot per folder would put GitHub in front of the question
@@ -165,7 +165,7 @@ public sealed class DevbookTools(
             return await ReadBrainNoteAsync(chapterPath, review, cancellationToken).ConfigureAwait(false);
         }
 
-        var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+        var scope = RepositoryScope.Resolve(repositories, repository, acceptsBrain: true).ValueOrThrow();
 
         var normalized = ChapterPaths.Normalize(chapterPath);
 
@@ -540,7 +540,7 @@ public sealed class DevbookTools(
     {
         if (BrainMcpScope.Is(repository)) return (BrainMcpScope.Value, BrainScope.Value);
 
-        var resolved = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+        var resolved = RepositoryScope.Resolve(repositories, repository, acceptsBrain: true).ValueOrThrow();
 
         return (resolved.Id, resolved.Alias);
     }

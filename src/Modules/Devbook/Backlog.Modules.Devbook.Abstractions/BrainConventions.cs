@@ -49,6 +49,18 @@ public static partial class BrainConventions
     /// <see cref="IDevbookFolderSource"/>.</summary>
     public const string FolderKey = "brain";
 
+    /// <summary>What the Brain's one folder, and every location it resolves to, is
+    /// labelled — the word <c>BrainScope.Name</c> puts a scope into, spelt here
+    /// because this project references nothing.</summary>
+    public const string ScopeLabel = "Brain";
+
+    /// <summary>The one folder setting the Brain has: keyed
+    /// <see cref="FolderKey"/>, its own root, never overridden. The single
+    /// definition the Brain's folder source and the assistant tools both name, so
+    /// the Brain cannot be described two ways.</summary>
+    public static DevbookFolderSetting Folder { get; } =
+        new(FolderKey, ScopeLabel, string.Empty, SupportsPathOverride: false);
+
     /// <summary>The heading the areas are declared under.</summary>
     public const string AreasHeading = "Areas";
 

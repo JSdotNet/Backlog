@@ -24,4 +24,11 @@ public interface IInboxBrainTarget
     /// <see cref="InboxErrors.BrainUnavailableCode"/> and the reason in words, and
     /// nothing is written.</summary>
     Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>Why a route To Brain would be refused right now — no Brain folder
+    /// set, one that is missing, a host without a Brain — in the words the refusal
+    /// would use; null while the Brain can take a note. Asked so triage can say so on
+    /// the button and the suggestion chip before anybody presses them, rather than
+    /// offering a decision it then refuses.</summary>
+    string? UnavailableReason { get; }
 }

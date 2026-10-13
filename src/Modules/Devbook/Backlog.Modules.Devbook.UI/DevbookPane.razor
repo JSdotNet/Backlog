@@ -420,10 +420,15 @@
     private IBrainSettings? _brainSettings;
 
     /// <summary>What the Brain looked like at the last read: its folder, its tabs,
-    /// why it cannot be read, and the conflict copies in it. Read once per
-    /// parameter set or Brain change rather than per render, because each touches
-    /// the disk.</summary>
+    /// why it cannot be read, and the conflict copies in it. Read when the pane
+    /// crosses onto or off the Brain and when the Brain says it changed — never per
+    /// parameter set or render, because the read walks the whole folder for
+    /// conflict copies and reads <c>CONVENTIONS.md</c>.</summary>
     private string? _brainRoot;
+
+    /// <summary>The <see cref="BrainMode"/> the cached read was taken for, or null
+    /// before the first read.</summary>
+    private bool? _brainReadFor;
     private IReadOnlyList<DevbookArea> _brainAreas = [];
     private string? _brainUnavailable;
     private IReadOnlyList<BrainConflictCopy> _brainConflicts = [];
@@ -452,6 +457,8 @@
     /// </summary>
     private void ReadBrain()
     {
+        _brainReadFor = BrainMode;
+
         if (_brain is null || !BrainMode)
         {
             _brainRoot = null;
@@ -469,6 +476,10 @@
             : [];
         _brainConflicts = location.Available ? _brain.ConflictCopies() : [];
     }
+
+    /// <summary>Whether the Brain read last as available is no longer there.</summary>
+    private bool BrainFolderVanished() =>
+        BrainMode && _brainUnavailable is null && _brainRoot is { } root && !Directory.Exists(root);
 
     /// <summary>Whether the last parameter set showed the Brain.</summary>
     private bool _parametersShowedBrain;
@@ -738,7 +749,14 @@
     protected override async Task OnParametersSetAsync()
     {
         _visibleAreas = null;
-        ReadBrain();
+
+        // The Brain is read again only when the pane crosses onto or off it — a
+        // scope change — and otherwise when it says it changed (OnBrainChanged).
+        // One exception, at the cost of one look: a folder that was there and has
+        // gone — a drive unmounted, the folder renamed — raises no change, so the
+        // pane checks it is still there rather than offering tabs and Capture on
+        // a folder that is not.
+        if (_brainReadFor != BrainMode || BrainFolderVanished()) ReadBrain();
         CloseRepositoryReadingsOnModeChange();
         CloseReviewWhenNotApplicable();
         ForgetUpdateStateOnScopeChange();

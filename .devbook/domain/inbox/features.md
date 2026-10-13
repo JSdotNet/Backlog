@@ -516,7 +516,8 @@ field), with Enter, or with a click. Taking it does what the chip says:
 - A tag chip adds the tag.
 - A repository chip assigns the repository.
 - *Move to backlog* routes the item.
-- *Keep as knowledge* routes it [To Brain](#route-to-brain).
+- *Keep as knowledge* routes it [To Brain](#route-to-brain), and is offered but
+  cannot be taken, with the Brain's reason, while the Brain cannot take a note.
 - *Archive* archives it.
 
 The × on a chip turns it down. A turned-down suggestion is recorded on the
@@ -705,7 +706,7 @@ status: draft
 aliases: [Route to Devbook, To Brain]
 related: [.devbook/domain/devbook/features.md#knowledge-capture, .devbook/domain/devbook/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.Routing_the_same_item_again_reuses_the_untouched_note_it_wrote, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Keep_as_knowledge_says_why_it_cannot_be_taken_while_no_brain_is_set]
 ```
 
 **To Brain** writes the item into the person's
@@ -726,9 +727,18 @@ route says so, in the Brain's own words, and routes nothing.
 
 **To Brain** sits beside Move to backlog in triage and in the item's detail,
 and **b** takes it; taking the *Keep as knowledge* suggestion does the same.
+While the Brain cannot take a note — no Brain folder set, a folder that is
+missing, a host without a Brain — the button is shown disabled and the
+*Keep as knowledge* chip offered but not takeable, each with the Brain's own
+reason, rather than offered and then refused once pressed.
+
 The toast names the note it wrote. Undo returns the item to the queue and
 leaves the note where it is: it is the person's file, in their own folder, by
-then.
+then. Routing the same item To Brain again reuses that note while nobody has
+edited it — the file still holds exactly the text the route would write — and
+answers it, rather than writing a `-2` copy beside it. A note somebody has
+edited is theirs, and a second route writes a new one. Only a route reuses:
+two captures in the Brain with the same words are two notes.
 
 ### Defer
 
