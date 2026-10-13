@@ -1,0 +1,114 @@
+{
+  "id": "run-mv6q1x2a-qs7k3d",
+  "skillId": "flow-code",
+  "title": "pr-session-pages-redesign:13 - Store the quality signals on each run stage",
+  "status": "in_progress",
+  "changeKind": "new-functionality",
+  "startedAt": "2026-10-13T21:00:00.000Z",
+  "updatedAt": "2026-10-13T22:10:00.000Z",
+  "sessionIds": [
+    "4c1d9a62-2f0e-4b7a-9d3c-5e8f1a2b3c4d"
+  ],
+  "trigger": "scheduled",
+  "repo": "JSdotNet/Backlog",
+  "stages": [
+    {
+      "name": "Update Base",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 5120,
+      "agents": []
+    },
+    {
+      "name": "Scope",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 180400,
+      "agents": [],
+      "execution": {
+        "mode": "inline"
+      }
+    },
+    {
+      "name": "Implement",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 640200,
+      "agents": [],
+      "execution": {
+        "mode": "delegate",
+        "agent": "csharp-coding:coding",
+        "round": 2
+      }
+    },
+    {
+      "name": "Review",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 310900,
+      "agents": [],
+      "execution": {
+        "mode": "fork",
+        "agent": "general-purpose",
+        "round": 2,
+        "blockers": 0,
+        "runs": [
+          {
+            "agent": "general-purpose",
+            "model": null,
+            "effort": null,
+            "slice": "whole diff",
+            "round": 1
+          },
+          {
+            "agent": "general-purpose",
+            "model": null,
+            "effort": null,
+            "slice": "whole diff",
+            "round": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Build & Test",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 402100,
+      "agents": [],
+      "execution": {
+        "mode": "inline"
+      }
+    },
+    {
+      "name": "Verify",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 520700,
+      "agents": [],
+      "execution": {
+        "mode": "inline",
+        "defectsFound": 1
+      }
+    },
+    {
+      "name": "Personal Validation",
+      "status": "in_progress",
+      "doneCount": 0,
+      "durationMs": null,
+      "agents": []
+    }
+  ],
+  "insights": [
+    {
+      "kind": "agent",
+      "agentName": "csharp-coding:coding",
+      "agentDisplayName": "csharp-coding:coding",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "durationMs": 598300,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    }
+  ]
+}
