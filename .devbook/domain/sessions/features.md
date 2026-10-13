@@ -1005,8 +1005,8 @@ cost very different amounts. A run-wide average would flag every long run and ex
 none of them. How the earlier runs are chosen and matched is the
 [Cost Baseline](domain.md#cost-baseline)'s rule.
 
-Still to build: the insight does not open [Delivery economics](#delivery-economics) yet,
-because that page is not built.
+The insight line is a button: it opens [Delivery economics](#delivery-economics) on the
+run's flow.
 
 ### Share of the week and the weekly limit
 
@@ -1036,9 +1036,8 @@ be a guess dressed as a measurement, so none is shown until one is recorded.
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/sessions/features.md#the-cost-of-a-run-and-its-stages]
-related: [.devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran, .devbook/design/effort-and-mode-chips.md#effort-chips, .devbook/design/effort-and-mode-chips.md#mode-chips]
+related: [.devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran, .devbook/domain/sessions/domain.md#delivery-run, .devbook/design/effort-and-mode-chips.md#effort-chips, .devbook/design/effort-and-mode-chips.md#mode-chips]
 ```
 
 A page under Sessions compares how the flows' configurations perform, so a person can
@@ -1046,11 +1045,14 @@ decide which agent, model, effort and mode to give each phase. One run tells a r
 what happened once. Deciding a configuration needs many runs side by side, which is what
 this page holds.
 
+The page reads one flow at a time, chosen from a list of the flows with a finished run
+in the window, most runs first. The window is the last 30 or the last 90 days. A run
+counts once it has finished, and it is placed by when it started.
+
 ### Where the page is reached from
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/features.md#each-stage-against-its-usual-cost]
 ```
 
@@ -1058,52 +1060,89 @@ The page has a button in the Sessions header. A run's one-line insight also open
 filtered to that run's flow. The second way in exists because the insight raises the
 question, "is this stage always this expensive?", and the page is where it is answered.
 
+### The flow at a glance
+
+```meta
+type: sub-feature
+```
+
+Four tiles sit above the table:
+
+| Tile | What it says |
+| --- | --- |
+| Median run | The median whole-run cost, with the 90th percentile beneath it and how many runs were only partly priced. |
+| Implement + Review | What Implement and Review cost over all the runs, as a share of what every stage the runs finished cost. |
+| Two or more review rounds | How many of the runs that reported their rounds took two or more, and their median whole-run cost against the one-round runs', as a ratio. |
+| Escaped review | The defects Verify found that review had passed, summed over the runs whose Verify reported a count, and how many runs that is. |
+
+The share is taken over spend, not over medians, so a dear run weighs as much as it
+cost. The round ratio compares fully priced runs only: a total over part of a run reads
+as a cheap run. A tile with nothing to stand on says why instead of showing a zero.
+
 ### Configurations compared per phase
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
-For each phase of a flow, the page compares the configurations that ran it on three
-measures:
+The table has one row per phase of the flow, in the order the latest run runs them. A
+row shows:
 
-| Measure | What it says |
-| --- | --- |
-| Phase cost | What the phase cost under this configuration. |
-| Quality | How well the work came out, from what the delivery phases report. |
-| Whole-run cost | What the runs cost end to end. |
+- the configuration now, as the latest run configured it;
+- how many runs priced the phase;
+- the median phase cost;
+- the phase's share of the run;
+- the phase's [quality measure](#the-quality-measure-per-phase).
 
+The share is the phase's median over the sum of the medians of the phases the latest run
+carries, so the shares add up to the whole. A phase only older runs carried keeps its
+median and has no share.
+
+Selecting a phase opens its configurations as recorded: the model, the effort, the agent
+that ran it and, where the runs differ on it, the mode. Each one shows its runs, its
+median phase cost, its quality measure over its own runs, and its median whole-run cost.
 Whole-run cost sits beside phase cost because a cheaper phase can make the run dearer. A
 smaller model in implement can save money there and then cost more in extra review
 rounds. Comparing the phase alone would recommend exactly that mistake.
+
+### The quality measure per phase
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#delivery-run]
+```
+
+Each phase that reviews or checks the work, or that the work goes back to, is read on one
+measure. Every other phase has none.
+
+| Phase | Quality measure | Read from |
+| --- | --- | --- |
+| Scope | Share of runs scoped again after Implement started | Scope marked done more than once, over the runs whose Implement started |
+| Implement | Mean review rounds | The highest round the run's Implement or Review reported |
+| Review | Blockers per round, and the defects that escaped to Verify | The blockers Review's round left open; the defects Verify found |
+| Build & Test | Share green first time | Build & Test marked done once |
+| Verify | Share of runs with a defect found | Verify's defects found, over the runs that reported a count |
+
+A phase is matched by its name in any casing, so "Build and Test" is Build & Test. The
+measure is a mean over the runs that reported what it is read from. A run that reported
+nothing reads as "not reported", never as zero, and still counts toward cost. The page
+says how many runs the quality measure stands on.
 
 ### What the delivery phases report
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
-The quality measure is built from three facts the delivery phases start reporting with
-their run:
-
-- how many review rounds a change took;
-- how many blockers review found;
-- how many defects escaped review and were found later.
-
-The delivery engine reports them, because only the phase that reviews or verifies the
-work knows them. This product records what is reported and works out none of the three
-itself.
-
-A run from before the phases reported these facts has no quality measure. It still counts
-toward cost, and the page says how many runs the quality measure stands on.
+The round, the blockers and the defects come from what the delivery phases report on a
+stage (see [Delivery Run](domain.md#delivery-run)). Only the phase that reviews or verifies
+the work knows them, so this product records what is reported and works out none of the
+three itself. Each count describes the stage's latest pass.
 
 ### Lesson cards
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
 ```mermaid
@@ -1113,10 +1152,16 @@ flowchart LR
     C --> D[Personal overlay changed]
 ```
 
-The page draws its findings as lesson cards. Each card states one lesson and the number of
-runs it is drawn from, for example "Sonnet at high effort reviews as well as Opus here,
-over 14 runs". The card's button copies a request for the `devbook-config:local` skill,
-which changes the person's own overlay of the repository's configuration.
+The page draws its findings as lesson cards. A card compares two configurations of a
+phase once each priced at least five runs of it at different medians, and states the
+lesson and the number of runs it is drawn from, for example "Sonnet at high effort runs
+Implement for $2.00 less than Opus (medians), and whole runs cost $2.00 less". The card's
+button copies a request for the `devbook-config:local` skill, which changes the person's
+own overlay of the repository's configuration. A card whose cheaper configuration is the
+one configured now says to keep it, and copies nothing.
+
+A card compares cost only and says so. The quality measure sits on each configuration
+beside it, for the reader to weigh.
 
 The sample size is on every card because a lesson from three runs reads as confidently as
 one from forty. Only the number tells them apart. The app never writes the overlay

@@ -48,7 +48,6 @@ public sealed class DeliveryEconomicsPageTests
             Assert.StartsWith("50%", share.QuerySelector(".delivery-economics__share-figure")!.TextContent, StringComparison.Ordinal);
 
             Assert.Contains("not reported", implement.QuerySelector("[data-testid='economics-phase-quality']")!.TextContent, StringComparison.Ordinal);
-            Assert.StartsWith("2", implement.QuerySelector("[data-testid='economics-phase-configurations']")!.TextContent.Trim(), StringComparison.Ordinal);
         });
     }
 
@@ -66,7 +65,7 @@ public sealed class DeliveryEconomicsPageTests
 
             Assert.Contains(
                 "Quality measure stands on 0 of 11 runs",
-                page.Find("[data-testid='economics-kpi-quality']").TextContent,
+                page.Find("[data-testid='economics-quality-line']").TextContent,
                 StringComparison.Ordinal);
 
             Assert.Contains("Sessions", page.Find("[data-testid='economics-breadcrumb']").TextContent, StringComparison.Ordinal);
@@ -465,9 +464,8 @@ public sealed class DeliveryEconomicsPageTests
             Assert.StartsWith("85%", Cell(page, "Implement", "economics-phase-share").QuerySelector(".delivery-economics__share-figure")!.TextContent, StringComparison.Ordinal);
             Assert.StartsWith("15%", Cell(page, "Review", "economics-phase-share").QuerySelector(".delivery-economics__share-figure")!.TextContent, StringComparison.Ordinal);
 
-            var largest = page.Find("[data-testid='economics-kpi-largest']").TextContent;
-            Assert.Contains("Implement", largest, StringComparison.Ordinal);
-            Assert.Contains("85% of the flow's phase costs", largest, StringComparison.Ordinal);
+            // Every stage the runs ran is Implement or Review.
+            Assert.Contains("100%", page.Find("[data-testid='economics-kpi-implement-review']").TextContent, StringComparison.Ordinal);
 
             // Every run priced something, so the median run stands on all three, and the
             // tile says two of them left a stage unpriced.
@@ -550,6 +548,66 @@ public sealed class DeliveryEconomicsPageTests
 
             Assert.Equal("2 runs · 0 priced", opus.QuerySelector("[data-testid='economics-config-runs']")!.TextContent.Trim());
             Assert.Equal("not priced", opus.QuerySelector("[data-testid='economics-config-phase-cost']")!.TextContent.Trim());
+        });
+    }
+
+    [Fact]
+    public void Reported_rounds_blockers_and_defects_fill_the_tiles_the_quality_column_and_the_cards()
+    {
+        // Two one-round runs at $3 and two three-round runs at $6, whole; Verify found a
+        // defect in one of the dear runs.
+        PricedDeliveryRun Ran(string id, int daysAgo, int rounds, int blockers, int defects, decimal usd) =>
+            new(
+                Run(id, Now.AddDays(-daysAgo), "flow-code",
+                    Stage("Implement", Sonnet) with { Round = rounds },
+                    Stage("Review", Sonnet) with { Round = rounds, Blockers = blockers },
+                    Stage("Verify", Sonnet) with { DefectsFound = defects }),
+                [
+                    new DeliveryRunStageCost(Usd(usd, CostSource.Reported), []),
+                    new DeliveryRunStageCost(Usd(usd, CostSource.Reported), []),
+                    new DeliveryRunStageCost(Usd(usd, CostSource.Reported), [])
+                ]);
+
+        IReadOnlyList<PricedDeliveryRun> priced =
+        [
+            Ran("a", 1, 1, 0, 0, 1m),
+            Ran("b", 2, 1, 0, 0, 1m),
+            Ran("c", 3, 3, 1, 1, 2m),
+            Ran("d", 4, 3, 1, 0, 2m)
+        ];
+
+        using var context = Context();
+        var page = Render(context, priced);
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("67%", page.Find("[data-testid='economics-kpi-implement-review']").TextContent, StringComparison.Ordinal);
+
+            var rounds = page.Find("[data-testid='economics-kpi-rounds']").TextContent;
+            Assert.Contains("2 of 4", rounds, StringComparison.Ordinal);
+            Assert.Contains("cost 2.0× a one-round run", rounds, StringComparison.Ordinal);
+
+            var escaped = page.Find("[data-testid='economics-kpi-escaped']").TextContent;
+            Assert.Contains("1", escaped, StringComparison.Ordinal);
+            Assert.Contains("found by Verify after review passed · 4 of 4 runs reported", escaped, StringComparison.Ordinal);
+
+            Assert.Contains("2 rounds", Cell(page, "Implement", "economics-phase-quality").TextContent, StringComparison.Ordinal);
+            Assert.Contains("0.5 blockers per round · 1 escaped to Verify", Cell(page, "Review", "economics-phase-quality").TextContent, StringComparison.Ordinal);
+            Assert.Contains("25% found a defect", Cell(page, "Verify", "economics-phase-quality").TextContent, StringComparison.Ordinal);
+            Assert.Equal("Quality measure stands on all 4 runs.", page.Find("[data-testid='economics-quality-line']").TextContent.Trim());
+        });
+
+        page.Find("[data-testid='economics-phase'][data-phase='Implement']").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var card = page.Find("[data-testid='economics-config']");
+
+            Assert.Equal("2 rounds", card.QuerySelector("[data-testid='economics-config-quality']")!.TextContent.Trim());
+            Assert.Contains("Quality measure", card.TextContent, StringComparison.Ordinal);
+
+            // Every run shared the agent; the card still names it, as recorded.
+            Assert.Contains("csharp-coding:coding", card.TextContent, StringComparison.Ordinal);
         });
     }
 
