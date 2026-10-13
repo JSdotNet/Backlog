@@ -24,156 +24,155 @@ aliases: [TaskItem, task_id, BacklogEntry, backlog_entry_id, backlog_item_id]
 A refined, actionable item in the personal backlog and the consistency boundary
 for all of its sub-items, projections, and usage history. It is the single source
 of truth: one logical item with one priority and one status even when it targets
-multiple repositories. Invariants: status only moves through the defined
-lifecycle; all mutations to sub-items, projection references, AI work log events, and usage events go through the root; parent progress reflects sub-item completion; projections are created on `Ready → In Progress` (`TaskProjected`, one per `repo_id`) and closed on completion (`TaskCompleted`). A manually created task starts at `draft` with no `source_inbox_id`. A task
+multiple repositories.
+
+Invariants:
+
+- Status only moves through the defined lifecycle.
+- All mutations to sub-items, projection references, AI work log events, and
+  usage events go through the root.
+- Parent progress reflects sub-item completion.
+- Projections are to be created on `Ready → In Progress`, one per `repo_id`, and
+  closed on completion. What ships today is a push the person asks for; see
+  [Projection](#projection).
+
+A manually created task starts at `draft` with no `source_inbox_id`. A task
 that stands for an item in an outside system carries a [Source Ref](#source-ref)
 and is a [Linked Task](#linked-task); the source then owns its title, status
 and assignee (local ADR 0020).
 
 The task also carries two attributes that place it in the person's own working
-set rather than in any external system: `area`, its [Area](#area), with blank
-normalized to unfiled; and `order`, a manual rank used
-to hand-sequence tasks within the backlog (tasks that have never been ranked
-share the default and fall back to recency). Both are freely re-settable and
-carry no lifecycle invariant of their own. Both are also aggregate state rather
-than a display preference, so both travel with the task to the person's other
-machines: a sequence arranged by hand is an edit, and an edit that did not travel
-would quietly revert on the other device.
+set rather than in any external system:
 
-Beyond that working-set placement the task carries five scheduling attributes,
-all optional and none of them load-bearing for the lifecycle. `due_on` is the
-task's [Due Date](#due-date). `remind_at` is its [Reminder](#reminder); overdue
-is derived by comparison rather than stored, and delivery sits outside the
-aggregate - the task records that a reminder was wanted, not that one was sent.
-`recurrence` says the task repeats and is described by the `Recurrence` value
-object. `in_my_day_on` is the date behind [My Day](#my-day). `agenda_time` places
-the task in that day and is described by the [Agenda Time](#agenda-time) value
-object. The task holds an agenda time only while it has an `in_my_day_on`, and
-it drops the agenda time whenever `in_my_day_on` changes or is cleared, so a
-task moved to tomorrow or taken out of My Day loses its slot.
-`completed_on` records that the task is [Completed](#completed). It is kept
-apart from `status` - `done` and `archived` say the work is over, the tick says
-the person has dealt with the task - so that finished work can sit on the open
-list until they have looked at it, and it carries no invariant. The list's
-checkbox writes two facts at once: ticking a task not yet in an end state through it also sets `done`, because a person who ticks something
-off has finished the work. That is the checkbox's choice, not a rule on the
-task - a `completed:` token typed into the text moves no status. The phone's
-done and undone are that same checkbox: done ticks the task the way the desktop
-does, and undone clears `completed_on` and leaves the status alone.
+- `area`, its [Area](#area). A blank area is normalized to unfiled.
+- `order`, a manual rank used to hand-sequence tasks within the backlog. Tasks
+  that have never been ranked share the default and fall back to recency.
+
+Both are freely re-settable and carry no lifecycle invariant of their own. Both
+are aggregate state rather than a display preference, so both travel with the
+task to the person's other machines. A sequence arranged by hand is an edit, and
+an edit that did not travel would quietly revert on the other device.
+
+Beyond that working-set placement the task carries five scheduling attributes.
+All are optional, and none is load-bearing for the lifecycle.
+
+- `due_on` is the task's [Due Date](#due-date).
+- `remind_at` is its [Reminder](#reminder). Overdue is derived by comparison
+  rather than stored. Delivery sits outside the aggregate: the task records that
+  a reminder was wanted, not that one was sent.
+- `recurrence` says the task repeats and is described by the `Recurrence` value
+  object.
+- `in_my_day_on` is the date behind [My Day](#my-day).
+- `agenda_time` places the task in that day and is described by the
+  [Agenda Time](#agenda-time) value object. The task holds an agenda time only
+  while it has an `in_my_day_on`. It drops the agenda time whenever
+  `in_my_day_on` changes or is cleared, so a task moved to tomorrow or taken out
+  of My Day loses its slot.
+
+`completed_on` records that the task is [Completed](#completed); that term says
+how the tick differs from `status`. The tick carries no invariant. The list's
+checkbox writes two facts at once. Ticking a task that is not yet in an end state
+also sets `done`, because a person who ticks something off has finished the work.
+That is the checkbox's choice, not a rule on the task, so a `completed:` token
+typed into the text moves no status. The phone's done and undone are that same
+checkbox. Done ticks the task the way the desktop does, and undone clears
+`completed_on` and leaves the status alone.
 
 `started_on` records that the task is [Started](#started). The task stamps it
-from the local date on the first transition into `in_progress` - whether a
-lifecycle step or a status set from the text - and pausing back to `ready` or
-reopening a `done` task keeps the first day. It carries no invariant beyond that
-stamp. It is written on the metadata line as a
-`started:` token just before `completed:`; a token typed there sets the date,
-and deleting it clears the date - a task still `in_progress` is stamped with
-today again on that save. Work that was already under way before the stamp
-existed has none until its next transition into `in_progress`. Nothing in this
-context reads it; it is recorded for the roadmap, which draws a finished plan
-from its first task's start to its last task's tick.
+from the local date. Both a lifecycle step and a status set from the text count
+as the first transition into `in_progress`. It carries no invariant beyond that stamp. It is written on the
+metadata line as a `started:` token just before `completed:`. A token typed there
+sets the date, and deleting it clears the date. A task still `in_progress` is
+then stamped with today again on that save. Work that was already under way
+before the stamp existed has none until its next transition into `in_progress`.
+Nothing in this context reads it. It is recorded for the roadmap, which draws a
+finished plan from its first task's start to its last task's tick.
 
 `depends_on` lists the task's [Dependencies](#dependency), held as plain
-identifiers, the same rule `repo_ids` follows: every `Task` is its own aggregate
-root, so there is no object graph between them. An id naming no task the reader
-can see blocks because dropping it would let a chain claim to be ready when the
-step it waits on is merely missing from view, which is the one failure that looks exactly like
-success. `Readiness` is derived from this list on every read and never stored.
+identifiers, the same rule `repo_ids` follows. Every `Task` is its own aggregate
+root, so there is no object graph between them. `Readiness` is derived from this
+list on every read and never stored. [Dependency](#dependency) says why an
+unresolvable id still blocks and why no invariant prevents a cycle.
 
-`planned_hours` lists the task's [Planned Hours](#planned-hours): the days the
-person set hours aside on, one figure a day, in date order. The task's own field and
-never text in it, so the text save neither writes nor clears it. A figure is more
-than none and at most a whole day; the root refuses anything else and keeps one
-block a day, the last given winning. A recurring task's next occurrence starts with
-none, since the days belonged to this one. Nothing in the roadmap reads it.
+`planned_hours` lists the task's [Planned Hours](#planned-hours) in date order.
+It is the task's own field and never text in it, so the text save neither writes
+nor clears it. The root refuses a figure outside the bounds that term sets, and
+keeps one figure a day, the last given winning. A recurring task's next
+occurrence starts with none, since the days belonged to this one.
 
-Dependency cycles are surfaced rather than prevented, and there is deliberately
-no invariant against one. A cycle spans aggregate boundaries, so no single task
-can enforce its absence transactionally; and which edge in a loop is the wrong
-one is answerable only by the person who wrote them.
-
-`attachment` names one place on disk the task's material lives: a folder or an
-archive, held as a path. One place and not a list, which is the decision worth
-recording here rather than in the surface that draws it - a collection would make
-the task's presentation grow with however many files somebody happened to drop
-on it, and what a person means by "the files for this" is a folder they already
-keep them in. A path and not a copy, for the reason the whole context rests on:
-the task is Markdown that gets committed and shared
-(`.devbook/arc42/02-constraints.md#technical-constraints`), and copying material into a
-store would make the text stop being the whole of the task. So the task points,
-and pointing is all it does. Whether the path still resolves is the file system's
-answer and a different answer on a different machine, so it carries no invariant
-and is never validated: a task written on the desktop and read on the phone is
-not invalid for naming a drive the phone has never seen. Its spelling on the
-metadata line is `.devbook/design/content-editing.md#scheduling-and-dependency-tokens`.
+`attachment` names the one place on disk where the task's material lives, as an
+[Attachment](#attachment). It carries no invariant and is never validated. Its
+spelling on the metadata line is
+`.devbook/design/content-editing.md#scheduling-and-dependency-tokens`.
 
 The task also carries one attribute that is not a fact about the work at all.
-`view` records which reading of the body the person last asked for - the steps,
-or the Markdown block those steps are written in - and it is a display preference
-rather than domain state: nothing in the lifecycle reads it, no invariant depends
-on it, and a task that has never been looked at simply does not have one. It is
-named here because it is stored on the task, and it is stored on the task
-because the Markdown is canonical (`.devbook/arc42/02-constraints.md#technical-constraints`):
-a preference kept in a sidecar or in a per-device setting would not survive the
-file being shared, and whoever opened the task from a clone would get somebody
-else's default instead of the way this task is meant to be read. The
-alternative - deriving it every time from whether the body happens to contain
-sub-items - is what happens when the attribute is absent, and it cannot record a
-person disagreeing with that guess. Its spelling on the metadata line is
+`view` records which reading of the body the person last asked for: the steps,
+or the Markdown block those steps are written in. It is a display preference
+rather than domain state. Nothing in the lifecycle reads it, no invariant depends
+on it, and a task that has never been looked at has none.
+
+It is named here because it is stored on the task. It is written on the task's
+metadata line, so it must survive every save that round-trips the text through
+the aggregate. Held on the task, it also travels to the person's other devices
+with the task through the replica. When the attribute is absent, the reader
+derives the view from whether the body contains sub-items. That guess cannot
+record a person disagreeing with it. Its spelling on the metadata line is
 `.devbook/design/content-editing.md#scheduling-and-dependency-tokens`.
 
 A task spawned as the next occurrence of a repeating one carries
 `recurrence_source_id`, naming the occurrence it followed. It is provenance in
-the same spirit as `source_inbox_id` and carries no invariant: a spawned task
-is a separate aggregate with its own lifecycle, and the task it came from may
-since have been archived or deleted.
+the same spirit as `source_inbox_id` and carries no invariant. A spawned task is
+a separate aggregate with its own lifecycle, and the task it came from may since
+have been archived or deleted.
 
 A task created by importing a plan carries `import_plan_id` and
 `import_item_id`, naming the plan and the item inside it that produced the
 task. Both are provenance in the same spirit as `source_inbox_id` and
-`recurrence_source_id` and carry no invariant of their own, but together they
-are also the key a later import of the same plan uses to recognize the task a
-given item already produced, so re-importing an updated plan can bring a task
-already under way up to date instead of standing a second one beside it.
-`import_plan_id` on its own is what such an import clears the plan's
-not-yet-started tasks by — see
+`recurrence_source_id`, and carry no invariant of their own. Together they are
+also the key a later import of the same plan uses to recognize the task an item
+already produced. Re-importing an updated plan can therefore bring a task already
+under way up to date instead of standing a second one beside it. Such an import
+clears the plan's not-yet-started tasks by `import_plan_id` alone; see
 [Re-importing an updated plan](features.md#re-importing-an-updated-plan).
-`import_plan_id` is also added to the task's `tags`, so filing and filtering
-by plan reuses the same mechanism as filing against a
+
+`import_plan_id` is also added to the task's `tags`. Filing and filtering by plan
+then reuse the mechanism of filing against a
 [roadmap tag](features.md#filing-a-task-against-a-roadmap-tag) rather than a
-parallel lookup. It is that tag verbatim: a plan tag is spelled with the plan
-sigil, `+slug`, on the metadata line and in `tags` alike, and `import_plan_id`
-keeps the sigil rather than storing a second spelling — so there is one
-comparison inside this context, and a plan written under a general `#slug`
-before the sigil existed is a different plan from one written under `+slug`.
-The bare slug, which is how the
-[Roadmap Item](../roadmap/domain.md#roadmap-tag) for the same plan holds it, is
-the roadmap's spelling; the sigil is lifted at that boundary and nowhere here
+parallel lookup. It is that tag verbatim, with the plan sigil the
+[Roadmap Tag](#roadmap-tag) term describes. `import_plan_id` keeps the sigil
+rather than storing a second spelling, so there is one comparison inside this
+context. A plan written under a general `#slug` before the sigil existed is
+therefore a different plan from one written under `+slug`. The sigil is lifted
+at the roadmap boundary and nowhere here
 (`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
 
 The task also carries an optional `effort`, its [Effort](#effort); the model
-rejects a negative number. Deriving the estimate is not built here - this is the
-point at which the value becomes registrable and visible - and the model is
-indifferent to whether a person or an AI agent put the number there. Roadmap
-Planning totals it through
+rejects a negative number. Deriving the estimate is not built here. This is the
+point at which the value becomes registrable and visible, and the model does not
+care whether a person or an AI agent put the number there. Roadmap Planning
+totals it through
 [Roadmap Item Gathering](../roadmap/domain.md#roadmap-item-gathering).
 
 Two attributes exist so the same task can live on more than one of the person's
-machines. `updated_at` is the moment the task last changed, in UTC, restamped by
-the device on every mutation — including a change to `order` or `area`, which is
-what makes those travel; `deleted_at` makes the task a [Tombstone](#tombstone).
+machines:
+
+- `updated_at` is the moment the task last changed, in UTC. The device restamps
+  it on every mutation, including a change to `order` or `area`, which is what
+  makes those travel.
+- `deleted_at` makes the task a [Tombstone](#tombstone).
+
 Neither carries a lifecycle invariant of its own, and neither is ever set by
 hand.
 
 They are here rather than in the storage adapter because reconciliation is a
 domain rule, not a persistence detail. When the same task is edited on two
-machines the later edit wins whole — see
-[Multi-device sync](features.md#multi-device-sync) — and "later" is a question
-only the task itself can answer. A deletion has the same problem in sharper
-form, which is why it leaves a [Tombstone](#tombstone).
+machines, the later edit wins whole; see
+[Multi-device sync](features.md#multi-device-sync). Only the task itself can
+answer which edit is later. A deletion has the same problem in sharper form,
+which is why it leaves a [Tombstone](#tombstone).
 
 The task is the single source of truth **on the device that holds it**. Where a
-second device holds its own copy, the two reconcile with each other; the cloud
+second device holds its own copy, the two reconcile with each other. The cloud
 holds a replica used to carry changes between them and is never itself the
 authority. See
 `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
@@ -189,18 +188,16 @@ aliases: [SubItem]
 An ordered breakdown step owned by the task, with its own `title`,
 `Sub-Item Status`, optional `notes`, and `order`. It has identity within the
 aggregate but no meaning outside it. Sub-items can be reordered, added, or removed
-independently and may project to GitHub issue task-list checkboxes - checkboxes
-inside the task's own issue. A sub-item is never projected as an issue of its
-own: `Projection Ref` is owned by the task and there is nowhere on a step to
-record one, so a step filed separately could be filed again with nothing able to
-tell that it already had been.
+independently. They may project to task-list checkboxes inside the task's own
+GitHub issue. A sub-item is never projected as an issue of its own. `Projection
+Ref` is owned by the task and there is nowhere on a step to record one, so a step
+filed separately could be filed again with nothing able to tell.
 
-A step, in the product's language, is a sub-item - there is no second concept
-for one. A sub-item carries those four attributes and nothing else: no task
-type, no priority, no task status vocabulary, no tags, and none of the task's
-scheduling or dependency attributes. A step inherits its parent's deadline by
-belonging to it, and a breakdown step that needed its own priority would be an
-task rather than a step.
+A step, in the product's language, is a sub-item; there is no second concept for
+one. A sub-item carries only its title, status, notes and order. The task's type,
+priority, status vocabulary, tags, scheduling and dependency attributes stay on
+the task. A step inherits its parent's deadline by belonging to it. A breakdown
+step that needed its own priority would be a task rather than a step.
 
 ### Projection Ref
 
@@ -210,8 +207,9 @@ status: draft
 ```
 
 An immutable link to a downstream external artifact created from the task:
-`repo_id`, `external_id`, and `target_type` (e.g. github-issue, cli-task).
-Equality is by value. It points outward. The inbound counterpart is the
+`repo_id`, `external_id`, and `target_type`. The target types in use are `issue`,
+`pull-request` and `session`. A Copilot CLI task is an intended target, `cli-task`,
+that nothing creates yet. Equality is by value. It points outward. The inbound counterpart is the
 [Source Ref](#source-ref).
 
 ### Source Ref
@@ -253,10 +251,10 @@ set of `Weekday`s the repeat is restricted to. "Every weekday" is interval 1,
 unit week, weekdays Monday through Friday; "every other week" is interval 2,
 unit week, with no weekday restriction. Equality is by value.
 
-The value object describes the shape of the repeat only. It does not say when
-the next occurrence falls - that is the `Occurrence Spawning` policy's calculation - and
-the repeat is anchored to `due_on` rather than to the completion date, so a
-weekly task finished three days late still falls due on its original weekday.
+The value object describes the shape of the repeat only. When the next
+occurrence falls is the `Occurrence Spawning` policy's calculation. The repeat is
+anchored to `due_on` rather than to the completion date, so a weekly task
+finished three days late still falls due on its original weekday.
 
 ### Agenda Time
 
@@ -283,16 +281,15 @@ An agenda time has no date of its own. It borrows the date of
 My Day. The [Task](#task) drops it whenever `in_my_day_on` changes or is cleared.
 A task whose My Day date has passed keeps the value until that next change, but
 nothing reads it. Given an agenda time while it has no `in_my_day_on`, the task
-holds none: the value is dropped rather than refused, the way the parser drops
+holds none. The value is dropped rather than refused, the way the parser drops
 what it cannot place. A text save that moves `myday:` drops the `at:` and `for:`
-left on the line unedited, because they are the old day's slot carried along;
-a slot typed or changed in the same save is the person's, and stays.
+left on the line unedited, because they are the old day's slot carried along. A
+slot typed or changed in the same save is the person's, and stays.
 
 The agenda time crosses the sync task feed as two plain values beside
-`in_my_day_on`, the start as `HH:MM` and the duration in minutes, both absent on
-a task with no slot. A document from a build that never sent them reads as
-having none, and the phone's `task_view` row reads them straight off the
-document.
+`in_my_day_on`: the start as `HH:MM` and the duration in minutes. Both are absent
+on a task with no slot. A document from a build that never sent them reads as
+having none. The phone's `task_view` row reads them straight off the document.
 
 Only the desktop sets or clears an agenda time. The phone reads it to build the
 Now and Agenda groups and Focus, as
@@ -309,18 +306,36 @@ aliases: [attachment, files, attached folder, attached material]
 Where a task's material is kept: a `path` naming a folder or an archive.
 Equality is by value.
 
-Two things are read off the path rather than stored beside it. Its `name` is the
-last segment - what a person would call the thing - and whether it is an archive
-is decided by the path's spelling rather than by asking the disk, so that the
-value object stays comparable and a file renamed underneath a task cannot
-change what the task says. A folder that happens to be called `backup.zip` is an
-archive by this rule, and that is the right answer for the only thing the answer
-decides: which word to call it.
+**One place and not a list.** What a person means by "the files for this" is a
+folder they already keep them in. A collection would make the task's
+presentation grow with however many files somebody happened to drop on it. A
+second place is not a second attachment: it is either the same folder further up
+or a different task.
+
+**A path and not a copy.** Task attachments are machine-local
+(`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`):
+nothing is imported, nothing is stored beside the task, and the material stays
+where its owner put it. So the task points, and pointing is all it does. Whether
+the path still resolves is the file system's answer, and a different answer on a
+different machine. The value therefore carries no invariant and is never
+validated. A task written on the desktop and read on the phone is not invalid for
+naming a drive the phone has never seen. Attaching is a claim about where
+material lives, not a promise that the reader can reach it.
+
+Two things are read off the path rather than stored beside it:
+
+- Its `name` is the last segment, what a person would call the thing.
+- Whether it is an archive is decided by the path's spelling rather than by
+  asking the disk. The value object then stays comparable, and a file renamed
+  underneath a task cannot change what the task says.
+
+A folder that happens to be called `backup.zip` is an archive by this rule. That
+is the right answer for the only thing the answer decides: which word to call it.
 
 How much is in the place is deliberately not part of the value. A count is a
-question for whoever can see the file system at the moment it is asked, and an
-task that stored one would be a task asserting something that stopped being
-true the moment somebody added a file.
+question for whoever can see the file system at the moment it is asked. A task
+that stored one would assert something that stopped being true the moment
+somebody added a file.
 
 ### Usage Event
 
@@ -412,16 +427,19 @@ aliases: [TaskReadiness, ready, blocked]
 ```
 
 Where a task stands once the tasks it waits on are taken into account:
-`done`, `ready`, `blocked`. Derived on every read from `depends_on` and never
-stored - a stored readiness would go stale the moment a predecessor was
-completed.
+`done`, `ready`, `blocked`. It is derived on every read from `depends_on` and
+never stored, because a stored readiness would go stale the moment a predecessor
+was completed.
 
-Three values rather than two, because "not done" covers both the task that can
-be picked up now and the task that cannot, and telling those two apart is the
-whole reason anyone writes a dependency down. `done` wins over the derivation:
-a task somebody marked done is done even if something it named is still
-outstanding, because done is a recorded fact where blocked is only a
-conclusion.
+There are three values rather than two. "Not done" covers both the task that can
+be picked up now and the task that cannot. Telling those two apart is the whole
+reason anyone writes a dependency down.
+
+Readiness is orthogonal to `Task Status`. Status is the recorded lifecycle state;
+readiness is a conclusion about whether the task can be started. They share only
+`done`, and a recorded `done` wins over the derivation. A task somebody marked
+done is done even if something it named is still outstanding, because done is a
+recorded fact where blocked is only a conclusion.
 
 ## Projection
 
@@ -432,17 +450,26 @@ related: [.devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/0
 aliases: [ProjectionRef]
 ```
 
-Creates and closes downstream artifacts for a multi-repo task: on `TaskProjected`
-it creates one GitHub issue and/or CLI task per `repo_id`, recording each as a
-`Projection Ref`; on `TaskCompleted` it closes all projections. It is a service
-because it coordinates the task with external systems (GitHub, Copilot CLI) and
-spans multiple downstream artifacts rather than a single aggregate mutation. Invocation semantics: event-triggered policy / process manager. It reacts to `TaskProjected` and `TaskCompleted`; it is not invoked as part of a synchronous aggregate command.
+Creates and closes downstream artifacts for a multi-repo task, recording each as
+a `Projection Ref`. It is a service because it coordinates the task with external
+systems (GitHub, Copilot CLI) and spans several downstream artifacts rather than
+a single aggregate mutation.
 
-A `Projection Ref` recorded by hand — a session or pull request linked to a task —
-can be taken off again: the unlink use case removes every ref naming that repository,
-external id and target type, compared without regard to case, and leaves the task's
-`repo_id`s as they are. A ref the task does not hold changes nothing and is not a
-failure.
+What ships is a push the person asks for. A task is pushed to its target
+repository as one GitHub issue, and the issue's reference is kept on the task; see
+[Issue projection and state read-back](features.md#issue-projection-and-state-read-back).
+
+The intended design is an event-triggered policy, or process manager, not invoked
+as part of a synchronous aggregate command. It would react to `TaskProjected` by
+creating one GitHub issue or CLI task per `repo_id`, and to `TaskCompleted` by
+closing all of them. Neither event is emitted yet; see
+[Occurrence Spawning](#occurrence-spawning) for why this context publishes none.
+
+A `Projection Ref` recorded by hand, such as a session or pull request linked to
+a task, can be taken off again. The unlink use case removes every ref naming that
+repository, external id and target type, compared without regard to case. It
+leaves the task's `repo_id`s as they are. A ref the task does not hold changes
+nothing and is not a failure.
 
 ## Occurrence Spawning
 
@@ -453,45 +480,57 @@ related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#
 ```
 
 Creates the next occurrence of a repeating task. When a save ticks off a task
-that carries a `Recurrence` - sets `completed_on` where it was unset - it
-creates a new `Task` with `due_on` advanced to the next date that recurrence
+that carries a `Recurrence`, setting `completed_on` where it was unset, it
+creates a new `Task`. The new task's `due_on` is the next date that recurrence
 produces. The status reaching `done` is not what triggers it: a task whose work
 is over but which nobody has ticked spawns nothing yet.
 
 It is a service because producing the next occurrence creates a second
-aggregate instance, which an aggregate cannot do to itself: the completed task
-stays completed and keeps its record of what was done, and what follows is a new
+aggregate instance, which an aggregate cannot do to itself. The completed task
+stays completed and keeps its record of what was done. What follows is a new
 task with its own lifecycle.
 
 Invocation semantics: called synchronously by the use case that completes the
-task. Deliberately not an event-triggered policy, unlike `Projection` — this
-context publishes no domain events yet, and guideline ADR 0006
+task. It is deliberately not an event-triggered policy, unlike the intended
+`Projection`. This context publishes no domain events yet. Guideline ADR 0006
 ([Lightweight CQRS, no mediator](../../arc42/adr/guidelines/0006-cqrs-for-api-projects.md))
-rejected putting a mediator behind its handlers on the grounds that a caller
-which already knows the use case it means gains nothing from the indirection. `OccurrenceSpawned` below is
-therefore documented rather than emitted, alongside the other events of this
+rejected putting a mediator behind its handlers: a caller that already knows the
+use case it means gains nothing from the indirection. `OccurrenceSpawned` below
+is therefore documented rather than emitted, like the other events of this
 context, until there is machinery to carry it. Nothing about the spawn waits on
-that machinery: the successor is created either way, and what an event would add
-is a consumer being told.
+that machinery. The successor is created either way; what an event would add is
+a consumer being told.
 
-What carries over is what the repeat is of - `title`, `content_md`, `type`,
-`priority`, `area`, `tags`, `repo_ids`, and the `Recurrence` itself - plus
-`recurrence_source_id` pointing back at the task it came from, so a series can
-be traced the way `source_inbox_id` traces a task back to its inbox item. What
-does not carry over is everything that was about the occurrence rather than the
-repeat: the new task starts at `ready` with its sub-items reset to `pending`,
-and with no projections, no usage history, no reminder that has already fired,
-no `in_my_day_on`, no `started_on` and no `completed_on`.
+The new occurrence carries over what the repeat is of:
 
-A repeating task therefore accumulates one completed task per occurrence.
-That is the cost of keeping the record rather than rolling a single task
-forward, and it is bounded by `Archive and lifecycle` rather than by this policy
-- completed occurrences archive out of default views like any other finished
-task.
+- `title`, `content_md`, `type`, `priority`, `area`, `tags` and `repo_ids`;
+- `depends_on`, its Devbook references, and its `order`, so it lands where the
+  person put the last one;
+- the `Recurrence` itself;
+- each sub-item's title and notes, in order.
+
+It adds `recurrence_source_id`, pointing back at the task it came from. A series
+can then be traced the way `source_inbox_id` traces a task back to its inbox
+item.
+
+Everything that was about the occurrence rather than the repeat starts fresh:
+
+- the status is `ready`, and every sub-item is `pending`;
+- `due_on` is advanced as above, and stays empty when the completed occurrence
+  had none;
+- projections, usage history, `remind_at`, `in_my_day_on` with its agenda time,
+  `planned_hours`, `started_on`, `completed_on`, `effort` and `attachment` are
+  all empty.
+
+A repeating task therefore accumulates one completed task per occurrence. That
+is the cost of keeping the record rather than rolling a single task forward.
+[Archive and lifecycle](features.md#archive-and-lifecycle) bounds it, not this
+policy: completed occurrences archive out of default views like any other
+finished task.
 
 Two use cases run it. The desktop's own save runs it when the save ticks the
 task off. The desktop's replica merge runs it when a pulled copy ticks off a
-task the desktop held unticked, which is how a tick made on the phone or on
+task the desktop held unticked. That is how a tick made on the phone or on
 another desktop gets its successor. A task that arrives already ticked and was
 never seen before spawns nothing, for the reason a task created ticked spawns
 nothing: it records something done, not an occurrence finishing now.
@@ -499,8 +538,8 @@ nothing: it records something done, not an occurrence finishing now.
 Each occurrence has at most one successor. The successor's id is derived from
 the id of the occurrence it follows, so every desktop that spawns it spawns the
 same task, and the replica keeps one copy. Occurrence Spawning creates nothing
-when the successor already exists, live or deleted. A re-pull, a second desktop, and an
-untick followed by a second tick therefore all leave the one successor.
+when the successor already exists, live or deleted. A re-pull, a second desktop,
+and an untick followed by a second tick therefore all leave the one successor.
 Deleting the successor is how the person stops that repeat, so a later tick
 does not bring it back. A successor spawned before its id was derived carries
 a random id, so an occurrence ticked before that change can still gain a
@@ -553,7 +592,8 @@ policy creates one downstream artifact per targeted repository.
 
 - `task_id` - task identifier.
 - `repo_id` - repository receiving a projection.
-- `projection_target` - `github-issue` or `copilot-task`.
+- `projection_target` - the [Projection Ref](#projection-ref)'s target type:
+  `issue` or `cli-task`.
 - `external_id` - created downstream artifact identifier.
 - `projected_at` - time the projection was created.
 
@@ -683,16 +723,19 @@ aliases: [EntryKind]
 related: [.devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md]
 ```
 
-Which thing a piece of entry text describes: a task, or a roadmap item. Read off
-the same bare type word as `Task Type` and held beside it rather than inside it —
-`prompt`, `task` and `idea` are all the task kind and carry a `Task Type`, while
-`plan` is the plan kind and carries none, because the enum a task is stored with
-has no row for it.
+Which thing a piece of entry text describes: a task, or a roadmap item. It is
+read off the same bare type word as `Task Type` and held beside it rather than
+inside it:
 
-The distinction earns a name because it is what the parser reports and every
-other path acts on: Import is the only one allowed to act on the plan kind, and
-each of the others refuses it rather than storing a task whose type word the task
-model cannot hold.
+- `prompt`, `task`, `idea` and `test` are all the task kind and carry a
+  `Task Type`.
+- `plan` is the plan kind and carries none, because the enum a task is stored
+  with has no row for it.
+
+The distinction earns a name because the parser reports it and every other path
+acts on it. Import is the only path allowed to act on the plan kind. Each of the
+others refuses it rather than storing a task whose type word the task model
+cannot hold.
 
 ### Completed
 
@@ -704,11 +747,17 @@ related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#
 ```
 
 A task the person has ticked off their list, recorded as `completed_on`, the
-day it happened. Independent of `Task Status`: any status can be ticked, a
-`done` task is not completed until it is ticked, and unticking clears the day
-without changing the status. "Finished" anywhere in this context — the
-Completed section, tag counts, dependency readiness, a repeat's next occurrence
-— means this.
+day it happened. It is independent of `Task Status`:
+
+- Any status can be ticked.
+- A `done` task is not completed until it is ticked.
+- Unticking clears the day without changing the status.
+
+`done` and `archived` say the work is over; the tick says the person has dealt
+with the task. Finished work can therefore sit on the open list until they have
+looked at it. "Finished" anywhere in this context means this tick. That covers
+the Completed section, tag counts, dependency readiness, and a repeat's next
+occurrence.
 
 ### Started
 
@@ -719,10 +768,11 @@ aliases: [started_on, started]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed]
 ```
 
-The day work on a task began, recorded as `started_on`: stamped by the task
-itself the first time it moves to `in_progress`, and never moved afterwards.
-Not a status — a task that is paused or reopened keeps the day it was first
-started. With `Completed` it bounds how long the work took.
+The day work on a task began, recorded as `started_on`. The task itself stamps
+it the first time it moves to `in_progress`, and never moves it afterwards. It
+is not a status: a task that is paused back to `ready` or reopened from `done`
+keeps the day it was first started. With `Completed` it bounds how long the work
+took.
 
 ### Area
 
@@ -762,11 +812,12 @@ related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#
 ```
 
 Hours the person has set aside for a task on a given day: a date and a number of
-hours — more than none, at most the whole day, in quarters of an hour — and never a
-start or an end time. A task holds at most one figure a day and may hold several
-days. Kept on the task beside its text rather than in it, as its Devbook references
-are, so editing the text never changes them. A plan for the person's own days, not
-an estimate: unlike [Effort](#effort), nothing the roadmap places or paces reads it.
+hours, never a start or an end time. The number is more than none and at most the
+whole day, in quarters of an hour. A task holds at most one figure a day and may
+hold several days. They are kept on the task beside its text rather than in it,
+as its Devbook references are, so editing the text never changes them. They plan
+the person's own days and are not an estimate: unlike [Effort](#effort), nothing
+the roadmap places or paces reads them.
 
 ### Reminder
 
@@ -808,10 +859,19 @@ aliases: [depends_on, DependsOn, after, predecessor]
 related: [.devbook/domain/tasks/domain.md#task]
 ```
 
-A task this task waits on, named by id. A task may have several — needing
-two things finished before starting is ordinary. Written `after:<id>` in the
-metadata line. A weak reference across an aggregate boundary: an id resolving to
-nothing is still a dependency, and still blocks.
+A task this task waits on, named by id. A task may have several, because needing
+two things finished before starting is ordinary. It is written `after:<id>` in
+the metadata line.
+
+It is a weak reference across an aggregate boundary. An id resolving to nothing
+is still a dependency, and still blocks. Treating it as satisfied would let a
+chain claim to be ready when the step it waits on is merely missing from view.
+That is the one failure that looks exactly like success.
+
+Dependency cycles are surfaced rather than prevented, and no invariant forbids
+one. A cycle spans aggregate boundaries, so no single task can enforce its
+absence transactionally. Every member of a loop stays blocked, and only the
+person who wrote the edges can say which one is wrong.
 
 ### Occurrence
 
@@ -836,14 +896,17 @@ aliases: [effort, story points, story-point estimate]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/domain.md#effort]
 ```
 
-The size of a Task in **story points**: a non-negative integer, optional,
-and three-valued at the edges — absent means "not estimated", `0` is a real
-zero-point estimate, and a negative is rejected. It sizes the work, not the time
-spent on it, and is an estimate however it was arrived at, whether set by hand
-or derived by an AI agent from the task's content: always revisable, and never a
-measurement.
-Registered here and owned here; Roadmap Planning reads and totals it but never
-sets it.
+The size of a Task in **story points**: an optional, non-negative integer. It
+has three cases at the edges:
+
+- Absent means "not estimated".
+- `0` is a real zero-point estimate.
+- A negative is rejected.
+
+It sizes the work, not the time spent on it. It is an estimate however it was
+arrived at, whether set by hand or derived by an AI agent from the task's
+content. It is always revisable and never a measurement. It is registered and
+owned here; Roadmap Planning reads and totals it but never sets it.
 
 ### Roadmap Tag
 
@@ -855,14 +918,17 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/f
 ```
 
 A [Roadmap Item](../roadmap/domain.md#roadmap-item)'s tag, borrowed here as
-vocabulary. This context does not define the tag — it offers every roadmap tag in
-the task's tag picker so a task can be filed against planned work using the
-plan's own slug, and matching on that slug is what lets the roadmap gather the
-task back. On the task the slug wears a plan sigil — `+release-q4` — which is how
-it reads apart from a `#` general tag and an `@` person; the roadmap matches the
-slug with or without it. A task's `tags` stay free-form strings; a roadmap tag is
-simply one a person may pick from the shared vocabulary rather than invent. The
-canonical concept lives in [Roadmap Planning](../roadmap/domain.md#roadmap-tag).
+vocabulary. This context does not define the tag. It offers every roadmap tag in
+the task's tag picker, so a task can be filed against planned work using the
+plan's own slug. Matching on that slug is what lets the roadmap gather the task
+back.
+
+On the task the slug wears a plan sigil, as in `+release-q4`. The sigil sets it
+apart from a `#` general tag and an `@` person. The roadmap item holds the bare
+slug, and matches a task's tag with or without the sigil. A task's `tags` stay
+free-form strings; a roadmap tag is one a person may pick from the shared
+vocabulary rather than invent. The canonical concept lives in
+[Roadmap Planning](../roadmap/domain.md#roadmap-tag).
 
 ### Roadmap
 
@@ -873,13 +939,14 @@ aliases: [Roadmap planning, Roadmap view]
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/features.md#roadmap-planning]
 ```
 
-**Not a Tasks term any more.** The canonical concept is the
+**Not a Tasks term.** The canonical concept is the
 [Roadmap Plan](../roadmap/domain.md#roadmap-plan) in Roadmap Planning, which
 owns a stored plan rather than presenting a view over tasks.
 
 What holds inside this context is narrower: a
 Task's status and execution priority are **not** owned by the roadmap.
 A plan may name a task by id and read its progress; it never writes to it.
+
 ### Device
 
 ```meta
@@ -889,14 +956,14 @@ related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/t
 ```
 
 One machine holding the person's backlog. A device is not a user and not an
-account — the product requires no login for personal use, so the device is the
+account. The product requires no login for personal use, so the device is the
 thing that is known and authorized.
 
 Each device holds its own canonical copy of every task. Two devices are peers:
 neither is the master, and the cloud replica between them is a courier rather
 than an authority. **Paired** describes two devices that share one
-[Owner](#owner), joined once by one device issuing a
-[Pairing code](#pairing-code) that the other redeems. Each device keeps its own
+[Owner](#owner). They are joined once: one device issues a
+[Pairing code](#pairing-code) and the other redeems it. Each device keeps its own
 [Registration credential](#registration-credential) and exchanges it for a
 [Device token](#device-token) before every sync call.
 
@@ -908,13 +975,13 @@ aliases: [ownerId, owner id]
 related: [.devbook/domain/tasks/domain.md#device, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity]
 ```
 
-The backlog an `ownerId` names — not a person's account, since the product
+The backlog an `ownerId` names. It is not a person's account, since the product
 requires none, but the identifier every device paired together shares. The
 first device to register mints it; every device paired to that device
 afterward registers under the same one. It is the partition every stored task
-and session record carries, and the value the sync service reads out of a
-device's presented [Device token](#device-token) to decide which partition a
-call may touch.
+and session record carries. The sync service reads it out of a device's
+presented [Device token](#device-token) to decide which partition a call may
+touch.
 
 ### Pairing code
 
@@ -928,8 +995,8 @@ A short, single-use code a first device issues so a second device can join its
 [Owner](#owner). Eight characters from an alphabet that drops visually
 confusable letters and digits, shown to the person as `XXXX-XXXX`. It expires
 ten minutes after it is shown and is burned the instant it is redeemed,
-whichever comes first — so a code that leaks unused stops being a way in on its
-own, and a code cannot be redeemed twice.
+whichever comes first. A code that leaks unused therefore stops being a way in
+on its own, and a code cannot be redeemed twice.
 
 ### Registration credential
 
@@ -939,11 +1006,12 @@ aliases: [device credential, credential]
 related: [.devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device-token, .devbook/domain/tasks/domain.md#device]
 ```
 
-The long-lived secret a device receives exactly once — at first registration,
-or at pairing — and keeps in its own OS credential store rather than anywhere
-the backlog itself is stored. It is never sent again after the moment it is
-issued: a device exchanges it for a [Device token](#device-token) before every
-sync call rather than presenting the credential itself on the wire.
+The long-lived secret a device receives exactly once, at first registration or
+at pairing. The device keeps it in its own OS credential store rather than
+anywhere the backlog itself is stored. It is never sent again after the moment
+it is issued. Before every sync call, a device exchanges it for a
+[Device token](#device-token) rather than presenting the credential itself on
+the wire.
 
 ### Device token
 
@@ -953,11 +1021,12 @@ aliases: [access token, device session token, sync token]
 related: [.devbook/domain/tasks/domain.md#registration-credential, .devbook/domain/tasks/domain.md#owner, .devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
 ```
 
-The short-lived credential — thirty minutes — a device actually presents on a
-sync call, obtained by exchanging its [Registration credential](#registration-credential).
-Names the device and the [Owner](#owner) it belongs to, and is what the sync
-service validates and scopes every query to; the registration credential
-itself never crosses the wire a second time.
+The short-lived credential a device actually presents on a sync call. It lasts
+thirty minutes, and the device obtains it by exchanging its
+[Registration credential](#registration-credential). It names the device and the
+[Owner](#owner) it belongs to. The sync service validates it and scopes every
+query to it, so the registration credential itself never crosses the wire a
+second time.
 
 ### Tombstone
 
@@ -972,11 +1041,10 @@ A tombstoned [Linked Task](#linked-task) is never re-created by a sync, so
 deleting one is how a person says they do not want it back.
 
 It exists because deletion has to travel. A task that is simply absent from one
-device is indistinguishable from one that device has never seen, so an outright
-removal cannot be told apart from a task that has not arrived yet, and the
-deletion would be undone by the next reconciliation. A tombstoned task is gone
-to every read; it survives only far enough for the other devices to learn that
-it went.
+device is indistinguishable from one that device has never seen. An outright
+removal therefore looks like a task that has not arrived yet, and the next
+reconciliation would undo the deletion. A tombstoned task is gone to every read;
+it survives only far enough for the other devices to learn that it went.
 
 ### Linked Task
 
@@ -1015,12 +1083,14 @@ related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/dom
 
 One outside system seen through the one contract Tasks knows,
 `ITaskConnector`. A connector describes itself with an id, a name, an icon and a
-colour token. It fetches the items of a [Connected Target](#connected-target),
-names each one by a display key, and reports its
-[Source State](#source-state), whether it is blocked and why, what the
-system can do, and who the connected account is. GitHub and spec-manager are
-the first two. This context never names a connector, so the source badge and
-the Source filter are drawn from the descriptors.
+colour token. It fetches the items of a [Connected Target](#connected-target)
+and names each one by a display key. For each item it reports its
+[Source State](#source-state) and whether it is blocked, and why. It also reports
+what the system can do and who the connected account is.
+
+GitHub and spec-manager are the first two. This context never names a
+connector, so the source badge and the Source filter are drawn from the
+descriptors.
 
 ### Connected Target
 
@@ -1032,10 +1102,15 @@ related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/arc42/adr/002
 ```
 
 One GitHub repository or one spec-manager product a person has connected. It
-holds the connector id, whether it is enabled, and its settings: skip old items
-on the first sync, "Assigned to me" on by default, whether the title follows
-the source, the sync interval, and what Promote to plan does with the original
-task. It never holds credentials.
+holds the connector id, whether it is enabled, and these settings:
+
+- whether the first sync skips old items;
+- whether "Assigned to me" is on by default;
+- whether the title follows the source;
+- the sync interval;
+- what Promote to plan does with the original task.
+
+It never holds credentials.
 
 ### Source State
 
@@ -1048,7 +1123,15 @@ related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/flo
 
 An item's state at its source, normalised by its connector to one of four
 values. One map turns it into a [Task Status](#task-status) for every
-connector: `Open` is Ready, `Active` is In progress, `Done` is Done and
-`Dropped` is Archived. The sync reaches that status along the lifecycle's own
-edges, so a closed issue walks its task through In progress to Done. The
-source's own status name is kept beside it for display.
+connector:
+
+| Source State | Task Status |
+|---|---|
+| `Open` | `ready` |
+| `Active` | `in_progress` |
+| `Done` | `done` |
+| `Dropped` | `archived` |
+
+The sync reaches that status along the lifecycle's own edges, so a closed issue
+walks its task through `in_progress` to `done`. The source's own status name is
+kept beside it for display.

@@ -3353,6 +3353,30 @@ h1, h2, h3 {
     border-color: var(--color-primary);
 }
 
+/*
+  The Devbook option while the pane shows the Brain wears the Brain's accent
+  (.devbook/design/color-scheme.md#the-brains-accent), never the repositories'
+  gold. Its identity edge is the one the Brain chip draws as its repo mark: a
+  band-2 inset along the bottom, there pressed or not. Selected, the teal takes
+  the gold's place on the border and adds a 16% tint the gold loose option does
+  not draw, so the pressed Brain reads as pressed beside its own edge; the ink
+  stays primary text on that tint. No colour of its own: band-2 is the token.
+*/
+.header-group__option--loose.header-group__option--brain {
+    box-shadow: inset 0 calc(-1 * var(--border-width-4)) 0 0 var(--color-band-2);
+}
+
+.header-group__option--loose.header-group__option--brain.header-group__option--selected {
+    border-color: var(--color-band-2);
+    background: color-mix(in srgb, var(--color-band-2) 16%, transparent);
+    color: var(--color-text-primary);
+}
+
+.header-group__option--loose.header-group__option--brain.header-group__option--selected:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-band-2) 26%, transparent);
+    color: var(--color-text-primary);
+}
+
 /* --- Header navigation folds ---------------------------------------------- */
 /*
   The tiers backlogHeaderFit folds, in order: the Dashboard, the work in

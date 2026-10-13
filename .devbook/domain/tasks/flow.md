@@ -5,9 +5,9 @@ type: flow
 status: draft
 ```
 
-> Lifecycle and process flows for this bounded context. Flows describe how the
-> aggregate moves through its states over time — complementary to `model.md`
-> (structure) and `domain.md` (responsibilities/invariants).
+> Lifecycle and process flows for this bounded context: how the aggregate moves
+> through its states over time. Complementary to `model.md` (structure) and
+> `domain.md` (responsibilities/invariants).
 
 ## Task lifecycle
 
@@ -15,8 +15,8 @@ status: draft
 stateDiagram-v2
     [*] --> Draft : Created
     Draft --> Ready : Refined and actionable
-    Ready --> InProgress : Work started (TaskProjected)
-    InProgress --> Done : Work completed (TaskCompleted)
+    Ready --> InProgress : Work started (TaskProjected, not yet emitted)
+    InProgress --> Done : Work completed (TaskCompleted, not yet emitted)
     Done --> Archived : Archived
     Archived --> Draft : Restored
     Ready --> Draft : Revision needed
@@ -24,28 +24,23 @@ stateDiagram-v2
     Done --> InProgress : Reopened
 ```
 
-- The `Ready → InProgress` transition emits `TaskProjected` (one artifact per
-  `repo_id`); `Done` emits `TaskCompleted` to close all projections.
-- The first entry into `InProgress`, by any route, stamps `started_on` with the
-  local date. Later entries — after `Paused`, or `Reopened` from `Done` — leave
-  it where it is: it records when the work began, not when it last resumed.
-- `Done` and `Archived` say the work is over. They do not say the person is
-  finished with the task: that is the tick — `completed_on`, the checkbox in
-  the list — which is a separate fact and not a state in this diagram. A task
-  can reach `done` and stay on the open list, unticked, until the person has
-  looked at it. It can be ticked from any state. The list's checkbox also moves
-  a task that is not yet in an end state to `done` in the same save — a
-  finished task that still read "in progress" was the list contradicting
-  itself — while `done` and `archived` keep their state; the tick itself is
-  still not a transition, and a typed `completed:` token moves nothing.
-  Unticking clears the date and moves nothing here. Everything
-  that groups on "finished" — the Completed section, tag counts, dependency
-  readiness, the next occurrence of a repeat — reads the tick, never these two
-  states. See `.devbook/domain/tasks/domain.md#task`.
+- The `Ready → InProgress` transition would emit `TaskProjected`, one artifact
+  per `repo_id`, and `Done` would emit `TaskCompleted` to close all projections.
+  Both are documented, not yet emitted; see
+  [Projection](domain.md#projection).
+- The first entry into `InProgress`, by any route, stamps
+  [Started](domain.md#started). Pausing or reopening leaves the stamp where it
+  is.
+- `Done` and `Archived` say the work is over. The tick that says the person has
+  dealt with the task is [Completed](domain.md#completed), a separate fact and
+  not a state in this diagram. The list's checkbox also moves a task not yet in
+  an end state to `done` in the same save, as [Task](domain.md#task) describes.
+  A finished task that still read "in progress" would be the list contradicting
+  itself.
 - Scheduling attributes do not appear in this diagram, and that is deliberate.
   A due date, a reminder, a repeat and a My Day stamp are facts about when work
-  is wanted, not lifecycle states — an overdue task is still `ready`, and
-  nothing has to move a task between states as a clock advances.
+  is wanted, not lifecycle states. An overdue task is still `ready`, and nothing
+  has to move a task between states as a clock advances.
 
 ## Recurring task occurrences
 
@@ -60,29 +55,26 @@ flowchart TD
     C -.->|"OccurrenceSpawned — documented, not yet emitted"| M["Monitoring would read the series"]
 ```
 
-- Completion is the tick — the save that sets `completed_on` from unset — and
-  not the status reaching `done`. A repeating task whose work is over but which
-  the person has not ticked spawns nothing yet; the next occurrence is owed
-  when they tick it, whatever its status is by then.
-- Completion does not roll one task forward; it leaves the finished occurrence
+- Completion is the [tick](domain.md#completed), the save that sets
+  `completed_on` from unset, and not the status reaching `done`. The next
+  occurrence is owed when the person ticks the task, whatever its status is by
+  then.
+- Completion does not roll one task forward. It leaves the finished occurrence
   in place and creates the next as a separate aggregate with its own lifecycle.
-  The link between them is `recurrence_source_id` — provenance, not ownership.
+  The link between them, `recurrence_source_id`, is provenance, not ownership.
 - The spawn is a synchronous step inside the save that completed the task, drawn
   with a solid arrow. The dashed arrow is the event that would tell Monitoring
-  about it, which this context documents but does not yet emit — so a consumer
-  reads a series today by following `recurrence_source_id` rather than by
-  subscribing.
+  about it, which this context documents but does not yet emit. A consumer
+  therefore reads a series today by following `recurrence_source_id` rather
+  than by subscribing.
 - A tick made on the phone reaches the desktop through the replica merge, which
   runs the same spawn when the pulled copy ticks off a task it held unticked.
   Each occurrence gets one successor, because the successor's id is derived
-  from the occurrence's (`.devbook/domain/tasks/domain.md#occurrence-spawning`).
+  from the occurrence's.
 - The next due date is calculated from the completed occurrence's `due_on`, not
   from the date it was actually finished, so lateness does not drift a schedule.
-- What resets on the new occurrence: sub-items return to `pending`, and
-  projections, usage history, `remind_at`, `in_my_day_on`, `started_on` and
-  `completed_on` do not carry over.
-  What carries: title, body, type, priority, area, tags, `repo_ids`, and the
-  `Recurrence` itself.
+- [Occurrence Spawning](domain.md#occurrence-spawning) lists what the new
+  occurrence carries over and what starts fresh.
 
 ## Readiness derivation
 
@@ -96,14 +88,8 @@ flowchart TD
 
 - Readiness is derived on every read and never persisted, so completing one task
   unblocks its dependents with nothing to recalculate or keep in sync.
-- Readiness and `Task Status` are orthogonal. Status is the recorded lifecycle
-  state; readiness is a conclusion about whether the task can be started. They
-  share only `done`, and a recorded `done` wins over the derivation — a task
-  somebody marked done is done even if something it named is outstanding.
-- An id that resolves to no visible task leaves the task blocked rather than
-  ready. Treating it as satisfied would let a chain claim readiness when the step
-  it waits on is merely missing from view.
-- A dependency loop leaves every member blocked forever, which is a data
-  condition to be named rather than a state to be resolved automatically. No
-  invariant prevents one: a cycle spans aggregate boundaries, so no single task
-  can enforce its absence.
+- Readiness is orthogonal to `Task Status`, and a recorded `done` wins over the
+  derivation; see [Readiness](domain.md#readiness).
+- An id that resolves to no visible task leaves the task blocked, and a
+  dependency loop leaves every member blocked. [Dependency](domain.md#dependency)
+  says why.

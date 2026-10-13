@@ -38,7 +38,7 @@ type: invariant
 tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_item_that_is_still_open_can_be_archived
 ```
 
-Status only advances through the defined lifecycle (`unprocessed` → `triaged` → routed / deferred / archived).
+Status moves only along the [lifecycle](flow.md#inbox-item-lifecycle): an `unprocessed` item is routed (`triaged`), deferred or archived. A `deferred` item returns to `unprocessed`, or is routed or archived.
 
 Enforced at: `Defer()`, `Resurface()`, `Archive()`, `RouteToBacklog()`
 
@@ -86,7 +86,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_an_open_item_from_the_phone_leaves_its_acknowledgement_in_the_outbox, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_a_decided_item_whose_acknowledgement_has_not_left_keeps_it]
 ```
 
-Deleting a replica-backed item leaves an acknowledgement pending when the item was still open, and keeps one an earlier decision had not yet sent.
+Deleting a [replica-backed item](domain.md#replica-backed-item) leaves an acknowledgement pending when the item was still open, and keeps one an earlier decision had not yet sent.
 
 Enforced at: `Delete()`
 
@@ -378,10 +378,10 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests.A_merge_hands_the_captures_title_link_and_notes_to_the_task_and_archives_it_as_the_tasks_duplicate, unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests.An_item_archived_without_a_duplicate_names_no_task]
 ```
 
-An item archived as a duplicate records what it duplicates in `DuplicateOf`, and
-`DuplicateOfTask` says whether that id is a backlog task's — the item was merged
-into a task — or another inbox item's. An item that names nothing is a duplicate
-of no task.
+An item archived as a duplicate records what it duplicates in `DuplicateOf`.
+`DuplicateOfTask` says whether that id is a backlog task's, when the item was
+merged into a task, or another inbox item's. An item that names nothing is a
+duplicate of no task.
 
 Enforced at: `Archive()`
 

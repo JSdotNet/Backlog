@@ -70,12 +70,13 @@ mobile's native .NET MAUI. MUST NOT introduce sizes outside this scale.
 Rules:
 
 - Body text MUST NOT go below `font-size-sm` (14 px).
-- `font-size-2xs` (10 px) is reserved for the DEV and BETA feature-status flags:
-  a bold, uppercase label of three or four letters that qualifies the control
-  it belongs to and must sit a step below that control's label. On a header
-  control the flag is pinned to the control's top-right corner rather than set
-  inline, so it adds no width to the navigation row. Any other text, including
-  a longer badge such as a feature-flag key, stays at `font-size-xs` or above.
+- `font-size-2xs` (10 px) is reserved for the DEV and BETA feature-status flags.
+  A flag is a bold, uppercase label of three or four letters. It qualifies the
+  control it belongs to, so it must sit a step below that control's label. On a
+  header control the flag is pinned to the control's top-right corner rather
+  than set inline, so it adds no width to the navigation row. Any other text,
+  including a longer badge such as a feature-flag key, stays at `font-size-xs`
+  or above.
 - `font-weight-light` (300) is permitted only at `font-size-3xl` and above.
 - Do not use `font-weight-bold` (700) for body emphasis — use
   `font-weight-semibold` (600).
@@ -103,11 +104,11 @@ These heading defaults are the **document/display** ramp: they apply to page and
 section headings and to a Markdown document rendered as a document.
 
 They are **not** what `MarkdownView` currently renders. Inside a list row or an
-entry card, a body is rendered on a deliberately compact ramp (`#` at
+entry card, a body is rendered on a deliberately compact ramp, because a 48 px
+`H1` inside a card is a layout, not a heading. That ramp runs from `#` at
 `font-size-lg` down to `font-size-sm`, with `####`–`######` as uppercase
-secondary labels) because a 48 px `H1` inside a card is a layout, not a heading.
-Both ramps are legitimate; which one applies is a function of the surface, and a
-document surface MUST use the table above. See
+secondary labels. Both ramps are legitimate, and the surface decides which one
+applies. A document surface MUST use the table above. See
 `content-editing.md#materialization`.
 
 ## Spacing Scale
@@ -165,7 +166,7 @@ Channel guidance:
 - **Desktop (.NET MAUI Blazor Hybrid, Razor/WebView2)** and **IDE webviews**
   target the `lg`+ range and a multi-pane layout (navigation rail + list +
   editor).
-- **Mobile (.NET MAUI, native)** targets `sm`; panes collapse to a single-column,
+- **Mobile (.NET MAUI)** targets `sm`; panes collapse to a single-column,
   navigation-drawer layout. Reorder and editing MUST remain fully usable in the
   single-column layout.
 
@@ -192,9 +193,9 @@ states use `border-width-2`.
 related: [".devbook/design/color-scheme.md#elevation-by-color"]
 ```
 
-In dark mode, elevation is primarily **color-based** (see
-`color-scheme.md#elevation-by-color`); shadows are secondary and MUST have
-reduced opacity (~30% less than the raw token) in dark mode.
+This section declares the shadow token values. How shadows are used in dark
+mode, including their reduced opacity, is a rule of
+`color-scheme.md#elevation-by-color`, where elevation is primarily colour-based.
 
 | Token | Value | Usage |
 |---|---|---|
@@ -224,16 +225,21 @@ MUST NOT use arbitrary z-index values (e.g. `9999`); use only the scale.
 
 A modal dialog does not take its place from this scale. The shared `Modal`
 renders inside a native `dialog` opened with `showModal()`, which puts it in the
-browser's top layer, above every z-index in the page. It has to cover the
-window wherever its host renders it, and a z-index cannot promise that: a pane
-that sets `container-type` (the Inbox does, for its container queries), a
-transform or a filter becomes the containing block and stacking context of
-every `position: fixed` descendant, so an inline backdrop was clipped to the
-pane and painted under its neighbour. The top layer is out of reach of all of
-those, so containment on a pane no longer traps a dialog, and a dialog opened
-from a dialog stacks above it in open order. `z-index-modal` is therefore
-superseded by the top layer for `Modal`. The toast tray follows a modal into
-that layer while one is open, per `interaction-guidelines.md#feedback-and-toasts`.
+browser's top layer, above every z-index in the page. A modal has to cover the
+window wherever its host renders it, and a z-index cannot promise that. A pane
+becomes the containing block and stacking context of every `position: fixed`
+descendant when it sets any of these:
+
+- `container-type`, as the Inbox does for its container queries;
+- a transform;
+- a filter.
+
+An inline backdrop inside such a pane is clipped to the pane and painted under
+its neighbour. The top layer is out of reach of all three, so containment on a
+pane cannot trap a dialog, and a dialog opened from a dialog stacks above it in
+open order. For `Modal`, the top layer therefore takes the place of
+`z-index-modal`. The toast tray follows a modal into that layer while one is
+open, per `interaction-guidelines.md#feedback-and-toasts`.
 
 ## Iconography
 
@@ -265,9 +271,10 @@ Rules:
   sole carrier of meaning (see `accessibility.md`).
 - Icon-only controls require an `aria-label`/automation name and a ≥ 44 × 44 px
   target (see `accessibility.md#target-sizes-and-text`).
-- A glyph leading a header option's label — the view switch and the work in
-  progress group (`interaction-guidelines.md#shell-header`) — is `icon-sm`, 16 px:
-  it sits inline with the label's text, so the nav-item default does not apply.
+- A glyph leading a header option's label is `icon-sm`, 16 px. This covers the
+  view switch and the work in progress group
+  (`interaction-guidelines.md#shell-header`). The glyph sits inline with the
+  label's text, so the nav-item default does not apply.
 - Standard status icons: `check-circle` (success), `alert-triangle` (warning),
   `x-circle` (error), `info` (info), `loader-2` (loading), `grip-vertical` (drag
   handle).
@@ -278,10 +285,12 @@ Rules:
 related: [".devbook/design/color-scheme.md#badge-and-chip-tones", ".devbook/design/accessibility.md#iconography-accessibility"]
 ```
 
-A metadata line is the run of small facts set beside or beneath a title: a due
-date, a reminder, a repeat, a step count, a freshness reading, a tag. It appears
-on a task row, on an integration reference, and under a knowledge heading, and it
-is one pattern in all three.
+A metadata line, as drawn, is the run of small facts set beside or beneath a
+title: a due date, a reminder, a repeat, a step count, a freshness reading, a
+tag. It appears on a task row, on an integration reference, and under a
+knowledge heading, and it is one pattern in all three. This section is about the
+drawn line. The backtick-token line an entry is written with in Markdown is its
+source, and `content-editing.md#structured-metadata-sigils` owns that.
 
 | Rule | Requirement |
 |---|---|
@@ -328,22 +337,30 @@ Rules and known gaps:
   outside the scale may be introduced. A component needing `font-size-3xl` adds
   the token from the table above; it MUST NOT invent a value.
 - **Fonts are declared but not loaded.** Nothing in the repository ships Inter,
-  Poppins or Fira Code: there is no `@font-face` rule and no webfont link in any
-  host, so text falls through to the system stack and the type tokens describe an
+  Poppins or Fira Code. No host has an `@font-face` rule or a webfont link, so
+  text falls through to the system stack, and the type tokens describe an
   intention rather than a fact. The storybook's **Typography** story measures this
-  and says so on the page. Closing it is a product decision — either the `woff2`
-  files ship from the library's own `wwwroot` (the shipping heads are
-  offline-capable MAUI apps, so a CDN is not an option), or these tokens are
-  rewritten to name the system stack actually in use. `[TODO: clarify]`
+  and says so on the page. Closing the gap is a product decision between two
+  options:
+  - ship the `woff2` files from the library's own `wwwroot`, since the shipping
+    heads are offline-capable MAUI apps and a CDN is not an option;
+  - rewrite these tokens to name the system stack actually in use.
+
+  `[TODO: clarify]`
 - **The z-index scale is not materialized.** `components.css` uses small local
   values (1–30) per stacking context instead. Those are not arbitrary in the
-  `9999` sense the rule was written against, but they are also not the scale:
-  until the tokens are declared and adopted, the "use only the scale" rule is
+  `9999` sense the rule was written against, but they are not the scale either.
+  Until the tokens are declared and adopted, the "use only the scale" rule is
   aspirational for the web surfaces.
 - **Shadow values in code are the dark-reduced ones.** `shadow-md` is declared at
-  `0.07` and `shadow-lg` at `0.11` — the table above lists the raw values and the
-  ~30% dark-mode reduction is already applied in the stylesheet. `shadow-sm` is
-  declared unreduced, being subtle enough that the reduction is not visible.
+  `0.07` and `shadow-lg` at `0.11`. The table above lists the raw values, and the
+  stylesheet already applies the ~30% dark-mode reduction. `shadow-sm` is
+  declared unreduced, because it is subtle enough that the reduction would not
+  show.
+- **Icon sizes are not tokenized.** `src/Core/Backlog.UI.Components/Icons/` holds
+  a set of Lucide-idiom outline glyphs, each hidden from assistive technology,
+  but no `icon-*` size token is declared. The status icons the save-state
+  vocabulary names are not in the set yet.
 - One layout token exists in code that is not a design-system token:
   `--pane-min-width` (22 rem), how little room a pane resizer must leave the
   content beside it. It is a component measurement, named for the split rather

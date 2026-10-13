@@ -104,10 +104,10 @@
   ],
   "components": {
     "delivery": {
-      "pluginVersion": "1.20.1"
+      "pluginVersion": "1.25.0"
     },
     "devbook": {
-      "pluginVersion": "1.24.0",
+      "pluginVersion": "1.25.0",
       "contractVersion": 30,
       "adopted": [
         "arc42",
@@ -410,7 +410,7 @@
       }
     },
     "schedule": {
-      "pluginVersion": "1.20.1",
+      "pluginVersion": "1.25.0",
       "enabled": [
         "issue-sweep",
         "merge-review",
