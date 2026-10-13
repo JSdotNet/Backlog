@@ -1653,6 +1653,68 @@ The system SHALL add each dependency the drafter infers between two items of the
 - **When** the drafter has not answered yet
 - **Then** Confirm is disabled until it does
 
+## Route to Brain
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#route-to-brain]
+```
+
+> The requirements of routing an item To Brain (local ADR 0026). Not built: the
+> plan `+brain` builds it, and each requirement gains its `tests` as it lands.
+
+### Requirement: To Brain writes the item as a note in the Brain's inbox area
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL write an item routed To Brain as a new note in the Brain's inbox area, with the item's title and body, and mark the item routed.
+
+#### Scenario: A capture
+
+- **Given** a captured article titled "Event sourcing in practice" and a Brain under the PARA default
+- **When** the reader routes it To Brain
+- **Then** `_inbox` holds a note with that title and the capture's body, and the item has left the queue as routed
+
+#### Scenario: An Inbox note
+
+- **Given** an Inbox note titled "Standup" made on the phone
+- **When** the reader routes it To Brain on the desktop
+- **Then** `_inbox` holds a note titled "Standup" with the same body
+
+### Requirement: A Brain note never rides the task feed
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL put no `note` document on the task feed for a note written by To Brain.
+
+#### Scenario: After routing a note
+
+- **Given** an Inbox note the phone shows in its Notes list
+- **When** the reader routes it To Brain and the phone pulls after the desktop syncs
+- **Then** the phone's Notes list still shows the Inbox note and no second note
+
+### Requirement: No Brain folder, no route
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL refuse To Brain while no Brain folder is set up, say so, and leave the item open.
+
+#### Scenario: First use
+
+- **Given** no Brain folder is set
+- **When** the reader routes an item To Brain
+- **Then** the item stays in the queue and the reader is told to set up the Brain first
+
 ## Notes on the phone
 
 ```meta

@@ -157,7 +157,7 @@ status: draft
 related: [.devbook/domain/inbox/requirements.md#columns]
 ```
 
-Route to Tasks, store as knowledge, defer, archive, or delete — while tagging,
+Route to Tasks, route To Brain, defer, archive, or delete — while tagging,
 assigning repositories, and annotating, and preserving the original source link
 and capture timestamp.
 
@@ -524,8 +524,9 @@ next. A decided item — routed or archived — is offered nothing.
 Still modelled and not built:
 
 - *Keep as knowledge* is proposed but cannot be taken, because [Route to
-  Devbook](#route-to-devbook) is not built. The chip says so, has no number,
-  and can still be turned down.
+  Brain](#route-to-brain) is not built. The chip says so, has no number,
+  and can still be turned down. Once the route is built, taking the chip routes
+  the item To Brain.
 - Enriching an item with links to related tasks or knowledge notes.
 
 These suggestions are rules, not AI, and they stay as they are with or without a
@@ -698,15 +699,30 @@ holds Confirm, and Confirm waits while the ask is out. A refused or failed ask
 says why in the panel and adds nothing. Confirm routes the batch through
 [Route a batch to Tasks](#route-a-batch-to-tasks), as it would without the ask.
 
-### Route to Devbook
+### Route to Brain
 
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/devbook/features.md#knowledge-capture]
+aliases: [Route to Devbook, To Brain]
+related: [.devbook/domain/devbook/features.md#knowledge-capture, .devbook/domain/devbook/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
-Create a Knowledge Note from the item. Modelled, not built.
+**To Brain** writes the item into the person's
+[Brain](../devbook/domain.md#brain) as a new note, in the Brain's inbox area
+(`_inbox` under the PARA default), keeping its title and its body. It is the
+route for collected material, a capture the reader wants to keep rather than
+act on, and for an Inbox [note](domain.md#note) the reader has finished with on
+the phone and wants among their own notes.
+
+It ends the item's triage as Route to Tasks does: the item is routed, once, and
+leaves the queue. What it writes is a Brain note, which never rides the task
+feed: the Brain folder's own sync carries it between machines. So a note routed
+To Brain stays on the phone as the Inbox note it was, as a note routed to Tasks
+does, and the Brain note it became does not reach the phone. The text the item
+carries is written as text, never as structure. With no Brain folder set up the
+route says so and routes nothing. Modelled, not built.
 
 ### Defer
 
@@ -805,7 +821,7 @@ alerts, are Monitoring's.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#content-kind, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/capture/features.md#talk-note]
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#content-kind, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/capture/features.md#talk-note, .devbook/domain/inbox/features.md#route-to-brain]
 ```
 
 A note is an Inbox Item the person keeps and edits, rather than a thought
@@ -814,6 +830,13 @@ phone, whichever device made it, and an edit on either side reaches the other.
 The phone and the desktop each keep the edit with the later `updated_at`, the
 same rule the task feed uses. The sync both ways, the desktop half and the
 phone's Notes tab are built.
+
+A note is not a Brain note. An Inbox note rides the task feed between the
+desktop and the phone and waits for triage (local ADR 0025); a Brain note is a
+file in the person's [Brain](../devbook/domain.md#brain), carried between
+machines by the folder's own sync and never by the task feed, and the phone does
+not see it. [Route to Brain](#route-to-brain) is how the first becomes the
+second (local ADR 0026).
 
 ### Notes on the phone
 
@@ -861,7 +884,9 @@ on its row, with a mark of its own, and the kind chips filter it like any kind.
 The reader may edit its title and body in place in the detail column with
 **Edit note**, and the edit reaches the phone on the next sync. An archived note
 offers no edit, because it has left the phone. The reader may also triage it:
-routing, deferring and archiving work as for any item. Routing a note leaves it on
+routing, deferring and archiving work as for any item, and
+[To Brain](#route-to-brain) files it among the reader's own notes. Routing a
+note leaves it on
 the phone. Archiving or deleting a note removes it from the phone.
 
 ### Triage stays on the desktop

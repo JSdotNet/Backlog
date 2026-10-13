@@ -344,6 +344,8 @@ restriction is a list rather than a single surface. Exactly these may use one:
 | A repository's band in the dashboard's sessions-by-repository columns (`MetricStackedBars` with `IdentityOf`), while the header's Colors switch is on | the band painting below — a fill, as the roadmap's bars are, with the alias beside it in the legend so the fill is never the sole carrier |
 | A repository box in the Inbox triage picker, "Move to backlog in" | the identity edge below, along the box's leading edge |
 | The colour picker in Settings → Repositories | a solid swatch of the hue itself |
+| The **Brain** chip leading the repository scope in the app header | the identity edge below, in `color-band-2`; see [The Brain's accent](#the-brains-accent) |
+| The **Brain** badge after the Devbook pane's title, the **From your Brain** box under a repository chapter, and a Brain note's edges in the Brain's atlas | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
 
 The picker is the one place a hue is painted as a fill rather than an edge, and that
 is not an exception to the rule below — it is the rule's own consequence. A control
@@ -501,6 +503,46 @@ identity group** to conform to, so there was nothing upstream to adopt. Its
 is the envelope this sits inside; the override contract's "both light and dark
 variants" does not bite, because this product is dark-only and every value here is
 one the file already carries.
+
+### The Brain's accent
+
+```meta
+related: [".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane", ".devbook/domain/devbook/features.md#repo-links-and-backlinks"]
+```
+
+The person's [Brain](../domain/devbook/domain.md#brain) sits in the repository
+scope beside the repositories (local ADR 0027), so it takes an identity from the
+same set rather than a hue of its own: **`color-band-2`, teal `#7FD1C1`**. Gold,
+`color-primary`, stays what marks a repository devbook. Two devbooks can be on
+screen at once, the Brain's note and the repository chapter it links to, and
+the pair is what tells them apart: teal says *your own notes*, gold says *a
+repository's devbook*.
+
+| Surface | Mark |
+|---|---|
+| The Brain chip in the header's repository scope | the identity edge along the chip's bottom, as a repository chip's |
+| The Brain badge after the Devbook pane's title, while the pane shows the Brain | a badge in the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
+| The **From your Brain** box under a repository chapter | the band painting on the box's leading edge and surface |
+| The edge from a Brain note in the Brain's atlas | `color-band-2` stroke, solid when the link resolves and dashed when it does not |
+| A resolved `repo:` link chip in a Brain note | gold: the `live` tone of [Badge and chip tones](#badge-and-chip-tones), the followable-badge rule, since following it opens a repository devbook |
+| An unresolved `repo:` link chip | the `quiet` tone inside a dashed `color-border-strong` edge, with *not on this machine* in words |
+
+Rules:
+
+- **No new value.** `color-band-2` already exists, as the code theme's
+  `code-type`. The Brain spends nothing the palette does not already carry.
+- **The Brain's accent is always drawn.** It does not wait on the header's
+  Colors switch, because it marks the Brain, a place that is always in the
+  scope, and not a repository identity the person opted into. A repository chip
+  keeps the switch's rule.
+- **Never the sole carrier.** The chip reads **Brain**, sits first, and a
+  divider sets it off from the repository chips; the badge and the box say
+  *Brain* in words. Band 2 is shared: a repository whose hue is band 2 wears the
+  same teal edge, and place, divider and word are what tell the two apart.
+- **Gold is not a second identity.** The repository-link chip is gold because
+  it is a followable badge, and the scope's active fill is gold because it is
+  `color-primary`. Neither names which repository: the alias written on the chip
+  does.
 
 ## Role Tokens
 

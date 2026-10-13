@@ -118,8 +118,8 @@ status: draft
 aliases: [RoutingTarget, InboxRoutingDto]
 ```
 
-The destination chosen during triage: a target `domain` (tasks, devbook,
-archive), the `repo_ids` the item was assigned when it was routed, the
+The destination chosen during triage: a target `domain` (tasks, devbook for
+the To Brain route, archive), the `repo_ids` the item was assigned when it was routed, the
 `task_ids` of the entries Tasks created for it — one per repository, or one
 when no repository was assigned — and the `routed_at` timestamp. Immutable once
 set; equality is by value. The task ids name aggregates in another context that
@@ -324,7 +324,7 @@ aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, 
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
 handoff: routing to Tasks (emitting `ItemTriaged` with title, `body_md`,
-`source_url`, tags, `repo_ids`, `source_inbox_id`), routing to Devbook
+`source_url`, tags, `repo_ids`, `source_inbox_id`), routing **To Brain**
 (emitting `ItemTriaged` with title, `body_md`, topic, tags), or setting the item
 to deferred or archived. It lives as a service because routing crosses
 bounded-context boundaries rather than mutating a single aggregate. Invocation
@@ -368,7 +368,11 @@ a checklist item or a fence among the notes) leaves the item open. The comment
 is written first, so a failure never leaves an item archived against a task
 that never heard of it.
 
-Routing to Devbook is modelled and not built.
+**To Brain** writes a capture or a note into the person's
+[Brain](../devbook/domain.md#brain) as a new Knowledge Note in its inbox area,
+title and body kept, and records the routing target as `devbook`. It is
+modelled and not built. It refuses when no Brain folder is set up, and leaves
+the item unrouted when the write fails.
 
 ## Classification
 
@@ -404,8 +408,9 @@ It also proposes one destination from the item's own facts:
 
 - `archive` for a newsletter.
 - `tasks` for an item with a repository, or a note of the reader's own.
-- `devbook` for collected material. The `devbook` proposal carries the reason
-  it cannot be taken yet: routing to Devbook is not built.
+- `devbook` for collected material, which is the To Brain route. The `devbook`
+  proposal carries the reason it cannot be taken yet: routing To Brain is not
+  built.
 
 Each suggestion carries a key, the value it would apply, and a sentence saying
 why it was proposed. It leaves out anything the item already has, and anything
@@ -453,7 +458,7 @@ shape is stable even though the destination-specific fields differ.
 - `repo_ids` - targeted repositories when routing to Tasks; one task per entry,
   one untargeted task when empty.
 - `type` - requested task type when routing to Tasks.
-- `topic` - requested knowledge topic when routing to Devbook.
+- `topic` - requested knowledge topic when routing To Brain.
 - `source_inbox_id` - preserved source id for traceability.
 - `triaged_at` - time of the routing decision.
 
@@ -461,7 +466,8 @@ shape is stable even though the destination-specific fields differ.
 
 - Tasks, which creates one draft `Task` per targeted repository, each stamped
   with `source_inbox_id`.
-- Devbook, which creates a `Knowledge Note` (not built).
+- Devbook, which writes a `Knowledge Note` into the Brain's inbox area for the
+  `devbook` route, To Brain (not built).
 
 ### Published language rules
 
@@ -526,8 +532,10 @@ An Inbox Item of `Content Kind` `note`: text the person keeps and returns to,
 such as what was said in a meeting or a list they add to. A note syncs both
 ways between the desktop and the phone, and either side may edit it. A `text`
 item is different: it is a thought waiting to be sorted, and the phone forgets
-it once the desktop takes it in. A note is not a *Knowledge Note*, which is a
-Devbook entry that triage could create from an item. The phone's former *talk
+it once the desktop takes it in. A note is not a Brain note, a *Knowledge
+Note*: that is a file in the person's [Brain](../devbook/domain.md#brain),
+carried between machines by the folder's own sync and never by the task feed.
+Triaging a note **To Brain** writes one from it. The phone's former *talk
 note* is now a note written in the Notes tab.
 
 ### Plan tag
