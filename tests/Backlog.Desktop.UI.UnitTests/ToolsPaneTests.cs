@@ -1526,8 +1526,8 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
         var header = pane.Find(".tools-panel__header");
 
-        SectionHeaderAdoptionTests.AssertPaneHeader(header, "tools-panel", "installed-tools-title");
-        SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "tools-panel");
+        PaneHeaderAssertions.AssertPaneHeader(header, "tools-panel", "installed-tools-title");
+        PaneHeaderAssertions.AssertPaneHeaderActions(header, "tools-panel");
         Assert.NotNull(header.QuerySelector(".tools-panel__header-actions .tools-panel__count"));
     }
 

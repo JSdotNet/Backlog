@@ -7,7 +7,7 @@ using Bunit;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The Claude Code settings page (local ADR 0024): the endpoint URL to paste into

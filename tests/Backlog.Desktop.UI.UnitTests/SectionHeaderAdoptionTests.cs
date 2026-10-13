@@ -1,4 +1,3 @@
-using AngleSharp.Dom;
 using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.GitHub;
@@ -55,7 +54,7 @@ public sealed class SectionHeaderAdoptionTests
 
         // The capture field and the acts live in the actions slot under the
         // pane's own name, the same shape the tools, sessions and dashboard panes keep.
-        AssertPaneHeaderActions(header, "inbox-pane");
+        PaneHeaderAssertions.AssertPaneHeaderActions(header, "inbox-pane");
         Assert.NotNull(header.Children[1].QuerySelector("[data-testid='inbox-pane-capture-field']"));
     }
 
@@ -117,38 +116,6 @@ public sealed class SectionHeaderAdoptionTests
         Assert.Equal("BUTTON", header.Children[1].TagName);
         Assert.Empty(header.QuerySelectorAll(".feedback-dialog__description"));
         Assert.NotNull(footer.Find("#feedback-description"));
-    }
-
-    /// <summary>
-    /// The full pane-header shape, in the pane's own names: a bare text block
-    /// holding an eyebrow, the heading its landmark points at, and a subtitle.
-    /// Every one of those classes is styled in app.css, which the adoption was
-    /// not allowed to touch.
-    /// </summary>
-    internal static void AssertPaneHeader(IElement header, string block, string headingId)
-    {
-        Assert.Equal("HEADER", header.TagName);
-        Assert.Equal($"{block}__header", header.GetAttribute("class"));
-
-        var text = header.Children[0];
-        Assert.Equal("DIV", text.TagName);
-        Assert.Null(text.GetAttribute("class"));
-
-        Assert.Equal(["P", "H2", "P"], text.Children.Select(child => child.TagName));
-        Assert.Equal(
-            [$"{block}__eyebrow", $"{block}__title", $"{block}__subtitle"],
-            text.Children.Select(child => child.GetAttribute("class")));
-
-        Assert.Equal(headingId, text.Children[1].GetAttribute("id"));
-    }
-
-    /// <summary>The actions wrapper, which the panes with controls in the header
-    /// keep under their own name.</summary>
-    internal static void AssertPaneHeaderActions(IElement header, string block)
-    {
-        Assert.Equal(2, header.Children.Length);
-        Assert.Equal("DIV", header.Children[1].TagName);
-        Assert.Equal($"{block}__header-actions", header.Children[1].GetAttribute("class"));
     }
 
     private static BunitContext FooterContext(bool feedback = false)

@@ -2,7 +2,7 @@ using Backlog.Modules.Sessions.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The pane asks its port and renders the answer. What is asserted here is the part
@@ -828,8 +828,8 @@ public sealed class SessionsPaneTests
         {
             var header = pane.Find(".sessions-panel__header");
 
-            SectionHeaderAdoptionTests.AssertPaneHeader(header, "sessions-panel", "sessions-title");
-            SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "sessions-panel");
+            PaneHeaderAssertions.AssertPaneHeader(header, "sessions-panel", "sessions-title");
+            PaneHeaderAssertions.AssertPaneHeaderActions(header, "sessions-panel");
 
             var subtitle = header.QuerySelector("[data-testid='sessions-subtitle']");
             Assert.NotNull(subtitle);

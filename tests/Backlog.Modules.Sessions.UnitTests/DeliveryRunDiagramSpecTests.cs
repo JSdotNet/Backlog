@@ -3,7 +3,7 @@ using System.Text.Json;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Sessions.UI;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// A delivery run's stages as the Archify specification the fold's artifact is

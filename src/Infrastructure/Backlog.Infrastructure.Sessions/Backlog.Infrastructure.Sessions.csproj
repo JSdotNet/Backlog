@@ -27,9 +27,10 @@
   <ItemGroup>
     <!-- What a session file says and what a row shows is where a timestamp, a
          repository or a liveness state gets lost, so the readers are worth testing
-         directly rather than only through the pane. The desktop UI suite keeps the
-         tests that render the pane over them or drive them through the shell. -->
+         directly rather than only through the pane. The Sessions module suite renders
+         the pane over them, and the desktop UI suite drives them through the shell. -->
     <InternalsVisibleTo Include="Backlog.Infrastructure.Sessions.UnitTests" />
+    <InternalsVisibleTo Include="Backlog.Modules.Sessions.UnitTests" />
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 

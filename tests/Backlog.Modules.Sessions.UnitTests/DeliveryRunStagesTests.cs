@@ -1,7 +1,7 @@
 using Backlog.Modules.Sessions.UI;
 using Bunit;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The stage list a run's fold draws: the legend, each stage's chips and mark, and one

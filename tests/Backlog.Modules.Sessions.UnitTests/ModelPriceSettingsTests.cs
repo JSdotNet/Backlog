@@ -6,7 +6,7 @@ using Bunit;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The Model prices settings page: empty until somebody fills it in, a row saved as

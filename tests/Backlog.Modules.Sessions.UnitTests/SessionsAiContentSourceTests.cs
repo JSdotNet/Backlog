@@ -2,7 +2,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.SharedKernel.Ai;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The Sessions context's Ask AI content: the catalog, one line per session,

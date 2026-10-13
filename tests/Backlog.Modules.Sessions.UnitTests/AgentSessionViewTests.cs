@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The view is a pure function over the sessions it is given, the same as the
