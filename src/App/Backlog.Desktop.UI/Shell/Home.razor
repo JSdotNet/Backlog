@@ -1491,10 +1491,38 @@
     /// exactly as long as the scope the reader left alone: choosing a repository in
     /// the header is choosing what the pane reads, and the request is forgotten.
     /// </para>
+    /// <para>
+    /// The anchor is <see cref="DevbookRequestAnchor"/>, never
+    /// <see cref="TasksDesktopState.AnchorRepositoryAlias"/>: that one is the empty
+    /// string both with nothing pressed and with the Brain as anchor, so a request
+    /// asked under one outlived a press to the other and the Brain chip could not
+    /// bring the Brain back. And forgotten means dropped
+    /// (<see cref="ForgetDevbookRepositoryRequestLeftBehind"/>), not set aside: a
+    /// request merely ignored while the anchor differed came back with it.
+    /// </para>
     /// </summary>
     private DevbookRepositoryRequest? _devbookRepositoryRequest;
 
-    private sealed record DevbookRepositoryRequest(string Anchor, string RepositoryAlias);
+    private sealed record DevbookRepositoryRequest(string? Anchor, string RepositoryAlias);
+
+    /// <summary>The scope's anchor as a request is keyed on it: the first member,
+    /// <see cref="BrainScope.Value"/> for the Brain, or null when nothing is pressed —
+    /// the two states <see cref="TasksDesktopState.AnchorRepositoryAlias"/> spells
+    /// alike.</summary>
+    private string? DevbookRequestAnchor =>
+        State.SelectedRepositoryAliases is [var first, ..] ? first : null;
+
+    /// <summary>Drops the pane's repository request once the scope's anchor has moved
+    /// off the one it was asked under, so returning to that anchor later finds the
+    /// pane on the anchor rather than on a chapter followed long before.</summary>
+    private void ForgetDevbookRepositoryRequestLeftBehind()
+    {
+        if (_devbookRepositoryRequest is { } asked
+            && !string.Equals(asked.Anchor, DevbookRequestAnchor, StringComparison.Ordinal))
+        {
+            _devbookRepositoryRequest = null;
+        }
+    }
 
     /// <summary>The reference handed to the Devbook pane and not yet followed,
     /// numbered so the same one pressed twice is two requests. See
@@ -1524,7 +1552,7 @@
     /// anchor.</summary>
     private string DevbookRepositoryAlias =>
         _devbookRepositoryRequest is { } asked
-        && string.Equals(asked.Anchor, State.AnchorRepositoryAlias, StringComparison.Ordinal)
+        && string.Equals(asked.Anchor, DevbookRequestAnchor, StringComparison.Ordinal)
             ? asked.RepositoryAlias
             : _devbookSwitch is { } chosen
               && string.Equals(chosen.Scope, DevbookSwitchScope, StringComparison.Ordinal)
@@ -1610,7 +1638,7 @@
 
         _devbookRepositoryRequest = string.Equals(alias, State.AnchorRepositoryAlias, StringComparison.Ordinal)
             ? null
-            : new DevbookRepositoryRequest(State.AnchorRepositoryAlias, alias);
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, alias);
         _devbookOpenRequest = new DevbookOpenRequest(request.Reference, ++_devbookOpenSequence);
 
         // The pane's option may only now be on offer: with nothing scoped there was
@@ -1652,7 +1680,7 @@
         _devbookSwitch = null;
         _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
             ? null
-            : new DevbookRepositoryRequest(State.AnchorRepositoryAlias, BrainScope.Value);
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
         _devbookOpenRequest = new DevbookOpenRequest(result.Reference, ++_devbookOpenSequence);
         return Task.CompletedTask;
     }
@@ -2028,6 +2056,7 @@
         // identity would not show, so any change rebuilds the pull request matcher.
         _pullRequestMatcher = null;
         SynchronizePaneAvailability();
+        ForgetDevbookRepositoryRequestLeftBehind();
 
         RememberRepositoryScope();
         StateHasChanged();

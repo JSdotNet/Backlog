@@ -861,6 +861,95 @@ public sealed class HomeRepositoryScopeTests
         }
     }
 
+    /// <summary>A followed <c>repo:</c> link holds the pane on the repository only
+    /// while the scope it was followed under stands: pressing the Brain chip again,
+    /// which empties the scope, brings the Brain back. The empty scope and the Brain
+    /// anchor are both the empty anchor, and the link once outlived the press.</summary>
+    [Fact]
+    public void Leaving_the_brain_scope_after_a_repo_link_brings_the_brain_back() =>
+        WithRepoLinkBrain(component =>
+        {
+            BrainChip(component).Click();
+            FollowRepoLink(component);
+
+            BrainChip(component).Click();
+
+            component.WaitForAssertion(() =>
+                Assert.Equal(BrainScope.Value, component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+        });
+
+    /// <summary>With nothing pressed the pane reads the Brain; a <c>repo:</c> link
+    /// followed from there moves it to the repository, and pressing the Brain chip —
+    /// the scope's own way back to the Brain — returns it.</summary>
+    [Fact]
+    public void Pressing_the_brain_chip_after_a_repo_link_from_an_empty_scope_brings_the_brain_back() =>
+        WithRepoLinkBrain(component =>
+        {
+            FollowRepoLink(component);
+
+            BrainChip(component).Click();
+
+            component.WaitForAssertion(() =>
+                Assert.Equal(BrainScope.Value, component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+        });
+
+    /// <summary>A followed link the scope has moved away from is forgotten, not
+    /// parked: coming back to the Brain after a repository was pressed shows the
+    /// Brain, never the repository the link once opened.</summary>
+    [Fact]
+    public void A_repo_link_left_behind_by_the_scope_does_not_come_back_with_the_brain() =>
+        WithRepoLinkBrain(component =>
+        {
+            BrainChip(component).Click();
+            FollowRepoLink(component);
+
+            Chips(component)[1].Click();
+            component.WaitForAssertion(() =>
+                Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+
+            BrainChip(component).Click();
+
+            component.WaitForAssertion(() =>
+                Assert.Equal(BrainScope.Value, component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+        });
+
+    /// <summary>A shell with a Brain whose one note links into <c>backlog</c>'s
+    /// devbook, handed to <paramref name="act"/> and cleaned up after.</summary>
+    private void WithRepoLinkBrain(Action<IRenderedComponent<Home>> act)
+    {
+        const string Adr = ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md";
+        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-repo-link-brain", Guid.NewGuid().ToString("n"));
+        Directory.CreateDirectory(Path.Combine(brainFolder, "work"));
+        File.WriteAllText(Path.Combine(brainFolder, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n");
+        File.WriteAllText(Path.Combine(brainFolder, "work", "plan.md"), $"# Plan\n\nSee [the scope decision](repo:backlog/{Adr}).\n");
+
+        try
+        {
+            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+            act(Render(harness));
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(brainFolder, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
+    /// <summary>Opens the Devbook pane on the Brain and follows the note's gold chip
+    /// to <c>backlog</c>.</summary>
+    private static void FollowRepoLink(IRenderedComponent<Home> component)
+    {
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForElement("[data-testid='brain-repo-link'] button").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+    }
+
     /// <summary>A search result from a repository, opened while the pane shows the
     /// Brain, takes the road a <c>repo:</c> link takes: that repository's devbook at
     /// the chapter, the header scope left on the Brain (requirement <em>A result
