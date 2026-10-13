@@ -285,6 +285,14 @@ public static class DesktopCompositionRegistration
             options.WindowStateLifetime));
         services.AddSingleton(options.FolderEditorLauncher);
 
+        // The Brain folder (local ADR 0026): where it is, kept per user and never in
+        // the folder, and the file-system work of setting one up that the Settings
+        // card does. The folder picker behind its Browse is the desktop head's
+        // alone; a host that registers none types the folder instead.
+        services.AddSingleton(options.BrainSettings);
+        services.AddSingleton<IBrainSettings>(sp => sp.GetRequiredService<BrainSettingsStore>());
+        services.AddSingleton(_ => new BrainFolderSetup());
+
         services.AddSingleton(options.AppUpdateService);
         services.AddSingleton(options.DevToolService);
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
@@ -353,6 +361,32 @@ public static class DesktopCompositionRegistration
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<IDevbookSnapshotCache>()));
 
+        // The Brain (local ADR 0026): its folder asked of the person's setting on
+        // every resolve, under a port of its own — registering it as a second
+        // IDevbookFolderSource would replace the repository source every search,
+        // reference and annotation reader resolves. The watch ties the setting to
+        // the refresher above; each head starts it after Build().
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<IBrainSettings>();
+            return new BrainFolderSource(() => settings.BrainFolder);
+        });
+        services.AddSingleton<IBrainFolderSource>(sp => sp.GetRequiredService<BrainFolderSource>());
+
+        // The one writer of a new note into the Brain's inbox area: the pane's
+        // Capture, triage's To Brain and the capture tool all go through it.
+        services.AddSingleton<IBrainNoteWriter>(sp => new BrainNoteWriter(sp.GetRequiredService<IBrainFolderSource>()));
+
+        // The Brain notes that link to a repository chapter, read in reverse from
+        // the Brain's own database (local ADR 0027 §6) — so the repository's
+        // devbook shows its owner "From your Brain" and nothing is written there.
+        services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
+        services.AddSingleton(sp => new BrainFolderWatch(
+            sp.GetRequiredService<IBrainSettings>(),
+            sp.GetRequiredService<IBrainFolderSource>(),
+            sp.GetRequiredService<DevbookDatabaseRefresher>(),
+            sp.GetService<ILogger<BrainFolderWatch>>()));
+
         // Retrieval, both tiers. Adapters over the generated database rather than
         // over the Markdown: search is the one capability ADR 0004's ladder does
         // not let degrade to a corpus scan, so where there is no database these
@@ -361,6 +395,12 @@ public static class DesktopCompositionRegistration
             new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
         services.AddSingleton<IDevbookVectorSearch>(sp =>
             new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
+        // What turns a reader's question into a vector for the search by meaning,
+        // over the same Foundry account the chat uses. Asked only while
+        // devbook-semantic-search is on; any failure reads as "no model", and the
+        // words answer alone.
+        services.AddSingleton<IDevbookQueryEmbedder>(sp =>
+            new FoundryDevbookQueryEmbedder(sp.GetRequiredService<IAzureFoundryEmbeddingsClient>));
         // What a task's Devbook references point at, for the Tasks detail panel and
         // the MCP reference tools: Tasks' port, answered over the same database and
         // folders, falling back to the Markdown where there is no database.

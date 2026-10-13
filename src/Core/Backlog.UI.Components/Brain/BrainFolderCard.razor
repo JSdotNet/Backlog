@@ -1,0 +1,224 @@
+@*
+    Where the person's Brain lives, on Settings › Storage (local ADR 0026): the
+    folder, picked once, and what the app can say about it.
+
+    The folder field commits on change - leaving the field or pressing Enter - and
+    has no save button, the house rule of the settings screen it sits on. There is
+    no default: the field is empty, and its placeholder is an example rather than
+    a value, until somebody picks a folder. Browse is drawn only when the host has
+    a folder picker to open; without one the folder is typed.
+
+    The rows are information, never warnings. A synced folder is the expected
+    home of a Brain, so it is said in the same plain ink as a folder that is not;
+    the database line is always there, because "never synced" is the half of the
+    decision a person most needs to hear. Only a missing convention file wears the
+    attention tone, and it carries the button that fixes it.
+
+    Every value is a parameter and every act a callback, so the card holds no state
+    of its own: the host decides what the folder holds and words what went wrong,
+    which is what lets the storybook show each state with no disk behind it.
+*@
+
+<section class="brain-card" id="@Id" data-testid="@TestId" aria-labelledby="@TitleId">
+    <div class="brain-card__head">
+        <h3 class="brain-card__title" id="@TitleId">
+            <span class="brain-card__swatch" aria-hidden="true"></span>
+            Brain
+        </h3>
+        <span class="brain-card__scope">Personal · not part of any repository</span>
+    </div>
+
+    <p class="brain-card__intro">
+        Your own notes, in a folder outside every repository. Pick it once; there is no
+        default, and a OneDrive folder is the expected place. The path is kept in this
+        app's settings and never written into the folder.
+    </p>
+
+    <div class="brain-card__folder">
+        <TextField Bare="true"
+                   Label="Folder"
+                   Id="@FieldId"
+                   LabelCssClass="brain-card__label"
+                   InputCssClass="@InputClass"
+                   TestId="@Suffix("folder")"
+                   spellcheck="false"
+                   autocomplete="off"
+                   aria-describedby="@DescribedBy"
+                   Placeholder="@Placeholder"
+                   Value="@Folder"
+                   ValueChanged="OnFolderInput"
+                   @onchange="OnFolderCommitted" />
+
+        @if (CanBrowse)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Busy="@Browsing"
+                       BusyLabel="Choosing a folder"
+                       TestId="@Suffix("browse")"
+                       OnClick="() => OnBrowse.InvokeAsync()">Browse</AppButton>
+        }
+    </div>
+
+    <Alert Message="@Error" Id="@ErrorId" TestId="@Suffix("error")" />
+
+    <ul class="brain-card__rows" id="@RowsId" data-testid="@Suffix("rows")">
+        @if (Status is { } status)
+        {
+            <li class="brain-card__row" data-testid="@Suffix("synced")">
+                <span class="brain-card__dot brain-card__dot--info" aria-hidden="true"></span>
+                @if (status.SyncedBy is { Length: > 0 } provider)
+                {
+                    <span>Synced by @provider: the notes follow you to every machine.</span>
+                }
+                else
+                {
+                    <span>Not in a synced folder this app recognises: the notes stay on this machine unless something else copies them.</span>
+                }
+            </li>
+        }
+
+        <li class="brain-card__row" data-testid="@Suffix("database")">
+            <span class="brain-card__dot brain-card__dot--info" aria-hidden="true"></span>
+            <span>The search database is built in this app's storage and never synced.</span>
+        </li>
+
+        @if (Status is { } files)
+        {
+            <li class="brain-card__row" data-testid="@Suffix("readme")">
+                <span class="@DotClass(files.HasReadme)" aria-hidden="true"></span>
+                @if (files.HasReadme)
+                {
+                    <span><code>README.md</code> found.</span>
+                }
+                else
+                {
+                    <span><code>README.md</code> missing: the folder has no root page yet.</span>
+                }
+            </li>
+
+            <li class="brain-card__row" data-testid="@Suffix("conventions")">
+                <span class="@DotClass(files.HasConventions)" aria-hidden="true"></span>
+                @if (files.HasConventions)
+                {
+                    <span><code>CONVENTIONS.md</code> found.</span>
+                }
+                else
+                {
+                    <span><code>CONVENTIONS.md</code> missing: the folder has no rules yet.</span>
+                }
+            </li>
+        }
+    </ul>
+
+    @if (Status is { NeedsConventions: true })
+    {
+        <div class="brain-card__actions">
+            <AppButton Variant="ButtonVariant.Primary"
+                       Busy="@Creating"
+                       BusyLabel="Creating conventions"
+                       TestId="@Suffix("create-conventions")"
+                       OnClick="() => OnCreateConventions.InvokeAsync()">Create conventions</AppButton>
+            <span class="brain-card__hint">
+                Writes what is missing of <code>README.md</code>, <code>CONVENTIONS.md</code> and the
+                area folders. A file already there is never overwritten.
+            </span>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <p class="brain-card__message" role="status" data-testid="@Suffix("message")">@Message</p>
+    }
+</section>
+
+@code {
+    /// <summary>The folder in the field: what is set, or what is being typed.</summary>
+    [Parameter]
+    public string? Folder { get; set; }
+
+    /// <summary>Raised on every keystroke, so the host holds the draft.</summary>
+    [Parameter]
+    public EventCallback<string> FolderChanged { get; set; }
+
+    /// <summary>Raised when the field is committed - left, or Enter pressed -
+    /// with what the field holds then. The value comes from the change itself
+    /// rather than from the draft, so a commit never lands a keystroke late.</summary>
+    [Parameter]
+    public EventCallback<string> OnCommit { get; set; }
+
+    /// <summary>What the folder holds, or null while no folder is set - which
+    /// leaves the card with the field, the database line and nothing to create.</summary>
+    [Parameter]
+    public BrainFolderCardStatus? Status { get; set; }
+
+    /// <summary>Whether the host has a folder picker; draws Browse when it does.</summary>
+    [Parameter]
+    public bool CanBrowse { get; set; }
+
+    /// <summary>The picker is open: Browse is busy and cannot be pressed twice.</summary>
+    [Parameter]
+    public bool Browsing { get; set; }
+
+    [Parameter]
+    public EventCallback OnBrowse { get; set; }
+
+    /// <summary>Create conventions is writing: the button is busy.</summary>
+    [Parameter]
+    public bool Creating { get; set; }
+
+    [Parameter]
+    public EventCallback OnCreateConventions { get; set; }
+
+    /// <summary>Why the last folder or the last Create conventions did not work,
+    /// as the host words it.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>What the last act did, as the host words it.</summary>
+    [Parameter]
+    public string? Message { get; set; }
+
+    /// <summary>The example the empty field shows. An example, never a value: the
+    /// Brain has no default folder.</summary>
+    [Parameter]
+    public string Placeholder { get; set; } = @"C:\Users\you\OneDrive\Brain";
+
+    /// <summary>The card's element id, which a link to it scrolls to.</summary>
+    [Parameter]
+    public string Id { get; set; } = "brain-folder";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string TitleId => Id + "-title";
+
+    private string FieldId => Id + "-input";
+
+    private string ErrorId => Id + "-error";
+
+    private string RowsId => Id + "-rows";
+
+    private string DescribedBy => string.IsNullOrWhiteSpace(Error) ? RowsId : RowsId + " " + ErrorId;
+
+    private string InputClass => string.IsNullOrWhiteSpace(Error)
+        ? "brain-card__input"
+        : "brain-card__input brain-card__input--error";
+
+    private static string DotClass(bool present) =>
+        present ? "brain-card__dot brain-card__dot--found" : "brain-card__dot brain-card__dot--missing";
+
+    private Task OnFolderInput(string value)
+    {
+        Folder = value;
+        return FolderChanged.InvokeAsync(value);
+    }
+
+    private Task OnFolderCommitted(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? string.Empty;
+        Folder = value;
+        return OnCommit.InvokeAsync(value);
+    }
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+}

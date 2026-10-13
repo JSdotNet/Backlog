@@ -293,6 +293,47 @@ Devbook module's Abstractions, so the builder, the MCP chapter read and the
 Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
+The same builder reads the Brain (local ADR 0026) under `DevbookCorpusKind.Brain`.
+`BrainConventions`, in the Devbook module's Abstractions, reads the areas from the
+Brain's `CONVENTIONS.md`, or gives the PARA set. Those areas are the folders the
+builder indexes, with no devbook folder convention applied to them. `para`,
+`repos` and `tasks` become node attributes. A `repo:` link, in `related` or in
+prose, is stored as an edge whose target is no node. `BrainFolderSource` in
+`Backlog.Infrastructure.FileSystem` resolves the Brain as one local, always
+editable folder keyed `brain`, beside `DevbookFolderSource`. The Devbook pane
+reads the Brain through `IBrainFolderSource`, a port of its own in the Devbook
+module's Abstractions beside `IDevbookFolderSource`. That keeps the repository
+source the one registration every search, reference, annotation and Archify
+reader resolves. `BrainFolderSource` implements the port, and the desktop
+composition (`AddDevbookAdapters`) builds it over `IBrainSettings.BrainFolder`.
+`BrainFolderWatch`, also in `Backlog.Infrastructure.FileSystem`, ties the setting
+to `DevbookDatabaseRefresher.WatchBrain`. It re-points the watch on
+`IBrainSettings.Changed`, and raises the source's `Changed` after a setting
+change or a Brain rebuild. Both heads resolve it after `Build()` and call
+`Start()`. `BrainConflictCopies`, in the Abstractions, finds OneDrive conflict
+pairs from the note names alone. `DevbookDatabaseLocation` records the folder
+as a Brain, so the folder is its own root and gets its own database in app
+storage. `DevbookDatabaseRefresher.WatchBrain` rebuilds it after a change.
+`tools/devbook/brain.mjs` is the Node side of the same convention, and the parity
+test compares the two on a Brain fixture.
+
+The `repo:` edges are read back two ways (local ADR 0027 §6). `BrainRepoLink`, in
+the Abstractions, reads a link into its alias, path and slug. In the Devbook UI,
+`BrainRepoLinkResolver` asks `IDevbookFolderSource` whether this machine has the
+alias and its section, and `BrainDevbookPanel` draws each link as the library's
+`RepoLinkChip`. The pane raises `OnOpenRepositoryChapter`, and the shell answers
+it through the same `DevbookOpenRequest` a task's reference takes. The reverse
+is the `IBrainBacklinks` port in the Abstractions. `BrainBacklinkReader`, in
+`Backlog.Infrastructure.Devbook`, answers it from `DevbookDatabase.RepoLinks()`
+over the Brain's own database, and the desktop composition registers it over
+`IBrainFolderSource`. The pane's `BrainBacklinksBox` asks it for the chapter on
+screen. The Brain's atlas is the third reader: `DevbookAtlasService.ReadBrainAsync`
+opens the Brain's database and `DevbookAtlasReader.ReadBrain` gives every `repo:`
+target a node of its own, resolved through `BrainRepoLinkResolver`. Each link
+becomes a `repo-link` edge carrying the alias as its label, dashed where it does
+not resolve. `GraphAtlas` in the component library draws an edge's optional
+`label` and `dashed`.
+
 The same project reads scenario pages, outside the database. `Scenarios/` ports
 devbook's page parser and page signature, and `ScenarioSignatureVectorTests` holds
 the port to devbook's shared vector. It also reads a committed `run.json` in both
@@ -528,7 +569,8 @@ hosts it through two explicit-start resources. `ide-vscode-build` runs `npm run 
 Agent sessions are IDE-class hosts, not a container of their own. Local ADR 0012 has them
 call the MCP server that runs inside the desktop app, `Backlog.Infrastructure.Mcp`. Its tools
 read and change the desktop's own store: tasks, the roadmap, devbook chapters and their
-remarks, sessions and delivery runs.
+remarks (the Brain's notes among them, with a new note written into the Brain's inbox
+area), sessions and delivery runs.
 
 Visual Studio has no extension yet, and no project exists for it. `.devbook/tech/ide.md`
 lists Visual Studio extensibility and a VS Code webview UI as candidates.

@@ -14,8 +14,8 @@ The Inbox is the processing queue for all captured input. Items arrive from
 **what happens to items after they arrive** — triage, classification, and
 routing — deciding whether each item becomes a
 [Task](../tasks/domain.md#task), a
-[Knowledge Note](../devbook/domain.md#knowledge-note), is
-deferred, or is archived. Outside it: the capture sources, which
+[Knowledge Note](../devbook/domain.md#knowledge-note) in the person's
+[Brain](../devbook/domain.md#brain), is deferred, or is archived. Outside it: the capture sources, which
 [Capture](../capture/domain.md#capture) owns, and what an item becomes once it
 is routed — a [Task](../tasks/domain.md#task) or a
 [Knowledge Note](../devbook/domain.md#knowledge-note), owned by their contexts.

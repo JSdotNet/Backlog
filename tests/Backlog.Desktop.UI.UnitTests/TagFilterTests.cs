@@ -198,7 +198,7 @@ public sealed class TagFilterTests
 
         Assert.Equal(3, chips.Count);
 
-        // The same gesture as the My Day and No repo scopes: a state of its own that
+        // The same gesture as the My Day and Ready in a plan scopes: a state of its own that
         // stays on until it is pressed again, so aria-pressed rather than the
         // aria-checked the statuses opposite carry.
         Assert.All(chips, chip => Assert.Equal("button", chip.LocalName));
@@ -403,10 +403,10 @@ public sealed class TagFilterTests
         var (host, sync, _, _, _) = await FourAsync();
         using var _host = host;
 
-        // Nothing in the fixture carries a `repo:`, so the No repo scope is on and
+        // Nothing in the fixture carries a `repo:`, so the Brain scope is on and
         // holding all four — which is the point: it is still a live scope while the
         // tag and the status do the narrowing.
-        host.State.SetNoRepositoryFilter(true);
+        host.State.SetBrainFilter();
         host.State.SetStatusFilter("ready");
         host.State.ToggleTagFilter("sync");
 
@@ -414,7 +414,7 @@ public sealed class TagFilterTests
         // entries are not tagged #sync, so the tag takes those.
         Assert.Equal([sync], host.State.FilteredRows);
 
-        Assert.True(host.State.NoRepositoryOnly);
+        Assert.True(host.State.BrainInScope);
         Assert.Equal("ready", host.State.SelectedStatusFilterWire);
     }
 

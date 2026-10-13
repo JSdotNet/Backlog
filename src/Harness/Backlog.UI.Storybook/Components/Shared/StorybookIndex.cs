@@ -343,7 +343,20 @@ internal static class StorybookIndex
             // chapter it sits in — heading, record, prose — is everything the pages
             // above have introduced. It draws Badge and MarkdownView, both from
             // groups higher up, so nothing here is shown before its parts.
-            new("devbook/annotations", "Review notes", "DevbookAnnotationNote: the devbook convention's `annotation` fence drawn as a read-only review note under the passage it is about — never as the YAML it is written in, and never as the person's own margin remark.")
+            new("devbook/annotations", "Review notes", "DevbookAnnotationNote: the devbook convention's `annotation` fence drawn as a read-only review note under the passage it is about — never as the YAML it is written in, and never as the person's own margin remark."),
+
+            // After Review notes, last in the chapter: the Brain is a devbook of the
+            // person's own (local ADR 0026), and this is where its folder is chosen.
+            // It draws a TextField, two AppButtons and an Alert, all introduced in
+            // Input and action and Feedback above, and its own card.
+            new("devbook/brain-folder", "Brain folder", "BrainFolderCard: where the person's Brain lives — a folder outside every repository, picked once — whether it is synced, that its database never is, and Create conventions while its README or CONVENTIONS is missing."),
+
+            // After Brain folder, because the pane reads the folder that page
+            // picks, and its first-use prompt sends the reader back there. It
+            // draws Badge, ButtonGroup, ToggleButton, Alert, EmptyState and
+            // AppButton, all introduced in groups above this one, and no
+            // component of its own: the pane is a module's and cannot render here.
+            new("devbook/brain-pane", "Brain in the pane", "The Devbook pane on the Brain: the Brain badge after its title, the Brain | repository switch, the warning for OneDrive's conflict copies, and the prompt to set up a Brain.")
         ]),
 
         // The second subject-named group with subpages, for the reason recorded

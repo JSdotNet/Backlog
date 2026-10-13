@@ -176,7 +176,9 @@ public partial class TasksPane
 
         if (byAlias.TryGetValue(string.Empty, out var none))
         {
-            columns.Add(new TaskBoardColumn(NoRepositoryColumn, "No repository", none));
+            // Titled with the name the header's scope gives the same tasks: Brain is
+            // the scope of everything filed against no repository (local ADR 0027).
+            columns.Add(new TaskBoardColumn(NoRepositoryColumn, Backlog.SharedKernel.BrainScope.Name, none));
         }
 
         return columns;

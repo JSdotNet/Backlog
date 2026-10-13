@@ -2496,6 +2496,12 @@ h1, h2, h3 {
     border-top: 0;
 }
 
+/* The Brain card follows the two Storage columns rather than sitting in either,
+   so it takes the gap the columns keep between themselves. */
+.setting-columns + .brain-card {
+    margin-top: var(--spacing-lg);
+}
+
 
 .settings-tabs {
     display: flex;
@@ -3230,6 +3236,28 @@ h1, h2, h3 {
     box-shadow:
         inset 0 calc(-1 * var(--border-width-4)) 0 0 var(--repo-mark-color, transparent),
         inset 0 calc(-1 * (var(--border-width-4) + var(--border-width))) 0 0 var(--color-background);
+}
+
+/*
+  The Brain chip leads the scope (local ADR 0027). Its glyph sits before its word
+  with the chip__icon alignment, a gap's width apart; its band-2 edge is the
+  repo-mark--2 class it always wears, so it needs no colour of its own here.
+*/
+.app-header__brain-chip .chip__icon {
+    margin-right: var(--spacing-xs);
+}
+
+/*
+  The divider after the Brain chip: a rule the full height of the group, stronger
+  than the hairline between two repositories, so the Brain reads as set apart from
+  them while staying inside the one border. The first repository after it draws no
+  hairline of its own — the .chip + .chip rule above does not reach across it.
+*/
+.app-header__scope-divider {
+    align-self: stretch;
+    flex: none;
+    width: var(--border-width-2);
+    background: var(--color-border-strong);
 }
 
 .header-group__option {
@@ -4302,11 +4330,11 @@ h1, h2, h3 {
     margin: 0;
 }
 
-/* The four decisions: large, one row where there is room and two or four
-   where there is not. */
+/* The five decisions: large, one row where there is room and fewer to a
+   row where there is not. */
 .inbox-triage__decisions {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: var(--spacing-sm);
 }
 
@@ -10592,6 +10620,131 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-xs);
 }
 
+/* The pane's title, on the strip and only while there can be two devbooks — on
+   the Brain, or beside the Brain | repository switch (local ADR 0027 §4). One
+   quiet word, so it names the pane without competing with the tabs. */
+.devbook-stack__title {
+    flex: 0 0 auto;
+    align-self: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The Brain | repository switch: sized to its two words, never squeezing the tabs. */
+.devbook-stack__switch {
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+.devbook-stack__brain-badge {
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+/* The strip once it carries a title (the Brain, or the switch beside a repository).
+   Title, switch, badge and path come before the tabs, and on a narrow pane they
+   leave the tabs too little width: squeezed to the width of one tab, the tab list
+   wrapped each tab onto a line of its own down the right edge. Here the tab list
+   keeps its whole row's width — up to the strip's — so when it no longer fits
+   beside the leading items the strip wraps the whole list onto a line of its own,
+   and the tabs only wrap among themselves, in rows, when even a full line is too
+   narrow. The path gives way first. The repository-only strip is untouched. */
+.devbook-stack__strip--titled {
+    flex-wrap: wrap;
+    row-gap: var(--spacing-xs);
+}
+
+.devbook-stack__strip--titled > .devbook-stack__nav {
+    flex: 1 0 auto;
+    max-width: 100%;
+}
+
+.devbook-stack__strip--titled > .devbook-stack__brain-path {
+    flex: 0 3 auto;
+    max-width: 12rem;
+}
+
+/* The Brain's folder where a repository's branch picker sits. A path is long and
+   its end is the part that names it, so it truncates with the whole path in the
+   title, under the same ceiling the picker has. */
+.devbook-stack__brain-path {
+    flex: 0 1 auto;
+    align-self: center;
+    max-width: 16rem;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* OneDrive's conflict copies, above the body as the update answer is: a sentence
+   the strip has no room for. The attention tone as an edge, because the person has
+   two versions of a note to reconcile; never the error tone, because nothing
+   failed. The ink stays primary: the sentence is what carries it. */
+.devbook-stack__brain-conflict {
+    margin: 0;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-2) solid var(--color-warning);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+/* From your Brain (local ADR 0027 §6): under a repository chapter, the Brain notes
+   linking to it, in the Brain's band painting (.devbook/design/color-scheme.md
+   #the-brains-accent) — a 4px band-2 leading edge on the band's 24% surface. The
+   words say Brain and say who sees it, so the teal never carries either alone. */
+.brain-backlinks {
+    margin: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.brain-backlinks__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.brain-backlinks__title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.brain-backlinks__private {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.brain-backlinks__list {
+    margin: var(--spacing-2xs) 0 0;
+    padding-left: var(--spacing-md);
+}
+
+.brain-backlinks__heading {
+    color: var(--color-text-secondary);
+}
+
+/* A Brain note's own `related` links into repository devbooks: one line of chips
+   above the body, since the title block they sit in is not drawn as prose. */
+.brain-note__repo-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-sm);
+}
+
 .devbook-stack__repositories,
 .devbook-stack__nav {
     flex: 0 0 auto;
@@ -12463,12 +12616,71 @@ a.pull-request-detail-checks__name:hover {
     max-width: 32rem;
 }
 
-.devbook-search__results {
+/* The scope chips: Everywhere, the Brain, one per repository. A radio group of
+   toggles, so they wrap under the box rather than pushing it off a narrow pane. */
+.devbook-search__scopes {
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+}
+
+/* The one region that scrolls: every source's group, read down. */
+.devbook-search__body {
     flex: 1 1 auto;
     min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: var(--spacing-md);
+    align-content: start;
+}
+
+/* One devbook's results. The heading says whose they are before any row does,
+   because the same path means different things in two repositories. */
+.devbook-search__group {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.devbook-search__group-heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-tight);
+}
+
+.devbook-search__group-name {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+}
+
+.devbook-search__group-count {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+}
+
+/* A devbook with no index yet, named in its place among the groups. A line,
+   not a dead end: the other groups beside it are still the answer. */
+.devbook-search__unavailable.empty-state {
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: left;
+}
+
+.devbook-search__unavailable .empty-state__title {
+    font-size: var(--font-size-sm);
+}
+
+.devbook-search__unavailable .empty-state__body {
+    margin: 0;
+    font-size: var(--font-size-xs);
+}
+
+.devbook-search__results {
     margin: 0;
     padding: 0;
-    overflow-y: auto;
     list-style: none;
     display: grid;
     gap: var(--spacing-xs);
@@ -12535,6 +12747,7 @@ a.pull-request-detail-checks__name:hover {
    offered, not advertised. The search toggle wears the same pill for the reason
    the version control does: three differently shaped buttons on one line would
    read as three different kinds of thing. */
+.devbook-stack__capture-toggle,
 .devbook-stack__search-toggle,
 .devbook-stack__atlas-toggle,
 .devbook-stack__atlas-all {
@@ -12550,6 +12763,7 @@ a.pull-request-detail-checks__name:hover {
     transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
+.devbook-stack__capture-toggle:hover,
 .devbook-stack__search-toggle:hover,
 .devbook-stack__atlas-toggle:hover,
 .devbook-stack__atlas-all:hover {
@@ -12557,6 +12771,7 @@ a.pull-request-detail-checks__name:hover {
     border-color: var(--color-border-strong);
 }
 
+.devbook-stack__capture-toggle:focus-visible,
 .devbook-stack__search-toggle:focus-visible,
 .devbook-stack__atlas-toggle:focus-visible,
 .devbook-stack__atlas-all:focus-visible {
@@ -12568,6 +12783,13 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__atlas-toggle[aria-expanded="true"] {
     color: var(--color-text-primary);
     border-color: var(--color-border-focus);
+}
+
+/* Capture's dialog: the two fields stacked, the actions under them. */
+.devbook-capture__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
 }
 
 /* The version control wears the same quiet pill as the atlas toggle — it is the

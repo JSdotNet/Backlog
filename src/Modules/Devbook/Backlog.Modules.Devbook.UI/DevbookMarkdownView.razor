@@ -46,7 +46,11 @@
                                every reference a `related` field has ever held. So
                                every relation this view drew was a link back to
                                the top of the page. *@
-                            @if (DevbookReference.Parse(related) is { } reference)
+                            @if (RelatedTarget?.Invoke(related) is { } drawn)
+                            {
+                                @drawn
+                            }
+                            else if (DevbookReference.Parse(related) is { } reference)
                             {
                                 <DevbookReferenceLink Reference="@reference"
                                                         OnNavigate="@OnDevbookNavigate" />
@@ -108,6 +112,13 @@
     /// follow — and the state this view is in on the standalone page.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
+
+    /// <summary>How one entry of a heading's <c>related</c> list is drawn, when the
+    /// host draws it itself — a Brain note's <c>repo:</c> link into a repository
+    /// devbook, which is no reference into this devbook. Null, or null from it,
+    /// leaves the entry to the reference link below.</summary>
+    [Parameter]
+    public Func<string, RenderFragment?>? RelatedTarget { get; set; }
 
     /// <summary>What a drawn diagram is captioned with, which is
     /// <c>DiagramView</c>'s own default. A <c>DevbookDiagramBlock</c> carries a

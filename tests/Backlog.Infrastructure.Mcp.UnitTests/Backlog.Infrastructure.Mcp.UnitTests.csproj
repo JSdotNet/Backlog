@@ -18,6 +18,12 @@
     <ProjectReference Include="..\..\src\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- BrainFolderSource and BrainNoteWriter, the real Brain the desktop head
+         composes. The Brain tools are tested over them rather than over doubles
+         because capture_note's promises - the inbox area, never overwriting, the
+         refusal in the writer's own words - are the writer's, and a double would
+         make them true of the double. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,144 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    Under a repository chapter, the Brain notes that link to it (local ADR 0027 §6,
+    .devbook/domain/devbook/features.md#repo-links-and-backlinks): a teal box, in the
+    Brain's band painting (.devbook/design/color-scheme.md#the-brains-accent),
+    headed From your Brain and marked Only you see this.
+
+    Read from the owner's own Brain database in app storage, never from the
+    repository, so nothing personal reaches shared history and two readers of one
+    chapter each see their own notes, or none. Drawn only when there is a note to
+    list: a chapter nothing in the Brain links to carries no empty box.
+*@
+
+@if (_links.Count > 0)
+{
+    <section class="brain-backlinks" data-testid="brain-backlinks" aria-labelledby="@HeadingId">
+        <div class="brain-backlinks__head">
+            <h4 class="brain-backlinks__title" id="@HeadingId">From your Brain</h4>
+            <span class="brain-backlinks__private" data-testid="brain-backlinks-private">Only you see this</span>
+        </div>
+        <ul class="brain-backlinks__list">
+            @foreach (var link in _links)
+            {
+                <li class="brain-backlinks__item" data-testid="brain-backlink" data-note="@link.NotePath" title="@link.NotePath">
+                    <span class="brain-backlinks__note">@link.Title</span>
+                    @if (!string.IsNullOrWhiteSpace(link.Heading))
+                    {
+                        <span class="brain-backlinks__heading">› @link.Heading</span>
+                    }
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    /// <summary>One per box, since a pane may hold one per section.</summary>
+    private readonly string HeadingId = $"brain-backlinks-{Guid.NewGuid():n}";
+
+    /// <summary>The repository the chapter belongs to.</summary>
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The chapter's repository-relative path, in either devbook
+    /// layout's spelling.</summary>
+    [Parameter]
+    public string? ChapterPath { get; set; }
+
+    private IBrainBacklinks? _backlinks;
+    private IBrainFolderSource? _brain;
+    private IReadOnlyList<BrainBacklink> _links = [];
+    private string? _loadedKey;
+    private int _read;
+    private bool _disposed;
+
+    /// <summary>Cancels the read in flight when a newer one starts or the box
+    /// goes away.</summary>
+    private CancellationTokenSource? _reading;
+
+    protected override void OnInitialized()
+    {
+        _backlinks = Services.GetService<IBrainBacklinks>();
+
+        // A rebuilt Brain database is announced on the Brain's own source, so a
+        // note linked or unlinked in another window shows here without a restart.
+        _brain = Services.GetService<IBrainFolderSource>();
+        if (_brain is not null) _brain.Changed += OnBrainChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{RepositoryAlias}|{ChapterPath}";
+        if (string.Equals(key, _loadedKey, StringComparison.Ordinal)) return;
+
+        _loadedKey = key;
+        await LoadAsync();
+    }
+
+    /// <summary>Only the latest read lands: a chapter changed while the database
+    /// was being read must not show the previous chapter's notes.</summary>
+    private async Task LoadAsync()
+    {
+        var read = ++_read;
+        _reading?.Cancel();
+        _reading?.Dispose();
+        _reading = null;
+
+        if (_backlinks is null || string.IsNullOrWhiteSpace(RepositoryAlias) || string.IsNullOrWhiteSpace(ChapterPath))
+        {
+            _links = [];
+            return;
+        }
+
+        var reading = _reading = new CancellationTokenSource();
+        IReadOnlyList<BrainBacklink> links;
+        try
+        {
+            links = await _backlinks.LinksToAsync(RepositoryAlias, ChapterPath, reading.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            links = [];
+        }
+
+        if (read != _read || _disposed) return;
+        _links = links;
+    }
+
+    private async void OnBrainChanged()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_disposed) return;
+                await LoadAsync();
+                StateHasChanged();
+            });
+        }
+        catch (Exception)
+        {
+            // An async void handler: anything escaping it would take the
+            // process down, and a box of backlinks is not worth that. The next
+            // change or chapter reads again.
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _reading?.Cancel();
+        _reading?.Dispose();
+        _reading = null;
+        if (_brain is not null) _brain.Changed -= OnBrainChanged;
+    }
+}

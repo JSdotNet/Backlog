@@ -2,6 +2,7 @@ using System.ComponentModel;
 
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
 using ModelContextProtocol.Server;
@@ -10,33 +11,66 @@ namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
 /// The devbook a session reads: which knowledge folders a repository has, one
-/// chapter out of one of them, and the private reading notes against it.
+/// chapter out of one of them, and the private reading notes against it — and
+/// the same for the Brain, the person's own notes outside every repository.
 /// <para>
 /// One class because they are one switchable group
 /// (<see cref="BacklogMcpTools.Devbook"/>), and because the three are one
 /// sequence: find the areas, open a chapter, see what was said about it.
 /// </para>
 /// <para>
-/// One write, and one only: <see cref="ResolveAnnotationFor"/> over
-/// <see cref="IDevbookAnnotationStore.SetResolved"/>, which is how a session says
-/// a note has been answered. <c>Add</c>, <c>Edit</c>, <c>Delete</c> and
-/// <c>Apply</c> are never called from this assembly, and no chapter file is
-/// opened for anything but reading — local ADR 0012 §6: the MCP server never
-/// writes a fence. The answer itself is a devbook <c>annotation</c> fence the
-/// session writes in its own checkout, with the plugin's own tool, and this
-/// marks the inbox afterwards.
+/// <b>The Brain is a scope, not a second set of tools</b>
+/// (<c>.devbook/domain/devbook/features.md#mcp-brain-scope</c>, local ADR 0027
+/// §5). Every tool that takes a <c>repository</c> also takes
+/// <see cref="BrainMcpScope.Value"/>, matched before the directory is asked, and
+/// answers for the Brain: its one folder from <see cref="IBrainFolderSource"/>,
+/// a note by its path from the Brain's root, and the remarks the store keeps
+/// under <see cref="BrainScope.Value"/>. The two Brain ports are optional, so a
+/// host that composes no Brain still constructs this class and answers the
+/// Brain unavailable in words rather than failing every devbook tool.
+/// </para>
+/// <para>
+/// Two writes, and two only. <see cref="ResolveAnnotationFor"/> over
+/// <see cref="IDevbookAnnotationStore.SetResolved"/> is how a session says a note
+/// has been answered. <c>Add</c>, <c>Edit</c>, <c>Delete</c> and <c>Apply</c> are
+/// never called from this assembly, and no chapter file is opened for anything
+/// but reading — local ADR 0012 §6: the MCP server never writes a fence. The
+/// answer itself is a devbook <c>annotation</c> fence the session writes in its
+/// own checkout, with the plugin's own tool, and this marks the inbox afterwards.
+/// <see cref="CaptureNoteAsync"/> is the other: a <em>new</em> note in the
+/// Brain's inbox area, through <see cref="IBrainNoteWriter"/> — the writer the
+/// pane's Capture and Inbox triage's To Brain go through — which creates a file
+/// and never opens an existing one, so no chapter and no fence is touched by it
+/// either.
 /// </para>
 /// </summary>
 [McpServerToolType]
 public sealed class DevbookTools(
     IDevbookFolderSource folders,
     IDevbookAnnotationStore annotations,
-    IRepositoryDirectory repositories)
+    IRepositoryDirectory repositories,
+    IBrainFolderSource? brain = null,
+    IBrainNoteWriter? brainNotes = null)
 {
     internal const string ListKnowledgeContexts = "list_knowledge_contexts";
     internal const string ReadKnowledgeChapter = "read_knowledge_chapter";
     internal const string ListAnnotations = "list_annotations";
     internal const string ResolveAnnotation = "resolve_annotation";
+    internal const string CaptureNote = "capture_note";
+
+    /// <summary>The <c>repository</c> parameter every scoped tool here takes,
+    /// described once so the four cannot say four things.</summary>
+    private const string RepositoryDescription =
+        "The repository in owner/name form, e.g. JSdotNet/Backlog — or " + BrainMcpScope.Value
+        + " for the Brain, the person's own notes outside every repository.";
+
+    /// <summary>What a Brain answer says when this host composed no Brain.</summary>
+    private const string NoBrainHere = "The Brain is not available in this host.";
+
+    /// <summary>The Brain's folder as a catalog names it, for the answer given
+    /// when no source is there to name it.</summary>
+    private static readonly DevbookFolderSetting BrainFolder =
+        new(BrainConventions.FolderKey, BrainScope.Name, string.Empty, SupportsPathOverride: false);
 
     // OpenWorld, unlike every tool outside this class. A repository whose devbook
     // is read from a branch snapshot (local ADR 0008) has no clone to resolve
@@ -45,11 +79,16 @@ public sealed class DevbookTools(
     // download going. It never waits on one, which is why it is still Idempotent
     // and ReadOnly; what it is not is closed.
     [McpServerTool(Name = ListKnowledgeContexts, Title = "List a repository's knowledge folders", ReadOnly = true, Idempotent = true, OpenWorld = true)]
-    [Description("The knowledge folders configured for one repository — architecture, domain, technology, design, AI adoption, instructions — and whether each one is readable right now. Read-only.")]
+    [Description(
+        "The knowledge folders configured for one repository — architecture, domain, technology, design, AI "
+        + "adoption, instructions — and whether each one is readable right now. For " + BrainMcpScope.Value
+        + ", the Brain's one folder. Read-only.")]
     public KnowledgeContextsPayload ListKnowledgeContextsFor(
-        [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
+        [Description(RepositoryDescription)]
         string repository)
     {
+        if (BrainMcpScope.Is(repository)) return BrainContexts();
+
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
 
         // Resolve rather than Prepare: this is a catalog, and a call that fetched
@@ -62,6 +101,35 @@ public sealed class DevbookTools(
             .ToList();
 
         return new KnowledgeContextsPayload(scope.Id, scope.Alias, contexts);
+    }
+
+    /// <summary>
+    /// The Brain's one folder, resolved — or, where this host composed no Brain,
+    /// that folder answered unavailable.
+    /// <para>
+    /// Listed even when it cannot be read, as a repository's switched-on folder
+    /// is: "no Brain is set" is the answer a session passes on to the person,
+    /// and an empty list would say nothing about why.
+    /// </para>
+    /// </summary>
+    private KnowledgeContextsPayload BrainContexts()
+    {
+        IReadOnlyList<KnowledgeContextPayload> contexts = brain is null
+            ?
+            [
+                Projections.KnowledgeContext(
+                    BrainFolder,
+                    DevbookFolderLocation.Unavailable(
+                        BrainConventions.FolderKey, NoBrainHere, folder: BrainFolder, scopeLabel: BrainScope.Name))
+            ]
+            :
+            [
+                .. brain.Folders(BrainScope.Value)
+                    .Where(folder => folder.Enabled)
+                    .Select(folder => Projections.KnowledgeContext(folder, brain.Resolve(folder.Key, BrainScope.Value)))
+            ];
+
+        return new KnowledgeContextsPayload(BrainMcpScope.Value, BrainScope.Value, contexts);
     }
 
     // OpenWorld for the reason the tool below is not: PrepareContentAsync fetches
@@ -79,16 +147,24 @@ public sealed class DevbookTools(
         + "the block each one is anchored to, between `<!-- backlog:private-note ... -->` comment markers. Block "
         + "indices are the same in both modes. `demos` lists the page's click demos by path — the `*.demo.html` "
         + "beside it whose name pairs it with the page, and every address a `demo` field names — never their HTML. "
-        + "Read-only.")]
+        + "For " + BrainMcpScope.Value + ", one Brain note by its path from the Brain's root. Read-only.")]
     public async Task<ChapterPayload> ReadKnowledgeChapterAsync(
-        [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
+        [Description(RepositoryDescription)]
         string repository,
-        [Description("The chapter, repository-relative and with its area folder on the front, e.g. .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md.")]
+        [Description(
+            "The chapter, repository-relative and with its area folder on the front, e.g. "
+            + ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md. For " + BrainMcpScope.Value
+            + ", the note's path from the Brain's root, e.g. projects/plan.md.")]
         string chapterPath,
         [Description("Read it as a reviewer: keep the meta and annotation fences, and interleave the reader's private notes. Defaults to false.")]
         bool review = false,
         CancellationToken cancellationToken = default)
     {
+        if (BrainMcpScope.Is(repository))
+        {
+            return await ReadBrainNoteAsync(chapterPath, review, cancellationToken).ConfigureAwait(false);
+        }
+
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
 
         var normalized = ChapterPaths.Normalize(chapterPath);
@@ -163,6 +239,107 @@ public sealed class DevbookTools(
                 $"No chapter at '{normalized}' in '{scope.Id}'."));
         }
 
+        // A clone can be listed and asked about any file in it. A branch snapshot
+        // fetched this one chapter and nothing beside it, so a listing there would
+        // report the demos as missing when what is missing is the fetch: it pairs
+        // nothing by name and says nothing about whether a named demo is there.
+        var clone = location.Source is DevbookSourceKind.LocalFolder ? location.RootPath : null;
+
+        return await BuildChapterAsync(
+            scope.Id, scope.Alias, folder.Key, normalized, fullPath, clone, review, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// One Brain note, read the way a chapter is.
+    /// <para>
+    /// Its own path through because the Brain's folder is its own root and its
+    /// conventional path is empty — which <see cref="ChapterPaths.Split"/> and
+    /// <see cref="ChapterPaths.IsReadableChapter"/> read as the Instructions
+    /// folder, admitting <c>CLAUDE.md</c> and refusing every note. So a note is
+    /// named by its path from the Brain's root, held to
+    /// <see cref="ChapterPaths.IsReadableBrainNote"/>, and contained by
+    /// <see cref="ChapterPaths.ResolveWithin"/> against that root. Resolved and
+    /// not prepared: the Brain is always a local folder, with nothing to fetch.
+    /// </para>
+    /// </summary>
+    private async Task<ChapterPayload> ReadBrainNoteAsync(string chapterPath, bool review, CancellationToken cancellationToken)
+    {
+        if (brain is null)
+        {
+            throw RepositoryScope.Failure(Error.NotFound("brain.unavailable", NoBrainHere));
+        }
+
+        var normalized = ChapterPaths.Normalize(chapterPath);
+
+        if (normalized.Length == 0)
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "chapter.required",
+                "A note path is required, from the Brain's root — e.g. projects/plan.md."));
+        }
+
+        // Before the folder is resolved, for the reason the repository read checks
+        // first: this is what keeps the tool from being a file read over the whole
+        // Brain folder, a notes app's own state included.
+        if (!ChapterPaths.IsReadableBrainNote(normalized))
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "chapter.not_a_chapter",
+                $"'{normalized}' is not a Brain note. A note is a Markdown file inside the Brain folder, named by its "
+                + "path from the Brain's root, and never under a folder whose name starts with a dot."));
+        }
+
+        var location = brain.Resolve(BrainConventions.FolderKey, BrainScope.Value);
+
+        if (!location.Available || location.FullPath is null)
+        {
+            throw RepositoryScope.Failure(Error.NotFound(
+                "chapter.unavailable",
+                location.Message ?? "The Brain is not available."));
+        }
+
+        var fullPath = ChapterPaths.ResolveWithin(location.FullPath, normalized);
+
+        if (fullPath is null || !File.Exists(fullPath))
+        {
+            throw RepositoryScope.Failure(Error.NotFound(
+                "chapter.not_found",
+                $"No note at '{normalized}' in the Brain."));
+        }
+
+        // Containment is decided on the spelling, and a link makes the spelling
+        // lie: a folder in the Brain that links to the user profile would pass
+        // ResolveWithin and serve whatever is behind it as a note.
+        if (ChapterPaths.PassesThroughLink(location.FullPath, fullPath))
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "chapter.not_a_chapter",
+                $"'{normalized}' is reached through a link inside the Brain folder, and a link can lead out of it, "
+                + "so it is not read."));
+        }
+
+        return await BuildChapterAsync(
+            BrainMcpScope.Value, BrainScope.Value, BrainConventions.FolderKey, normalized, fullPath,
+            location.FullPath, review, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A chapter file already found, read and answered: the step a repository
+    /// chapter and a Brain note share once each has decided which file it is.
+    /// </summary>
+    /// <param name="clone">The local root a chapter's demos are looked for
+    /// under, or null where the folder is a branch snapshot and nothing beside
+    /// the chapter was fetched.</param>
+    private async Task<ChapterPayload> BuildChapterAsync(
+        string repositoryId,
+        string repositoryAlias,
+        string contextKey,
+        string normalized,
+        string fullPath,
+        string? clone,
+        bool review,
+        CancellationToken cancellationToken)
+    {
         string markdown;
 
         try
@@ -180,18 +357,13 @@ public sealed class DevbookTools(
         }
 
         var notes = review
-            ? ChapterReading.Notes(annotations, scope.Alias, normalized)
+            ? ChapterReading.Notes(annotations, repositoryAlias, normalized)
             : [];
 
-        // A clone can be listed and asked about any file in it. A branch snapshot
-        // fetched this one chapter and nothing beside it, so a listing there would
-        // report the demos as missing when what is missing is the fetch: it pairs
-        // nothing by name and says nothing about whether a named demo is there.
-        var clone = location.Source is DevbookSourceKind.LocalFolder ? location.RootPath : null;
         var besidePage = clone is null ? [] : ChapterDemos.BesidePage(normalized, fullPath);
 
         return ChapterReading.Build(
-            scope.Id, scope.Alias, folder.Key, normalized, markdown, review, notes,
+            repositoryId, repositoryAlias, contextKey, normalized, markdown, review, notes,
             besidePage,
             demoPath => clone is null ? null : ChapterPaths.ResolveWithin(clone, demoPath) is { } file && File.Exists(file));
     }
@@ -202,14 +374,19 @@ public sealed class DevbookTools(
     [McpServerTool(Name = ListAnnotations, Title = "List the private notes on a chapter", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
         "The reader's own private notes on one knowledge chapter — Backlog's remarks, not the devbook `annotation` "
-        + "fences in the file. Drafts nobody has typed into and deleted notes are left out. Read-only.")]
+        + "fences in the file. Drafts nobody has typed into and deleted notes are left out. For " + BrainMcpScope.Value
+        + ", the notes on one Brain note. Read-only.")]
     public AnnotationsPayload ListAnnotationsOn(
-        [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
+        [Description(RepositoryDescription)]
         string repository,
-        [Description("The chapter, repository-relative and with its area folder on the front.")]
+        [Description(
+            "The chapter, repository-relative and with its area folder on the front. For " + BrainMcpScope.Value
+            + ", the note's path from the Brain's root.")]
         string chapterPath)
     {
-        var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+        // The Brain needs no source here: its remarks are the store's, under the
+        // empty alias, and a Brain nobody can open right now still has them.
+        var scope = ScopeOf(repository);
 
         var normalized = ChapterPaths.Normalize(chapterPath);
 
@@ -232,7 +409,7 @@ public sealed class DevbookTools(
         return new AnnotationsPayload(scope.Id, scope.Alias, normalized, notes.Count, notes);
     }
 
-    // Not read-only, and the only tool here that is not. Idempotent because
+    // Not read-only, and one of the two tools here that are not. Idempotent because
     // resolving an already-resolved note is the state it is already in, and not
     // destructive because nothing is lost: a resolved remark stays visible and
     // quiet, and the person can reopen it in the app. Closed, like
@@ -250,14 +427,14 @@ public sealed class DevbookTools(
         + "chapter first, as a devbook `annotation` fence, with the devbook tooling in your own checkout — then call "
         + "this. That order matters: a fence nobody resolved can still be found, while a note resolved without its "
         + "answer written has lost the only record of where the answer is. Resolving a note that is already resolved "
-        + "changes nothing.")]
+        + "changes nothing. A note left on a Brain note is resolved under " + BrainMcpScope.Value + ".")]
     public ChapterNotePayload ResolveAnnotationFor(
-        [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
+        [Description(RepositoryDescription)]
         string repository,
         [Description("The note's id, exactly as list_annotations reports it.")]
         Guid note)
     {
-        var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+        var scope = ScopeOf(repository);
 
         if (annotations.Find(note) is not { IsLive: true } existing)
         {
@@ -279,12 +456,16 @@ public sealed class DevbookTools(
         // The repository is named on the call and checked against the note rather
         // than taken from it. A session works in one checkout, and resolving
         // another repository's note from it is a mistake worth refusing rather
-        // than a shortcut worth honouring.
+        // than a shortcut worth honouring. The Brain is one more scope to this
+        // comparison: its remarks are stored under the empty alias, which no
+        // repository's is, so a Brain note asked under a repository and a
+        // repository's asked under #brain are both refused here.
         if (!string.Equals(existing.RepositoryAlias, scope.Alias, StringComparison.OrdinalIgnoreCase))
         {
             throw RepositoryScope.Failure(Error.Validation(
                 "annotation.otherRepository",
-                $"Note {note} belongs to {existing.RepositoryAlias}, not {scope.Alias}."));
+                $"Note {note} belongs to {BrainMcpScope.Display(existing.RepositoryAlias)}, "
+                + $"not {BrainMcpScope.Display(scope.Alias)}."));
         }
 
         if (!existing.Resolved)
@@ -295,5 +476,72 @@ public sealed class DevbookTools(
         // Read back rather than returned from the record above, so the caller is
         // told what the store now holds — the stamp the write moved included.
         return Projections.Note(annotations.Find(note) ?? existing with { Resolved = true });
+    }
+
+    // A write, and neither idempotent nor destructive. Not idempotent because a
+    // second call with the same title is a second note — the writer never
+    // overwrites, it takes the next free name — so a client must not retry one
+    // that may have landed. Not destructive for the same reason: nothing that was
+    // there is changed. Closed, because the Brain is a folder on this machine and
+    // nothing on this path can reach GitHub.
+    [McpServerTool(
+        Name = CaptureNote,
+        Title = "Capture a note into the Brain",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false)]
+    [Description(
+        "Writes a new note into the Brain's inbox area — the person's own notes outside every repository — with the "
+        + "title as its heading and the body below it, as the app's own Capture does. Never overwrites: a title whose "
+        + "file name is taken gets the next free one, so calling this twice writes two notes. Answers the note's path "
+        + "from the Brain's root, which read_knowledge_chapter takes under " + BrainMcpScope.Value + ".")]
+    public async Task<CapturedNotePayload> CaptureNoteAsync(
+        [Description("The note's title: one line, which is also what its file name is made from.")]
+        string title,
+        [Description("The note's body, in Markdown. Optional. A line that would become a heading or a fence is kept as text.")]
+        string? body = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (brainNotes is null)
+        {
+            throw RepositoryScope.Failure(Error.NotFound("brain.unavailable", NoBrainHere));
+        }
+
+        // Manual: BrainNoteSource names the pane's Capture and an assistant's
+        // capture tool as one source, because both are somebody deciding to write
+        // a note rather than a note arriving from somewhere else.
+        var written = await brainNotes
+            .WriteAsync(new BrainNoteDraft(title, body, BrainNoteSource.Manual), cancellationToken)
+            .ConfigureAwait(false);
+
+        // In the writer's own words: a blank title, no Brain set, a folder that
+        // cannot be written are each something the person can fix, and the
+        // writer already says how. Checked here rather than before the call, so
+        // the guard on the text stays the one the pane's Capture meets.
+        if (written.RelativePath is not { } path)
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "brain.capture_refused",
+                written.Error ?? "The note was not written."));
+        }
+
+        return new CapturedNotePayload(path, BrainNoteText.TitleOf(title) ?? title);
+    }
+
+    /// <summary>
+    /// The scope a call names, as the id its answer carries and the alias the
+    /// note store keys by: <see cref="BrainMcpScope.Value"/> and
+    /// <see cref="BrainScope.Value"/> for the Brain, matched before the
+    /// directory is asked, else the repository the directory resolves — or the
+    /// refusal it gives.
+    /// </summary>
+    private (string Id, string Alias) ScopeOf(string repository)
+    {
+        if (BrainMcpScope.Is(repository)) return (BrainMcpScope.Value, BrainScope.Value);
+
+        var resolved = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+
+        return (resolved.Id, resolved.Alias);
     }
 }

@@ -363,7 +363,11 @@ writer it is held to.
   table. `node
   tools/devbook/build-database.mjs` builds the same tables from the command line:
   `--check` builds to a temporary file and deletes it, `--out <file>` writes where
-  it is told. Neither writes into a repository.
+  it is told. Neither writes into a repository. `--brain --root <folder>` builds a
+  Brain (local ADR 0026) under its own convention, `tools/devbook/brain.mjs`:
+  the areas its `CONVENTIONS.md` declares as the folders, the `para`, `repos` and
+  `tasks` fields as node attributes, and `repo:` links as edges with no node at
+  their target.
 - **Why** — twelve committed JSON artifacts were 1.8 MB of derived output that
   every branch collided on (local ADR 0004), and a database kept beside the
   folders still had to be ignored per layout and was only there if somebody had

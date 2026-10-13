@@ -13,12 +13,13 @@ status: draft
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/inbox/features.md#routing]
+related: [.devbook/domain/inbox/features.md#routing, .devbook/domain/devbook/features.md#capture-into-the-brain]
 ```
 
 Store notes, references, ideas, and learnings as markdown from inbox triage,
 manual creation, or import, attaching them to one or more projects, topics, or
-tags.
+tags. Every note is a file in the person's [Brain](domain.md#brain); where it
+comes from is [Capture into the Brain](#capture-into-the-brain).
 
 ## PARA organization
 
@@ -26,20 +27,28 @@ tags.
 type: feature
 status: draft
 depends-on: [.devbook/domain/devbook/features.md#knowledge-capture]
+related: [.devbook/domain/devbook/domain.md#para-category, .devbook/domain/devbook/features.md#brain-folder-setup]
 ```
 
-Organize notes into Projects (active, deadline), Areas (ongoing), Resources
-(reference), and Archive (inactive) buckets.
+Organize notes into the areas the Brain's `CONVENTIONS.md` declares, one top
+folder each, shown as one tab each. A Brain that declares none uses the PARA set:
+an inbox for what is not filed yet, Projects (active, deadline), Areas
+(ongoing), Resources (reference), People, a Journal, and Archive (inactive).
+Moving a note to another area is moving its file to another folder; a note may
+name its area in its `para` field instead, which wins over the folder.
 
 ## Cross-project linking
 
 ```meta
 type: feature
 status: draft
+related: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
 ```
 
 Reference multiple projects and repos from a single note, and discover notes
-across projects by tag.
+across projects by tag. A project note names the repositories it concerns in its
+`repos` field; a note that points at one chapter of a repository's devbook does
+so with a [repo link](#repo-links-and-backlinks).
 
 ## Topic and tag grouping
 
@@ -71,6 +80,246 @@ Link from tasks to notes (reference or embed inline) and from notes
 back to related tasks or projects, supporting queries that cross both
 domains and embedding knowledge context directly in task details.
 
+## Brain scope
+
+```meta
+type: feature
+status: draft
+related: [.devbook/domain/devbook/requirements.md#brain-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#shell-header]
+```
+
+Pick the Brain the way a repository is picked. The header's repository scope
+leads with a **Brain** chip, set off from the repository chips by a divider and
+worn in the Brain's teal. It cannot be removed, and it needs no repository, so
+the scope works for a person who has configured none. Brain is the scope of
+everything filed against no repository: pressed alone, it narrows Tasks, Board,
+Calendar, In progress, the Dashboard, Sessions and Pull requests to the tasks
+with no repository, and it opens the Brain in the Devbook pane. Ctrl adds it to
+the repositories already pressed, and nothing pressed still means everything.
+
+The scope is remembered with Brain in its place, so a fresh shell reopens on it.
+It replaces the Tasks filter bar's *No repo* chip, which narrowed the same rows
+under a second name and was never remembered. Until a Brain folder is set up the
+chip reads **Set up your Brain** and still scopes the tasks.
+
+## Brain folder setup
+
+```meta
+type: feature
+status: draft
+setting: .devbook/domain/devbook/context.md#brain-folder
+related: [.devbook/domain/devbook/requirements.md#brain-folder-setup, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/domain.md#para-category]
+```
+
+Choose where the Brain lives, once, in Settings › Storage. The person picks a
+folder outside every repository; there is no default, and OneDrive is the
+expected place. The Brain card says whether the folder is synced, as
+information rather than a warning, that its search database is built in the
+app's storage and never synced, and whether the folder's `README.md` and
+`CONVENTIONS.md` are present.
+
+**Create conventions** writes both files and every area folder they declare from
+a template the app ships, the PARA set by default, and never overwrites a file
+that is already there. From then on the folder carries its own convention, so a
+second machine that reads the synced folder sees the same areas.
+
+The shipped `CONVENTIONS.md` declares its areas as a table under an `## Areas`
+heading, one row per area in tab order with its name, its folder and what it
+holds; with no rows, the PARA set applies. The area folders Create conventions
+makes are the ones the folder's own `CONVENTIONS.md` declares, so a person who
+wrote theirs first gets their areas, not the template's. **Browse** opens the
+Windows folder picker in the installed app; a host without one, the browser
+harness among them, takes a typed path.
+
+## Brain mode of the Devbook pane
+
+```meta
+type: feature
+status: draft
+feature-flag: .devbook/domain/devbook/context.md#devbook-pane
+related: [.devbook/domain/devbook/requirements.md#brain-mode-of-the-devbook-pane, .devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+```
+
+Read and write the Brain in the same pane that reads a repository's devbook.
+With the scope's anchor on Brain, or nothing pressed, the pane carries a teal
+**Brain** badge after its title, the folder's path where a repository's branch
+picker would be, and one tab per area the Brain declares. The tree, the rendered
+chapter and the editor are the ones a repository devbook uses, and a Brain note
+is always editable. What only a repository has is absent: branch updates, sync
+verdicts and scenario marks. So is opening the folder in an editor. Search is
+offered on the Brain as on a repository, because it is one
+[Unified search](#unified-search) wherever it is opened. The **Atlas** button
+opens the Brain's own map instead of a repository's
+([Atlas edges](#atlas-edges)). Ask AI takes no Brain note as the open chapter.
+
+With Brain and a repository both pressed, a `Brain | <repo>` switch beside the
+pane title flips between them without touching the task filter. The switch opens
+on the anchor's side. With Brain as the anchor and several repositories pressed,
+its other side is the first of them. The switch is not remembered: any change to
+the scope puts the pane back on the anchor.
+
+On the Brain, and while the switch shows, the pane names itself *Devbook* at the
+start of its tab strip. The switch sits right after the title, so it stays in
+place as the badge and the path come and go.
+
+With no folder set up yet, the pane on the Brain asks for one. A folder that is
+set but missing, or is not a path, says so in words and shows no tabs. A
+declared area whose folder does not exist yet still has its tab, and the tab
+says the Brain has no such folder yet.
+
+When the folder holds a OneDrive conflict copy, the pane says so and changes
+neither file: two edits to one note are the person's to merge. A conflict copy
+is `<name>-<MACHINE>.md` in the same folder as `<name>.md`. MACHINE is the
+computer name OneDrive writes: 1 to 15 capitals, digits and hyphens, with at
+least one capital. So `plan-2.md`, `plan-draft.md` and `my-plan.md` stay
+ordinary notes. The warning names every pair.
+
+## Repo links and backlinks
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
+related: [.devbook/domain/devbook/requirements.md#repo-links-and-backlinks, .devbook/domain/devbook/domain.md#repo-link, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+```
+
+Point a Brain note at the repository chapter it is about. A
+`repo:<alias>/<devbook path>[#slug]` link, in the note's `related` or its body,
+renders as a gold chip that opens that repository's devbook at the chapter. An
+alias this machine does not have renders as a dashed chip reading *not on this
+machine*, never as an error, because the same Brain is read on machines with
+different repositories. A link resolves when its alias names a repository
+configured here, as a clone or a branch snapshot, whose devbook shows the
+section the path lies in. A configured alias whose path lies in no such section
+is dashed too, and says it is not a chapter in that devbook. Following a gold
+chip leaves the header scope alone: the pane reads the repository as it does for
+a task's reference, and the switch or the scope brings the Brain back.
+
+The reverse is shown, never written. Under a repository chapter a teal **From
+your Brain** box lists the Brain notes that link to it, marked *Only you see
+this*: it reads the owner's own Brain database, and nothing is written into the
+repository, so personal notes never reach shared history. A link to any
+heading of the chapter's file counts. Each note is listed once: under the
+first chapter it links from, when every link it has sits in a chapter, and on
+its own when one is in its `related` or its prose outside every chapter. A chapter no note links to draws no box. A repository devbook has no way
+to link into a Brain.
+
+## Unified search
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/devbook/features.md#devbook-retrieval]
+related: [.devbook/domain/devbook/requirements.md#unified-search, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
+```
+
+Ask one question of the Brain and every configured repository's devbook at once.
+The search offers scope chips (**Everywhere**, **Brain**, and one per
+repository) and groups its results by where they came from, the Brain's group
+first. It searches by words and by meaning, as
+[Devbook retrieval](#devbook-retrieval) does for one devbook, over each source's
+own database. A source with no database yet is named as not searchable rather
+than silently left out.
+
+Search by meaning is additive, as it is for one devbook: it is asked only while
+it is switched on, once typing pauses, and the words answer is drawn while it is
+on its way. Within a source the two answers are merged by where each put a
+chapter, never by their scores, which are on different scales; a chapter both
+found is one result. Opening a result from the devbook on screen opens it there.
+Opening one from another devbook moves the pane to that devbook and opens it,
+without touching the header's scope or the task filter.
+
+## Atlas edges
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
+related: [.devbook/domain/devbook/requirements.md#atlas-edges, .devbook/design/component-libraries.md]
+```
+
+See where the Brain reaches into the repositories. On the Brain, the pane's
+**Atlas** button maps the whole Brain: its notes, grouped by area, and the links
+between them, read from the Brain's own database. Each repo link, in a note's
+`related` or its prose, is an edge to a node for the repository chapter it
+names. The edge is labelled with the repository's alias, and the chapters of one
+repository gather in one group named for that alias. One chapter is one node,
+whichever devbook layout or alias case a note wrote it in. A link this machine
+can follow is a solid edge to a filled node. One it cannot is a dashed edge to a
+hollow node, like its chip. The atlas reads no repository: what a repository
+node shows is the link's own words.
+
+Selecting a repository node shows the link's chip. A gold chip opens that
+repository's devbook at the chapter, as a chip in a note does. A dashed one says
+why it cannot be followed. Selecting a note offers to open it in the pane. Both
+close the map. With no Brain index built yet, the atlas says so rather than
+drawing an empty map.
+
+## Capture into the Brain
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
+related: [.devbook/domain/devbook/requirements.md#capture-into-the-brain, .devbook/domain/inbox/features.md#route-to-brain, .devbook/domain/inbox/domain.md#itemtriaged]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
+```
+
+Get a thought into the Brain without leaving what is on screen. In Brain mode
+the pane header carries **Capture**: a title and a Markdown body, written as a
+new note with its `meta` block in the Brain's inbox area, which is `_inbox`
+under the PARA default or the area `CONVENTIONS.md` marks as the inbox. Inbox
+triage writes the same kind of note through its **To Brain** route, from a
+capture or from an Inbox note, keeping the title and the body.
+
+Whatever the person typed stays text: a heading, a fence or a meta block typed
+into a capture is written so that it cannot become the note's structure. Each
+such line gets a zero-width space just before its marker: invisible when the
+note is read, and enough that no reader takes the line for structure.
+
+The note's file is named after its title (`Ideas for the sync` is
+`ideas-for-the-sync.md`), and a name already taken gets `-2`, `-3` and on:
+nothing in the Brain is ever overwritten. Its `meta` block says `type: note`
+and its [source](domain.md#note-source), `manual` from Capture and `inbox` from
+To Brain. Once written, the pane opens it. One writer, `IBrainNoteWriter`, does
+all of this for Capture and for To Brain alike, and so does the capture tool
+an assistant calls over MCP ([MCP Brain scope](#mcp-brain-scope)).
+
+## MCP Brain scope
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/devbook/features.md#capture-into-the-brain]
+related: [.devbook/domain/devbook/requirements.md#mcp-brain-scope, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#review-notes-in-a-chapter]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.McpToolCreationTests.A_host_without_the_brain_ports_still_builds_the_devbook_tools]
+```
+
+Let an assistant read and write the Brain through the same tools it uses on a
+repository devbook. The knowledge tools the app serves over MCP (listing the
+contexts, reading a chapter, listing and resolving the reader's remarks) take
+the Brain as `#brain` in the place of a repository's `owner/name`.
+
+The spelling is not the empty string the shell stores for the Brain (local
+ADR 0027 §5): an empty repository argument is already refused as missing, and a
+session that forgot it must never be handed the person's own notes. It is not
+`brain` either, which a repository could be called. A GitHub owner or name
+cannot hold a `#`, and a configured repository line that starts with one is a
+comment, so `#brain` matches no repository; it is matched before any repository
+is looked up.
+
+A Brain note is named by its path from the Brain's root (`projects/plan.md`),
+never under a dot-folder and never through a link out of the folder. The
+remarks on it are the ones the reader left on the Brain, and a remark is
+resolved only under the scope it belongs to.
+
+The capture tool, `capture_note`, writes a new note into the Brain's inbox
+area through the same writer the pane's Capture uses, under the same guard on
+the text and with source `manual`. A second capture with the same title is a
+second note, never an overwrite. The tool answers the note's path from the
+Brain's root, which the read tool takes as it is. Where no Brain is set, or the
+host has none, the tools say so in words rather than failing.
+
 ## Repository devbook areas
 
 ```meta
@@ -96,15 +345,19 @@ screen.
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
+related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
 ```
 
 Switch between areas, and between repositories when more than one is registered,
-so the knowledge shown always belongs to a known repository. The pane reads one
-repository at a time even when the backlog beside it is scoped to several: it
-follows the first repository taken into that scope, so widening the list never
-moves the knowledge already being read. With no repository scoped there is
-nothing to read and the pane is not offered; the folder the backlog is kept in
-is never read as a devbook of its own. Every area is opt-in, and each can be
+so the knowledge shown always belongs to a known repository or to the Brain. The
+pane reads one devbook at a time even when the backlog beside it is scoped to
+several: it follows the scope's anchor, the first chip taken into that scope, so
+widening the list never moves the knowledge already being read. An anchor of
+Brain, or nothing pressed, shows the [Brain](#brain-mode-of-the-devbook-pane),
+because the Brain is always there; a scope holding Brain and a repository offers
+a `Brain | <repo>` switch in the pane that flips what it shows and leaves the
+task filter alone (local ADR 0027). The folder the backlog is kept in is never
+read as a devbook of its own. Every area is opt-in, and each can be
 switched off on its own or pointed at a non-standard folder; when none is left
 on there is nothing to browse and the pane says so rather than offering an empty
 tab strip.

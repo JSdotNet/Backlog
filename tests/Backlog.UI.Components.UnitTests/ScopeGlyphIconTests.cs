@@ -22,6 +22,10 @@ public sealed class ScopeGlyphIconTests
         AssertIconContract<FolderOffIcon>("folder-off-icon");
 
     [Fact]
+    public void The_brain_keeps_the_icon_contract() =>
+        AssertIconContract<BrainIcon>("brain-icon");
+
+    [Fact]
     public void The_play_mark_keeps_the_icon_contract() =>
         AssertIconContract<PlayIcon>("play-icon");
 

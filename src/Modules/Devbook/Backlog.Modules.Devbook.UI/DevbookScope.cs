@@ -54,4 +54,12 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
     /// </para>
     /// </summary>
     public bool SearchOffered => features.IsEnabled(DevbookFeatures.Search);
+
+    /// <summary>
+    /// Whether the pane offers the Brain (local ADR 0027 §4): whenever Devbook is
+    /// on. The Brain is always in the scope, so unlike a repository it needs no
+    /// folder behind it to be offered — a pane on a Brain with no folder yet is
+    /// where the person is asked for one.
+    /// </summary>
+    public bool BrainOffered => features.IsEnabled(DevbookFeatures.RepositoryDevbook);
 }

@@ -264,11 +264,12 @@ public sealed class InProgressViewTests
             Assert.Contains("JSdotNet/Backlog#700", section.FindAll("[data-testid='work-link-picker-option']").Select(option => option.GetAttribute("data-option-id"))));
     }
 
-    /// <summary>The task list's "No repository" scope narrows In progress the way it
-    /// narrows the list: only entries filed against no repository, and of the loose
-    /// work only what lives in no registered repository.</summary>
+    /// <summary>The Brain in the header's scope narrows In progress the way it narrows
+    /// the list: only entries filed against no repository, and of the loose work only
+    /// what lives in no registered repository — never a pull request, which is always
+    /// read from one (local ADR 0027).</summary>
     [Fact]
-    public async Task The_no_repository_scope_narrows_the_view_like_the_task_list()
+    public async Task The_brain_scope_narrows_the_view_like_the_task_list()
     {
         using var host = await TasksPaneHost.CreateAsync(Repository);
         await host.WriteEntryAsync(Entry);
@@ -281,7 +282,7 @@ public sealed class InProgressViewTests
         var view = Render(host, reader);
         view.WaitForAssertion(() => Assert.Equal(2, view.FindAll("[data-testid='in-progress-task']").Count));
 
-        host.State.SetNoRepositoryFilter(true);
+        host.State.SetBrainFilter();
 
         view.WaitForAssertion(() =>
         {
@@ -290,7 +291,7 @@ public sealed class InProgressViewTests
             Assert.Equal(["nowhere"], view.FindAll("[data-testid='in-progress-loose']").Select(item => item.GetAttribute("data-loose-key")));
         });
 
-        host.State.SetNoRepositoryFilter(false);
+        host.State.SetRepositoryFilter(null);
 
         view.WaitForAssertion(() => Assert.Equal(2, view.FindAll("[data-testid='in-progress-task']").Count));
     }

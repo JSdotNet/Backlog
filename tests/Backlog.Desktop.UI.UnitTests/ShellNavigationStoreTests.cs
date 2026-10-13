@@ -614,6 +614,89 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
+    /// The Brain rides the scope as its reserved empty value, in its place, through a
+    /// restart (local ADR 0027, §5): the store keeps it as written and never drops it.
+    /// </summary>
+    [Fact]
+    public void The_brain_survives_a_restart_as_the_empty_value_in_its_place()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            store.SetRepositoryScope([BrainScope.Value, "backlog"]);
+
+            using (var scoped = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.Equal(
+                    ["", "backlog"],
+                    scoped.RootElement.GetProperty("repositoryScope").EnumerateArray().Select(e => e.GetString()));
+            }
+
+            Assert.Equal([BrainScope.Value, "backlog"], new ShellNavigationStore(path).RepositoryScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The retired "No repo" chip's state, under the name it went by, reopens as the
+    /// Brain alone, whatever scope sat beside it — and the next save writes the old key
+    /// no more.
+    /// </summary>
+    [Fact]
+    public void A_remembered_no_repository_only_state_migrates_to_the_brain()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                {
+                  "lastView": "Tasks",
+                  "repositoryScope": ["backlog"],
+                  "noRepositoryOnly": true
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+            Assert.Equal([BrainScope.Value], store.RepositoryScope);
+
+            store.SetLastView("Board");
+
+            Assert.DoesNotContain("noRepositoryOnly", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.Equal([BrainScope.Value], new ShellNavigationStore(path).RepositoryScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The old flag turned off is no scope at all: the scope beside it stands.</summary>
+    [Fact]
+    public void A_remembered_no_repository_state_that_was_off_leaves_the_scope_alone()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """{ "repositoryScope": ["backlog"], "noRepositoryOnly": false }""");
+
+            Assert.Equal(["backlog"], new ShellNavigationStore(path).RepositoryScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// A file written before any of this release's keys reads as their defaults —
     /// Month, Needs you first on, finished today off, every repository — and the next
     /// save adds none of them.

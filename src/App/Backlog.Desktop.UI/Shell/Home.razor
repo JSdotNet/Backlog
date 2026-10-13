@@ -3,7 +3,9 @@
 @using Backlog.Infrastructure.FileSystem
 @using Backlog.Infrastructure.Sync
 @using Backlog.Modules.Inbox.Abstractions.DataTransferObjects
+@using Backlog.SharedKernel
 @using Backlog.SharedKernel.Ai
+@using Backlog.Modules.Devbook.Abstractions
 @inject TasksDesktopState State
 @inject InboxDesktopState InboxState
 @inject IServiceProvider Services
@@ -87,8 +89,10 @@
            word to do it — the region now opens on the repository scope, which is
            what the identity region was actually for. *@
         <div class="app-header__identity">
-            @if (State.Repositories.Count > 0)
-            {
+            @* The scope renders always, with the Brain chip alone when no repository is
+               configured (local ADR 0027): the Brain depends on no machine and no
+               repository, so a person with only the Brain still has a working header. *@
+            @{
                 @* One repository on a plain press, one more with Ctrl held — while the
                    task list, the dashboard or the session list is on screen; see ScopeRepository below.
                    The anchor — the first one taken, the one Devbook reads — is marked only
@@ -105,6 +109,36 @@
                    classes, because the active fill, the identity edge and the anchor
                    mark all key on those. *@
                 <ButtonGroup CssClass="header-group app-header__repository-scope" AriaLabel="Repository scope">
+                    @* The Brain leads the scope, first and permanent: the scope of
+                       everything filed against no repository (local ADR 0027). It presses
+                       as a repository chip does, Ctrl included, and the anchor rules are
+                       the repositories' own. It wears band 2 as its identity edge whether
+                       or not the Colors switch is on, because it marks a place that is
+                       always there rather than a hue somebody chose
+                       (.devbook/design/color-scheme.md#the-brains-accent); the word and the
+                       first place carry the meaning, never the colour alone. No remove
+                       control: there is nothing to remove it from. *@
+                    @{
+                        var brainSelected = State.BrainInScope;
+                        var brainAnchor = brainSelected && State.SelectedRepositoryAliases.Count > 1 && State.BrainIsAnchor;
+                    }
+                    <ToggleButton BaseClass="chip chip--scope"
+                                  CssClass="@BrainScopeChipClass(brainAnchor)"
+                                  PressedCssClass="chip--active"
+                                  Pressed="brainSelected"
+                                  TestId="brain-scope-option"
+                                  Title="@BrainScopeChipTitle(brainSelected, brainAnchor)"
+                                  aria-current="@(brainAnchor ? "true" : null)"
+                                  OnClick="ScopeBrain">
+                        <BrainIcon CssClass="chip__icon" />@BrainChipLabel
+                    </ToggleButton>
+                    @* The divider that sets the Brain off from the repositories, inside
+                       the same border: one fused set, its leading member apart. Only
+                       while there is a repository to set it off from. *@
+                    @if (State.Repositories.Count > 0)
+                    {
+                        <span class="app-header__scope-divider" aria-hidden="true" data-testid="brain-scope-divider"></span>
+                    }
                     @foreach (var repository in State.Repositories)
                     {
                         var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
@@ -148,15 +182,19 @@
                    is no repository to be an identity for, and a control governing the
                    look of an empty set is a control with nothing to do — the same reason
                    the takeover group below hides itself when no takeover is
-                   offered. *@
-                <Toggle CssClass="header-switch"
-                        LabelCssClass="header-switch__label"
-                        ControlCssClass="toggle__track header-switch__track"
-                        Label="Colors"
-                        Id="repository-colours-switch"
-                        TestId="repository-colours-toggle"
-                        Checked="State.RepositoryColoursVisible"
-                        CheckedChanged="ShowRepositoryColours" />
+                   offered. The Brain's edge is not one of those hues, so it does not
+                   keep the switch on screen. *@
+                if (State.Repositories.Count > 0)
+                {
+                    <Toggle CssClass="header-switch"
+                            LabelCssClass="header-switch__label"
+                            ControlCssClass="toggle__track header-switch__track"
+                            Label="Colors"
+                            Id="repository-colours-switch"
+                            TestId="repository-colours-toggle"
+                            Checked="State.RepositoryColoursVisible"
+                            CheckedChanged="ShowRepositoryColours" />
+                }
             }
         </div>
 
@@ -644,6 +682,7 @@
                               RepositoryAlias="@RepositoryAliasFor"
                               RepositoryColour="@RepositoryColourFor"
                               PullRequestTask="PullRequestTaskFor"
+                              PullRequestInBrain="PullRequestInBrain"
                               OnOpenTask="OpenPlanEntryAsync"
                               OnOpenSession="OpenSessionAsync"
                               FocusPullRequest="@_focusPullRequest" />
@@ -729,8 +768,12 @@
                            the reader was already reading beside — unless an entry's
                            reference asked for another; see DevbookRepositoryAlias. *@
                         <DevbookPane RepositoryAlias="@DevbookRepositoryAlias"
+                                     SwitchRepositoryAlias="@DevbookSwitchRepositoryAlias"
+                                     ShowsBrainChanged="OnDevbookShowsBrainChanged"
+                                     OpenSearchResultElsewhere="OpenDevbookSearchResult"
                                      OpenReference="@_devbookOpenRequest"
-                                     OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
+                                     OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
+                                     OnOpenRepositoryChapter="OpenBrainRepoLinkAsync" />
                     </aside>
                 }
             </div>
@@ -837,6 +880,15 @@
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
         State.Changed += HandleStateChanged;
+
+        // Optional, the way Settings reads it: a host that composes no Brain store
+        // shows the chip as not yet set up, which still scopes.
+        _brainSettings = Services.GetService<IBrainSettings>();
+        if (_brainSettings is not null) _brainSettings.Changed += HandleBrainSettingsChanged;
+
+        // The Brain the Devbook pane reads. Optional for the same reason: a host
+        // that composes none offers the pane for repositories only.
+        _brainFolders = Services.GetService<IBrainFolderSource>();
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
@@ -1471,10 +1523,38 @@
     /// exactly as long as the scope the reader left alone: choosing a repository in
     /// the header is choosing what the pane reads, and the request is forgotten.
     /// </para>
+    /// <para>
+    /// The anchor is <see cref="DevbookRequestAnchor"/>, never
+    /// <see cref="TasksDesktopState.AnchorRepositoryAlias"/>: that one is the empty
+    /// string both with nothing pressed and with the Brain as anchor, so a request
+    /// asked under one outlived a press to the other and the Brain chip could not
+    /// bring the Brain back. And forgotten means dropped
+    /// (<see cref="ForgetDevbookRepositoryRequestLeftBehind"/>), not set aside: a
+    /// request merely ignored while the anchor differed came back with it.
+    /// </para>
     /// </summary>
     private DevbookRepositoryRequest? _devbookRepositoryRequest;
 
-    private sealed record DevbookRepositoryRequest(string Anchor, string RepositoryAlias);
+    private sealed record DevbookRepositoryRequest(string? Anchor, string RepositoryAlias);
+
+    /// <summary>The scope's anchor as a request is keyed on it: the first member,
+    /// <see cref="BrainScope.Value"/> for the Brain, or null when nothing is pressed —
+    /// the two states <see cref="TasksDesktopState.AnchorRepositoryAlias"/> spells
+    /// alike.</summary>
+    private string? DevbookRequestAnchor =>
+        State.SelectedRepositoryAliases is [var first, ..] ? first : null;
+
+    /// <summary>Drops the pane's repository request once the scope's anchor has moved
+    /// off the one it was asked under, so returning to that anchor later finds the
+    /// pane on the anchor rather than on a chapter followed long before.</summary>
+    private void ForgetDevbookRepositoryRequestLeftBehind()
+    {
+        if (_devbookRepositoryRequest is { } asked
+            && !string.Equals(asked.Anchor, DevbookRequestAnchor, StringComparison.Ordinal))
+        {
+            _devbookRepositoryRequest = null;
+        }
+    }
 
     /// <summary>The reference handed to the Devbook pane and not yet followed,
     /// numbered so the same one pressed twice is two requests. See
@@ -1504,9 +1584,58 @@
     /// anchor.</summary>
     private string DevbookRepositoryAlias =>
         _devbookRepositoryRequest is { } asked
-        && string.Equals(asked.Anchor, State.AnchorRepositoryAlias, StringComparison.Ordinal)
+        && string.Equals(asked.Anchor, DevbookRequestAnchor, StringComparison.Ordinal)
             ? asked.RepositoryAlias
-            : State.AnchorRepositoryAlias;
+            : _devbookSwitch is { } chosen
+              && string.Equals(chosen.Scope, DevbookSwitchScope, StringComparison.Ordinal)
+              && DevbookSwitchRepositoryAlias is { } partner
+                ? chosen.ShowsBrain ? BrainScope.Value : partner
+                : State.AnchorRepositoryAlias;
+
+    /// <summary>
+    /// Which side of the Devbook pane's <c>Brain | repo</c> switch the reader
+    /// pressed, and the scope it was pressed under (local ADR 0027 §4).
+    /// <para>
+    /// Shell state beside <see cref="_devbookRepositoryRequest"/>, for the same
+    /// reason: it chooses what the pane reads and must not touch what the header
+    /// scopes, so it never goes near the scope or the task filter. Keyed on the
+    /// whole scope, so any chip press drops it and the pane reopens on the anchor;
+    /// and not remembered across a restart, which keeps the scope alone (ADR 0027
+    /// §5).
+    /// </para>
+    /// </summary>
+    private DevbookSwitchChoice? _devbookSwitch;
+
+    private sealed record DevbookSwitchChoice(string Scope, bool ShowsBrain);
+
+    /// <summary>The scope as one string, in its order, to key the switch on.</summary>
+    private string DevbookSwitchScope => string.Join("|", State.SelectedRepositoryAliases);
+
+    /// <summary>
+    /// The repository on the other side of the switch: drawn only while the Brain
+    /// and at least one repository are in the scope, in a host that composes a
+    /// Brain. The anchor when a repository is the anchor; with the Brain as anchor,
+    /// the first repository taken after it — both are the first repository in the
+    /// scope's order.
+    /// </summary>
+    private string? DevbookSwitchRepositoryAlias =>
+        _brainFolders is not null
+        && IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
+        && State.BrainInScope
+        && BrainScope.Repositories(State.SelectedRepositoryAliases) is [var first, ..]
+            ? first
+            : null;
+
+    /// <summary>A press on the pane's switch. It changes what the pane reads and
+    /// nothing else; an entry's reference the pane was following gives way to it,
+    /// because the reader just chose.</summary>
+    private void OnDevbookShowsBrainChanged(bool showsBrain)
+    {
+        if (DevbookSwitchRepositoryAlias is null) return;
+
+        _devbookSwitch = new DevbookSwitchChoice(DevbookSwitchScope, showsBrain);
+        _devbookRepositoryRequest = null;
+    }
 
     /// <summary>
     /// One of an entry's Devbook references, opened from the entry: the Devbook pane
@@ -1541,7 +1670,7 @@
 
         _devbookRepositoryRequest = string.Equals(alias, State.AnchorRepositoryAlias, StringComparison.Ordinal)
             ? null
-            : new DevbookRepositoryRequest(State.AnchorRepositoryAlias, alias);
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, alias);
         _devbookOpenRequest = new DevbookOpenRequest(request.Reference, ++_devbookOpenSequence);
 
         // The pane's option may only now be on offer: with nothing scoped there was
@@ -1555,6 +1684,55 @@
     }
 
     private const string DevbookUnavailableTestId = "tasks-devbook-unavailable";
+
+    /// <summary>
+    /// A Brain note's <c>repo:</c> link, followed (local ADR 0027 §6): that
+    /// repository's devbook in the pane, at the chapter. The same road a task's
+    /// reference takes, so the header scope stays as the reader left it and the
+    /// pane's switch, or the scope, brings the Brain back.
+    /// </summary>
+    private Task OpenBrainRepoLinkAsync(BrainRepoLink link) => OpenRepositoryChapterAsync(link.Alias, link.Reference);
+
+    /// <summary>
+    /// A search result from a devbook the pane is not showing: the pane reads that
+    /// devbook — another repository, or the Brain — and opens the result there.
+    /// <para>
+    /// A repository's result takes the road a <c>repo:</c> link takes
+    /// (<see cref="OpenRepositoryChapterAsync"/>). The Brain is no repository, so
+    /// a Brain result is asked of the pane directly, the same way: it changes what
+    /// the pane reads and never the header's scope or the task filter, holds only
+    /// while the scope it was asked under stands, and the switch the reader may
+    /// have pressed gives way to it.
+    /// </para>
+    /// </summary>
+    private Task OpenDevbookSearchResult(DevbookSearchOpen result)
+    {
+        if (!result.Source.IsBrain) return OpenRepositoryChapterAsync(result.Source.Key, result.Reference);
+
+        _devbookSwitch = null;
+        _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
+            ? null
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
+        _devbookOpenRequest = new DevbookOpenRequest(result.Reference, ++_devbookOpenSequence);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// One repository's devbook in the pane, at a chapter, for a reader who chose it
+    /// from outside the pane's own menu — a Brain note's link or a search result.
+    /// </summary>
+    private Task OpenRepositoryChapterAsync(string repositoryAlias, string reference)
+    {
+        // The pane was on the Brain, perhaps through the switch: the reader just
+        // chose a repository, so the switch's choice gives way — else a chapter of
+        // the anchor repository would leave the pane on the Brain.
+        _devbookSwitch = null;
+
+        // The alias as configured, not as it was spelled: a link resolves
+        // case-insensitively, and the shell compares aliases exactly.
+        var alias = Devbook.Repository(repositoryAlias)?.Alias ?? repositoryAlias;
+        return OpenDevbookReferenceAsync(new DevbookReferenceRequest(alias, reference));
+    }
 
     /// <summary>
     /// The Backlog entry a delivery run was started from, opened from the sessions
@@ -1671,6 +1849,18 @@
     /// pane's "Mine" adds to the pull requests I opened myself.
     /// </para>
     /// </summary>
+    /// <summary>Whether a pull request belongs to a task filed against no repository —
+    /// what puts it in the Brain's scope on the pull requests list (local ADR 0027, §2).
+    /// The same relation <see cref="PullRequestTaskFor"/> answers, asked of the task's
+    /// repository.</summary>
+    private bool PullRequestInBrain(PullRequestTaskSubject pull)
+    {
+        var (matcher, rows) = PullRequestMatcher;
+        return matcher.Match(pull, false) is { } match
+            && rows.TryGetValue(match.Candidate.EntryId, out var row)
+            && State.RepositoryFor(row) is null;
+    }
+
     private DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
     {
         var (matcher, rows) = PullRequestMatcher;
@@ -1861,7 +2051,18 @@
     /// rather than working it out from folder settings itself.</summary>
     private bool DevbookPaneOptionVisible =>
         IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
-        && Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0;
+        && (DevbookBrainOffered || Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0);
+
+    /// <summary>
+    /// Whether the pane has the Brain to offer (local ADR 0027 §4): it reads the
+    /// Brain whenever nothing is pressed or the Brain is the anchor, and offers it
+    /// beside a repository through the switch. Needs no folder — the Brain is always
+    /// in the scope, and a pane on a Brain with no folder is where the person is
+    /// asked for one. A host that composes no Brain offers none.
+    /// </summary>
+    private bool DevbookBrainOffered =>
+        _brainFolders is not null
+        && (BrainScope.Is(DevbookRepositoryAlias) || DevbookSwitchRepositoryAlias is not null);
 
     private bool DevbookPaneVisible => DevbookPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Devbook);
 
@@ -1887,6 +2088,7 @@
         // identity would not show, so any change rebuilds the pull request matcher.
         _pullRequestMatcher = null;
         SynchronizePaneAvailability();
+        ForgetDevbookRepositoryRequestLeftBehind();
 
         RememberRepositoryScope();
         StateHasChanged();
@@ -2402,6 +2604,73 @@
         State.SetRepositoryFilter(alone ? string.Empty : repositoryAlias);
     }
 
+    /// <summary>Where the Brain folder is kept, or null in a host that composes none.
+    /// Read for the chip's word: until a folder is set it reads "Set up your Brain".</summary>
+    private IBrainSettings? _brainSettings;
+
+    /// <summary>The Brain the Devbook pane reads, or null in a host that composes none.</summary>
+    private IBrainFolderSource? _brainFolders;
+
+    private void HandleBrainSettingsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>The Brain chip's word: "Brain", or "Set up your Brain" while no folder
+    /// is set — the words <see cref="BrainSetup"/> keeps for the chip and the Settings
+    /// card alike.</summary>
+    private string BrainChipLabel => _brainSettings is { IsSet: true } ? BrainSetup.Label : BrainSetup.SetUpLabel;
+
+    /// <summary>
+    /// A press on the Brain chip — <see cref="ScopeRepository"/>'s rules, for the Brain:
+    /// a plain press picks it alone, or clears the scope when it already was alone; Ctrl
+    /// adds it beside the repositories already pressed, or takes it back out, while a
+    /// surface that can show several is on screen.
+    /// <para>
+    /// It scopes whether or not a folder is set (local ADR 0027, §1): the tasks filed
+    /// against no repository are there either way. Its tooltip says where the folder is
+    /// set; the Devbook pane on the Brain asks for one.
+    /// </para>
+    /// </summary>
+    private void ScopeBrain(MouseEventArgs args)
+    {
+        if ((args.CtrlKey || args.MetaKey) && RepositoryScopeTakesSeveral)
+        {
+            State.ToggleBrainInScope();
+            return;
+        }
+
+        if (State.SelectedRepositoryAliases is [var only] && BrainScope.Is(only))
+        {
+            State.SetRepositoryFilter(null);
+            return;
+        }
+
+        State.SetBrainFilter();
+    }
+
+    /// <summary>The Brain's identity edge, always band 2, plus the anchor's class while
+    /// there is a second chip for it to be distinct from.</summary>
+    private static string BrainScopeChipClass(bool anchor) =>
+        anchor ? "repo-mark repo-mark--2 app-header__brain-chip chip--anchor" : "repo-mark repo-mark--2 app-header__brain-chip";
+
+    /// <summary>What the Brain chip does next, worded as a repository chip's is, and
+    /// where its folder is set while none is.</summary>
+    private string BrainScopeChipTitle(bool selected, bool anchor)
+    {
+        const string What = "Brain: the tasks filed against no repository";
+        var setUp = _brainSettings is { IsSet: true } ? string.Empty : $" Set up your Brain folder in Settings › Storage.";
+
+        string next;
+        if (!RepositoryScopeTakesSeveral) next = selected ? $"Deselect {What}." : $"{What}.";
+        else if (!selected) next = $"{What}. Ctrl+click to add it to the scope.";
+        else if (State.SelectedRepositoryAliases.Count == 1) next = $"Deselect {What}.";
+        else
+        {
+            var name = anchor ? $"{What} — Devbook follows this one" : What;
+            next = $"{name}. Click to scope to it alone, Ctrl+click to remove it from the scope.";
+        }
+
+        return next + setUp;
+    }
+
     /// <summary>The identity mark, plus the anchor's own class while there is a
     /// second chip for it to be distinct from.</summary>
     private string? RepositoryScopeChipClass(string alias, bool anchor)
@@ -2483,6 +2752,7 @@
     {
         CancelAsk();
         State.Changed -= HandleStateChanged;
+        if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;

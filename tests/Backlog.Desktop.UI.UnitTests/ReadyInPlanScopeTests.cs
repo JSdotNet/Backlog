@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// every plan is not plan work.
 /// </para>
 /// <para>
-/// A scope rather than one of a set, like My Day and No repo beside it: it
+/// A scope rather than one of a set, like My Day beside it: it
 /// narrows whatever the repository, the status and the tags have already left in
 /// view instead of replacing any of them.
 /// </para>

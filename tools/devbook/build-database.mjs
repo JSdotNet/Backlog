@@ -6,6 +6,13 @@
 //   node tools/devbook/build-database.mjs --out <file>             # write the database to <file>
 //   node tools/devbook/build-database.mjs --root ../other-repo --check
 //   node tools/devbook/build-database.mjs --root ../other-repo --generator ../devbook/tools/devbook-meta --out <file>
+//   node tools/devbook/build-database.mjs --brain --root <brain folder> --out <file>
+//
+// `--brain` builds a Brain — the person's own notes, one folder outside every
+// repository (local ADR 0026) — under its own convention: the areas its
+// `CONVENTIONS.md` declares instead of the devbook folders, with this
+// repository's installed generator doing the parsing. `brain.mjs` says what
+// differs.
 //
 // Local ADR 0015 moved the database the app reads out of every repository and
 // made the desktop app its writer: `Backlog.Infrastructure.Devbook` builds it
@@ -53,6 +60,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { DEVBOOK_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
+import { loadBrainGenerator } from './brain.mjs';
 import { loadGenerator } from './generator.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -295,7 +303,7 @@ function chapterSlices(markdown, chapters) {
     });
 }
 
-function insertGraph(db, graph) {
+function insertGraph(db, graph, listAttributes = []) {
     const node = db.prepare(`
         INSERT INTO node (id, type, label, folder, path, slug, level, line, status, out_of_scope, effort, kind, version, issue, sync)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -325,7 +333,7 @@ function insertGraph(db, graph) {
             data.sync == null ? null : String(data.sync)
         );
 
-        for (const name of LIST_ATTRIBUTES) {
+        for (const name of [...LIST_ATTRIBUTES, ...listAttributes]) {
             const values = data[name];
             if (!values) continue;
             for (const value of Array.isArray(values) ? values : [values]) {
@@ -641,7 +649,8 @@ export async function buildDatabase(repoRoot, target, generator = null) {
             problems.push({ scope: REPO_SCOPE, ...problem });
         }
 
-        counts = insertGraph(db, graph);
+        // A Brain adds `para`, `repos` and `tasks` (brain.mjs); a devbook adds none.
+        counts = insertGraph(db, graph, generator.listAttributes ?? []);
         counts.outline_entry = 0;
 
         for (const scope of scopes) {
@@ -720,6 +729,7 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
 
     const repoRoot = resolve(optionValue('--root') ?? DEFAULT_ROOT);
     const checkOnly = args.includes('--check');
+    const brain = args.includes('--brain');
     const out = optionValue('--out');
 
     if (!checkOnly && !out) {
@@ -733,7 +743,11 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
 
     let generator;
     try {
-        generator = await loadGenerator(repoRoot, { generatorDir: optionValue('--generator') });
+        // A Brain carries no generator of its own and no `.devbook/`: it is parsed
+        // by the one this repository has installed, under the Brain convention.
+        generator = brain
+            ? await loadBrainGenerator(repoRoot, await loadGenerator(DEFAULT_ROOT, { generatorDir: optionValue('--generator') }))
+            : await loadGenerator(repoRoot, { generatorDir: optionValue('--generator') });
     } catch (error) {
         console.error(`Failed to build the devbook database: ${error.message}`);
         process.exit(2);

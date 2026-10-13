@@ -1849,7 +1849,7 @@
     // Escape is passed on without its default refused: it has none worth
     // stopping, and a pane handler may still want to hear it bubble.
     const shortcutPanes = new Map();
-    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
+    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'b', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
     const TYPING_TARGETS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]';
     let lastShortcutPane = null;
 
@@ -3012,7 +3012,12 @@
             links.push({
                 from,
                 to,
-                control: { x: midX * lift, y: midY * lift, z: midZ * lift }
+                control: { x: midX * lift, y: midY * lift, z: midZ * lift },
+                // Both optional and both the host's: words drawn on the edge (the
+                // Brain atlas writes a repo: link's alias there), and a dash for a
+                // link the host says cannot be followed.
+                label: typeof edge.label === 'string' && edge.label.length > 0 ? edge.label : null,
+                dashed: edge.dashed === true
             });
         }
 
@@ -3180,6 +3185,8 @@
                 drawNode(point);
             }
 
+            drawLinkLabels((getComputedStyle(document.documentElement).getPropertyValue('--font-family-base') || '').trim()
+                || 'system-ui, sans-serif');
             drawLabels();
 
             if (moving) schedule();
@@ -3206,13 +3213,61 @@
                     && (link.from.node.id === selectedId || link.to.node.id === selectedId);
                 const strength = selectedId ? (lit ? 0.85 : 0.07) : 0.26;
 
-                context.globalAlpha = strength;
+                context.globalAlpha = link.dashed ? Math.min(1, strength * 1.6) : strength;
                 context.strokeStyle = lit ? palette.focus : palette.edge;
                 context.lineWidth = Math.max(0.5, (lit ? 2.2 : 1.2) * ((from.scale + to.scale) / 2));
+                // The dash scales with the line so it still reads as a dash up
+                // close and does not smear into a solid line far away.
+                context.setLineDash(link.dashed ? [Math.max(2, context.lineWidth * 3), Math.max(2, context.lineWidth * 2.5)] : []);
                 context.beginPath();
                 context.moveTo(from.x, from.y);
                 context.quadraticCurveTo(control.x, control.y, to.x, to.y);
                 context.stroke();
+            }
+
+            context.setLineDash([]);
+            context.globalAlpha = 1;
+        }
+
+        /*
+            The words a host put on an edge, at the middle of its curve: the point
+            at t = 0.5 of the quadratic, which is where the eye looks for a label.
+            Drawn after the nodes so no node paints over one, and only for an edge
+            that is not dimmed by a selection elsewhere — a label on a line the
+            reader is told to ignore is noise.
+        */
+        function drawLinkLabels(font) {
+            for (const link of layout.links) {
+                if (!link.label) continue;
+
+                const from = link.from.projected;
+                const to = link.to.projected;
+                if (!from || !to) continue;
+
+                const control = backlogAtlasProject(link.control, view);
+                if (!control) continue;
+
+                const lit = selectedId
+                    && (link.from.node.id === selectedId || link.to.node.id === selectedId);
+                if (selectedId && !lit) continue;
+
+                const x = 0.25 * from.x + 0.5 * control.x + 0.25 * to.x;
+                const y = 0.25 * from.y + 0.5 * control.y + 0.25 * to.y;
+
+                context.font = '400 11px ' + font;
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+
+                const width = context.measureText(link.label).width;
+                context.fillStyle = palette.surface;
+                context.globalAlpha = 0.8;
+                context.beginPath();
+                context.roundRect(x - width / 2 - 4, y - 8, width + 8, 16, 3);
+                context.fill();
+
+                context.globalAlpha = lit ? 1 : 0.85;
+                context.fillStyle = lit ? palette.ink : palette.inkMuted;
+                context.fillText(link.label, x, y);
             }
 
             context.globalAlpha = 1;

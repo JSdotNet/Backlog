@@ -31,8 +31,11 @@ public class TaskItemsCompletedTaskSourceTests
         Assert.Equal(3, only.Effort);
     }
 
+    /// <summary>An id nothing is configured under is left out, so a task naming only
+    /// such ids is filed against no configured repository — the Brain's, as the task
+    /// list reads the same row (local ADR 0027).</summary>
     [Fact]
-    public void Repository_ids_resolve_to_aliases_and_an_unknown_id_crosses_as_itself()
+    public void Repository_ids_resolve_to_aliases_and_an_unknown_id_is_left_out()
     {
         var completed = TaskItemsCompletedTaskSource.Completed(
             [Entry(new DateOnly(2026, 9, 1), null, "JSdotNet/Backlog", "jsdotnet/backlog", "someone/else")],
@@ -41,7 +44,7 @@ public class TaskItemsCompletedTaskSourceTests
 
         var only = Assert.Single(completed);
         Assert.Null(only.Effort);
-        Assert.Equal(["backlog", "someone/else"], only.RepositoryAliases);
+        Assert.Equal(["backlog"], only.RepositoryAliases);
     }
 
     private static TaskItemDto Entry(DateOnly? completedOn, int? effort, params string[] repoIds) =>

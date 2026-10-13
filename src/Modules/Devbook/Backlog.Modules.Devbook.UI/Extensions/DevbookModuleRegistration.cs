@@ -64,6 +64,10 @@ public static class DevbookModuleRegistration
             sp.GetRequiredService<GitHubSettingsStore>(),
             copilotCliLauncher(sp)));
         services.AddSingleton<DevbookScope>();
+        // One search over the Brain and every configured repository's devbook.
+        // Built from what the host composed, so a host with no Brain or no model
+        // gets a search without them.
+        services.AddSingleton(DevbookUnifiedSearch.From);
         services.AddSingleton<DevbookUpdateService>();
 
         // Shared by the Devbook pane and the settings screen, and a singleton so

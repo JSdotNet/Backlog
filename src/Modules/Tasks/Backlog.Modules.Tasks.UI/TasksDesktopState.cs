@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
 using System.Globalization;
@@ -405,43 +406,39 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private readonly List<string> _selectedRepositoryAliases = [];
 
-    /// <summary>The first repository in the scope, or empty when nothing is scoped.
-    /// It is the one the Devbook pane reads and the one a new entry is filed
-    /// under, because every reader that can take one repository and not several
-    /// takes this one.</summary>
+    /// <summary>The first repository in the scope, or empty when nothing is scoped —
+    /// and empty too when the anchor is the Brain, whose reserved value
+    /// (<see cref="BrainScope.Value"/>) is the empty string. It is the one the Devbook
+    /// pane reads and the one a new entry is filed under, because every reader that
+    /// can take one repository and not several takes this one; an anchor of Brain
+    /// names no repository to read or to file under, which is what Brain means.
+    /// <see cref="BrainIsAnchor"/> tells the two empties apart.</summary>
     public string AnchorRepositoryAlias =>
         _selectedRepositoryAliases.Count > 0 ? _selectedRepositoryAliases[0] : string.Empty;
 
     /// <summary>
-    /// True while the view is narrowed to the entries filed against no repository.
+    /// Whether the Brain is in the scope (local ADR 0027): the scope of everything
+    /// filed against no repository.
     /// <para>
-    /// A scope of its own rather than a value <see cref="SelectedRepositoryAliases"/>
-    /// could hold, because "no repository" is not a repository and every reader of
-    /// that set would have to be taught the exception. A sentinel there would be
-    /// handed to the Devbook pane, which answers an unresolvable alias with
-    /// "select a configured repository"; written into a new draft as
-    /// <c>`repo:`</c>; and wiped by <see cref="ForgetStaleRepositoryScope"/> on the
-    /// next pass, which resolves an alias against settings and finds nothing. A bool
-    /// here is read by the one place that means it.
-    /// </para>
-    /// <para>
-    /// It narrows what the repository scope already left in view rather than
-    /// replacing it — the same composition My Day has. With a repository selected
-    /// the two ask for opposite things and the result is empty, which is honest:
-    /// the chip's count says zero before the reader presses it.
+    /// A member of <see cref="SelectedRepositoryAliases"/> rather than a scope of its
+    /// own, held there as the reserved <see cref="BrainScope.Value"/>, so it takes
+    /// part in the anchor, Ctrl and the remembered order exactly as a repository
+    /// does. It replaces the old <c>NoRepositoryOnly</c> flag, which narrowed the same
+    /// rows beside the scope under a second name and was never remembered.
     /// </para>
     /// </summary>
-    public bool NoRepositoryOnly { get; private set; }
+    public bool BrainInScope => _selectedRepositoryAliases.Contains(BrainScope.Value, StringComparer.Ordinal);
+
+    /// <summary>Whether the Brain is the scope's anchor — the first chip taken.</summary>
+    public bool BrainIsAnchor => _selectedRepositoryAliases is [var first, ..] && BrainScope.Is(first);
 
     /// <summary>
-    /// The rows the whole repository scope leaves in view — <see cref="ScopedRows"/>,
-    /// narrowed to the entries filed against no repository while
-    /// <see cref="NoRepositoryOnly"/> — for a view beside the list that draws its own
-    /// selection from the scope, such as In progress. Asked the way the list asks it:
-    /// "resolves to no configured repository".
+    /// The rows the whole repository scope leaves in view — the same rows as
+    /// <see cref="ScopedRows"/>, the Brain included — for a view beside the list that
+    /// draws its own selection from the scope, such as In progress. Asked the way the
+    /// list asks it: a row is the Brain's when it resolves to no configured repository.
     /// </summary>
-    public IEnumerable<EntryRow> RowsInRepositoryScope =>
-        NoRepositoryOnly ? ScopedRows.Where(row => RepositoryFor(row) is null) : ScopedRows;
+    public IEnumerable<EntryRow> RowsInRepositoryScope => ScopedRows;
 
     /// <summary>
     /// True while the view is narrowed to the entries marked <c>!ready</c> that
@@ -455,7 +452,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </para>
     /// <para>
     /// A ticked-off row is out, whatever its status still says. Composes with
-    /// every other scope the way My Day and "no repository" do.
+    /// every other scope the way My Day and the repository scope do.
     /// </para>
     /// </summary>
     public bool ReadyInPlanOnly { get; private set; }
@@ -537,7 +534,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <para>
     /// Unlike a status, an entry has any number of tags, so a row is counted under
     /// every tag it wears. The counts are occurrences rather than a partition, taken
-    /// over the same pool the My Day and No repo chips count against — see
+    /// over the same pool the My Day chip counts against — see
     /// <see cref="ScopedRows"/>. Nothing in the group counts rows, because the chip
     /// that used to is gone: with the chips pressable, "all of them" is no chip at
     /// all.
@@ -1121,7 +1118,32 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var alias = ResolveAlias(repositoryAlias);
         if (alias.Length == 0) return;
 
-        if (!_selectedRepositoryAliases.Remove(alias)) _selectedRepositoryAliases.Add(alias);
+        ToggleInScope(alias);
+    }
+
+    /// <summary>Scopes the backlog to the Brain alone — the entries filed against no
+    /// repository — replacing whatever the scope held. The plain press on the Brain
+    /// chip; nothing to do, and nothing announced, when the Brain is already alone.
+    /// <see cref="SetRepositoryFilter"/> with nothing clears the scope instead.</summary>
+    public void SetBrainFilter()
+    {
+        if (_selectedRepositoryAliases is [var only] && BrainScope.Is(only)) return;
+
+        _selectedRepositoryAliases.Clear();
+        _selectedRepositoryAliases.Add(BrainScope.Value);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Takes the Brain into the scope beside the repositories already there,
+    /// or back out of it — the Ctrl-press on the Brain chip, the same gesture
+    /// <see cref="ToggleRepositoryInScope"/> is for a repository.</summary>
+    public void ToggleBrainInScope() => ToggleInScope(BrainScope.Value);
+
+    private void ToggleInScope(string member)
+    {
+        if (!_selectedRepositoryAliases.Remove(member)) _selectedRepositoryAliases.Add(member);
 
         ApplyFilter();
         Changed?.Invoke();
@@ -1144,8 +1166,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Replaces the scope with a remembered one, in its order, so the anchor it was
-    /// written with comes back first. An alias nothing is configured under any more
-    /// is dropped, and a repeat is kept once; nothing left means every repository.
+    /// written with comes back first. The Brain's reserved value
+    /// (<see cref="BrainScope.Value"/>) comes back as the Brain in its place; an alias
+    /// nothing is configured under any more is dropped, and a repeat is kept once;
+    /// nothing left means every repository.
     /// <para>
     /// One call rather than a <see cref="ToggleRepositoryInScope"/> per alias,
     /// because each toggle filters the list again and announces a change, and a
@@ -1164,8 +1188,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (!RepositoryRegistryReadable) return;
 
         var restored = repositoryAliases
-            .Select(ResolveAlias)
-            .Where(alias => alias.Length > 0)
+            .Select(member => BrainScope.Is(member) ? BrainScope.Value : ResolveAliasOrNull(member))
+            .OfType<string>()
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
@@ -1186,20 +1210,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>The configured spelling of an alias, or empty when nothing is
     /// configured under it.</summary>
-    private string ResolveAlias(string? repositoryAlias) =>
-        string.IsNullOrEmpty(repositoryAlias)
-            ? string.Empty
-            : _gitHub.Settings.Current.Find(repositoryAlias)?.Alias ?? string.Empty;
+    private string ResolveAlias(string? repositoryAlias) => ResolveAliasOrNull(repositoryAlias) ?? string.Empty;
 
-    /// <summary>Turns the "no repository" scope on or off. See
-    /// <see cref="NoRepositoryOnly"/> for why this is a scope of its own and not a
-    /// value <see cref="SelectedRepositoryAliases"/> holds.</summary>
-    public void SetNoRepositoryFilter(bool only)
-    {
-        NoRepositoryOnly = only;
-        ApplyFilter();
-        Changed?.Invoke();
-    }
+    /// <summary>The configured spelling of an alias, or null when nothing is
+    /// configured under it — never the Brain's empty value, which no alias is.</summary>
+    private string? ResolveAliasOrNull(string? repositoryAlias) =>
+        string.IsNullOrEmpty(repositoryAlias)
+            ? null
+            : _gitHub.Settings.Current.Find(repositoryAlias)?.Alias;
 
     /// <summary>Turns the "ready in a plan" scope on or off. See
     /// <see cref="ReadyInPlanOnly"/> for what it keeps.</summary>
@@ -1276,7 +1294,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         var widened = false;
 
-        if (_selectedRepositoryAliases.Count > 0 && !RowBelongsToSelectedRepository(row))
+        if (_selectedRepositoryAliases.Count > 0 && !RowInRepositoryScope(row))
         {
             _selectedRepositoryAliases.Clear();
             widened = true;
@@ -1285,12 +1303,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (MyDayOn is { } myDay && row.PreviewInMyDayOn != myDay)
         {
             MyDayOn = null;
-            widened = true;
-        }
-
-        if (NoRepositoryOnly && RepositoryFor(row) is not null)
-        {
-            NoRepositoryOnly = false;
             widened = true;
         }
 
@@ -1349,9 +1361,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// filed by typing, which is how areas have always been made.
     /// </para>
     /// <para>
-    /// The "no repository" scope seeds nothing either, and does not need to: an
-    /// entry with no <c>`repo:`</c> token already belongs to it, so a draft created
-    /// under it stays in view without being told to.
+    /// An anchor of Brain seeds nothing either, and does not need to: an entry with
+    /// no <c>`repo:`</c> token already belongs to the Brain, so a draft created under
+    /// it stays in view without being told to. <see cref="AnchorRepositoryAlias"/> is
+    /// empty then, which is what keeps the token out.
     /// </para>
     /// <para>
     /// A <paramref name="status"/> seeds the entry in that status — the Board's
@@ -5047,7 +5060,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         if (_selectedRepositoryAliases.Count > 0)
         {
-            rows = rows.Where(RowBelongsToSelectedRepository);
+            rows = rows.Where(RowInRepositoryScope);
         }
 
         var repositoryScopedRows = rows.ToList();
@@ -5061,16 +5074,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (MyDayOn is { } myDay)
         {
             rows = rows.Where(x => x.PreviewInMyDayOn == myDay);
-        }
-
-        // And so does the "no repository" scope, on the same terms — see
-        // NoRepositoryOnly. Asked as "resolves to no configured repository" rather
-        // than "carries no `repo:` token", because that is the question the row
-        // itself answers: a token naming something that is not configured shows no
-        // repository on the row, so the reader who filed it here is right.
-        if (NoRepositoryOnly)
-        {
-            rows = rows.Where(x => RepositoryFor(x) is null);
         }
 
         // And the "ready in a plan" scope, on the same terms again.
@@ -5178,6 +5181,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
     }
 
+    /// <summary>A row is in the repository scope when the Brain is scoped and the row
+    /// resolves to no configured repository, or when it belongs to a scoped
+    /// repository. Asked as "resolves to no configured repository" rather than
+    /// "carries no <c>`repo:`</c> token", because that is the question the row itself
+    /// answers: a token naming something that is not configured shows no repository
+    /// on the row, so the reader who filed it under the Brain is right.</summary>
+    private bool RowInRepositoryScope(EntryRow row) =>
+        (BrainInScope && RepositoryFor(row) is null) || RowBelongsToSelectedRepository(row);
+
     /// <summary>A row is in the scope when one of its targets names a scoped
     /// repository. Any rather than the first, because an entry that targets two
     /// repositories belongs to both scopes — hiding it from one would be the scope
@@ -5194,16 +5206,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// repository scoped, is the same answer <see cref="SetRepositoryFilter"/>
     /// gives an alias it cannot resolve.
     /// <para>
-    /// <see cref="NoRepositoryOnly"/> needs no equivalent: it names no repository,
-    /// so there is nothing settings can take away from it.
+    /// The Brain (<see cref="BrainScope.Value"/>) is never stale: it names no
+    /// repository, so there is nothing settings can take away from it.
     /// </para>
     /// </summary>
     private void ForgetStaleRepositoryScope() =>
-        _selectedRepositoryAliases.RemoveAll(alias => _gitHub.Settings.Current.Find(alias) is null);
+        _selectedRepositoryAliases.RemoveAll(alias => !BrainScope.Is(alias) && _gitHub.Settings.Current.Find(alias) is null);
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group
-    /// is rebuilt from what the scopes — the repository, My Day, No repo and Not
+    /// is rebuilt from what the scopes — the repository and Brain, My Day and Not
     /// waiting — leave in view, and disappears entirely while nothing in scope
     /// carries a tag. A bar that grew a fourth group
     /// with nothing pressable in it would be charging every reader for a feature only

@@ -94,7 +94,7 @@
                        more way of narrowing the list.
 
                        A ToggleButton wearing the same chip classes, because it is
-                       the same gesture as My Day and No repo: a state that stays
+                       the same gesture as My Day and Ready in a plan: a state that stays
                        on until it is pressed again, with aria-pressed saying so.
                        Matching their shape is also what gives it their focus ring
                        rather than a second one written here.
@@ -141,8 +141,8 @@
                         </ToggleButton>
                     </div>
 
-                    @* Two scopes rather than one of a set, so each holds a state of
-                       its own: both narrow whatever the repository scope, the tags
+                    @* Scopes rather than one of a set, so each holds a state of
+                       its own: each narrows whatever the repository scope, the tags
                        and the status have already left in view instead of replacing
                        any of them. That is what makes them ToggleButtons with
                        aria-pressed beside one radiogroup — the statuses', now the only
@@ -150,7 +150,7 @@
                        in the semantics, not just in the shape.
 
                        They are not exclusive with each other either. "In today's My
-                       Day and filed nowhere" is a real question, and it is the one
+                       Day and ready in a plan" is a real question, and it is the one
                        both chips pressed asks.
 
                        Each wears a glyph in place of its word, so the group costs
@@ -169,24 +169,9 @@
                             <SunIcon CssClass="chip__icon" /><span class="sr-only">My Day</span><span class="chip__count">@MyDayCount</span>
                         </ToggleButton>
 
-                        @* The one scope the header's repository chips cannot express:
-                           they name the repositories that exist, and this names their
-                           absence. It wears no identity hue for the same reason —
-                           there is no repository here whose colour it could be.
-
-                           With a repository selected in the header the two ask for
-                           opposite things and this count reads 0, which is the chip
-                           saying so before it is pressed rather than an empty list
-                           afterwards. *@
-                        <ToggleButton BaseClass="chip chip--filter chip--scope"
-                                      PressedCssClass="chip--active"
-                                      Pressed="@State.NoRepositoryOnly"
-                                      TestId="norepo-filter-option"
-                                      Title="@(State.NoRepositoryOnly ? "Show everything again" : "Show only what is filed against no repository")"
-                                      PressedChanged="State.SetNoRepositoryFilter">
-                            <FolderOffIcon CssClass="chip__icon" /><span class="sr-only">No repo</span><span class="chip__count">@NoRepositoryCount</span>
-                        </ToggleButton>
-
+                        @* No "No repo" chip here any more: the header's Brain chip is the
+                           one place that says "no repository" (local ADR 0027), and it
+                           is remembered where this chip never was. *@
                         @* What a plan has lined up to pick up: entries marked
                            `!ready` and filed under a `+plan` — see
                            TasksDesktopState.ReadyInPlanOnly. *@
@@ -2915,20 +2900,14 @@
     private bool MyDayOnly => State.MyDayOn is not null;
 
     /// <summary>How many open entries are in today's My Day, counted off the rows the
-    /// repository scope leaves in view — the same pool the No repo chip counts, so
-    /// neither number changes meaning when a tag or a status is picked. Open, as on a
+    /// repository scope leaves in view — the same pool the Ready in a plan chip counts,
+    /// so neither number changes meaning when a tag or a status is picked. Open, as on a
     /// tag chip's face: a ticked-off entry stays in My Day and stays listed, but it is
     /// no longer something to do. Derived here because this is where the clock is.</summary>
     private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && IsInMyDay(row));
 
-    /// <summary>How many of those same open rows are filed against no repository. It
-    /// is the state that decides what "no repository" means — see
-    /// <c>TasksDesktopState.NoRepositoryOnly</c> — so the count asks it rather than
-    /// working the answer out a second way here.</summary>
-    private int NoRepositoryCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && State.RepositoryFor(row) is null);
-
-    /// <summary>How many of those same rows are ready in a plan. The same
-    /// arrangement as No repo: the state decides, and the count asks it — see
+    /// <summary>How many of those same rows are ready in a plan. The state decides,
+    /// and the count asks it — see
     /// <c>TasksDesktopState.IsReadyInPlan</c>, which already leaves finished rows
     /// out.</summary>
     private int ReadyInPlanCount => State.ScopedRows.Count(State.IsReadyInPlan);

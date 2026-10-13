@@ -1,7 +1,7 @@
 # 12. Glossary
 
 ```meta
-related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devbook/domain/context-map.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md"]
 ```
 
 Domain-specific vocabulary (bounded context names, aggregates, domain events) is
@@ -13,7 +13,7 @@ lists only system-wide architecture terms that don't belong to a single domain.
 ## Terms
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md"]
 ```
 
 | Term | Definition |
@@ -21,7 +21,8 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 | **Local-first** | Design approach where the desktop app owns canonical data and works fully offline; the cloud is additive, never required. |
 | **Standalone mode** | Desktop running without any cloud connection; all data local, GitHub sync direct via `gh` CLI. |
 | **Connected mode** | Desktop additionally syncing state to the cloud for phone access and webhook forwarding. |
-| **Dot-folder contract** | Scope-portable `.inbox/`, `.backlog/`, `.brain/` folders present at workspace, repo, and project levels. |
+| **Brain** | The person's own notes: one devbook-shaped folder per user, outside every repository, whose derived database the app builds into its own storage. See `.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`. It is also the header scope of everything filed against no repository (`.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md`). |
+| **Dot-folder contract** | Scope-portable `.inbox/` and `.backlog/` folders present at workspace, repo, and project levels. The Brain is one folder per user outside every repository instead (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`). |
 | **Fetch worker** | A local desktop background job that polls an external source (YouTube, website, email, GitHub). |
 | **Thin cloud** | The principle that the cloud service only coordinates sync, forwards webhooks, pushes notifications, and hosts the PC registry — no domain data or fetching. |
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |

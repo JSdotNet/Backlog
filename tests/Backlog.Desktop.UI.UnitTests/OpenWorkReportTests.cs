@@ -214,7 +214,7 @@ public sealed class OpenWorkReportTests
             });
 
         Assert.Equal(
-            [new OpenWorkCount("docs", 2), new OpenWorkCount("backlog", 1), new OpenWorkCount("No repo", 1)],
+            [new OpenWorkCount("docs", 2), new OpenWorkCount("backlog", 1), new OpenWorkCount("Brain", 1)],
             report.ByRepository);
     }
 

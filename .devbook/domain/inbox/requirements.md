@@ -127,16 +127,16 @@ The system SHALL show the kind filters as pills led by an All pill carrying the 
 ```meta
 type: requirement
 status: draft
-tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_four_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys
 ```
 
-The system SHALL show Move to backlog, Move to list, Defer and Archive in a bar fixed at the foot of the detail, each naming its key, that stays in view however far the detail scrolls.
+The system SHALL show Move to backlog, To Brain, Move to list, Defer and Archive in a bar fixed at the foot of the detail, each naming its key, that stays in view however far the detail scrolls.
 
 #### Scenario: A long article
 
 - **Given** an item whose notes run past the bottom of the detail
 - **When** the reader scrolls to the end of the notes
-- **Then** the four decisions are still in view at the foot of the detail
+- **Then** the decisions are still in view at the foot of the detail
 
 ### Requirement: Sources open from the header
 
@@ -462,15 +462,15 @@ The system SHALL offer in triage a repository picker with one box per configured
 - **When** they press r
 - **Then** the item is moved to the backlog as one task in each of the two repositories
 
-### Requirement: Triage shows the four decisions as buttons
+### Requirement: Triage shows the decisions as buttons
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_defer_button_offers_the_review_dates_as_d_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_triage_decisions_name_r_l_d_and_a_and_g_reaches_the_tags]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_defer_button_offers_the_review_dates_as_d_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_triage_decisions_name_r_b_l_d_and_a_and_g_reaches_the_tags]
 ```
 
-The system SHALL show in triage mode four decision buttons — Move to backlog, Move to list, Defer and Archive — each naming its key and doing what that key does.
+The system SHALL show in triage mode the decision buttons — Move to backlog, To Brain, Move to list, Defer and Archive — each naming its key and doing what that key does.
 
 #### Scenario: Deferring by button
 
@@ -595,7 +595,7 @@ The system SHALL show no AI card for an item whose model call failed and SHALL l
 
 - **Given** Foundry is configured and its endpoint cannot be reached
 - **When** the reader opens an item in triage
-- **Then** the item is shown with its suggestions and four decisions, and with no AI card
+- **Then** the item is shown with its suggestions and its decisions, and with no AI card
 
 ## Merge into a task
 
@@ -1337,11 +1337,11 @@ status: draft
 tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_knowledge_suggestion_says_why_it_cannot_be_taken_has_no_number_and_can_still_be_dismissed
 ```
 
-The system SHALL show a suggestion to keep an item as knowledge without a number, with the reason it cannot be taken, and let the reader turn it down.
+The system SHALL show a suggestion that cannot be taken without a number, with the reason it cannot be taken, and let the reader turn it down.
 
-#### Scenario: Collected material
+#### Scenario: A suggestion with a reason against it
 
-- **Given** an open article with a knowledge suggestion
+- **Given** an open article whose only suggestion carries a reason it cannot be taken
 - **When** the reader presses 1
 - **Then** nothing happens, and the chip still offers its ×
 
@@ -1652,6 +1652,70 @@ The system SHALL add each dependency the drafter infers between two items of the
 - **Given** the reader has pressed Ask the AI to order
 - **When** the drafter has not answered yet
 - **Then** Confirm is disabled until it does
+
+## Route to Brain
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#route-to-brain]
+```
+
+> The requirements of routing an item To Brain (local ADR 0026).
+
+### Requirement: To Brain writes the item as a note in the Brain's inbox area
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.A_capture_becomes_a_note_and_the_item_leaves_the_queue_as_routed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_captured_link_keeps_its_address, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.An_inbox_note_becomes_a_brain_note_with_its_title_and_body, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.To_brain_in_triage_routes_the_item_says_where_it_went_and_moves_on]
+```
+
+The system SHALL write an item routed To Brain as a new note in the Brain's inbox area, with the item's title and body, and mark the item routed.
+
+#### Scenario: A capture
+
+- **Given** a captured article titled "Event sourcing in practice" and a Brain under the PARA default
+- **When** the reader routes it To Brain
+- **Then** `_inbox` holds a note with that title and the capture's body, and the item has left the queue as routed
+
+#### Scenario: An Inbox note
+
+- **Given** an Inbox note titled "Standup" made on the phone
+- **When** the reader routes it To Brain on the desktop
+- **Then** `_inbox` holds a note titled "Standup" with the same body
+
+### Requirement: A Brain note never rides the task feed
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.An_inbox_note_keeps_its_title_and_body_and_stays_on_the_phone
+```
+
+The system SHALL put no `note` document on the task feed for a note written by To Brain.
+
+#### Scenario: After routing a note
+
+- **Given** an Inbox note the phone shows in its Notes list
+- **When** the reader routes it To Brain and the phone pulls after the desktop syncs
+- **Then** the phone's Notes list still shows the Inbox note and no second note
+
+### Requirement: No Brain folder, no route
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests.A_brain_that_refuses_leaves_the_item_open_and_says_why, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.No_brain_folder_is_refused_with_the_brain_s_own_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.A_brain_that_is_not_set_up_is_said_and_the_item_stays]
+```
+
+The system SHALL refuse To Brain while no Brain folder is set up, say so, and leave the item open.
+
+#### Scenario: First use
+
+- **Given** no Brain folder is set
+- **When** the reader routes an item To Brain
+- **Then** the item stays in the queue and the reader is told to set up the Brain first
 
 ## Notes on the phone
 

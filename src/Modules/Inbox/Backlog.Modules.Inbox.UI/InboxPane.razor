@@ -376,6 +376,7 @@
         ("d", "Defer…"),
         ("l", "Move to list…"),
         ("r", "Move to backlog"),
+        ("b", "To Brain"),
         ("g", "Tags"),
         ("1–9", "Take the suggestion with that number, from the rows or the item"),
         ("x", "Pick the item for a bulk action"),
@@ -443,7 +444,7 @@
 
             // The inbox-zero screen has no detail on it, so the keys that act
             // on the open item have nothing to act on; U and ? still work.
-            if (State.ShowsInboxZero && key is "a" or "r" or "d" or "l" or "g" or "x") return;
+            if (State.ShowsInboxZero && key is "a" or "r" or "b" or "d" or "l" or "g" or "x") return;
 
             switch (key)
             {
@@ -461,6 +462,9 @@
                 case "r" when CanDecide:
                     // In triage the repositories ticked there go with the route.
                     await (State.TriageMode ? State.RouteFromTriageAsync() : State.RouteToBacklogAsync());
+                    break;
+                case "b" when CanDecide:
+                    await State.RouteToBrainAsync();
                     break;
                 case "d":
                     if (State.TriageMode) _triage?.OpenDefer();
