@@ -116,6 +116,13 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // The desktop head's own tools adapter, configured to read the catalog and run
     // nothing: a browser session operates the pane without touching the machine.
     DevToolService = sp => DevToolService.CatalogOnly(sp.GetRequiredService<ITaskStore>()),
+    // Per worktree, like the other per-user files: a Brain folder picked in a
+    // harness session is not the installed app's. No folder picker is registered,
+    // so the card here is typed into rather than browsed.
+    BrainSettings = _ => new BrainSettingsStore(
+        Environment.GetEnvironmentVariable("BACKLOG_BRAIN_SETTINGS_PATH") is { Length: > 0 } brainSettingsPath
+            ? brainSettingsPath
+            : Path.Combine(localDevelopment, BrainSettingsStore.FileName)),
     FolderEditorLauncher = _ => new UnsupportedFolderEditorLauncher(),
     // The web host never distributes or updates the desktop app, so it always
     // reports updates as unsupported.

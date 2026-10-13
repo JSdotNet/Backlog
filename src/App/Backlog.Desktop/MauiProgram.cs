@@ -4,6 +4,7 @@ using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -123,6 +124,9 @@ public static class MauiProgram
                 sp.GetRequiredService<ITaskStore>(),
                 sp.GetRequiredService<IMcpEndpointSource>(),
                 sp.GetService<ILogger<DevToolService>>()),
+            // Beside settings.json in the same per-user folder, and never in the
+            // Brain folder itself (local ADR 0026).
+            BrainSettings = _ => new BrainSettingsStore(Path.Combine(appData, BrainSettingsStore.FileName)),
             FolderEditorLauncher = _ => new VsCodeFolderEditorLauncher(),
             // The MSIX head can manage its own updates when packaged; it degrades to
             // an "unsupported" report when running unpackaged (e.g. Debug), so this is
@@ -152,6 +156,9 @@ public static class MauiProgram
         // the listener it builds has a container of its own and forwards every
         // port into this one rather than composing a second ITaskItems.
         builder.Services.TryAddSingleton<McpServerWorker>();
+        // The Brain card's Browse: this head has a window to open the Windows
+        // folder picker over, so it is the one host that registers one.
+        builder.Services.TryAddSingleton<IBrainFolderPicker, WindowsBrainFolderPicker>();
         // What the tools pane asks about that server: the port, the address it
         // makes, and whether the socket was taken. Beside the worker
         // because it reads it — and through a Func, so that resolving the tool

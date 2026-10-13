@@ -15519,6 +15519,151 @@ select.field__input {
     font-size: var(--font-size-sm);
 }
 
+/* --- The Brain folder card ----------------------------------------------- */
+
+/* Where the person's Brain lives, on Settings › Storage. The Brain's accent is
+   band 2 teal (`.devbook/design/color-scheme.md#the-brains-accent`): the card's
+   border and the swatch before its name, always drawn, never the only thing that
+   says Brain. The rows are information; only a missing convention file wears
+   the attention tone, beside the button that fixes it. */
+.brain-card {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 1px solid var(--color-band-2);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+
+.brain-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.brain-card__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.brain-card__swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-band-2);
+    flex: none;
+}
+
+.brain-card__scope,
+.brain-card__hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.brain-card__intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.brain-card__label {
+    grid-column: 1 / -1;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The field takes the row and Browse sits at its end; at a narrow width the
+   button drops under the field rather than squeezing it. */
+.brain-card__folder {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.brain-card__input {
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 var(--spacing-sm);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.brain-card__input:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
+.brain-card__input--error {
+    border-color: var(--color-error);
+}
+
+.brain-card__rows {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.brain-card__row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.brain-card__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--border-radius-full);
+    flex: none;
+    transform: translateY(-1px);
+}
+
+/* Inks, not the semantic tokens: --color-success and --color-warning are
+   surfaces and vanish as an 8px dot on the card. The settled green is the one
+   sanctioned success foreground; a missing file takes band 4's amber, as the
+   design board draws it, and the row's words say "missing" either way. */
+.brain-card__dot--info,
+.brain-card__dot--found {
+    background: var(--color-success-text);
+}
+
+.brain-card__dot--missing {
+    background: var(--color-band-4);
+}
+
+.brain-card__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.brain-card__message {
+    margin: 0;
+    color: var(--color-success-text);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 480px) {
+    .brain-card__folder {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 /* --- Data table ---------------------------------------------------------- */
 
 /* Rows of records, optionally in named sections. The Metric family's five tables
