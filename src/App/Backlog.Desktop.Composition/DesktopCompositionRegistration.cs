@@ -388,6 +388,7 @@ public static class DesktopCompositionRegistration
         // the Brain's own database (local ADR 0027 §6) — so the repository's
         // devbook shows its owner "From your Brain" and nothing is written there.
         services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
+        services.AddSingleton<IBrainTaskLinks>(sp => new BrainTaskLinkReader(sp.GetRequiredService<IBrainFolderSource>()));
         services.AddSingleton(sp => new BrainFolderWatch(
             sp.GetRequiredService<IBrainSettings>(),
             sp.GetRequiredService<IBrainFolderSource>(),

@@ -1,0 +1,87 @@
+@*
+    On a task row, the Brain notes that name the task in their `tasks` field (local
+    ADR 0026 §3, .devbook/domain/devbook/features.md#bi-directional-linking): a teal
+    "◆ n note" badge in the Brain's band painting
+    (.devbook/design/color-scheme.md#the-brains-accent).
+
+    The notes are the owner's own and are read from their own Brain, so the badge
+    says "only you see this" in its name: another reader of the same backlog sees
+    no badge, or theirs (ADR 0027 §6).
+
+    Pressing it opens the note when there is one. With several it lists them, each
+    a button that opens it; Escape or a second press closes the list.
+*@
+
+@if (Notes.Count > 0)
+{
+    <span class="brain-notes-badge" data-testid="@TestId" @onkeydown="OnKeyDown">
+        <button type="button"
+                class="brain-notes-badge__button"
+                title="@Title"
+                aria-label="@Title"
+                aria-expanded="@(Notes.Count > 1 ? (_open ? "true" : "false") : null)"
+                data-testid="@($"{TestId}-button")"
+                @onclick="PressAsync"
+                @onclick:stopPropagation="true">
+            <span aria-hidden="true">◆ @CountText</span>
+        </button>
+        @if (_open && Notes.Count > 1)
+        {
+            <ul class="brain-notes-badge__list" role="list" aria-label="Brain notes" data-testid="@($"{TestId}-list")">
+                @foreach (var note in Notes)
+                {
+                    <li>
+                        <button type="button"
+                                class="brain-notes-badge__note"
+                                title="@note.Path"
+                                data-note="@note.Path"
+                                @onclick="() => OpenAsync(note)"
+                                @onclick:stopPropagation="true">@note.Title</button>
+                    </li>
+                }
+            </ul>
+        }
+    </span>
+}
+
+@code {
+    /// <summary>The notes naming the task, in the order to list them. None draws
+    /// nothing.</summary>
+    [Parameter]
+    public IReadOnlyList<BrainNoteLink> Notes { get; set; } = [];
+
+    /// <summary>Raised with the note to open in the Devbook pane, Brain side.</summary>
+    [Parameter]
+    public EventCallback<BrainNoteLink> OnOpen { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "brain-notes-badge";
+
+    private bool _open;
+
+    private string CountText => Notes.Count == 1 ? "1 note" : $"{Notes.Count} notes";
+
+    private string Title =>
+        Notes.Count == 1
+            ? $"Linked from your Brain note {Notes[0].Title} — only you see this"
+            : $"Linked from {Notes.Count} of your Brain notes — only you see this";
+
+    private Task PressAsync()
+    {
+        if (Notes.Count == 1) return OpenAsync(Notes[0]);
+
+        _open = !_open;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenAsync(BrainNoteLink note)
+    {
+        _open = false;
+        return OnOpen.InvokeAsync(note);
+    }
+
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape") _open = false;
+    }
+}

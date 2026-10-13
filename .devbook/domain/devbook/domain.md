@@ -78,6 +78,11 @@ aliases: [TaskLink, task_id]
 A typed link to a Task: `task_id`, `link_type`
 (reference or embed), and `linked_at`. Immutable; equality is by value.
 
+A note writes it as one value of its `tasks` field: the task's stored id, a GUID,
+compared case-insensitively and with or without braces. Only `task_id` is written
+today; a link is a reference. A value that is no GUID links no task, and the note
+lists it as written.
+
 ### Tag
 
 ```meta
@@ -107,9 +112,10 @@ contributes to: a lowercase kebab-case slug, held in the chapter's `roadmap` lis
 A note may declare several, or none. Equality is by value.
 
 It **names** a roadmap item rather than **addressing** a chapter, and that
-distinction is the one most easily misread. A `Task Link` and a knowledge
-cross-reference are `<path>#<slug>` addresses that resolve to a specific node and
-draw an edge in the knowledge graph; a `Roadmap Contribution` is a bare tag slug
+distinction is the one most easily misread. A knowledge cross-reference is a
+`<path>#<slug>` address that resolves to a specific node and draws an edge in the
+knowledge graph, and a `Task Link` resolves to one task by its id; a
+`Roadmap Contribution` is a bare tag slug
 that resolves to nothing here at all — it is the same vocabulary a
 [Roadmap Item](../roadmap/domain.md#roadmap-tag) holds and a Task files
 under, and it is Roadmap Planning that reads a chapter's contributions when it

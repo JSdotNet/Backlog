@@ -417,6 +417,65 @@ The system SHALL list under a repository chapter the owner's Brain notes that li
 - **When** the reader opens that chapter
 - **Then** a From your Brain box lists both notes with Only you see this, and the repository's working tree is unchanged
 
+## Bi-directional linking
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#bi-directional-linking]
+```
+
+> The requirements of linking Brain notes and tasks both ways through a note's
+> `tasks` field (local ADR 0026 §3, ADR 0027 §6).
+
+### Requirement: A task link is the task's id
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_task_id_is_a_guid_in_one_spelling, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_note_names_its_tasks_in_its_order_each_once_and_keeps_what_is_no_id, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.The_reader_asks_the_brain_s_own_database, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_brain_with_no_database_or_no_brain_links_no_task]
+```
+
+The system SHALL read each value of a Brain note's `tasks` field from the Brain's database as a task's stored id, a GUID compared case-insensitively and with or without braces.
+
+#### Scenario: Two spellings of one task
+
+- **Given** a Brain note whose `tasks` field holds a task's id in upper case and, in a later chapter, in lower case
+- **When** the app reads the note's task links
+- **Then** the note names that task once
+
+### Requirement: A note lists the tasks it names
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainTaskLinkTests.A_note_lists_its_tasks_known_ones_followable_and_unknown_ones_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainTaskLinkTests.A_note_naming_no_task_draws_no_tasks_section, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_known_task_is_a_gold_chip_that_opens_it, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.An_unknown_task_is_a_dashed_chip_saying_so_with_nothing_to_press]
+```
+
+The system SHALL show under a Brain note's links into devbooks a Tasks section with one chip per task its `tasks` field names, opening the task when this backlog holds it and reading *not in this backlog* when it does not.
+
+#### Scenario: A known and an unknown task
+
+- **Given** a Brain note naming one task this backlog holds and one it does not
+- **When** the pane shows the note
+- **Then** the Tasks section shows the first by its title as a chip that opens it, and the second as a dashed chip reading not in this backlog, and no error is shown
+
+### Requirement: A task row counts the notes naming it, for the owner only
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainTaskLinkTests.A_task_lists_the_notes_naming_it_in_title_order_each_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.A_row_named_by_brain_notes_carries_a_teal_badge_counting_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.With_no_brain_wired_no_row_carries_a_badge, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBrainNotesTests.Pressing_a_one_note_badge_opens_that_note, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_badge_with_no_note_draws_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.BrainTaskLinkComponentTests.A_badge_with_several_notes_lists_them_and_opens_the_one_pressed]
+```
+
+The system SHALL draw on a task row a teal ◆ n note badge counting the owner's Brain notes that name the task, read from the owner's own Brain, opening the note in the Devbook pane on the Brain side.
+
+#### Scenario: Two notes name a task
+
+- **Given** two of the owner's Brain notes name one task in their `tasks` field
+- **When** the task list shows that task in a repository scope or the Brain scope
+- **Then** its row carries ◆ 2 notes marked only you see this, and pressing it lists both notes to open
+
 ## Unified search
 
 ```meta

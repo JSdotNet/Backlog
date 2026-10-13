@@ -92,6 +92,24 @@
     [Parameter]
     public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
 
+    /// <summary>The title of the task with this id in the backlog, or null when the
+    /// backlog holds none: the note's Tasks section then draws it as "not in this
+    /// backlog". Handed in by the pane, from the shell.</summary>
+    [Parameter]
+    public Func<string, string?>? TaskTitleFor { get; set; }
+
+    /// <summary>Raised with a task id when the reader follows a task out of the
+    /// note's Tasks section.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenTask { get; set; }
+
+    /// <summary>Where the note's task links are read from: the Brain's own
+    /// database. Null in a host that composes none, where a note lists no task.</summary>
+    private IBrainTaskLinks? _taskLinks;
+
+    /// <summary>The tasks the open note names, in its order.</summary>
+    private IReadOnlyList<BrainTaskLink> _noteTasks = [];
+
     /// <summary>Answers whether a <c>repo:</c> link can be followed here. Null in a
     /// host with no repository source, where every such link is unresolved.</summary>
     private BrainRepoLinkResolver? _resolver;
@@ -138,6 +156,7 @@
                 ? RepoLinkChipFor(target, string.Equals(target, text, StringComparison.Ordinal) ? null : text)
                 : null;
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
+        _taskLinks = Services.GetService<IBrainTaskLinks>();
         _annotations.Changed += OnAnnotationsChanged;
         Brain.Changed += OnBrainChanged;
     }
@@ -205,6 +224,7 @@
         var chapter = folder is not null
             ? await DevbookChapterContent.LoadAsync(BrainConventions.FolderKey, folder, path, canEdit: true, reader: _reader)
             : DevbookChapterContent.None;
+        var tasks = await ReadNoteTasksAsync(chapter.Chapter?.RelativePath);
         if (read != _read || _disposed) return;
 
         var sameNote = string.Equals(_loadedPath, path, StringComparison.OrdinalIgnoreCase) && SameFolder(_loadedRoot, folder);
@@ -215,10 +235,30 @@
         _document = chapter is { Chapter: { } note, Text: { } text } ? DevbookMarkdownParser.Parse(note.RelativePath, text) : null;
         _blocks = chapter.Text is { } body ? MarkdownPreview.ParseDocument(body) : [];
         _saveError = null;
+        _noteTasks = tasks;
         RefreshNoteComments();
 
         if (!sameNote) _editing = false;
         if (_chapter.Chapter is null) _editor = null;
+    }
+
+    /// <summary>
+    /// The tasks the note names, from the Brain's database. A database that is not
+    /// built yet, or will not answer, lists none: the section is a convenience, and
+    /// the note's own <c>meta</c> block still says what it names.
+    /// </summary>
+    private async Task<IReadOnlyList<BrainTaskLink>> ReadNoteTasksAsync(string? notePath)
+    {
+        if (_taskLinks is null || string.IsNullOrWhiteSpace(notePath)) return [];
+
+        try
+        {
+            return await _taskLinks.TasksOfAsync(notePath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException)
+        {
+            return [];
+        }
     }
 
     /// <summary>Re-reads the open note after a save, so the read view the reader
@@ -262,6 +302,27 @@
                     @RepoLinkChipFor(link, null)
                 }
             </p>
+        }
+
+        @* The tasks the note's `tasks` field names (local ADR 0026 §3), under its
+           links into devbooks: each a chip that opens the task, or a dashed one
+           when this backlog has no task with that id. *@
+        @if (_noteTasks.Count > 0)
+        {
+            <section class="brain-note__tasks" data-testid="brain-note-tasks" aria-labelledby="@TasksHeadingId">
+                <h4 class="brain-note__tasks-title" id="@TasksHeadingId">Tasks</h4>
+                <p class="brain-note__tasks-list">
+                    @foreach (var task in _noteTasks)
+                    {
+                        var title = task.TaskId is { } id ? TaskTitleFor?.Invoke(id) : null;
+                        <TaskLinkChip Label="@(title ?? task.Raw)"
+                                      Reference="@task.Raw"
+                                      Resolved="@(title is not null)"
+                                      TestId="brain-note-task"
+                                      OnOpen="OpenTaskAsync" />
+                    }
+                </p>
+            </section>
         }
 
         @* The read view the repository panels' FileView draws, with the remark
@@ -375,6 +436,12 @@
                               TestId="brain-repo-link"
                               OnOpen="OpenRepoLinkAsync" />;
     }
+
+    private readonly string TasksHeadingId = $"brain-note-tasks-{Guid.NewGuid():n}";
+
+    /// <summary>One handler for every task chip; the chip says which task.</summary>
+    private Task OpenTaskAsync(string? raw) =>
+        BrainTaskLink.Normalize(raw) is { } id ? OnOpenTask.InvokeAsync(id) : Task.CompletedTask;
 
     /// <summary>One handler for every chip, so a re-render hands each chip the
     /// same callback rather than a new one: the chip says which link it is.</summary>

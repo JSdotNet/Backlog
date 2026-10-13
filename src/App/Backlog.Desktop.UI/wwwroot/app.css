@@ -8699,6 +8699,31 @@ a.pull-request-detail-checks__name:hover {
     margin: 0 0 var(--spacing-sm);
 }
 
+/* The tasks a Brain note names, under its links into devbooks: the note's own
+   section, so it wears the Brain's band painting on its leading edge
+   (color-scheme.md#the-brains-accent); each task is a chip inside it. */
+.brain-note__tasks {
+    margin: 0 0 var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+    color: var(--color-text-primary);
+}
+
+.brain-note__tasks-title {
+    margin: 0 0 var(--spacing-2xs);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.brain-note__tasks-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
 .devbook-stack__repositories,
 .devbook-stack__nav {
     flex: 0 0 auto;

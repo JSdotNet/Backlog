@@ -556,6 +556,20 @@
 
     private Task OpenRepositoryChapterAsync(BrainRepoLink link) => OnOpenRepositoryChapter.InvokeAsync(link);
 
+    /// <summary>
+    /// The title of the task with this id in the backlog the shell holds, or null
+    /// when it holds none — which a Brain note's Tasks section draws as a task
+    /// "not in this backlog" (local ADR 0026 §3). Asked of the shell because the
+    /// tasks are another module's; unset, every task a note names is unresolved.
+    /// </summary>
+    [Parameter]
+    public Func<string, string?>? TaskTitleFor { get; set; }
+
+    /// <summary>Raised with a task id when the reader follows a task out of a Brain
+    /// note's Tasks section. The shell opens it, as it opens a session's entry.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenTask { get; set; }
+
     /// <summary>The devbook folders a Brain note can link into, as section keys.</summary>
     private static readonly HashSet<string> BacklinkSections = new(["arc42", "domain", "tech", "design", "ai"], StringComparer.OrdinalIgnoreCase);
 
@@ -1942,7 +1956,9 @@
         {
             return @<BrainDevbookPanel Brain="@_brain"
                                        SelectedPath="@SelectedChapterPath"
-                                       OnOpenRepositoryChapter="OpenRepositoryChapterAsync" />;
+                                       OnOpenRepositoryChapter="OpenRepositoryChapterAsync"
+                                       TaskTitleFor="@TaskTitleFor"
+                                       OnOpenTask="OnOpenTask" />;
         }
 
         if (_brainSettings is { IsSet: false })
