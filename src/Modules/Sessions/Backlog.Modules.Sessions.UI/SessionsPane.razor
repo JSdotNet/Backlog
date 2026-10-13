@@ -1567,12 +1567,18 @@ else
     /// <summary>Whether the header has narrowed the list to some repositories.</summary>
     private bool Scoped => RepositoryScope.Count > 0;
 
-    private string ScopeLabel => string.Join(", ", RepositoryScope);
+    private string ScopeLabel => global::Backlog.SharedKernel.BrainScope.Label(RepositoryScope);
 
     /// <summary>A row in the scope: one whose repository — recorded, resolved, or named
-    /// by a run — the shell resolves to a scoped alias. With none, the row is out.</summary>
+    /// by a run — the shell resolves to a scoped alias; or, with the Brain scoped (local
+    /// ADR 0027), one that resolves to no configured repository at all — the sessions
+    /// worked against no repository. Otherwise the row is out.</summary>
     private bool InScope(SessionRow row) =>
-        !Scoped || row.Repositories.Any(Scopes);
+        !Scoped
+        || row.Repositories.Any(Scopes)
+        || (global::Backlog.SharedKernel.BrainScope.In(RepositoryScope) && !row.Repositories.Any(Configured));
+
+    private bool Configured(string? repository) => RepositoryAlias?.Invoke(repository) is not null;
 
     private bool Scopes(string? repository) =>
         RepositoryAlias?.Invoke(repository) is { } alias
@@ -1664,7 +1670,7 @@ else
             }
 
             return Scoped
-                ? $"{reading} Narrowed to {ScopeLabel}: a session is in by the repository its agent recorded, or by its working folder lying inside a registered clone; one with neither is left out."
+                ? $"{reading} Narrowed to {ScopeLabel}: a session is in by the repository its agent recorded, or by its working folder lying inside a registered clone; {(global::Backlog.SharedKernel.BrainScope.In(RepositoryScope) ? "one with neither is the Brain's." : "one with neither is left out.")}"
                 : reading;
         }
     }

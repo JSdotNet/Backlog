@@ -183,8 +183,8 @@
         _clock.GetLocalNow(),
         Reader.SessionsRead);
 
-    /// <summary>Under the whole repository scope the task list applies, its "No
-    /// repository" scope included.</summary>
+    /// <summary>Under the whole repository scope the task list applies, the Brain
+    /// included.</summary>
     private IReadOnlyList<InProgressTask> Tasks =>
         [.. Projection.Tasks(State.RowsInRepositoryScope).Select(task => task with
         {
@@ -193,7 +193,7 @@
         })];
 
     private IReadOnlyList<InProgressLoose> Loose =>
-        [.. Projection.Loose(State.SelectedRepositoryAliases, State.NoRepositoryOnly)
+        [.. Projection.Loose(State.SelectedRepositoryAliases)
             .Where(loose => loose.Session is null ? ShowPullRequests : ShowSessions)];
 
     private string FailureMessage =>
@@ -215,8 +215,8 @@
 
     /// <summary>Every open entry under the header's repositories, the ones in progress
     /// first — the work a running session or a fresh pull request is most likely for.
-    /// Not narrowed by "No repository": a session placed nowhere is linked under the
-    /// chosen task's repository, so the picker has to offer tasks that have one.</summary>
+    /// The tasks the scope leaves in view, the Brain's included: under the Brain alone a
+    /// session placed nowhere is linked to a task filed nowhere.</summary>
     private IReadOnlyList<WorkLinkOption> TaskOptions =>
         [.. State.ScopedRows
             .Where(row => row.IsPersisted && row.PreviewStatus is EntryStatus.Draft or EntryStatus.Ready or EntryStatus.InProgress)

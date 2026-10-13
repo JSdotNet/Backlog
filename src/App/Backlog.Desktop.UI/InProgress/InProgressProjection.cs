@@ -4,6 +4,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 using Backlog.UI.Components.Integrations;
 using Backlog.UI.Components.Tasks;
 
@@ -140,12 +141,12 @@ public sealed class InProgressProjection
     /// pull requests would be every bot's bump in every repository; a person links
     /// what they opened.
     /// <para>
-    /// <paramref name="noRepositoryOnly"/> is the task list's "No repository" scope:
-    /// only what resolves to no configured repository is left — a session placed
-    /// nowhere registered, and never a pull request, which is always read from one.
+    /// The Brain in the scope (<see cref="BrainScope.Value"/>, local ADR 0027) takes in
+    /// what resolves to no configured repository — a session placed nowhere
+    /// registered, and never a pull request, which is always read from one.
     /// </para>
     /// </summary>
-    public IReadOnlyList<InProgressLoose> Loose(IReadOnlyCollection<string> scope, bool noRepositoryOnly = false)
+    public IReadOnlyList<InProgressLoose> Loose(IReadOnlyCollection<string> scope)
     {
         var loose = new List<InProgressLoose>();
 
@@ -155,7 +156,6 @@ public sealed class InProgressProjection
 
             var repository = RepositoryOf(session);
             if (!InScope(repository, scope)) continue;
-            if (noRepositoryOnly && repository is not null && _alias(repository) is not null) continue;
 
             loose.Add(new InProgressLoose(
                 Session: Session(session, withRepository: true),
@@ -166,7 +166,7 @@ public sealed class InProgressProjection
         foreach (var pull in _pulls)
         {
             if (!pull.IsOpen || !pull.ViewerDidAuthor || _linkedPulls.Contains(Key(pull.RepositoryFullName, pull.Number))) continue;
-            if (noRepositoryOnly || !InScope(pull.RepositoryFullName, scope)) continue;
+            if (!InScope(pull.RepositoryFullName, scope, brainTakesUnplaced: false)) continue;
 
             loose.Add(new InProgressLoose(
                 PullRequest: PullRequest(pull),
@@ -190,13 +190,19 @@ public sealed class InProgressProjection
             ? string.IsNullOrWhiteSpace(session.Repository) ? null : session.Repository
             : session.ResolvedRepository;
 
-    private bool InScope(string? repository, IReadOnlyCollection<string> scope)
+    /// <summary>Whether something placed in <paramref name="repository"/> is in the
+    /// scope: everything is when nothing is scoped; the Brain takes what resolves to no
+    /// configured repository — a session, never a pull request, which is always read
+    /// from one (<paramref name="brainTakesUnplaced"/>); a repository's alias takes
+    /// what resolves to it.</summary>
+    private bool InScope(string? repository, IReadOnlyCollection<string> scope, bool brainTakesUnplaced = true)
     {
         if (scope.Count == 0) return true;
-        if (repository is null) return false;
 
-        var alias = _alias(repository);
-        return alias is not null && scope.Contains(alias, StringComparer.Ordinal);
+        var alias = repository is null ? null : _alias(repository);
+        if (alias is null) return brainTakesUnplaced && BrainScope.In(scope);
+
+        return scope.Contains(alias, StringComparer.Ordinal);
     }
 
     private static bool IsInProgress(EntryRow row) => row.PreviewStatus is EntryStatus.InProgress;

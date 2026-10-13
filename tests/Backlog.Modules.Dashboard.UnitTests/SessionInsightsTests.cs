@@ -2324,6 +2324,33 @@ public class SessionInsightsTests
     }
 
     /// <summary>
+    /// With the Brain in focus the rows of what resolves to no configured repository —
+    /// the unrecorded and the unconfigured — are in, as on the Sessions list, and a
+    /// configured repository's row is not (local ADR 0027).
+    /// </summary>
+    [Fact]
+    public async Task The_brain_keeps_the_rows_of_no_configured_repository()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "one") with { Repository = "acme/backlog" },
+                    Session(Tower, "Claude", ran.Item1, ran.Item2, "four"))
+            },
+            Activity(
+                Ran("one", Tower, "Copilot", ran),
+                Ran("four", Tower, "Claude", ran)));
+
+        var brain = await ValueOf(insights, new DashboardScope(Repositories: RepositoryFocus.Of(BrainScope.Value)));
+
+        Assert.DoesNotContain(brain.ByRepository, row => row.Kind == RepositoryBandKind.Configured);
+        Assert.Contains(brain.ByRepository, row => row.Kind == RepositoryBandKind.Unrecorded);
+    }
+
+    /// <summary>
     /// A row's peak is the most at once in that row, and the rows' peaks do not add up
     /// to the total: two repositories with one session each running together is a
     /// total peak of two and a peak of one in each row.

@@ -10,9 +10,11 @@ namespace Backlog.Infrastructure.FileSystem.Dashboard;
 /// context's backlog.
 /// <para>
 /// A task's repositories are stored as <c>owner/name</c> ids and the dashboard's scope
-/// holds aliases, so each id is resolved through the registry here. An id the registry
-/// does not know crosses as itself, on <c>ImportedPlanSource</c>'s precedent: a legacy
-/// alias-shaped value then still matches its chip, and an unknown id matches none.
+/// holds aliases, so each id is resolved through the registry here — by id or by alias,
+/// so a legacy alias-shaped value still matches its chip. An id the registry does not
+/// know is left out: it matches no chip, and a task naming only such ids is filed
+/// against no configured repository, which makes it the Brain's (local ADR 0027) — the
+/// same answer the task list gives the row, which shows no repository either.
 /// </para>
 /// </summary>
 public sealed class TaskItemsCompletedTaskSource(ITaskItems entries, TasksRepositoryDirectory repositories)
@@ -38,7 +40,8 @@ public sealed class TaskItemsCompletedTaskSource(ITaskItems entries, TasksReposi
                 entry.Effort,
                 [
                     .. (entry.RepoIds ?? [])
-                        .Select(id => repositories.Resolve(id)?.Alias ?? id)
+                        .Select(id => repositories.Resolve(id)?.Alias)
+                        .OfType<string>()
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                 ]))
     ];

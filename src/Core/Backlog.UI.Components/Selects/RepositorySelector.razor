@@ -2,6 +2,11 @@
     A repository picker, over whatever aliases the caller hands it. Which
     repositories exist is a workspace question and not this component's business,
     so it takes options rather than reading a registry.
+
+    The empty option leads the list and reads "Brain" by default: Brain is the name
+    the app gives to filing a task against no repository (local ADR 0027), so picking
+    it clears the task's repository. It replaces the "No repo" the empty option used
+    to read. A caller whose empty answer means something else names it itself.
 *@
 
 <SelectField CurrentValue="@CurrentValue"
@@ -34,7 +39,7 @@
     public bool IncludeEmptyOption { get; set; } = true;
 
     [Parameter]
-    public string EmptyLabel { get; set; } = "No repo";
+    public string EmptyLabel { get; set; } = Backlog.SharedKernel.BrainScope.Name;
 
     [Parameter]
     public EventCallback<string?> OnChanged { get; set; }

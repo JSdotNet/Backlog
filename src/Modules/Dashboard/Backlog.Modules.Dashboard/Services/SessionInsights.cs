@@ -548,9 +548,13 @@ public sealed class SessionInsights(
 
     /// <summary>With repositories in focus only their configured bands are in, and the
     /// two folded bands are out — the Sessions list's treatment of a session it cannot
-    /// place.</summary>
+    /// place. With the Brain in focus (local ADR 0027) the two folded bands are in: what
+    /// resolves to no configured repository is the Brain's, as it is on the list.</summary>
     private static bool InRepositoryScope(DashboardScope scope, (string Name, RepositoryBandKind Kind) band) =>
-        scope.IsAllRepositories || (band.Kind == RepositoryBandKind.Configured && scope.Repositories.Contains(band.Name));
+        scope.IsAllRepositories
+        || (band.Kind == RepositoryBandKind.Configured
+            ? scope.Repositories.Contains(band.Name)
+            : scope.Repositories.IncludesBrain);
 
     private static WeeklyBand Band(string name, RepositoryBandKind? kind, IReadOnlyList<InsightPoint> perWeek) =>
         new(name, kind, perWeek, perWeek.Sum(point => point.Value));

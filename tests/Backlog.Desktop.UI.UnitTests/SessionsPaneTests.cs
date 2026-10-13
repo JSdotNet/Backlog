@@ -1417,6 +1417,34 @@ public sealed class SessionsPaneTests
             Assert.Equal("1 session", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
     }
 
+    /// <summary>
+    /// The Brain in the scope keeps the sessions worked against no configured
+    /// repository — the Claude session that recorded none and was placed in no clone —
+    /// and none of a configured repository's (local ADR 0027).
+    /// </summary>
+    [Fact]
+    public void The_brain_keeps_the_sessions_of_no_configured_repository()
+    {
+        using var context = Context([.. Sample, Replicated()]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { BrainScope.Value })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var rows = pane.FindAll("[data-testid='sessions-row']");
+            Assert.Contains(rows, row => row.TextContent.Contains("keen-bose-667825", StringComparison.Ordinal));
+            Assert.DoesNotContain(pane.FindAll(".sessions-repository"), cell => cell.TextContent.Trim() is "backlog" or "archify");
+
+            var subtitle = pane.Find("[data-testid='sessions-subtitle']").TextContent;
+            Assert.Contains("Narrowed to Brain", subtitle, StringComparison.Ordinal);
+            Assert.Contains("one with neither is the Brain's", subtitle, StringComparison.Ordinal);
+        });
+    }
+
     [Fact]
     public void A_scope_holds_several_repositories_and_the_scope_is_applied_before_the_view()
     {

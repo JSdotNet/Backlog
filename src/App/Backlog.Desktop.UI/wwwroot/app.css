@@ -3212,6 +3212,28 @@ h1, h2, h3 {
         inset 0 calc(-1 * (var(--border-width-4) + var(--border-width))) 0 0 var(--color-background);
 }
 
+/*
+  The Brain chip leads the scope (local ADR 0027). Its glyph sits before its word
+  with the chip__icon alignment, a gap's width apart; its band-2 edge is the
+  repo-mark--2 class it always wears, so it needs no colour of its own here.
+*/
+.app-header__brain-chip .chip__icon {
+    margin-right: var(--spacing-xs);
+}
+
+/*
+  The divider after the Brain chip: a rule the full height of the group, stronger
+  than the hairline between two repositories, so the Brain reads as set apart from
+  them while staying inside the one border. The first repository after it draws no
+  hairline of its own — the .chip + .chip rule above does not reach across it.
+*/
+.app-header__scope-divider {
+    align-self: stretch;
+    flex: none;
+    width: var(--border-width-2);
+    background: var(--color-border-strong);
+}
+
 .header-group__option {
     display: inline-flex;
     align-items: center;

@@ -133,8 +133,8 @@ public sealed record OpenWorkReport(
     OpenWorkTotals Waiting)
 {
     /// <summary>The label a row with no resolvable repository is counted under —
-    /// the same words the No repo scope chip uses.</summary>
-    public const string NoRepository = "No repo";
+    /// the name the header's Brain chip gives the same rows (local ADR 0027).</summary>
+    public const string NoRepository = Backlog.SharedKernel.BrainScope.Name;
 
     /// <summary>How many days "recently done" and "due soon" each span, today
     /// included.</summary>
@@ -263,7 +263,7 @@ public sealed record OpenWorkReport(
         ];
     }
 
-    /// <summary>Largest first, and No repo last whatever its size: it is the
+    /// <summary>Largest first, and Brain last whatever its size: it is the
     /// absence of a repository rather than one more of them.</summary>
     private static List<OpenWorkCount> RepositoriesOf(
         IReadOnlyList<EntryRow> open,

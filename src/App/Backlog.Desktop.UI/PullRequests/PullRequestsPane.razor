@@ -1,5 +1,6 @@
 @using Backlog.Modules.Sessions.Abstractions
 @using Backlog.UI.Components.Integrations
+@using Backlog.SharedKernel
 @inject IServiceProvider Services
 @inject IJSRuntime JS
 @implements IDisposable
@@ -394,6 +395,16 @@
     /// </summary>
     [Parameter]
     public Func<PullRequestTaskSubject, bool, DeliveryRunReference?>? PullRequestTask { get; set; }
+
+    /// <summary>
+    /// Whether a pull request belongs to a task filed against no repository — what puts
+    /// it in the Brain's scope (local ADR 0027, §2). Every pull request is read from a
+    /// repository, so under the Brain alone the list holds only these, and is normally
+    /// empty. Asked of the shell for the reason <see cref="PullRequestTask"/> is; without
+    /// it no pull request is the Brain's.
+    /// </summary>
+    [Parameter]
+    public Func<PullRequestTaskSubject, bool>? PullRequestInBrain { get; set; }
 
     /// <summary>How the shell opens that entry. Without it the task renders as inert
     /// text rather than as a control that would have to refuse the click.</summary>
@@ -901,7 +912,14 @@
 
     private bool Scoped => RepositoryScope.Count > 0;
 
-    private string ScopeLabel => string.Join(", ", RepositoryScope);
+    private string ScopeLabel => BrainScope.Label(RepositoryScope);
+
+    /// <summary>Whether the Brain is in the header's scope.</summary>
+    private bool BrainScoped => BrainScope.In(RepositoryScope);
+
+    /// <summary>Whether the scope holds the Brain and nothing else, which is when the
+    /// empty list has its own explanation.</summary>
+    private bool BrainAlone => RepositoryScope is [var only] && BrainScope.Is(only);
 
     /// <summary>The alias a repository goes by here: the shell's answer, else the
     /// adapter's registry, else nothing.</summary>
@@ -915,9 +933,21 @@
                 || string.Equals(candidate.Alias, repository, StringComparison.OrdinalIgnoreCase))?.Alias;
     }
 
+    /// <summary>Whether a repository is in the scope — the Brain names none, so it
+    /// adds no repository here.</summary>
     private bool InScope(string repositoryFullName) =>
         !Scoped
         || (AliasOf(repositoryFullName) is { } alias && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>Whether a pull request is in the scope: its repository is, or the Brain
+    /// is scoped and the pull request belongs to a task filed against no repository.</summary>
+    private bool InScope(GitHubOpenPullRequest pull) =>
+        InScope(pull.RepositoryFullName)
+        || (BrainScoped && PullRequestInBrain?.Invoke(TaskSubject(pull)) is true);
+
+    private bool InScope(GitHubMergedPullRequest pull) =>
+        InScope(pull.RepositoryFullName)
+        || (BrainScoped && PullRequestInBrain?.Invoke(TaskSubject(pull)) is true);
 
     /// <summary>A repository's label filter, empty for none — read from the registry on
     /// every render, so a filter changed in Settings narrows the rows already read.</summary>
@@ -971,7 +1001,7 @@
     }
 
     /// <summary>The scope decides which repositories exist here at all.</summary>
-    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. OpenRows.Where(pull => InScope(pull.RepositoryFullName))];
+    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. OpenRows.Where(InScope)];
 
     /// <summary>What the label filters leave of the scope.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> LabelledRows => [.. InScopeRows.Where(pull => PassesLabels(pull.RepositoryFullName, pull.Labels))];
@@ -981,7 +1011,7 @@
     /// this leaves, and the board narrows it.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> Visible =>
         [.. OpenRows.Where(pull => IsPinned(pull) || IsFocused(pull)
-            || (InScope(pull.RepositoryFullName)
+            || (InScope(pull)
                 && PassesLabels(pull.RepositoryFullName, pull.Labels)
                 && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
 
@@ -998,7 +1028,7 @@
             var of = (_listing, _pinned, ScopeLabel, _pinsVersion);
             if (_stacks is null || _stacksOf != of)
             {
-                _stacks = PullRequestStacks.Of(OpenRows.Where(pull => pull.IsOpen && (IsPinned(pull) || InScope(pull.RepositoryFullName))));
+                _stacks = PullRequestStacks.Of(OpenRows.Where(pull => pull.IsOpen && (IsPinned(pull) || InScope(pull))));
                 _stacksOf = of;
             }
 
@@ -1041,14 +1071,14 @@
     /// <summary>The merged view's rows, narrowed the same ways. Newest merge first, as
     /// the adapter ordered them.</summary>
     private IReadOnlyList<GitHubMergedPullRequest> MergedInScopeRows =>
-        [.. MergedRows.Where(pull => InScope(pull.RepositoryFullName))];
+        [.. MergedRows.Where(InScope)];
 
     private IReadOnlyList<GitHubMergedPullRequest> MergedLabelledRows =>
         [.. MergedInScopeRows.Where(pull => PassesLabels(pull.RepositoryFullName, pull.Labels))];
 
     private IReadOnlyList<GitHubMergedPullRequest> MergedVisible =>
         [.. MergedRows.Where(pull => IsPinned(pull.RepositoryFullName, pull.Number)
-            || (InScope(pull.RepositoryFullName)
+            || (InScope(pull)
                 && PassesLabels(pull.RepositoryFullName, pull.Labels)
                 && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
 
@@ -1064,12 +1094,12 @@
                MergedInScopeRows.Count,
                MergedLabelledRows.Count,
                MergedVisible.Count,
-               MergedRows.Count(pull => InScope(pull.RepositoryFullName) || IsPinned(pull.RepositoryFullName, pull.Number)))
+               MergedRows.Count(pull => InScope(pull) || IsPinned(pull.RepositoryFullName, pull.Number)))
             : (OpenRows.Count,
                InScopeRows.Count,
                LabelledRows.Count,
                Visible.Count,
-               OpenRows.Count(pull => InScope(pull.RepositoryFullName) || IsPinned(pull)));
+               OpenRows.Count(pull => InScope(pull) || IsPinned(pull)));
 
     /// <summary>Every repository a read of this view could not complete — the pinned
     /// read's too on the open view — each named once.</summary>
@@ -1147,7 +1177,9 @@
                     ? "Nothing was merged in the repositories that could be read."
                     : "Nothing is open in the repositories that could be read."
                 : Scoped && inScope == 0
-                    ? "Clear the repository scope in the header to see every repository's."
+                    ? BrainAlone
+                        ? "Pull requests belong to repositories, so the Brain holds only those linked to a task filed against no repository. Clear the repository scope in the header to see every repository's."
+                        : "Clear the repository scope in the header to see every repository's."
                     : labelled == 0
                         ? $"{LabelFilterSentence} Change it on the repository's card in Settings."
                         : Merged
