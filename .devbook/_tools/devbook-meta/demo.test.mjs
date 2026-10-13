@@ -96,6 +96,19 @@ const dump = (problems) => problems.map((p) => `[${p.severity}] ${p.message}`).j
     check(problems.length === 0, "a demo beside its page, every address resolving, reports nothing", dump(problems));
 }
 
+{
+    // A demo committed straight into domain/ in a flow-spec pull request: the
+    // change folder is adopted and holds an open change, but none carries it.
+    const other = "openspec/changes/rename-orders";
+    const problems = await demoProblemsOf({
+        [`${other}/proposal.md`]:
+            `# Rename orders\n\n${fence("type: change\nstatus: proposed\ncategory: behaviour-change\n")}\n` +
+            `## Why\n\nNames.\n\n## Scope\n\nNames.\n\n## Chapters touched\n\n- ${CONTEXT}/context.md\n`,
+        [`${other}/devbook-delta/domain/ordering/context.md`]: fence("change: rename-orders\ndelta: modified\n"),
+    });
+    check(problems.length === 0, "a demo landed directly, with no change carrying it, reports nothing", dump(problems));
+}
+
 // -- Names and pairing ----------------------------------------------------
 
 check(isPageNamedDemo(`${CONTEXT}/demo.html`), "demo.html is page-named, for context.md");
@@ -323,6 +336,60 @@ for (const [head, needle, name] of [
     const model = { ...MODEL, walkthroughs: [{ id: "card-declined", steps: ["checkout/pay"] }] };
     const problems = await demoProblemsOf({ [DEMO]: demoHtml({ model }) });
     check(has(problems, "error", 'walkthrough "card-declined" step 1 is not `{ screen, anchor?, text }`'), "a walkthrough step given as an address string errors", dump(problems));
+}
+
+{
+    const model = { ...MODEL, walkthroughs: [{ id: "card-declined", steps: [{ screen: "checkout" }, step("declined")] }] };
+    const problems = await demoProblemsOf({ [DEMO]: demoHtml({ model }) });
+    check(has(problems, "error", 'walkthrough "card-declined" step 1 has no `text`'), "a walkthrough step without text errors", dump(problems));
+}
+
+// -- A linked walkthrough's shape -----------------------------------------
+// What the model says on its own; the part it names is resolved against the
+// scenario page in scenario-page.test.mjs.
+
+{
+    const linkedModel = (walkthrough) => ({ ...MODEL, walkthroughs: [{ id: "card-declined", title: "Card declined", ...walkthrough }] });
+    const cannot = async (walkthrough, detail, name) => {
+        const problems = await demoProblemsOf({ [DEMO]: demoHtml({ model: linkedModel(walkthrough) }) });
+        const found = problems.some((p) => p.severity === "error" && p.message.includes("the template cannot read") && p.message.includes(detail));
+        check(found, name, dump(problems));
+    };
+    const linkedSteps = [{ ...step("checkout", "pay"), step: 1 }, { ...step("declined"), step: 3 }];
+    {
+        const problems = await demoProblemsOf({ [DEMO]: demoHtml({ model: linkedModel({ part: "pay.md#a-declined-card", signature: "9c41e2a0", steps: linkedSteps }) }) });
+        check(!has(problems, "error", "the template cannot read"), "a linked walkthrough with part, signature, and ascending steps reads", dump(problems));
+    }
+    await cannot({ part: "pay.md#a-declined-card", steps: linkedSteps }, 'walkthrough "card-declined" is linked by its `part` but has no `signature`', "a linked walkthrough without a signature errors");
+    await cannot({ part: "pay#a-declined-card", signature: "9c41e2a0", steps: linkedSteps }, 'walkthrough "card-declined" has `part` "pay#a-declined-card"', "a part that is not <page>.md#<part> errors");
+    await cannot({ part: "pay.md#a-declined-card", signature: "9C41", steps: linkedSteps }, "a page signature is 8 lowercase hex", "a signature that is not 8 hex errors");
+    await cannot({ signature: "9c41e2a0", steps: [step("checkout", "pay")] }, "has a `signature` but no `part`", "a signature on a free walkthrough errors");
+    await cannot(
+        { part: "pay.md#a-declined-card", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 1 }, step("declined")] },
+        'walkthrough "card-declined" step 2 has no `step`',
+        "a linked walkthrough step without a step index errors"
+    );
+    await cannot(
+        { part: "pay.md#a-declined-card", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 2 }, { ...step("declined"), step: 2 }] },
+        "has `step` 2 after `step` 2",
+        "linked step indexes that do not ascend error"
+    );
+    await cannot({ steps: [{ ...step("checkout", "pay"), step: 1 }] }, "has `step` but its walkthrough has no `part`", "a step index on a free walkthrough errors");
+}
+
+{
+    // A linked walkthrough the requirement names by hand is derived, so the
+    // entry is redundant; the slug pairing holds free walkthroughs only.
+    const model = {
+        ...MODEL,
+        walkthroughs: [...MODEL.walkthroughs, { id: "pay-journey", part: "pay.md#paying", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 1 }] }],
+    };
+    const problems = await demoProblemsOf({
+        [DEMO]: demoHtml({ model }),
+        [`${CONTEXT}/requirements.md`]: requirementsMd(`${DEMO}#walkthrough/pay-journey`),
+    });
+    check(has(problems, "warning", "a linked walkthrough written by hand"), "a hand-written linked walkthrough on a requirement warns", dump(problems));
+    check(!has(problems, "error", "matches no `#### Scenario:`"), "a linked walkthrough is not held to the scenario slugs", dump(problems));
 }
 
 // -- A change's proposal.md and solution.md -------------------------------

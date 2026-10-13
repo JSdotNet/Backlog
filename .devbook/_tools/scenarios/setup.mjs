@@ -116,6 +116,18 @@ export function recordedConfig(config) {
  * context each, kept for the whole journey. `dataFolder(name)` is where a data
  * set lives. A hook method the page needs and the hook lacks is an error; one
  * the page does not need may be absent.
+ *
+ * The parameter type is written out because a consumer's `tsc` reads this
+ * file through `setup.ts`, and would otherwise infer `dataFolder` as `() => null`.
+ *
+ * @param {{
+ *   hook: any,
+ *   config: any,
+ *   open: (portal: string) => Promise<any>,
+ *   dataFolder?: (name: string) => string | null,
+ *   env?: Record<string, string | undefined>,
+ * }} options
+ * @returns {Promise<void>}
  */
 export async function runSetup({ hook, config, open, dataFolder = () => null, env = process.env }) {
     const need = (method, why) => {

@@ -2710,17 +2710,55 @@ function isBlankLine(line) {
  * block scalar, a list of mappings (`replies`), and a nested mapping (`ext`).
  * Anything else in the file is not part of this schema and is reported by
  * `annotationIssues` rather than silently absorbed.
+ *
+ * The reader is lenient where YAML is not, so every line it reads past that a
+ * YAML parser would reject goes into `problems` as `{ line, message }`, the
+ * line counted from 1 at the fence body's first, and the check reports each
+ * one. A fence only this reader accepts is a note every other reader drops.
  */
-export function parseAnnotationBody(body) {
+export function parseAnnotationBody(body, problems = []) {
     const lines = body.split("\n");
     let first = 0;
     while (first < lines.length && isBlankLine(lines[first])) first++;
     if (first >= lines.length) return {};
-    const [value] = parseAnnotationMapping(lines, first, lines.length, lineIndent(lines[first]));
+    const [value] = parseAnnotationMapping(lines, first, lines.length, lineIndent(lines[first]), problems);
     return value;
 }
 
-function parseAnnotationMapping(lines, start, end, indent) {
+// A plain scalar may not open with an indicator, and may not carry `: ` or
+// ` #` — YAML reads the first as a nested mapping and the second as a comment.
+const PLAIN_SCALAR_FIRST = /^([-?:](\s|$)|[,[\]{}#&*!|>'"%@`])/;
+
+/**
+ * One inline scalar, read the way YAML reads it: a double-quoted string with
+ * its escapes, a single-quoted one with `''`, or a plain scalar. One YAML
+ * would not read as a string is recorded in `problems` and kept as written.
+ */
+function readAnnotationScalar(raw, problems, line) {
+    const value = raw.trim();
+    const problem = (message) => problems.push({ line: line + 1, message });
+    if (value.startsWith('"')) {
+        try {
+            const parsed = JSON.parse(value);
+            if (typeof parsed === "string") return parsed;
+        } catch {
+            // reported below
+        }
+        problem(`${value} is not one well-formed double-quoted string.`);
+        return stripQuotes(value);
+    }
+    if (value.startsWith("'")) {
+        if (/^'(?:[^']|'')*'$/.test(value)) return value.slice(1, -1).replace(/''/g, "'");
+        problem(`${value} is not one well-formed single-quoted string.`);
+        return stripQuotes(value);
+    }
+    if (PLAIN_SCALAR_FIRST.test(value) || /:(\s|$)/.test(value) || /\s#/.test(value)) {
+        problem(`${value} is not a valid plain YAML scalar — quote it, or write it as a | block.`);
+    }
+    return value;
+}
+
+function parseAnnotationMapping(lines, start, end, indent, problems = []) {
     const map = {};
     let i = start;
     while (i < end) {
@@ -2729,23 +2767,24 @@ function parseAnnotationMapping(lines, start, end, indent) {
             continue;
         }
         if (lineIndent(lines[i]) < indent) break;
-        const match = /^([^:\s][^:]*):[ \t]?(.*)$/.exec(lines[i].slice(indent));
+        const match = /^([^:\s][^:]*):(?:[ \t]+(.*))?$/.exec(lines[i].slice(indent));
         if (!match) {
+            problems.push({ line: i + 1, message: `${lines[i].trim()} is not a key: value line.` });
             i++;
             continue;
         }
         const key = match[1].trim();
-        const rest = match[2].trim();
+        const rest = (match[2] ?? "").trim();
         if (rest === "|" || rest === "|-" || rest === ">") {
             const [text, next] = parseAnnotationBlockScalar(lines, i + 1, end, indent);
             map[key] = text;
             i = next;
         } else if (rest === "") {
-            const [child, next] = parseAnnotationNested(lines, i + 1, end, indent);
+            const [child, next] = parseAnnotationNested(lines, i + 1, end, indent, problems);
             map[key] = child;
             i = next;
         } else {
-            map[key] = stripQuotes(rest);
+            map[key] = readAnnotationScalar(rest, problems, i);
             i++;
         }
     }
@@ -2774,18 +2813,18 @@ function parseAnnotationBlockScalar(lines, start, end, parentIndent) {
 }
 
 /** What follows a bare `key:` — a list of items, or a nested mapping. */
-function parseAnnotationNested(lines, start, end, parentIndent) {
+function parseAnnotationNested(lines, start, end, parentIndent, problems = []) {
     let i = start;
     while (i < end && isBlankLine(lines[i])) i++;
     if (i >= end || lineIndent(lines[i]) <= parentIndent) return [null, i];
     const childIndent = lineIndent(lines[i]);
     if (/^-\s/.test(lines[i].slice(childIndent))) {
-        return parseAnnotationList(lines, i, end, childIndent);
+        return parseAnnotationList(lines, i, end, childIndent, problems);
     }
-    return parseAnnotationMapping(lines, i, end, childIndent);
+    return parseAnnotationMapping(lines, i, end, childIndent, problems);
 }
 
-function parseAnnotationList(lines, start, end, indent) {
+function parseAnnotationList(lines, start, end, indent, problems = []) {
     const items = [];
     let i = start;
     while (i < end) {
@@ -2814,12 +2853,15 @@ function parseAnnotationList(lines, start, end, indent) {
         while (itemLines.length && isBlankLine(itemLines[itemLines.length - 1])) itemLines.pop();
 
         const head = itemLines[0].slice(indent + 2);
+        // An item's problems count from its own first line; shift them back.
+        const local = [];
         if (/^[^:\s][^:]*:/.test(head)) {
-            const [value] = parseAnnotationMapping(itemLines, 0, itemLines.length, indent + 2);
+            const [value] = parseAnnotationMapping(itemLines, 0, itemLines.length, indent + 2, local);
             items.push(value);
         } else {
-            items.push(stripQuotes(head.trim()));
+            items.push(readAnnotationScalar(head, local, 0));
         }
+        problems.push(...local.map((problem) => ({ ...problem, line: problem.line + i })));
         i = j;
     }
     return [items, i];
@@ -3084,11 +3126,13 @@ export function parseAnnotations(markdown) {
                 const key = chapter ? chapter.slug : "";
                 const ordinal = (ordinals.get(key) ?? 0) + 1;
                 ordinals.set(key, ordinal);
+                const problems = [];
                 annotations.push({
                     line: i + 1,
                     endLine: k + 1,
                     raw,
-                    fields: parseAnnotationBody(raw),
+                    fields: parseAnnotationBody(raw, problems),
+                    problems,
                     chapter,
                     ordinal,
                     target: attachedTo && attachedTo.kind === "text" ? "block" : "chapter",
@@ -3153,6 +3197,15 @@ export function annotationIssues(markdown) {
     for (const note of parseAnnotations(markdown)) {
         const where = `annotation at line ${note.line}`;
         const fields = note.fields ?? {};
+
+        // Every other reader parses the fence as YAML and drops one that does
+        // not parse, so a fence only this reader accepts is a lost note.
+        for (const problem of note.problems ?? []) {
+            issues.push({
+                severity: "error",
+                message: `${where} is not valid YAML at line ${note.line + problem.line}: ${problem.message}`,
+            });
+        }
 
         if (!note.chapter) {
             issues.push({

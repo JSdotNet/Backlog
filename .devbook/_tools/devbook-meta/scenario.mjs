@@ -105,7 +105,9 @@ export async function scenarioProblems(repoRoot, docs, nodes) {
             if (!node) {
                 report("error", relPath, `has \`${field}\` entry "${entry}" that does not resolve to a chapter — written as a path from the page, from its bounded context, or from the repository root.`);
             } else if (!kinds.includes(node.kind)) {
-                report("error", relPath, `has \`${field}\` entry "${entry}" that resolves to ${node.kind ? `a \`${node.kind}\` chapter` : "a heading or file"}, not ${kinds.map((kind) => `a \`${kind}\``).join(" or ")} chapter.`);
+                // A switch modelled as a setting is set through the hook's setSetting, never setFlag.
+                const hint = field === "flags" && node.kind === "setting" ? ` A switch modelled as a setting goes under \`settings\` as \`${entry}=true\` or \`=false\`.` : "";
+                report("error", relPath, `has \`${field}\` entry "${entry}" that resolves to ${node.kind ? `a \`${node.kind}\` chapter` : "a heading or file"}, not ${kinds.map((kind) => `a \`${kind}\``).join(" or ")} chapter.${hint}`);
             }
         };
         const portals = [];

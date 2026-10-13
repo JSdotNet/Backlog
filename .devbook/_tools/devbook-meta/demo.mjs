@@ -24,6 +24,7 @@ import {
     isDemoPath,
     isPageNamedDemo,
     parseDocument,
+    provedByCases,
     resolveType,
     folderKindForPath,
     slugify,
@@ -211,13 +212,18 @@ function networkFetches(html) {
 /** The keys the template reads from `demo-model`, per its authoring reference. */
 const MODEL_KEYS = ["app", "screens", "roles", "flags", "settings", "viewports", "variants", "walkthroughs"];
 
+/** A linked walkthrough's `part`, `<page>.md#<part>`, and the signature it was copied at. */
+export const LINKED_PART = /^[^#\s]+\.md#[^#\s]+$/;
+const SIGNATURE = /^[0-9a-f]{8}$/;
+
 /**
  * `demo-model`, read in the one shape the template reads — the authoring
  * reference in the comment opening its managed region — into the sets an
  * address resolves against. `screens` is `[{ id, anchors? }]`, each panel
- * switch `[{ key }]`, `walkthroughs` `[{ id, steps: [{ screen, anchor? }] }]`.
- * `shape` collects every place the model departs from that; `repeated` every
- * id it lists twice in one place.
+ * switch `[{ key }]`, `walkthroughs` `[{ id, part?, signature?, steps:
+ * [{ screen, anchor?, step?, text }] }]`; `linked` maps each linked
+ * walkthrough's id to its `{ part, signature }`. `shape` collects every place
+ * the model departs from that; `repeated` every id it lists twice in one place.
  */
 export function normalizeModel(raw) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("the model is not a JSON object");
@@ -270,29 +276,66 @@ export function normalizeModel(raw) {
         return into;
     };
 
+    // A walkthrough is free, with its own `text` per step, or linked: `part`
+    // names the scenario page part it shows, `signature` the page signature
+    // its text was copied at, and each step's `step` the part step it shows.
     const walkthroughs = new Map();
+    const linked = new Map();
     entries("walkthroughs", "`{ id, steps }` objects").forEach((entry, index) => {
         if (!entry || typeof entry !== "object" || !isText(entry.id) || !Array.isArray(entry.steps)) {
             shape.push(`\`walkthroughs\` entry ${index + 1} is not \`{ id, steps: [...] }\``);
             return;
         }
         if (walkthroughs.has(entry.id)) repeated.push(`walkthrough "${entry.id}"`);
+        const name = `walkthrough "${entry.id}"`;
+        const isLinked = entry.part !== undefined;
+        if (isLinked && !(isText(entry.part) && LINKED_PART.test(entry.part))) {
+            shape.push(`${name} has \`part\` ${JSON.stringify(entry.part)} — a linked walkthrough's \`part\` is \`<page>.md#<part>\``);
+        }
+        if (entry.signature !== undefined && !(typeof entry.signature === "string" && SIGNATURE.test(entry.signature))) {
+            shape.push(`${name} has \`signature\` ${JSON.stringify(entry.signature)} — a page signature is 8 lowercase hex`);
+        }
+        if (isLinked && entry.signature === undefined) {
+            shape.push(`${name} is linked by its \`part\` but has no \`signature\` — the page signature its text was copied at`);
+        }
+        if (!isLinked && entry.signature !== undefined) {
+            shape.push(`${name} has a \`signature\` but no \`part\` — only a linked walkthrough carries one`);
+        }
         const steps = [];
+        let previous = 0;
         entry.steps.forEach((step, at) => {
+            const where = `${name} step ${at + 1}`;
             if (!step || typeof step !== "object" || !isText(step.screen)) {
-                shape.push(`walkthrough "${entry.id}" step ${at + 1} is not \`{ screen, anchor?, text }\``);
+                shape.push(`${where} is not \`{ screen, anchor?, text }\``);
+            } else if (!isText(step.text)) {
+                shape.push(`${where} has no \`text\` — the line the walkthrough shows at that step`);
             }
             if (step?.flags !== undefined && !Array.isArray(step.flags)) {
-                shape.push(`walkthrough "${entry.id}" step ${at + 1} has \`flags\` that is not a list of keys`);
+                shape.push(`${where} has \`flags\` that is not a list of keys`);
+            }
+            const index = step && typeof step === "object" ? step.step : undefined;
+            if (isLinked) {
+                if (!Number.isInteger(index) || index < 1) {
+                    shape.push(`${where} has no \`step\` — a linked walkthrough's step names the 1-based index of the part step it shows`);
+                } else if (index <= previous) {
+                    shape.push(`${where} has \`step\` ${index} after \`step\` ${previous} — a linked walkthrough's \`step\` indexes ascend`);
+                } else previous = index;
+            } else if (index !== undefined) {
+                shape.push(`${where} has \`step\` but its walkthrough has no \`part\` — only a linked walkthrough's steps index a part`);
             }
             steps.push({
                 screen: step?.screen ?? null,
                 anchor: step?.anchor ?? null,
                 role: step?.role ?? null,
                 flags: Array.isArray(step?.flags) ? step.flags : [],
+                step: Number.isInteger(index) ? index : null,
+                text: isText(step?.text) ? step.text : null,
             });
         });
         walkthroughs.set(entry.id, steps);
+        if (isLinked && isText(entry.part)) {
+            linked.set(entry.id, { part: entry.part, signature: typeof entry.signature === "string" ? entry.signature : null });
+        }
     });
 
     if (raw.app !== undefined && (!raw.app || typeof raw.app !== "object" || Array.isArray(raw.app))) {
@@ -303,6 +346,7 @@ export function normalizeModel(raw) {
     return {
         screens,
         walkthroughs,
+        linked,
         home,
         variants: keyed("variants"),
         roles: keyed("roles"),
@@ -519,20 +563,28 @@ export async function collectDemos(repoRoot, folders) {
     return found.sort();
 }
 
-/** The `#### Scenario:` slugs one level under each requirement chapter, keyed by `<path>#<slug>`. */
+/**
+ * The `#### Scenario:` slugs one level under each requirement chapter, keyed
+ * by `<path>#<slug>`, as `{ inline, proved }`: `inline` the cases spelling out
+ * their own Given/When/Then, `proved` the ones a `Proved by:` line points at a
+ * scenario page part.
+ */
 export function requirementScenarios(relPath, markdown) {
     const folder = folderKindForPath(relPath);
     const { chapters } = parseDocument(markdown);
+    const provedLines = new Set(provedByCases(relPath, markdown).filter((c) => c.pointers.length).map((c) => c.line));
     const result = new Map();
     chapters.forEach((chapter, index) => {
         if (!chapter.meta || resolveType(folder, chapter.meta) !== "requirement") return;
-        const slugs = new Set();
+        const inline = new Set();
+        const proved = new Set();
         for (let i = index + 1; i < chapters.length && chapters[i].level > chapter.level; i++) {
             if (chapters[i].level !== chapter.level + 1 || !/^Scenario:/i.test(chapters[i].text)) continue;
-            slugs.add(chapters[i].slug);
-            slugs.add(slugify(chapters[i].text.replace(/^Scenario:\s*/i, "")));
+            const into = provedLines.has(chapters[i].line) ? proved : inline;
+            into.add(chapters[i].slug);
+            into.add(slugify(chapters[i].text.replace(/^Scenario:\s*/i, "")));
         }
-        result.set(`${relPath}#${chapter.slug}`, slugs);
+        result.set(`${relPath}#${chapter.slug}`, { inline, proved });
     });
     return result;
 }
@@ -543,8 +595,9 @@ export function requirementScenarios(relPath, markdown) {
  * a chapter, a proposal, or a change's `solution.md` — that does not resolve.
  *
  * `holders` is every block that carries a `demo` field, as
- * `{ id, path, refs, scenarios }`: `scenarios` is the set of `#### Scenario:`
- * slugs under it when it is a requirement, and null otherwise. A holder
+ * `{ id, path, refs, scenarios, provedBy }`: `scenarios` is the set of inline
+ * `#### Scenario:` slugs under it when it is a requirement, and null
+ * otherwise; `provedBy` the slugs of its `Proved by:` cases. A holder
  * inside a change resolves a path to the change's own copy of the demo first,
  * since that is the demo the change lands.
  */
@@ -609,13 +662,25 @@ export async function demoProblems(repoRoot, folders, holders) {
                 problems.push({ severity: "error", path: holder.path, message: `${at}, which does not resolve in ${file}: the address ${why}.` });
                 continue;
             }
+            // A requirement writes a walkthrough by hand only for an inline
+            // case: one linked to a part, or one beside a `Proved by:` case,
+            // is derived from the part and redundant here.
             if (holder.scenarios && fragment.startsWith("walkthrough/")) {
                 const id = fragment.split("?")[0].split("/")[1];
-                if (!holder.scenarios.has(id)) {
+                const proved = holder.provedBy?.size > 0;
+                if (demo.model.linked.has(id)) {
                     problems.push({
-                        severity: "error",
+                        severity: "warning",
                         path: holder.path,
-                        message: `${at}, whose walkthrough "${id}" matches no \`#### Scenario:\` under the requirement — a requirement's walkthrough plays one of its own scenarios and carries that scenario's slug.`,
+                        message: `${at}, a linked walkthrough written by hand — a requirement's linked walkthroughs are derived from its \`Proved by:\` lines; remove the entry.`,
+                    });
+                } else if (!holder.scenarios.has(id)) {
+                    problems.push({
+                        severity: proved ? "warning" : "error",
+                        path: holder.path,
+                        message: proved
+                            ? `${at}, whose walkthrough "${id}" matches no inline \`#### Scenario:\` under the requirement — a \`Proved by:\` case's walkthroughs are derived from the walkthroughs linked to its part, so only an inline case's is written by hand; remove the entry.`
+                            : `${at}, whose walkthrough "${id}" matches no \`#### Scenario:\` under the requirement — a requirement's free walkthrough plays one of its own scenarios and carries that scenario's slug.`,
                     });
                 }
             }
@@ -648,4 +713,154 @@ export async function demoProblems(repoRoot, folders, holders) {
         }
     }
     return problems;
+}
+
+// ── Linked walkthroughs ─────────────────────────────────────────────────────
+
+/**
+ * The scenario tools beside this folder — `.devbook/_tools/scenarios/` in an
+ * installed repository, `tools/scenarios/` in the plugin — or null where they
+ * are not installed. Loaded only when a demo links a walkthrough to a part.
+ */
+let scenarioTools;
+async function loadScenarioTools() {
+    if (scenarioTools === undefined) {
+        try {
+            const [parse, signature] = await Promise.all([
+                import(new URL("../scenarios/parse.mjs", import.meta.url).href),
+                import(new URL("../scenarios/signature.mjs", import.meta.url).href),
+            ]);
+            scenarioTools = { parse, signature };
+        } catch {
+            scenarioTools = null;
+        }
+    }
+    return scenarioTools;
+}
+
+/**
+ * The scenario page a linked walkthrough's `part` names, as a path in
+ * `pages`: a repository path, a path from the demo's folder — its landing
+ * place when the demo sits in a change — or a bare `<stem>.md`.
+ */
+export function resolveLinkedPage(demoPath, pagePart, pages) {
+    if (pagePart.startsWith(DEVBOOK_PREFIX)) return pages.has(pagePart) ? { path: pagePart } : { error: `${pagePart} is not a scenario page` };
+    if (pagePart.includes("/")) {
+        const from = changePathParts(demoPath)?.target ?? demoPath;
+        const target = path.posix.join(path.posix.dirname(from), pagePart);
+        return pages.has(target) ? { path: target } : { error: `${target} is not a scenario page` };
+    }
+    const stem = pagePart.replace(/\.md$/, "");
+    const found = [...pages.values()].filter((page) => page.stem === stem);
+    if (found.length > 1) return { error: `the stem "${stem}" is ambiguous — ${found.map((page) => page.path).join(", ")}` };
+    return found.length ? { path: found[0].path } : { error: `no scenario page has the stem "${stem}"` };
+}
+
+/** Whether a linked step's embedded text is its part step's, with or without the keyword. */
+export function stepTextMatches(text, target, collapse) {
+    const shown = collapse(text).replace(/^\*\*(Given|When|Then|And)\*\*/, "$1");
+    return shown === target.text || (target.keyword !== null && shown === `${target.keyword} ${target.text}`);
+}
+
+/**
+ * Every linked walkthrough across the corpus, checked against the scenario
+ * page part its `part` names, per devbook-chapter-metadata.md: the part
+ * resolves, each step's `step` lies within the part's steps, the `signature`
+ * is the page's current one — else the walkthrough is stale — and each step's
+ * embedded `text` is the text of the part step it names — else it drifted.
+ *
+ * `register` is the scenario page register the graph build writes
+ * `scenarios.json` from, `[{ stem, path, parts: [{ anchor }] }]`. Returns
+ * `{ problems, links }`, `links` every linked walkthrough of a demo under
+ * `domain/` outside a change as `{ demo, id, part }`, `part` the resolved
+ * `<page path>#<anchor>` — what a `Proved by:` requirement's `demo` entries
+ * are derived from.
+ */
+export async function linkedWalkthroughs(repoRoot, folders, register = []) {
+    const problems = [];
+    const links = [];
+    const read = demoReader(repoRoot);
+    const pages = new Map(register.map((page) => [page.path, page]));
+    const parsed = new Map();
+
+    for (const relPath of await collectDemos(repoRoot, folders)) {
+        const demo = parseDemo(read(relPath) ?? "");
+        if (!demo.model?.linked.size) continue;
+        const derivable = !changePathParts(relPath) && landsInDomain(relPath);
+        let unchecked = false;
+        for (const [id, { part, signature }] of demo.model.linked) {
+            if (!LINKED_PART.test(part)) continue; // the model's shape check reports it
+            const at = `${relPath} has walkthrough "${id}" with \`part\` "${part}"`;
+            const hash = part.indexOf("#");
+            const anchor = part.slice(hash + 1);
+            const resolved = resolveLinkedPage(relPath, part.slice(0, hash), pages);
+            if (resolved.error) {
+                problems.push({ severity: "error", path: relPath, message: `${at}, which names no scenario page part: ${resolved.error}.` });
+                continue;
+            }
+            const entry = pages.get(resolved.path);
+            if (!entry.parts.some((p) => p.anchor === anchor)) {
+                const anchors = entry.parts.map((p) => p.anchor).join(", ") || "none";
+                problems.push({ severity: "error", path: relPath, message: `${at}, but ${resolved.path} has no part "#${anchor}" — parts: ${anchors}.` });
+                continue;
+            }
+            if (derivable) links.push({ demo: relPath, id, part: `${resolved.path}#${anchor}` });
+
+            const tools = await loadScenarioTools();
+            if (!tools) {
+                unchecked = true;
+                continue;
+            }
+            if (!parsed.has(resolved.path)) {
+                let found = null;
+                try {
+                    const page = tools.parse.parseScenarioPage(await readFile(path.join(repoRoot, resolved.path), "utf8"), resolved.path);
+                    found = { page, signature: await tools.signature.pageSignature(page, repoRoot, tools.parse.SCENARIO_FOLDER) };
+                } catch {
+                    found = null;
+                }
+                parsed.set(resolved.path, found);
+            }
+            const found = parsed.get(resolved.path);
+            const partSteps = found?.page.parts.find((p) => p.anchor === anchor)?.steps;
+            if (!partSteps) continue;
+
+            const stale = signature !== null && signature !== found.signature;
+            if (stale) {
+                problems.push({
+                    severity: "warning",
+                    path: relPath,
+                    message: `${relPath} has linked walkthrough "${id}" at signature ${signature}, but ${resolved.path} is at ${found.signature} — it is stale until \`/prototype\` re-copies its text from the part.`,
+                });
+            }
+            demo.model.walkthroughs.get(id).forEach((step, index) => {
+                if (step.step === null) return; // the model's shape check reports it
+                const where = `${relPath} has walkthrough "${id}" step ${index + 1}`;
+                const target = partSteps[step.step - 1];
+                if (!target) {
+                    problems.push({ severity: "error", path: relPath, message: `${where} on part step ${step.step}, but "${part}" has ${partSteps.length} step(s) counted from 1.` });
+                    return;
+                }
+                if (step.text === null || stepTextMatches(step.text, target, tools.parse.collapse)) return;
+                // Under the page's current signature the copy cannot have
+                // moved with the page, so the text was edited in the demo.
+                const says = target.keyword ? `${target.keyword} ${target.text}` : target.text;
+                problems.push({
+                    severity: stale ? "warning" : "error",
+                    path: relPath,
+                    message:
+                        `${where} drifted from part step ${step.step}: it shows ${JSON.stringify(step.text)}, the part says ${JSON.stringify(says)} — ` +
+                        (stale ? "re-copy the text with the signature." : "the embedded text is a copy of the part step and is never edited in the demo."),
+                });
+            });
+        }
+        if (unchecked) {
+            problems.push({
+                severity: "warning",
+                path: relPath,
+                message: `${relPath} links walkthroughs to scenario page parts, but the scenario tools are not installed beside devbook-meta, so their steps, signatures, and text go unchecked — run devbook:update.`,
+            });
+        }
+    }
+    return { problems, links };
 }

@@ -23,12 +23,16 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { test as base, type Browser, type BrowserContext, type BrowserContextOptions, type Page } from '@playwright/test';
+import type { Browser, BrowserContext, BrowserContextOptions, Page } from '@playwright/test';
 import { listScenarioPages, normalizePath, parseSpecHeader, readProfiles, SCENARIO_FOLDER } from './parse.mjs';
+import { playwrightTest } from './playwright.mjs';
 import { effectiveConfig, findRepoRoot, resolveEnv, runSetup } from './setup.mjs';
 import { failureShot, shot } from './shot';
 
 export { shot };
+
+// The suite's own copy, not one resolved from this folder; see playwright.mjs.
+const { test: base } = playwrightTest() as typeof import('@playwright/test');
 
 type Options = { scenarioHook: string; scenarioFolder: string };
 
