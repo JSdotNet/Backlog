@@ -584,15 +584,17 @@ h1, h2, h3 {
     max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
 }
 
-/* Opened by the toggle: every tag, on as many rows as it takes. The bar tops
-   its groups so the scopes and the statuses stay on the first row beside it. */
+/* Opened by the toggle: every tag, on as many rows as it takes, and across the
+   bar's whole width on a row of its own. Left in the middle column it wrapped
+   into a narrow tower beside the statuses, a few chips a row however wide the
+   pane was. The order moves it after every other group, statuses included, so
+   the first row keeps the layout it had while the strip was closed and the
+   Fewer toggle stays where it was pressed; nothing else in the bar sets one. */
 .filter-group--tags--expanded {
+    flex-basis: 100%;
+    order: 1;
     max-height: none;
     row-gap: var(--spacing-xs);
-}
-
-.filter-bar:has(.filter-group--tags--expanded) {
-    align-items: flex-start;
 }
 
 /* Pinned, like the scopes, because it is the only way to a chip the strip has
