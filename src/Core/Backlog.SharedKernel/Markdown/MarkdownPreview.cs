@@ -28,23 +28,36 @@ namespace Backlog.SharedKernel.Markdown;
 /// costs nothing to carry and makes the lossiness survivable.
 /// </para>
 /// </summary>
-public static class MarkdownPreview
+public static partial class MarkdownPreview
 {
-    private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.*)$", RegexOptions.Compiled);
-    private static readonly Regex CheckboxPrefixRegex = new(@"^\[( |x|X)\][ \t]+", RegexOptions.Compiled);
-    private static readonly Regex TaskItemRegex = new(@"^[ \t]*[-*][ \t]+\[(?<marker> |x|X)\][ \t]+(?<text>.*)$", RegexOptions.Compiled);
-    private static readonly Regex BulletRegex = new(@"^[ \t]*[-*][ \t]+(.*)$", RegexOptions.Compiled);
-    private static readonly Regex OrderedRegex = new(@"^[ \t]*\d+[.)][ \t]+(.*)$", RegexOptions.Compiled);
+    // Source-generated, so no pattern is parsed and compiled to IL at run time by the
+    // first read-view render that touches the type.
+    [GeneratedRegex(@"^(#{1,6})[ \t]+(.*)$")]
+    private static partial Regex HeadingRegex();
+
+    [GeneratedRegex(@"^\[( |x|X)\][ \t]+")]
+    private static partial Regex CheckboxPrefixRegex();
+
+    [GeneratedRegex(@"^[ \t]*[-*][ \t]+\[(?<marker> |x|X)\][ \t]+(?<text>.*)$")]
+    private static partial Regex TaskItemRegex();
+
+    [GeneratedRegex(@"^[ \t]*[-*][ \t]+(.*)$")]
+    private static partial Regex BulletRegex();
+
+    [GeneratedRegex(@"^[ \t]*\d+[.)][ \t]+(.*)$")]
+    private static partial Regex OrderedRegex();
 
     /// <summary>A footnote definition: <c>[^label]: the note</c>, on its own line.</summary>
-    private static readonly Regex FootnoteDefinitionRegex = new(@"^[ \t]*\[\^(?<label>[^\]\s]+)\]:[ \t]*(?<text>.*)$", RegexOptions.Compiled);
+    [GeneratedRegex(@"^[ \t]*\[\^(?<label>[^\]\s]+)\]:[ \t]*(?<text>.*)$")]
+    private static partial Regex FootnoteDefinitionRegex();
 
     /// <summary>The row of dashes under a table's header. It is what makes the
     /// pipes above it a table rather than a paragraph that happens to contain
     /// them — a line of prose with a pipe in it is still prose.</summary>
-    private static readonly Regex TableDelimiterRegex = new(@"^[ \t]*\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$", RegexOptions.Compiled);
+    [GeneratedRegex(@"^[ \t]*\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$")]
+    private static partial Regex TableDelimiterRegex();
 
-    private static readonly Regex InlineRegex = new(
+    [GeneratedRegex(
         @"(?<code>`[^`\n]+`)" +
         // Image before link: both start with a bracket run, and the link
         // alternative would otherwise match from the `[` and leave the `!`
@@ -60,8 +73,8 @@ public static class MarkdownPreview
         // titles do — so stopping at the first `)` would truncate the link and
         // leave a stray bracket in the text.
         @"|(?<link>\[[^\]\n]+\]\((?:[^()\s]|\([^()\s]*\))+\))" +
-        @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)",
-        RegexOptions.Compiled);
+        @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)")]
+    private static partial Regex InlineRegex();
 
     /// <summary>
     /// Reads a body as an <em>entry</em>: a <c>##</c> heading is a sub-item, and
@@ -188,7 +201,7 @@ public static class MarkdownPreview
             }
 
             // A definition was already collected; it is not content in the flow.
-            if (FootnoteDefinitionRegex.IsMatch(line))
+            if (FootnoteDefinitionRegex().IsMatch(line))
             {
                 FlushAll();
                 continue;
@@ -206,7 +219,7 @@ public static class MarkdownPreview
             if (trimmed.Contains('|', StringComparison.Ordinal)
                 && i + 1 < lines.Length
                 && lines[i + 1].Contains('|', StringComparison.Ordinal)
-                && TableDelimiterRegex.IsMatch(lines[i + 1].TrimEnd()))
+                && TableDelimiterRegex().IsMatch(lines[i + 1].TrimEnd()))
             {
                 FlushAll();
                 var opened = i;
@@ -218,7 +231,7 @@ public static class MarkdownPreview
                 continue;
             }
 
-            var heading = HeadingRegex.Match(trimmed);
+            var heading = HeadingRegex().Match(trimmed);
             if (heading.Success)
             {
                 FlushAll();
@@ -233,7 +246,7 @@ public static class MarkdownPreview
                 // drop content the view has nowhere else to show.
                 if (asEntry && level is 2 or 3)
                 {
-                    var box = CheckboxPrefixRegex.Match(text);
+                    var box = CheckboxPrefixRegex().Match(text);
                     if (box.Success)
                     {
                         done = box.Groups[1].Value is "x" or "X";
@@ -278,7 +291,7 @@ public static class MarkdownPreview
 
             FlushQuote();
 
-            var task = TaskItemRegex.Match(line);
+            var task = TaskItemRegex().Match(line);
             if (task.Success)
             {
                 FlushParagraph();
@@ -294,7 +307,7 @@ public static class MarkdownPreview
                 continue;
             }
 
-            var bullet = BulletRegex.Match(line);
+            var bullet = BulletRegex().Match(line);
             if (bullet.Success)
             {
                 FlushParagraph();
@@ -303,7 +316,7 @@ public static class MarkdownPreview
                 continue;
             }
 
-            var numbered = OrderedRegex.Match(line);
+            var numbered = OrderedRegex().Match(line);
             if (numbered.Success)
             {
                 FlushParagraph();
@@ -507,7 +520,7 @@ public static class MarkdownPreview
             // A `[^1]:` inside a fence is a code sample, exactly as a `- [ ]` is.
             if (StepFence(line, ref open)) continue;
 
-            var match = FootnoteDefinitionRegex.Match(line.TrimEnd());
+            var match = FootnoteDefinitionRegex().Match(line.TrimEnd());
             if (match.Success) definitions.TryAdd(match.Groups["label"].Value, match.Groups["text"].Value.Trim());
         }
 
@@ -608,7 +621,7 @@ public static class MarkdownPreview
     /// item — the same test, so anyone counting checkboxes counts the same ones
     /// the read view rendered.
     /// </summary>
-    public static bool IsTaskLine(string? line) => line is not null && TaskItemRegex.IsMatch(line.TrimEnd());
+    public static bool IsTaskLine(string? line) => line is not null && TaskItemRegex().IsMatch(line.TrimEnd());
 
     /// <summary>
     /// Flips the nth checklist item in <paramref name="source"/>, where n is the
@@ -646,7 +659,7 @@ public static class MarkdownPreview
             // Matched against the trimmed line so the test is IsTaskLine's, but
             // spliced into the original: the marker sits before any trailing
             // whitespace, so its index carries over unchanged.
-            var task = TaskItemRegex.Match(lines[i].TrimEnd());
+            var task = TaskItemRegex().Match(lines[i].TrimEnd());
             if (!task.Success) continue;
             if (seen++ != taskIndex) continue;
 
@@ -727,7 +740,7 @@ public static class MarkdownPreview
         var parts = new List<MdInline>();
         var cursor = 0;
 
-        foreach (Match match in InlineRegex.Matches(text))
+        foreach (Match match in InlineRegex().Matches(text))
         {
             if (match.Index > cursor)
             {

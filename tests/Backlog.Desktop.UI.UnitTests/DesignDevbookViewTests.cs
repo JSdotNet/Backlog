@@ -275,6 +275,8 @@ public sealed class DesignDevbookViewTests : IDisposable
     public async Task A_chapter_that_left_the_folder_offers_no_way_in()
     {
         await using var harness = CreateHarness();
+        var folders = ChapterReadCountingFolderSource.Install(harness.Context);
+        folders.SettleReadsAtOnce = true;
         var component = harness.Render("color-scheme.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
 
@@ -282,14 +284,25 @@ public sealed class DesignDevbookViewTests : IDisposable
         // parsed before the file went away, and offers no edit that would fail
         // on the first keystroke.
         File.Delete(Path.Combine(harness.DesignFolder, "color-scheme.md"));
+
+        // Reached by selecting the chapter again: a parameter set that changes
+        // nothing reads nothing — the pane hands one in on every keystroke typed
+        // into a task — so it is a selection, not a re-render, that reads.
+        harness.Rerender(component, "interaction-guidelines.md");
+        component.WaitForAssertion(() => Assert.Contains("Interaction guidelines", component.Find("[data-testid='design-chapter-file']").TextContent, StringComparison.Ordinal));
+        var reads = folders.ChapterReads;
         harness.Rerender(component, "color-scheme.md");
 
-        // Waited away rather than asserted away: the view re-reads the file before
-        // it can conclude there is nothing to edit, so the file view leaves on a
-        // later render than the parameter set returned from. The wait is not
-        // vacuous — the view was pinned on screen above, so what is waited for is
-        // a disappearance and not an absence that was always true.
-        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='design-chapter-file']")));
+        // Asserted only once the read of the deleted file has landed. The file
+        // view is off screen from the moment the selection moves, because the
+        // chapter still held is the other one, so an absence asserted any earlier
+        // would pass whether or not the view read the file at all. The count
+        // moving is that read; the round trip through the dispatcher is the rest
+        // of the turn it ran in, which is where the result lands.
+        component.WaitForAssertion(() => Assert.Equal(reads + 1, folders.ChapterReads));
+        await component.InvokeAsync(() => { });
+
+        Assert.Empty(component.FindAll("[data-testid='design-chapter-file']"));
         Assert.Contains("Palette", component.Markup, StringComparison.Ordinal);
     }
 

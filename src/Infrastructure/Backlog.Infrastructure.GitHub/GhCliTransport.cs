@@ -8,9 +8,9 @@ using System.Text.RegularExpressions;
 namespace Backlog.Infrastructure.GitHub;
 
 /// <summary>
-/// Talks to GitHub through the <c>gh</c> CLI the person is already signed in to.
-/// Preferred over a token because it means the app never holds a credential:
-/// <c>gh</c> keeps it, refreshes it, and revokes it.
+/// Talks to GitHub through the <c>gh</c> CLI the person is already signed in to,
+/// one <c>gh api</c> process per call. <c>gh</c> keeps the credential, refreshes it,
+/// and revokes it.
 /// <para>
 /// Narrowed to the <b>default path only</b>. <c>gh api</c> has no per-call account
 /// selector, so this can speak as one identity — whoever <c>gh</c> is currently
@@ -21,9 +21,14 @@ namespace Backlog.Infrastructure.GitHub;
 /// machine to switch would change state the app does not own.
 /// </para>
 /// <para>
-/// Kept rather than replaced by extracting a token for the active account too: for
-/// the default path no credential extraction is needed at all, which preserves the
-/// property this class exists for.
+/// No longer the default path's first route. A process per call costs 100 to 300 ms
+/// on Windows, so <see cref="ResolvingGitHubTransport"/> now borrows the token
+/// <c>gh</c> holds on github.com for its signed-in login — in memory only, for
+/// <see cref="GhCliAccountSource.TokenLifetime"/>, forgotten on a 401 or on "Check
+/// the connection" — and sends over HTTP. This stays as the fallback: when no
+/// github.com token can be had, and when <c>gh</c> or the install is pointed at a
+/// host other than github.com. A 401 on a borrowed token is not resent through
+/// here; it surfaces, and the next call re-probes this CLI.
 /// </para>
 /// </summary>
 public sealed partial class GhCliTransport : IGitHubTransport
@@ -34,6 +39,10 @@ public sealed partial class GhCliTransport : IGitHubTransport
     public GhCliTransport(string executable = "gh") => _executable = executable;
 
     public string Description => "GitHub CLI";
+
+    /// <summary>The executable this starts, so a credential source can be built
+    /// over the same <c>gh</c>.</summary>
+    internal string Executable => _executable;
 
     /// <summary>Who <c>gh</c> is signed in as, once availability has been
     /// checked. Null when it isn't signed in.</summary>

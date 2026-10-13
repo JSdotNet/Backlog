@@ -1,5 +1,5 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -123,6 +123,35 @@ public sealed class DevToolService : IDevToolService
     /// </summary>
     private readonly IMcpEndpointSource? _mcp;
 
+    /// <summary>
+    /// How many processes one listing may have running at once.
+    ///
+    /// <para>Every probe a listing makes used to wait for the one before it, and
+    /// most of them do not depend on each other at all: the Copilot listing, the
+    /// Claude listing, the winget inventory and each row's own lookups are
+    /// independent questions to independent CLIs. Run one after another, that was
+    /// tens of seconds every time the pane opened.</para>
+    ///
+    /// <para>Five rather than "as many as there are rows" because each of these is
+    /// a whole process — a node runtime for the Claude CLI, a git with its own
+    /// network round trip — and a catalog of thirty rows launching thirty of them
+    /// at once would trade a slow pane for a machine that stutters while it
+    /// opens.</para>
+    /// </summary>
+    internal const int DefaultConcurrency = 5;
+
+    /// <summary>What a listing starts its processes through. Only a test replaces
+    /// it; see <see cref="IDevToolProcessRunner"/>.</summary>
+    private readonly IDevToolProcessRunner _runner = DevToolProcessRunner.Instance;
+
+    /// <inheritdoc cref="DefaultConcurrency" />
+    private readonly int _concurrency = DefaultConcurrency;
+
+    /// <summary>How long one listing command may take. <see cref="ProbeTimeout"/>
+    /// everywhere but a test, which cannot wait two minutes to see a deadline
+    /// fire.</summary>
+    private readonly TimeSpan _probeTimeout = ProbeTimeout;
+
     public DevToolService(ILogger<DevToolService>? logger = null, string? configPath = null)
         : this(null, null, logger, configPath)
     {
@@ -170,6 +199,37 @@ public sealed class DevToolService : IDevToolService
     {
         _catalogOnly = catalogOnly;
     }
+
+    /// <summary>
+    /// A listing over the catalog at <paramref name="configPath"/> whose processes
+    /// are started by <paramref name="runner"/>, at most
+    /// <paramref name="concurrency"/> at a time. Internal because only a test has
+    /// a reason to choose either: it is how a listing is driven without the CLIs
+    /// it asks, and how the same listing is compared at a bound of one.
+    /// </summary>
+    /// <param name="claudeDesktopConfigPaths">Where the listing looks for the
+    /// Claude desktop app's config instead of this user's own folders, so a test
+    /// neither reads nor depends on the machine it runs on.</param>
+    internal DevToolService(
+        string configPath,
+        IDevToolProcessRunner runner,
+        int concurrency,
+        TimeSpan? probeTimeout = null,
+        IReadOnlyList<string>? claudeDesktopConfigPaths = null)
+        : this(null, null, null, configPath)
+    {
+        ArgumentNullException.ThrowIfNull(runner);
+        ArgumentOutOfRangeException.ThrowIfLessThan(concurrency, 1);
+
+        _runner = runner;
+        _concurrency = concurrency;
+        _probeTimeout = probeTimeout ?? ProbeTimeout;
+        _claudeDesktopConfigPaths = claudeDesktopConfigPaths;
+    }
+
+    /// <summary>The Claude desktop config candidates a listing reads, or nothing
+    /// for this user's own. See the internal constructor.</summary>
+    private readonly IReadOnlyList<string>? _claudeDesktopConfigPaths;
 
     /// <summary>
     /// The composition the web harness uses: the catalog under the store's root,
@@ -237,100 +297,145 @@ public sealed class DevToolService : IDevToolService
 
         var config = await DevToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
         var root = config.Root;
-        var messages = new List<string>();
-        var installedPlugins = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var installedTools = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var log = new CommandLog();
 
-        // Both CLIs are resolved before anything is asked of either, and neither
-        // being there is an ordinary answer rather than a failure. This machine may
-        // run only Copilot, only Claude, or a Claude that ships inside the desktop
-        // app and never reaches PATH — and in every one of those the rows for the
-        // host that *is* installed still have to work.
-        var copilotCli = await ResolveCopilotCliAsync(log, ct).ConfigureAwait(false);
-        if (copilotCli is null)
-        {
-            messages.Add(CopilotCliMissing);
-        }
-        else
-        {
-            try
-            {
-                installedPlugins = await GetInstalledPluginsAsync(copilotCli.Value, log, ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogWarning(ex, "Failed to list Copilot plugins.");
-                messages.Add("Copilot plugins could not be checked.");
-            }
-        }
+        // The whole catalog read before anything is started. A hand-edited file
+        // can make any of these throw — a "plugins" that is an object rather than
+        // an array — and a throw after the first unit had started would leave
+        // winget and the Claude CLI running behind a caller that already has its
+        // error, with nothing left to stop them.
+        var marketplaceEntries = DevToolConfiguration.MarketplaceEntries(root).ToArray();
+        var marketplaceNames = marketplaceEntries
+            .Select(marketplace => GetString(marketplace, "name"))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var defaultMarketplace = DevToolConfiguration.DefaultMarketplaceName(root);
+        var plugins = GetArray(root, "plugins")
+            .Where(plugin => !string.IsNullOrWhiteSpace(GetString(plugin, "name")))
+            .ToArray();
+        var serverEntries = GetArray(root, "mcpServers").ToArray();
+
+        // Read through the abstraction rather than by reaching for a packageId.
+        // That reach is what dropped every command-registered server before a row
+        // was ever built — this repository's own catalog ships one — and the
+        // reader is where the two decisions a row needs live: which property
+        // identifies the entry, and which mechanism is behind it. It is the same
+        // reader the harness enumerates with, so the two implementations of this
+        // port cannot disagree about one catalog.
+        //
+        // An entry that cannot be addressed at all is still skipped: there is
+        // nothing to write an override against and nothing for a button to
+        // remove, so a row for it would be a row nothing can act on.
+        var servers = serverEntries
+            .Select(server => (Node: server, Declared: DevToolConfiguration.ReadMcpServer(server)))
+            .Where(server => server.Declared is not null)
+            .Select(server => (server.Node, Declared: server.Declared!))
+            .ToArray();
 
         // Only when some server in the catalog is actually a .NET tool. This is
         // the inventory every packageId is looked up in, and a catalog whose MCP
         // servers are all registered by command has nothing to look up in it — so
         // running it anyway would be a launch on behalf of rows it cannot say
         // anything about.
-        if (DevToolConfiguration.ReadMcpServers(root).Any(server => server.Mechanism is DevToolMcpMechanism.DotNetTool))
-        {
-            try
-            {
-                installedTools = await GetInstalledDotNetToolsAsync(log, ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogWarning(ex, "Failed to list .NET tools.");
-                messages.Add(".NET tools could not be checked.");
-            }
-        }
+        var asksDotNetTools = DevToolConfiguration.ReadMcpServers(root).Any(server => server.Mechanism is DevToolMcpMechanism.DotNetTool);
 
-        var claudeCli = await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false);
+        // Only when some entry targets the Claude desktop app, which is a file
+        // rather than a CLI: one config document every row targeting it reads,
+        // resolved once rather than per row so two rows cannot disagree about it.
+        var asksClaudeDesktop = serverEntries.Any(server => DevToolConfiguration.ParseHosts(server).HasFlag(DevToolHosts.ClaudeDesktop));
+        var applications = DevToolConfiguration.ReadApplications(root);
+
+        using var throttle = new SemaphoreSlim(_concurrency, _concurrency);
+        using var claudeLane = new SemaphoreSlim(1, 1);
+        var log = new CommandLog(_runner, throttle, claudeLane, _probeTimeout);
+
+        // Every unit below starts as soon as what it reads is known, rather than
+        // after whatever happened to be written above it: the Copilot listing,
+        // the Claude listing, the .NET tool inventory, the desktop app's config
+        // and the application inventory ask five different things and none of
+        // them waits on another. Each writes to a child log of its own, the bound
+        // on processes in flight lives in the log (see RunAsync), and the children
+        // are merged back below in the order the units are declared here — the
+        // order they used to run in, one after another. So the transcript, the
+        // status line and every row read exactly as they did; only the wait is
+        // shorter.
+        //
+        // Both CLIs are resolved before anything is asked of either, and neither
+        // being there is an ordinary answer rather than a failure. This machine may
+        // run only Copilot, only Claude, or a Claude that ships inside the desktop
+        // app and never reaches PATH — and in every one of those the rows for the
+        // host that *is* installed still have to work.
+        var copilotLog = log.Child();
+        var copilot = ReadCopilotPluginsAsync(copilotLog, ct);
+
+        var dotNetLog = log.Child();
+        var dotNet = asksDotNetTools
+            ? ReadDotNetToolsAsync(dotNetLog, ct)
+            : Task.FromResult(DotNetToolListing.NotAsked);
+
+        var claudeCliLog = log.Child();
+        var claudeCli = ResolveClaudeCliAsync(claudeCliLog, ct);
         var refreshed = new RefreshState();
-        var claudeMarketplaces = (IReadOnlySet<string>)new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var claudePlugins = (IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState>)
-            new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
-        var claudeInstallPaths = (IReadOnlyDictionary<string, int>)new Dictionary<string, int>();
-        var claudeInstallsKnown = false;
+        var claudeLog = log.Child();
+        var claude = ReadClaudeListingAsync(marketplaceNames, claudeCli, refreshed, claudeLog, ct);
 
-        if (claudeCli is null)
+        var desktopLog = log.Child();
+        var claudeDesktop = OrNothingAsync(
+            asksClaudeDesktop,
+            () => ResolveClaudeDesktopAsync(desktopLog, ct, _claudeDesktopConfigPaths));
+
+        // Applications last in the table, and read as one batch. Every other kind
+        // asks one CLI a question per entry; this one asks two CLIs and an HTTP
+        // endpoint for the whole array at once, because a machine's software
+        // inventory is thirty-odd rows and a launch per row is a refresh nobody
+        // waits out. Started first in time, though: winget is the slowest thing a
+        // listing asks, and it needs nothing any other unit knows.
+        var inventoryLog = log.Child();
+        var inventory = OrNothingAsync(
+            applications.Count > 0,
+            () => ReadApplicationInventoryAsync(applications, inventoryLog, ct));
+
+        var pluginRows = DescribePluginsAsync(plugins, log, copilot, claude, defaultMarketplace, refreshed, ct);
+        var serverRows = DescribeMcpServersAsync(servers, log, dotNet, claudeCli, claudeDesktop, _mcp, ct);
+
+        // Every unit awaited together, so a failure or a cancellation in one is
+        // never left beside another still running that nobody observes.
+        await Task.WhenAll(copilot, dotNet, claudeCli, claude, claudeDesktop, inventory, pluginRows, serverRows).ConfigureAwait(false);
+
+        var copilotListing = await copilot.ConfigureAwait(false);
+        var dotNetListing = await dotNet.ConfigureAwait(false);
+        var claudeListing = await claude.ConfigureAwait(false);
+        var desktopState = await claudeDesktop.ConfigureAwait(false);
+        var applicationInventory = await inventory.ConfigureAwait(false);
+        var (pluginTools, pluginLogs) = await pluginRows.ConfigureAwait(false);
+        var (serverTools, serverLogs) = await serverRows.ConfigureAwait(false);
+
+        log.Append(copilotLog);
+        log.Append(dotNetLog);
+        log.Append(claudeCliLog);
+        log.Append(claudeLog);
+        log.Append(pluginLogs);
+        log.Append(desktopLog);
+        log.Append(serverLogs);
+        log.Append(inventoryLog);
+
+        var messages = new List<string>();
+        messages.AddRange(copilotListing.Messages);
+        messages.AddRange(dotNetListing.Messages);
+        messages.AddRange(claudeListing.Messages);
+        if (desktopState?.Error is { Length: > 0 } desktopError)
         {
-            messages.Add(ClaudeCliMissing);
-        }
-        else
-        {
-            claudeMarketplaces = await GetClaudeMarketplacesAsync(claudeCli, log, ct).ConfigureAwait(false);
-
-            // Every configured marketplace pulled before Claude is asked what it
-            // has. Claude answers that question out of its own clone of a
-            // marketplace and installs out of that same clone, so a listing that
-            // read first was a listing about whichever refresh somebody last
-            // happened to run - and the update it then offered was one this pane
-            // could not deliver, however many times it was pressed.
-            foreach (var name in DevToolConfiguration.MarketplaceEntries(root)
-                .Select(marketplace => GetString(marketplace, "name"))
-                .Where(name => !string.IsNullOrWhiteSpace(name) && claudeMarketplaces.Contains(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                var pull = await RunAsync(DevToolCommands.ClaudeMarketplaceUpdate(claudeCli, name), log, ct).ConfigureAwait(false);
-                if (pull.ExitCode == 0)
-                {
-                    refreshed.Marketplaces.Add(name);
-                }
-                else
-                {
-                    messages.Add($"The {name} marketplace could not be refreshed, so its plugins read as version unknown.");
-                }
-            }
-
-            (claudePlugins, claudeInstallPaths, claudeInstallsKnown) = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
+            messages.Add(desktopError);
         }
 
-        var defaultMarketplace = DevToolConfiguration.DefaultMarketplaceName(root);
+        messages.AddRange(applicationInventory?.Messages ?? []);
+
         var tools = new List<DevToolInfo>();
 
         // Marketplaces lead the table because they lead the install order: every
         // Claude plugin id resolves against one, so a marketplace that was never
         // added is the single reason a whole block of rows below it will fail.
-        foreach (var marketplace in DevToolConfiguration.MarketplaceEntries(root))
+        foreach (var marketplace in marketplaceEntries)
         {
             var name = GetString(marketplace, "name");
             if (string.IsNullOrWhiteSpace(name))
@@ -338,7 +443,7 @@ public sealed class DevToolService : IDevToolService
                 continue;
             }
 
-            var known = claudeMarketplaces.Contains(name);
+            var known = claudeListing.Marketplaces.Contains(name);
             tools.Add(new DevToolInfo(
                 MarketplaceKey(name),
                 DevToolKind.Marketplace,
@@ -351,83 +456,20 @@ public sealed class DevToolService : IDevToolService
                 // not, and printing a number here would invite a comparison that
                 // means nothing.
                 DevToolOutput.NoVersion,
-                claudeCli is null ? ClaudeCliMissing : known ? "Configured marketplace" : "Not added to Claude yet")
+                claudeListing.Cli is null ? ClaudeCliMissing : known ? "Configured marketplace" : "Not added to Claude yet")
             {
                 Hosts = DevToolHosts.Claude
             });
         }
 
-        foreach (var plugin in GetArray(root, "plugins"))
+        tools.AddRange(pluginTools);
+        tools.AddRange(serverTools);
+
+        if (applicationInventory is not null)
         {
-            var name = GetString(plugin, "name");
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                continue;
-            }
-
-            tools.Add(await DescribePluginAsync(
-                plugin,
-                name,
-                copilotCli,
-                installedPlugins,
-                claudeCli,
-                claudePlugins,
-                claudeInstallPaths,
-                claudeInstallsKnown,
-                defaultMarketplace,
-                refreshed,
-                log,
-                ct).ConfigureAwait(false));
-        }
-
-        // Resolved once, before the loop, and only when some entry asks for it.
-        // The Claude desktop app is a file rather than a CLI: the answer is one
-        // config document that every row targeting it reads, and re-reading it per
-        // row would be one more chance for two rows to disagree about the same
-        // file.
-        var claudeDesktop = GetArray(root, "mcpServers").Any(server => DevToolConfiguration.ParseHosts(server).HasFlag(DevToolHosts.ClaudeDesktop))
-            ? await ResolveClaudeDesktopAsync(log, ct).ConfigureAwait(false)
-            : null;
-
-        if (claudeDesktop?.Error is { Length: > 0 } desktopError)
-        {
-            messages.Add(desktopError);
-        }
-
-        foreach (var server in GetArray(root, "mcpServers"))
-        {
-            // Read through the abstraction rather than by reaching for a
-            // packageId. That reach is what dropped every command-registered
-            // server before a row was ever built — this repository's own catalog
-            // ships one — and the reader is where the two decisions a row needs
-            // live: which property identifies the entry, and which mechanism is
-            // behind it. It is the same reader the harness enumerates with, so the
-            // two implementations of this port cannot disagree about one catalog.
-            //
-            // An entry that cannot be addressed at all is still skipped: there is
-            // nothing to write an override against and nothing for a button to
-            // remove, so a row for it would be a row nothing can act on.
-            if (DevToolConfiguration.ReadMcpServer(server) is not { } declared)
-            {
-                continue;
-            }
-
-            tools.Add(await DescribeMcpServerAsync(server, declared, installedTools, claudeCli, claudeDesktop, _mcp, log, ct).ConfigureAwait(false));
-        }
-
-        // Applications last, and read as one batch. Every other kind above asks
-        // one CLI a question per entry; this one asks two CLIs and an HTTP
-        // endpoint for the whole array at once, because a machine's software
-        // inventory is thirty-odd rows and a launch per row is a refresh nobody
-        // waits out.
-        var applications = DevToolConfiguration.ReadApplications(root);
-        if (applications.Count > 0)
-        {
-            var inventory = await ReadApplicationInventoryAsync(applications, log, messages, ct).ConfigureAwait(false);
-
             foreach (var application in applications)
             {
-                tools.Add(DescribeApplication(application, inventory));
+                tools.Add(DescribeApplication(application, applicationInventory));
             }
         }
 
@@ -439,6 +481,226 @@ public sealed class DevToolService : IDevToolService
         {
             Commands = log.Commands
         };
+    }
+
+    /// <summary>A unit a listing may skip, as a task either way, so that every
+    /// unit is awaited the same way. Nothing is started when it is not
+    /// asked.</summary>
+    private static async Task<T?> OrNothingAsync<T>(bool asked, Func<Task<T>> unit)
+        where T : class =>
+        asked ? await unit().ConfigureAwait(false) : null;
+
+    /// <summary>What the Copilot side of a listing found: which CLI answers for
+    /// Copilot, what it has installed, and what the status line says about
+    /// either.</summary>
+    private sealed record CopilotListing(
+        (string Command, string[] Prefix)? Cli,
+        IReadOnlyDictionary<string, string> Installed,
+        IReadOnlyList<string> Messages);
+
+    /// <inheritdoc cref="CopilotListing" />
+    private async Task<CopilotListing> ReadCopilotPluginsAsync(CommandLog log, CancellationToken ct)
+    {
+        var cli = await ResolveCopilotCliAsync(log, ct).ConfigureAwait(false);
+        if (cli is null)
+        {
+            return new CopilotListing(null, NoVersions, [CopilotCliMissing]);
+        }
+
+        try
+        {
+            return new CopilotListing(cli, await GetInstalledPluginsAsync(cli.Value, log, ct).ConfigureAwait(false), []);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to list Copilot plugins.");
+            return new CopilotListing(cli, NoVersions, ["Copilot plugins could not be checked."]);
+        }
+    }
+
+    /// <summary>The global .NET tools on this machine by package id, and what the
+    /// status line says when they could not be read.</summary>
+    private sealed record DotNetToolListing(IReadOnlyDictionary<string, string> Installed, IReadOnlyList<string> Messages)
+    {
+        /// <summary>A catalog with no .NET-tool server, which asks nothing.</summary>
+        public static DotNetToolListing NotAsked { get; } = new(NoVersions, []);
+    }
+
+    /// <inheritdoc cref="DotNetToolListing" />
+    private async Task<DotNetToolListing> ReadDotNetToolsAsync(CommandLog log, CancellationToken ct)
+    {
+        try
+        {
+            return new DotNetToolListing(await GetInstalledDotNetToolsAsync(log, ct).ConfigureAwait(false), []);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to list .NET tools.");
+            return new DotNetToolListing(NoVersions, [".NET tools could not be checked."]);
+        }
+    }
+
+    /// <summary>What the Claude side of a listing found: the CLI, the
+    /// marketplaces it knows, what it has installed and where, and what the
+    /// status line says about any of it.</summary>
+    private sealed record ClaudeListing(
+        string? Cli,
+        IReadOnlySet<string> Marketplaces,
+        IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState> Plugins,
+        IReadOnlyDictionary<string, int> InstallPaths,
+        bool InstallsKnown,
+        IReadOnlyList<string> Messages);
+
+    /// <inheritdoc cref="ClaudeListing" />
+    private static async Task<ClaudeListing> ReadClaudeListingAsync(
+        IReadOnlyList<string> marketplaceNames,
+        Task<string?> claudeCli,
+        RefreshState refreshed,
+        CommandLog log,
+        CancellationToken ct)
+    {
+        var cli = await claudeCli.ConfigureAwait(false);
+        if (cli is null)
+        {
+            return new ClaudeListing(
+                null,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase),
+                new Dictionary<string, int>(),
+                InstallsKnown: false,
+                [ClaudeCliMissing]);
+        }
+
+        var messages = new List<string>();
+        var marketplaces = await GetClaudeMarketplacesAsync(cli, log, ct).ConfigureAwait(false);
+
+        // Every configured marketplace pulled before Claude is asked what it
+        // has. Claude answers that question out of its own clone of a
+        // marketplace and installs out of that same clone, so a listing that
+        // read first was a listing about whichever refresh somebody last
+        // happened to run - and the update it then offered was one this pane
+        // could not deliver, however many times it was pressed.
+        //
+        // One after another, unlike nearly everything else in a listing. Each
+        // pull rewrites Claude's own record of its marketplaces, and nothing says
+        // the CLI is safe against two of itself writing that file at once.
+        foreach (var name in marketplaceNames.Where(marketplaces.Contains))
+        {
+            var pull = await RunAsync(DevToolCommands.ClaudeMarketplaceUpdate(cli, name), log, ct).ConfigureAwait(false);
+            if (pull.ExitCode == 0)
+            {
+                refreshed.Marketplaces.Add(name);
+            }
+            else
+            {
+                messages.Add($"The {name} marketplace could not be refreshed, so its plugins read as version unknown.");
+            }
+        }
+
+        var (plugins, installPaths, installsKnown) = await GetInstalledClaudePluginsAsync(cli, log, ct).ConfigureAwait(false);
+
+        return new ClaudeListing(cli, marketplaces, plugins, installPaths, installsKnown, messages);
+    }
+
+    /// <summary>
+    /// Every plugin row, once both CLIs' listings are in.
+    ///
+    /// <para>Not before: a Claude row may only read its Available column from a
+    /// marketplace this listing pulled, so the pulled set has to be complete
+    /// before the first row reads it.</para>
+    ///
+    /// <para>Started one after another and awaited together. The order they start
+    /// in is the order rows sharing a mirror reach its fetch, so the row that
+    /// runs the fetch — and carries it in its log — is the first of them in the
+    /// catalog, as it was when the rows ran one after another.</para>
+    /// </summary>
+    private static async Task<(DevToolInfo[] Rows, CommandLog[] Logs)> DescribePluginsAsync(
+        JsonNode[] plugins,
+        CommandLog log,
+        Task<CopilotListing> copilot,
+        Task<ClaudeListing> claude,
+        string? defaultMarketplace,
+        RefreshState refreshed,
+        CancellationToken ct)
+    {
+        await Task.WhenAll(copilot, claude).ConfigureAwait(false);
+        var copilotListing = await copilot.ConfigureAwait(false);
+        var claudeListing = await claude.ConfigureAwait(false);
+
+        return await FanOutAsync(
+            plugins,
+            log,
+            (plugin, rowLog) => DescribePluginAsync(
+                plugin,
+                GetString(plugin, "name"),
+                copilotListing.Cli,
+                copilotListing.Installed,
+                claudeListing.Cli,
+                claudeListing.Plugins,
+                claudeListing.InstallPaths,
+                claudeListing.InstallsKnown,
+                defaultMarketplace,
+                refreshed,
+                rowLog,
+                ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>Every MCP server row, once the three things they read are in: the
+    /// .NET tool inventory, the Claude CLI, and the desktop app's config. Not the
+    /// marketplace pulls — a registration is asked of the CLI, not of a
+    /// marketplace. Their <c>claude mcp get</c>s still never run beside a pull or
+    /// beside each other: every <c>claude</c> launch in a listing takes the one
+    /// lane the log carries, see <see cref="CommandLog.ClaudeLane"/>.</summary>
+    private static async Task<(DevToolInfo[] Rows, CommandLog[] Logs)> DescribeMcpServersAsync(
+        (JsonNode Node, DevToolMcpServer Declared)[] servers,
+        CommandLog log,
+        Task<DotNetToolListing> dotNet,
+        Task<string?> claudeCli,
+        Task<ClaudeDesktopState?> claudeDesktop,
+        IMcpEndpointSource? mcp,
+        CancellationToken ct)
+    {
+        await Task.WhenAll(dotNet, claudeCli, claudeDesktop).ConfigureAwait(false);
+        var installedTools = (await dotNet.ConfigureAwait(false)).Installed;
+        var cli = await claudeCli.ConfigureAwait(false);
+        var desktop = await claudeDesktop.ConfigureAwait(false);
+
+        return await FanOutAsync(
+            servers,
+            log,
+            (server, rowLog) => DescribeMcpServerAsync(server.Node, server.Declared, installedTools, cli, desktop, mcp, rowLog, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// One unit per item, side by side, each into a child log of its own.
+    ///
+    /// <para>Started one after another in the order given and awaited together,
+    /// with the results and the logs both returned in that order. The caller
+    /// appends the logs where its place in the transcript says, so the merged
+    /// transcript reads as it did when the items ran one after another.</para>
+    ///
+    /// <para>The start order matters beyond the transcript. Each item runs
+    /// synchronously up to its first real wait before the next is started, so
+    /// where two items share one single-flight step — plugin rows sharing a
+    /// mirror's fetch — the first of them in the catalog is the one that runs it
+    /// and carries it in its log, as it was when the rows ran one after
+    /// another.</para>
+    /// </summary>
+    private static async Task<(TResult[] Results, CommandLog[] Logs)> FanOutAsync<TItem, TResult>(
+        IReadOnlyList<TItem> items,
+        CommandLog parent,
+        Func<TItem, CommandLog, Task<TResult>> run)
+    {
+        var logs = new CommandLog[items.Count];
+        var runs = new Task<TResult>[items.Count];
+
+        for (var index = 0; index < items.Count; index++)
+        {
+            logs[index] = parent.Child();
+            runs[index] = run(items[index], logs[index]);
+        }
+
+        return (await Task.WhenAll(runs).ConfigureAwait(false), logs);
     }
 
     /// <summary>
@@ -2130,7 +2392,8 @@ public sealed class DevToolService : IDevToolService
         bool VsCodePresent,
         IReadOnlyDictionary<string, string> Extensions,
         IReadOnlyDictionary<string, string> ExtensionVersions,
-        IReadOnlyDictionary<string, CommandProbe> Probes);
+        IReadOnlyDictionary<string, CommandProbe> Probes,
+        IReadOnlyList<string> Messages);
 
     /// <summary>What one declared command answered.
     ///
@@ -2148,124 +2411,38 @@ public sealed class DevToolService : IDevToolService
         new Dictionary<string, CommandProbe>(StringComparer.OrdinalIgnoreCase);
 
     /// <inheritdoc cref="ApplicationInventory" />
+    /// <remarks>
+    /// <para>The winget half and the VS Code half run side by side, each into a
+    /// child log merged back winget first, and their status-line sentences keep
+    /// that order too. The per-row probes wait for both, because whether a row
+    /// is probed at all depends on what the two listings found — and then run
+    /// side by side as well, collected by catalog position.</para>
+    /// </remarks>
     private static async Task<ApplicationInventory> ReadApplicationInventoryAsync(
         IReadOnlyList<DevToolApplication> applications,
         CommandLog log,
-        List<string> messages,
         CancellationToken ct)
     {
-        var wingetPresent = false;
-        var wingetPackages = NoPackages;
-        var wingetUpgrades = NoVersions;
-        var wingetManifests = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
         var wingetRows = applications.Where(application => application.Provider is DevToolProvider.Winget).ToArray();
-        if (wingetRows.Length > 0)
-        {
-            wingetPresent = await ResolveWingetCliAsync(log, ct).ConfigureAwait(false) is not null;
-
-            if (!wingetPresent)
-            {
-                messages.Add(WingetCliMissing);
-            }
-            else
-            {
-                // The local source index, before either listing reads it. Both of
-                // them answer out of that index and nothing was refreshing it, so
-                // a machine whose index predated a package's new manifest reported
-                // the old version in the Available column and dropped the package
-                // out of the upgrade listing entirely.
-                var sourceUpdate = await RunAsync(DevToolCommands.WingetSourceUpdate(), log, ct).ConfigureAwait(false);
-                if (sourceUpdate.ExitCode != 0)
-                {
-                    messages.Add("The winget source could not be refreshed, so package versions may be stale.");
-                }
-
-                var list = await RunAsync(DevToolCommands.WingetList(), log, ct).ConfigureAwait(false);
-                if (list.ExitCode == 0)
-                {
-                    wingetPackages = DevToolOutput.ParseWingetList(list.Output);
-                }
-                else
-                {
-                    messages.Add("The winget package list could not be read.");
-                }
-
-                // The second call is what makes the Available column real. A bare
-                // list only prints an Available cell for a package that has an
-                // upgrade, so a package missing from *this* listing is a package
-                // that is current — which is the answer for almost every row and
-                // costs no further calls.
-                var upgrade = await RunAsync(DevToolCommands.WingetUpgrade(), log, ct).ConfigureAwait(false);
-                if (upgrade.ExitCode == 0)
-                {
-                    wingetUpgrades = DevToolOutput.ParseWingetUpgrade(upgrade.Output);
-                }
-
-                // What is left is the packages this machine does not have, and the
-                // only way to learn what version it would get is one call each.
-                var pending = wingetRows
-                    .Where(application => application.Enabled && !wingetPackages.ContainsKey(application.Id))
-                    .Select(application => application.Id)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-
-                foreach (var id in pending.Take(WingetShowBudget))
-                {
-                    var show = await RunAsync(DevToolCommands.WingetShow(id), log, ct).ConfigureAwait(false);
-                    if (show.ExitCode == 0 && DevToolOutput.ParseWingetShowVersion(show.Output) is { } manifestVersion)
-                    {
-                        wingetManifests[id] = manifestVersion;
-                    }
-                }
-
-                if (pending.Length > WingetShowBudget)
-                {
-                    // Named rather than silently dropped. A truncated lookup that
-                    // says nothing is indistinguishable from a lookup that failed,
-                    // and both leave the same "unknown" in the column.
-                    messages.Add(
-                        $"Only the first {WingetShowBudget} missing winget packages were looked up this refresh; "
-                        + $"{string.Join(", ", pending.Skip(WingetShowBudget))} still read as version unknown.");
-                }
-            }
-        }
-
-        var vsCodePresent = false;
-        var extensions = NoVersions;
-        var extensionVersions = NoVersions;
+        var wingetLog = log.Child();
+        var winget = wingetRows.Length > 0
+            ? ReadWingetInventoryAsync(wingetRows, wingetLog, ct)
+            : Task.FromResult(WingetInventory.NotAsked);
 
         var extensionRows = applications.Where(application => application.Provider is DevToolProvider.VsCodeExtension).ToArray();
-        if (extensionRows.Length > 0)
-        {
-            vsCodePresent = await ResolveVsCodeCliAsync(log, ct).ConfigureAwait(false) is not null;
+        var vsCodeLog = log.Child();
+        var vsCode = extensionRows.Length > 0
+            ? ReadVsCodeInventoryAsync(extensionRows, vsCodeLog, ct)
+            : Task.FromResult(VsCodeInventory.NotAsked);
 
-            if (!vsCodePresent)
-            {
-                messages.Add(VsCodeCliMissing);
-            }
-            else
-            {
-                var list = await RunAsync(DevToolCommands.VsCodeExtensionList(), log, ct).ConfigureAwait(false);
-                if (list.ExitCode == 0)
-                {
-                    extensions = DevToolOutput.ParseVsCodeExtensionList(list.Output);
-                }
-                else
-                {
-                    messages.Add("The VS Code extension list could not be read.");
-                }
-            }
+        await Task.WhenAll(winget, vsCode).ConfigureAwait(false);
+        var wingetInventory = await winget.ConfigureAwait(false);
+        var vsCodeInventory = await vsCode.ConfigureAwait(false);
 
-            // Asked for even with no CLI here, because the two answer different
-            // questions and only one of them needs VS Code on this machine.
-            extensionVersions = await ReadMarketplaceVersionsAsync(
-                extensionRows.Where(application => application.Enabled).Select(application => application.Id),
-                log,
-                ct).ConfigureAwait(false);
-        }
+        log.Append(wingetLog);
+        log.Append(vsCodeLog);
 
-        var probes = new Dictionary<string, CommandProbe>(StringComparer.OrdinalIgnoreCase);
+        var probed = new List<(string Id, DevToolCommandSpec Spec, DevToolCommandSpec? Available)>();
         foreach (var application in applications)
         {
             // A disabled row is a row this machine has said it does not want, and
@@ -2290,8 +2467,8 @@ public sealed class DevToolService : IDevToolService
             var spec = application.Provider switch
             {
                 DevToolProvider.Command => application.Detect ?? application.Probe,
-                DevToolProvider.Winget => wingetPackages.ContainsKey(application.Id) ? null : application.Probe,
-                DevToolProvider.VsCodeExtension => extensions.ContainsKey(application.Id) ? null : application.Probe,
+                DevToolProvider.Winget => wingetInventory.Packages.ContainsKey(application.Id) ? null : application.Probe,
+                DevToolProvider.VsCodeExtension => vsCodeInventory.Extensions.ContainsKey(application.Id) ? null : application.Probe,
                 DevToolProvider.Manual => null
             };
 
@@ -2303,20 +2480,186 @@ public sealed class DevToolService : IDevToolService
             // Only a command row can declare its own available side, and only
             // its own detect is read against it — a winget row's cross-check
             // probe has a package manager answering its Available column already.
-            var available = application.Provider is DevToolProvider.Command ? application.Available : null;
+            probed.Add((application.Id, spec, application.Provider is DevToolProvider.Command ? application.Available : null));
+        }
 
-            probes[application.Id] = await ProbeCommandAsync(spec, available, log, ct).ConfigureAwait(false);
+        var (answers, probeLogs) = await FanOutAsync(
+            probed,
+            log,
+            (probe, probeLog) => ProbeCommandAsync(probe.Spec, probe.Available, probeLog, ct)).ConfigureAwait(false);
+        log.Append(probeLogs);
+
+        // In catalog order, so a later row with a repeated id still overwrites an
+        // earlier one, as it did when the probes ran one after another.
+        var probes = new Dictionary<string, CommandProbe>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < probed.Count; index++)
+        {
+            probes[probed[index].Id] = answers[index];
         }
 
         return new ApplicationInventory(
-            wingetPresent,
-            wingetPackages,
-            wingetUpgrades,
-            wingetManifests,
-            vsCodePresent,
-            extensions,
-            extensionVersions,
-            probes.Count == 0 ? NoProbes : probes);
+            wingetInventory.Present,
+            wingetInventory.Packages,
+            wingetInventory.Upgrades,
+            wingetInventory.Manifests,
+            vsCodeInventory.Present,
+            vsCodeInventory.Extensions,
+            vsCodeInventory.Versions,
+            probes.Count == 0 ? NoProbes : probes,
+            [.. wingetInventory.Messages, .. vsCodeInventory.Messages]);
+    }
+
+    /// <summary>The winget half of an <see cref="ApplicationInventory"/>, and what
+    /// the status line says about it.</summary>
+    private sealed record WingetInventory(
+        bool Present,
+        IReadOnlyDictionary<string, DevToolOutput.WingetPackage> Packages,
+        IReadOnlyDictionary<string, string> Upgrades,
+        IReadOnlyDictionary<string, string> Manifests,
+        IReadOnlyList<string> Messages)
+    {
+        /// <summary>A catalog with no winget row, which asks winget nothing.</summary>
+        public static WingetInventory NotAsked { get; } = new(false, NoPackages, NoVersions, NoVersions, []);
+    }
+
+    /// <inheritdoc cref="WingetInventory" />
+    private static async Task<WingetInventory> ReadWingetInventoryAsync(
+        DevToolApplication[] wingetRows,
+        CommandLog log,
+        CancellationToken ct)
+    {
+        var messages = new List<string>();
+        var wingetPackages = NoPackages;
+        var wingetUpgrades = NoVersions;
+        var wingetManifests = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (await ResolveWingetCliAsync(log, ct).ConfigureAwait(false) is null)
+        {
+            return new WingetInventory(false, wingetPackages, wingetUpgrades, wingetManifests, [WingetCliMissing]);
+        }
+
+        // The local source index, before either listing reads it. Both of
+        // them answer out of that index and nothing was refreshing it, so
+        // a machine whose index predated a package's new manifest reported
+        // the old version in the Available column and dropped the package
+        // out of the upgrade listing entirely.
+        //
+        // These three stay one after another: the two listings read the index
+        // the update writes, and nothing says winget is safe against a reader
+        // and a writer on that index at once.
+        var sourceUpdate = await RunAsync(DevToolCommands.WingetSourceUpdate(), log, ct).ConfigureAwait(false);
+        if (sourceUpdate.ExitCode != 0)
+        {
+            messages.Add("The winget source could not be refreshed, so package versions may be stale.");
+        }
+
+        var list = await RunAsync(DevToolCommands.WingetList(), log, ct).ConfigureAwait(false);
+        if (list.ExitCode == 0)
+        {
+            wingetPackages = DevToolOutput.ParseWingetList(list.Output);
+        }
+        else
+        {
+            messages.Add("The winget package list could not be read.");
+        }
+
+        // The second call is what makes the Available column real. A bare
+        // list only prints an Available cell for a package that has an
+        // upgrade, so a package missing from *this* listing is a package
+        // that is current — which is the answer for almost every row and
+        // costs no further calls.
+        var upgrade = await RunAsync(DevToolCommands.WingetUpgrade(), log, ct).ConfigureAwait(false);
+        if (upgrade.ExitCode == 0)
+        {
+            wingetUpgrades = DevToolOutput.ParseWingetUpgrade(upgrade.Output);
+        }
+
+        // What is left is the packages this machine does not have, and the
+        // only way to learn what version it would get is one call each. Those
+        // only read the index, so they run side by side under the listing's
+        // bound and are collected in catalog order.
+        var pending = wingetRows
+            .Where(application => application.Enabled && !wingetPackages.ContainsKey(application.Id))
+            .Select(application => application.Id)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var lookedUp = pending.Take(WingetShowBudget).ToArray();
+
+        var (shows, showLogs) = await FanOutAsync(
+            lookedUp,
+            log,
+            (id, showLog) => RunAsync(DevToolCommands.WingetShow(id), showLog, ct)).ConfigureAwait(false);
+        log.Append(showLogs);
+
+        for (var index = 0; index < lookedUp.Length; index++)
+        {
+            if (shows[index].ExitCode == 0 && DevToolOutput.ParseWingetShowVersion(shows[index].Output) is { } manifestVersion)
+            {
+                wingetManifests[lookedUp[index]] = manifestVersion;
+            }
+        }
+
+        if (pending.Length > WingetShowBudget)
+        {
+            // Named rather than silently dropped. A truncated lookup that
+            // says nothing is indistinguishable from a lookup that failed,
+            // and both leave the same "unknown" in the column.
+            messages.Add(
+                $"Only the first {WingetShowBudget} missing winget packages were looked up this refresh; "
+                + $"{string.Join(", ", pending.Skip(WingetShowBudget))} still read as version unknown.");
+        }
+
+        return new WingetInventory(true, wingetPackages, wingetUpgrades, wingetManifests, messages);
+    }
+
+    /// <summary>The VS Code half of an <see cref="ApplicationInventory"/>, and
+    /// what the status line says about it.</summary>
+    private sealed record VsCodeInventory(
+        bool Present,
+        IReadOnlyDictionary<string, string> Extensions,
+        IReadOnlyDictionary<string, string> Versions,
+        IReadOnlyList<string> Messages)
+    {
+        /// <summary>A catalog with no extension row, which asks VS Code
+        /// nothing.</summary>
+        public static VsCodeInventory NotAsked { get; } = new(false, NoVersions, NoVersions, []);
+    }
+
+    /// <inheritdoc cref="VsCodeInventory" />
+    private static async Task<VsCodeInventory> ReadVsCodeInventoryAsync(
+        DevToolApplication[] extensionRows,
+        CommandLog log,
+        CancellationToken ct)
+    {
+        var messages = new List<string>();
+        var extensions = NoVersions;
+        var vsCodePresent = await ResolveVsCodeCliAsync(log, ct).ConfigureAwait(false) is not null;
+
+        if (!vsCodePresent)
+        {
+            messages.Add(VsCodeCliMissing);
+        }
+        else
+        {
+            var list = await RunAsync(DevToolCommands.VsCodeExtensionList(), log, ct).ConfigureAwait(false);
+            if (list.ExitCode == 0)
+            {
+                extensions = DevToolOutput.ParseVsCodeExtensionList(list.Output);
+            }
+            else
+            {
+                messages.Add("The VS Code extension list could not be read.");
+            }
+        }
+
+        // Asked for even with no CLI here, because the two answer different
+        // questions and only one of them needs VS Code on this machine.
+        var extensionVersions = await ReadMarketplaceVersionsAsync(
+            extensionRows.Where(application => application.Enabled).Select(application => application.Id),
+            log,
+            ct).ConfigureAwait(false);
+
+        return new VsCodeInventory(vsCodePresent, extensions, extensionVersions, messages);
     }
 
     /// <summary>Whether this machine has winget, asked the cheapest way there is.
@@ -2866,7 +3209,7 @@ public sealed class DevToolService : IDevToolService
     ///
     /// <para>An elevation failure gets the command spelled out beside it. There is
     /// no <c>runas</c> path here and there will not be:
-    /// <see cref="ProcessStartInfo.UseShellExecute"/> is false, which forbids a
+    /// <see cref="System.Diagnostics.ProcessStartInfo.UseShellExecute"/> is false, which forbids a
     /// verb, and an elevated second process would lose the captured stdout that is
     /// the entire reason the pane shows a command log. So the honest answer is the
     /// exact line to paste into an admin shell.</para>
@@ -2915,9 +3258,14 @@ public sealed class DevToolService : IDevToolService
     private sealed record ClaudeDesktopState(bool Installed, string ConfigPath, JsonObject? Config, string? Error);
 
     /// <inheritdoc cref="ClaudeDesktopState" />
-    private static async Task<ClaudeDesktopState> ResolveClaudeDesktopAsync(CommandLog log, CancellationToken ct)
+    /// <param name="configPaths">Where to look instead of this user's own folders;
+    /// only a test passes any.</param>
+    private static async Task<ClaudeDesktopState> ResolveClaudeDesktopAsync(
+        CommandLog log,
+        CancellationToken ct,
+        IReadOnlyList<string>? configPaths = null)
     {
-        var candidates = DevToolClaudeDesktopConfig.ConfigPathCandidates(
+        var candidates = configPaths ?? DevToolClaudeDesktopConfig.ConfigPathCandidates(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
 
@@ -3390,19 +3738,24 @@ public sealed class DevToolService : IDevToolService
     /// <para>Several catalog entries share one <c>repoPath</c> — the guidelines
     /// repository carries two of them — and fetching per row would be the same
     /// network round trip twice, with the second one able to answer about a
-    /// different tip than the first.</para></summary>
-    private static async Task<bool> FetchRepositoryAsync(string repoPath, RefreshState refreshed, CommandLog log, CancellationToken ct)
+    /// different tip than the first.</para>
+    ///
+    /// <para>Once rather than at most once per row that gets there first: rows run
+    /// side by side, and a check-then-fetch would let two of them see no entry
+    /// and both start a <c>git fetch</c> against one repository's lock. The first
+    /// row to ask stores the fetch itself and every later one awaits that same
+    /// task, so the command runs once and lands in the first row's log.</para></summary>
+    private static Task<bool> FetchRepositoryAsync(string repoPath, RefreshState refreshed, CommandLog log, CancellationToken ct) =>
+        refreshed.Repositories
+            .GetOrAdd(repoPath, path => new Lazy<Task<bool>>(() => FetchOnceAsync(path, log, ct)))
+            .Value;
+
+    /// <inheritdoc cref="FetchRepositoryAsync" />
+    private static async Task<bool> FetchOnceAsync(string repoPath, CommandLog log, CancellationToken ct)
     {
-        if (refreshed.Repositories.TryGetValue(repoPath, out var already))
-        {
-            return already;
-        }
-
         var fetch = await RunAsync(DevToolCommands.GitFetch(repoPath), log, ct).ConfigureAwait(false);
-        var fetched = fetch.ExitCode == 0;
-        refreshed.Repositories[repoPath] = fetched;
 
-        return fetched;
+        return fetch.ExitCode == 0;
     }
 
     /// <summary>
@@ -3416,11 +3769,14 @@ public sealed class DevToolService : IDevToolService
     private sealed class RefreshState
     {
         /// <summary>The marketplaces <c>plugin marketplace update</c> actually
-        /// pulled. Only those may answer a Claude row's Available column.</summary>
+        /// pulled. Only those may answer a Claude row's Available column.
+        ///
+        /// <para>A plain set, because it is written by the one unit that pulls,
+        /// and read only by rows that start after that unit has finished.</para></summary>
         public HashSet<string> Marketplaces { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         /// <inheritdoc cref="FetchRepositoryAsync" />
-        public Dictionary<string, bool> Repositories { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, Lazy<Task<bool>>> Repositories { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>The marketplace half of a <c>&lt;name&gt;@&lt;marketplace&gt;</c>
@@ -3713,8 +4069,9 @@ public sealed class DevToolService : IDevToolService
     /// One child process, its output, and every way that can fail turned into a
     /// <see cref="CommandResult"/> rather than an exception.
     /// </summary>
-    /// <param name="timeout">How long to wait, defaulting to
-    /// <see cref="ProbeTimeout"/>. An install passes
+    /// <param name="timeout">How long to wait once the launch holds its slot,
+    /// defaulting to the log's <see cref="CommandLog.Timeout"/> —
+    /// <see cref="ProbeTimeout"/> everywhere but a test. An install passes
     /// <see cref="InstallTimeout"/>.</param>
     /// <param name="encoding">How to read the redirected streams, defaulting to
     /// UTF-8 — which is what winget writes to a pipe whatever the console code
@@ -3732,35 +4089,66 @@ public sealed class DevToolService : IDevToolService
         Encoding? encoding = null,
         string? workingDirectory = null)
     {
-        var reader = encoding ?? Encoding.UTF8;
+        var launch = new DevToolProcessLaunch(fileName, arguments, encoding ?? Encoding.UTF8, workingDirectory);
+        var budget = timeout ?? log.Timeout;
 
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo(fileName)
+        // A claude launch waits for its lane before it asks for a slot, so one
+        // queued behind another claude holds no slot the other CLIs could use.
+        var lane = IsClaudeCli(fileName) ? log.ClaudeLane : null;
+        if (lane is not null)
         {
-            // Empty means "inherit", which is what ProcessStartInfo already does
-            // with it, so the ordinary launch is unchanged.
-            WorkingDirectory = workingDirectory ?? string.Empty,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            // Redirecting the streams is not what keeps the console away — only
-            // this flag is. The desktop head is a GUI-subsystem process with no
-            // console of its own, so Windows hands every child it starts a brand
-            // new one, and opening the tools tab meant a dozen of them blinking
-            // across the screen while the pane quietly read their output.
-            CreateNoWindow = true,
-            StandardOutputEncoding = reader,
-            StandardErrorEncoding = reader
-        };
-
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
+            await lane.WaitAsync(ct).ConfigureAwait(false);
         }
+
+        CommandResult result;
+        try
+        {
+            // The slot is taken per launch and never per row. A row holds none
+            // while it waits on a fetch another row started, or between its own
+            // two git reads, so a listing whose every slot belonged to a row could
+            // never sit waiting on itself. The deadline starts once the slot is
+            // held: time spent queued behind other probes is not this command
+            // being slow.
+            if (log.Throttle is { } throttle)
+            {
+                await throttle.WaitAsync(ct).ConfigureAwait(false);
+            }
+
+            try
+            {
+                result = await LaunchAsync(launch, budget, log.Runner, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                log.Throttle?.Release();
+            }
+        }
+        finally
+        {
+            lane?.Release();
+        }
+
+        log.Record(fileName, arguments, result);
+
+        return result;
+    }
+
+    /// <summary>One launch under its deadline, with every way that can fail but
+    /// the caller's own cancellation turned into a <see cref="CommandResult"/>.</summary>
+    private static async Task<CommandResult> LaunchAsync(
+        DevToolProcessLaunch launch,
+        TimeSpan budget,
+        IDevToolProcessRunner runner,
+        CancellationToken ct)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(budget);
 
         try
         {
-            process.Start();
+            var ran = await runner.RunAsync(launch, deadline.Token).ConfigureAwait(false);
+
+            return new CommandResult(ran.ExitCode, ran.Output, ran.Error);
         }
         catch (Win32Exception ex)
         {
@@ -3773,71 +4161,27 @@ public sealed class DevToolService : IDevToolService
             // It is also how a .cmd shim launched directly fails — "not a valid
             // application for this OS platform" — which is why a spec that names
             // one asks for the shell instead of relying on this.
-            var missing = new CommandResult(CommandNotFound, string.Empty, ex.Message);
-            log.Record(fileName, arguments, missing);
-
-            return missing;
+            return new CommandResult(CommandNotFound, string.Empty, ex.Message);
         }
-
-        var budget = timeout ?? ProbeTimeout;
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        deadline.CancelAfter(budget);
-
-        CommandResult result;
-        try
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            var outputTask = process.StandardOutput.ReadToEndAsync(deadline.Token);
-            var errorTask = process.StandardError.ReadToEndAsync(deadline.Token);
-            await process.WaitForExitAsync(deadline.Token).ConfigureAwait(false);
-            result = new CommandResult(process.ExitCode, await outputTask.ConfigureAwait(false), await errorTask.ConfigureAwait(false));
-        }
-        catch (OperationCanceledException)
-        {
-            // The whole tree, not the process: winget's own installer runs as a
-            // child of it, and killing only the parent leaves that installer
-            // holding the package lock with nothing left to report on it.
-            //
-            // Killed on both paths, and only one of them is reported. A caller
-            // that cancelled gets its exception back — abandoning the child there
-            // would leave a winget running against a pane that has gone — while a
-            // deadline that fired becomes a result, because a hung CLI is a row
-            // that could not be checked rather than a tools pane that has stopped
-            // existing.
-            KillProcessTree(process);
-
-            if (ct.IsCancellationRequested)
-            {
-                throw;
-            }
-
-            result = new CommandResult(
+            // Only one of the two cancellations is reported. A caller that
+            // cancelled gets its exception back, while a deadline that fired
+            // becomes a result, because a hung CLI is a row that could not be
+            // checked rather than a tools pane that has stopped existing. The
+            // runner has stopped the process tree either way.
+            return new CommandResult(
                 CommandTimedOut,
                 string.Empty,
                 $"Timed out after {budget.TotalSeconds:0} seconds and the process was stopped.");
         }
-
-        log.Record(fileName, arguments, result);
-
-        return result;
     }
 
-    /// <summary>Stops a command that ran out of time, and says nothing when it
-    /// cannot. Between the timeout firing and this line the process may already
-    /// have exited on its own, which is a race rather than a problem — and a
-    /// failure to kill is not something the row can act on either way.</summary>
-    private static void KillProcessTree(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception or NotSupportedException or AggregateException)
-        {
-        }
-    }
+    /// <summary>Whether a launch is the Claude CLI, under whichever name
+    /// <see cref="ResolveClaudeCliAsync"/> found it — the PATH shim, the
+    /// executable, the bare name, or the copy the desktop app ships.</summary>
+    private static bool IsClaudeCli(string fileName) =>
+        Path.GetFileNameWithoutExtension(fileName).Equals("claude", StringComparison.OrdinalIgnoreCase);
 
     private static string ResolveConfiguredPath(string path) => Environment.ExpandEnvironmentVariables(path);
 
@@ -3874,6 +4218,84 @@ public sealed class DevToolService : IDevToolService
 
         private readonly List<DevToolCommand> _commands = [];
 
+        /// <summary>The log an action uses: real processes with no bound, because
+        /// an action runs its commands one after another anyway, each held to
+        /// <see cref="ProbeTimeout"/> unless it passes a budget of its own.</summary>
+        public CommandLog()
+            : this(DevToolProcessRunner.Instance, throttle: null, claudeLane: null, ProbeTimeout, new HashSet<string>(StringComparer.Ordinal))
+        {
+        }
+
+        /// <summary>The log a listing uses, which is also the listing's whole
+        /// context: what starts a process, how many may run at once, and how long
+        /// one may take.
+        ///
+        /// <para>Carried here rather than as three more parameters because every
+        /// method that launches anything already takes this log — that is the
+        /// point of passing it by hand, see the type's own remarks — so the
+        /// runner and the bound reach every launch through the one parameter that
+        /// already does.</para></summary>
+        public CommandLog(IDevToolProcessRunner runner, SemaphoreSlim? throttle, SemaphoreSlim? claudeLane, TimeSpan timeout)
+            : this(runner, throttle, claudeLane, timeout, new HashSet<string>(StringComparer.Ordinal))
+        {
+        }
+
+        private CommandLog(IDevToolProcessRunner runner, SemaphoreSlim? throttle, SemaphoreSlim? claudeLane, TimeSpan timeout, HashSet<string> secrets)
+        {
+            Runner = runner;
+            Throttle = throttle;
+            ClaudeLane = claudeLane;
+            Timeout = timeout;
+            _secrets = secrets;
+        }
+
+        /// <summary>What starts every process this log records.</summary>
+        public IDevToolProcessRunner Runner { get; }
+
+        /// <summary>How many launches may be in flight at once across this log and
+        /// every child of it, or nothing for no bound.</summary>
+        public SemaphoreSlim? Throttle { get; }
+
+        /// <summary>
+        /// The one lane every <c>claude</c> launch takes, or nothing for no lane.
+        ///
+        /// <para>The Claude CLI rewrites its own state file as it starts and as it
+        /// pulls a marketplace, and nothing says two of it are safe against each
+        /// other. A listing used to run one at a time and so never found out; it
+        /// still runs one <c>claude</c> at a time, while the other CLIs run beside
+        /// it under <see cref="Throttle"/>.</para>
+        /// </summary>
+        public SemaphoreSlim? ClaudeLane { get; }
+
+        /// <summary>How long a launch that names no budget of its own may take.</summary>
+        public TimeSpan Timeout { get; }
+
+        /// <summary>
+        /// A log for one unit of a listing that runs beside the others.
+        ///
+        /// <para>Its own list, so that two units recording at once neither race on
+        /// one <see cref="List{T}"/> nor interleave their commands; the listing
+        /// merges the children back with <see cref="Append"/> in the order the
+        /// units are declared, so the transcript reads exactly as it did when they
+        /// ran one after another. Everything else is shared — the runner, the
+        /// bound, and the redaction set by reference, so a value masked anywhere
+        /// is masked everywhere.</para>
+        /// </summary>
+        public CommandLog Child() => new(Runner, Throttle, ClaudeLane, Timeout, _secrets);
+
+        /// <summary>Takes a finished child's commands, in the order it recorded
+        /// them. See <see cref="Child"/>.</summary>
+        public void Append(CommandLog child) => _commands.AddRange(child._commands);
+
+        /// <inheritdoc cref="Append(CommandLog)" />
+        public void Append(IEnumerable<CommandLog> children)
+        {
+            foreach (var child in children)
+            {
+                Append(child);
+            }
+        }
+
         /// <summary>The values nothing this log produces may carry — a token this
         /// app minted for the action being logged, and every header value the
         /// entry being applied declares.
@@ -3885,7 +4307,7 @@ public sealed class DevToolService : IDevToolService
         /// because the same secret is offered from more than one place — the
         /// declared header and its expansion — and masking it twice would only
         /// cost passes over every line.</para></summary>
-        private readonly HashSet<string> _secrets = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _secrets;
 
         public IReadOnlyList<DevToolCommand> Commands => _commands;
 

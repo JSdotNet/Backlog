@@ -19,6 +19,15 @@ public sealed class GitHubSettings
 {
     public const string DefaultApiEndpoint = "https://api.github.com";
 
+    /// <summary>An endpoint as requests are built on it: trimmed, without a trailing
+    /// slash, and the default when blank.</summary>
+    internal static string NormalizeApiEndpoint(string? apiEndpoint) =>
+        string.IsNullOrWhiteSpace(apiEndpoint) ? DefaultApiEndpoint : apiEndpoint.Trim().TrimEnd('/');
+
+    /// <summary>Whether an endpoint is github.com's own API, blank counting as it.</summary>
+    internal static bool IsDefaultApiEndpoint(string? apiEndpoint) =>
+        string.Equals(NormalizeApiEndpoint(apiEndpoint), DefaultApiEndpoint, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Repositories in the order they were configured.</summary>
     public List<GitHubRepositoryRef> Repositories { get; init; } = [];
 

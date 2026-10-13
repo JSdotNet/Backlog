@@ -90,6 +90,10 @@
     <!-- The named "sync-token" client and the typed pairing client, plus the
          DelegatingHandler pipeline that keeps the two apart. -->
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- The replication clients' own pipeline in place of the host's default:
+         pushes go out once, with an attempt sized for a full batch. See
+         SyncClientRegistration. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <!-- What the host's resilience pipeline throws when it gives up on a call —
          a total timeout, an open circuit. SyncHttp turns those into results the
          way it does HttpRequestException; without the types it cannot name them,

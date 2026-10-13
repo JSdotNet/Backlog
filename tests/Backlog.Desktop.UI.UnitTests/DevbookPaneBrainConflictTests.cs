@@ -35,9 +35,18 @@ public sealed class DevbookPaneBrainConflictTests
         harness.WriteNote("projects/plan.md", "# Plan\n\nBody.\n");
         harness.WriteNote("projects/plan-2.md", "# Plan, part two\n");
 
+        var brain = CountingBrainFolderSource.Install(harness);
+
         var component = harness.RenderBrain();
 
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".devbook-menu__item--file").Count));
+
+        // The walk runs off the UI thread and can land after the menu does, and an
+        // answer of nothing draws nothing. Asserted once the pane has read the
+        // answer and the turn it read it in is over, so the absence is the walk's
+        // and not the walk still being out.
+        Assert.True(brain.AnswerRead.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        await component.InvokeAsync(() => { });
         Assert.Empty(component.FindAll("[data-testid='devbook-brain-conflict']"));
     }
 
