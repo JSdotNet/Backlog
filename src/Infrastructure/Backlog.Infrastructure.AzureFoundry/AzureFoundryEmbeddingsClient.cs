@@ -33,15 +33,14 @@ public sealed record AzureFoundryEmbeddingResponse(string Model, IReadOnlyList<f
 /// <summary>
 /// Turns text into vectors through an Azure AI Foundry embedding deployment.
 ///
-/// <para><b>Nothing in this change calls it.</b> Local ADR 0004's semantic tier
-/// is wired and dormant: the table exists, the port exists, the brute-force
-/// cosine reader exists, the deployment is in bicep behind a parameter that is
-/// off by default, and the feature flag is <c>Dev</c> and off. What is missing on
-/// purpose is the thing that would join them up: the database's writer is
-/// <c>DevbookDatabaseBuilder</c> (local ADR 0015), and it computes no embeddings
-/// until ADR 0004's open question — which model — is answered. If it ever does,
-/// that is where it happens; this client existing does not make it happen, and
-/// nothing here opens the database at all.</para>
+/// <para>Two callers, both through the composition's
+/// <c>FoundryDevbookEmbedder</c>: the search panel embeds a reader's question,
+/// and the devbook database refresher embeds the chapters a database has no
+/// vector for yet (<c>DevbookChapterEmbeddings</c>). Nothing here opens a
+/// database. The deployment is in bicep behind <c>includeEmbeddingModel</c>, off
+/// by default, so an account without it answers 404 — carried as
+/// <see cref="AzureFoundryException.StatusCode"/> — and the caller stops
+/// asking.</para>
 ///
 /// <para>The shape follows <see cref="AzureFoundryChatClient"/> deliberately —
 /// same settings store, same <c>api-key</c> header, same api-version, same
@@ -104,7 +103,9 @@ public sealed class AzureFoundryEmbeddingsClient(HttpClient httpClient, AzureFou
         var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {FoundryMessages.TrimForMessage(payload)}");
+            throw new AzureFoundryException(
+                $"Azure Foundry returned {(int)response.StatusCode}: {FoundryMessages.TrimForMessage(payload)}",
+                (int)response.StatusCode);
         }
 
         var embeddings = JsonSerializer.Deserialize<EmbeddingResponse>(payload, JsonOptions);

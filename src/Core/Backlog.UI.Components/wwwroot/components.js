@@ -3243,9 +3243,11 @@
                 drawNode(point);
             }
 
+            // Node labels first, so an edge's label can step around them rather
+            // than sit over one; both read the boxes already drawn.
+            const taken = drawLabels();
             drawLinkLabels((getComputedStyle(document.documentElement).getPropertyValue('--font-family-base') || '').trim()
-                || 'system-ui, sans-serif');
-            drawLabels();
+                || 'system-ui, sans-serif', taken);
 
             if (moving) schedule();
         }
@@ -3290,11 +3292,39 @@
         /*
             The words a host put on an edge, at the middle of its curve: the point
             at t = 0.5 of the quadratic, which is where the eye looks for a label.
-            Drawn after the nodes so no node paints over one, and only for an edge
-            that is not dimmed by a selection elsewhere — a label on a line the
-            reader is told to ignore is noise.
+            Drawn after the nodes and their labels, and only for an edge that is
+            not dimmed by a selection elsewhere — a label on a line the reader is
+            told to ignore is noise.
+
+            In a dense or flat layout the middle of a curve can fall on a node's
+            own label, or on another edge's, and two words drawn over each other
+            say neither. So the middle is only the first seat tried: further along
+            the curve each way, then just above and below it. An edge whose every
+            seat is taken goes unlabelled — the node labels are what the reader
+            navigates by, so they win.
         */
-        function drawLinkLabels(font) {
+        const BACKLOG_ATLAS_LINK_LABEL_SEATS = [
+            { t: 0.5, dy: 0 },
+            { t: 0.35, dy: 0 },
+            { t: 0.65, dy: 0 },
+            { t: 0.5, dy: -16 },
+            { t: 0.5, dy: 16 },
+            { t: 0.25, dy: 0 },
+            { t: 0.75, dy: 0 }
+        ];
+
+        function backlogAtlasBoxesMeet(left, right) {
+            return left.x < right.x + right.width
+                && right.x < left.x + left.width
+                && left.y < right.y + right.height
+                && right.y < left.y + left.height;
+        }
+
+        function drawLinkLabels(font, taken) {
+            context.font = '400 11px ' + font;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+
             for (const link of layout.links) {
                 if (!link.label) continue;
 
@@ -3309,23 +3339,33 @@
                     && (link.from.node.id === selectedId || link.to.node.id === selectedId);
                 if (selectedId && !lit) continue;
 
-                const x = 0.25 * from.x + 0.5 * control.x + 0.25 * to.x;
-                const y = 0.25 * from.y + 0.5 * control.y + 0.25 * to.y;
-
-                context.font = '400 11px ' + font;
-                context.textAlign = 'center';
-                context.textBaseline = 'middle';
-
                 const width = context.measureText(link.label).width;
+                let seat = null;
+
+                for (const candidate of BACKLOG_ATLAS_LINK_LABEL_SEATS) {
+                    const u = 1 - candidate.t;
+                    const x = u * u * from.x + 2 * u * candidate.t * control.x + candidate.t * candidate.t * to.x;
+                    const y = u * u * from.y + 2 * u * candidate.t * control.y + candidate.t * candidate.t * to.y + candidate.dy;
+                    const box = { x: x - width / 2 - 4, y: y - 8, width: width + 8, height: 16 };
+
+                    if (!taken.some((other) => backlogAtlasBoxesMeet(box, other))) {
+                        seat = { x, y, box };
+                        break;
+                    }
+                }
+
+                if (!seat) continue;
+                taken.push(seat.box);
+
                 context.fillStyle = palette.surface;
                 context.globalAlpha = 0.8;
                 context.beginPath();
-                context.roundRect(x - width / 2 - 4, y - 8, width + 8, 16, 3);
+                context.roundRect(seat.box.x, seat.box.y, seat.box.width, seat.box.height, 3);
                 context.fill();
 
                 context.globalAlpha = lit ? 1 : 0.85;
                 context.fillStyle = lit ? palette.ink : palette.inkMuted;
-                context.fillText(link.label, x, y);
+                context.fillText(link.label, seat.x, seat.y);
             }
 
             context.globalAlpha = 1;
@@ -3405,6 +3445,13 @@
                 || 'system-ui, sans-serif';
             const drawn = [];
 
+            // Every label pill drawn, and every node dot, as the boxes an edge's
+            // label must stay clear of (drawLinkLabels).
+            const boxes = painted.map((point) => {
+                const size = nodeSize(point);
+                return { x: point.projected.x - size, y: point.projected.y - size, width: size * 2, height: size * 2 };
+            });
+
             for (let index = painted.length - 1; index >= 0; index--) {
                 const point = painted[index];
                 const projected = point.projected;
@@ -3445,9 +3492,11 @@
                 context.globalAlpha = 1;
                 context.fillStyle = selected ? palette.ink : palette.inkMuted;
                 context.fillText(point.node.label, projected.x, y);
+                boxes.push({ x: projected.x - width / 2 - 6, y: y - 15, width: width + 12, height: 18 });
             }
 
             context.globalAlpha = 1;
+            return boxes;
         }
 
         function pick(clientX, clientY) {

@@ -24,7 +24,22 @@
             @foreach (var link in _links)
             {
                 <li class="brain-backlinks__item" data-testid="brain-backlink" data-note="@link.NotePath" title="@link.NotePath">
-                    <span class="brain-backlinks__note">@link.Title</span>
+                    @* A link to the note, as the Scope: backlog board draws it:
+                       pressing it puts the note on the Brain side of the pane and
+                       leaves the header's scope alone. Plain text in a host that
+                       wired no way to open it. *@
+                    @if (OnOpenNote.HasDelegate)
+                    {
+                        var notePath = link.NotePath;
+                        <AppButton BaseClass="brain-backlinks__note brain-backlinks__link"
+                                   Variant="ButtonVariant.None"
+                                   TestId="brain-backlink-open"
+                                   OnClick="() => OnOpenNote.InvokeAsync(notePath)">@link.Title</AppButton>
+                    }
+                    else
+                    {
+                        <span class="brain-backlinks__note">@link.Title</span>
+                    }
                     @if (!string.IsNullOrWhiteSpace(link.Heading))
                     {
                         <span class="brain-backlinks__heading">› @link.Heading</span>
@@ -47,6 +62,11 @@
     /// layout's spelling.</summary>
     [Parameter]
     public string? ChapterPath { get; set; }
+
+    /// <summary>Raised with a note's path in the Brain (<c>projects/plan.md</c>)
+    /// when the reader follows it. Unset, the notes are listed as text.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenNote { get; set; }
 
     private IBrainBacklinks? _backlinks;
     private IBrainFolderSource? _brain;

@@ -111,6 +111,50 @@ public sealed class InboxToBrainTests
         pane.WaitForAssertion(() => Assert.Equal([items[0].Id], harness.Inbox.BrainRoutes));
     }
 
+    /// <summary>
+    /// While the Brain cannot take a note, To Brain is shown disabled with the
+    /// Brain's own reason — in triage and on the item — rather than offered and then
+    /// refused; once it can, it is the act again.
+    /// </summary>
+    [Fact]
+    public async Task To_brain_is_disabled_with_the_brain_s_reason_while_no_brain_is_set()
+    {
+        using var harness = Harness.Create();
+        const string Reason = "Pick a folder for your Brain in Settings › Storage.";
+        harness.Inbox.BrainUnavailableReason = Reason;
+        harness.SeedNewestFirst("Keep this", "Still waiting");
+        var pane = await harness.StartTriageAsync();
+
+        var inTriage = pane.Find("[data-testid='inbox-triage-decisions'] [data-testid='inbox-to-brain']");
+        Assert.True(inTriage.HasAttribute("disabled"));
+        Assert.Equal(Reason, inTriage.GetAttribute("title"));
+
+        harness.Inbox.BrainUnavailableReason = null;
+        pane.Render();
+
+        var enabled = pane.Find("[data-testid='inbox-triage-decisions'] [data-testid='inbox-to-brain']");
+        Assert.False(enabled.HasAttribute("disabled"));
+        Assert.Equal(InboxDesktopState.ToBrainTitle, enabled.GetAttribute("title"));
+        Assert.Empty(harness.Inbox.BrainRoutes);
+    }
+
+    [Fact]
+    public async Task The_item_detail_disables_to_brain_with_the_brain_s_reason_too()
+    {
+        using var harness = Harness.Create();
+        const string Reason = "The Brain folder was not found at D:\\Brain.";
+        harness.Inbox.BrainUnavailableReason = Reason;
+        var items = harness.SeedNewestFirst("Article", "Still waiting");
+        var pane = harness.Render();
+        await pane.InvokeAsync(harness.State.InitializeAsync);
+        await pane.Find($"[data-testid='inbox-item-{items[0].Id:D}']").ClickAsync(new());
+
+        var button = pane.Find("[data-testid='inbox-detail-decisions'] [data-testid='inbox-to-brain']");
+
+        Assert.True(button.HasAttribute("disabled"));
+        Assert.Equal(Reason, button.GetAttribute("title"));
+    }
+
     [Fact]
     public void The_shortcuts_list_names_b()
     {

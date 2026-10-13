@@ -19,4 +19,9 @@ public interface IDevbookQueryEmbedder
     /// <summary>The question as a vector from the model the databases are pinned
     /// to, or <see langword="null"/> when no model could be reached.</summary>
     Task<IReadOnlyList<float>?> EmbedAsync(string text, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether a question can be embedded at all — a deployment is
+    /// configured and has not refused. When it is false the panel does not ask,
+    /// so a typing pause costs no call that could only fail.</summary>
+    bool IsAvailable => true;
 }

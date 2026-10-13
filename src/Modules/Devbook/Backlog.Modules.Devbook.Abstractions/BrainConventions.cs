@@ -49,6 +49,18 @@ public static partial class BrainConventions
     /// <see cref="IDevbookFolderSource"/>.</summary>
     public const string FolderKey = "brain";
 
+    /// <summary>What the Brain's one folder, and every location it resolves to, is
+    /// labelled — the word <c>BrainScope.Name</c> puts a scope into, spelt here
+    /// because this project references nothing.</summary>
+    public const string ScopeLabel = "Brain";
+
+    /// <summary>The one folder setting the Brain has: keyed
+    /// <see cref="FolderKey"/>, its own root, never overridden. The single
+    /// definition the Brain's folder source and the assistant tools both name, so
+    /// the Brain cannot be described two ways.</summary>
+    public static DevbookFolderSetting Folder { get; } =
+        new(FolderKey, ScopeLabel, string.Empty, SupportsPathOverride: false);
+
     /// <summary>The heading the areas are declared under.</summary>
     public const string AreasHeading = "Areas";
 
@@ -83,6 +95,18 @@ public static partial class BrainConventions
         {
             return Para;
         }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="area"/> holds dated entries, which read newest
+    /// first: the PARA <c>journal</c> folder under any declaration, or an area
+    /// whose <c>Holds</c> line in <c>CONVENTIONS.md</c> says <i>dated</i>.
+    /// </summary>
+    public static bool IsDated(BrainArea area)
+    {
+        ArgumentNullException.ThrowIfNull(area);
+        return string.Equals(area.Folder, "journal", StringComparison.OrdinalIgnoreCase)
+               || DatedWord().IsMatch(area.Holds);
     }
 
     /// <summary>The areas <paramref name="markdown"/> declares, or the PARA set
@@ -257,6 +281,10 @@ public static partial class BrainConventions
     /// exactly.</summary>
     [GeneratedRegex("^[0-9]{1,15}$")]
     private static partial Regex OrderNumber();
+
+    /// <summary>The word <i>dated</i> in an area's <c>Holds</c> line.</summary>
+    [GeneratedRegex(@"(?<![A-Za-z])dated(?![A-Za-z])", RegexOptions.IgnoreCase)]
+    private static partial Regex DatedWord();
 }
 
 /// <summary>One area of the Brain: its name as the tab shows it, its top

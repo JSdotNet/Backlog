@@ -1016,16 +1016,22 @@
                 && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
 
     private PullRequestStacks? _stacks;
-    private (GitHubPullRequestListing Listing, GitHubPullRequestListing Pinned, string Scope, int Pins) _stacksOf;
+    private (GitHubPullRequestListing Listing, GitHubPullRequestListing Pinned, string Scope, int Pins, string Brain) _stacksOf;
 
     /// <summary>The stacks among the open rows of every author in scope, and the pinned
-    /// open ones, derived once per read, scope and pin rather than once per row that
-    /// asks. A merged or closed pinned pull request is in no stack.</summary>
+    /// open ones, derived once per read, scope, pin and Brain membership rather than
+    /// once per row that asks. A merged or closed pinned pull request is in no stack.
+    /// <para>
+    /// Which pull requests the Brain holds is the shell's answer, and moves without a
+    /// new listing when a task is re-filed into or out of the Brain — so while the
+    /// Brain is scoped that answer is part of the key, and a re-filed task's pull
+    /// request joins or leaves its stack on the next render.
+    /// </para></summary>
     private PullRequestStacks Stacks
     {
         get
         {
-            var of = (_listing, _pinned, ScopeLabel, _pinsVersion);
+            var of = (_listing, _pinned, ScopeLabel, _pinsVersion, BrainMembership());
             if (_stacks is null || _stacksOf != of)
             {
                 _stacks = PullRequestStacks.Of(OpenRows.Where(pull => pull.IsOpen && (IsPinned(pull) || InScope(pull))));
@@ -1035,6 +1041,13 @@
             return _stacks;
         }
     }
+
+    /// <summary>The open pull requests the Brain holds by its task alone, as one key;
+    /// empty while the Brain is not scoped or the shell answers nothing.</summary>
+    private string BrainMembership() =>
+        BrainScoped && PullRequestInBrain is { } inBrain
+            ? string.Join('\n', OpenRows.Where(pull => pull.IsOpen && inBrain(TaskSubject(pull))).Select(Key))
+            : string.Empty;
 
     /// <summary>The pinned rows first, newest update first; then the rest, with each
     /// stack gathered into one tree, bottom first, placed where the latest update

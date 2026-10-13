@@ -112,6 +112,58 @@ public sealed class DevbookMenuBrainTests : IDisposable
         Assert.Empty((await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken)).Roots);
     }
 
+    [Fact]
+    public async Task The_journal_sorts_newest_first_at_every_level_and_other_areas_by_name()
+    {
+        Write("journal/2026-09-30.md", "# Sep 30\n");
+        Write("journal/2026-10-13.md", "# Oct 13\n");
+        Write("journal/2026-10-01.md", "# Oct 1\n");
+        Write("journal/2025/12-24.md", "# Christmas Eve\n");
+        Write("journal/2025/01-02.md", "# New year\n");
+        Write("projects/beta.md", "# Beta\n");
+        Write("projects/alpha.md", "# Alpha\n");
+        _setting = Brain;
+
+        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+
+        var journal = tree.Roots.Single(root => root.Path == "journal");
+        Assert.Equal(
+            ["journal/2026-10-13.md", "journal/2026-10-01.md", "journal/2026-09-30.md", "journal/2025"],
+            journal.Children.Select(node => node.Path));
+        Assert.Equal(
+            ["journal/2025/12-24.md", "journal/2025/01-02.md"],
+            journal.Children.Single(node => node.Path == "journal/2025").Children.Select(node => node.Path));
+
+        var projects = tree.Roots.Single(root => root.Path == "projects");
+        Assert.Equal(["projects/alpha.md", "projects/beta.md"], projects.Children.Select(node => node.Path));
+    }
+
+    [Fact]
+    public async Task An_area_conventions_marks_as_dated_sorts_newest_first()
+    {
+        Write(BrainConventions.FileName,
+            "## Areas\n\n| Area | Folder | Holds |\n|---|---|---|\n| Log | log | Dated entries, one a day. |\n| Notes | notes | Updated now and then. |\n");
+        Write("log/2026-01-01.md", "# A\n");
+        Write("log/2026-02-01.md", "# B\n");
+        Write("notes/2026-01-01.md", "# A\n");
+        Write("notes/2026-02-01.md", "# B\n");
+        _setting = Brain;
+
+        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["log/2026-02-01.md", "log/2026-01-01.md"], tree.Roots[0].Children.Select(node => node.Path));
+        Assert.Equal(["notes/2026-01-01.md", "notes/2026-02-01.md"], tree.Roots[1].Children.Select(node => node.Path));
+    }
+
+    [Theory]
+    [InlineData("journal", "", true)]
+    [InlineData("Journal", "", true)]
+    [InlineData("log", "Dated entries.", true)]
+    [InlineData("log", "Notes, undated.", false)]
+    [InlineData("projects", "Updated weekly.", false)]
+    public void A_dated_area_is_the_journal_or_one_its_holds_line_calls_dated(string folder, string holds, bool dated) =>
+        Assert.Equal(dated, BrainConventions.IsDated(new BrainArea("Area", folder, 1, holds)));
+
     [Theory]
     [InlineData("brain/work", true)]
     [InlineData("domain", false)]

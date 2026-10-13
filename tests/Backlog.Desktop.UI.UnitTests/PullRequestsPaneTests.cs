@@ -162,6 +162,41 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>
+    /// A task re-filed into the Brain brings its pull request into the Brain's scope
+    /// without a new listing — and into the stack it belongs to on the same render,
+    /// not at the next listing or scope change.
+    /// </summary>
+    [Fact]
+    public void A_pull_request_re_filed_into_the_brain_joins_its_stack_at_once()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 10, updated: Noon.AddHours(-3)),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10", updated: Noon.AddMinutes(-30)));
+        using var context = Context(client);
+        var inBrain = new HashSet<int> { 10 };
+        Func<PullRequestTaskSubject, bool> filed = pull => inBrain.Contains(pull.Number);
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, [BrainScope.Value])
+            .Add(p => p.PullRequestInBrain, filed));
+
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#10"], RowKeys(pane)));
+        Assert.Null(pane.Find("[data-testid='pull-request-row']").GetAttribute("data-stack-depth"));
+
+        inBrain.Add(11);
+        pane.Render(parameters => parameters
+            .Add(p => p.RepositoryScope, [BrainScope.Value])
+            .Add(p => p.PullRequestInBrain, filed));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#10", "JSdotNet/Backlog#11"], RowKeys(pane));
+            Assert.Equal(["0", "1"], pane.FindAll("[data-testid='pull-request-row']").Select(row => row.GetAttribute("data-stack-depth")));
+        });
+    }
+
     /// <summary>With no pull request linked to a task filed nowhere, the Brain's list is
     /// empty, and its empty state says why: pull requests belong to repositories.</summary>
     [Fact]

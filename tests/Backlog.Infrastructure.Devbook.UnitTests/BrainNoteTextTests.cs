@@ -214,6 +214,41 @@ public sealed class BrainNoteTextTests
         Assert.Equal("_inbox", BrainNoteText.InboxArea(areas).Folder);
     }
 
+    /// <summary>
+    /// A title ending in a run of <c>#</c> after a space is, to CommonMark, a heading
+    /// with a closing sequence: <c># Ideas for C #</c> renders as <c>Ideas for C</c>.
+    /// The run is shielded so every reader keeps it — read back here through
+    /// CommonMark's own rule, and through the builder's parse, which still finds the
+    /// one chapter titled with the whole text.
+    /// </summary>
+    [Theory]
+    [InlineData("Ideas for C #", "Ideas for C ​#")]
+    [InlineData("Ranks ##", "Ranks ​##")]
+    [InlineData("#", "​#")]
+    [InlineData("## ###", "## ​###")]
+    public void A_title_ending_in_a_closing_sequence_keeps_it(string title, string written)
+    {
+        var text = BrainNoteText.Compose(title, null, BrainNoteSource.Inbox);
+
+        Assert.StartsWith("# " + written + "\n", text, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"[ \t]#+[ \t]*$", text.Split('\n')[0]);
+
+        var chapter = Assert.Single(DevbookMarkdown.Parse(text).Chapters);
+        Assert.Equal(written, chapter.Text);
+    }
+
+    /// <summary>A <c>#</c> joined to a word is text to CommonMark already, and a
+    /// title with none at its end is written as typed.</summary>
+    [Theory]
+    [InlineData("Learn C#")]
+    [InlineData("Issue #12 follow-up")]
+    [InlineData("Plain title")]
+    public void A_title_without_a_closing_sequence_is_written_as_typed(string title)
+    {
+        Assert.Equal(title, BrainNoteText.GuardHeading(title));
+        Assert.StartsWith("# " + title + "\n", BrainNoteText.Compose(title, null, BrainNoteSource.Manual), StringComparison.Ordinal);
+    }
+
     private static int Count(string text, string part)
     {
         var count = 0;
