@@ -300,17 +300,32 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
     }
 
     /// <summary>The argument as the object the port takes, or null where it was left
-    /// out or sent as JSON null — both say nothing about it. Anything else is refused
-    /// by name; see the class's last paragraph for why here and why this
-    /// exception.</summary>
+    /// out or sent as JSON null — both say nothing about it. A string holding the JSON
+    /// text of an object is that object: <see cref="ToolArguments"/> decodes such a
+    /// string for every other argument, but leaves this one alone because its schema
+    /// names no type, so it is decoded here. Anything else is refused by name; see the
+    /// class's last paragraph for why here and why this exception.</summary>
     private static JsonObject? ObjectOrRefuse(JsonElement? argument, string name) => argument switch
     {
         null or { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => null,
         { ValueKind: JsonValueKind.Object } element => JsonObject.Create(element),
+        { ValueKind: JsonValueKind.String } element when EncodedObject(element.GetString()) is { } decoded => decoded,
         { } element => throw RepositoryScope.Failure(Error.Validation(
             $"{name}.not-an-object",
             $"{name} must be a JSON object; it was sent as {Kind(element.ValueKind)}."))
     };
+
+    private static JsonObject? EncodedObject(string? text)
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text) as JsonObject;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
     private static string Kind(JsonValueKind kind) => kind switch
     {
