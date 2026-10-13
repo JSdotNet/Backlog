@@ -82,6 +82,9 @@ classDiagram
         +string status
         +long duration_ms
         +int done_count
+        +int round
+        +int blockers
+        +int defects_found
     }
     class DeliveryRunCatalog {
         +string[] unreadable

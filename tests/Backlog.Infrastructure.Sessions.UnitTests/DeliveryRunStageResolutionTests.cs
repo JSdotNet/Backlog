@@ -198,6 +198,92 @@ public sealed class DeliveryRunStageResolutionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_run_file_with_quality_signals_puts_them_on_each_stage_and_its_one_worker()
+    {
+        var run = await ReadAsync("quality-signals.json");
+        var stages = DeliveryRunStageResolution.Of(run);
+
+        // On the stage: what each pass's closing call reported, and nothing elsewhere.
+        Assert.Equal(2, run.Stages[2].Round);
+        Assert.Equal((2, 0), (run.Stages[3].Round!.Value, run.Stages[3].Blockers!.Value));
+        Assert.Equal(1, run.Stages[5].DefectsFound);
+        Assert.All(new[] { 0, 1, 4, 6 }, index =>
+        {
+            Assert.Null(run.Stages[index].Round);
+            Assert.Null(run.Stages[index].Blockers);
+            Assert.Null(run.Stages[index].DefectsFound);
+        });
+
+        // Implement's one sub-agent call is the round the stage reported.
+        Assert.Equal(2, Assert.Single(stages[2].Workers).Round);
+
+        // Review listed each round's call with its own round.
+        Assert.Equal(new int?[] { 1, 2 }, stages[3].Workers.Select(worker => worker.Round));
+    }
+
+    [Fact]
+    public async Task A_run_file_from_before_the_quality_signals_reads_them_as_absent()
+    {
+        foreach (var fixture in new[] { "delegated-phase-map.json", "flat-phase-map.json", "inline-fallbacks.json", "no-phase-map-runners.json" })
+        {
+            var run = await ReadAsync(fixture);
+
+            Assert.All(run.Stages, stage =>
+            {
+                Assert.Null(stage.Round);
+                Assert.Null(stage.Blockers);
+                Assert.Null(stage.DefectsFound);
+            });
+            Assert.All(DeliveryRunStageResolution.Of(run).SelectMany(stage => stage.Workers), worker => Assert.Null(worker.Round));
+        }
+    }
+
+    [Fact]
+    public void A_stage_round_is_no_one_worker_s_when_several_ran()
+    {
+        var run = Run(
+            null,
+            new DeliveryRunStage("Implement", "done", null, 2)
+            {
+                Execution = """{"mode":"delegate","agent":"csharp-coding:coding","round":2}""",
+                Round = 2,
+                SubAgentRuns =
+                [
+                    new DeliveryRunSubAgentRun("csharp-coding:coding", "claude-opus-5-5", 60_000, 10_000, 12, Failed: false),
+                    new DeliveryRunSubAgentRun("csharp-coding:coding", "claude-opus-5-5", 50_000, 9_000, 10, Failed: false)
+                ]
+            });
+
+        var implement = Assert.Single(DeliveryRunStageResolution.Of(run));
+
+        Assert.Equal(2, implement.Workers.Count);
+        Assert.All(implement.Workers, worker => Assert.Null(worker.Round));
+    }
+
+    [Fact]
+    public void An_observed_call_takes_the_round_its_execution_listed_for_it()
+    {
+        var run = Run(
+            null,
+            new DeliveryRunStage("Review", "done", null, 2)
+            {
+                Execution = """{"mode":"fork","round":2,"blockers":1,"runs":[{"agent":"general-purpose","round":1},{"agent":"general-purpose","round":2},{"agent":"qa:qa-monitor"}]}""",
+                Round = 2,
+                Blockers = 1,
+                SubAgentRuns =
+                [
+                    new DeliveryRunSubAgentRun("general-purpose", "claude-opus-5-5", 60_000, 10_000, 12, Failed: false),
+                    new DeliveryRunSubAgentRun("qa:qa-monitor", "claude-haiku-4-5", 5_000, 1_000, 3, Failed: false),
+                    new DeliveryRunSubAgentRun("general-purpose", "claude-opus-5-5", 50_000, 9_000, 10, Failed: false)
+                ]
+            });
+
+        var review = Assert.Single(DeliveryRunStageResolution.Of(run));
+
+        Assert.Equal(new int?[] { 1, null, 2 }, review.Workers.Select(worker => worker.Round));
+    }
+
+    [Fact]
     public async Task Every_fixture_resolves_one_execution_per_stage()
     {
         foreach (var fixture in Directory.GetFiles(FixtureFolder, "*.json"))

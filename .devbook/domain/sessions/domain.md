@@ -311,7 +311,8 @@ It holds what the file states:
 - the `Delivery Run Reference`s it names;
 - when it started and when it was last updated;
 - its stages, each with its status, duration, how many times it was marked done, and
-  its own record of how it ran;
+  its own record of how it ran, with the round, blockers and defects that record
+  reported (below);
 - per stage, every sub-agent call its `insights` saw, with that call's time, tokens
   and tool calls where recorded, and how many tool calls the stage made;
 - its token usage in total, for delegated agents, and per stage, with the models seen;
@@ -337,6 +338,14 @@ it. Where a run names a session the list holds, it joins that session by identit
 Only a run that names none is attached by worktree key and overlapping activity:
 every dashboard file written before the field existed, and any writer that does not
 send one.
+
+**A stage can say what its pass found.** The delivery phases report three counts on a
+stage's record of how it ran: Implement and Review the implement ⇄ review `round`,
+counting from 1; Review the `blockers` it left open in that round; Verify the
+`defectsFound` that review had passed. They describe the stage's latest pass, because
+each record replaces the one before. A count reads only as a whole number from zero
+up. A run file from before the phases sent them, or a stage that did not run the work,
+reads them as absent, never as zero: zero is a clean round, and nobody reported one.
 
 **A run can say what started it, and a sweep what it found.** Where the writer said,
 a run carries its trigger, `attended` or `scheduled`. It also carries the schedule
@@ -511,6 +520,7 @@ Each value is taken from the first source in its row that has one:
 | Model and effort | What the stage recorded running, then the runner's, then the configuration's. |
 | Configured | The phase map's entry for the stage under the qualifier it ran under, then under any name its title goes by. Its origin is the entry's own origin, or else the team default with the overlays the run context lists merged over it. |
 | Sub-agent calls | Each call the run's `insights` saw, with its own time, tokens, tool calls and outcome. Where they saw none, each call the stage's record lists, except the slices the owner session worked itself. Then each agent the stage declared that neither shows running. |
+| A call's round | The round the stage's record lists against that call. Calls the `insights` saw take the listed rounds per agent, in order, only where the record lists as many calls of that agent as were seen. Otherwise the stage's own round, when the call is the only one the stage made. A round several calls shared stays the stage's. |
 
 **Configured against ran.** A stage is compared on its agent, its model's family and
 its effort. It is compared only once it is past pending, and the gate never is. An
