@@ -347,5 +347,7 @@ The checklist a module's page meets, each item from a chapter above:
 | Expand in place | `RepositoriesSettingsPage.razor`, `GitHubAccountsSettingsPage.razor` |
 
 The storybook shows the frame, the menu and the card on its *Settings frame*,
-*Settings menu* and *Settings card* pages. Those pages do not yet link back to
-this chapter from a **Design rules** block.
+*Settings menu* and *Settings card* pages, and each links back to this chapter
+from its **Design rules** block: the frame to *Panel and Header* and *Headline*,
+the menu to *Menu Groups*, *Badges and the Off State* and *Phone Width*, the
+card to *Settings Card* and *Figure Tiles*.
