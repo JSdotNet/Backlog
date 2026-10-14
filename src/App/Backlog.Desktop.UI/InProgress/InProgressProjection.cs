@@ -33,6 +33,7 @@ public sealed class InProgressProjection
     private readonly bool _sessionsRead;
     private readonly Dictionary<string, AgentSession> _sessionsById;
     private readonly Dictionary<string, GitHubOpenPullRequest> _pullsByKey;
+    private readonly Dictionary<string, GitHubLinkedPullRequest> _linkedByKey;
     private readonly HashSet<string> _linkedSessions;
     private readonly HashSet<string> _linkedPulls;
 
@@ -48,6 +49,9 @@ public sealed class InProgressProjection
     /// <param name="now">The moment the sentences are measured against, local.</param>
     /// <param name="sessionsRead">Whether the session record has been read yet. Until
     /// it has, a linked session it does not list is not said to be missing from it.</param>
+    /// <param name="linkedPulls">The linked pull requests the open read did not list,
+    /// read by number (<see cref="WorkInProgressReader.LinkedPullRequests"/>). They add
+    /// the state, author and merge date to a work link and change nothing it draws.</param>
     public InProgressProjection(
         IReadOnlyList<EntryRow> rows,
         IReadOnlyList<AgentSession> sessions,
@@ -56,7 +60,8 @@ public sealed class InProgressProjection
         Func<string?, int?> colour,
         Func<string, LinkedSessionState?> linkedState,
         DateTimeOffset now,
-        bool sessionsRead = true)
+        bool sessionsRead = true,
+        IReadOnlyList<GitHubLinkedPullRequest>? linkedPulls = null)
     {
         _sessionsRead = sessionsRead;
         _rows = rows;
@@ -73,6 +78,9 @@ public sealed class InProgressProjection
 
         _pullsByKey = new(StringComparer.OrdinalIgnoreCase);
         foreach (var pull in pulls) _pullsByKey.TryAdd(Key(pull.RepositoryFullName, pull.Number), pull);
+
+        _linkedByKey = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var pull in linkedPulls ?? []) _linkedByKey.TryAdd(Key(pull.RepositoryFullName, pull.Number), pull);
 
         _linkedSessions = rows.SelectMany(row => row.SessionLinks).Select(link => link.SessionId).ToHashSet(StringComparer.OrdinalIgnoreCase);
         _linkedPulls = rows.SelectMany(row => row.PullRequestLinks).Select(link => Key(link.Repository, link.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -127,12 +135,22 @@ public sealed class InProgressProjection
                 _linkedState(link.SessionId) is { } state ? Map(state) : IntegrationSessionState.Unknown,
                 _sessionsRead ? "Not in the session record on this machine" : null))];
 
-    /// <summary>The pull requests an entry links. One no longer open is drawn from what
-    /// the task list last read about it — merged, closed, or not read yet.</summary>
+    /// <summary>
+    /// The pull requests an entry links. One no longer open is drawn from what the task
+    /// list last read about it — merged, closed, or not read yet.
+    /// <para>
+    /// Each carries what GitHub said about it — its state, who opened it and when it
+    /// merged — from the open read, or from the read by number for one the open read
+    /// did not list. That is carried, not drawn: the card still draws the task list's
+    /// record for a pull request no longer open.
+    /// </para>
+    /// </summary>
     public IReadOnlyList<WorkPullRequest> PullRequestsOf(EntryRow row) =>
         [.. row.PullRequestLinks.Select(link => _pullsByKey.TryGetValue(Key(link.Repository, link.Number), out var pull)
             ? PullRequest(pull)
-            : Recorded(row, link))];
+            : _linkedByKey.TryGetValue(Key(link.Repository, link.Number), out var linked)
+                ? Recorded(row, link) with { ReadState = Map(linked.State), Author = linked.AuthorLogin, MergedAt = linked.MergedAt }
+                : Recorded(row, link))];
 
     /// <summary>
     /// What no entry links: sessions still live — running or gone quiet — and the
@@ -246,7 +264,12 @@ public sealed class InProgressProjection
             Map(pull.Checks),
             ChecksText(pull.CheckCounts),
             pull.Additions,
-            pull.Deletions);
+            pull.Deletions)
+        {
+            ReadState = Map(pull.State),
+            Author = pull.AuthorLogin,
+            MergedAt = pull.MergedAt
+        };
 
     /// <summary>A linked pull request the open read did not list: drawn from the task
     /// list's own read of it, or as unknown when it has not read one.</summary>
