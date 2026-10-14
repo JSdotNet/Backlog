@@ -267,6 +267,16 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
             paths => $"Created a tool catalog at {paths.CatalogPath}.");
 
+    /// <summary>Writes the empty catalog, and says so. This configuration runs
+    /// nothing and reads no host's manifests — the browser it serves is not on
+    /// the machine whose tools it would describe — so there is nothing to seed
+    /// from, and a sandbox seed would be a list of tools this machine does not
+    /// have.</summary>
+    public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default) =>
+        EditCatalogAsync(
+            paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
+            paths => $"Created an empty tool catalog at {paths.CatalogPath}: this host cannot see what is installed, so nothing was seeded.");
+
     public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>
         EditCatalogAsync(
             paths => DevToolConfiguration.AddToCatalogAsync(paths, draft, ct),
@@ -558,6 +568,7 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             installable: !manual && !application.DetectOnly && (application.Provider is not DevToolProvider.Command || application.Install is not null),
             acknowledged: application.Acknowledged,
             note: application.Note,
+            download: application.Download,
             status: manual
                 ? "Nothing can check this — confirm it by hand"
                 : "Read from the catalog; this harness starts no processes");
@@ -671,7 +682,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
         {
             Hosts = hosts,
             HostStates = states,
-            Installable = server.Installable
+            Installable = server.Installable,
+            Download = server.Download
         };
     }
 
@@ -689,7 +701,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
         bool installable = true,
         bool acknowledged = false,
         string? note = null,
-        string status = "")
+        string status = "",
+        string? download = null)
     {
         var key = DevToolConfiguration.KeyFor(DevToolKind.Application, id);
 
@@ -738,7 +751,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             Group = string.IsNullOrWhiteSpace(group) ? null : group,
             Installable = installable,
             Acknowledged = confirmed,
-            ConfirmedByHand = provider is DevToolProvider.Manual
+            ConfirmedByHand = provider is DevToolProvider.Manual,
+            Download = download
         };
     }
 

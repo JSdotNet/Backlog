@@ -495,7 +495,7 @@
                CssClass="inbox-pane__dialog"
                TestId="inbox-duplicate-dialog">
             <ChildContent>
-                <div class="inbox-pane__picker-dialog" @onkeydown:stopPropagation="true">
+                <div class="inbox-pane__picker-dialog">
                     <SearchBox Value="@_duplicateQuery"
                                ValueChanged="query => _duplicateQuery = query"
                                Placeholder="Find an item"
@@ -527,7 +527,7 @@
                CssClass="inbox-pane__dialog"
                TestId="inbox-link-dialog">
             <ChildContent>
-                <div class="inbox-pane__picker-dialog" @onkeydown:stopPropagation="true">
+                <div class="inbox-pane__picker-dialog">
                     <SearchBox Value="@_linkQuery"
                                ValueChanged="query => _linkQuery = query"
                                Placeholder="Find a task"

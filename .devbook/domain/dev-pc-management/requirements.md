@@ -147,6 +147,27 @@ The Overview SHALL show how many entries match the catalog out of the entries th
 - **When** the pane opens
 - **Then** Matches the catalog reads 3 of 7, and Updates reads 2 with Claude 1 and Machine 1
 
+### Requirement: The Updates split adds up to the Updates figure
+
+```meta
+type: requirement
+status: draft
+```
+
+The Overview SHALL count every entry behind on exactly one line of the Updates split — under the one host it is for or the one host that reports it behind, under Both when it is for both hosts and both or neither report it, under Machine when it has no host — so the lines always sum to the Updates figure, under every host filter.
+
+#### Scenario: Behind on both hosts
+
+- **Given** a plugin for both hosts behind on both, a plugin for both hosts behind on Copilot only, a Claude plugin behind and an application behind
+- **When** the pane opens
+- **Then** Updates reads 4 with Copilot 1, Claude 1, Both 1 and Machine 1
+
+#### Scenario: Claude filter
+
+- **Given** the same machine
+- **When** the reader chooses the Claude filter
+- **Then** the plugin behind on Copilot only still counts once, under Copilot, and the lines sum to the Updates figure
+
 ### Requirement: Needs you lists every action in a fixed order
 
 ```meta
@@ -203,3 +224,18 @@ The Overview SHALL show this machine's last finished run — its outcome, kind, 
 - **Given** a machine that has never finished a run
 - **When** the pane opens
 - **Then** there is no Last run card
+
+### Requirement: The strip's transcript link opens the last run
+
+```meta
+type: requirement
+status: draft
+```
+
+The tab strip SHALL offer "Last run transcript" whenever this machine has a last finished run, opening that run's whole transcript as the Last run card does, and while the pane has command output but no last run, SHALL open that output instead.
+
+#### Scenario: After a restart
+
+- **Given** a machine with a last finished run, and an app just restarted with no command run since
+- **When** the reader presses Last run transcript
+- **Then** that run's whole transcript opens

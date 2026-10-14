@@ -59,10 +59,22 @@ internal static class DevToolLastRunStore
     /// <para>Through a temp file moved into place, the way the catalog is written:
     /// a write that fails part-way must leave the previous run, not a file that is
     /// neither and that the next read throws away.</para>
+    ///
+    /// <para>The transcript is redacted on the way in, by
+    /// <see cref="DevToolOutput.RedactTranscript"/>: every value in
+    /// <paramref name="secrets"/> and every secret shape a CLI is known to print.
+    /// Here rather than at each caller, because this is the one door the record
+    /// reaches the disk through — and the folder it lands in can be a synced
+    /// one.</para>
     /// </summary>
-    public static async Task WriteAsync(string path, DevToolLastRun run, CancellationToken ct = default)
+    /// <param name="secrets">Values to mask by value — this machine's MCP token
+    /// when it has one.</param>
+    public static async Task WriteAsync(string path, DevToolLastRun run, IEnumerable<string?> secrets, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(run);
+        ArgumentNullException.ThrowIfNull(secrets);
+
+        var redacted = run with { Transcript = DevToolOutput.RedactTranscript(run.Transcript, secrets) };
 
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? Environment.CurrentDirectory);
 
@@ -70,11 +82,16 @@ internal static class DevToolLastRunStore
         var stream = File.Create(tempPath);
         await using (stream.ConfigureAwait(false))
         {
-            await JsonSerializer.SerializeAsync(stream, run, JsonOptions, ct).ConfigureAwait(false);
+            await JsonSerializer.SerializeAsync(stream, redacted, JsonOptions, ct).ConfigureAwait(false);
         }
 
         File.Move(tempPath, path, overwrite: true);
     }
+
+    /// <inheritdoc cref="WriteAsync(string, DevToolLastRun, IEnumerable{string?}, CancellationToken)"/>
+    /// <remarks>No value is known to be secret, so only the shapes are masked.</remarks>
+    public static Task WriteAsync(string path, DevToolLastRun run, CancellationToken ct = default) =>
+        WriteAsync(path, run, [], ct);
 
     /// <summary>Whether a deserialized record carries everything a run has. A
     /// positional record fills a missing property with its default rather than
