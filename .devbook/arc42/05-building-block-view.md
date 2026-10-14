@@ -420,7 +420,11 @@ pages. What more than one page reads is a `SettingsScreenContext` the screen
 owns and hands to every page: how this machine reaches GitHub, which logins the
 GitHub CLI holds, and that a feature was switched. A `SettingsSection` names
 its menu group and the titles of the cards it draws, which the settings search
-reads without rendering a page. Within a group the app-wide pages come first,
+reads without rendering a page. Storage & backup is drawn as two
+`SettingsCard`s in a wrapping row — *Where the backlog is stored*, with the
+branch snapshot folder inside it, and *Backup*, with **Back up now** in its
+header — under a headline read from `BackupWorker.Last`, whose
+`BackupState.DailyCopies` counts the days a copy was committed on. Within a group the app-wide pages come first,
 then the registered sections by their order, and every page opened is kept
 alive, hidden, while another is on screen.
 

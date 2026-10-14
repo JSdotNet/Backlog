@@ -17,6 +17,8 @@
 @* SelectField draws the backup schedule; written here because this folder
    cannot have an _Imports of its own. *@
 @using Backlog.UI.Components.Selects
+@* MetricGrid and MetricTile draw the Backup card's two figures. *@
+@using Backlog.UI.Components.Metrics
 @* The Brain card, drawn by the library and fed here. *@
 @using Backlog.UI.Components.Brain
 @* For the optional logger a missing backup worker is noted in, rather than
@@ -29,15 +31,21 @@
 @inject IServiceProvider Services
 @implements IDisposable
 
-@* Two blocks that each carry their own heading, so the columns
-   read as two settings rather than as one cut into pieces: where
-   the backlog is and where it is backed up to. The working week
-   that was the third is the Dashboard's page now. The devbook
-   cache sits under the first because it follows the folder by
-   default. *@
-<div class="setting-columns">
-    <div>
-        <h2 class="setting__title">Where the backlog is stored</h2>
+@* The page's sentence in the frame's headline: is the backlog safe? Re-read
+   on every render, so a backup that completes while the page is open - the
+   worker's Changed redraws it - moves it. *@
+<SettingsHeadline><span data-testid="storage-headline">@Headline</span></SettingsHeadline>
+
+@* Two cards side by side, wrapping to one column on a narrow window: where
+   the backlog is and where it is backed up to. The working week that was a
+   third is the Dashboard's page now, and repositories and GitHub accounts
+   are pages of their own. The branch snapshot folder sits in the first card
+   because it follows the folder by default. The titles are what
+   SettingsPages declares for the settings search. *@
+<div class="setting-columns storage-cards">
+    <SettingsCard Title="Where the backlog is stored"
+                  Id="storage-folder-title"
+                  TestId="storage-folder-settings">
         @* This paragraph used to say every entry was its own markdown file
            and to suggest pointing the folder at a synced one. Both halves
            stopped being true when the store became one database, and the
@@ -74,19 +82,35 @@
            moving" after typing a folder moved the backlog there first and
            then switched to it, and the button could never do what it said.
            Enter still moves, because a key pressed on purpose is a choice;
-           leaving the field is not. *@
-        <TextField Bare="true"
-                   LabelCssClass="setting__label"
-                   InputCssClass="@SettingsScreenContext.SettingInputClass(_error)"
-                   Label="Folder"
-                   Id="storage-path"
-                   data-testid="storage-path-input"
-                   spellcheck="false"
-                   autocomplete="off"
-                   aria-describedby="@StoragePathDescribedBy"
-                   Value="@_draftPath"
-                   ValueChanged="value => _draftPath = value"
-                   @onkeydown="OnKeyDownAsync" />
+           leaving the field is not.
+
+           Browse fills the field and commits nothing either, for the same
+           reason: which of the two buttons below applies the folder is still
+           the reader's choice. Drawn only where the host has a folder picker. *@
+        <div class="storage-folder">
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="@($"{SettingsScreenContext.SettingInputClass(_error)} setting__input--mono")"
+                       Label="Folder"
+                       Id="storage-path"
+                       data-testid="storage-path-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       aria-describedby="@StoragePathDescribedBy"
+                       Value="@_draftPath"
+                       ValueChanged="value => _draftPath = value"
+                       @onkeydown="OnKeyDownAsync" />
+            @if (_brainPicker is not null)
+            {
+                <AppButton Variant="ButtonVariant.Secondary"
+                           TestId="storage-path-browse"
+                           Busy="@_browsingStoragePath"
+                           BusyLabel="Choosing a folder"
+                           OnClick="BrowseStoragePathAsync">
+                    Browse
+                </AppButton>
+            }
+        </div>
 
         <p class="setting__status" id="storage-path-status" data-testid="storage-path-status" role="status">
             @if (_error is not null)
@@ -147,46 +171,46 @@
         </p>
 
 
-    @* Under the storage folder by default, so a backlog moved to
-       another disk takes the default location of what was fetched
-       to read beside it along. It is a setting rather than a
-       constant because a machine with a small system drive and a
-       large one for work is an ordinary machine. Not backed up and
-       not moved: a snapshot is a disposable copy of a commit that
-       can always be fetched again. *@
-    <div class="devbook-folders" data-testid="devbook-cache-settings">
-        <h3 class="devbook-folders__title">Branch snapshot folder</h3>
-        <p class="setting__note">
-            Where the devbook fetched from a repository branch is cached. It sits under the
-            storage folder unless you point it elsewhere; clear the field to return it there.
-            Changing this leaves the old folder alone; the new one refills on the next fetch.
-        </p>
-        <TextField Bare="true"
-                   LabelCssClass="setting__label"
-                   InputCssClass="@SettingsScreenContext.SettingInputClass(_devbookCacheError)"
-                   Label="Snapshot folder"
-                   Id="devbook-cache-directory"
-                   data-testid="devbook-cache-directory-input"
-                   spellcheck="false"
-                   autocomplete="off"
-                   Placeholder="@Store.DefaultDevbookCacheDirectory"
-                   aria-describedby="devbook-cache-status"
-                   Value="@_draftDevbookCacheDirectory"
-                   ValueChanged="value => _draftDevbookCacheDirectory = value"
-                   @onchange="ApplyDevbookCacheDirectory"
-                   @onkeydown="OnDevbookCacheDirectoryKeyDown" />
-        <p class="setting__status" id="devbook-cache-status" data-testid="devbook-cache-status" role="status">
-            @if (_devbookCacheError is not null)
-            {
-                <span class="setting__status--error">@_devbookCacheError</span>
-            }
-            else
-            {
-                <span>Snapshots: <code>@Store.DevbookCacheDirectory</code>@(Store.IsDefaultDevbookCacheDirectory ? " - under the storage folder." : ".")</span>
-            }
-        </p>
-    </div>
-    </div>
+        @* Under the storage folder by default, so a backlog moved to
+           another disk takes the default location of what was fetched
+           to read beside it along. It is a setting rather than a
+           constant because a machine with a small system drive and a
+           large one for work is an ordinary machine. Not backed up and
+           not moved: a snapshot is a disposable copy of a commit that
+           can always be fetched again. *@
+        <div class="devbook-folders" data-testid="devbook-cache-settings">
+            <h3 class="devbook-folders__title">Branch snapshot folder</h3>
+            <p class="setting__note">
+                Where the devbook fetched from a repository branch is cached. It sits under the
+                storage folder unless you point it elsewhere; clear the field to return it there.
+                Changing this leaves the old folder alone; the new one refills on the next fetch.
+            </p>
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="@($"{SettingsScreenContext.SettingInputClass(_devbookCacheError)} setting__input--mono")"
+                       Label="Snapshot folder"
+                       Id="devbook-cache-directory"
+                       data-testid="devbook-cache-directory-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Placeholder="@Store.DefaultDevbookCacheDirectory"
+                       aria-describedby="devbook-cache-status"
+                       Value="@_draftDevbookCacheDirectory"
+                       ValueChanged="value => _draftDevbookCacheDirectory = value"
+                       @onchange="ApplyDevbookCacheDirectory"
+                       @onkeydown="OnDevbookCacheDirectoryKeyDown" />
+            <p class="setting__status" id="devbook-cache-status" data-testid="devbook-cache-status" role="status">
+                @if (_devbookCacheError is not null)
+                {
+                    <span class="setting__status--error">@_devbookCacheError</span>
+                }
+                else
+                {
+                    <span>Snapshots: <code>@Store.DevbookCacheDirectory</code>@(Store.IsDefaultDevbookCacheDirectory ? " - under the storage folder." : ".")</span>
+                }
+            </p>
+        </div>
+    </SettingsCard>
 
     @* One-way, and the copy says so twice: a backup is a copy that
        leaves, and nothing here ever reads the repository back into
@@ -194,8 +218,40 @@
        sync by another name, and R9 in .devbook/arc42/11-risks-and-technical-debt.md
        is what that did to this database. Local ADR 0010 is the
        decision; BackupWorker is the mechanism. *@
-    <div class="repo-card__section" data-testid="storage-backup-settings">
-        <h2 class="setting__title">Backup</h2>
+    <SettingsCard Title="Backup"
+                  Id="storage-backup-title"
+                  TestId="storage-backup-settings">
+        <Action>
+            <AppButton Variant="ButtonVariant.Primary"
+                       TestId="storage-backup-now"
+                       Busy="@(_backup?.IsRunning ?? false)"
+                       BusyLabel="Backing up"
+                       Disabled="@(_backup is null || Store.RootRepository is null)"
+                       OnClick="BackUpNow">
+                Back up now
+            </AppButton>
+        </Action>
+        <ChildContent>
+        @* The two figures a reader checks first, over the line that says what
+           the last run did. A machine that backed up before the copies were
+           counted keeps at least the one it has. *@
+        <MetricGrid Label="Backup figures" MinColumnWidth="10rem" CssClass="storage-backup__figures" TestId="storage-backup-figures">
+            <MetricTile Label="Last backup"
+                        Value="@LastBackupFigure"
+                        TestId="storage-backup-last" />
+            <MetricTile Label="Keeping"
+                        Value="@DailyCopies.ToString(CultureInfo.CurrentCulture)"
+                        Unit="@(DailyCopies == 1 ? "daily copy" : "daily copies")"
+                        TestId="storage-backup-copies" />
+        </MetricGrid>
+
+        <p class="setting__status @(BackupStatusIsFailure ? "setting__status--error" : null)"
+           id="storage-backup-status"
+           data-testid="storage-backup-status"
+           role="@(BackupStatusIsFailure ? "alert" : "status")">
+            <span>@BackupStatusLine</span>
+        </p>
+
         <p class="setting__body">
             A copy of the database is committed to a GitHub repository you name - on a
             schedule, or when you press the button. Each backup replaces the last one at
@@ -282,21 +338,7 @@
                        @onkeydown="OnBackupTimeKeyDown" />
         }
 
-        <p class="setting__status @(BackupStatusIsFailure ? "setting__status--error" : null)"
-           id="storage-backup-status"
-           data-testid="storage-backup-status"
-           role="@(BackupStatusIsFailure ? "alert" : "status")">
-            <span>@BackupStatusLine</span>
-        </p>
-
         <div class="setting__actions">
-            <AppButton Variant="ButtonVariant.None"
-                       TestId="storage-backup-now"
-                       Busy="@(_backup?.IsRunning ?? false)"
-                       Disabled="@(_backup is null || Store.RootRepository is null)"
-                       OnClick="BackUpNow">
-                Back up now
-            </AppButton>
             <AppButton Variant="ButtonVariant.None"
                        data-testid="clear-storage-repository-button"
                        Disabled="@(Store.RootRepository is null)"
@@ -312,7 +354,8 @@
                 app's other per-user files rather than in the backlog folder.
             </p>
         }
-    </div>
+        </ChildContent>
+    </SettingsCard>
 </div>
 
 @* The person's Brain (local ADR 0026): one folder outside every
@@ -353,6 +396,7 @@
     protected override void OnInitialized()
     {
         _log = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
+        _time = Services.GetService<TimeProvider>() ?? TimeProvider.System;
         _backup = ResolveBackup();
 
         // The worker outlives this screen, and what it does while somebody is
@@ -367,6 +411,72 @@
         // where snapshots go rather than a path nobody typed.
         _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
         InitializeBrain();
+    }
+
+    // ---- Headline and figures ---------------------------------------------
+
+    /// <summary>The clock the relative times are read against: the host's when it
+    /// composes one, so a test can hold it still.</summary>
+    private TimeProvider _time = TimeProvider.System;
+
+    /// <summary>The last backup that reached the repository, or null while none
+    /// has - or while the host composes no worker to ask.</summary>
+    private DateTimeOffset? LastBackupAt => _backup?.Last.SucceededAt;
+
+    /// <summary>How many daily copies the repository's history keeps. At least
+    /// one once a backup has worked: a state file written before the worker
+    /// counted copies reads zero, and the copy it made is still there.</summary>
+    private int DailyCopies => LastBackupAt is null
+        ? 0
+        : Math.Max(1, _backup?.Last.DailyCopies ?? 0);
+
+    /// <summary>The page's headline: whether the backlog is safe, said first.</summary>
+    private string Headline => LastBackupAt is { } at
+        ? $"Backed up {Ago(at)} — {DailyCopies} daily {(DailyCopies == 1 ? "copy" : "copies")} kept."
+        : "Not backed up yet.";
+
+    private string LastBackupFigure => LastBackupAt is { } at ? Ago(at) : "Never";
+
+    /// <summary>How long ago <paramref name="at"/> was, in the words the In
+    /// progress list uses for the same question.</summary>
+    private string Ago(DateTimeOffset at)
+    {
+        var elapsed = _time.GetUtcNow() - at;
+
+        if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
+        if (elapsed < TimeSpan.FromHours(1)) return $"{(int)elapsed.TotalMinutes} min ago";
+        if (elapsed < TimeSpan.FromDays(1)) return $"{(int)elapsed.TotalHours} h ago";
+
+        var days = (int)elapsed.TotalDays;
+        return days == 1 ? "yesterday" : $"{days} days ago";
+    }
+
+    // ---- Storage folder -----------------------------------------------------
+
+    private bool _browsingStoragePath;
+
+    /// <summary>Puts the picked folder in the field and commits nothing: Move and
+    /// Switch are still the two ways to apply it, and which one is the reader's
+    /// choice. The Brain card's picker, because a folder picker is a folder
+    /// picker.</summary>
+    private async Task BrowseStoragePathAsync()
+    {
+        if (_brainPicker is null || _browsingStoragePath) return;
+
+        _browsingStoragePath = true;
+        try
+        {
+            var picked = await _brainPicker.PickFolderAsync(string.IsNullOrWhiteSpace(_draftPath) ? null : _draftPath);
+            if (picked is not null) _draftPath = picked;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _error = $"Couldn't open the folder picker: {ex.Message}";
+        }
+        finally
+        {
+            _browsingStoragePath = false;
+        }
     }
 
     private async Task OnKeyDownAsync(KeyboardEventArgs e)

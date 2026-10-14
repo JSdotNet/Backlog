@@ -16,11 +16,13 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Storage tab after its consolidation: two blocks — where the backlog
-/// is and where it is backed up to — with the branch snapshot folder under
-/// the first. The working week moved to the page the Dashboard registers. The devbook-section rows and the disk
-/// poll are gone; a devbook belongs to a repository, and the poll's only
-/// reason was the shared folder the tab now warns against.
+/// The Storage &amp; backup page: a headline that says whether the backlog is
+/// backed up, and two cards — where the backlog is and where it is backed up
+/// to — with the branch snapshot folder in the first. The working week moved to
+/// the page the Dashboard registers, and repositories and GitHub accounts are
+/// pages of their own. The devbook-section rows and the disk poll are gone; a
+/// devbook belongs to a repository, and the poll's only reason was the shared
+/// folder the page now warns against.
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SettingsBackupTests
@@ -28,18 +30,84 @@ public sealed class SettingsBackupTests
     private const string RepositoryInput = "[data-testid='storage-repository-input']";
 
     [Fact]
-    public void The_storage_tab_carries_two_blocks_and_no_devbook_sections_working_week_or_disk_poll()
+    public void The_storage_page_carries_two_cards_and_no_devbook_sections_working_week_or_disk_poll()
     {
         using var settings = RenderSettings();
         OpenStorageTab(settings.Component);
 
-        Assert.Single(settings.Component.FindAll("[data-testid='storage-path-input']"));
-        Assert.Single(settings.Component.FindAll("[data-testid='devbook-cache-settings']"));
-        Assert.Single(settings.Component.FindAll("[data-testid='storage-backup-settings']"));
+        var folderCard = settings.Component.Find("[data-testid='storage-folder-settings']");
+        Assert.Equal("Where the backlog is stored", folderCard.QuerySelector(".settings-card__title")?.TextContent);
+        Assert.NotNull(folderCard.QuerySelector("[data-testid='storage-path-input']"));
+        Assert.NotNull(folderCard.QuerySelector("[data-testid='devbook-cache-settings']"));
+
+        var backupCard = settings.Component.Find("[data-testid='storage-backup-settings']");
+        Assert.Equal("Backup", backupCard.QuerySelector(".settings-card__title")?.TextContent);
 
         Assert.Empty(settings.Component.FindAll("[data-testid='working-hours-settings']"));
         Assert.Empty(settings.Component.FindAll("[data-testid='storage-devbook-folder-settings']"));
         Assert.Empty(settings.Component.FindAll("[data-testid='storage-refresh-settings']"));
+    }
+
+    /// <summary>The page is Storage &amp; backup now; what used to be beside the
+    /// folder - the repositories and the GitHub accounts - is its own page.</summary>
+    [Fact]
+    public void The_page_holds_no_repositories_or_github_accounts_content()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        var page = settings.Component.Find("section[aria-label='Storage settings']");
+
+        Assert.Null(page.QuerySelector("[data-testid='github-settings']"));
+        Assert.Null(page.QuerySelector("[data-testid='github-accounts-settings']"));
+        Assert.DoesNotContain("Signed in with the GitHub CLI", page.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The search finds the page by the cards it draws, without
+    /// rendering it.</summary>
+    [Fact]
+    public void The_search_list_declares_the_cards_the_page_draws()
+    {
+        var storage = Assert.Single(SettingsPages.BuiltIn, page => page.Id == SettingsPages.Storage);
+
+        Assert.Equal("Storage & backup", storage.Title);
+        Assert.NotNull(storage.CardTitles);
+        Assert.Contains("Where the backlog is stored", storage.CardTitles);
+        Assert.Contains("Backup", storage.CardTitles);
+    }
+
+    [Fact]
+    public void Before_any_backup_the_headline_says_so_and_the_figures_say_never()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        Assert.Equal("Not backed up yet.", Headline(settings.Component));
+        Assert.Contains("Never", settings.Component.Find("[data-testid='storage-backup-last']").TextContent);
+        Assert.Contains("0", settings.Component.Find("[data-testid='storage-backup-copies']").TextContent);
+    }
+
+    /// <summary>Back up now is the card's primary action, in its header.</summary>
+    [Fact]
+    public void Back_up_now_is_the_primary_button_in_the_backup_card_header()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        var button = settings.Component.Find(".settings-card__action [data-testid='storage-backup-now']");
+
+        Assert.Contains("btn--primary", button.ClassName);
+        Assert.Contains("Back up now", button.TextContent);
+    }
+
+    /// <summary>A folder is read character by character, so it is set in mono.</summary>
+    [Fact]
+    public void The_folder_field_is_set_in_the_mono_font()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        Assert.Contains("setting__input--mono", settings.Component.Find("[data-testid='storage-path-input']").ClassName);
     }
 
     /// <summary>The field shows empty while snapshots go to the default, and
@@ -141,6 +209,48 @@ public sealed class SettingsBackupTests
         Assert.Equal(BackupWorker.RepositoryPath, commit.Path);
     }
 
+    /// <summary>A backup that completes while the page is open moves the
+    /// headline and both figures, with no navigation in between.</summary>
+    [Fact]
+    public async Task A_completed_backup_updates_the_headline_and_the_figures()
+    {
+        using var settings = RenderSettings();
+        await new SqliteTaskRepository(settings.Store.RootDirectory)
+            .SaveAsync(new TaskItem("Back me up", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        OpenStorageTab(settings.Component);
+        Commit(settings.Component.Find(RepositoryInput), "JSdotNet/Notes");
+        Assert.Equal("Not backed up yet.", Headline(settings.Component));
+
+        settings.Component.Find("[data-testid='storage-backup-now']").Click();
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal("Backed up just now — 1 daily copy kept.", Headline(settings.Component));
+            Assert.Contains("just now", settings.Component.Find("[data-testid='storage-backup-last']").TextContent);
+            var copies = settings.Component.Find("[data-testid='storage-backup-copies']").TextContent;
+            Assert.Contains("Keeping", copies);
+            Assert.Contains("1", copies);
+            Assert.Contains("daily copy", copies);
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>The headline reads the relative time and the count the worker
+    /// kept, in the plural once there is more than one copy.</summary>
+    [Fact]
+    public void The_headline_reads_the_last_backup_and_the_daily_copies()
+    {
+        var at = Now.AddHours(-3);
+        using var settings = RenderSettings(new BackupState(at, at, true, null) { DailyCopies = 7, LastCopyAt = at });
+        OpenStorageTab(settings.Component);
+
+        Assert.Equal("Backed up 3 h ago — 7 daily copies kept.", Headline(settings.Component));
+        Assert.Contains("3 h ago", settings.Component.Find("[data-testid='storage-backup-last']").TextContent);
+        Assert.Contains("daily copies", settings.Component.Find("[data-testid='storage-backup-copies']").TextContent);
+    }
+
+    private static string Headline(IRenderedComponent<Settings> component) =>
+        component.Find("[data-testid='settings-headline']").TextContent.Trim();
+
     [Fact]
     public async Task A_backup_that_failed_is_an_alert_with_githubs_words()
     {
@@ -191,7 +301,11 @@ public sealed class SettingsBackupTests
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
         SettingsMenu.Open(component, "Storage & backup");
 
-    private static SettingsRenderContext RenderSettings()
+    /// <summary>The moment the page and the worker both read, held still:
+    /// Tuesday 15 September 2026, 09:00 UTC.</summary>
+    private static readonly DateTimeOffset Now = new(2026, 9, 15, 9, 0, 0, TimeSpan.Zero);
+
+    private static SettingsRenderContext RenderSettings(BackupState? state = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-backup-tests", Guid.NewGuid().ToString("n"));
 
@@ -228,12 +342,14 @@ public sealed class SettingsBackupTests
         // The worker the tab resolves, the way both heads compose it: over the
         // workspace store, a client, a state file of this test's own and a clock
         // nothing here advances — the button is what these tests press.
-        var worker = new BackupWorker(
-            store,
-            gitHub,
-            new FileBackupStateStore(Path.Combine(root, "backup", "backup-state.json")),
-            new FakeTimeProvider(new DateTimeOffset(2026, 9, 15, 9, 0, 0, TimeSpan.Zero)));
+        // The page reads the same clock, so "just now" and "3 h ago" are measured
+        // against the moment the worker stamps.
+        var time = new FakeTimeProvider(Now);
+        var stateStore = new FileBackupStateStore(Path.Combine(root, "backup", "backup-state.json"));
+        if (state is not null) stateStore.Save(state);
+        var worker = new BackupWorker(store, gitHub, stateStore, time);
         context.Services.AddSingleton(worker);
+        context.Services.AddSingleton<TimeProvider>(time);
 
         return new SettingsRenderContext(root, store, gitHub, worker, context, context.Render<Settings>());
     }
