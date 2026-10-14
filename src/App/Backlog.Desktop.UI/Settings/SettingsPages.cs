@@ -42,7 +42,7 @@ public static class SettingsPages
             CardTitles: ["Where the backlog is stored", "Branch snapshot folder", "Backup", "Brain"]),
         new(Repositories, "Repositories", 2, typeof(RepositoriesSettingsPage),
             Group: SettingsGroup.Workspace,
-            CardTitles: []),
+            CardTitles: ["Repositories"]),
         new(Accounts, "GitHub accounts", 3, typeof(GitHubAccountsSettingsPage),
             Group: SettingsGroup.Workspace,
             CardTitles: ["Signed in with the GitHub CLI", "Add an account by login"]),

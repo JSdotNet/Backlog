@@ -432,6 +432,10 @@ and how many of those are unfinished (Dev or Beta), three `MetricTile` figures,
 an unpersisted `RadioGroup` filter (All, On, Off, Unfinished), and one
 `SettingsCard` per `AppFeatures.Sections` entry whose titles are the page's
 search list.
+The Repositories page draws the
+working set as the library's `DataTable`, a row per repository, and opens that
+repository's card in place in a detail row under it; `HasRowDetail` keeps the
+detail row to the one repository being edited.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the
