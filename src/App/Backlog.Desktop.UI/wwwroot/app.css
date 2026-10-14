@@ -2496,6 +2496,37 @@ h1, h2, h3 {
     border-top: 0;
 }
 
+/* Storage & backup: the folder field with Browse beside it, wrapping under it
+   once the card is too narrow for both. */
+.storage-folder {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* The bare field emits its label beside the input; the label keeps a line of
+   its own above the field and the button. */
+.storage-folder > label {
+    flex-basis: 100%;
+}
+
+.storage-folder > .setting__input {
+    flex: 1 1 16rem;
+    min-width: 0;
+}
+
+/* A folder path is read character by character, so it is set in the mono font. */
+.setting__input--mono {
+    font-family: var(--font-family-mono);
+}
+
+/* The snapshot folder sits inside the folder card, under a hairline rather than
+   at the top of a column of its own. */
+.storage-cards .devbook-folders {
+    margin-top: var(--spacing-xs);
+}
+
 /* The Brain card follows the two Storage columns rather than sitting in either,
    so it takes the gap the columns keep between themselves. */
 .setting-columns + .brain-card {
