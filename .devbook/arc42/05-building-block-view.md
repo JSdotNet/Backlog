@@ -422,7 +422,14 @@ GitHub CLI holds, and that a feature was switched. A `SettingsSection` names
 its menu group and the titles of the cards it draws, which the settings search
 reads without rendering a page. Within a group the app-wide pages come first,
 then the registered sections by their order, and every page opened is kept
-alive, hidden, while another is on screen.
+alive, hidden, while another is on screen. Below the width that holds the menu
+and the page side by side — a container query on the frame's own width, not the
+window's — the screen shows one of them: `settings` is the menu alone as a
+grouped list, each group's pages in one rounded card of 52px rows with a
+chevron and the page's badge value when it has one; `settings/<page>` is the
+page alone at full width, and its back link goes to that list instead of to
+the tasks. The screen tells the frame which address it is on (`PageChosen`);
+the stylesheet decides the width.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the

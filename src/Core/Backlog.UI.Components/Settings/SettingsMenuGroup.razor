@@ -12,6 +12,12 @@
     The label is a paragraph the list points at with aria-labelledby, not a
     heading. The menu sits beside the page, and headings there would interleave
     with the page's own outline under its h1.
+
+    A link holds the page's name, its badge value when the host gives it one, and
+    a chevron. The chevron is drawn at every width and shown only where the menu
+    is the whole screen - the frame's grouped list at phone width, where a row
+    reads as "opens a page" - so the markup does not change with the width and
+    the frame's stylesheet decides.
 *@
 
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -23,7 +29,14 @@
                 <a class="@LinkClass(item)"
                    href="@item.Href"
                    data-page="@item.Id"
-                   aria-current="@(item.Current ? "page" : null)">@item.Label</a>
+                   aria-current="@(item.Current ? "page" : null)">
+                    <span class="settings-menu-group__name">@item.Label</span>
+                    @if (!string.IsNullOrWhiteSpace(item.Badge))
+                    {
+                        <span class="settings-menu-group__badge" data-testid="settings-menu-badge">@item.Badge</span>
+                    }
+                    <ChevronUpIcon CssClass="settings-menu-group__chevron" />
+                </a>
             </li>
         }
     </ul>
