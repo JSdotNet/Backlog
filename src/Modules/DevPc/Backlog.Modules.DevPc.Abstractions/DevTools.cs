@@ -302,6 +302,9 @@ public sealed record DevToolApplication(
     /// </summary>
     public string? InstallerType { get; init; }
 
+    /// <inheritdoc cref="DevToolInfo.Download" />
+    public string? Download { get; init; }
+
     /// <summary>Whether the person said they had done it, for a
     /// <see cref="DevToolProvider.Manual"/> row. Per machine, so it lives in the
     /// per-PC override file rather than the shared catalog.</summary>
@@ -391,6 +394,9 @@ public sealed record DevToolMcpServer(
     /// because a hand-edited file may name the same header twice. Values are
     /// unexpanded for the reason <see cref="Url"/>'s are.</para></summary>
     public IReadOnlyList<KeyValuePair<string, string>> Headers { get; init; } = [];
+
+    /// <inheritdoc cref="DevToolInfo.Download" />
+    public string? Download { get; init; }
 
     /// <summary>The registration as one line, which is what the row compares
     /// against a host's own registration. The arguments are part of it: a
@@ -629,6 +635,17 @@ public sealed record DevToolInfo(
     /// <para>Defaults to true, so every row that predates applications keeps the
     /// answer it always had.</para></summary>
     public bool Installable { get; init; } = true;
+
+    /// <summary>Where somebody installing this row by hand gets it: the entry's
+    /// own <c>download</c> page, exactly as the catalog spelled it, or nothing
+    /// when it names none — which is every catalog written before the property
+    /// existed.
+    ///
+    /// <para>Read off applications and MCP servers, the two kinds a row can be
+    /// installed by hand for. Not checked here: a hand-edited file may carry
+    /// anything, and <see cref="DevToolConfiguration.IsLinkableDownload"/> is what
+    /// decides whether the screen may draw it as a link.</para></summary>
+    public string? Download { get; init; }
 
     /// <summary>Every version of this plugin sitting in Claude's plugin cache,
     /// oldest first, or empty for a row that has no cache — every kind but a
@@ -970,6 +987,12 @@ public sealed record DevToolDraft(
 
     /// <inheritdoc cref="ClaudeArgs" />
     public IReadOnlyList<string> InstallArgs { get; init; } = [];
+
+    /// <summary>The page somebody installing the tool by hand gets it from, for
+    /// an <see cref="DevToolKind.Application"/> or an
+    /// <see cref="DevToolKind.McpServer"/>. Blank writes no <c>download</c>
+    /// property; anything but an http or https address is refused.</summary>
+    public string? Download { get; init; }
 }
 
 /// <summary>
@@ -1507,6 +1530,7 @@ public static class DevToolConfiguration
             Url = url,
             Type = type,
             Headers = ReadHeaders(entry["headers"]),
+            Download = GetOptionalString(entry, DownloadPropertyName),
             Hosts = ParseHosts(entry),
             DeclaredMechanism = declared,
             MechanismRecognised = declared.Length == 0
@@ -1861,6 +1885,7 @@ public static class DevToolConfiguration
             Install = ReadCommandSpec(entry["install"]),
             Available = ReadCommandSpec(entry["available"]),
             InstallerType = GetOptionalString(entry, "installerType"),
+            Download = GetOptionalString(entry, DownloadPropertyName),
             Acknowledged = GetBool(entry, "acknowledged"),
             DeclaredProvider = declaredProvider,
             ProviderRecognised = ProviderName(provider).Equals(declaredProvider, StringComparison.OrdinalIgnoreCase)
@@ -1910,13 +1935,43 @@ public static class DevToolConfiguration
             ? hosts.Select(node => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : node?.ToString())
             : null);
 
+    /// <summary>The catalog property an install-by-hand row names its download
+    /// page under.</summary>
+    public const string DownloadPropertyName = "download";
+
+    /// <summary>What the Add tool path says about a download page it will not
+    /// write — the same words under the field and from the port.</summary>
+    public const string DownloadNotLinkableMessage = "A download page is an http or https address.";
+
+    /// <summary>
+    /// Whether a download page may be drawn as a link: an absolute http or https
+    /// address and nothing else.
+    ///
+    /// <para>The catalog is a hand-edited file shared between machines, so a
+    /// <c>javascript:</c> or <c>file:</c> value is a shape it can genuinely carry,
+    /// and one that must never become something a click follows.</para>
+    /// </summary>
+    public static bool IsLinkableDownload(string? download) =>
+        !string.IsNullOrWhiteSpace(download)
+        && Uri.TryCreate(download.Trim(), UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
+
     /// <summary>Writes the empty catalog a machine starts from: the two arrays
     /// every reader here expects, indented the way the rest of the file is, so
     /// the first hand edit after this lands in a document that already looks
     /// hand-written.</summary>
     /// <exception cref="InvalidOperationException">A catalog is already there.
     /// Creating over it would discard every entry in it.</exception>
-    public static async Task CreateCatalogAsync(DevToolConfigurationPaths paths, CancellationToken ct = default)
+    public static Task CreateCatalogAsync(DevToolConfigurationPaths paths, CancellationToken ct = default) =>
+        CreateCatalogAsync(paths, seed: null, ct);
+
+    /// <summary>Writes a new catalog holding <paramref name="seed"/>, or the empty
+    /// one when there is no seed — "Create from this machine" and "add tools one
+    /// at a time" are the same write with a different first document, so they
+    /// share the one guard rather than each keeping a copy of it.</summary>
+    /// <exception cref="InvalidOperationException">A catalog is already there.
+    /// Seeding over it would discard every entry in it just the same.</exception>
+    public static async Task CreateCatalogAsync(DevToolConfigurationPaths paths, JsonObject? seed, CancellationToken ct = default)
     {
         await CatalogWriteLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -1926,7 +1981,15 @@ public static class DevToolConfiguration
                 throw new InvalidOperationException($"A tool catalog already exists at {paths.CatalogPath}.");
             }
 
-            await WriteCatalogAsync(paths.CatalogPath, EmptyCatalog(), ct).ConfigureAwait(false);
+            var root = seed ?? EmptyCatalog();
+
+            // The two arrays every reader expects are there even when the machine
+            // had nothing of one kind, so the seeded file reads like the empty one
+            // with entries in it rather than a different shape.
+            root["plugins"] ??= new JsonArray();
+            root[McpServersArrayName] ??= new JsonArray();
+
+            await WriteCatalogAsync(paths.CatalogPath, root, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -2024,6 +2087,17 @@ public static class DevToolConfiguration
             throw new InvalidOperationException("An MCP server that is not a .NET tool needs the command that registers it.");
         }
 
+        // A page the screen would refuse to link is not worth writing: the reader
+        // keeps whatever a hand-edited file says, but this path is the one that
+        // can say no before the line exists.
+        var download = draft.Kind is DevToolKind.Application or DevToolKind.McpServer
+            ? draft.Download?.Trim() is { Length: > 0 } typed ? typed : null
+            : null;
+        if (download is not null && !IsLinkableDownload(download))
+        {
+            throw new InvalidOperationException(DownloadNotLinkableMessage);
+        }
+
         await CatalogWriteLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -2090,6 +2164,7 @@ public static class DevToolConfiguration
                     entry["install"] = install;
                 }
 
+                WriteIfPresent(entry, DownloadPropertyName, download);
                 entry["enabled"] = true;
                 array.Add(entry);
 
@@ -2165,6 +2240,8 @@ public static class DevToolConfiguration
                 {
                     entry["claude"] = claude;
                 }
+
+                WriteIfPresent(entry, DownloadPropertyName, download);
             }
 
             WriteHosts(entry, draft.Hosts);
@@ -3086,6 +3163,14 @@ public interface IDevToolService
     /// is false.</summary>
     Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default);
 
+    /// <summary>Writes a new catalog seeded with what this machine's hosts already
+    /// have: the Claude and Copilot plugins and Claude marketplaces their own
+    /// manifests list, and the MCP servers registered with Claude and Claude
+    /// Desktop. Refused over an existing catalog, exactly as
+    /// <see cref="CreateCatalogAsync"/> is. A host that can see nothing installed
+    /// writes the empty catalog and says so.</summary>
+    Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default);
+
     Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default);
 
     Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default);
@@ -3195,6 +3280,9 @@ public sealed class UnsupportedDevToolService : IDevToolService
         Task.FromResult(DevToolActionResult.Failed(Message));
 
     public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
+
+    public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default) =>
         Task.FromResult(DevToolActionResult.Failed(Message));
 
     public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>

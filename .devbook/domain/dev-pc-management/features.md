@@ -129,7 +129,8 @@ only a person editing a file can maintain. A person can:
 
 - create the catalog where none exists, after being shown the resolved path it
   will be written to;
-- add or remove an entry;
+- add or remove an entry, giving an application or an MCP server the download
+  page somebody installing it by hand gets it from;
 - import a JSON file or pasted text to replace the whole catalog in one step. The
   prior catalog is kept as a backup, and invalid input is rejected without
   touching what is already declared.
@@ -204,11 +205,31 @@ Overview takes the keyboard focus with it, to that tab in the strip. An entry sw
 this machine, or one whose version could not be looked up, is left out of every
 figure. The host filter narrows every figure here as it does on the kind tabs.
 
+The download page an entry installed by hand links to is the one its catalog
+entry names, when that is an http or https address. Otherwise it is derived from
+the entry's mechanism — the winstall.app page for a winget id, the Marketplace
+page for a VS Code extension — and an entry with neither links to its kind's tab,
+where the note under the row says what to do.
+
 A machine with no catalog yet opens on "No tool catalog on this machine yet",
 where the catalog would be written, and two choices side by side: create this
 machine's catalog — the recommended one — or import a team catalog somebody
-already keeps; a quieter third way creates the catalog and goes straight to adding
-tools one at a time. A catalog that exists with nothing in it offers the same
+already keeps; a quieter third way creates an empty catalog and goes straight to
+adding tools one at a time.
+
+"Create from this machine" writes a catalog that already holds what the hosts here
+have installed, read from their own manifests: every Copilot plugin with a source
+to install it from, every Claude plugin installed for the user — one entry for a
+plugin both hosts have — every Claude marketplace, and every MCP server registered
+with Claude or Claude Desktop, each switched on or off as its host has it.
+Applications are left out, because nothing can name one before its entry exists,
+and so are plugins installed only for one project, Copilot's own MCP servers, and
+every header and environment value, which is where tokens live. What was left out
+is said after the write. Neither way ever writes over a catalog that is already
+there. The web harness reads no host's manifests, so there it writes the empty
+catalog and says so.
+
+A catalog that exists with nothing in it offers the same
 arrangement, to add a tool or import a team catalog. Both choices are offered only
 where the host can write the catalog; a read-only host says so instead. While the
 first check of the machine is still running, the pane shows the shape of what is
