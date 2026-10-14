@@ -462,14 +462,82 @@ duplicate. A second press of Capture is therefore free, and the delivery keeps n
 record of the ids it has already seen. See
 `.devbook/domain/context-map.md#strategic-rules`.
 
+**The Settings screen** is the shell's, `Settings.razor` in
+`Backlog.Desktop.UI/Settings`, drawn in the component library's `SettingsFrame`:
+a back link, a `Settings · <group>` eyebrow, a one-sentence headline a page
+writes through `SettingsHeadline` (its title when it writes none), and a menu
+of three groups — Workspace, AI and Product areas — beside the page. Every page
+has its own address, `settings/<page>`; the menu items are links to them, so
+choosing one navigates and Back returns. Its five app-wide pages — Features,
+AI providers, Storage & backup, GitHub accounts and Repositories — are one
+component each beside it, so a change to one page is a change to one file, and
+`SettingsPages` describes them as `SettingsSection` records like the modules'
+pages. What more than one page reads is a `SettingsScreenContext` the screen
+owns and hands to every page: how this machine reaches GitHub, which logins the
+GitHub CLI holds, and that a feature was switched. A `SettingsSection` names
+its menu group and the titles of the cards it draws, which the settings search
+reads without rendering a page, and optionally an `ISettingsBadgeSource` the
+shell resolves from the container for the page's menu badge. The menu draws a
+short value on the right of a page's name, built by `SettingsBadges`: Features
+`<on>/<total>` over `AppFeatures.All`, Repositories and GitHub accounts their
+counts, AI providers how many of Claude usage, GitHub usage and Azure Foundry
+are set up out of three, and a module page its source's value. The screen
+redraws the menu when the feature store, the GitHub, Claude or Azure Foundry
+settings, or a badge source raise `Changed`. A module page whose feature is off
+stays in the menu with an `Off` badge, and opening it shows a note pointing at
+the Features page in place of the module's component, which is disposed until
+the feature is back on. Storage & backup is drawn as two
+`SettingsCard`s in a wrapping row — *Where the backlog is stored*, with the
+branch snapshot folder inside it, and *Backup*, with **Back up now** in its
+header — under a headline read from `BackupWorker.Last`, whose
+`BackupState.DailyCopies` counts the days a copy was committed on. Within a group the app-wide pages come first,
+then the registered sections by their order, and every page opened is kept
+alive, hidden, while another is on screen. The Features page reads its counts
+from the feature store on every render: a headline of how many features are on
+and how many of those are unfinished (Dev or Beta), three `MetricTile` figures,
+an unpersisted `RadioGroup` filter (All, On, Off, Unfinished), and one
+`SettingsCard` per `AppFeatures.Sections` entry whose titles are the page's
+search list. Below the width that holds the menu
+and the page side by side — a container query on the frame's own width, not the
+window's — the screen shows one of them: `settings` is the menu alone as a
+grouped list, each group's pages in one rounded card of 52px rows with a
+chevron and the page's badge value when it has one; `settings/<page>` is the
+page alone at full width, and its back link goes to that list instead of to
+the tasks. The screen tells the frame which address it is on (`PageChosen`);
+the stylesheet decides the width.
+The header's search slot holds the library's `SettingsSearch`, *Find a
+setting*, and `SettingsPages.Find` decides what it keeps: a page whose title or
+one of whose declared card titles holds the text, ignoring case — never a
+field's label or what a page draws, so no page is rendered to search it. While
+it has text the menu lists only those pages, drops a group left empty, and
+lists each matched card under its page as a link to `settings/<page>#card-<title>`;
+following one opens the page and `backlogRevealSettingsCard` scrolls the card into
+view and lights its border in `--color-border-focus` for a moment, without the
+fade under reduced motion. A search that keeps nothing says
+`No setting matches "<text>".` in the menu's place, and Escape clears it. At
+phone width the field takes a row of its own above the grouped list it filters,
+and is not drawn on a page's address.
+The Repositories page draws the
+working set as the library's `DataTable`, a row per repository, and opens that
+repository's card in place in a detail row under it; `HasRowDetail` keeps the
+detail row to the one repository being edited. GitHub accounts is one
+`SettingsCard` of rows, one per configured account, each naming its login, whether
+the GitHub CLI is using it now and how many repositories are worked as it;
+choosing a row opens that account's card under it, across the whole list, one
+at a time.
+
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the
 pairing code, and forgets a device. It also holds the sync service address and
 drives the task and session sync loops through the Sync Client.
 `SyncSettingsRegistration.AddSyncSettings` registers the page as a
 `SettingsSection` from `Backlog.SharedKernel`, and the desktop composition
-calls it. The shell knows a section only as a title and a component. It offers
-the page while the Sync feature is on and keeps it alive across tab switches.
+calls it. Each of the page's groups is a card, and its headline says whether
+this device is paired with the sync service; the section declares all seven
+card titles, both states' among them, for the settings search. The shell
+lists the page under Product areas, marked `Off` with only the Features-page
+note while the Sync feature is off, and keeps it alive across moves to other
+pages.
 
 ## Mobile App
 

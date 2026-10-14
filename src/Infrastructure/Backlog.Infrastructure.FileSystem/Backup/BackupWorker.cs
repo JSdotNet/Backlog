@@ -272,7 +272,13 @@ public sealed class BackupWorker : IDisposable
             var committed = await _gitHub.CommitFileAsync(repository, RepositoryPath, bytes, message, _lifetime.Token)
                 .ConfigureAwait(false);
 
-            _state.Save(new BackupState(now, now, committed.Committed, Error: null));
+            _state.Save(new BackupState(now, now, committed.Committed, Error: null)
+            {
+                DailyCopies = committed.Committed && !SameLocalDay(previous.LastCopyAt, now)
+                    ? previous.DailyCopies + 1
+                    : previous.DailyCopies,
+                LastCopyAt = committed.Committed ? now : previous.LastCopyAt
+            });
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
@@ -302,6 +308,14 @@ public sealed class BackupWorker : IDisposable
             Changed?.Invoke();
         }
     }
+
+    /// <summary>Whether <paramref name="earlier"/> fell on the same day as
+    /// <paramref name="now"/> on this machine's calendar — the person's day, not
+    /// UTC's, because a daily copy is one per day as they live it.</summary>
+    private bool SameLocalDay(DateTimeOffset? earlier, DateTimeOffset now) =>
+        earlier is { } then
+        && TimeZoneInfo.ConvertTime(then, _time.LocalTimeZone).Date
+            == TimeZoneInfo.ConvertTime(now, _time.LocalTimeZone).Date;
 
     /// <summary>
     /// One consistent copy of the database, as bytes, or null when there is no

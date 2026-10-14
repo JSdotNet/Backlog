@@ -1,6 +1,7 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Desktop.UI.Inbox;
 
@@ -15,19 +16,33 @@ namespace Backlog.Desktop.UI.Inbox;
 /// </para>
 /// <para>
 /// Offered behind <see cref="InboxFeatures.Pane"/>, the switch the rules on it are
-/// read under, so the page is not on the strip while nothing would read them.
+/// read under, so while nothing would read them the menu marks the page Off and it
+/// shows only a note pointing at the Features page.
 /// </para>
 /// </remarks>
 public static class InboxSettingsRegistration
 {
-    /// <summary>The Inbox page's place among the sections modules register.</summary>
-    public const int Order = 100;
+    /// <summary>The Inbox page's place among the Product areas pages: after the
+    /// Dashboard's two.</summary>
+    public const int Order = 30;
 
     public static IServiceCollection AddInboxSettings(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("inbox", "Inbox", Order, typeof(InboxSettings), InboxFeatures.Pane));
+        services.AddSingleton(new SettingsSection(
+            "inbox",
+            "Inbox",
+            Order,
+            typeof(InboxSettings),
+            InboxFeatures.Pane,
+            SettingsGroup.ProductAreas,
+            CardTitles: [InboxSettings.CardTitle],
+            BadgeSource: typeof(InboxRoutingRulesBadgeSource)));
+
+        // The value the menu draws beside the page's name, a singleton as
+        // ISettingsBadgeSource asks: the shell holds it while the screen is open.
+        services.TryAddSingleton<InboxRoutingRulesBadgeSource>();
 
         return services;
     }

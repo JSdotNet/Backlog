@@ -8548,8 +8548,9 @@ select.field__input {
     }
 }
 
-/* The flag-row variant of Toggle: `NativeCheckbox` in a `<label>`, text first
-   and the box on the trailing edge. The host supplies these class names through
+/* The flag-row variant of Toggle, in either shape: `NativeCheckbox` in a
+   `<label>` (Capture sources), or the switch (the Features board) — text first
+   and the control on the trailing edge. The host supplies these class names through
    Toggle's class hooks; the look belongs here rather than in an app stylesheet. */
 
 .feature-flag {
@@ -8575,7 +8576,7 @@ select.field__input {
 }
 
 .feature-flag__title {
-    font-weight: 700;
+    font-weight: var(--font-weight-semibold);
 }
 
 .feature-flag__description,
@@ -8584,7 +8585,10 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
+/* No shrinking: beside a long description the flex row squeezed the box below
+   its size, so the switches down a card were drawn at different sizes. */
 .feature-flag input[type="checkbox"] {
+    flex: none;
     width: 1.25rem;
     height: 1.25rem;
     accent-color: var(--color-primary);
@@ -8593,6 +8597,31 @@ select.field__input {
 .feature-flag input[type="checkbox"]:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+/* The same row in Toggle's switch shape (the Features board). The switch comes
+   first in the markup, so `order` puts it on the trailing edge where the box
+   sits in the checkbox shape; it is the row's only focusable part, so the focus
+   order is unaffected. 44 × 26 px, the thumb grown to match. */
+.feature-flag > .toggle__track {
+    order: 1;
+    width: 2.75rem;
+    height: 1.625rem;
+    margin-top: 0;
+}
+
+.feature-flag > .toggle__track .toggle__thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.feature-flag > .toggle__track[aria-checked="true"] .toggle__thumb {
+    transform: translate(calc(1.25rem - 2 * var(--border-width)), -50%);
+}
+
+.feature-flag > .feature-flag__content {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .checkbox {
@@ -19798,6 +19827,564 @@ select.field__input {
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-xs);
+}
+
+/* --- Settings frame ------------------------------------------------------ */
+
+/* The settings screen's panel: the Dashboard's (.dashboard-panel in the app's
+   stylesheet) - the large radius, the alt surface mixed into the page background,
+   and the medium shadow - so the two full-page surfaces read as one family. */
+.settings-frame {
+    /* The frame is the container the phone-width rules below ask, so the panel's
+       own width decides - a Settings screen beside an open pane is as narrow as
+       one on a phone, though the window is not. */
+    container: settings-frame / inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+}
+
+/* The way back, the eyebrow and headline, and the chip and search slot on the
+   right. The right-hand cluster wraps under the headline where the panel is
+   narrow rather than squeezing the sentence. */
+.settings-frame__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+/* A 44px target around an arrow: the size a pointer and a finger can both hit. */
+.settings-frame__back {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-lg);
+    text-decoration: none;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-frame__back:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.settings-frame__back:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.settings-frame__heading {
+    display: grid;
+    flex: 1 1 16rem;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+/* The Dashboard panel's eyebrow, letter for letter. */
+.settings-frame__eyebrow {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* One sentence, so it scales with the room it has between the large and the
+   2xl step rather than sitting at one size that is cramped on a phone or
+   timid on a wide window. */
+.settings-frame__headline {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: clamp(var(--font-size-lg), 2.4vw, var(--font-size-2xl));
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+}
+
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the
+   headline takes focus only from navigation (FocusOnNavigate gives it tabindex="-1")
+   so a screen reader announces the page, never as a control; it is not a tab stop
+   and every control on the page keeps its own focus ring. The ring would otherwise
+   sit over the eyebrow on every page load, and the browser counts script focus
+   after an address change as focus-visible, so :not(:focus-visible) would still
+   draw it. */
+.settings-frame__headline:focus {
+    outline: none;
+}
+
+.settings-frame__actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The house rule said out loud: a soft success surface with primary text, the
+   tick in the success text colour - the words carry the meaning, the tone only
+   draws the eye. */
+.settings-frame__saved {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.settings-frame__saved-icon {
+    flex: none;
+    color: var(--color-success-text);
+}
+
+/* Holds the settings search; takes no room while a host fills it with nothing. */
+.settings-frame__search:empty {
+    display: none;
+}
+
+.settings-frame__search {
+    flex: 0 1 15rem;
+    min-width: 0;
+}
+
+/* What the menu says in its place when a search keeps no page. */
+.settings-frame__no-match {
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+/* --- Settings search ----------------------------------------------------- */
+
+/* A field with the magnifier inside its leading edge, on the page's surface so
+   it reads as an input against the frame's panel. The focus ring is the
+   wrapper's, as the search box's is, so the icon sits inside it. */
+.settings-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.settings-search:focus-within {
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 1px var(--color-border-focus);
+}
+
+.settings-search__icon {
+    position: absolute;
+    left: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    pointer-events: none;
+}
+
+.settings-search__input {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding: var(--spacing-2xs) var(--spacing-sm) var(--spacing-2xs) calc(var(--spacing-sm) * 2 + 16px);
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+}
+
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the
+   field takes the ring - `.settings-search:focus-within` above repaints its border in
+   --color-border-focus, a border so High Contrast keeps it - so the input inside it
+   does not draw a second one around the icon's gap. */
+.settings-search__input:focus-visible {
+    outline: none;
+}
+
+.settings-search__input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* Escape clears the field; a second, browser-drawn way to do it would only be
+   one more thing in a small field. */
+.settings-search__input::-webkit-search-cancel-button {
+    appearance: none;
+}
+
+/* A card a followed search link brought into view: its border in the focus
+   colour, fading back to its own. The fade is motion, so a reader who asked
+   for less sees the light and then not, with nothing in between. Scoped to the
+   frame so it outranks the card's own border, which is declared after it. */
+.settings-frame .settings-card-found {
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-border-focus);
+    animation: settings-card-found 1.6s ease-out forwards;
+}
+
+@keyframes settings-card-found {
+    0%, 50% {
+        border-color: var(--color-border-focus);
+        box-shadow: 0 0 0 var(--border-width-2) var(--color-border-focus);
+    }
+
+    100% {
+        border-color: var(--color-border);
+        box-shadow: 0 0 0 var(--border-width-2) transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .settings-frame .settings-card-found {
+        animation: none;
+    }
+}
+
+/* The menu and the page side by side while the panel has room for both, the
+   menu wrapping above the page once it has not - the Dashboard's columns, with
+   the same 999 weight that hands every spare pixel to the content. */
+.settings-frame__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.settings-frame__menu {
+    display: grid;
+    flex: 1 1 13.75rem;
+    gap: var(--spacing-md);
+    max-width: 16.25rem;
+    min-width: 0;
+}
+
+.settings-frame__content {
+    flex: 999 1 35rem;
+    min-width: 0;
+}
+
+/* The way back to the grouped list exists only on a page's address, and shows
+   only at phone width; see the container rule below. */
+.settings-frame__back--menu {
+    display: none;
+}
+
+/* The grouped list's own headline text, inside the one h1; shown only at
+   phone width, below. */
+.settings-frame__headline-index {
+    display: none;
+}
+
+/* Phone width: the menu and the page no longer fit side by side - the menu's
+   13.75rem basis, the --spacing-lg gap and the page's 35rem basis add up to
+   50.25rem, which is where the row above would start to wrap. Rather than wrap
+   the menu above the page, the screen shows one of them, as the address says:
+   the menu alone on settings, the page alone on settings/<page>. Stated in rem
+   so the threshold and the bases move together if the root size changes. */
+@container settings-frame (width < 50.25rem) {
+    .settings-frame--page .settings-frame__menu,
+    .settings-frame--page .settings-frame__back--home,
+    .settings-frame--index .settings-frame__content {
+        display: none;
+    }
+
+    .settings-frame--page .settings-frame__back--menu {
+        display: inline-flex;
+    }
+
+    /* No page is on screen beside the list, so the heading is the screen's
+       name with no group above it, and the menu names no link current - the
+       note that does so wider is taken out of the accessibility tree. The h1
+       stays the one navigation focuses; only its text swaps. */
+    .settings-frame--index .settings-frame__eyebrow,
+    .settings-frame--index .settings-frame__headline-page,
+    .settings-frame--index .settings-menu-group__current-note {
+        display: none;
+    }
+
+    .settings-frame--index .settings-frame__headline-index {
+        display: inline;
+    }
+
+    .settings-frame--page .settings-frame__content {
+        flex-basis: 100%;
+    }
+
+    /* The search filters the grouped list, so it lives with it: on the list's
+       address it takes a row of its own directly above the groups, and on a
+       page's address, where there is no list to filter, it is not drawn. */
+    .settings-frame--index .settings-frame__actions,
+    .settings-frame--index .settings-frame__search {
+        flex: 1 1 100%;
+    }
+
+    .settings-frame--page .settings-frame__search {
+        display: none;
+    }
+
+    .settings-frame--index .settings-search__input {
+        min-height: 44px;
+        font-size: var(--font-size-base);
+    }
+
+    .settings-frame--index .settings-frame__menu {
+        flex: 1 1 100%;
+        gap: var(--spacing-lg);
+        max-width: none;
+    }
+
+    /* Each group's pages in one rounded card on the alt surface, rows divided by
+       a hairline - the platform's grouped list, which is what a phone reader
+       expects a list of settings to look like. */
+    .settings-frame--index .settings-menu-group__list {
+        gap: 0;
+        overflow: hidden;
+        border: var(--border-width) solid var(--color-border);
+        border-radius: var(--border-radius-md);
+        background: var(--color-background-alt);
+    }
+
+    .settings-frame--index .settings-menu-group__item + .settings-menu-group__item {
+        border-top: var(--border-width) solid var(--color-border);
+    }
+
+    /* 52px rows: comfortably over the 44px target, with room for a badge. */
+    .settings-frame--index .settings-menu-group__link {
+        min-height: 52px;
+        padding: 0 var(--spacing-md);
+        border-radius: 0;
+        color: var(--color-text-primary);
+        font-size: var(--font-size-base);
+    }
+
+    .settings-frame--index .settings-menu-group__link:hover {
+        background: var(--color-background-raised);
+    }
+
+    /* Drawn inside the row: the card clips anything outside it. */
+    .settings-frame--index .settings-menu-group__link:focus-visible {
+        outline-offset: calc(var(--border-width-2) * -1);
+    }
+
+    /* Nothing is on screen beside the list, so no row is the current one. */
+    .settings-frame--index .settings-menu-group__link--current {
+        background: transparent;
+        font-weight: inherit;
+    }
+
+    .settings-frame--index .settings-menu-group__link--current .settings-menu-group__badge {
+        color: var(--color-text-secondary);
+        font-weight: inherit;
+    }
+
+    .settings-frame--index .settings-menu-group__chevron {
+        display: block;
+    }
+
+    /* A matched card under its row is a target of its own, so it gets the
+       44px a finger needs. */
+    .settings-frame--index .settings-menu-group__cards {
+        margin: 0;
+        padding: 0 var(--spacing-sm) var(--spacing-xs) var(--spacing-lg);
+    }
+
+    .settings-frame--index .settings-menu-group__card {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        font-size: var(--font-size-sm);
+    }
+}
+
+/* --- Settings menu group ------------------------------------------------- */
+
+.settings-menu-group {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.settings-menu-group__label {
+    margin: 0;
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-menu-group__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.settings-menu-group__link {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-menu-group__link:hover {
+    color: var(--color-text-primary);
+}
+
+.settings-menu-group__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.settings-menu-group__link--current {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.settings-menu-group__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The value on the right: secondary text in the figures' own widths, so a
+   column of counts lines up. */
+.settings-menu-group__badge {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The cards a search matched, under their page: smaller, indented to the
+   page's name, each a link to the page with the card brought into view. */
+.settings-menu-group__cards {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: var(--spacing-2xs) 0 var(--spacing-xs);
+    padding: 0 0 0 var(--spacing-md);
+    list-style: none;
+}
+
+.settings-menu-group__card {
+    display: block;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-menu-group__card:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.settings-menu-group__card:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The page on screen: its value in the accent, as the canvas draws it. */
+.settings-menu-group__link--current .settings-menu-group__badge {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* Shown only in the frame's grouped list at phone width; turned a quarter to
+   point the way the row opens. */
+.settings-menu-group__chevron {
+    display: none;
+    flex: none;
+    color: var(--color-text-secondary);
+    transform: rotate(90deg);
+}
+
+/* --- Settings card ------------------------------------------------------- */
+
+/* The Dashboard's panel tile (.dashboard-overview-tile in the app's stylesheet):
+   the alt surface, the medium radius and a hairline border. */
+.settings-card {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.settings-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+.settings-card__heading {
+    display: grid;
+    flex: 1 1 16rem;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.settings-card__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.settings-card__description {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.settings-card__action {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.settings-card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
 }
 
 /* --- Sprint series card (Settings › Sprints) ----------------------------- */

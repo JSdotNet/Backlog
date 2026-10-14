@@ -1,0 +1,140 @@
+@page "/settings-frame"
+
+<PageTitle>Settings frame — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Settings frame"
+           Summary="SettingsFrame, SettingsHeadline and SettingsSearch: the settings screen's panel — the way back, the group the page belongs to and a one-sentence headline the page writes, the chip that says settings save as you go, the Find a setting field, and the menu beside the page."
+           Guidelines="@Rules">
+
+    <Story Name="A page in the frame"
+           Description="The page writes its own headline with a SettingsHeadline; until it does, or on a page that has none, the frame shows the page's title. Press the button to take the sentence away and the title comes back.
+
+A host that keeps hidden pages alive cascades SettingsPageActive per page, so only the page on screen writes the headline. Only one frame can be on a page at a time: the headline is a named section, and a section has one outlet.
+
+The menu and the page sit side by side while the frame has room for both. Below that - asked of the frame's own width, not the window's - the frame shows one of them: with no page chosen, the menu alone as a grouped list; with one chosen, the page alone, and the way back goes to the list. Press Phone width to put the frame in a 375px box, and Choose a page to move between the two.
+
+Type in Find a setting to narrow the menu: a page stays while its title or one of its cards' titles holds the text, a group left empty goes, and a matched card is listed under its page as a link. Try backup, then zebra for the empty state; Escape clears the field. At phone width the field takes a row of its own above the grouped list, and is not drawn on a page."
+           Code="@FrameCode">
+        <div class="sb-stack">
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _phone = !_phone" data-testid="settings-frame-width">
+                    @(_phone ? "Full width" : "Phone width")
+                </AppButton>
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _pageChosen = !_pageChosen" data-testid="settings-frame-mode">
+                    @(_pageChosen ? "Back to the list" : "Choose a page")
+                </AppButton>
+            </div>
+            <div data-testid="settings-frame-story" class="@(_phone ? "sb-phone" : null)">
+                <SettingsFrame Title="Features" Eyebrow="Settings · Workspace" PageChosen="@_pageChosen" BackHref="settings-frame" MenuHref="settings-frame">
+                    <Search>
+                        <SettingsSearch Value="@_query" ValueChanged="value => _query = value" TestId="settings-frame-search" />
+                    </Search>
+                    <Menu>
+                        @{
+                            var workspace = Matching(Workspace);
+                            var ai = Matching(Ai);
+                        }
+                        @if (workspace.Count == 0 && ai.Count == 0)
+                        {
+                            <p class="settings-frame__no-match" role="status">No setting matches "@_query.Trim()".</p>
+                        }
+                        @if (workspace.Count > 0)
+                        {
+                            <SettingsMenuGroup Label="Workspace" Items="@workspace" />
+                        }
+                        @if (ai.Count > 0)
+                        {
+                            <SettingsMenuGroup Label="AI" Items="@ai" />
+                        }
+                    </Menu>
+                    <ChildContent>
+                        @if (_sentence)
+                        {
+                            <SettingsHeadline>Choose which parts of Backlog are switched on.</SettingsHeadline>
+                        }
+                        <div class="sb-stack">
+                            <SettingsCard Title="Product areas" Description="Parts of the product with a screen of their own.">
+                                <Toggle Label="Dashboard" Checked="true" />
+                                <Toggle Label="Inbox pane" />
+                            </SettingsCard>
+                            <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _sentence = !_sentence">
+                                @(_sentence ? "Take the sentence away" : "Give the page its sentence")
+                            </AppButton>
+                        </div>
+                    </ChildContent>
+                </SettingsFrame>
+            </div>
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private bool _sentence = true;
+    private bool _phone;
+    private bool _pageChosen;
+    private string _query = string.Empty;
+
+    /// <summary>The cards each sample page declares - what the search matches
+    /// besides the page's title.</summary>
+    private static readonly Dictionary<string, string[]> Cards = new()
+    {
+        ["features"] = ["Product areas", "Cross-cutting"],
+        ["storage"] = ["Where the backlog is stored", "Backup", "Brain"],
+        ["ai"] = ["Claude usage API", "GitHub usage API"],
+    };
+
+    /// <summary>The story's own stand-in for the screen's matching: the pages
+    /// whose title or a card's title holds the query, with those cards listed.</summary>
+    private List<SettingsMenuItem> Matching(IEnumerable<SettingsMenuItem> items)
+    {
+        var query = _query.Trim();
+        if (query.Length == 0) return [.. items];
+
+        return
+        [
+            .. items
+                .Select(item => (Item: item, Found: Cards.GetValueOrDefault(item.Id, []).Where(card => card.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList()))
+                .Where(match => match.Found.Count > 0 || match.Item.Label.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .Select(match => match.Item with { Cards = [.. match.Found.Select(card => new SettingsMenuCardLink(card, $"settings-frame#card-{match.Item.Id}-{match.Found.IndexOf(card)}"))] })
+        ];
+    }
+
+    private static readonly SettingsMenuItem[] Workspace =
+    [
+        new("features", "Features", "settings-frame", Current: true),
+        new("storage", "Storage & backup", "settings-frame"),
+        new("repositories", "Repositories", "settings-frame", Badge: "4"),
+        new("accounts", "GitHub accounts", "settings-frame")
+    ];
+
+    private static readonly SettingsMenuItem[] Ai =
+    [
+        new("ai", "AI providers", "settings-frame"),
+        new("claude-code", "Claude Code", "settings-frame")
+    ];
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("settings-pages.md#panel-and-header", "The panel the frame shares with the Dashboard, and what the header holds from the way back to the search."),
+        new("settings-pages.md#headline", "Why the headline is one sentence about the page's state, and what it reads when a page writes none."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the frame says Saved as you go, and why no page under it has a save button."),
+        new("typography-and-layout.md#type-scale", "The step range the one-sentence headline scales between."),
+        new("typography-and-layout.md#shadows-and-elevation", "The medium shadow the panel shares with the Dashboard's."),
+        new("accessibility.md#target-sizes-and-text", "Why the way back is a 44px target around an arrow.")
+    ];
+
+    private const string FrameCode = """
+        <SettingsFrame Title="@page.Title" Eyebrow="Settings · Workspace" PageChosen="@(pageId is not null)">
+            <Search>
+                <SettingsSearch Value="@search" ValueChanged="value => search = value" />
+            </Search>
+            <Menu>
+                <SettingsMenuGroup Label="Workspace" Items="@workspace" />
+            </Menu>
+            <ChildContent>
+                <SettingsHeadline>Choose which parts of Backlog are switched on.</SettingsHeadline>
+                <SettingsCard Title="Product areas" Description="...">...</SettingsCard>
+            </ChildContent>
+        </SettingsFrame>
+        """;
+}

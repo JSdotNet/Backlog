@@ -1,6 +1,7 @@
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Sync.UI;
 
@@ -15,21 +16,32 @@ namespace Backlog.Modules.Sync.UI;
 /// </para>
 /// <para>
 /// Offered behind <see cref="SyncFeatures.Sync"/>, the switch the shell used to
-/// check for itself, so the page is not on the strip while sync is off.
+/// check for itself, so while sync is off the menu marks the page Off and it shows
+/// only a note pointing at the Features page.
 /// </para>
 /// </remarks>
 public static class SyncSettingsRegistration
 {
-    /// <summary>The Devices page's place among the sections modules register:
-    /// first, straight after the shell's own pages, where the tab sat while the
-    /// shell drew it.</summary>
-    public const int Order = 10;
+    /// <summary>The Devices page's place among the Product areas pages: last.</summary>
+    public const int Order = 50;
 
     public static IServiceCollection AddSyncSettings(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("devices", "Devices", Order, typeof(DevicesSettings), SyncFeatures.Sync));
+        services.AddSingleton(new SettingsSection(
+            "devices",
+            "Devices",
+            Order,
+            typeof(DevicesSettings),
+            SyncFeatures.Sync,
+            SettingsGroup.ProductAreas,
+            CardTitles: DevicesSettings.CardTitles,
+            BadgeSource: typeof(DevicePairingBadgeSource)));
+
+        // The value the menu draws beside the page's name, a singleton as
+        // ISettingsBadgeSource asks: the shell holds it while the screen is open.
+        services.TryAddSingleton<DevicePairingBadgeSource>();
 
         return services;
     }

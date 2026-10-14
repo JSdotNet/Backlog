@@ -67,6 +67,66 @@ usage and cost reports to an organization holding an Admin API key, and GitHub
 reports Copilot usage per organization to an organization owner. The import is
 evidence for the ledger; it never becomes the ledger.
 
+### When each usage source was last read
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
+related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageReadLogStoreTests, unit:dotnet:Backlog.Infrastructure.Claude.UnitTests.ClaudeSpendSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.CopilotSpendSourceReadTests, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundrySpendSourceReadTests]
+```
+
+Backlog records when each usage source was last read, so the AI providers
+settings can say how fresh each figure is. Each Claude organization is one
+source, the GitHub AI-credit report is one more, and Azure Foundry's Cost
+Management scope is a third.
+
+Each source keeps the time of its last successful read. When its most recent
+read failed, it also keeps that time and a one-line reason. A later success
+clears the failure. A Claude organization counts as read when Anthropic answered
+any day in the window, because a day still being aggregated is refused as a
+matter of course. GitHub counts as read when any month answered, and Azure
+Foundry when Cost Management answered, with cost lines or without. A window
+answered wholly from the settled-day cache asks the provider nothing and records
+nothing, and a cancelled read records nothing either.
+
+The record is runtime state of one device, kept in `usage-reads.json` in the
+per-user folder. It never travels through the GitHub settings sync or the
+workspace, and it survives a restart. Settings reads it through a read model
+that raises a change each time a read is recorded.
+
+### AI providers overview
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
+related: [.devbook/domain/productivity/features.md#when-each-usage-source-was-last-read]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.AiProvidersOverviewTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsAiUsageTests]
+```
+
+The AI providers settings page opens on one sentence about every provider it
+offers: the ones set up, joined, report usage, and the rest are not set up —
+"Two Claude organizations and GitHub report usage; Azure Foundry is not set
+up." With none set up it says no AI provider is set up yet. Counts up to nine
+are words.
+
+Under the sentence, one tile per provider carries the same answer as a figure:
+how many Claude organizations hold a key, how many GitHub identities usage is
+read as — every configured account, or this machine's own sign-in when there is
+none — and whether Azure Foundry is ready. Under each figure the tile says when
+that usage was last read on this device, or why the last read failed, or
+nothing when it was never read. Several Claude organizations show the most
+recent failure while any of them is failing, and the most recent success
+otherwise. A provider that is not set up is a dashed tile with no figure but
+"Not set up"; Azure Foundry's adds that the AI assistant needs it.
+
+Claude and GitHub are offered with usage metrics, Azure Foundry with the AI
+assistant, so a tile never stands over a card that is not there. While the
+assistant's feature is on and Azure Foundry is not set up, the Azure Foundry
+card says the assistant stays hidden until it is.
+
 ### Local usage accumulation
 
 ```meta

@@ -114,6 +114,17 @@ When adding markup to a screen, the question to ask is therefore still not "does
 this class name collide with the library", nor "will the test catch me", but
 **"is the library already drawing this shape?"**
 
+## Screen patterns
+
+Some screens are a pattern as well as a set of components: the parts are the
+library's, and how they are put together is a rule in `.devbook/design/`. A
+screen that follows one reads that chapter before adding to it.
+
+- **Settings pages** — `.devbook/design/settings-pages.md`. A module that
+  registers a `SettingsSection` follows it: the headline, the menu group, the
+  badge, the declared card titles the search reads, `SettingsCard`, figure tiles,
+  lists that expand in place, and the `settings/{page}` address.
+
 ## Where the library is reviewed
 
 The storybook (`src/Harness/Backlog.UI.Storybook`, or the `ui-storybook` Aspire
