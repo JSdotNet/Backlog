@@ -29,6 +29,7 @@ aliases: [SprintSeries, series, sprint series]
 The cadence a set of repositories works to, and the consistency boundary for
 every sprint in it. A series holds:
 
+- its `name`, which defaults to its repositories' aliases;
 - its [Series Repositories](#series-repositories);
 - its [Sprint Length](#sprint-length) and the weekday its sprints start on;
 - its [Name Pattern](#name-pattern);
@@ -80,7 +81,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-tag]
 ```
 
 A whole plan linked to a sprint by its [plan tag](../roadmap/domain.md#roadmap-tag).
-Equality is by the tag. The link stores the tag alone. Which tasks it brings in is
+Equality is by the tag. The link stores the tag, without its `+` sigil, and the day it was linked. Which tasks it brings in is
 read from Tasks on every reading, so a task filed under the plan later joins the
 sprint without anyone adding it.
 
@@ -96,11 +97,15 @@ related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/progress/feature
 What the sprint itself records about one member task, identified by the task's
 id. It holds:
 
-- whether the task was added directly, rather than only brought in by a plan;
+- whether the task was added directly, rather than only brought in by a plan,
+  and the day it was;
 - whether it is marked as a goal task;
 - an optional one-line `note`;
 - an `open question` mark;
-- its [Close Outcome](#close-outcome), once the sprint closed with it unfinished.
+- its [Close Outcome](#close-outcome), once the sprint closed with it unfinished;
+- whether it was a member when the sprint closed. A closed sprint reads its
+  members from these items alone, so what it held at closing stays its record
+  after its plans gather other tasks.
 
 A task brought in only by a plan has no item until something is recorded on it.
 The note and the open-question mark belong to Progress, not to the task: they
@@ -252,8 +257,13 @@ aliases: [SprintProgress]
 Reads a sprint against its members' current state. It resolves the members from
 the direct items and the plan links, picks the goal tasks by the series'
 [Goal Rules](#goal-rule), decides which are [done](#done), and says whether the
-goal is met by the [Goal Threshold](#goal-threshold). It stores nothing: every
-answer is read afresh, so a task finished elsewhere moves the sprint at once.
+goal is met by the [Goal Threshold](#goal-threshold). It counts the goal tasks and
+all the work by where each member stands, done, blocked, in progress or not
+started in that order, and how many were
+[added after the start](#added-after-the-start). It gives the pace as members
+done inside the window per working day so far, Monday to Friday. A sprint with no
+goal task has not met its goal. It stores nothing: every answer is read afresh,
+so a task finished elsewhere moves the sprint at once.
 
 ## Ubiquitous Language
 
@@ -272,7 +282,17 @@ related: [.devbook/domain/tasks/domain.md#task-status]
 
 A member is done in a sprint when its task's status is Done, or when every pull
 request linked to the task is merged. Either is enough. A task with no linked pull
-request is done only by its status.
+request is done only by its status. An archived task is not done by its status.
+
+### Added after the start
+
+```meta
+type: term
+status: draft
+```
+
+A member that joined the sprint after its first day: added directly later, brought
+in by a plan linked later, or filed under a linked plan after the start.
 
 ### Goal Task
 

@@ -18,6 +18,7 @@ related: [.devbook/domain/progress/domain.md#sprint-series]
 classDiagram
     class SprintSeries {
         +SeriesId Id
+        +string Name
         +SeriesRepositories Repositories
         +SprintLength Length
         +DayOfWeek StartWeekday
@@ -42,14 +43,17 @@ classDiagram
     class SprintItem {
         +TaskId TaskId
         +bool AddedDirectly
+        +DateOnly AddedOn
         +bool IsGoal
         +string Note
         +bool OpenQuestion
+        +bool KeptAtClose
         +CloseOutcome Outcome
     }
 
     class PlanLink {
         +PlanTag Tag
+        +DateOnly LinkedOn
     }
 
     class GoalRule {

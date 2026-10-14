@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -81,6 +82,7 @@ public sealed class AppFeatureSettingsStoreTests
                 TasksFeatures.Tasks,
                 AppFeatures.InboxPane,
                 RoadmapFeatures.Roadmap,
+                ProgressFeatures.Progress,
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.C4Diagrams,

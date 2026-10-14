@@ -29,11 +29,17 @@ public class InfrastructureGraphTests
     /// </summary>
     internal static readonly (string Project, int ModuleReferences, string Reason)[] WideAdapters =
     [
-        ("Backlog.Infrastructure.FileSystem", 8,
+        ("Backlog.Infrastructure.FileSystem", 9,
             "The workspace folder's stores — feature settings, device identity, transcript caches, devbook "
             + "snapshots, working hours, planning velocity — each answer a different module's port from the "
             + "one folder that knows the workspace root. It is several adapters in one project; splitting "
-            + "Workspace/ by module is what brings it under the cap."),
+            + "Workspace/ by module is what brings it under the cap. The ninth is Progress's published "
+            + "surface, for the cross-context join under Progress/ that reads a sprint's tasks through "
+            + "Tasks' ITaskItems, beside the Roadmap and Inbox joins of the same kind."),
+        ("Backlog.Infrastructure.Sqlite", 5,
+            "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
+            + "Planning, the Inbox, Sessions and Progress — each answering that module's own repository "
+            + "port. The tables share a file, not a schema (inherited ADR 0014)."),
         ("Backlog.Infrastructure.GitHub", 5,
             "The repository registry and its GitHub client answer each context that asks about a "
             + "repository: the Tasks issues connector, the Dashboard's activity and drift issues, the "

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Progress module's public surface — everything a host or another module is
+    allowed to see (ADR 0005, ADR 0009, local ADR 0028):
+      DataTransferObjects/  what a caller receives instead of a sprint series
+      Services/             ISprintSeriesPlanning and ISprintProgress, the ports a
+                            host calls, and ISprintTaskSource and
+                            ISprintPullRequestReader, the ports the module asks
+                            outward through — answered by infrastructure adapters
+      Enums                 the vocabulary those DTOs are written in
+      ProgressFeatures      the feature key the whole context is switched by
+    The aggregate, its repository port, and the use-case handlers stay in the
+    implementation project. Nothing here may reference it, or anything else in
+    the solution beyond the shared kernel.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Progress.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

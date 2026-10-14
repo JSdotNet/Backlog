@@ -10,6 +10,9 @@
     <!-- The inbox aggregates, for the same reason: the tests build an InboxItem by
          hand and assert what comes back. -->
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
+    <!-- The sprint series aggregate, for the same reason: the tests build a series by
+         hand and assert what comes back. -->
+    <ProjectReference Include="..\..\src\Modules\Progress\Backlog.Modules.Progress\Backlog.Modules.Progress.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 
