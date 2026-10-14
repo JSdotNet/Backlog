@@ -272,8 +272,8 @@ Read the open sprint of a series in the daily and the weekly brief, for a series
 that chose to show there. The daily brief names the sprint, its goal, how many goal
 tasks are done, and whether the goal is met.
 
-The weekly brief opens with a Sprint block for each series that shows there and has a
-sprint overlapping the reported week; paging back a week reads that week's sprint.
+The weekly brief opens with a Sprint block for each series that is switched on, shows
+there, and has a sprint overlapping the reported week; paging back a week reads that week's sprint.
 The block holds:
 
 - the sprint's name, then the series, its repositories, "week n of m" and the sprint's
