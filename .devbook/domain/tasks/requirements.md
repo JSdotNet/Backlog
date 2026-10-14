@@ -177,6 +177,186 @@ Focus SHALL offer Complete task once every step of the task is ticked off, a pre
 - **When** the reader presses Complete task and the desktop syncs
 - **Then** the phone is on Today with the task under Done today, and the desktop shows it ticked off with its steps at 3 of 3
 
+## Linked tasks
+
+```meta
+type: requirements
+status: proposed
+related: [.devbook/domain/tasks/features.md#linked-tasks, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#source-state, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+> Where a connected target's tasks are filed and which status each one gets.
+> The feature chapter says what linked tasks are; ADR 0020 §4 and §9 say why
+> the map and the repository are per target.
+
+### Requirement: A target's repository files its unfiled tasks
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL file a target's new linked tasks, and its tasks filed under no repository, under the repository set on that target.
+
+#### Scenario: A GitHub repository with another repository set
+
+- **Given** the connected GitHub repository `JSdotNet/Backlog-issues` with the repository `JSdotNet/Backlog` set, and a new issue in it
+- **When** the sync runs
+- **Then** the issue's task is filed under `JSdotNet/Backlog`
+
+#### Scenario: A spec-manager product with a repository
+
+- **Given** a connected spec-manager product with the repository `JSdotNet/Backlog` set, and a new item in the product
+- **When** the sync runs
+- **Then** the item's task is filed under `JSdotNet/Backlog`
+
+#### Scenario: A task brought in before the repository was set
+
+- **Given** a linked task of a spec-manager product, filed under no repository, and the person then sets the repository `JSdotNet/Backlog` on the product
+- **When** the sync runs
+- **Then** the task is filed under `JSdotNet/Backlog`
+
+### Requirement: A task already filed keeps its repository
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL leave a linked task that is filed under a repository under that repository, whatever repository its target names.
+
+#### Scenario: The person filed the task elsewhere
+
+- **Given** a linked task the person filed under `JSdotNet/Website`, and its target has the repository `JSdotNet/Backlog` set
+- **When** the sync runs
+- **Then** the task is still filed under `JSdotNet/Website`
+
+### Requirement: Without a repository the target decides
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL file the linked tasks of a target with no repository set under the target itself when the target is a repository, and under no repository otherwise.
+
+#### Scenario: A GitHub repository
+
+- **Given** the connected GitHub repository `JSdotNet/Backlog` with no repository set, and a new issue in it
+- **When** the sync runs
+- **Then** the issue's task is filed under `JSdotNet/Backlog`
+
+#### Scenario: A spec-manager product
+
+- **Given** a connected spec-manager product with no repository set, and a new item in it
+- **When** the sync runs
+- **Then** the item's task is filed under no repository
+
+### Requirement: A mapped status name gives its mapped status
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL give a linked task the task status its target's status map holds for the item's source status name, compared without regard to case.
+
+#### Scenario: A refined item on a product with no work status
+
+- **Given** a spec-manager product whose status "Verfijnd" normalises to `Active`, and its status map gives "verfijnd" the status Ready
+- **When** the sync brings in a new item in "Verfijnd"
+- **Then** the item's task is Ready, not In progress
+
+### Requirement: An unmapped status name takes the fixed map
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL give a linked task whose source status name its target's status map does not hold the status the fixed map gives the item's normalised state.
+
+#### Scenario: A status the person left on Default
+
+- **Given** a spec-manager product whose status map holds "Verfijnd" only, and its status "In ontwikkeling" normalises to `Active`
+- **When** the sync brings in a new item in "In ontwikkeling"
+- **Then** the item's task is In progress
+
+### Requirement: A dropped item is archived whatever the map holds
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL archive the task of a dropped item, whatever its target's status map holds for the item's source status name.
+
+#### Scenario: An archived item keeps its last status name
+
+- **Given** a linked task whose target's status map gives "Verfijnd" the status Ready, and the item is archived at the source while still named "Verfijnd"
+- **When** the sync runs
+- **Then** the task is Archived
+
+### Requirement: A move the map tells apart moves the task
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL move a linked task when its item moves between two source statuses that its target's status map resolves to different task statuses, even when both normalise to the same state.
+
+#### Scenario: From refined to in development
+
+- **Given** a Ready linked task whose item is in "Verfijnd", its target's status map gives "Verfijnd" the status Ready and holds nothing for "In ontwikkeling", and both statuses normalise to `Active`
+- **When** the item moves to "In ontwikkeling" and the sync runs
+- **Then** the task is In progress
+
+### Requirement: An edit to the status map moves no task
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL leave the status of a linked task whose item has not moved at the source as it is after the person edits its target's status map.
+
+#### Scenario: Mapping a status that tasks are already in
+
+- **Given** an In progress linked task whose item is in "Verfijnd", and the person maps "Verfijnd" to Ready
+- **When** the sync runs and the item has not moved
+- **Then** the task is still In progress
+
+### Requirement: A Done the map gives follows the source
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL treat a Done that its target's status map gives as the source's Done, so the task is not flagged as finished locally and follows its item's next move at the source.
+
+#### Scenario: A status mapped to Done, then reopened
+
+- **Given** a linked task that is Done because its target's status map gives the item's status "Opgeleverd" the status Done
+- **When** the item moves back to "In ontwikkeling" at the source and the sync runs
+- **Then** the task is In progress and carries no done-locally flag
+
+### Requirement: A task finished here stays Done
+
+```meta
+type: requirement
+status: proposed
+```
+
+The sync SHALL leave a linked task the person finished here Done, and flag that it is done here and open at the source, while its target's status map gives its item's source status anything but Done.
+
+#### Scenario: Finished here while the item is refined
+
+- **Given** a linked task whose target's status map gives "Verfijnd" the status Ready, its item is in "Verfijnd", and the person marks the task Done
+- **When** the sync runs
+- **Then** the task is still Done and is flagged as done here and open at the source
+
 ## Projection
 
 ```meta

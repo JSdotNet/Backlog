@@ -1,9 +1,9 @@
 # ADR 0020: Items from GitHub and spec-manager arrive as linked tasks, through one connector contract
 
 ```meta
-date: 2026-10-05
+date: 2026-10-13
 status: proposed
-related: [".devbook/domain/tasks/domain.md#source-ref", ".devbook/domain/tasks/domain.md#linked-task", ".devbook/domain/tasks/domain.md#task-connector", ".devbook/domain/tasks/domain.md#source-state", ".devbook/domain/tasks/domain.md#connected-target", ".devbook/domain/tasks/domain.md#projection-ref", ".devbook/domain/tasks/domain.md#tombstone", ".devbook/domain/tasks/features.md#linked-tasks", ".devbook/domain/tasks/features.md#promote-to-plan", ".devbook/domain/tasks/flow.md#task-lifecycle", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/roadmap/domain.md#source-label", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md"]
+related: [".devbook/domain/tasks/domain.md#source-ref", ".devbook/domain/tasks/domain.md#linked-task", ".devbook/domain/tasks/domain.md#task-connector", ".devbook/domain/tasks/domain.md#source-state", ".devbook/domain/tasks/domain.md#connected-target", ".devbook/domain/tasks/domain.md#projection-ref", ".devbook/domain/tasks/domain.md#tombstone", ".devbook/domain/tasks/features.md#linked-tasks", ".devbook/domain/tasks/features.md#promote-to-plan", ".devbook/domain/tasks/requirements.md#linked-tasks", ".devbook/domain/tasks/flow.md#task-lifecycle", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/roadmap/domain.md#source-label", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md"]
 ```
 
 Every open item in a connected GitHub repository or spec-manager product
@@ -18,8 +18,20 @@ connector. GitHub and spec-manager are the first two connectors.
 ```meta
 ```
 
-Proposed, 2026-10-05, by the flow-spec run that drafted it, awaiting the
-repository owner at the Personal Validation gate. Nothing is built yet.
+Proposed, 2026-10-05, by the flow-spec run that drafted it. Since then the
+connector contract, the sync, the GitHub and spec-manager connectors, the
+settings page and write-back to the source have been built. Whether the record
+moves off `proposed` is the repository owner's call.
+
+> **Amended 2026-10-13: a repository and a status map per connected target.** A
+> spec-manager product whose statuses carry no development, AI or review flag
+> normalised every status after its first to `Active`. Every one of its tasks
+> therefore landed In progress. A connected target now has a status map that overrides
+> the fixed map per source status name, and a repository its tasks are filed
+> under. [Section 4](#4-the-source-owns-three-fields-backlog-owns-the-rest) says
+> how the map applies, [section 9](#9-the-open-questions-are-settings-per-connected-target)
+> lists both settings, and the rejected "status map per connector" is reworded
+> so that it stays true. Connectors still only normalise.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -143,6 +155,7 @@ between two systems sits behind it:
 | Fetch | `FetchAsync(target, since, ct)`: every open item, plus the items closed since `since`, each normalised to a `SourceItem`. |
 | Display key | How a person names an item. |
 | Normalised state | One of `Open`, `Active`, `Done` or `Dropped`, beside the source's own status name. |
+| Source statuses | `ListSourceStatusesAsync(target, ct)`: each status name the target uses, with its normalised state, so a person can map them (§9). A connector with nothing to list answers none. |
 | Blocked | Whether the item cannot be worked on now, and the reason. |
 | Capabilities | Flags the sync and the UI read: has effort, has dependencies, can set status, can comment. |
 | Who am I | The connected account, so "Assigned to me" knows who "me" is. |
@@ -163,7 +176,7 @@ notes, scheduling, and effort once the person changes it. The body is copied
 once, when the task is created, and never again, because the person's notes
 grow in it.
 
-One map turns a normalised state into a task status, the same for every
+A fixed map turns a normalised state into a task status, the same for every
 connector:
 
 | Normalised state | Task status |
@@ -173,14 +186,42 @@ connector:
 | `Done` | Done |
 | `Dropped` | Archived |
 
-A connector never maps to `EntryStatus` itself. The sync moves the task along
-the edges of `EntryStatusFlow` and never sets a status past the graph. The
-graph has no edge from Ready to Done, so a closed issue walks its task through
-In progress first, and an archived item walks through Done.
+**A connected target may override the fixed map.** Its status map is keyed on
+the source's own status name, compared without regard to case. A name the map
+holds gives that task status, and any other name takes the fixed map. The map is
+the person's, set per target ([section 9](#9-the-open-questions-are-settings-per-connected-target)),
+and Tasks applies it. A connector still only normalises and never maps to
+`EntryStatus` itself.
+
+The override exists because normalising can lose what a person needs. A
+spec-manager product whose statuses carry no development, AI or review flag
+normalises every status after its first to `Active`. With the fixed map alone,
+every one of its tasks lands In progress.
+
+The map follows four rules:
+
+- **It never applies to a `Dropped` item.** An archived spec-manager item keeps
+  the name of its last status, and mapping that name would bring archived work
+  back as open work.
+- **It reads the name, not only the state.** When an item moves between two
+  source statuses that normalise alike but map to different task statuses, the
+  sync moves the task.
+- **An edit to the map moves no task.** The sync reads the held status name and
+  the new one through the current map, so an item that did not move stays where
+  it is. A new task takes the map at once, and an existing one on its item's
+  next move.
+- **A Done the map gives is the source's Done.** The task is not flagged as
+  finished locally, and it follows the item's next move at the source.
+
+The sync moves the task along the edges of `EntryStatusFlow` and never sets a
+status past the graph. The graph has no edge from Ready to Done, so a closed
+issue walks its task through In progress first, and an archived item walks
+through Done.
 
 **A local Done is never reopened.** When the person finished a task the source
 still holds open, the sync leaves the task Done and flags the mismatch. The
-person's finish is information the source does not have yet.
+person's finish is information the source does not have yet. This holds with a
+status map too.
 
 ### 5. One id per item on every device; tombstones and quiet syncs
 
@@ -278,12 +319,29 @@ repository or product. Two targets may answer it differently.
 | The title follows the source, or can be renamed locally | Follows the source |
 | Sync interval | A fixed interval on the desktop, plus on demand from the Tasks pane |
 | On Promote to plan, archive the original task or keep it as an umbrella step | Archive it |
+| Finishing a task here completes its item at the source | Off |
+| The repository the target's tasks are filed under | None set: a GitHub repository files its tasks under itself, and a spec-manager product under no repository |
+| A status map from the source's own status names to task statuses | Empty: every status takes the fixed map ([section 4](#4-the-source-owns-three-fields-backlog-owns-the-rest)) |
 
 A target's settings hold its connector id, whether it is enabled, the target
-itself, and the values above. They never hold credentials.
+itself, and the values above, its repository and its status map among them.
+They never hold credentials.
+
+**A repository set on a target wins for every connector.** The sync files the
+target's new tasks under it, and the tasks it brought in earlier that are still
+filed under no repository. A task already filed under a repository keeps it. A
+spec-manager product's tasks can then land under the repository the product is
+built in.
+
+**The settings page offers one status row per source status.** It asks the
+connector through `ListSourceStatusesAsync(target)`, which answers each status
+name with its normalised state. spec-manager lists the product's statuses in the
+product's order. GitHub lists none, so a GitHub target has no status rows: an
+issue is only open or closed, which the fixed map already tells apart.
 
 A locally renamed title stops following the source until the person resets it.
-The other four settings change only what the next sync fetches or does.
+Completing at the source changes what finishing a task here does. The other
+settings change only what the next sync fetches or does.
 
 **Connectors ship inside the app for now.** A connector is a class and one
 registration line in this repository. The contract is kept plugin-shaped: a
@@ -305,10 +363,15 @@ questions that two built-in connectors do not justify.
 - The Tasks pane gains a source badge on the row, in the editor header and in My
   Day, and two filters: Source and Assigned to me. All three are drawn from the
   connector descriptors, so a new connector needs no UI change.
+- `ConnectedTarget` gains `RepositoryId` and `StatusMap`, and the settings file
+  keeps both. A file written before them reads as neither set.
+  `ITaskConnector` gains `ListSourceStatusesAsync`, which answers none unless a
+  connector lists its statuses.
 - `IGitHubClient` gains `SearchIssuesAsync`. The spec-manager connector needs a
   REST client, the OAuth sign-in and a status-name cache.
-- Write-back, which closes the source item when its task is done, is a later
-  slice behind a setting. It needs the spec-manager status call above.
+- Write-back closes the source item when its task is done here. It came in a
+  later slice, behind the per-target setting "Finishing a task here completes
+  its item at the source", and it needs the spec-manager status call above.
 - Linked tasks take part in My Day, search, the roadmap and sync like any other
   task. A Tasks list over a busy repository grows, which is what the Source and
   Assigned to me filters are for.
@@ -326,8 +389,10 @@ questions that two built-in connectors do not justify.
   vanish. Everything open arrives, and the assignee is a filter.
 - **`ConnectorId` as an enum.** Every new connector would change the schema, and
   an older device could not read a newer device's tasks.
-- **A status map per connector.** The map would be repeated in each connector and
-  drift. Connectors normalise; Tasks maps once.
+- **A status map inside each connector.** The map would be repeated in each
+  connector and drift. Connectors normalise, and Tasks maps. A person's status
+  map on one connected target is not this: Tasks applies it over the fixed map
+  ([section 4](#4-the-source-owns-three-fields-backlog-owns-the-rest)).
 - **Reopening a local Done** to match the source. It would undo the person's own
   finish on the next sync.
 - **Creating a Roadmap Item from a `+` label during sync.** The roadmap would
@@ -345,4 +410,5 @@ questions that two built-in connectors do not justify.
 
 | Date | Change |
 |---|---|
+| 2026-10-13 | Amended: each connected target gets a repository its tasks are filed under and a status map over the fixed one, because a spec-manager product with no status flagged as work put every task In progress. |
 | 2026-10-05 | Proposed: linked tasks through `ITaskConnector`, from the "External Task Sources" design note. |

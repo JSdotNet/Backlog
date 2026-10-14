@@ -17,6 +17,13 @@
     held as a draft: the host saves it and hands the saved record back, so what
     the card shows is always what is stored.
 
+    Two options are filled from the host rather than the record alone: the
+    repository a target's new tasks are filed under, picked from the registry the
+    host hands in, and the Statuses group, one row per status the source lists,
+    each mapped to a task status or left to the default its state gives. A source
+    that lists none gets no group; with nothing to pick and nothing stored, there
+    is no repository picker.
+
     A last sync that failed is shown under the head, in the sync's own sentence,
     until a sync succeeds: a target that stopped syncing says why on its own card.
     What the host's answer to this card's Sync now was is shown on this card too,
@@ -70,21 +77,59 @@
         }
         <SelectField Form="true"
                      Label="Sync every"
-                     Id="@Suffix("interval")"
+                     Id="@IdOf("interval")"
                      TestId="@Suffix("interval")"
                      CurrentValue="@Options.SyncIntervalMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                      Options="@IntervalOptions"
                      OnChanged="OnIntervalChangedAsync" />
         <SelectField Form="true"
                      Label="Skip items untouched for"
-                     Id="@Suffix("skip")"
+                     Id="@IdOf("skip")"
                      TestId="@Suffix("skip")"
                      CurrentValue="@(Options.SkipUntouchedOlderThanDays?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)"
                      IncludeEmptyOption="true"
                      EmptyLabel="Never skip"
                      Options="@SkipOptions"
                      OnChanged="OnSkipChangedAsync" />
+        @if (OffersRepository)
+        {
+            <SelectField Form="true"
+                         Label="Repository"
+                         Id="@IdOf("repository")"
+                         TestId="@Suffix("repository")"
+                         CurrentValue="@(RepositoryValue ?? string.Empty)"
+                         IncludeEmptyOption="true"
+                         EmptyLabel="@RepositoryEmptyLabel"
+                         Options="@RepositoryOptions"
+                         HelpText="New tasks from this target are filed under this repository. Tasks you already filed keep theirs."
+                         OnChanged="OnRepositoryChangedAsync" />
+        }
     </div>
+
+    @* A group rather than more fields in the list above: the rows are the source's
+       statuses, one per status it lists, and read as one question — what each of
+       them becomes here. Keyed by position, as the host listed them. *@
+    @if (Options.StatusRows.Count > 0)
+    {
+        <fieldset class="connected-target__mapping" data-testid="@Suffix("statuses")">
+            <legend class="connected-target__mapping-title">Statuses</legend>
+            <p class="connected-target__mapping-help">What a task becomes while its item is in each of the source's statuses.</p>
+            @for (var index = 0; index < Options.StatusRows.Count; index++)
+            {
+                var row = Options.StatusRows[index];
+                var slot = index;
+                <SelectField Form="true"
+                             Label="@row.Name"
+                             Id="@IdOf($"status-{slot}")"
+                             TestId="@Suffix($"status-{slot}")"
+                             CurrentValue="@(row.Mapped ?? string.Empty)"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="@row.DefaultLabel"
+                             Options="@Options.StatusChoices"
+                             OnChanged="value => OnStatusChangedAsync(slot, value)" />
+            }
+        </fieldset>
+    }
 
     @if (OnSyncNow.HasDelegate || OnRemove.HasDelegate)
     {
@@ -149,6 +194,13 @@
     [Parameter]
     public string? TestId { get; set; }
 
+    /// <summary>What the ids of the card's selects start with, so each label's
+    /// <c>for</c> points at its own card's select. A page that draws several cards
+    /// under one <see cref="TestId"/> passes one per card; without it the ids start
+    /// with the test id.</summary>
+    [Parameter]
+    public string? IdPrefix { get; set; }
+
     /// <summary>The failure, with when it happened when the host says.</summary>
     private string? LastSyncErrorText =>
         string.IsNullOrWhiteSpace(Options.LastSyncError) ? null
@@ -182,7 +234,46 @@
                 days % 365 == 0 ? (days == 365 ? "a year" : $"{days / 365} years") : $"{days} days"))
     ];
 
+    /// <summary>A repository picker is drawn when there is something to pick or a
+    /// stored repository to show.</summary>
+    private bool OffersRepository =>
+        Options.RepositoryChoices.Count > 0 || !string.IsNullOrWhiteSpace(Options.RepositoryId);
+
+    /// <summary>The stored repository as the choice that holds it — compared
+    /// without regard to case, as a repository is — or as stored when none does.</summary>
+    private string? RepositoryValue =>
+        string.IsNullOrWhiteSpace(Options.RepositoryId) ? null
+        : Options.RepositoryChoices.FirstOrDefault(choice => string.Equals(choice.Value, Options.RepositoryId.Trim(), StringComparison.OrdinalIgnoreCase))?.Value
+            ?? Options.RepositoryId.Trim();
+
+    /// <summary>The host's repositories, plus a stored one it no longer holds, so
+    /// editing another option never rewrites it.</summary>
+    private IReadOnlyList<SelectorOption> RepositoryOptions =>
+        RepositoryValue is { } stored && !Options.RepositoryChoices.Any(choice => string.Equals(choice.Value, stored, StringComparison.Ordinal))
+            ? [.. Options.RepositoryChoices, new SelectorOption(stored, stored)]
+            : Options.RepositoryChoices;
+
+    /// <summary>What picking no repository means: a target that is a repository
+    /// files under itself, any other under none.</summary>
+    private string RepositoryEmptyLabel =>
+        Options.TargetIsRepository ? $"Its own repository ({Options.Target})" : "None";
+
     private Task ChangeAsync(ConnectedTargetOptions changed) => OnChange.InvokeAsync(changed);
+
+    private Task OnRepositoryChangedAsync(string? value) =>
+        ChangeAsync(Options with { RepositoryId = string.IsNullOrWhiteSpace(value) ? null : value });
+
+    /// <summary>The whole record with the one row's mapping changed; the empty
+    /// choice is the default, so it maps nothing.</summary>
+    private Task OnStatusChangedAsync(int slot, string? value) =>
+        ChangeAsync(Options with
+        {
+            StatusRows =
+            [
+                .. Options.StatusRows.Select((row, index) =>
+                    index == slot ? row with { Mapped = string.IsNullOrWhiteSpace(value) ? null : value } : row)
+            ]
+        });
 
     private Task OnIntervalChangedAsync(string? value) =>
         int.TryParse(value, out var minutes) && minutes > 0
@@ -196,4 +287,8 @@
         });
 
     private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>The element id of a part: <see cref="IdPrefix"/>'s, else the test
+    /// id's, else none, so the select draws an id of its own.</summary>
+    private string? IdOf(string part) => (IdPrefix ?? TestId) is { } prefix ? $"{prefix}-{part}" : null;
 }

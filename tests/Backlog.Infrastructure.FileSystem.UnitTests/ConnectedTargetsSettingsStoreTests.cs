@@ -1,3 +1,4 @@
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
@@ -201,6 +202,104 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
 
         Assert.Contains("\"lastSyncError\": \"Nope.\"", json, StringComparison.Ordinal);
         Assert.Contains("\"lastSyncFailedAt\"", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>The repository a target's tasks are filed under and its status map
+    /// survive a restart, the map still read without regard to case.</summary>
+    [Fact]
+    public void The_repository_and_the_status_map_survive_a_restart()
+    {
+        var target = new ConnectedTarget("spec-manager", "backlog")
+        {
+            RepositoryId = "JSdotNet/Backlog",
+            StatusMap = new Dictionary<string, EntryStatus>
+            {
+                ["Verfijnd"] = EntryStatus.Ready,
+                ["Review"] = EntryStatus.InProgress,
+            },
+        };
+
+        Assert.Null(Store().Save(target));
+
+        var reopened = Assert.Single(Store().List());
+        Assert.Equal(target, reopened);
+        Assert.Equal("JSdotNet/Backlog", reopened.RepositoryId);
+        Assert.Equal(EntryStatus.Ready, reopened.MappedStatusOf("verfijnd"));
+    }
+
+    /// <summary>The map is written as the source's status names, each to a status's
+    /// own name, so the file reads as what it means and survives the enum being
+    /// reordered.</summary>
+    [Fact]
+    public void The_status_map_is_written_as_names()
+    {
+        Store().Save(new ConnectedTarget("spec-manager", "backlog")
+        {
+            StatusMap = new Dictionary<string, EntryStatus> { ["Verfijnd"] = EntryStatus.Ready },
+        });
+
+        var json = File.ReadAllText(SettingsFile);
+
+        Assert.Contains("\"statusMap\": {", json, StringComparison.Ordinal);
+        Assert.Contains("\"Verfijnd\": \"Ready\"", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>A hand-edited map with a status this build has no name for drops
+    /// that line rather than the target; a blank repository reads as none.</summary>
+    [Fact]
+    public void A_hand_edited_map_line_naming_no_status_is_dropped_and_a_blank_repository_is_none()
+    {
+        File.WriteAllText(SettingsFile, """
+            { "targets": [
+                { "connectorId": "spec-manager", "target": "backlog", "repositoryId": " ",
+                  "statusMap": { "Verfijnd": "ready", "Review": "Reviewing" } }
+            ] }
+            """);
+
+        var target = Assert.Single(Store().List());
+
+        Assert.Null(target.RepositoryId);
+        Assert.Equal(EntryStatus.Ready, target.MappedStatusOf("Verfijnd"));
+        Assert.Null(target.MappedStatusOf("Review"));
+    }
+
+    /// <summary>A file written before targets had a repository or a status map has
+    /// neither key, and reads as the connector's default and the fixed map.</summary>
+    [Fact]
+    public void A_file_written_before_the_repository_and_the_status_map_existed_reads_as_neither()
+    {
+        File.WriteAllText(SettingsFile, """
+            { "targets": [
+                { "connectorId": "github", "target": "JSdotNet/Backlog", "enabled": true, "completeAtSource": true }
+            ] }
+            """);
+
+        var target = Assert.Single(Store().List());
+
+        Assert.Null(target.RepositoryId);
+        Assert.Empty(target.StatusMap);
+        Assert.True(target.CompleteAtSource);
+    }
+
+    /// <summary>A save of the same map, read back as another instance, changes
+    /// nothing: a store tells it by the target's equality.</summary>
+    [Fact]
+    public void Saving_an_equal_status_map_changes_nothing()
+    {
+        var store = Store();
+        store.Save(new ConnectedTarget("spec-manager", "backlog")
+        {
+            StatusMap = new Dictionary<string, EntryStatus> { ["Verfijnd"] = EntryStatus.Ready },
+        });
+        var changes = 0;
+        store.Changed += () => changes++;
+
+        store.Save(new ConnectedTarget("spec-manager", "backlog")
+        {
+            StatusMap = new Dictionary<string, EntryStatus> { ["verfijnd"] = EntryStatus.Ready },
+        });
+
+        Assert.Equal(0, changes);
     }
 
     [Fact]
