@@ -209,13 +209,13 @@ internal sealed partial class DesktopHarness
     public async Task EnableInboxAsync()
     {
         await OpenSettingsAsync("features");
-        var checkbox = Page.GetByRole(AriaRole.Checkbox, new PageGetByRoleOptions { NameRegex = InboxPaneFeature() });
+        var toggle = Page.GetByRole(AriaRole.Switch, new PageGetByRoleOptions { NameRegex = InboxPaneFeature() });
         await Interactive.RepeatAsync(
             async () =>
             {
-                if (!await checkbox.IsCheckedAsync()) await checkbox.ClickAsync();
+                if (!await toggle.IsCheckedAsync()) await toggle.ClickAsync();
             },
-            () => checkbox.IsCheckedAsync(),
+            () => toggle.IsCheckedAsync(),
             "turning on the Inbox pane");
     }
 

@@ -34,7 +34,7 @@ public sealed class FeaturesBoardTests
         });
         var before = Counts(store!);
 
-        Row(context, AppFeatures.InboxPane).QuerySelector("input")!.Change(true);
+        Switch(context, AppFeatures.InboxPane).Click();
 
         // Inbox pane is Dev, so turning it on moves both numbers.
         Assert.Equal(before.On + 1, Counts(store!).On);
@@ -166,7 +166,56 @@ public sealed class FeaturesBoardTests
 
         Assert.Contains("feature-flag--locked", row.ClassList);
         Assert.Equal("Always available", row.QuerySelector(".toggle__label-row .feature-flag__status")!.TextContent.Trim());
-        Assert.True(row.QuerySelector("input[type='checkbox']")!.HasAttribute("disabled"));
+
+        var locked = Switch(context, TasksFeatures.Tasks);
+        Assert.True(locked.HasAttribute("disabled"));
+        Assert.Equal("true", locked.GetAttribute("aria-checked"));
+
+        // A disabled switch ignores the press: the feature stays on.
+        locked.Click();
+        Assert.Equal("true", Switch(context, TasksFeatures.Tasks).GetAttribute("aria-checked"));
+    }
+
+    /// <summary>Every row is Toggle's switch shape — a real <c>button</c>, so
+    /// Space and Enter flip it from the keyboard — named by the feature's title
+    /// alone, and showing the store's position.</summary>
+    [Fact]
+    public void Every_row_is_a_switch_named_by_its_feature()
+    {
+        AppFeatureSettingsStore? store = null;
+        using var context = FeatureStatusIndicatorTests.RenderSettings(features => store = features);
+
+        Assert.Empty(context.Component.FindAll(".feature-flag input[type='checkbox']"));
+
+        foreach (var feature in AppFeatures.All)
+        {
+            var control = Switch(context, feature.Key);
+            var label = context.Component.Find($"#{control.GetAttribute("aria-labelledby")}");
+
+            Assert.Equal("BUTTON", control.TagName);
+            Assert.Equal("button", control.GetAttribute("type"));
+            Assert.Equal(feature.Name, label.TextContent.Trim());
+            Assert.Equal(store!.IsEnabled(feature.Key) ? "true" : "false", control.GetAttribute("aria-checked"));
+        }
+    }
+
+    [Fact]
+    public void Pressing_a_switch_turns_its_feature_on_and_off_again()
+    {
+        AppFeatureSettingsStore? store = null;
+        using var context = FeatureStatusIndicatorTests.RenderSettings(features =>
+        {
+            store = features;
+            _ = features.SetEnabled(AppFeatures.InboxPane, false);
+        });
+
+        Switch(context, AppFeatures.InboxPane).Click();
+        Assert.True(store!.IsEnabled(AppFeatures.InboxPane));
+        Assert.Equal("true", Switch(context, AppFeatures.InboxPane).GetAttribute("aria-checked"));
+
+        Switch(context, AppFeatures.InboxPane).Click();
+        Assert.False(store.IsEnabled(AppFeatures.InboxPane));
+        Assert.Equal("false", Switch(context, AppFeatures.InboxPane).GetAttribute("aria-checked"));
     }
 
     [Fact]
@@ -207,6 +256,9 @@ public sealed class FeaturesBoardTests
 
     private static IElement Row(FeatureStatusIndicatorTests.SettingsRenderContext context, string key) =>
         context.Component.Find($".feature-flag[data-feature='{key}']");
+
+    private static IElement Switch(FeatureStatusIndicatorTests.SettingsRenderContext context, string key) =>
+        context.Component.Find($".feature-flag[data-feature='{key}'] > [role='switch']");
 
     private static IEnumerable<string> RowKeys(FeatureStatusIndicatorTests.SettingsRenderContext context) =>
         [.. context.Component.FindAll(".feature-flag").Select(row => row.GetAttribute("data-feature")!)];

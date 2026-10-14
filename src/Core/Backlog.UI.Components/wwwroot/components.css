@@ -8492,8 +8492,9 @@ select.field__input {
     }
 }
 
-/* The flag-row variant of Toggle: `NativeCheckbox` in a `<label>`, text first
-   and the box on the trailing edge. The host supplies these class names through
+/* The flag-row variant of Toggle, in either shape: `NativeCheckbox` in a
+   `<label>` (Capture sources), or the switch (the Features board) — text first
+   and the control on the trailing edge. The host supplies these class names through
    Toggle's class hooks; the look belongs here rather than in an app stylesheet. */
 
 .feature-flag {
@@ -8540,6 +8541,31 @@ select.field__input {
 .feature-flag input[type="checkbox"]:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+/* The same row in Toggle's switch shape (the Features board). The switch comes
+   first in the markup, so `order` puts it on the trailing edge where the box
+   sits in the checkbox shape; it is the row's only focusable part, so the focus
+   order is unaffected. 44 × 26 px, the thumb grown to match. */
+.feature-flag > .toggle__track {
+    order: 1;
+    width: 2.75rem;
+    height: 1.625rem;
+    margin-top: 0;
+}
+
+.feature-flag > .toggle__track .toggle__thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.feature-flag > .toggle__track[aria-checked="true"] .toggle__thumb {
+    transform: translate(calc(1.25rem - 2 * var(--border-width)), -50%);
+}
+
+.feature-flag > .feature-flag__content {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .checkbox {

@@ -61,13 +61,13 @@ internal sealed partial class DesktopHarness
         await OpenSettingsAsync("features");
         foreach (var feature in new[] { SyncFeature(), InboxPaneFeature() })
         {
-            var checkbox = Page.GetByRole(AriaRole.Checkbox, new PageGetByRoleOptions { NameRegex = feature });
+            var toggle = Page.GetByRole(AriaRole.Switch, new PageGetByRoleOptions { NameRegex = feature });
             await Interactive.RepeatAsync(
                 async () =>
                 {
-                    if (!await checkbox.IsCheckedAsync()) await checkbox.ClickAsync();
+                    if (!await toggle.IsCheckedAsync()) await toggle.ClickAsync();
                 },
-                () => checkbox.IsCheckedAsync(),
+                () => toggle.IsCheckedAsync(),
                 $"turning on {feature}");
         }
     }
