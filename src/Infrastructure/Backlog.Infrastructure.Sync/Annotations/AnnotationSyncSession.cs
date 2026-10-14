@@ -1,6 +1,10 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
+
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Backlog.Infrastructure.Sync.Annotations;
 
@@ -15,6 +19,12 @@ public sealed record AnnotationSyncSummary(int Pushed, int Pulled, int Applied, 
     /// change past the copy it changes, so a refusal means two devices really
     /// did edit the same remark, and the loser's edit is the one here.</summary>
     public int Refused { get; init; }
+
+    /// <summary>Remarks left on this machine because the service would refuse
+    /// them — filed under no repository, or a field past its bound — rather
+    /// than sent to have the batch they were in refused whole. Each is named in
+    /// a warning; none is offered again until an edit restamps it.</summary>
+    public int Skipped { get; init; }
 }
 
 /// <summary>
@@ -37,16 +47,20 @@ public sealed class AnnotationSyncSession
     private readonly IAnnotationSyncStateStore _state;
     private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
+    private readonly ILogger _log;
 
     /// <param name="credentials">Whose device this is, checked against the
     /// recorded progress before either half runs — see <see cref="ReconcileIdentity"/>.</param>
+    /// <param name="log">Where a remark left out of a push is named. Optional,
+    /// as it is on <see cref="TaskReplicaMerge"/>.</param>
     public AnnotationSyncSession(
         AnnotationSyncClient client,
         AnnotationReplicaMerge merge,
         IDevbookAnnotationStore store,
         IAnnotationSyncStateStore state,
         IDeviceCredentialStore credentials,
-        TimeProvider time)
+        TimeProvider time,
+        ILogger<AnnotationSyncSession>? log = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -61,6 +75,7 @@ public sealed class AnnotationSyncSession
         _state = state;
         _credentials = credentials;
         _time = time;
+        _log = log ?? NullLogger<AnnotationSyncSession>.Instance;
     }
 
     /// <summary>Starts the progress over when it was recorded for a different
@@ -83,6 +98,14 @@ public sealed class AnnotationSyncSession
     /// middle of a shared stamp — <see cref="TaskSyncSession.PushAsync"/>'s
     /// rules, for its reasons. Drafts are not in the selection: the store
     /// leaves them out of <see cref="IDevbookAnnotationStore.ListChangedSince"/>.
+    /// <para>
+    /// A remark the service would refuse is left out of its batch and named in
+    /// a warning, because the service refuses a batch whole and would otherwise
+    /// refuse every remark beside it, on every cycle. The watermark moves past
+    /// it all the same: none of its faults mends without an edit, and an edit
+    /// stamps it past the watermark again. A batch with nothing left to send is
+    /// not sent.
+    /// </para>
     /// </summary>
     public async Task<Result<AnnotationSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
@@ -92,21 +115,47 @@ public sealed class AnnotationSyncSession
         var pending = _store.ListChangedSince(watermark);
         var pushed = 0;
         var refused = 0;
+        var skipped = 0;
 
         for (var start = 0; start < pending.Count; start += PushBatchSize)
         {
             var batch = pending.Skip(start).Take(PushBatchSize).ToList();
-            var changes = batch.Select(AnnotationReplicaMerge.ToChange).ToList();
+            var changes = new List<AnnotationChange>(batch.Count);
 
-            var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
-            if (response.IsFailure) return Result.Failure<AnnotationSyncSummary>(response.Error);
+            foreach (var annotation in batch)
+            {
+                var change = AnnotationReplicaMerge.ToChange(annotation);
 
-            // A 200 with fewer accepted than sent is the replica keeping a later
-            // version of the rest. The watermark still moves past them — offering
-            // them again would be refused again — so the count is the one place
-            // the loss is said.
-            pushed += response.Value.Accepted;
-            refused += Math.Max(0, batch.Count - response.Value.Accepted);
+                // The service's own rule, over what would cross the wire.
+                if (AnnotationRecordLimits.WhyRefused(change) is { } reason)
+                {
+                    // Never the body: it is the person's own text.
+                    _log.LogWarning(
+                        "Leaving annotation {AnnotationId} on {ChapterPath} out of the push, because the sync "
+                        + "service would refuse it and every remark sent beside it. {Reason}",
+                        annotation.Id,
+                        annotation.ChapterPath,
+                        reason);
+
+                    skipped++;
+                    continue;
+                }
+
+                changes.Add(change);
+            }
+
+            if (changes.Count > 0)
+            {
+                var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
+                if (response.IsFailure) return Result.Failure<AnnotationSyncSummary>(response.Error);
+
+                // A 200 with fewer accepted than sent is the replica keeping a later
+                // version of the rest. The watermark still moves past them — offering
+                // them again would be refused again — so the count is the one place
+                // the loss is said.
+                pushed += response.Value.Accepted;
+                refused += Math.Max(0, changes.Count - response.Value.Accepted);
+            }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, annotation => annotation.UpdatedAt) is { } advanced)
             {
@@ -114,7 +163,7 @@ public sealed class AnnotationSyncSession
             }
         }
 
-        return Result.Success(new AnnotationSyncSummary(pushed, 0, 0, _time.GetUtcNow()) { Refused = refused });
+        return Result.Success(new AnnotationSyncSummary(pushed, 0, 0, _time.GetUtcNow()) { Refused = refused, Skipped = skipped });
     }
 
     /// <summary>
@@ -168,7 +217,8 @@ public sealed class AnnotationSyncSession
         return Result.Success(new AnnotationSyncSummary(0, pulled, applied, _time.GetUtcNow()));
     }
 
-    /// <summary>Push, then pull; a failed push stops the exchange.</summary>
+    /// <summary>Push, then pull; a failed push stops the exchange. A remark the
+    /// push left out is not a failed push.</summary>
     public async Task<Result<AnnotationSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
@@ -181,6 +231,10 @@ public sealed class AnnotationSyncSession
             push.Value.Pushed,
             pull.Value.Pulled,
             pull.Value.Applied,
-            _time.GetUtcNow()));
+            _time.GetUtcNow())
+        {
+            Refused = push.Value.Refused,
+            Skipped = push.Value.Skipped,
+        });
     }
 }
