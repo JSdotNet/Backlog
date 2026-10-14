@@ -40,6 +40,20 @@
                          OnOpenTask="OpenTaskAsync"
                          OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull)">
                 <Actions>
+                    @* The whole sprint as a table for PowerPoint and mail
+                       (.devbook/domain/progress/features.md#copying-a-sprint-as-a-table):
+                       every item, whatever the board's filter shows. Refused while
+                       there is no sprint read to copy. *@
+                    <CopyButton Text="@Table.Text"
+                                Html="@Table.Html"
+                                Label="Copy as table"
+                                Disabled="@(_model is null)"
+                                DisabledReason="The sprint is still being read"
+                                ButtonBaseClass="btn btn--ghost btn--small"
+                                StatusCssClass="copy-button__status"
+                                TestId="in-progress-sprint-copy-table"
+                                ButtonTestId="in-progress-sprint-copy-table-button"
+                                StatusTestId="in-progress-sprint-copy-table-status">Copy as table</CopyButton>
                     <AppButton Variant="ButtonVariant.Ghost"
                                Size="ButtonSize.Small"
                                TestId="in-progress-sprint-refresh"
@@ -106,7 +120,27 @@ else
     private int? _number;
     private SprintProgressDto? _progress;
     private SprintBoardModel? _model;
+    private SprintBoardModel? _tableModel;
+    private SprintTable _table = EmptyTable;
     private string? _error;
+
+    private static readonly SprintTable EmptyTable = SprintTableClipboard.Build([], []);
+
+    /// <summary>The table Copy as table puts on the clipboard, built once per sprint
+    /// read rather than on every render.</summary>
+    private SprintTable Table
+    {
+        get
+        {
+            if (!ReferenceEquals(_tableModel, _model))
+            {
+                _tableModel = _model;
+                _table = _model is null ? EmptyTable : SprintTableClipboard.Build(_model);
+            }
+
+            return _table;
+        }
+    }
     private bool _reading;
     private int _generation;
     private int _findGeneration;
