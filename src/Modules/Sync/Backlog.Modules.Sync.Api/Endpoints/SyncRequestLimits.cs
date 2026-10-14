@@ -226,26 +226,13 @@ internal static class SyncRequestLimits
     /// </summary>
     internal const long AnnotationPushBodyBytes = 4L * 1024 * 1024;
 
-    /// <summary>How long a chapter path may be. A repository-relative path,
-    /// never an absolute one, so this is generous for any knowledge folder and
-    /// far short of anything that would trouble the store.</summary>
-    internal const int MaximumChapterPath = 1_024;
-
-    /// <summary>How long an annotation's author label may be. A machine name
-    /// or a person's name, which is what <see cref="MaximumMachineName"/> also
-    /// bounds.</summary>
-    internal const int MaximumAnnotationAuthor = 255;
-
-    /// <summary>How long a remark's body may be. Generous for a review note
-    /// — several paragraphs — and nowhere near the two-megabyte document
-    /// ceiling that is the failure this keeps off the store.</summary>
-    internal const int MaximumAnnotationBody = 8_000;
-
-    /// <summary>How long a remark's anchor digest may be. This end writes eight
-    /// hex characters; the bound is loose enough that lengthening the digest
-    /// does not need a server deploy first, and tight enough that the field
-    /// cannot be used to carry anything else.</summary>
-    internal const int MaximumAnnotationBlockHash = 128;
+    /// <summary>How long a remark's body may be. The field bounds of an
+    /// annotation, and the rule that applies them, live in
+    /// <see cref="AnnotationRecordLimits"/>, because the desktop runs the same
+    /// rule before it pushes: a refusal here takes the whole batch with it, so a
+    /// remark the two ends disagreed about would refuse every batch it was in.
+    /// This one is named here too because a test of the bound reads it.</summary>
+    internal const int MaximumAnnotationBody = AnnotationRecordLimits.BodyLength;
 }
 
 
