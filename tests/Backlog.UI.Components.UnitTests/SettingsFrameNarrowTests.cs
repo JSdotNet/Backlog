@@ -59,13 +59,32 @@ public sealed class SettingsFrameNarrowTests
             .Add(f => f.Title, "Features")
             .Add(f => f.Eyebrow, "Settings · Workspace"));
 
-        // The wide layout's heading - the default page's - stays in the markup;
-        // the stylesheet swaps it for the list's own below phone width.
+        // The wide layout's headline - the default page's - stays in the markup;
+        // the stylesheet swaps its text for the list's own below phone width,
+        // and hides the eyebrow there.
         Assert.Equal("Features", frame.Find("[data-testid='settings-headline']").TextContent.Trim());
+        Assert.Equal("Settings", frame.Find("[data-testid='settings-index-headline']").TextContent.Trim());
+        Assert.Contains("settings-frame__headline-index", frame.Find("[data-testid='settings-index-headline']").ClassList);
+    }
 
-        var index = frame.Find(".settings-frame__heading--index");
-        Assert.Equal("Settings", index.QuerySelector("h1[data-testid='settings-index-headline']")!.TextContent.Trim());
-        Assert.Null(index.QuerySelector(".settings-frame__eyebrow"));
+    [Fact]
+    public void With_no_page_chosen_navigation_focus_lands_on_the_one_headline_at_every_width()
+    {
+        using var context = new BunitContext();
+
+        var frame = context.Render<SettingsFrame>(parameters => parameters
+            .Add(f => f.Title, "Features")
+            .Add(f => f.Eyebrow, "Settings · Workspace"));
+
+        // FocusOnNavigate Selector="h1" focuses the first h1 in the document. A
+        // second, phone-width-only h1 would leave the first one hidden there, and
+        // focusing a display: none element does nothing. So the frame draws one
+        // h1, never hidden by width, and swaps only the text inside it - the
+        // page's at wide width, IndexTitle at phone width.
+        var headline = Assert.Single(frame.FindAll("h1"));
+        Assert.Contains("settings-frame__headline", headline.ClassList);
+        Assert.NotNull(headline.QuerySelector(".settings-frame__headline-page[data-testid='settings-headline']"));
+        Assert.NotNull(headline.QuerySelector(".settings-frame__headline-index[data-testid='settings-index-headline']"));
     }
 
     [Fact]
@@ -77,7 +96,7 @@ public sealed class SettingsFrameNarrowTests
             .Add(f => f.Title, "Storage & backup")
             .Add(f => f.PageChosen, true));
 
-        Assert.Empty(frame.FindAll(".settings-frame__heading--index"));
+        Assert.Empty(frame.FindAll("[data-testid='settings-index-headline']"));
         Assert.Single(frame.FindAll("h1"));
     }
 

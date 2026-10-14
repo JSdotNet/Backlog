@@ -19996,8 +19996,9 @@ select.field__input {
     display: none;
 }
 
-/* The grouped list's own heading; shown only at phone width, below. */
-.settings-frame__heading--index {
+/* The grouped list's own headline text, inside the one h1; shown only at
+   phone width, below. */
+.settings-frame__headline-index {
     display: none;
 }
 
@@ -20020,14 +20021,16 @@ select.field__input {
 
     /* No page is on screen beside the list, so the heading is the screen's
        name with no group above it, and the menu names no link current - the
-       note that does so wider is taken out of the accessibility tree. */
-    .settings-frame--index .settings-frame__heading:not(.settings-frame__heading--index),
+       note that does so wider is taken out of the accessibility tree. The h1
+       stays the one navigation focuses; only its text swaps. */
+    .settings-frame--index .settings-frame__eyebrow,
+    .settings-frame--index .settings-frame__headline-page,
     .settings-frame--index .settings-menu-group__current-note {
         display: none;
     }
 
-    .settings-frame--index .settings-frame__heading--index {
-        display: grid;
+    .settings-frame--index .settings-frame__headline-index {
+        display: inline;
     }
 
     .settings-frame--page .settings-frame__content {

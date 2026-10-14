@@ -57,21 +57,22 @@
             {
                 <p class="settings-frame__eyebrow" data-testid="settings-eyebrow">@Eyebrow</p>
             }
-            <h1 class="settings-frame__headline" data-testid="settings-headline">
-                <SectionOutlet SectionName="@HeadlineSection" />
+            @* One h1, whichever heading the width shows: every shell's
+               FocusOnNavigate focuses the first h1 in the document after a page
+               change, and a second h1 the stylesheet hid would take that focus
+               nowhere. Where no page is chosen, the wide layout still shows the
+               default page beside the menu, so the h1 reads that page's headline;
+               at phone width the list is the whole screen and no page is on it,
+               so the stylesheet swaps the page's text for IndexTitle and hides
+               the eyebrow. *@
+            <h1 class="settings-frame__headline">
+                <span class="settings-frame__headline-page" data-testid="settings-headline"><SectionOutlet SectionName="@HeadlineSection" /></span>
+                @if (!PageChosen)
+                {
+                    <span class="settings-frame__headline-index" data-testid="settings-index-headline">@IndexTitle</span>
+                }
             </h1>
         </div>
-        @if (!PageChosen)
-        {
-            @* The grouped list's own heading. Where no page is chosen, the wide
-               layout still shows the default page beside the menu, so the heading
-               above is that page's; at phone width the list is the whole screen
-               and no page is on it, so the stylesheet swaps the two and this one
-               reads IndexTitle with no group above it. *@
-            <div class="settings-frame__heading settings-frame__heading--index">
-                <h1 class="settings-frame__headline" data-testid="settings-index-headline">@IndexTitle</h1>
-            </div>
-        }
 
         <div class="settings-frame__actions">
             <span class="settings-frame__saved" data-testid="settings-saved">

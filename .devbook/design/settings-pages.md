@@ -309,6 +309,9 @@ Rules:
   heading's swap is CSS, an attribute is not. Wider, where Features sits beside
   the menu, its link keeps the raised surface and names itself current in a
   `sr-only` note the phone-width rule hides.
+- The list's `Settings` is the text of the one `h1`, swapped for the default
+  page's headline by the same rule, never a second `h1`: navigation focuses the
+  first `h1` in the document, and a hidden one would take that focus nowhere.
 - Below 720 px an open editor's `repo-card__header` stacks its title over its
   actions, each as tall as its content and aligned to the start: no fixed
   height, and no flex basis on the title side, which a column reads as one.
