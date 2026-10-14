@@ -273,6 +273,26 @@ public sealed class SettingsSectionRenderingTests
     }
 
     [Fact]
+    public void Settings_with_no_page_in_its_address_is_the_list_headed_Settings_with_no_page_current()
+    {
+        using var settings = RenderSettings();
+
+        // At phone width the address with no page is the grouped list alone: no
+        // link is the current page, and the heading the stylesheet shows there is
+        // the screen's name, with no group above it.
+        Assert.Empty(settings.Component.FindAll("nav[aria-label='Settings pages'] a[aria-current]"));
+        var index = settings.Component.Find(".settings-frame__heading--index");
+        Assert.Equal("Settings", index.QuerySelector("h1")!.TextContent.Trim());
+        Assert.Null(index.QuerySelector("[data-testid='settings-eyebrow']"));
+
+        // Choosing a page puts the mark back, and the list's heading goes.
+        SettingsMenu.Open(settings.Component, "Features");
+
+        Assert.Equal("page", settings.Component.Find("a[data-page='features']").GetAttribute("aria-current"));
+        Assert.Empty(settings.Component.FindAll(".settings-frame__heading--index"));
+    }
+
+    [Fact]
     public void An_address_naming_no_page_opens_Features()
     {
         using var settings = RenderSettings();

@@ -1,4 +1,5 @@
 using Backlog.UI.Components.Settings;
+using Microsoft.AspNetCore.Components;
 
 namespace Backlog.UI.Components.UnitTests;
 
@@ -48,6 +49,93 @@ public sealed class SettingsFrameNarrowTests
         // above phone width and the list's below.
         Assert.Contains("settings-frame__back--home", frame.Find("[data-testid='back-link']").ClassList);
     }
+
+    [Fact]
+    public void With_no_page_chosen_the_list_is_headed_Settings_with_no_eyebrow()
+    {
+        using var context = new BunitContext();
+
+        var frame = context.Render<SettingsFrame>(parameters => parameters
+            .Add(f => f.Title, "Features")
+            .Add(f => f.Eyebrow, "Settings · Workspace"));
+
+        // The wide layout's heading - the default page's - stays in the markup;
+        // the stylesheet swaps it for the list's own below phone width.
+        Assert.Equal("Features", frame.Find("[data-testid='settings-headline']").TextContent.Trim());
+
+        var index = frame.Find(".settings-frame__heading--index");
+        Assert.Equal("Settings", index.QuerySelector("h1[data-testid='settings-index-headline']")!.TextContent.Trim());
+        Assert.Null(index.QuerySelector(".settings-frame__eyebrow"));
+    }
+
+    [Fact]
+    public void With_a_page_chosen_the_frame_draws_no_list_heading()
+    {
+        using var context = new BunitContext();
+
+        var frame = context.Render<SettingsFrame>(parameters => parameters
+            .Add(f => f.Title, "Storage & backup")
+            .Add(f => f.PageChosen, true));
+
+        Assert.Empty(frame.FindAll(".settings-frame__heading--index"));
+        Assert.Single(frame.FindAll("h1"));
+    }
+
+    [Fact]
+    public void With_no_page_chosen_the_menu_marks_no_link_current()
+    {
+        using var context = new BunitContext();
+
+        var frame = context.Render<SettingsFrame>(parameters => parameters
+            .Add(f => f.Menu, MenuWithFeaturesCurrent()));
+
+        Assert.Empty(frame.FindAll("a[aria-current]"));
+
+        // The link keeps the raised surface and a screen-reader note for the wide
+        // layout, where the default page sits beside the menu; the phone-width
+        // stylesheet hides both.
+        var features = frame.Find("a[data-page='features']");
+        Assert.Contains("settings-menu-group__link--current", features.ClassList);
+        Assert.NotNull(features.QuerySelector(".settings-menu-group__current-note.sr-only"));
+    }
+
+    [Fact]
+    public void With_a_page_chosen_the_menu_marks_that_page_current()
+    {
+        using var context = new BunitContext();
+
+        var frame = context.Render<SettingsFrame>(parameters => parameters
+            .Add(f => f.PageChosen, true)
+            .Add(f => f.Menu, MenuWithFeaturesCurrent()));
+
+        var current = Assert.Single(frame.FindAll("a[aria-current='page']"));
+        Assert.Equal("features", current.GetAttribute("data-page"));
+        Assert.Empty(frame.FindAll(".settings-menu-group__current-note"));
+    }
+
+    [Fact]
+    public void A_menu_group_outside_a_frame_marks_its_current_link()
+    {
+        using var context = new BunitContext();
+
+        var group = context.Render<SettingsMenuGroup>(parameters => parameters
+            .Add(g => g.Label, "Workspace")
+            .Add(g => g.Items, new SettingsMenuItem[] { new("features", "Features", "settings/features", Current: true) }));
+
+        Assert.Equal("page", group.Find("a").GetAttribute("aria-current"));
+    }
+
+    private static RenderFragment MenuWithFeaturesCurrent() => builder =>
+    {
+        builder.OpenComponent<SettingsMenuGroup>(0);
+        builder.AddAttribute(1, nameof(SettingsMenuGroup.Label), "Workspace");
+        builder.AddAttribute(2, nameof(SettingsMenuGroup.Items), (IReadOnlyList<SettingsMenuItem>)
+        [
+            new("features", "Features", "settings/features", Current: true),
+            new("storage", "Storage & backup", "settings/storage")
+        ]);
+        builder.CloseComponent();
+    };
 
     [Fact]
     public void The_host_names_where_the_list_is()
