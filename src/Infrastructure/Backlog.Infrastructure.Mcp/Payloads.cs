@@ -55,7 +55,7 @@ public sealed record EntryPayload(
 /// <summary>The entries filed against one repository, in rank order.</summary>
 public sealed record EntryListPayload(string Repository, string RepositoryAlias, int Count, IReadOnlyList<EntryPayload> Entries);
 
-/// <summary>The entries one import plan produced, in rank order.</summary>
+/// <summary>The entries of one import plan — imported or filed under its tag since — in rank order.</summary>
 public sealed record PlanItemsPayload(string PlanId, int Count, IReadOnlyList<EntryPayload> Entries);
 
 /// <summary>

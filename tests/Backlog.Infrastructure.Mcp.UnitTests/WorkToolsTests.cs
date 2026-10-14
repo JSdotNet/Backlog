@@ -99,6 +99,31 @@ public class WorkToolsTests
         Assert.Equal(["one", "two"], answer.Entries.Select(entry => entry.PlanItemId));
     }
 
+    /// <summary>
+    /// An entry filed under the plan's tag by <c>create_item</c> — a follow-up a
+    /// review prompt wrote — has no plan id, because only an import sets one. It
+    /// is still the plan's, so it is listed with the imported ones, in rank order.
+    /// An entry an import filed under another plan stays that plan's even when it
+    /// also carries this tag, and the tag is matched as exactly as the id is.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_carrying_the_plan_tag_without_a_plan_id_belongs_to_the_plan()
+    {
+        var entries = new FakeTaskItems(
+            Entries.Entry("Imported", order: 1, importPlanId: "+backlog-mcp-server", importItemId: "one", tags: ["+backlog-mcp-server"]),
+            Entries.Entry("Follow-up", order: 2, tags: ["mcp", "+backlog-mcp-server"]),
+            Entries.Entry("Imported elsewhere", order: 3, importPlanId: "+dashboard-headers", tags: ["+backlog-mcp-server"]),
+            Entries.Entry("Tag in another case", order: 4, tags: ["+Backlog-MCP-Server"]),
+            Entries.Entry("Tag without sigil", order: 5, tags: ["backlog-mcp-server"]));
+
+        var tools = new WorkTools(entries, new FakeRepositoryDirectory([Backlog]));
+
+        var answer = await tools.GetPlanItemsAsync("+backlog-mcp-server", TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Imported", "Follow-up"], answer.Entries.Select(entry => entry.Title));
+        Assert.Equal(2, answer.Count);
+    }
+
     /// <summary>Ordinal means ordinal: a plan tag differing only in case is a
     /// different tag, because the grammar keeps the two apart.</summary>
     [Fact]
