@@ -139,21 +139,22 @@ public sealed class FeatureStatusIndicatorTests
     }
 
     [Fact]
-    public void The_settings_screen_draws_one_heading_per_section_with_its_own_switches()
+    public void The_settings_screen_draws_one_card_per_section_with_its_own_switches()
     {
         using var context = RenderSettings();
 
-        var headings = context.Component.FindAll(".feature-group__title").Select(h => h.TextContent.Trim()).ToList();
-        var grids = context.Component.FindAll(".feature-flags");
+        var cards = context.Component.FindAll(".feature-card");
+        var headings = cards.Select(card => card.QuerySelector(".settings-card__title")!.TextContent.Trim());
 
         Assert.Equal(AppFeatures.Sections.Select(s => s.Title), headings);
-        Assert.Equal(AppFeatures.Sections.Count, grids.Count);
+        Assert.Equal(AppFeatures.Sections.Count, cards.Count);
 
         for (var i = 0; i < AppFeatures.Sections.Count; i++)
         {
             var section = AppFeatures.Sections[i];
-            var titles = grids[i].QuerySelectorAll(".feature-flag__title").Select(t => t.TextContent.Trim());
+            var titles = cards[i].QuerySelectorAll(".feature-flag__title").Select(t => t.TextContent.Trim());
 
+            Assert.Equal(section.Description, cards[i].QuerySelector(".settings-card__description")!.TextContent.Trim());
             Assert.Equal(section.Features.Select(f => f.Name), titles);
         }
     }
@@ -165,7 +166,7 @@ public sealed class FeatureStatusIndicatorTests
         return new FeatureStore(root, new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json")));
     }
 
-    private static SettingsRenderContext RenderSettings(Action<AppFeatureSettingsStore>? configureFeatures = null)
+    internal static SettingsRenderContext RenderSettings(Action<AppFeatureSettingsStore>? configureFeatures = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-feature-status-tests", Guid.NewGuid().ToString("n"));
 
@@ -202,7 +203,7 @@ public sealed class FeatureStatusIndicatorTests
         public void Dispose() => DeleteRoot(Root);
     }
 
-    private sealed record SettingsRenderContext(
+    internal sealed record SettingsRenderContext(
         string Root,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable

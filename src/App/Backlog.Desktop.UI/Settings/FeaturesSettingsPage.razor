@@ -7,82 +7,172 @@
     The namespace is the screen's rather than the folder's, and this folder has
     no _Imports.razor, for the reason the note at the top of Settings.razor
     gives.
+
+    The page is the design canvas's Features board: a headline sentence that
+    counts what is on, three figure tiles, a filter over the rows, and one card
+    per section of the catalog. Every count is read from the store on each
+    render, so a switch moves the headline, the tiles and its card's count in the
+    same render that moves the switch.
 *@
 @namespace Backlog.Desktop.UI.Shell
 @inherits SettingsPageBase
 @using Backlog.SharedKernel
+@using Backlog.UI.Components.Metrics
 @inject IAppFeatureSettings Features
 
-<p class="setting__description">
-    Turn off parts of the app that are not ready yet. Tasks stays available.
-</p>
-@* Two headings rather than one grid of thirteen. A reader turning
-   something off is asking one of two quite different questions —
-   "do I want this area of the product" or "do I want this thing the
-   whole product uses" — and the flat list answered neither. *@
-@foreach (var section in AppFeatures.Sections)
-{
-<h3 class="feature-group__title">@section.Title</h3>
-<p class="feature-group__description">@section.Description</p>
-<div class="feature-flags" role="list" aria-label="@($"{section.Title} feature flags")">
-    @foreach (var feature in section.Features)
+<SettingsHeadline>@OnCount of @AppFeatures.All.Count features are on — @UnfinishedOnCount of them still unfinished.</SettingsHeadline>
+
+<div class="feature-board">
+    <div class="feature-board__tiles" data-testid="feature-tiles">
+        <MetricTile Label="Turned on"
+                    Value="@OnCount.ToString(System.Globalization.CultureInfo.CurrentCulture)"
+                    Footnote="@($"of {AppFeatures.All.Count}")"
+                    TestId="feature-tile-on" />
+        <MetricTile Label="Unfinished and on"
+                    Value="@UnfinishedOnCount.ToString(System.Globalization.CultureInfo.CurrentCulture)"
+                    Footnote="in development or beta"
+                    TestId="feature-tile-unfinished" />
+        <MetricTile Label="Always available"
+                    Value="@AlwaysAvailableNames"
+                    CssClass="feature-board__names"
+                    TestId="feature-tile-always" />
+    </div>
+
+    @* A view of the rows, not a setting: nothing persists the choice, so the
+       page opens on All every time the screen is drawn afresh. *@
+    <RadioGroup TValue="FeatureFilter"
+                Options="@Filters"
+                @bind-Value="_filter"
+                OptionLabel="@FilterLabel"
+                OptionTestId="@(filter => $"feature-filter-{filter.ToString().ToLowerInvariant()}")"
+                CssClass="feature-filter"
+                OptionCssClass="feature-filter__option"
+                CheckedOptionCssClass="feature-filter__option feature-filter__option--checked"
+                AriaLabel="Show features"
+                TestId="feature-filter" />
+
+    @foreach (var section in AppFeatures.Sections)
     {
-        @* A flag row is the shared Toggle in its native-checkbox
-           shape: the whole row is a label, so the box is reachable
-           by clicking the text. *@
-        <Toggle NativeCheckbox="true"
-                BaseClass="feature-flag"
-                CssClass="@(feature.AlwaysEnabled ? "feature-flag--locked" : null)"
-                TextCssClass="feature-flag__content"
-                LabelCssClass="feature-flag__title"
-                DescriptionCssClass="feature-flag__description"
-                Label="@feature.Name"
-                Description="@feature.Description"
-                Checked="@Features.IsEnabled(feature.Key)"
-                CheckedChanged="enabled => SetFeatureEnabled(feature, enabled)"
-                Disabled="@feature.AlwaysEnabled"
-                role="listitem">
-            @* The maturity flag qualifies the name of the thing, so it
-               goes on the label's line rather than into the note below
-               it: somebody scanning the switches has to see which ones
-               are unfinished without reading a paragraph each. It
-               renders nothing for a released feature, which is why
-               there is no @@if around it.
-
-               Unconditional on the switch, unlike everywhere else this
-               badge appears — this row *is* the switch, so it describes
-               the feature whether or not it is currently on. *@
-            <LabelSuffix>
-                <FeatureStatusBadge Status="@AppFeatureStatusBadge.Slug(feature.Status)"
-                                    Title="@AppFeatureStatusBadge.Title(feature.Status)"
-                                    TestId="@($"feature-status-{feature.Key}")" />
-            </LabelSuffix>
-            <TextContent>
-                @if (feature.AlwaysEnabled)
+        var rows = section.Features.Where(Matches).ToList();
+        <SettingsCard Title="@section.Title"
+                      Description="@section.Description"
+                      CssClass="feature-card"
+                      TestId="@($"feature-card-{section.Group.ToString().ToLowerInvariant()}")">
+            <Action>
+                <Badge BaseClass="feature-card__count" Kind="" TestId="feature-card-count">@section.Features.Count(IsOn) of @section.Features.Count on</Badge>
+            </Action>
+            <ChildContent>
+                @if (rows.Count == 0)
                 {
-                    <span class="feature-flag__status">Always available</span>
+                    <EmptyState Description="Nothing here matches this filter."
+                                CssClass="feature-card__empty"
+                                TestId="feature-card-empty" />
                 }
-            </TextContent>
-        </Toggle>
+                else
+                {
+                    <div class="feature-flags" role="list" aria-label="@($"{section.Title} feature flags")">
+                        @foreach (var feature in rows)
+                        {
+                            @* A flag row is the shared Toggle in its native-checkbox
+                               shape: the whole row is a label, so the box is reachable
+                               by clicking the text. *@
+                            <Toggle @key="feature.Key"
+                                    NativeCheckbox="true"
+                                    BaseClass="feature-flag"
+                                    CssClass="@(feature.AlwaysEnabled ? "feature-flag--locked" : null)"
+                                    TextCssClass="feature-flag__content"
+                                    LabelCssClass="feature-flag__title"
+                                    DescriptionCssClass="feature-flag__description"
+                                    Label="@feature.Name"
+                                    Description="@feature.Description"
+                                    Checked="@IsOn(feature)"
+                                    CheckedChanged="enabled => SetFeatureEnabled(feature, enabled)"
+                                    Disabled="@feature.AlwaysEnabled"
+                                    data-feature="@feature.Key"
+                                    role="listitem">
+                                @* The maturity flag qualifies the name of the thing, so it
+                                   goes on the label's line rather than into the note below
+                                   it: somebody scanning the switches has to see which ones
+                                   are unfinished without reading a paragraph each. It
+                                   renders nothing for a released feature, which is why
+                                   there is no @@if around it.
 
-        @if (IsUsageMetricsFeature(feature) && UsageMetricsEnabled)
-        {
-            <p class="setting__note" data-testid="usage-api-endpoints-context-note">
-                Configure organization usage API endpoints on the AI tab.
-            </p>
-        }
+                                   Unconditional on the switch, unlike everywhere else this
+                                   badge appears — this row *is* the switch, so it describes
+                                   the feature whether or not it is currently on. "Always
+                                   available" sits on the same line for the same reason. *@
+                                <LabelSuffix>
+                                    <FeatureStatusBadge Status="@AppFeatureStatusBadge.Slug(feature.Status)"
+                                                        Title="@AppFeatureStatusBadge.Title(feature.Status)"
+                                                        TestId="@($"feature-status-{feature.Key}")" />
+                                    @if (feature.AlwaysEnabled)
+                                    {
+                                        <span class="feature-flag__status">Always available</span>
+                                    }
+                                </LabelSuffix>
+                            </Toggle>
+
+                            @if (IsUsageMetricsFeature(feature) && UsageMetricsEnabled)
+                            {
+                                <p class="setting__note" data-testid="usage-api-endpoints-context-note">
+                                    Configure organization usage API endpoints on the
+                                    <a href="@SettingsPages.Href(SettingsPages.Ai)" data-testid="usage-api-endpoints-link">AI providers</a> page.
+                                </p>
+                            }
+                        }
+                    </div>
+                }
+            </ChildContent>
+        </SettingsCard>
     }
+
+    @* The library's alert wearing this page's note class. It renders
+       nothing when the message is empty, which is what the @@if around the
+       hand-rolled paragraph used to do. *@
+    <Alert Message="@_featureMessage" BaseClass="setting__note" Role="status" />
 </div>
-}
-@* The library's alert wearing this page's note class. It renders
-   nothing when the message is empty, which is what the @@if around the
-   hand-rolled paragraph used to do. *@
-<Alert Message="@_featureMessage" BaseClass="setting__note" Role="status" />
 
 @code {
-    private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatures.UsageMetrics);
+    /// <summary>Which rows the cards show. Unfinished is a feature's maturity,
+    /// not its switch: a Dev or Beta feature is listed whether it is on or
+    /// off.</summary>
+    public enum FeatureFilter
+    {
+        All,
+        On,
+        Off,
+        Unfinished
+    }
+
+    private static readonly IReadOnlyList<FeatureFilter> Filters = Enum.GetValues<FeatureFilter>();
+
+    private FeatureFilter _filter = FeatureFilter.All;
 
     private string? _featureMessage;
+
+    private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatures.UsageMetrics);
+
+    private int OnCount => AppFeatures.All.Count(IsOn);
+
+    private int UnfinishedOnCount => AppFeatures.All.Count(feature => IsUnfinished(feature) && IsOn(feature));
+
+    private static string AlwaysAvailableNames =>
+        string.Join(", ", AppFeatures.All.Where(feature => feature.AlwaysEnabled).Select(feature => feature.Name));
+
+    private static string FilterLabel(FeatureFilter filter) => filter.ToString();
+
+    private bool IsOn(AppFeatureDefinition feature) => Features.IsEnabled(feature.Key);
+
+    private static bool IsUnfinished(AppFeatureDefinition feature) =>
+        feature.Status is AppFeatureStatus.Dev or AppFeatureStatus.Beta;
+
+    private bool Matches(AppFeatureDefinition feature) => _filter switch
+    {
+        FeatureFilter.On => IsOn(feature),
+        FeatureFilter.Off => !IsOn(feature),
+        FeatureFilter.Unfinished => IsUnfinished(feature),
+        _ => true
+    };
 
     private static bool IsUsageMetricsFeature(AppFeatureDefinition feature) =>
         string.Equals(feature.Key, AppFeatures.UsageMetrics, StringComparison.OrdinalIgnoreCase);
