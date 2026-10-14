@@ -179,6 +179,14 @@ public sealed class DevToolService : IDevToolService
     {
     }
 
+    /// <summary>A catalog at <paramref name="configPath"/> beside this machine's
+    /// MCP server, with no store. Internal: only a test needs both at once, to
+    /// prove what the last run is kept with.</summary>
+    internal DevToolService(string configPath, IMcpEndpointSource? mcp)
+        : this(null, mcp, null, configPath)
+    {
+    }
+
     private DevToolService(ITaskStore? store, IMcpEndpointSource? mcp, ILogger<DevToolService>? logger, string? configPath)
     {
         _store = store;
@@ -1125,7 +1133,8 @@ public sealed class DevToolService : IDevToolService
         {
             Hosts = hosts,
             HostStates = states,
-            Installable = declared.Installable
+            Installable = declared.Installable,
+            Download = declared.Download
         };
     }
 
@@ -1383,7 +1392,10 @@ public sealed class DevToolService : IDevToolService
 
         try
         {
-            await DevToolLastRunStore.WriteAsync(ConfigurationPaths.LastRunPath, run, ct).ConfigureAwait(false);
+            // This machine's token by value, read and never minted: a run that
+            // minted nothing never seeded it into the command log, yet
+            // `claude mcp get` still echoes the Headers: block it is registered with.
+            await DevToolLastRunStore.WriteAsync(ConfigurationPaths.LastRunPath, run, [_mcp?.CurrentToken], ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -1475,6 +1487,39 @@ public sealed class DevToolService : IDevToolService
         _catalogOnly?.CreateCatalogAsync(ct) ?? EditCatalogAsync(
             paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
             paths => $"Created a tool catalog at {paths.CatalogPath}.");
+
+    /// <summary>Where "Create from this machine" reads the hosts' manifests, or
+    /// nothing for this user's own. A test points it at a folder of its own so it
+    /// neither reads nor depends on the machine it runs on.</summary>
+    internal DevToolHostManifestPaths? HostManifestPaths { get; init; }
+
+    public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default) =>
+        _catalogOnly?.CreateCatalogFromMachineAsync(ct) ?? CreateSeededCatalogAsync(ct);
+
+    private Task<DevToolActionResult> CreateSeededCatalogAsync(CancellationToken ct)
+    {
+        DevToolCatalogSeedResult? seed = null;
+
+        return EditCatalogAsync(
+            async paths =>
+            {
+                // Checked before the manifests are read, so a refusal costs no
+                // reads; the write below checks again under the lock.
+                if (DevToolConfiguration.CatalogExists(paths))
+                {
+                    throw new InvalidOperationException($"A tool catalog already exists at {paths.CatalogPath}.");
+                }
+
+                var manifests = HostManifestPaths
+                    ?? (_claudeDesktopConfigPaths is { } desktop
+                        ? DevToolHostManifestPaths.ForCurrentUser() with { ClaudeDesktopConfigCandidates = desktop }
+                        : DevToolHostManifestPaths.ForCurrentUser());
+
+                seed = await DevToolCatalogSeed.ReadAsync(manifests, ct).ConfigureAwait(false);
+                await DevToolConfiguration.CreateCatalogAsync(paths, seed.Catalog, ct).ConfigureAwait(false);
+            },
+            paths => seed!.Describe(paths.CatalogPath));
+    }
 
     public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>
         _catalogOnly?.AddAsync(draft, ct) ?? EditCatalogAsync(
@@ -3150,7 +3195,11 @@ public sealed class DevToolService : IDevToolService
             // Whatever the entry filed itself under, unchanged. The pane groups on
             // it and does not interpret it: a heading this version has never seen
             // is a heading somebody added to the catalog, not an error.
-            Group = application.Group
+            Group = application.Group,
+
+            // Carried as the catalog spelled it; the pane decides whether it is
+            // an address it may link.
+            Download = application.Download
         };
 
     /// <summary>

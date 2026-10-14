@@ -14,6 +14,26 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class HarnessDevToolServiceTests
 {
+    /// <summary>The harness reads no host's manifests, so "Create from this
+    /// machine" writes the empty catalog there — and says that is what it did,
+    /// rather than reporting a seed it never took.</summary>
+    [Fact]
+    public async Task Creating_from_this_machine_in_the_harness_writes_the_empty_catalog_and_says_so()
+    {
+        var (tools, paths) = CreateServiceWith(EmptyCatalog);
+        File.Delete(paths.CatalogPath);
+
+        var result = await tools.CreateCatalogFromMachineAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Contains("empty tool catalog", result.Message, StringComparison.Ordinal);
+        Assert.Contains("nothing was seeded", result.Message, StringComparison.Ordinal);
+
+        var root = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(paths.CatalogPath, TestContext.Current.CancellationToken))!;
+        Assert.Empty(root["plugins"]!.AsArray());
+        Assert.Empty(root["mcpServers"]!.AsArray());
+    }
+
     /// <summary>
     /// The regression this file was written for.
     ///

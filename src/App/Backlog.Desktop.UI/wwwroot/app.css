@@ -6734,11 +6734,24 @@ h1, h2, h3 {
 
 /* The sub-group's disclosure. It reads at the weight of the table's meta text
    rather than as a heading of its own: the kind above it is the heading, and
-   this is a row of the inventory that happens to fold. */
+   this is a row of the inventory that happens to fold.
+
+   Top-aligned, because the label wraps (below) and the shared trigger centres
+   its chevron on the whole label: on a two-line label it floated between the
+   lines. With the chevron's box one label line tall it centres on the first
+   line instead; only the box is sized, so the shared fold's rotation stands. */
 .tools-group__fold .fold__trigger {
     max-width: 100%;
+    align-items: flex-start;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.tools-group__fold .fold__chevron {
+    display: inline-flex;
+    align-items: center;
+    height: calc(var(--font-size-sm) * var(--line-height-normal));
 }
 
 /* The label wraps rather than ellipsizing. Its tail is the count of what is
