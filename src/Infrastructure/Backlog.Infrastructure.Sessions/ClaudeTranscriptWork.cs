@@ -15,12 +15,31 @@ namespace Backlog.Infrastructure.Sessions;
 /// </summary>
 internal sealed class ClaudeTranscriptWork
 {
-    private readonly Dictionary<string, AgentPullRequest> _pullRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, AgentPullRequest> _pullRequests;
 
     /// <summary>The last usage seen per message id — the lines of one message repeat it.</summary>
-    private readonly Dictionary<string, (string Model, long Input, long Output, long CacheCreation, long CacheRead)> _messages = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (string Model, long Input, long Output, long CacheCreation, long CacheRead)> _messages;
+
+    public ClaudeTranscriptWork()
+    {
+        _pullRequests = new(StringComparer.OrdinalIgnoreCase);
+        _messages = new(StringComparer.Ordinal);
+    }
+
+    private ClaudeTranscriptWork(ClaudeTranscriptWork other)
+    {
+        _pullRequests = new(other._pullRequests, StringComparer.OrdinalIgnoreCase);
+        _messages = new(other._messages, StringComparer.Ordinal);
+        Entrypoint = other.Entrypoint;
+    }
 
     public string? Entrypoint { get; private set; }
+
+    /// <summary>A copy to observe further lines with, leaving this one as it is — so a
+    /// read resumed from where the last one stopped carries every first-wins and
+    /// last-wins choice the earlier lines made, and a read that fails part way changes
+    /// nothing the last complete one left.</summary>
+    public ClaudeTranscriptWork Clone() => new(this);
 
     public void Observe(string line)
     {
@@ -40,7 +59,7 @@ internal sealed class ClaudeTranscriptWork
 
             if (root.ValueKind is not JsonValueKind.Object) return;
 
-            if (entrypoint) Entrypoint = Text(root, "entrypoint");
+            if (entrypoint) Entrypoint = ClaudeJson.NonBlankText(root, "entrypoint");
             if (pullRequest) PullRequest(root);
             if (usage) Usage(root);
         }
@@ -68,10 +87,10 @@ internal sealed class ClaudeTranscriptWork
 
     private void PullRequest(JsonElement root)
     {
-        if (Text(root, "type") is not "pr-link") return;
+        if (ClaudeJson.NonBlankText(root, "type") is not "pr-link") return;
 
-        var url = Text(root, "prUrl");
-        var repository = Text(root, "prRepository");
+        var url = ClaudeJson.NonBlankText(root, "prUrl");
+        var repository = ClaudeJson.NonBlankText(root, "prRepository");
 
         if (url is null || repository is null) return;
         if (!root.TryGetProperty("prNumber", out var number) || number.ValueKind is not JsonValueKind.Number || !number.TryGetInt32(out var value)) return;
@@ -87,7 +106,7 @@ internal sealed class ClaudeTranscriptWork
 
     private void Usage(JsonElement root)
     {
-        if (Text(root, "type") is not "assistant") return;
+        if (ClaudeJson.NonBlankText(root, "type") is not "assistant") return;
 
         // A sidechain's spend is its own agent's, and written to its own transcript too.
         if (root.TryGetProperty("isSidechain", out var sidechain) && sidechain.ValueKind is JsonValueKind.True) return;
@@ -96,8 +115,8 @@ internal sealed class ClaudeTranscriptWork
 
         // "<synthetic>" is the assistant's own bookkeeping — a refusal, an interruption —
         // and every figure on it is zero.
-        var model = Text(message, "model");
-        var id = Text(message, "id");
+        var model = ClaudeJson.NonBlankText(message, "model");
+        var id = ClaudeJson.NonBlankText(message, "id");
 
         if (model is null || id is null || model.StartsWith('<')) return;
         if (!message.TryGetProperty("usage", out var usage) || usage.ValueKind is not JsonValueKind.Object) return;
@@ -112,9 +131,4 @@ internal sealed class ClaudeTranscriptWork
 
     private static long Count(JsonElement usage, string name) =>
         usage.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.Number && value.TryGetInt64(out var count) ? count : 0;
-
-    private static string? Text(JsonElement element, string name) =>
-        element.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())
-            ? value.GetString()
-            : null;
 }

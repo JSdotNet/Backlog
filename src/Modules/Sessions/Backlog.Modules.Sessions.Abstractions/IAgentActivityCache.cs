@@ -50,8 +50,10 @@ public interface IAgentActivityCache
     /// is nothing a caller could usefully do about it.</summary>
     void Write(string path, DateTimeOffset writtenAt, AgentActivityEntry entry);
 
-    /// <summary>Drops everything, so the next read parses every transcript again. The
-    /// way back when a figure is not believed.</summary>
+    /// <summary>Drops everything stored here, which is what survives a restart, so the
+    /// next run of the app parses every transcript again. Not the next read: a reader
+    /// may keep its own memory in front of this cache, and that memory is the reader's
+    /// and ends with the process — forgetting here does not clear it.</summary>
     void Forget();
 }
 

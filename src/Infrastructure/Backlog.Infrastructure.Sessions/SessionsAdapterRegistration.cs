@@ -25,9 +25,21 @@ namespace Backlog.Infrastructure.Sessions;
 /// code reading the same folders.
 /// </para>
 /// <para>
-/// Singletons, because neither adapter holds state — no cache, no handle, nothing
-/// per-surface. Every call re-reads, which is what makes the pane's refresh mean
-/// anything.
+/// Singletons, and two of the readers behind them keep a memory that one instance is
+/// what makes worth keeping. The Claude session reader remembers what each transcript
+/// was found to say, keyed on its length and write time, and — for the few written in
+/// the last day — where its read stopped, so a refresh still walks every folder and
+/// reads every live file but opens only the transcripts that moved, and reads only what
+/// was appended to them. The delivery-run reader remembers what each run file was read
+/// as, on the same key, and parses only the files that moved. There are two of those:
+/// <see cref="LocalDeliveryRunSource"/> and <see cref="LocalDeliverySurfaceLifecycle"/>
+/// each build their own over the same folders, so each keeps its own memory — the
+/// pane's, and the one the lifecycle's run tools read through — and a parsed run is held
+/// once per reader that has read it. Nothing else is held — no
+/// handle, nothing per-surface — and every call still walks the folders again, which is
+/// what makes the pane's refresh mean anything. Both memories are safe to share: a read
+/// only ever replaces an entry with the same file read again, and a read that loses a
+/// race to another repeats work rather than spoiling it.
 /// </para>
 /// <para>
 /// A host must register <see cref="IDeviceIdentitySource"/> before calling this. The
@@ -196,10 +208,16 @@ public static class SessionsAdapterRegistration
     /// learning that there is more than one place an interval can come from.
     /// </para>
     /// <para>
-    /// Singletons for the reason the session sources are, with one addition: the
-    /// local adapter holds no state of its own, and what state there is lives in the
-    /// cache behind the port, which is keyed on files rather than on this object's
-    /// lifetime.
+    /// Singletons, as the session sources are, and the local activity adapter keeps a
+    /// memory the way the Claude session reader does, through the same
+    /// <see cref="ResumableFileMemory{TFold, TValue}"/>: what each event file was found
+    /// to hold, keyed on its length and write time, and — for the few written in the last
+    /// day — where its read stopped and the events it left, so a refresh still walks
+    /// every folder but opens only the files that moved, and reads only what was appended
+    /// to them. The cache behind the port stays the layer that survives a restart, keyed
+    /// on files rather than on this object's lifetime. The memory is safe to share for
+    /// the reason the session reader's is: a read only ever replaces an entry with the
+    /// same file read again.
     /// </para>
     /// </remarks>
     public static IServiceCollection AddAgentActivitySource(this IServiceCollection services)

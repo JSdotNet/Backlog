@@ -158,6 +158,22 @@ public sealed class SessionRecordsTests
         Assert.Equal(SessionRecordUpdate.None, await keeper.UpdateAsync(everything: true, TestContext.Current.CancellationToken));
     }
 
+    /// <summary>A record is built from the reading it is amended from, so the keeper
+    /// must never take the timestamps depth: a thin reading would amend every record
+    /// with no branch, no count and no work.</summary>
+    [Fact]
+    public async Task The_keeper_reads_its_sessions_at_full_depth()
+    {
+        var source = new FixedSource([Session("mine")]);
+        var keeper = new SessionRecordKeeper(source, null, new MemoryStore(), new FakeTimeProvider(Noon), null);
+
+        await keeper.UpdateAsync(everything: true, TestContext.Current.CancellationToken);
+        await keeper.UpdateAsync(everything: false, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(source.Queries);
+        Assert.All(source.Queries, query => Assert.Equal(AgentSessionDetail.Full, query.Detail));
+    }
+
     // --- Helpers --------------------------------------------------------------------
 
     private static AgentSession Session(string id) =>
@@ -193,11 +209,17 @@ public sealed class SessionRecordsTests
 
     private sealed class FixedSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
     {
+        public List<AgentSessionQuery> Queries { get; } = [];
+
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
 
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
+        {
+            Queries.Add(query);
+
+            return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
+        }
     }
 
     private sealed class FixedActivity(IReadOnlyList<AgentSessionActivity> sessions) : IAgentActivitySource

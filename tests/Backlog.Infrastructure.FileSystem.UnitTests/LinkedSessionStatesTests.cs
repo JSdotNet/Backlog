@@ -77,6 +77,22 @@ public class LinkedSessionStatesTests
         Assert.Empty(states);
     }
 
+    /// <summary>A badge needs a state and nothing a transcript is opened for, so the
+    /// inventory is asked for at the timestamps depth — the reading that opens no
+    /// transcript on a list load.</summary>
+    [Fact]
+    public async Task The_states_are_read_from_the_inventory_at_the_timestamps_depth()
+    {
+        var sessions = new StubSessions(Session("one", AgentSessionState.Running));
+        var adapter = new LinkedSessionStates(sessions);
+
+        await adapter.StatesOfAsync(["one"], TestContext.Current.CancellationToken);
+
+        var query = Assert.Single(sessions.Queries);
+        Assert.True(query.IsNewest);
+        Assert.Equal(AgentSessionDetail.Timestamps, query.Detail);
+    }
+
     private static AgentSession Session(string id, AgentSessionState state) =>
         new(
             Id: id,
@@ -101,12 +117,15 @@ public class LinkedSessionStatesTests
 
         public int Reads { get; private set; }
 
+        public List<AgentSessionQuery> Queries { get; } = [];
+
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
 
         public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
         {
             Reads++;
+            Queries.Add(query);
             if (_failure is not null) throw _failure;
             return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
         }

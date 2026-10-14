@@ -32,10 +32,12 @@ internal sealed class LocalDeliveryRunSource : IDeliveryRunSource
     {
     }
 
-    /// <summary>Every input named, so the reading can be tested against a fixture.</summary>
-    internal LocalDeliveryRunSource(string home, string environmentId, string environment)
+    /// <summary>Every input named, so the reading can be tested against a fixture —
+    /// the clock included, which is what a run file's write time is judged settled
+    /// against.</summary>
+    internal LocalDeliveryRunSource(string home, string environmentId, string environment, TimeProvider? clock = null)
     {
-        _reader = new DeliveryRunReader(home, environmentId, environment);
+        _reader = new DeliveryRunReader(home, environmentId, environment, clock);
     }
 
     /// <summary>The Guid in its plain "D" form, spelled the way the session source

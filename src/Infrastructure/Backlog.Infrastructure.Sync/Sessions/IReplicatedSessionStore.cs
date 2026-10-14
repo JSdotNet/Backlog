@@ -22,8 +22,8 @@ public sealed record ReplicatedSessions(IReadOnlyList<SessionRecordEntry> Entrie
 /// Where the records pulled from the owner's feed are kept.
 /// <para>
 /// <strong>They have to persist, and the cursor is why.</strong> A pull saves its
-/// cursor after every page, so the feed's position has already moved past a
-/// record by the time anything reads it; a cache that lived in memory would be
+/// cursor as soon as the records it covers are kept, so the feed's position has
+/// already moved past a record by the time anything reads it; a cache that lived in memory would be
 /// empty on the next launch and the service would never send those records again.
 /// The pane would show a machine's sessions until the app was closed and then
 /// silently stop, which reads as the other machine having gone quiet.
@@ -51,7 +51,7 @@ public interface IReplicatedSessionStore
     ReplicatedSessions Current { get; }
 
     /// <summary>
-    /// Takes a page's worth of records, replacing any it already holds for the
+    /// Takes a pull's worth of records, replacing any it already holds for the
     /// same session, and raises <see cref="Changed"/>.
     /// <para>
     /// Replacing rather than appending, because the feed is a log of readings and
@@ -97,7 +97,7 @@ public static class ReplicatedSessionLimits
     /// the only split that leaves every combination visible.
     /// </para>
     /// <para>
-    /// It bounds a file this device writes on every page of every pull, which is
+    /// It bounds a file this device writes on every pull, which is
     /// the other reason it exists: a fleet's whole history is not something a
     /// laptop should be rewriting every five minutes.
     /// </para>
