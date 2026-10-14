@@ -332,6 +332,21 @@ public sealed class SpecManagerFetchTests
         Assert.Contains("spec-manager URL", choices.CannotList, StringComparison.Ordinal);
     }
 
+    /// <summary>A product list the resilience pipeline gave up on — a timeout, an
+    /// open circuit — is reported the way a refusal is, never thrown into the page.</summary>
+    [Fact]
+    public async Task A_product_list_the_resilience_pipeline_gave_up_on_is_reported_as_cannot_list()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        scenario.Server.Route(HttpMethod.Get, ProductsPath, (_, _) => throw new Polly.CircuitBreaker.BrokenCircuitException());
+
+        var choices = await scenario.Connector.ListTargetChoicesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(choices.Choices);
+        Assert.Contains("slug", choices.CannotList, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task With_nobody_signed_in_the_products_cannot_be_listed_and_nothing_is_asked()
     {

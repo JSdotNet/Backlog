@@ -204,10 +204,14 @@ once the chapter has changed is in
 
 It is an aggregate because its lifecycle is the person's alone: add, edit,
 resolve, delete. No other record changes with it. It replicates as a whole
-document through a replica container of its own (local ADR 0011). A remark with
-an empty body is a *draft*, open in the read view and not yet written. How each
-change is stamped, which version wins, what a deletion leaves, what happens to a
-draft, and where a remark is stored are
+document through a replica container of its own (local ADR 0011). A live remark
+with an empty body is a *draft*, open in the read view and not yet written. A
+remark the sync service would refuse also stays on this device: one filed under
+no repository, as a remark on the storage-folder devbook is, or one with a field
+past its bound. A warning names it, and it is offered again only after an edit.
+A deletion replicates without the remark's body. How each change is stamped,
+which version wins, what a deletion leaves, what happens to a draft, which remark
+stays local, and where a remark is stored are
 [the Remark invariants](domain.invariants.md#remark).
 
 A remark lives with the app rather than in the repository, so a reader can remark

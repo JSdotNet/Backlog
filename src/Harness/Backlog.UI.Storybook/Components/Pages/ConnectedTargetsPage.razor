@@ -3,7 +3,7 @@
 <PageTitle>Connected targets — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Connected targets"
-           Summary="ConnectedTargetEditor: one repository or product connected to a task source, and how its sync behaves. The same options for every connector — they are the sync's, not the source's — so a connector settings page draws one card per target and needs nothing from a connector beyond its descriptor's name and icon."
+           Summary="ConnectedTargetEditor: one repository or product connected to a task source, and how its sync behaves. The same options for every connector — they are the sync's, not the source's — so a connector settings page draws one card per target and needs nothing from a connector beyond its descriptor's name and icon, and the statuses its source lists for the status map."
            Guidelines="@Rules">
 
     <Story Name="One target and its options"
@@ -26,6 +26,16 @@
         <div class="sb-menu-wide" data-testid="connected-target-complete">
             <ConnectedTargetEditor Options="@_completing" OnChange="options => _completing = options" TestId="connected-target-completing" />
             <ConnectedTargetEditor Options="@CannotComplete" OnChange="_ => { }" TestId="connected-target-cannot-complete" />
+        </div>
+    </Story>
+
+    <Story Name="Repository and statuses"
+           Description="A spec-manager product filed under a repository, with its statuses mapped. The repository picker offers the registry's repositories by alias and stores the owner/name; its empty choice is None for a product, and the target's own repository for a GitHub one. New tasks are filed under it, and tasks already filed keep theirs.
+
+The Statuses group has one row per status the source lists, in its order, each with a select of task statuses whose empty choice names the default the status's state gives. Here Verfijnd is mapped to Ready, so a product with no status flagged as work no longer puts it in In progress. A source that lists no statuses, as GitHub does, gets no group at all. Try the selects — this page plays the host and stores each change."
+           Code="@MappingCode">
+        <div class="sb-menu-wide" data-testid="connected-target-mapping">
+            <ConnectedTargetEditor Options="@_mapped" OnChange="options => _mapped = options" TestId="connected-target-mapped" />
         </div>
     </Story>
 
@@ -68,6 +78,32 @@
     private ConnectedTargetOptions _completing =
         new("GitHub", "JSdotNet/Backlog", CompleteAtSource: true) { Icon = "github", LastSynced = "5 Oct 2026 09:15", CanCompleteAtSource = true };
 
+    private ConnectedTargetOptions _mapped =
+        new("spec-manager", "backlog")
+        {
+            LastSynced = "5 Oct 2026 09:20",
+            RepositoryId = "JSdotNet/Backlog",
+            RepositoryChoices =
+            [
+                new SelectorOption("JSdotNet/Backlog", "backlog"),
+                new SelectorOption("JSdotNet/Marketplace", "marketplace"),
+            ],
+            StatusChoices =
+            [
+                new SelectorOption("Draft", "Draft"),
+                new SelectorOption("Ready", "Ready"),
+                new SelectorOption("InProgress", "In progress"),
+                new SelectorOption("Done", "Done"),
+                new SelectorOption("Archived", "Archived"),
+            ],
+            StatusRows =
+            [
+                new SourceStatusRow("Idee", "Default (Ready)"),
+                new SourceStatusRow("Verfijnd", "Default (In progress)", "Ready"),
+                new SourceStatusRow("Gereed", "Default (Done)"),
+            ],
+        };
+
     private static readonly ConnectedTargetOptions CannotComplete =
         new("Jira", "PROJ") { LastSynced = "5 Oct 2026 08:40" };
 
@@ -95,6 +131,18 @@
 
     private const string CompleteCode = """
         <ConnectedTargetEditor Options="@(options with { CanCompleteAtSource = connector.Capabilities.CanComplete })"
+                               OnChange="Save" />
+        """;
+
+    private const string MappingCode = """
+        <ConnectedTargetEditor Options="@(options with
+                               {
+                                   RepositoryId = target.RepositoryId,
+                                   RepositoryChoices = registryRepositories,
+                                   TargetIsRepository = connector.Capabilities.TargetIsRepository,
+                                   StatusRows = [new("Verfijnd", "Default (In progress)", "Ready"), ...],
+                                   StatusChoices = taskStatuses,
+                               })"
                                OnChange="Save" />
         """;
 

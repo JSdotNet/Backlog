@@ -21,6 +21,15 @@
     its REST interface does not take. One that lists nothing, or cannot list, is
     typed into, and the field says why when the connector said.
 
+    Each card offers the registry's repositories (IRepositoryDirectory) for the
+    target's new tasks to be filed under, and one row per status its source lists
+    (ITaskConnector.ListSourceStatusesAsync), asked once per card while the page is
+    open, each mapped to a task status or left to the default its normalised state
+    gives (NormalisedSourceStates.DefaultTaskStatus). A source that lists none, or
+    fails to, gets no rows, and its stored mappings are kept as they are; a stored
+    mapping a source that does list its statuses no longer lists is still a row,
+    saying so, so it can be cleared.
+
     Disconnecting keeps a target's tasks, so the sources that left tasks behind are
     listed under the cards, each with a confirmed "Delete tasks"
     (IDisconnectedLinkedTasks). Nothing is listed in a host without that port.
@@ -147,7 +156,8 @@ else
                                            OnChange="options => Change(target, options)"
                                            OnSyncNow="@(Sync is null ? default(EventCallback<ConnectedTargetOptions>) : EventCallback.Factory.Create<ConnectedTargetOptions>(this, _ => SyncNowAsync(target)))"
                                            OnRemove="_ => RemoveAsync(target)"
-                                           TestId="task-connector-target-card" />
+                                           TestId="task-connector-target-card"
+                                           IdPrefix="@IdPrefixOf(target)" />
                 }
             </div>
         }
@@ -296,6 +306,11 @@ else
 
     private static string KeyOf(ConnectedTarget target) => $"{target.ConnectorId}/{target.Target}";
 
+    /// <summary>The prefix of a card's select ids: the card's own, so each label
+    /// points at its own card's select when several cards share a test id.</summary>
+    private static string IdPrefixOf(ConnectedTarget target) =>
+        "task-connector-" + string.Concat(KeyOf(target).ToLowerInvariant().Select(c => char.IsAsciiLetterOrDigit(c) ? c : '-'));
+
     private static string KeyOf(DisconnectedSource source) => $"{source.ConnectorId}/{source.Target}";
 
     private static string TaskCount(int count) => count == 1 ? "1 task" : $"{count} tasks";
@@ -320,8 +335,80 @@ else
             _accountHandlers.Add((signIn, changed));
         }
 
+        LoadStatuses();
         await LoadChoicesAsync();
         await RefreshDisconnectedAsync();
+    }
+
+    /// <summary>
+    /// The statuses each connected target's source lists, by <see cref="KeyOf(ConnectedTarget)"/>,
+    /// as last answered. A target not in here is still being asked, and its card
+    /// draws no Statuses group meanwhile.
+    /// </summary>
+    private readonly Dictionary<string, IReadOnlyList<SourceStatus>> _statuses = new(StringComparer.Ordinal);
+
+    /// <summary>The latest status request per target, numbered from
+    /// <see cref="_statusRequest"/>, so only that one lands — an answer from before a
+    /// sign-in, or for a target since disconnected, is dropped.</summary>
+    private readonly Dictionary<string, int> _statusRequests = new(StringComparer.Ordinal);
+
+    /// <summary>Numbers the status requests across every target, so a target
+    /// connected again never takes an answer asked for before it was removed.</summary>
+    private int _statusRequest;
+
+    /// <summary>
+    /// Asks every connected target not yet asked — or, given a connector id, every
+    /// target of that connector again — which statuses its source lists. Once per
+    /// card while the page is open: a target connected here or elsewhere is asked
+    /// when it appears, and a sign-in asks its connector's targets again, since a
+    /// source may list its statuses only while signed in.
+    /// <para>
+    /// Started and not awaited: each answer draws its own card when it lands, so a
+    /// source slow to answer — spec-manager may take its whole time budget — never
+    /// holds up the connect form's choices or the disconnected list. Never throws
+    /// into the page: a connector that fails lists none
+    /// (LinkedTaskSources.ListStatusesAsync). Called on the renderer's thread.
+    /// </para>
+    /// </summary>
+    private void LoadStatuses(string? againFor = null)
+    {
+        var connected = Targets?.List() ?? [];
+
+        // A target disconnected elsewhere is forgotten, so connecting it again asks afresh.
+        foreach (var key in _statusRequests.Keys.Where(key => !connected.Any(target => KeyOf(target) == key)).ToList())
+        {
+            _statuses.Remove(key);
+            _statusRequests.Remove(key);
+        }
+
+        var asked = connected
+            .Where(target => againFor is null
+                ? !_statusRequests.ContainsKey(KeyOf(target))
+                : string.Equals(target.ConnectorId, againFor, StringComparison.Ordinal))
+            .Select(target => (Target: target, Request: _statusRequests[KeyOf(target)] = ++_statusRequest))
+            .ToList();
+
+        foreach (var (target, request) in asked) _ = LoadStatusesOfAsync(target, request);
+    }
+
+    /// <summary>One target's statuses, drawn when they land — unless a newer
+    /// request for the target was made since, or the target was disconnected.</summary>
+    private async Task LoadStatusesOfAsync(ConnectedTarget target, int request)
+    {
+        IReadOnlyList<SourceStatus> statuses;
+        try
+        {
+            statuses = await Sources.ListStatusesAsync(target.ConnectorId, target.Target, _lifetime.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        var key = KeyOf(target);
+        if (_disposed || _statusRequests.GetValueOrDefault(key) != request) return;
+        _statuses[key] = statuses;
+        StateHasChanged();
     }
 
     /// <summary>What each sign-in's AccountChanged is handled by, kept so Dispose
@@ -340,6 +427,7 @@ else
         if (_disposed) return;
 
         StateHasChanged();
+        LoadStatuses(againFor: connectorId);
         if (string.Equals(connectorId, _connectorId, StringComparison.Ordinal))
         {
             await LoadChoicesAsync();
@@ -405,6 +493,7 @@ else
         StateHasChanged();
         if (SamePairs(Targets?.List() ?? [], _listedAgainst)) return;
 
+        LoadStatuses();
         await RefreshDisconnectedAsync();
         StateHasChanged();
     });
@@ -531,7 +620,60 @@ else
             LastSynced = target.LastSyncedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
             LastSyncError = target.LastSyncError,
             LastSyncFailed = target.LastSyncFailedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
+            RepositoryId = target.RepositoryId,
+            RepositoryChoices = RepositoryChoices,
+            TargetIsRepository = Sources.TargetIsRepository(target.ConnectorId),
+            StatusRows = StatusRowsOf(target),
+            StatusChoices = StatusChoices,
         };
+
+    /// <summary>Where the registry's repositories come from, or null in a host that
+    /// keeps none.</summary>
+    private IRepositoryDirectory? RepositoryDirectory => Services.GetService<IRepositoryDirectory>();
+
+    /// <summary>The registry's repositories, stored by <c>owner/name</c> and named by
+    /// the alias every other picker reads.</summary>
+    private IReadOnlyList<SelectorOption> RepositoryChoices =>
+        [.. (RepositoryDirectory?.Repositories ?? [])
+            .Select(repository => new SelectorOption(
+                repository.Id,
+                string.IsNullOrWhiteSpace(repository.Alias) ? repository.Id : repository.Alias))];
+
+    /// <summary>The task statuses a source status may be mapped to, stored by the
+    /// status's name.</summary>
+    private static readonly IReadOnlyList<SelectorOption> StatusChoices =
+        [.. Enum.GetValues<EntryStatus>().Select(status => new SelectorOption(status.ToString(), StatusLabel(status)))];
+
+    private static string StatusLabel(EntryStatus status) => status switch
+    {
+        EntryStatus.InProgress => "In progress",
+        _ => status.ToString(),
+    };
+
+    /// <summary>
+    /// One row per status the target's source lists, in its order, each with what
+    /// the map gives it and the default its state gives — then one per stored
+    /// mapping whose name the source no longer lists, so it can still be cleared.
+    /// None while the source is still being asked, and none when it lists nothing —
+    /// signed out, refused, or failing — because a source that cannot be reached
+    /// has not stopped listing anything: its stored mappings are kept, undrawn
+    /// (MapOf leaves a mapping with no row alone).
+    /// </summary>
+    private IReadOnlyList<SourceStatusRow> StatusRowsOf(ConnectedTarget target)
+    {
+        if (!_statuses.TryGetValue(KeyOf(target), out var listed) || listed.Count == 0) return [];
+
+        var rows = listed
+            .Select(status => new SourceStatusRow(
+                status.Name,
+                $"Default ({StatusLabel(NormalisedSourceStates.DefaultTaskStatus(status.State))})",
+                target.MappedStatusOf(status.Name)?.ToString()))
+            .ToList();
+        rows.AddRange(target.StatusMap
+            .Where(mapping => !listed.Any(status => string.Equals(status.Name.Trim(), mapping.Key, StringComparison.OrdinalIgnoreCase)))
+            .Select(mapping => new SourceStatusRow(mapping.Key, "Default (no longer listed)", mapping.Value.ToString())));
+        return rows;
+    }
 
     private async Task ConnectAsync()
     {
@@ -553,6 +695,8 @@ else
         _target = string.Empty;
 
         // Connected again, a source is no longer one whose tasks can be deleted here.
+        // And the new card asks its source for the statuses its map is offered.
+        LoadStatuses();
         await RefreshDisconnectedAsync();
     }
 
@@ -566,7 +710,34 @@ else
             CompleteAtSource = options.CompleteAtSource,
             SyncInterval = TimeSpan.FromMinutes(options.SyncIntervalMinutes),
             SkipUntouchedOlderThan = options.SkipUntouchedOlderThanDays is { } days ? TimeSpan.FromDays(days) : null,
+            RepositoryId = options.RepositoryId,
+            StatusMap = MapOf(stored.StatusMap, options.StatusRows),
         });
+    }
+
+    /// <summary>
+    /// The stored map with each row the card drew laid over it: a row mapped sets
+    /// its name, a row on the default removes it. A mapping the card drew no row
+    /// for — its source still being asked — is kept as stored, so a switch flipped
+    /// before the statuses arrive never clears the map.
+    /// </summary>
+    private static Dictionary<string, EntryStatus> MapOf(IReadOnlyDictionary<string, EntryStatus> stored, IReadOnlyList<SourceStatusRow> rows)
+    {
+        var map = new Dictionary<string, EntryStatus>(stored, StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            var name = row.Name.Trim();
+            if (Enum.TryParse<EntryStatus>(row.Mapped, ignoreCase: false, out var status) && Enum.IsDefined(status))
+            {
+                map[name] = status;
+            }
+            else
+            {
+                map.Remove(name);
+            }
+        }
+
+        return map;
     }
 
     private async Task RemoveAsync(ConnectedTarget target)
@@ -575,7 +746,9 @@ else
         _syncMessages.Remove(KeyOf(target));
         _message = error ?? $"Disconnected {target.Target}. Its tasks stay on the list as they are.";
 
-        // Its tasks are now a disconnected source's, which can be deleted below.
+        // Its tasks are now a disconnected source's, which can be deleted below. What
+        // its source listed is forgotten, so connecting it again asks afresh.
+        LoadStatuses();
         await RefreshDisconnectedAsync();
     }
 

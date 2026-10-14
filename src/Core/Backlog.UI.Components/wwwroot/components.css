@@ -1255,6 +1255,29 @@ button.badge:hover {
     margin-top: var(--spacing-sm);
 }
 
+/* The source's statuses, one select each, as one group under the options: a
+   fieldset for the grouping, with the browser's own frame taken off so it reads
+   as a section of the card rather than a box inside it. */
+.connected-target__mapping {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    margin: var(--spacing-md) 0 0;
+    padding: 0;
+    border: 0;
+}
+
+.connected-target__mapping-title {
+    padding: 0;
+    font-weight: var(--font-weight-semibold);
+}
+
+.connected-target__mapping-help {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
 .connected-target__actions {
     display: flex;
     flex-wrap: wrap;
@@ -4016,6 +4039,17 @@ button.devbook-chip__label:focus-visible {
    a remark is shorter than its block. The separation the gap used to give is
    spent as padding inside the column instead, where the rule can sit in it.
 */
+/*
+   The surface the margin measures itself against: whether there is room for a
+   second column is a question about the width the view is drawn in, not about the
+   window. See the fallback below. Inside a file view the view gives this up to the
+   file view (.file-view:has(> .file-view__body--notes)), so the rows, the header
+   and the card all answer to one box.
+*/
+.md-view--margin {
+    container: md-margin / inline-size;
+}
+
 .md-view--margin .md-block-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 18rem;
@@ -4032,8 +4066,16 @@ button.devbook-chip__label:focus-visible {
    and the prose, so the only edge in the pane was the remark's own border — which
    is how a callout looks, not how a margin note looks. The rule is the boundary
    the column was relying on the reader to infer.
+
+   Positioned so it paints, and takes the pointer, above its own block. The block
+   is positioned for its corner controls and the cell was not, so wherever the
+   block overflowed its track — its affordance padding cannot shrink — the block
+   was drawn over the remark's Save and Delete and swallowed their clicks. A
+   positioned cell later in the row wins that by source order, with no z-index to
+   keep in step.
 */
 .md-view--margin .md-block-row__notes {
+    position: relative;
     padding-inline: var(--spacing-md);
     border-inline-start: var(--border-width) solid var(--color-border);
 }
@@ -4067,8 +4109,22 @@ button.devbook-chip__label:focus-visible {
    Below this the second column costs more than it is worth: a margin note in a
    phone-width gutter is an inline note that has been made harder to read. It
    falls back on its own rather than asking the caller to notice.
+
+   Asked of the surface and not of the window. This was a viewport query, and a
+   Devbook side pane is a 24–44rem track on a screen nineteen hundred pixels wide:
+   the query never fired there, the 18rem track left the prose 16px at the pane's
+   minimum, and the block spilled over the remark beside it. 48rem is the `md`
+   breakpoint (.devbook/design/typography-and-layout.md#layout-grid-and-breakpoints)
+   the status column is withdrawn at. At the narrowest file view that keeps the
+   column, the block's track is 29rem — 48 less the body's 1rem leading padding
+   and the 18rem column — and the prose about 26rem once the block's 3rem
+   affordance gutter is out of it. The status column's own 48rem is asked of the
+   reading body's content box, 1rem narrower than the file view, so it is already
+   withdrawn there; it comes back past a 49rem file view and takes 7.5rem more,
+   which leaves the prose about 19.5rem at that width. A MarkdownDocument has no
+   leading body padding and no status column: 27rem of prose at its 48rem.
 */
-@media (max-width: 60rem) {
+@container md-margin (max-width: 48rem) {
     .md-view--margin .md-block-row {
         display: block;
     }
@@ -9870,6 +9926,14 @@ select.field__input {
    .file-view__body--notes — and the alternative to asking is for FileView to
    compute the same condition a second time, which is the drift that class exists
    to prevent.
+
+   And it is the container the margin's fallback measures (md-margin, see
+   .md-view--margin). One box for the rows, the header, the body's padding and
+   this card, so there is no width at which the card is drawn for a margin the
+   rows have already stacked. Which is why the card's own border and ground stay
+   off at every width: a container query cannot style its container, so the
+   narrow card is the ::before grown to the whole pane rather than this element
+   painting itself again.
 */
 .file-view:has(> .file-view__body--notes) {
     /* Nothing stands between the prose and this edge: the gutter took the
@@ -9877,12 +9941,20 @@ select.field__input {
        holds no track open either. The header measures from the same value. */
     --file-view-content-end: 0px;
 
+    container: md-margin / inline-size;
     position: relative;
     border-color: transparent;
     background: transparent;
     /* The box keeps its metrics — a transparent border still occupies its width,
        so nothing inside shifts by the border it no longer paints. */
     overflow: visible;
+}
+
+/* The file view is the container here; a second one of the same name on the view
+   would have the rows measure the reading body while the header and the card
+   measure the file view, which differ by the body's leading padding. */
+.file-view__body--notes .md-view--margin {
+    container: none;
 }
 
 .file-view:has(> .file-view__body--notes)::before {
@@ -9929,32 +10001,29 @@ select.field__input {
    over what was left while half the line stood empty.
 
    Here rather than beside the layout it answers, because the rule it withdraws is
-   directly above and the two have to be read together. */
-@media (max-width: 60rem) {
+   directly above and the two have to be read together. The same container and
+   width as the rows' own fallback (md-margin, beside .md-view--margin), so the
+   two cannot disagree about whether there is a column. */
+@container md-margin (max-width: 48rem) {
     .file-view:has(> .file-view__body--notes) > .file-view__header,
     .file-view:has(> .file-view__body--notes) > .file-view__record-fields {
         margin-inline-end: 0;
     }
 
     /* And the card goes back to being the pane, because there is no column
-       beside it to stop short of — including the trailing edge it had given
-       away, which the header reads too. */
-    .file-view:has(> .file-view__body--notes) {
-        --file-view-content-end: var(--spacing-md);
-
-        border-color: var(--color-border);
-        background: var(--color-background);
-        overflow: hidden;
-    }
-
+       beside it to stop short of. Painted by the layer, grown to the whole box
+       and out over the transparent border, so its edge lands where a plain
+       card's border is — the file view itself is the container and cannot be
+       restyled from in here. */
     .file-view:has(> .file-view__body--notes)::before {
-        content: none;
+        inset: calc(-1 * var(--border-width));
     }
 
-    /* The stacked layout draws the inline rule down the left of a remark, which
-       is its own separator and not the card's edge. */
-    .file-view__body--notes .md-view--margin .md-block-row__notes {
-        border-inline-start: none;
+    /* Including the trailing edge it had given away, which the header reads.
+       Set on the children because they are what read it, and the file view is
+       out of this query's reach. */
+    .file-view:has(> .file-view__body--notes) > * {
+        --file-view-content-end: var(--spacing-md);
     }
 
     /* And the body takes its trailing padding back with the edge, or the prose

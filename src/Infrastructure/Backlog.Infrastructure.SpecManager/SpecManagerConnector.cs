@@ -290,12 +290,49 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         {
             return ConnectorTargetChoices.Unavailable(SignInToPick);
         }
-        catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or NotSupportedException
-            || (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
+        catch (Exception ex) when (SpecManagerSignIn.IsUnreachable(ex, cancellationToken))
         {
             _log.LogInformation(ex, "spec-manager would not list the products; the settings page falls back to typing a slug.");
             return ConnectorTargetChoices.Unavailable(
                 "spec-manager would not list your products yet. Type the product's slug instead, as it appears in its spec-manager URL.");
+        }
+    }
+
+    /// <summary>
+    /// The product's statuses in its own order, each by the name an item's
+    /// <see cref="SourceItem.SourceStateName"/> carries and with the state the fetch
+    /// normalises it to — the product's normalisation, unchanged, so each row's
+    /// default on the settings page is what the sync gives without a map. Read
+    /// through the same cached catalog a fetch reads.
+    /// <para>
+    /// None when nobody is signed in or spec-manager refuses or fails the read: the
+    /// page then offers no rows, and the target syncs by the fixed map.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<SourceStatus>> ListSourceStatusesAsync(string target, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(target) || _signIn.Account is null) return [];
+
+        try
+        {
+            var catalog = await CatalogAsync(target.Trim(), [], cancellationToken).ConfigureAwait(false);
+
+            // One row per name as a map key reads it — trimmed, without regard to
+            // case — so two statuses spelled alike do not write one key from two
+            // rows. The first by the product's order is the one listed.
+            return [.. catalog.Ordered
+                .Where(status => !string.IsNullOrWhiteSpace(status.Naam))
+                .DistinctBy(status => status.Naam.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(status => new SourceStatus(status.Naam.Trim(), catalog.StateOf(status)))];
+        }
+        catch (SpecManagerSignInRequiredException)
+        {
+            return [];
+        }
+        catch (Exception ex) when (SpecManagerSignIn.IsUnreachable(ex, cancellationToken))
+        {
+            _log.LogInformation(ex, "spec-manager would not list the statuses of {Product}; the settings page offers no status rows.", target);
+            return [];
         }
     }
 
