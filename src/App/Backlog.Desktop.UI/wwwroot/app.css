@@ -2496,6 +2496,75 @@ h1, h2, h3 {
     border-top: 0;
 }
 
+/* The AI providers page: a row of provider tiles, then the cards in two
+   columns that wrap - Claude's on the left, GitHub's and Azure Foundry's
+   stacked on the right. */
+.ai-providers__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* A provider that is not set up is a place for one, not a figure: dashed,
+   and no fill. */
+.metric-tile.ai-provider-tile--unset {
+    border: var(--border-width) dashed var(--color-border-strong);
+    background: transparent;
+}
+
+.ai-provider-tile__read {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.ai-provider-tile__read--ok {
+    color: var(--color-success-text);
+}
+
+.ai-provider-tile__read--failed {
+    color: var(--color-error-text);
+}
+
+.ai-provider-tile__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-success-text);
+}
+
+.ai-providers__cards {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+}
+
+.ai-providers__column {
+    display: grid;
+    flex: 1 1 22rem;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+/* One feature on draws one column, which a flex row would stretch across the
+   whole shell - fields and all. Kept to the width a settings block keeps
+   elsewhere (.setting-columns). */
+.ai-providers__column:only-child {
+    max-width: 640px;
+}
+
+/* The card's body spaces its children; the warning's own bottom margin is
+   for the pages that place it in plain flow. */
+.settings-card__body > .setting__warning {
+    margin: 0;
+}
+
 /* The Brain card follows the two Storage columns rather than sitting in either,
    so it takes the gap the columns keep between themselves. */
 .setting-columns + .brain-card {
