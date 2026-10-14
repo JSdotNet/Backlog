@@ -431,7 +431,14 @@ from the feature store on every render: a headline of how many features are on
 and how many of those are unfinished (Dev or Beta), three `MetricTile` figures,
 an unpersisted `RadioGroup` filter (All, On, Off, Unfinished), and one
 `SettingsCard` per `AppFeatures.Sections` entry whose titles are the page's
-search list.
+search list. Below the width that holds the menu
+and the page side by side — a container query on the frame's own width, not the
+window's — the screen shows one of them: `settings` is the menu alone as a
+grouped list, each group's pages in one rounded card of 52px rows with a
+chevron and the page's badge value when it has one; `settings/<page>` is the
+page alone at full width, and its back link goes to that list instead of to
+the tasks. The screen tells the frame which address it is on (`PageChosen`);
+the stylesheet decides the width.
 The Repositories page draws the
 working set as the library's `DataTable`, a row per repository, and opens that
 repository's card in place in a detail row under it; `HasRowDetail` keeps the

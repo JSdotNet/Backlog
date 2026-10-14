@@ -20,17 +20,35 @@
     The menu and the page sit in one wrapping flex row, as the Dashboard's columns
     do: the menu takes a column of its own while the panel has room for both, and
     wraps above the page once it has not, with no breakpoint naming the width.
+
+    Below the width where the two no longer fit side by side - asked of the
+    frame's own width through a container query, never the window's - the screen
+    shows one of them, and which one is the address's. Where the address names no
+    page (PageChosen false) the menu is the screen: a grouped list, each group's
+    pages in one rounded card. Where it names one, the page takes the full width
+    with no menu, and the way back goes to that list rather than to the tasks.
+    Both links are in the markup and the stylesheet shows the one the width
+    calls for: a link cannot change its address by CSS, and display: none takes
+    the hidden one out of the tab order and the accessibility tree alike.
 *@
 
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
     <SectionContent SectionName="@HeadlineSection">@Title</SectionContent>
 
     <header class="settings-frame__header">
-        <a class="settings-frame__back"
+        <a class="settings-frame__back settings-frame__back--home"
            href="@BackHref"
            data-testid="back-link"
            title="@BackLabel"
            aria-label="@BackLabel"><span aria-hidden="true">&larr;</span></a>
+        @if (PageChosen)
+        {
+            <a class="settings-frame__back settings-frame__back--menu"
+               href="@MenuHref"
+               data-testid="back-to-menu-link"
+               title="@MenuBackLabel"
+               aria-label="@MenuBackLabel"><span aria-hidden="true">&larr;</span></a>
+        }
 
         <div class="settings-frame__heading">
             @if (!string.IsNullOrWhiteSpace(Eyebrow))
@@ -85,6 +103,23 @@
     [Parameter]
     public string BackLabel { get; set; } = "Back to your tasks";
 
+    /// <summary>Whether the address names a page (<c>settings/storage</c>) rather
+    /// than the screen (<c>settings</c>). Below the width that holds the menu and
+    /// the page side by side, it decides which of the two is shown: the page,
+    /// full width, when one is chosen; the menu as a grouped list when none is.
+    /// Above that width it changes nothing.</summary>
+    [Parameter]
+    public bool PageChosen { get; set; }
+
+    /// <summary>Where the way back goes from a page shown without its menu - the
+    /// grouped list at <c>settings</c>.</summary>
+    [Parameter]
+    public string MenuHref { get; set; } = "settings";
+
+    /// <summary>The accessible name of the way back to the grouped list.</summary>
+    [Parameter]
+    public string MenuBackLabel { get; set; } = "Back to all settings";
+
     /// <summary>The menu: one <see cref="SettingsMenuGroup"/> per group.</summary>
     [Parameter]
     public RenderFragment? Menu { get; set; }
@@ -110,5 +145,12 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "settings-frame" : $"settings-frame {CssClass}";
+    private string ClassValue
+    {
+        get
+        {
+            var mode = PageChosen ? "settings-frame settings-frame--page" : "settings-frame settings-frame--index";
+            return string.IsNullOrWhiteSpace(CssClass) ? mode : $"{mode} {CssClass}";
+        }
+    }
 }

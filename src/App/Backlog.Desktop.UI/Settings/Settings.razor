@@ -69,6 +69,7 @@
 <div class="shell shell--settings">
     <SettingsFrame Title="@ActivePage.Title"
                    Eyebrow="@SettingsPages.Eyebrow(ActivePage.Group)"
+                   PageChosen="@PageChosen"
                    TestId="settings-frame">
         <Menu>
             @foreach (var group in SettingsPages.Menu(OfferedPages, _activeId))
@@ -169,6 +170,12 @@
     /// pages had addresses of their own opens the page it meant.</summary>
     [SupplyParameterFromQuery(Name = "page")]
     public string? Page { get; set; }
+
+    /// <summary>Whether the address names a page, by route or by the older query.
+    /// At phone width <c>settings</c> is the grouped menu on its own and
+    /// <c>settings/storage</c> the page on its own; see <see cref="SettingsFrame.PageChosen"/>.
+    /// Wider than that, both addresses draw the menu beside the page, as before.</summary>
+    private bool PageChosen => !string.IsNullOrWhiteSpace(PageId) || !string.IsNullOrWhiteSpace(Page);
 
     /// <summary>What the pages share - see <see cref="SettingsScreenContext"/>.
     /// Built once, when the screen is, and handed to every page.</summary>

@@ -19674,6 +19674,10 @@ select.field__input {
    stylesheet) - the large radius, the alt surface mixed into the page background,
    and the medium shadow - so the two full-page surfaces read as one family. */
 .settings-frame {
+    /* The frame is the container the phone-width rules below ask, so the panel's
+       own width decides - a Settings screen beside an open pane is as narrow as
+       one on a phone, though the window is not. */
+    container: settings-frame / inline-size;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
@@ -19797,15 +19801,92 @@ select.field__input {
 
 .settings-frame__menu {
     display: grid;
-    flex: 1 1 220px;
+    flex: 1 1 13.75rem;
     gap: var(--spacing-md);
-    max-width: 260px;
+    max-width: 16.25rem;
     min-width: 0;
 }
 
 .settings-frame__content {
-    flex: 999 1 560px;
+    flex: 999 1 35rem;
     min-width: 0;
+}
+
+/* The way back to the grouped list exists only on a page's address, and shows
+   only at phone width; see the container rule below. */
+.settings-frame__back--menu {
+    display: none;
+}
+
+/* Phone width: the menu and the page no longer fit side by side - the menu's
+   13.75rem basis, the --spacing-lg gap and the page's 35rem basis add up to
+   50.25rem, which is where the row above would start to wrap. Rather than wrap
+   the menu above the page, the screen shows one of them, as the address says:
+   the menu alone on settings, the page alone on settings/<page>. Stated in rem
+   so the threshold and the bases move together if the root size changes. */
+@container settings-frame (width < 50.25rem) {
+    .settings-frame--page .settings-frame__menu,
+    .settings-frame--page .settings-frame__back--home,
+    .settings-frame--index .settings-frame__content {
+        display: none;
+    }
+
+    .settings-frame--page .settings-frame__back--menu {
+        display: inline-flex;
+    }
+
+    .settings-frame--page .settings-frame__content {
+        flex-basis: 100%;
+    }
+
+    .settings-frame--index .settings-frame__menu {
+        flex: 1 1 100%;
+        gap: var(--spacing-lg);
+        max-width: none;
+    }
+
+    /* Each group's pages in one rounded card on the alt surface, rows divided by
+       a hairline - the platform's grouped list, which is what a phone reader
+       expects a list of settings to look like. */
+    .settings-frame--index .settings-menu-group__list {
+        gap: 0;
+        overflow: hidden;
+        border: var(--border-width) solid var(--color-border);
+        border-radius: var(--border-radius-md);
+        background: var(--color-background-alt);
+    }
+
+    .settings-frame--index .settings-menu-group__item + .settings-menu-group__item {
+        border-top: var(--border-width) solid var(--color-border);
+    }
+
+    /* 52px rows: comfortably over the 44px target, with room for a badge. */
+    .settings-frame--index .settings-menu-group__link {
+        min-height: 52px;
+        padding: 0 var(--spacing-md);
+        border-radius: 0;
+        color: var(--color-text-primary);
+        font-size: var(--font-size-base);
+    }
+
+    .settings-frame--index .settings-menu-group__link:hover {
+        background: var(--color-background-raised);
+    }
+
+    /* Drawn inside the row: the card clips anything outside it. */
+    .settings-frame--index .settings-menu-group__link:focus-visible {
+        outline-offset: calc(var(--border-width-2) * -1);
+    }
+
+    /* Nothing is on screen beside the list, so no row is the current one. */
+    .settings-frame--index .settings-menu-group__link--current {
+        background: transparent;
+        font-weight: inherit;
+    }
+
+    .settings-frame--index .settings-menu-group__chevron {
+        display: block;
+    }
 }
 
 /* --- Settings menu group ------------------------------------------------- */
@@ -19834,7 +19915,9 @@ select.field__input {
 }
 
 .settings-menu-group__link {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--border-radius-md);
     color: var(--color-text-secondary);
@@ -19856,6 +19939,30 @@ select.field__input {
     background: var(--color-background-raised);
     color: var(--color-text-primary);
     font-weight: var(--font-weight-semibold);
+}
+
+.settings-menu-group__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The value on the right: secondary text in the figures' own widths, so a
+   column of counts lines up. */
+.settings-menu-group__badge {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Shown only in the frame's grouped list at phone width; turned a quarter to
+   point the way the row opens. */
+.settings-menu-group__chevron {
+    display: none;
+    flex: none;
+    color: var(--color-text-secondary);
+    transform: rotate(90deg);
 }
 
 /* --- Settings card ------------------------------------------------------- */

@@ -11,42 +11,54 @@
 
 A host that keeps hidden pages alive cascades SettingsPageActive per page, so only the page on screen writes the headline. Only one frame can be on a page at a time: the headline is a named section, and a section has one outlet.
 
-The menu and the page sit in one wrapping row: narrow the window and the menu wraps above the page with no breakpoint naming the width."
+The menu and the page sit side by side while the frame has room for both. Below that - asked of the frame's own width, not the window's - the frame shows one of them: with no page chosen, the menu alone as a grouped list; with one chosen, the page alone, and the way back goes to the list. Press Phone width to put the frame in a 375px box, and Choose a page to move between the two."
            Code="@FrameCode">
-        <div data-testid="settings-frame-story">
-            <SettingsFrame Title="Features" Eyebrow="Settings · Workspace">
-                <Menu>
-                    <SettingsMenuGroup Label="Workspace" Items="@Workspace" />
-                    <SettingsMenuGroup Label="AI" Items="@Ai" />
-                </Menu>
-                <ChildContent>
-                    @if (_sentence)
-                    {
-                        <SettingsHeadline>Choose which parts of Backlog are switched on.</SettingsHeadline>
-                    }
-                    <div class="sb-stack">
-                        <SettingsCard Title="Product areas" Description="Parts of the product with a screen of their own.">
-                            <Toggle Label="Dashboard" Checked="true" />
-                            <Toggle Label="Inbox pane" />
-                        </SettingsCard>
-                        <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _sentence = !_sentence">
-                            @(_sentence ? "Take the sentence away" : "Give the page its sentence")
-                        </AppButton>
-                    </div>
-                </ChildContent>
-            </SettingsFrame>
+        <div class="sb-stack">
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _phone = !_phone" data-testid="settings-frame-width">
+                    @(_phone ? "Full width" : "Phone width")
+                </AppButton>
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _pageChosen = !_pageChosen" data-testid="settings-frame-mode">
+                    @(_pageChosen ? "Back to the list" : "Choose a page")
+                </AppButton>
+            </div>
+            <div data-testid="settings-frame-story" class="@(_phone ? "sb-phone" : null)">
+                <SettingsFrame Title="Features" Eyebrow="Settings · Workspace" PageChosen="@_pageChosen" BackHref="settings-frame" MenuHref="settings-frame">
+                    <Menu>
+                        <SettingsMenuGroup Label="Workspace" Items="@Workspace" />
+                        <SettingsMenuGroup Label="AI" Items="@Ai" />
+                    </Menu>
+                    <ChildContent>
+                        @if (_sentence)
+                        {
+                            <SettingsHeadline>Choose which parts of Backlog are switched on.</SettingsHeadline>
+                        }
+                        <div class="sb-stack">
+                            <SettingsCard Title="Product areas" Description="Parts of the product with a screen of their own.">
+                                <Toggle Label="Dashboard" Checked="true" />
+                                <Toggle Label="Inbox pane" />
+                            </SettingsCard>
+                            <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _sentence = !_sentence">
+                                @(_sentence ? "Take the sentence away" : "Give the page its sentence")
+                            </AppButton>
+                        </div>
+                    </ChildContent>
+                </SettingsFrame>
+            </div>
         </div>
     </Story>
 </StoryPage>
 
 @code {
     private bool _sentence = true;
+    private bool _phone;
+    private bool _pageChosen;
 
     private static readonly SettingsMenuItem[] Workspace =
     [
         new("features", "Features", "settings-frame", Current: true),
         new("storage", "Storage & backup", "settings-frame"),
-        new("repositories", "Repositories", "settings-frame"),
+        new("repositories", "Repositories", "settings-frame", Badge: "4"),
         new("accounts", "GitHub accounts", "settings-frame")
     ];
 
@@ -65,7 +77,7 @@ The menu and the page sit in one wrapping row: narrow the window and the menu wr
     ];
 
     private const string FrameCode = """
-        <SettingsFrame Title="@page.Title" Eyebrow="Settings · Workspace">
+        <SettingsFrame Title="@page.Title" Eyebrow="Settings · Workspace" PageChosen="@(pageId is not null)">
             <Menu>
                 <SettingsMenuGroup Label="Workspace" Items="@workspace" />
             </Menu>

@@ -10,4 +10,6 @@ namespace Backlog.UI.Components.Settings;
 /// <param name="Href">The page's address, as the host routes it.</param>
 /// <param name="Current">Whether this is the page on screen. The current link
 /// carries <c>aria-current="page"</c>.</param>
-public sealed record SettingsMenuItem(string Id, string Label, string Href, bool Current = false);
+/// <param name="Badge">A short value shown on the right of the item - a count or
+/// a state. Null or blank draws nothing, not an empty pill.</param>
+public sealed record SettingsMenuItem(string Id, string Label, string Href, bool Current = false, string? Badge = null);

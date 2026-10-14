@@ -226,6 +226,48 @@ public sealed class SettingsSectionRenderingTests
         Assert.NotNull(settings.Component.Find("[data-testid='settings-search-slot']"));
     }
 
+    // Which part shows at phone width is the frame's container query; the screen's
+    // part is telling the frame whether the address names a page, which these pin.
+
+    [Fact]
+    public void Settings_with_no_page_in_its_address_is_the_grouped_list_at_phone_width()
+    {
+        using var settings = RenderSettings();
+
+        var frame = settings.Component.Find("[data-testid='settings-frame']");
+        Assert.Contains("settings-frame--index", frame.ClassList);
+        Assert.Empty(settings.Component.FindAll("[data-testid='back-to-menu-link']"));
+
+        // The headline over the list is the Features page's sentence, which
+        // /settings opens: the page is hidden at phone width but still on screen
+        // as far as the cascade goes, so it writes the headline.
+        Assert.EndsWith("of them still unfinished.", Headline(settings.Component));
+    }
+
+    [Fact]
+    public void An_address_naming_a_page_shows_the_page_alone_at_phone_width_with_a_way_back_to_the_list()
+    {
+        using var settings = RenderSettings();
+
+        SettingsMenu.Open(settings.Component, "Storage & backup");
+
+        Assert.Contains("settings-frame--page", settings.Component.Find("[data-testid='settings-frame']").ClassList);
+        Assert.Equal("settings", settings.Component.Find("[data-testid='back-to-menu-link']").GetAttribute("href"));
+
+        SettingsMenu.Navigate(settings.Component, null);
+
+        Assert.Contains("settings-frame--index", settings.Component.Find("[data-testid='settings-frame']").ClassList);
+        Assert.Empty(settings.Component.FindAll("[data-testid='back-to-menu-link']"));
+    }
+
+    [Fact]
+    public void An_older_query_link_names_a_page_too()
+    {
+        using var settings = RenderSettings([], inboxPane: false, navigateTo: "settings?page=storage");
+
+        Assert.Contains("settings-frame--page", settings.Component.Find("[data-testid='settings-frame']").ClassList);
+    }
+
     private static string Headline(IRenderedComponent<Settings> component) =>
         component.Find("h1").TextContent.Trim();
 
