@@ -2496,6 +2496,37 @@ h1, h2, h3 {
     border-top: 0;
 }
 
+/* Storage & backup: the folder field with Browse beside it, wrapping under it
+   once the card is too narrow for both. */
+.storage-folder {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* The bare field emits its label beside the input; the label keeps a line of
+   its own above the field and the button. */
+.storage-folder > label {
+    flex-basis: 100%;
+}
+
+.storage-folder > .setting__input {
+    flex: 1 1 16rem;
+    min-width: 0;
+}
+
+/* A folder path is read character by character, so it is set in the mono font. */
+.setting__input--mono {
+    font-family: var(--font-family-mono);
+}
+
+/* The snapshot folder sits inside the folder card, under a hairline rather than
+   at the top of a column of its own. */
+.storage-cards .devbook-folders {
+    margin-top: var(--spacing-xs);
+}
+
 /* The Brain card follows the two Storage columns rather than sitting in either,
    so it takes the gap the columns keep between themselves. */
 .setting-columns + .brain-card {
@@ -2762,43 +2793,61 @@ h1, h2, h3 {
 }
 
 
-/* Thirteen flags stacked one per row is what made this the tallest tab on the
-   page. A flag needs room for its title and a line or two of description, which
-   minmax puts at 22rem, and the same auto-fit collapse returns it to one column
-   on a window that cannot hold two. */
-.feature-flags {
+/* The Features page: the design canvas's Features board. The headline is the
+   frame's; the page draws three figure tiles, the filter, and a card per section
+   of the catalog, stacked. */
+.feature-board {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-md);
+    gap: var(--spacing-md);
+    min-width: 0;
 }
 
-/* The note the usage-metrics flag brings with it is about that flag, not about
-   the column the flag happens to land in, so it takes the full width beneath
-   the row instead of standing in for a flag in the next cell. */
-.feature-flags > .setting__note {
-    grid-column: 1 / -1;
-    margin-top: 0;
+/* Three across while there is room for three, one column on a window that
+   cannot hold them. */
+.feature-board__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+    gap: var(--spacing-md);
 }
 
-/* The heading over each half of the flag list. Smaller than .setting__title:
-   that one names the tab, and a section heading that matched it would read as a
-   second page rather than a division of this one. The first heading loses its
-   top margin because the tab's own description is already directly above it. */
-.feature-group__title {
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-base);
-    margin: var(--spacing-lg) 0 0;
+/* The always-available tile holds names rather than a count, and a list of
+   names has to wrap where a number never does. */
+.feature-board__names .metric-tile__value {
+    overflow-wrap: anywhere;
 }
 
-.feature-group__title:first-of-type {
-    margin-top: var(--spacing-md);
+/* The filter's chips are pills, and the chosen one is filled. Three classes so
+   the fill outranks .btn--toggle's own pressed and hover rules. */
+.radio-group.feature-filter .feature-filter__option {
+    border-radius: var(--border-radius-full);
 }
 
-.feature-group__description {
-    margin: var(--spacing-2xs) 0 0;
+.radio-group.feature-filter .feature-filter__option--checked,
+.radio-group.feature-filter .feature-filter__option--checked:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.feature-card__count {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* One row per flag inside its card: the card is already a column of the page,
+   and a second grid inside it put two descriptions side by side at a width
+   neither could be read at. */
+.feature-flags {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+/* The note the usage-metrics flag brings with it sits directly under that
+   flag's row. */
+.feature-flags > .setting__note {
+    margin-top: 0;
 }
 
 /* The GitHub accounts page's list: one row per account in a grid that wraps on
@@ -2908,6 +2957,63 @@ h1, h2, h3 {
 
 .repo-card--primary {
     border-color: var(--color-primary);
+}
+
+/* --- Settings · Repositories table ----------------------------------------- */
+
+/* The scroll box is the container the open card is measured against: the table
+   can be wider than the box at a narrow width, and the card under a row must stay
+   the width of what is on screen rather than of the table behind it. */
+.repo-table .data-table__scroll {
+    container-type: inline-size;
+}
+
+.repo-table__alias {
+    font-weight: 500;
+}
+
+/* The repository's band colour, as a 10px square before its alias. The hue comes
+   from the swatch modifier the colour picker itself wears, so the two cannot
+   name different colours. Decoration only: the alias beside it is the name. */
+.repo-table__mark {
+    display: inline-block;
+    width: 0.625rem;
+    height: 0.625rem;
+    margin-right: var(--spacing-xs);
+    border-radius: var(--border-radius-none);
+    background: var(--repo-mark-color, var(--color-border));
+    vertical-align: baseline;
+}
+
+.repo-table__edit,
+.repo-table__edit-heading {
+    width: 1%;
+    text-align: right;
+}
+
+/* The heading over the Edit buttons is for a screen reader; nothing is printed
+   above a column of buttons. */
+.repo-table .data-table__table thead th.repo-table__edit-heading {
+    font-size: 0;
+}
+
+/* The open row's card: held to the visible width of the box and pinned to its
+   left edge, so a table scrolled sideways does not carry half the card out of
+   view. The detail row does not light up with the row: it is a form to work in,
+   not a part of the row to point at. */
+.repo-table .data-table__row-detail > td > .repo-card {
+    position: sticky;
+    left: 0;
+    box-sizing: border-box;
+    width: calc(100cqi - 2 * var(--spacing-sm));
+    margin: 0 var(--spacing-sm) var(--spacing-sm);
+    padding: var(--spacing-md);
+}
+
+.repo-table .data-table__row-detail,
+.repo-table .data-table__row-detail:hover,
+.repo-table .data-table__row:hover + .data-table__row-detail {
+    background: transparent;
 }
 
 .repo-card__header {

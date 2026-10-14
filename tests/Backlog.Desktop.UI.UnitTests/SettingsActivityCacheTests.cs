@@ -26,7 +26,7 @@ public sealed class SettingsActivityCacheTests
     public void EachRepositoryOffersToForgetItsSavedPullRequests()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var section = settings.Component.Find("[data-testid='repo-activity-cache']");
 
@@ -51,7 +51,7 @@ public sealed class SettingsActivityCacheTests
     public void ForgettingDropsOnlyTheRepositoryWhoseCardItIsOn()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         settings.Component.Find("[data-testid='repo-activity-cache-forget']").Click();
 
@@ -66,7 +66,7 @@ public sealed class SettingsActivityCacheTests
     public void ForgettingDropsTheListingWithTheDetail()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         settings.Component.Find("[data-testid='repo-activity-cache-forget']").Click();
 
@@ -77,13 +77,12 @@ public sealed class SettingsActivityCacheTests
     public void TheOtherRepositoryIsForgottenOnlyWhenItsOwnCardAsks()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
-        // Move to the second repository's subpage and use the control there.
-        settings.Component
-            .FindAll("[data-testid='repo-subpage-tab']")
-            .Single(tab => tab.TextContent.Contains("spec-manager", StringComparison.Ordinal))
-            .Click();
+        // Open the second repository's row and use the control there. The first
+        // row's card closes as it opens: one row is open at a time.
+        SettingsMenu.EditRepository(settings.Component, "spec-manager");
+        Assert.Single(settings.Component.FindAll("[data-testid='repo-activity-cache-forget']"));
 
         settings.Component.Find("[data-testid='repo-activity-cache-forget']").Click();
 
@@ -94,7 +93,7 @@ public sealed class SettingsActivityCacheTests
     public void TheSectionSaysSoOnceItHasBeenForgotten()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         settings.Component.Find("[data-testid='repo-activity-cache-forget']").Click();
 
@@ -104,8 +103,8 @@ public sealed class SettingsActivityCacheTests
             StringComparison.Ordinal));
     }
 
-    private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        SettingsMenu.Open(component, "Repositories");
+    private static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
+        SettingsMenu.OpenRepository(component);
 
     private static SettingsRenderContext RenderSettings()
     {

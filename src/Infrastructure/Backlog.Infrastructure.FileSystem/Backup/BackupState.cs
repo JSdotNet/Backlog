@@ -23,6 +23,24 @@ public sealed record BackupState(
 {
     /// <summary>A machine that has never tried.</summary>
     public static BackupState None { get; } = new(null, null, false, null);
+
+    /// <summary>
+    /// How many days this machine has committed a copy on, which is how many
+    /// daily copies the repository's history is keeping of it. Every commit
+    /// stays in that history, so the count only grows; a second commit on a day
+    /// that already has one does not add a day.
+    /// <para>
+    /// Counted here rather than asked of GitHub, because the settings screen
+    /// shows it without a network round trip. A state file written before the
+    /// count existed reads as zero, and the screen shows at least one copy for
+    /// a machine that has backed up at all.
+    /// </para>
+    /// </summary>
+    public int DailyCopies { get; init; }
+
+    /// <summary>When this machine last committed a copy, or null while it never
+    /// has. What <see cref="DailyCopies"/> compares a new commit's day with.</summary>
+    public DateTimeOffset? LastCopyAt { get; init; }
 }
 
 /// <summary>Where <see cref="BackupState"/> is kept between runs.</summary>

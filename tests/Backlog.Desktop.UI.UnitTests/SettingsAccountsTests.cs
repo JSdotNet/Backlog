@@ -103,7 +103,7 @@ public sealed class SettingsAccountsTests
         using var settings = RenderSettings(seed: store =>
             Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet")])));
 
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
         settings.Component.Find("[data-testid='repo-account-select'] select").Change("JSdotNet");
 
         Assert.Equal("JSdotNet", settings.GitHub.Current.Find("backlog")!.Account);
@@ -122,7 +122,7 @@ public sealed class SettingsAccountsTests
             Assert.Null(store.SetRepositoryAccount("backlog", "JSdotNet"));
         });
 
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
         settings.Component.Find("[data-testid='repo-account-select'] select").Change(string.Empty);
 
         Assert.Null(settings.GitHub.Current.Find("backlog")!.Account);
@@ -151,8 +151,8 @@ public sealed class SettingsAccountsTests
         Assert.Contains("innovadis-dev/spec-manager", reported);
         Assert.Contains("j-schepers_innobv", reported);
 
-        OpenRepositoriesTab(settings.Component);
-        ShowRepositorySubpage(settings.Component, "spec");
+        OpenRepositoryCard(settings.Component);
+        SettingsMenu.EditRepository(settings.Component, "spec");
 
         settings.Component.WaitForAssertion(() =>
         {
@@ -324,7 +324,7 @@ public sealed class SettingsAccountsTests
             Assert.Null(store.SetRepositoryAccount("spec", "j-schepers_innobv"));
         });
 
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var retyped = settings.GitHub.Current.ToText() + "\ndocs = JSdotNet/Backlog-docs";
         settings.Component.Find("[data-testid='github-repos-input']").Input(retyped);
@@ -544,14 +544,8 @@ public sealed class SettingsAccountsTests
     private static void OpenAccountsTab(IRenderedComponent<Settings> component) =>
         SettingsMenu.Open(component, "GitHub accounts");
 
-    private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        SettingsMenu.Open(component, "Repositories");
-
-    private static void ShowRepositorySubpage(IRenderedComponent<Settings> component, string alias) =>
-        component.FindAll("[data-testid='repo-subpage-tab']")
-            .Single(tab => tab.TextContent.Trim().Contains(alias, StringComparison.OrdinalIgnoreCase)
-                           || tab.TextContent.Trim().EndsWith(alias, StringComparison.OrdinalIgnoreCase))
-            .Click();
+    private static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
+        SettingsMenu.OpenRepository(component);
 
     /// <summary>
     /// The card's "Test this account": the probe is asked for the card's own account
