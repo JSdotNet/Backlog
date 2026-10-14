@@ -188,9 +188,11 @@ public sealed record GitHubOpenPullRequest(
 
     /// <summary>The head commit's checks one by one — every check run and commit
     /// status, in the order GitHub lists them, up to
-    /// <see cref="GitHubClient.HeadCheckLimit"/>. Empty where it has none or the token
-    /// was refused them. <see cref="CheckCounts"/> still counts every check, so a commit
-    /// with more than the limit says how many are not listed here.</summary>
+    /// <see cref="GitHubClient.HeadCheckLimit"/>, or every one of them where a failed
+    /// check lies past that limit, so <see cref="FailedWorkflowRunIds"/> names every
+    /// failed run. Empty where it has none or the token was refused them.
+    /// <see cref="CheckCounts"/> still counts every check, so a commit with more than
+    /// the limit says how many are not listed here.</summary>
     public IReadOnlyList<GitHubCheck> HeadChecks { get; init; } = [];
 
     /// <summary>How many commits the base branch has that the head branch does not;

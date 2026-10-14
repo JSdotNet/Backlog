@@ -303,6 +303,48 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
             transport.Paths);
     }
 
+    /// <summary>A failed Actions run past the first fifty checks the list reads is
+    /// paged in by the read, so the act the list offers re-runs it too.</summary>
+    [Fact]
+    public async Task Re_running_failed_checks_reaches_a_failed_run_past_the_first_fifty()
+    {
+        var listed = string.Join(",", Enumerable.Range(1, GitHubClient.HeadCheckLimit).Select(index => CheckRunNode($"job-{index}", "SUCCESS", 1000 + index)));
+        var node = $$"""
+            { "id": "PR_9", "number": 9, "title": "#9", "url": "https://github.com/x/y/pull/9",
+              "isDraft": false, "headRefName": "branch-9", "headRefOid": "sha9", "baseRefName": "main",
+              "mergeStateStatus": "BLOCKED", "mergeable": "MERGEABLE", "viewerDidAuthor": true, "author": { "login": "JSdotNet" },
+              "autoMergeRequest": null, "updatedAt": "2026-10-01T08:00:00Z",
+              "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" }, "checkCounts": { "contexts": {
+                "totalCount": 51,
+                "checkRunCountsByState": [ { "state": "SUCCESS", "count": 50 }, { "state": "FAILURE", "count": 1 } ],
+                "statusContextCountsByState": [],
+                "nodes": [ {{listed}} ] } } } } ] } }
+            """;
+        var page = $$"""
+            { "data": { "repository": { "object": { "statusCheckRollup": { "contexts": {
+                "pageInfo": { "hasNextPage": false, "endCursor": null },
+                "nodes": [ {{listed}}, {{CheckRunNode("late", "FAILURE", 4242)}} ] } } } } } }
+            """;
+        var transport = new RoutingTransport()
+            .ReturnsInTurn("graphql", List(node), """{ "data": { "repository": { "c0": { "compare": { "behindBy": 0 } } } } }""", page)
+            .Returns(HttpMethod.Post, "rerun-failed-jobs", "{}");
+        var integration = Integration(transport);
+
+        var listing = await integration.ListOpenPullRequestsAsync([Backlog], TestContext.Current.CancellationToken);
+        var pull = Assert.Single(listing.PullRequests);
+        Assert.True(pull.CanRerunFailed);
+
+        await integration.RerunFailedChecksAsync(pull, TestContext.Current.CancellationToken);
+
+        Assert.Equal("repos/JSdotNet/Backlog/actions/runs/4242/rerun-failed-jobs", transport.Paths[^1]);
+    }
+
+    private static string CheckRunNode(string name, string conclusion, long run) => $$"""
+        { "__typename": "CheckRun", "name": "{{name}}", "status": "COMPLETED", "conclusion": "{{conclusion}}",
+          "startedAt": "2026-10-01T09:00:00Z", "completedAt": "2026-10-01T09:01:00Z", "detailsUrl": null,
+          "checkSuite": { "app": { "slug": "github-actions" }, "workflowRun": { "databaseId": {{run}} } } }
+        """;
+
     [Fact]
     public async Task Re_running_with_no_failed_actions_run_asks_github_nothing()
     {

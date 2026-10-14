@@ -319,6 +319,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     [InlineData("failing-other-check", "FailingChecks", new[] { "pull-request-open-on-github" }, null)]
     [InlineData("changes-requested", "ChangesRequested", new[] { "pull-request-open-review" }, null)]
     [InlineData("behind", "Behind", new[] { "pull-request-merge", "pull-request-update-branch" }, "Merge when ready")]
+    [InlineData("behind-by", "Ready", new[] { "pull-request-update-branch", "pull-request-merge" }, "Merge when ready")]
     [InlineData("draft", "Draft", new[] { "pull-request-ready" }, null)]
     [InlineData("checks-running", "ChecksRunning", new[] { "pull-request-merge" }, "Merge when ready")]
     [InlineData("review-required", "ReviewRequired", new[] { "pull-request-merge" }, "Merge when ready")]
@@ -360,6 +361,29 @@ public sealed class PullRequestsPaneTests : IDisposable
             {
                 Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1/files", review.GetAttribute("href"));
             }
+        });
+    }
+
+    /// <summary>Behind its base where the repository does not require it, a pull
+    /// request is still Ready, but the banner says how far behind — the same count the
+    /// Up to date line gives — never that it is up to date.</summary>
+    [Fact]
+    public void A_ready_pull_request_behind_its_base_says_how_far_in_the_banner_and_the_readiness_list()
+    {
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", PullIn("behind-by")));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var banner = pane.Find("[data-testid='pull-request-banner']");
+            Assert.Equal("Ready", banner.GetAttribute("data-verdict"));
+            Assert.Contains("3 commits behind main, which this repository does not require it to catch up on.", banner.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("up to date with main", banner.TextContent, StringComparison.Ordinal);
+
+            var (_, state, words) = Assert.Single(ReadinessLines(pane), entry => entry.Line == "up-to-date");
+            Assert.Equal("waiting", state);
+            Assert.Equal("3 commits behind main", words);
         });
     }
 
@@ -1712,6 +1736,32 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Equal("1", row.GetAttribute("data-stack-depth"));
             Assert.Equal("↳ Waits on #10, merge that first", WaitsOn(row));
             Assert.Empty(pane.FindAll("[data-testid='pull-request-merge']"));
+        });
+    }
+
+    /// <summary>A pin moves a stacked pull request into the Pinned group, but it keeps
+    /// its indent and its "waits on" line there, so the pin never hides what has to
+    /// merge first.</summary>
+    [Fact]
+    public void A_pinned_stacked_row_keeps_its_indent_and_what_it_waits_on()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 10),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10"));
+        using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 11)));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("pinned", Groups(pane)[0].Lane);
+            var row = Row(pane, "JSdotNet/Backlog#11");
+            Assert.Equal("true", row.GetAttribute("data-pinned"));
+            Assert.Equal("1", row.GetAttribute("data-stack-depth"));
+            Assert.Contains("pull-requests-row--stacked", row.ClassList);
+            Assert.Equal("--chain-depth: 1", row.GetAttribute("style"));
+            Assert.Equal("↳ Waits on #10, merge that first", WaitsOn(row));
         });
     }
 

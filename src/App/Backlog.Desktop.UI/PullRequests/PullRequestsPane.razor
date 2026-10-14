@@ -63,7 +63,8 @@
     them: a pin is somebody saying "keep this one in front of me". It is read by
     number beside the open list, so it stays — merged or closed, with no act and no
     place in a stack — until it is unpinned, and it sits in a Pinned group of its own
-    at the top.
+    at the top. An open pinned one in a stack keeps its indent and its "waits on"
+    line there, so the pin never hides what has to merge first.
 *@
 
 <section @key=@("pull-requests-pane") class="pull-requests-panel" id="pull-requests-pane" aria-labelledby="pull-requests-title" data-testid="pull-requests-panel">
@@ -1225,8 +1226,9 @@
     /// merging.</param>
     /// <param name="Parent">The open pull request it waits on, for an open one in a
     /// stack above its bottom.</param>
-    /// <param name="Depth">Its level in its stack, for an open one in a stack that is
-    /// not pinned — a pinned one sits with the pins rather than in its tree.</param>
+    /// <param name="Depth">Its level in its stack, for an open one in a stack — pinned
+    /// or not: a pinned one sits with the pins rather than in its tree, but keeps its
+    /// indent and its "waits on" line, so it still says what has to merge first.</param>
     private sealed record BoardRow(
         string Key,
         GitHubOpenPullRequest? Open,
@@ -1324,9 +1326,9 @@
             Key(pull),
             pull,
             null,
-            PullRequestVerdict.Of(pull, parent, pull.CanRerunFailed),
+            PullRequestVerdict.Of(pull, parent),
             parent,
-            pinned ? null : stacks.DepthOf(pull),
+            stacks.DepthOf(pull),
             pinned);
     }
 
@@ -1695,7 +1697,7 @@
 
     /// <summary>A stack member's verdict, read the way its own row reads it.</summary>
     private PullRequestVerdict? MemberVerdict(GitHubOpenPullRequest member) =>
-        PullRequestVerdict.Of(member, Stacks.ParentOf(member), member.CanRerunFailed);
+        PullRequestVerdict.Of(member, Stacks.ParentOf(member));
 
     /// <summary>Who opened it and how long ago it moved — or merged, for a merged one.</summary>
     private string Byline(BoardRow row)
