@@ -125,6 +125,52 @@ public sealed class SettingsSearchMatchingTests
     }
 
     [Fact]
+    public void With_usage_metrics_off_usage_matches_no_card_of_the_ai_page()
+    {
+        var pages = SettingsPages.BuiltInAsDrawn(key => key == AppFeatures.AiAssistant);
+
+        Assert.DoesNotContain(SettingsPages.Find(pages, "usage"), match => match.Page.Id == SettingsPages.Ai);
+
+        var ai = Assert.Single(pages, page => page.Id == SettingsPages.Ai);
+        Assert.Null(SettingsPages.CardNamedBy(ai, "#card-claude-usage-api"));
+        Assert.Null(SettingsPages.CardNamedBy(ai, "#card-github-usage-api"));
+    }
+
+    [Fact]
+    public void With_usage_metrics_on_usage_lists_both_usage_cards_and_their_fragments_name_them()
+    {
+        var pages = SettingsPages.BuiltInAsDrawn(key => key == AppFeatures.UsageMetrics);
+
+        var match = Assert.Single(SettingsPages.Find(pages, "usage"), match => match.Page.Id == SettingsPages.Ai);
+        Assert.Equal(["Claude usage API", "GitHub usage API"], match.Cards);
+
+        var ai = match.Page;
+        Assert.Equal("Claude usage API", SettingsPages.CardNamedBy(ai, "#card-claude-usage-api"));
+        Assert.Equal("GitHub usage API", SettingsPages.CardNamedBy(ai, "#card-github-usage-api"));
+    }
+
+    [Theory]
+    [InlineData(false, false, new string[0])]
+    [InlineData(true, false, new[] { "Claude usage API", "GitHub usage API" })]
+    [InlineData(false, true, new[] { "Azure Foundry AI" })]
+    [InlineData(true, true, new[] { "Claude usage API", "GitHub usage API", "Azure Foundry AI" })]
+    public void The_ai_page_declares_only_the_cards_its_features_draw(bool usageMetrics, bool aiAssistant, string[] expected)
+    {
+        Assert.Equal(expected, SettingsPages.AiCardTitles(usageMetrics, aiAssistant));
+    }
+
+    [Fact]
+    public void Only_the_ai_page_changes_with_the_feature_state()
+    {
+        var drawn = SettingsPages.BuiltInAsDrawn(_ => false);
+
+        Assert.Equal(SettingsPages.BuiltIn.Select(page => page.Id), drawn.Select(page => page.Id));
+        Assert.All(
+            SettingsPages.BuiltIn.Zip(drawn).Where(pair => pair.First.Id != SettingsPages.Ai),
+            pair => Assert.Same(pair.First, pair.Second));
+    }
+
+    [Fact]
     public void Every_built_in_card_has_its_own_fragment_on_its_page()
     {
         Assert.All(SettingsPages.BuiltIn, page =>
