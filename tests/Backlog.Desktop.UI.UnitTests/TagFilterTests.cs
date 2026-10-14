@@ -1046,12 +1046,12 @@ public sealed class TagFilterTests
     }
 
     /// <summary>The strip is one row and clips whole chips off its end, so the plan
-    /// asked for leads the plans — right after "No plan", where the held chip of a plan
-    /// nothing open carries already sits — rather than wherever its name sorts. A plan
-    /// with open tasks is otherwise where the reader cannot see the filter that
-    /// narrowed the list, nor press it to let go.</summary>
+    /// asked for leads the strip — ahead of "No plan" too, because with every
+    /// repository in scope the strip has room for one chip and that one must be the
+    /// filter that narrowed the list. Wherever its name sorts, a plan with open tasks
+    /// is otherwise where the reader cannot see that filter, nor press it to let go.</summary>
     [Fact]
-    public async Task A_shown_plan_with_open_tasks_leads_the_plans_on_the_bar()
+    public async Task A_shown_plan_with_open_tasks_leads_the_strip()
     {
         using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync("# Start it +alpha\n`task` `!ready` `@platform`\n");
@@ -1062,11 +1062,37 @@ public sealed class TagFilterTests
         host.State.ShowPlan("+zeta", []);
 
         Assert.Equal(
-            [TasksDesktopState.NoPlanTag, "+zeta", "+alpha", "@bob", "sync"],
+            ["+zeta", TasksDesktopState.NoPlanTag, "+alpha", "@bob", "sync"],
             host.State.TagFilters.Select(option => option.Value));
-        var chip = host.State.TagFilters[1];
+        var chip = host.State.TagFilters[0];
         Assert.Equal((1, 0), (chip.OpenCount, chip.CompletedCount));
         Assert.True(host.State.IsTagSelected("+zeta"));
+    }
+
+    /// <summary>The same on the rendered strip, in a repository's scope and across
+    /// every repository: the first chip is the plan asked for, pressed, whatever room
+    /// the scope leaves the strip.</summary>
+    [Fact]
+    public async Task A_shown_plan_is_the_first_chip_on_the_strip_in_every_scope()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        await host.WriteEntryAsync("# Start it +alpha\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Finish it +zeta\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
+        await host.State.SelectAsync(null);
+        var pane = host.Render();
+
+        string[][] scopes = [["backlog"], []];
+
+        foreach (var scope in scopes)
+        {
+            host.State.ShowPlan("+zeta", scope);
+            pane.Render();
+
+            var first = pane.FindAll($"#tag-filter-strip > {Chip}")[0];
+            Assert.StartsWith("+zeta", first.TextContent, StringComparison.Ordinal);
+            Assert.Equal("true", first.GetAttribute("aria-pressed"));
+        }
     }
 
     /// <summary>Only the plan asked for leads: once the reader takes the plan back

@@ -611,6 +611,12 @@ h1, h2, h3 {
     align-content: flex-start;
     font-size: var(--font-size-sm);
     max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
+    /* Never narrower than a pressed first chip. A plan opened from the roadmap is
+       put first (TasksDesktopState.RebuildTagFilters), and with every repository in
+       scope the zero basis leaves the strip next to nothing — the chip that says why
+       the list is short would be clipped whole. components.js measures that chip;
+       unpressed, the variable is unset and the strip keeps taking only the slack. */
+    min-width: var(--tag-strip-lead, 0);
 }
 
 /* Opened by the toggle: every tag, on as many rows as it takes, and across the

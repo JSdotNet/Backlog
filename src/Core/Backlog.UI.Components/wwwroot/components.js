@@ -2081,10 +2081,20 @@
     const TAG_STRIP_SELECTOR = '.filter-group--tags';
     const tagStrips = new WeakSet();
 
+    //
+    // A pressed first chip — the plan "Open in Tasks" showed, which the state puts
+    // first — also gets its own width reserved, as `--tag-strip-lead`: the strip
+    // only takes what the other groups leave, and with every repository in scope
+    // that can be nothing, which would clip the one chip that says why the list is
+    // short. Reserved, the bar wraps a group onto its next row instead.
     const measureTagStrip = (strip) => {
         const chips = strip.children;
         const wrapped = chips.length > 1 && chips[chips.length - 1].offsetTop > chips[0].offsetTop;
         strip.toggleAttribute('data-overflowing', wrapped);
+
+        const lead = chips[0]?.getAttribute('aria-pressed') === 'true' ? chips[0].offsetWidth : 0;
+        if (lead > 0) strip.style.setProperty('--tag-strip-lead', `${lead}px`);
+        else strip.style.removeProperty('--tag-strip-lead');
     };
 
     const tagStripResize = new ResizeObserver((entries) => {
@@ -2111,7 +2121,14 @@
                 return;
             }
         }
-    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    }).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        // A chip pressed in place changes no node, only its aria-pressed.
+        attributes: true,
+        attributeFilter: ['aria-pressed'],
+    });
 
     // The side pane is resized by dragging its edge. Pointer capture and the live
     // width both belong in the browser; C# only hears the settled value, so a drag
