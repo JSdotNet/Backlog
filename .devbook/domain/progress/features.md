@@ -230,6 +230,36 @@ shows:
 
 The sprint is read when the side opens, on a step and on Refresh.
 
+### Copying a sprint as a table
+
+```meta
+type: sub-feature
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.SprintTableClipboardTests]
+```
+
+**Copy as table** in the sprint view's header puts the sprint on the clipboard as a
+table that pastes formatted into PowerPoint and Outlook. It has one row per item,
+grouped by plan in the board's order: goal plans first, then the other plans by name,
+then the items in no plan under "No plan". The plan is named on its group's first row.
+
+| Column | Holds |
+|---|---|
+| Plan | The plan tag, on the group's first row |
+| Item | The task's title |
+| Status | Done, In progress, In review, Blocked or Not started, in its colour |
+| Pull requests | Each linked pull request's number, linked to GitHub, with "open", "draft" or "closed" when it is not merged |
+| Owner | The authors of the linked pull requests |
+| Note | The sprint's note on the item, "Open question:" in front when it is one |
+
+The table holds every item, whatever the repository filter shows. The clipboard
+carries it twice: as HTML with every style inline, which PowerPoint and Outlook keep,
+and as tab-separated plain text for anything that takes no HTML. The status colours
+are fixed values for a white page, because a pasted table never sees the app's theme.
+The button is unavailable while the sprint is being read.
+
+The daily strip's **Copy for the stand-up** copies the same table.
+
 ### Keeping a note on an item
 
 ```meta

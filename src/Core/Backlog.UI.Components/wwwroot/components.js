@@ -768,6 +768,56 @@
             } finally {
                 staging.remove();
             }
+        },
+
+        // The same copy carrying HTML beside the text, so a table pastes as a
+        // table into PowerPoint or a mail and as tab-separated lines anywhere
+        // else. ClipboardItem first; where the async clipboard refuses, a copy
+        // event sets both formats on the legacy path, which a staged textarea
+        // cannot — it would hand over the text alone.
+        copyRich: async (html, text) => {
+            const markup = html ?? '';
+            const value = text ?? '';
+
+            if (navigator.clipboard && window.isSecureContext && typeof ClipboardItem === 'function') {
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({
+                        'text/html': new Blob([markup], { type: 'text/html' }),
+                        'text/plain': new Blob([value], { type: 'text/plain' })
+                    })]);
+                    return true;
+                } catch {
+                    // Fall through to the legacy path.
+                }
+            }
+
+            const onCopy = (event) => {
+                event.clipboardData.setData('text/html', markup);
+                event.clipboardData.setData('text/plain', value);
+                event.preventDefault();
+            };
+
+            // execCommand('copy') raises the copy event only with a selection to
+            // copy, so one is staged off-screen as copy() does.
+            const staging = document.createElement('textarea');
+            staging.value = value || ' ';
+            staging.setAttribute('readonly', '');
+            staging.setAttribute('aria-hidden', 'true');
+            staging.style.position = 'fixed';
+            staging.style.top = '-1000px';
+            staging.style.opacity = '0';
+            document.body.appendChild(staging);
+            document.addEventListener('copy', onCopy);
+
+            try {
+                staging.select();
+                return document.execCommand('copy');
+            } catch {
+                return false;
+            } finally {
+                document.removeEventListener('copy', onCopy);
+                staging.remove();
+            }
         }
     };
 

@@ -227,12 +227,20 @@ The glyph confirms it too: press the first one and the two sheets fade down into
 
 The second sample puts words on the button instead. There is no glyph to swap, so it keeps them — but the wrapper still carries data-copied, which is the hook for a host that wants to dress its own confirmation.
 
-The third is refused: Disabled keeps the button in its slot with its glyph, so the row or heading it sits on does not move, and DisabledReason says why — as the wrapper's tooltip, since a disabled button raises no pointer events of its own, and as a described-by for a screen reader. A task row marked blocked by hand draws its copy this way."
+The third is refused: Disabled keeps the button in its slot with its glyph, so the row or heading it sits on does not move, and DisabledReason says why — as the wrapper's tooltip, since a disabled button raises no pointer events of its own, and as a described-by for a screen reader. A task row marked blocked by hand draws its copy this way.
+
+The fourth hands over HTML beside the text: Html puts text/html on the clipboard and Text stays the text/plain fallback, so a table pastes as a formatted table into PowerPoint or a mail and as tab-separated lines anywhere else. ButtonBaseClass draws it as a worded ghost button; the sprint view's Copy as table is this one."
            Code="@CopyButtonCode">
         <div class="sb-row">
             <CopyButton Text="Copied from the storybook." Label="Copy the sample text" TestId="copy-sample" />
             <CopyButton Text="Words instead of a glyph." Label="Copy with a label">Copy</CopyButton>
             <CopyButton Text="Not handed over." Label="Copy the blocked sample" Disabled="true" DisabledReason="Blocked — unblock to copy" TestId="copy-disabled" />
+            <CopyButton Text="@RichSampleText"
+                        Html="@RichSampleHtml"
+                        Label="Copy as table"
+                        ButtonBaseClass="btn btn--ghost btn--small"
+                        StatusCssClass="copy-button__status"
+                        TestId="copy-rich">Copy as table</CopyButton>
         </div>
     </Story>
 
@@ -252,7 +260,24 @@ The third is refused: Disabled keeps the button in its slot with its glyph, so t
     private const string CopyButtonCode = """
         <CopyButton Text="@source" Label="Copy the release notes" />
         <CopyButton Text="@source" Label="Copy the task" Disabled="@blocked" DisabledReason="Blocked — unblock to copy" />
+        <CopyButton Text="@table.Text" Html="@table.Html" Label="Copy as table"
+                    ButtonBaseClass="btn btn--ghost btn--small" StatusCssClass="copy-button__status">Copy as table</CopyButton>
         """;
+
+    // The fourth sample: a sprint table, the way the sprint view's Copy as table hands it over.
+    private static readonly Backlog.UI.Components.Progress.SprintTable RichSample =
+        Backlog.UI.Components.Progress.SprintTableClipboard.Build(
+            [
+                new("1", "Pay invoices by bank", Backlog.UI.Components.Progress.SprintRowState.Done, "rekeningen", "backlog", true, false,
+                    [new("JSdotNet/Backlog", "4530", Backlog.UI.Components.Progress.SprintPullRequestState.Merged)], ["ada"], null, false),
+                new("2", "Move the specs", Backlog.UI.Components.Progress.SprintRowState.Blocked, "verplaatsen-specs", "backlog", false, false,
+                    [new("JSdotNet/Backlog", "4707", Backlog.UI.Components.Progress.SprintPullRequestState.Open)], ["grace"], "Which bank?", true)
+            ],
+            ["rekeningen"]);
+
+    private static string RichSampleText => RichSample.Text;
+
+    private static string RichSampleHtml => RichSample.Html;
 
     private static readonly ButtonVariant[] Variants =
         [ButtonVariant.Primary, ButtonVariant.Secondary, ButtonVariant.Ghost, ButtonVariant.Danger];
