@@ -2861,6 +2861,29 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
+/* What a module's settings page shows while its feature is off: one sentence
+   pointing at the Features page, in place of the module's own cards. */
+.settings-feature-off {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.settings-feature-off a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.settings-feature-off a:hover {
+    color: var(--color-primary-light);
+}
+
+.settings-feature-off a:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 
 /* The Features page: the design canvas's Features board. The headline is the
    frame's; the page draws three figure tiles, the filter, and a card per section

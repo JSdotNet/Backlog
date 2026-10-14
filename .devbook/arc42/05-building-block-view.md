@@ -420,7 +420,17 @@ pages. What more than one page reads is a `SettingsScreenContext` the screen
 owns and hands to every page: how this machine reaches GitHub, which logins the
 GitHub CLI holds, and that a feature was switched. A `SettingsSection` names
 its menu group and the titles of the cards it draws, which the settings search
-reads without rendering a page. Storage & backup is drawn as two
+reads without rendering a page, and optionally an `ISettingsBadgeSource` the
+shell resolves from the container for the page's menu badge. The menu draws a
+short value on the right of a page's name, built by `SettingsBadges`: Features
+`<on>/<total>` over `AppFeatures.All`, Repositories and GitHub accounts their
+counts, AI providers how many of Claude usage, GitHub usage and Azure Foundry
+are set up out of three, and a module page its source's value. The screen
+redraws the menu when the feature store, the GitHub, Claude or Azure Foundry
+settings, or a badge source raise `Changed`. A module page whose feature is off
+stays in the menu with an `Off` badge, and opening it shows a note pointing at
+the Features page in place of the module's component, which is disposed until
+the feature is back on. Storage & backup is drawn as two
 `SettingsCard`s in a wrapping row — *Where the backlog is stored*, with the
 branch snapshot folder inside it, and *Backup*, with **Back up now** in its
 header — under a headline read from `BackupWorker.Last`, whose
@@ -457,8 +467,9 @@ drives the task and session sync loops through the Sync Client.
 calls it. Each of the page's groups is a card, and its headline says whether
 this device is paired with the sync service; the section declares all seven
 card titles, both states' among them, for the settings search. The shell
-offers the page under Product areas while the Sync feature is on and keeps it
-alive across moves to other pages.
+lists the page under Product areas, marked `Off` with only the Features-page
+note while the Sync feature is off, and keeps it alive across moves to other
+pages.
 
 ## Mobile App
 

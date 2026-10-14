@@ -137,13 +137,14 @@ public sealed class DashboardSettingsTests
     }
 
     [Fact]
-    public void With_the_dashboard_off_the_settings_screen_offers_no_dashboard_page_but_keeps_the_working_week()
+    public void With_the_dashboard_off_the_settings_screen_marks_the_dashboard_page_Off_and_keeps_the_working_week()
     {
         using var settings = RenderSettings(dashboard: false);
 
         var tabs = Tabs(settings.Component);
-        Assert.DoesNotContain("Dashboard", tabs);
-        Assert.Equal(["Working week", "Inbox"], tabs[^2..]);
+        Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
+        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "dashboard"));
+        Assert.NotEqual("Off", SettingsMenu.Badge(settings.Component, "working-week"));
     }
 
     [Fact]

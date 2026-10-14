@@ -97,11 +97,13 @@ public static class SettingsPages
     }
 
     /// <summary>The menu's groups over <paramref name="pages"/>, already in menu
-    /// order, with <paramref name="currentId"/> marked as the page on screen. A
+    /// order, with <paramref name="currentId"/> marked as the page on screen and
+    /// each page carrying the value <paramref name="badge"/> gives it, if any. A
     /// group with no page offered is left out.</summary>
     public static IReadOnlyList<(SettingsGroup Group, IReadOnlyList<SettingsMenuItem> Items)> Menu(
         IReadOnlyList<SettingsSection> pages,
-        string currentId) =>
+        string currentId,
+        Func<SettingsSection, string?>? badge = null) =>
         [
             .. pages
                 .GroupBy(page => page.Group)
@@ -110,6 +112,7 @@ public static class SettingsPages
                         page.Id,
                         page.Title,
                         Href(page.Id),
-                        string.Equals(page.Id, currentId, StringComparison.Ordinal)))]))
+                        string.Equals(page.Id, currentId, StringComparison.Ordinal),
+                        badge?.Invoke(page)))]))
         ];
 }

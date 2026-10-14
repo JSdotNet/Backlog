@@ -279,7 +279,7 @@ public sealed class SettingsWorkingHoursTests
     }
 
     /// <summary>The roadmap counts the week whether or not the dashboard is on
-    /// (ADR 0019), so switching the dashboard off withdraws its usage-reset page
+    /// (ADR 0019), so switching the dashboard off marks its usage-reset page Off
     /// and leaves the working week where it is.</summary>
     [Fact]
     public void With_the_dashboard_off_the_working_week_is_still_offered()
@@ -288,7 +288,9 @@ public sealed class SettingsWorkingHoursTests
 
         var tabs = Tabs(settings.Component);
         Assert.Contains("Working week", tabs);
-        Assert.DoesNotContain("Dashboard", tabs);
+        Assert.Contains("Dashboard", tabs);
+        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "dashboard"));
+        Assert.NotEqual("Off", SettingsMenu.Badge(settings.Component, "working-week"));
     }
 
     [Fact]
