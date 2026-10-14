@@ -425,6 +425,7 @@ rather than offering an empty tab strip.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents]
 ```
 
 Present each area's documents as readable content rather than raw files:
@@ -460,13 +461,14 @@ checks reject:
   chapters are ratings, so theirs is always stated.
 - **A decision is state, not content.** A domain chapter can stand approved
   (someone agreed it), and above that accepted (someone saw the built work
-  against it and accepted it). Who decided and when is shown beside the chapter's
-  status rather than among its fields. So is where a review stands on the way
-  there: requested, changes requested or cleared, and who owes the next move. The
+  against it and accepted it). Where a review stands on the way there is state
+  too: requested, changes requested or cleared, and who owes the next move. The
   app never offers those two steps as a status to pick, because the approval step
-  that makes the decision records them. Moving a chapter off either step takes its
-  decision record with it. No other area has them, and a chapter outside the
-  domain that carries one is pointed out.
+  that makes the decision records them. Where that state is shown, and when a
+  decision record goes, are in
+  [the requirements of this sub-feature](requirements.md#rendered-devbook-documents).
+  No other area has them, and a chapter outside the domain that carries one is
+  pointed out.
 - **Kinds.** Each area that classifies its chapters is read with its own set of
   kinds. A domain context's set covers its boundary document, its requirements and
   invariants and the single rules inside them, and its switches and settings. It
@@ -477,8 +479,8 @@ checks reject:
   and the context's own boundary document disagree about it, the app says so.
 - **Everything else a chapter declares** is shown as it was written: the tests
   that back it, its number and place in the reading order, and the day it
-  records. State another tool keeps on the chapter under its own name is carried
-  through untouched.
+  records. State another tool keeps on the chapter under its own name is
+  [carried as written](requirements.md#requirement-another-tools-state-is-carried-as-written).
 
 A bounded context's click demo is shown with the page it belongs to. A demo is
 the one HTML file a context holds: a clickable picture of what a person sees. It
@@ -556,7 +558,7 @@ read view then shows it is in
 
 ```meta
 type: sub-feature
-related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#remarks-on-a-chapter]
+related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/domain/devbook/requirements.md#review-notes-in-a-chapter]
 ```
 
 Show the [review notes](domain.md#review-note) a repository keeps in its own
@@ -565,10 +567,10 @@ raw text they are stored in. Each shows its kind and its replies. Whoever review
 the chapter reads the same notes, and they leave with the change that resolves
 them.
 
-A review note is never read as what the chapter says. An open question about
-whether a rule still holds is not the rule. So anything the app hands on as the
-chapter's content leaves the notes out, together with where the chapter's review
-stands. That covers what goes to an assistant, to search, and to an excerpt.
+A review note is never read as what the chapter says, because an open question
+about whether a rule still holds is not the rule. What that keeps out of an
+assistant's read, search and excerpts is in
+[the requirements of this sub-feature](requirements.md#review-notes-in-a-chapter).
 
 The app shows these notes and does not write them; the convention's own tooling
 does. They are also not the reader's [remarks](#remarks-on-a-chapter). The two are
@@ -578,7 +580,7 @@ shown apart and never merged, the decision local ADR 0011 records.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/productivity/features.md#drift-at-a-glance]
+related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/productivity/features.md#drift-at-a-glance, .devbook/domain/devbook/requirements.md#sync-verdicts-beside-a-chapter]
 ```
 
 Show beside each chapter heading its [Sync Verdict](domain.md#sync-verdict): the
@@ -587,11 +589,11 @@ or unresolved). The root chapter of a [Sync Unit](domain.md#sync-unit) also show
 the unit's own verdict and what the sweep did about it. Each badge leads to the
 pull request or drift issue the sweep opened, where the verdict is argued.
 
-Only the latest verdict per chapter is shown, and a sweep replaces only the
-chapters it checked. A chapter last checked a month ago keeps that month-old word
-until a sweep checks it again. The words are the sweep's, verbatim. A word outside
-its vocabulary is shown as written and flagged, rather than coloured like one it
-is not. A chapter no sweep has checked carries nothing.
+Only the latest verdict per chapter is shown, in the sweep's own words, so a
+chapter last checked a month ago keeps that month-old word until a sweep checks it
+again. Which verdict that is, and how a word the app does not know looks, are in
+[the requirements of this sub-feature](requirements.md#sync-verdicts-beside-a-chapter).
+A chapter no sweep has checked carries nothing.
 
 Each verdict also keeps the unit's sync direction as the sweep resolved it, and where
 it was inherited from. The dashboard's

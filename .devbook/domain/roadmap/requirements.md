@@ -255,6 +255,18 @@ The system SHALL count as a date's actual hours the time the person's working st
 - **When** the axis shows both days
 - **Then** Wednesday 7 October's actual hours are 3 hours and Thursday 8 October gains none
 
+#### Scenario: A stretch across four in the morning counts toward both dates
+
+- **Given** the person worked one stretch from 03:00 to 05:00 on Thursday 8 October
+- **When** the axis shows both days
+- **Then** Wednesday 7 October gains 1 hour and Thursday 8 October gains 1 hour
+
+#### Scenario: An open stretch counts up to now
+
+- **Given** it is 14:00 on Monday 12 October and the agent has been answering the person's 13:30 turn since then
+- **When** the axis shows today
+- **Then** today's actual hours are 30 minutes
+
 #### Scenario: A stretch ends at the end of the reply
 
 - **Given** on Thursday 8 October the person prompted at 11:00, the agent answered until 11:45, and the person made no turn after it
@@ -661,3 +673,154 @@ The system SHALL measure a pace as the points finished in its stretch, divided b
 - **Given** 17 points were finished over the last two weeks and no date in them carries an override
 - **When** the roadmap measures the two-week pace
 - **Then** it shows 8.5 points a week
+
+### Requirement: A plan sized by its effort keeps up with its work
+
+```meta
+type: requirement
+status: draft
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.Opening_the_roadmap_stores_the_window_the_work_makes_from_today_and_draws_it, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.A_task_marked_done_stores_the_shorter_window, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnEffortPlacedItemLeftBehind_IsStoredFromToday_StillPlacedByEffort, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.ATaskMarkedDone_PullsTheEndIn_ToWhatIsLeft, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnItemPlacedByItsDueDate_IsNeverWritten, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnItemPlacedByHand_IsNeverWritten, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.EffortWindowTests.ADueDateOrAHandPlacedWindow_IsReadAsStored]
+```
+
+The system SHALL lay out again, every time the roadmap is read, each plan whose window is still sized by its effort and whose work is not finished, from today over the effort not yet done.
+
+The scenarios use a pace of 7 points a week, and nothing in the plans has begun.
+
+#### Scenario: A plan left behind starts today
+
+- **Given** a plan of 7 points sized by its effort, stored from Monday 5 to Friday 9 October
+- **When** the roadmap opens on Monday 12 October
+- **Then** the plan runs from Monday 12 to Friday 16 October and is still sized by its effort
+
+#### Scenario: A finished task pulls the end in
+
+- **Given** a plan of two 7-point tasks sized by its effort, running from Monday 12 to Friday 23 October
+- **When** one of the tasks is marked done on Monday 12 October
+- **Then** the plan ends on Friday 16 October
+
+#### Scenario: A plan placed by its due date keeps its dates
+
+- **Given** a plan placed by its due date from Monday 5 to Friday 30 October
+- **When** the roadmap opens on Monday 12 October
+- **Then** the plan still runs from Monday 5 to Friday 30 October
+
+#### Scenario: A plan moved by hand keeps its dates
+
+- **Given** a plan the person moved by hand to Monday 5 to Friday 9 October
+- **When** the roadmap opens on Monday 12 October
+- **Then** the plan still runs from Monday 5 to Friday 9 October
+
+### Requirement: A plan is never shorter than its start day
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.EffortWindowTests.AWindowIsNeverShorterThanItsStartDay
+```
+
+The system SHALL give a plan sized by its effort, and each of its parts, a window of at least the day it starts, however little effort it gathered.
+
+#### Scenario: One point at a fast pace
+
+- **Given** a plan whose one task registered 1 point, placed at 1000 points a week
+- **When** the roadmap lays the plan out from Monday 12 October
+- **Then** the plan runs on Monday 12 October alone
+
+### Requirement: A due date ends the plan whatever its effort
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportedPlanPlacementTests.ADueDateEndsTheWindow_WhateverTheEffort, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportPlanItemsTests.ADueDateEndsTheWindow]
+```
+
+The system SHALL end a plan that states a due date on that date, without consulting the pace or the effort its tasks registered.
+
+#### Scenario: A large plan with a near due date
+
+- **Given** a plan due on Friday 23 October whose tasks registered 40 points, and a pace of 7 points a week
+- **When** the plan is imported on Monday 12 October
+- **Then** the plan runs from Monday 12 to Friday 23 October
+
+### Requirement: A pace that cannot be read is seven points a week
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.An_untouched_store_reads_seven_points_a_week_and_writes_no_file, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.A_hand_edited_file_the_roadmap_could_not_divide_by_reads_as_the_default]
+```
+
+The system SHALL read a pace that is unset, unreadable, not a number, or not positive as seven points a working week.
+
+#### Scenario: No pace was ever set
+
+- **Given** the person has never set a pace
+- **When** the roadmap places a plan sized by its effort
+- **Then** it places the plan at 7 points a week
+
+#### Scenario: A hand-edited pace with a comma
+
+- **Given** the pace file was edited by hand to hold `2,5`
+- **When** the roadmap reads the pace
+- **Then** the pace in use is 7 points a week, not 25
+
+### Requirement: A typed pace the roadmap cannot store as typed is refused
+
+```meta
+type: requirement
+status: draft
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandPaceTests.A_pace_the_roadmap_could_not_divide_by_says_so_and_changes_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.A_pace_of_zero_or_less_is_refused_and_changes_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.A_pace_too_fine_to_write_down_is_refused_rather_than_rounded_away, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.PlanningVelocitySettingsStoreTests.A_pace_that_is_not_a_number_is_refused_and_changes_nothing]
+```
+
+The system SHALL refuse a typed pace of zero or less, one finer than 0.0001, or one written with a comma as the decimal mark, say why beside the field, and leave the pace as it was.
+
+The scenarios start from a pace of 4 points a week.
+
+#### Scenario: Zero
+
+- **When** the person types 0 as the pace
+- **Then** the roadmap says the pace must be above zero, and the pace stays 4
+
+#### Scenario: Finer than four decimal places
+
+- **When** the person types 0.00001 as the pace
+- **Then** the roadmap refuses it rather than rounding it, and the pace stays 4
+
+#### Scenario: A decimal comma
+
+- **When** the person types 2,5 as the pace
+- **Then** the roadmap refuses it as not a number, and the pace stays 4
+
+## Reading and rescheduling on a timeline
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline]
+```
+
+> The requirements of moving work on the timeline. The feature chapter says how
+> the view proposes a placement and the plan decides; this says when the view
+> proposes nothing at all.
+
+### Requirement: A drop that moves nothing proposes nothing
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.RoadmapTimelineTests.A_gesture_that_travelled_no_whole_week_reports_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.RoadmapTimelineTests.An_edge_that_clamps_back_to_where_it_started_reports_nothing]
+```
+
+The system SHALL propose no change to the plan when a bar is dropped on its own lane less than half a week from where it was picked up, or when a pulled edge clamps back to the date it already had.
+
+#### Scenario: Picked up and put back
+
+- **Given** a bar from Wednesday 7 to Friday 9 October
+- **When** the person drags it less than half a week along its own lane and drops it
+- **Then** no change is proposed and the plan is not saved
+
+#### Scenario: An edge pulled past the other edge
+
+- **Given** a bar from Monday 5 to Thursday 8 October
+- **When** the person drags its start one week later, past its end
+- **Then** the start stays on Monday 5 October and no change is proposed

@@ -41,13 +41,12 @@ sequenceDiagram
     end
 ```
 
-- A drop that moves nothing produces **no proposal at all**. That is a drop of
-  less than half a week, or an edge clamped against the opposite edge. Picking
-  something up and putting it down must not rewrite a plan the reader only wanted
-  to look at.
-- A reschedule never touches dependencies. Dependent work is *not* dragged along:
-  the plan is allowed to contradict itself, and that contradiction is the reader's
-  cue (see below).
+- [A drop that moves nothing proposes nothing](requirements.md#requirement-a-drop-that-moves-nothing-proposes-nothing).
+  Picking something up and putting it down must not rewrite a plan the reader
+  only wanted to look at.
+- [A reschedule leaves the dependencies alone](domain.invariants.md#invariant-a-reschedule-leaves-the-dependencies-alone),
+  and dependent work is not dragged along. The plan is allowed to contradict
+  itself, and that contradiction is the reader's cue (see below).
 - The event carries the previous window, so a consumer can tell a first plan from
   a change without keeping its own history.
 
@@ -71,10 +70,13 @@ stateDiagram-v2
 
 The states are the values of `placed_by_import` on a
 [Roadmap Item](domain.md#roadmap-item), and that chapter defines a
-[hand move](domain.md#roadmap-item). Only an import creating the item anew sets
-a value again, and an import never deletes an item, so the person's window is
-final. A drop on a Calendar day still places the window by the `effort` rule, from
-the day dropped on. The window is the person's because they chose that day.
+[hand move](domain.md#roadmap-item). The two transitions to the person's state are
+[a hand move](domain.invariants.md#invariant-a-hand-move-hands-the-window-to-the-person),
+and no transition leaves it, because
+[the importer never moves a window a person placed](domain.invariants.md#invariant-the-importer-never-moves-a-window-a-person-placed)
+and an import never deletes an item. A drop on a Calendar day still places the
+window by the `effort` rule, from the day dropped on. The window is the person's
+because they chose that day.
 
 ## Dependency validation flow
 
@@ -92,11 +94,14 @@ flowchart TD
     Contradiction -- no --> Clean["Drawn as a plain arrow"]
 ```
 
-- The three rejections are refusals to store, not warnings. The plan is unchanged
-  and the reason is returned to the caller.
-- The contradiction check is the opposite: it never refuses anything. Dates that
-  do not fit are a normal, temporary state of a plan being worked out. The arrow
-  that has to double back through the gutter is how the reader sees it.
+- The three rejections are refusals to store, not warnings: an
+  [unknown node](domain.invariants.md#invariant-a-dependency-names-a-node-in-the-plan),
+  [a node waiting for itself](domain.invariants.md#invariant-nothing-waits-for-itself)
+  and [a cycle](domain.invariants.md#invariant-a-cycle-is-refused).
+- The contradiction check is the opposite:
+  [it never refuses anything](domain.invariants.md#invariant-a-contradiction-is-reported-never-corrected).
+  Dates that do not fit are a normal, temporary state of a plan being worked out.
+  The arrow that has to double back through the gutter is how the reader sees it.
 - Cycle detection walks the whole graph reachable from the target. It is an
   invariant of the plan rather than of a node, which is why it is checked on the
   root before the edge is accepted.
@@ -116,9 +121,10 @@ flowchart LR
     Lanes --> Draw["Spans, milestones and dependency arrows placed by date"]
 ```
 
-- Resolution happens on the **read** path only. Nothing in the plan is rewritten
-  when the registry changes, so a repository removed today and configured again
-  tomorrow leaves the plan exactly as it was.
+- Resolution happens on the **read** path only, and
+  [an alias that no longer resolves is kept](domain.invariants.md#invariant-an-unresolved-scope-alias-is-kept),
+  so a repository removed today and configured again tomorrow leaves the plan
+  exactly as it was.
 - An item naming several repositories is drawn in the [band](domain.md#band) of
   each configured repository it names. Each band draws only that repository's
   [part](domain.md#part) of the item, so the parts can carry different dates
@@ -151,7 +157,7 @@ flowchart TD
 ```
 
 The rules behind each box are in
-[Roadmap Item Gathering](domain.md#roadmap-item-gathering). Gathering happens on
-the **read** path only and writes nothing back to the plan, a task, or a chapter.
-An unreachable Tasks or Devbook therefore shrinks a total rather than corrupting
-a plan.
+[Roadmap Item Gathering](domain.md#roadmap-item-gathering) and
+[its invariants](domain.invariants.md#roadmap-item-gathering). Gathering happens
+on the **read** path only and
+[writes nothing back](domain.invariants.md#invariant-gathering-never-writes).

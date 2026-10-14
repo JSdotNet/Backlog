@@ -140,9 +140,10 @@ within the agent that issued it.
 
 Holds the [environment](#environment) it ran on, as its display name and its
 `EnvironmentId`. It also holds a display title, its `Working Location`, its
-`Activity Window`, and its `Session State`. A machine dimension keys on
-`EnvironmentId`, never on the display name, because the name can change while the
-session stays on the same machine. When external activity evidence exists, the
+`Activity Window`, and its `Session State`. The display name can change while the
+session stays on the same machine, which is why
+[a machine is told apart by its id](domain.invariants.md#invariant-an-environment-is-told-apart-by-its-id).
+When external activity evidence exists, the
 entity also carries a `Session Activity Stream`, a `Session Enrichment Summary`, and
 a `Reporting Capability` reading for that stream.
 
@@ -186,12 +187,15 @@ A replicated session is the one case where the folder is missing for a different
 reason. The machine that ran the session recorded it, and it deliberately did not
 travel: a path describes that machine's disk, and the reading machine would act on
 it. Absent there means "cannot be shown here", not "was never written down". Either
-way nothing on this side reconstructs one. The log fills no gap an agent left, and
-none the boundary made either.
+way nothing on this side reconstructs one:
+[the log never fills a gap](domain.invariants.md#invariant-the-log-never-fills-a-gap),
+whether an agent left it or the boundary made it.
 
-The **resolved repository** sits beside the recorded repository, never in its
-place. It is the `owner/name` of the registered repository whose clone directory
-contains the working folder, on the environment that read the session. This is not
+The **resolved repository** is the `owner/name` of the registered repository whose
+clone directory contains the working folder, on the environment that read the
+session. It
+[sits beside the recorded repository, never in its place](domain.invariants.md#invariant-a-resolved-repository-sits-beside-the-recorded-one).
+This is not
 the inference ruled out above. A path leaf is a guess about which of GitHub's
 several `Backlog`s a folder is a clone of. A registered clone directory is a fact
 the person stated on the Repositories screen, and a folder is either under it or
@@ -201,8 +205,7 @@ a surface must be able to tell "the agent said" from "this product placed".
 
 It resolves on the environment that ran the session, the only one holding both the
 folder and the clone. It travels with the record and is held as it arrived
-everywhere else. Where no registered clone contains the folder it is absent, and
-absent still means only that.
+everywhere else.
 
 ### Activity Window
 
@@ -210,10 +213,10 @@ absent still means only that.
 type: value-object
 ```
 
-When the session was alive: optional `started_at` and a required `last_activity_at`.
-Equality by both. The start is optional because some evidence is only a file with a
-timestamp on it. The last activity is required, because that timestamp always exists
-and is what `Liveness Assessment` reads.
+When the session was alive: `started_at` and `last_activity_at`. Equality by both.
+[A session always has a last activity](domain.invariants.md#invariant-a-session-always-has-a-last-activity),
+while its start may be unknown, because some evidence is only a file with a timestamp
+on it.
 
 ### Session Activity Stream
 
@@ -311,9 +314,12 @@ it. The same key can be derived from a session's `Working Location`, which is wh
 
 **A run can name the sessions that drove it, and then no guess is made.** A run
 started through `Delivery Run Recording` with the caller's session id carries it in
-`sessionIds`. A session that picks the run back up is appended beside it, never over
-it. Where a run names a session the list holds, it joins that session by identity.
-Only a run that names none is attached by worktree key and overlapping activity:
+`sessionIds`, and
+[a session that picks the run back up is added beside it](domain.invariants.md#invariant-a-session-that-picks-a-run-back-up-is-added-beside-the-others).
+`Run Attachment` then
+[joins such a run by identity](domain.invariants.md#invariant-a-run-that-names-its-sessions-joins-by-identity).
+Only a run that names none
+[is attached by worktree key and overlapping activity](domain.invariants.md#invariant-a-run-that-names-no-session-joins-by-place-and-time):
 every dashboard file written before the field existed, and any writer that does not
 send one.
 
@@ -327,7 +333,8 @@ reads them as absent, never as zero: zero is a clean round, and nobody reported 
 
 **A run can say what started it, and a sweep what it found.** Where the writer said,
 a run carries its trigger, `attended` or `scheduled`. It also carries the schedule
-that fired it and the repository it worked in. A run that says nothing reads as attended. A devbook
+that fired it and the repository it worked in.
+[A run that says nothing reads as attended](domain.invariants.md#invariant-a-run-that-names-no-trigger-was-attended). A devbook
 sync sweep closes its run with its verdicts: one row per sync unit, with each
 chapter's own verdict, kept as sent. The repository is what places a scheduled run,
 since every scheduled run cuts a worktree of its own.
@@ -335,30 +342,21 @@ since every scheduled run cuts a worktree of its own.
 **One run reported to two surfaces is one run here.** A flow reports its run to every
 surface it is bound to, and each surface files it under an id of its own. So one piece
 of work can be two files, in two dashboards' folders. The reading folds such a pair
-into one `Delivery Run` before anything else sees them. Two files are one run when all
-of these hold:
-
-- they name the same skill;
-- they come from different dashboards, since two files from one surface are two runs;
-- both are dated, and they started within five minutes of each other;
-- they agree on the session, in one of two ways:
-  - they sit under the same worktree key, compared without regard to case, and their
-    session ids do not contradict: they share one, or neither names any;
-  - they sit in two different folders and both name one session id.
+into one `Delivery Run` before anything else sees them.
+[When two files are one run](domain.invariants.md#invariant-two-surfaces-reports-of-one-run-are-one-run)
+is an invariant of the log.
 
 A shared session crosses folders because the dashboard server keys its folder by its
 own working directory. That is the repository's main checkout, whichever worktree the
 flow ran in. The backlog surface keys by the worktree the flow named. A session id is
 identity and a folder key is not, so a shared session is enough across folders and two
 files naming none are not. Where partners of both kinds qualify, the one in the same
-folder is taken. A pair that names different sessions stays two runs.
+folder is taken.
 
-The record is the file of the first of `delivery-surface-dashboard`, `orch-dashboard`
-and `backlog` to have reported the run. Its id, status word, stages and measured
-figures are the run's. The others fill only what it left blank and add the references
-it did not name. The merged run keeps the folder of the `backlog` file, the one the
-flow named, so it stays in its worktree's list. Which surfaces reported it is kept
-beside which one wrote the file, as provenance.
+[One surface's file is the merged run's record](domain.invariants.md#invariant-the-preferred-surfaces-file-is-a-merged-runs-record),
+so the run shows one measurement rather than the sum of two that overlap, and
+[it stays in the worktree the flow named](domain.invariants.md#invariant-a-merged-run-stays-in-the-worktree-the-flow-named).
+Which surfaces reported it is kept beside which one wrote the file, as provenance.
 
 The window is five minutes because a surface reattaches a run of the same skill in the
 same worktree rather than opening a second. So one surface cannot hold two runs that
@@ -370,24 +368,22 @@ pairing with the next run's file from the other surface.
 producing. A delivery run is another tool's record of work it was tracking, with a
 status that tool assigned. The two share a word and nothing else.
 
-Its status is never derived from a reading. The dashboards wrote seven spellings for
-it across two generations, and mapping them onto fewer members would decide what a
-writer meant rather than report what it wrote. A surface that needs a chip normalises
-at the last moment, where a new spelling degrades to a plain label rather than to a
-dropped row.
+[Its status is the word its file wrote](domain.invariants.md#invariant-a-runs-status-is-the-word-its-file-wrote),
+never derived from a reading. The dashboards wrote seven spellings for it across two
+generations, and mapping them onto fewer members would decide what a writer meant
+rather than report what it wrote. A surface that needs a chip normalises at the last
+moment, where a new spelling degrades to a plain label rather than to a dropped row.
 
 **Reading accepts every spelling; writing uses one.** The asymmetry is deliberate. A
 run imported from a dashboard is somebody else's record and is reported as written,
-`completed` and `success` included. A run this context records is its own. It writes
-`in_progress` while under way, and ends on `done`, `blocked`, `parked` or
-`cancelled`. Reviving an older generation's spelling from here would make the drift
-permanent rather than historical.
+`completed` and `success` included. A run this context records is its own, and
+[is written in one status vocabulary](domain.invariants.md#invariant-a-recorded-run-is-written-in-one-status-vocabulary).
 
 ### Delivery Run Recording
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/features.md#record-a-run-as-it-happens]
+related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/features.md#record-a-run-as-it-happens, .devbook/domain/sessions/domain.invariants.md#delivery-run-recording]
 ```
 
 The capability a session uses to record a `Delivery Run` here as it happens, rather
@@ -415,35 +411,36 @@ repository and have as many directories. The caller names the folder its run is 
 and the worktree key is derived from it. `Run Attachment` runs the same derivation from
 the other side, which puts a recorded run and the session that drove it on one row.
 
-**Starting a run for a skill already under way reattaches to it.** A session that picks
-work back up says so by starting again. A second file would not be a second run: it
-would be the one run, listed twice, with its stages split between them. A run that has
-finished is not reattached to.
+**Starting a run for a skill already under way
+[reattaches to it](domain.invariants.md#invariant-starting-a-run-already-under-way-reattaches-to-it).**
+A session that picks work back up says so by starting again. A second file would not be
+a second run: it would be the one run, listed twice, with its stages split between them.
 
 **A stage is addressed by its position, not its name.** The whole stage list is fixed
 when the run begins, so the surface can show what is still to come. A name is a label
-on a position rather than a key, and two stages may carry one name. An index outside
-the list is refused rather than ignored. A caller one stage off would otherwise go on
-reporting the wrong stage for the rest of the run.
+on a position rather than a key, and two stages may carry one name.
+[An index outside the list is refused](domain.invariants.md#invariant-a-stage-outside-the-runs-list-is-refused)
+rather than ignored.
 
-**What started a run is written once.** Starting a run takes the trigger, the schedule
-and the repository. A trigger the engine does not name is refused. A reattach fills in
-only what an earlier start left out, because a scheduled run a person picks back up was
-still fired by its schedule. Finishing a run takes a sync sweep's verdicts. They are
+**What started a run is
+[written once](domain.invariants.md#invariant-what-started-a-run-is-never-rewritten).**
+Starting a run takes the trigger, the schedule and the repository, and
+[refuses a trigger the engine does not name](domain.invariants.md#invariant-an-unknown-trigger-is-refused).
+Finishing a run takes a sync sweep's verdicts. They are
 kept on the run, and, where the run named its repository, filed per chapter as the
 Devbook context's `Sync Verdict`.
 
 **It records what it observes and claims nothing else.** The model a run resolved is
 something the run states, so it is kept. What a run consumed is not something an
 operation can say, because a call arrives without the session that made it. Those
-figures come from `Delivery Run Telemetry` or are absent, and absent is shown as left
-out rather than as zero.
+figures come from `Delivery Run Telemetry` or are absent, and
+[an absent figure is left out](requirements.md#requirement-a-figure-a-run-did-not-measure-is-left-out).
 
 ### Delivery Run Telemetry
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself]
+related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/requirements.md#what-a-run-cost-reported-by-the-session-itself]
 aliases: [DeliveryRunTelemetry, hook telemetry, telemetry forwarder]
 ```
 
@@ -455,32 +452,30 @@ service keeps what is measured.
 
 **The run is found from the event, never from a pointer.** The event names the session
 and the folder it runs in. The worktree is that folder, or the nearest one above it
-with runs filed. The run is the one in progress there that lists the session. Failing
-that, it is one in progress that lists no session yet, which the session then joins. A
-worktree whose runs in progress all belong to another session takes nothing from this
-one.
+with runs filed, and
+[the session's telemetry reaches only a run it drives there](requirements.md#requirement-a-sessions-telemetry-reaches-only-a-run-it-drives).
 
-**Tokens are read from the session's transcript, once each.** The event carries no
-usage. The transcript it names does, with each delegated agent's in a file of its own
-beside it. Each file is read on from where the last event left it, so a message is
-counted once. That holds for a message written as several lines, which repeats its
-usage on each. A session first seen mid-way starts at the end of what is written: a gap
-is lost rather than a whole conversation counted as the run's.
+**Tokens are read from the session's transcript.** The event carries no usage. The
+transcript it names does, with each delegated agent's in a file of its own beside it.
+Each file is read on from where the last event left it, so
+[a message is counted once](requirements.md#requirement-a-messages-tokens-are-counted-once).
+A session first seen mid-way
+[counts from there on](requirements.md#requirement-a-run-never-counts-what-came-before-its-session-was-seen):
+a gap is lost rather than a whole conversation counted as the run's.
 
 **A delegated agent carries what its call reported.** The Agent call's response states
 the tokens the sub-agent moved and the tool calls it made. Both are kept on the agent's
-record, under the names the dashboard writes them. A response that states neither adds
-nothing rather than a zero.
+record, under the names the dashboard writes them, and
+[a response that states neither adds nothing](requirements.md#requirement-a-delegated-agent-with-no-figures-adds-nothing).
 
-**Best effort, and never the session's problem.** An event that cannot be attributed,
-or a transcript that cannot be read, records nothing and raises nothing. The reporter is
-a hook, and must never fail the tool call it reports on.
+**Best effort, and never the session's problem.** The reporter is a hook, and
+[telemetry never fails the tool call it reports on](requirements.md#requirement-telemetry-never-fails-the-tool-call-it-reports-on).
 
 ### Stage Resolution
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
+related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran, .devbook/domain/sessions/domain.invariants.md#stage-resolution]
 aliases: [DeliveryRunStageResolution, stage execution]
 ```
 
@@ -501,12 +496,14 @@ Each value is taken from the first source in its row that has one:
 | A call's round | The round the stage's record lists against that call. Calls the `insights` saw take the listed rounds per agent, in order, only where the record lists as many calls of that agent as were seen. Otherwise the stage's own round, when the call is the only one the stage made. A round several calls shared stays the stage's. |
 
 **Configured against ran.** A stage is compared on its agent, its model's family and
-its effort. It is compared only once it is past pending, and the gate never is. An
-effort is compared only where the run recorded what ran. A configured agent that did
+its effort.
+[A pending stage and the gate are never compared](domain.invariants.md#invariant-a-pending-stage-and-the-gate-are-never-compared).
+An effort is compared only where the run recorded what ran. A configured agent that did
 not resolve is a difference too.
 
 **Inferred.** Where the run records no resolved phases, mode and agent are inferred
-from what was seen. The stage says so rather than presenting a guess as a record.
+from what was seen, and
+[the stage says so](domain.invariants.md#invariant-an-inferred-value-says-it-was-inferred).
 
 A call under the gate is a [revise round](#revise-round)'s.
 
@@ -514,7 +511,7 @@ A call under the gate is a [revise round](#revise-round)'s.
 
 ```meta
 type: domain-service
-related: [.devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/domain/sessions/domain.md#delivery-run-telemetry]
+related: [.devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/domain.invariants.md#claude-api-request-log]
 aliases: [ClaudeApiRequest, IClaudeApiRequestStore, ClaudeCodeOtlpLogs, cost receiver]
 ```
 
@@ -524,19 +521,20 @@ desktop app at `/v1/logs` (local ADR 0024). Each record names the session, the p
 the sub-agent and the skill it ran under. It holds the model, the effort, Claude Code's
 cost estimate in whole micro-dollars, the four token counts and the duration.
 
-**A request is kept once.** The API's `request_id` is its identity. An exporter retries
-a batch it did not see acknowledged, so the same event arriving again is ordinary, and
-the first copy is the one kept. An event without a `request_id` is not kept at all,
-because it could not be told from its own retry.
+**A request is kept once.** The API's `request_id` is its identity. An exporter
+retries a batch it did not see acknowledged, so the same event arriving again is
+ordinary: [a request is stored once](domain.invariants.md#invariant-a-request-is-stored-once),
+and [one without a `request_id` is not kept](domain.invariants.md#invariant-a-request-without-a-request-id-is-not-kept).
 
 **Only this event is kept.** Claude Code sends many events, such as prompts, tool
-results, hook runs and errors. Every one but `claude_code.api_request` is dropped on
-arrival. Of the one kept, the identity attributes Claude Code adds to every event are
-not stored: the account, the organization and the e-mail address.
+results, hook runs and errors, and
+[only `claude_code.api_request` is kept](domain.invariants.md#invariant-only-the-api_request-event-is-kept).
+Of the one kept,
+[who made the request is not stored](domain.invariants.md#invariant-who-made-a-request-is-not-stored).
 
-**An unknown figure stays unknown.** A field the event did not carry is stored as
-absent, never as zero, which is the rule every measured figure in this context
-follows.
+**An unknown figure stays unknown.** That is
+[an invariant of the log](domain.invariants.md#invariant-an-unknown-figure-stays-unknown),
+and the rule every measured figure in this context follows.
 
 The records are this machine's: they are kept in the app's local database and do not
 replicate. `Delivery Run Telemetry` counts tokens from the transcript. This log holds
@@ -546,7 +544,7 @@ the figures Claude Code itself reported, cost among them.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/domain.md#stage-resolution, .devbook/domain/sessions/domain.md#model-price-table, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/domain/sessions/features.md#a-price-table-for-runs-without-telemetry]
+related: [.devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/domain.md#stage-resolution, .devbook/domain/sessions/domain.md#model-price-table, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/domain/sessions/features.md#a-price-table-for-runs-without-telemetry, .devbook/domain/sessions/domain.invariants.md#cost-attribution]
 aliases: [DeliveryRunCosts, CostFigure, DeliveryRunStageCost, cost attribution]
 ```
 
@@ -566,30 +564,31 @@ figure is the cost in whole micro-dollars and which of two sources it came from:
 
 **A stage's window** runs from its latest start to its completion; a stage still under
 way has no end yet. The owner session is each session the run names, or the one it was
-joined to by worktree and time. Only the main loop's requests count by time. A request
-a sub-agent made has an `agent.name`, or a `query_source` of `agent:<name>`. It counts
-only when that agent is one of the stage's workers, matched the way `Stage Resolution`
-matches agents: the same name, or one the other with a plugin prefix. A worker's
-request counts inside the stage's window or inside that worker's own call. So a
-sub-agent still running after its stage was marked done is still its stage's.
+joined to by worktree and time. A request a sub-agent made has an `agent.name`, or a `query_source` of `agent:<name>`. Its agent
+is one of the stage's workers when the two match the way `Stage Resolution` matches
+agents: the same name, or one the other with a plugin prefix.
+[A stage claims only its own requests](domain.invariants.md#invariant-a-stage-claims-only-its-own-requests):
+the owner's main loop by its window, its workers' by its window or by their own call.
+So a sub-agent still running after its stage was marked done is still its stage's.
 
-**When the reported cost cannot be told apart, the unit is estimated:**
+**When the reported cost cannot be told apart,
+[the unit is estimated](domain.invariants.md#invariant-a-cost-that-cannot-be-told-apart-is-estimated).**
+A stage re-entered after requested changes is the common case. Its start is stamped
+again on every pass, so its window holds the latest pass only, and a figure over it
+would read as the whole stage. A call that recorded no end, unless it is the stage's
+one call of that agent, and two overlapping calls of one agent, such as a fan-out, are
+the others.
 
-- A stage re-entered after requested changes. Its start is stamped again on every
-  pass, so its window holds the latest pass only, and a figure over it would read as
-  the whole stage.
-- A call that recorded no end, unless it is the stage's one call of that agent.
-- Two calls of one agent whose times overlap, such as a fan-out.
-
-**An estimate is no figure at all when a part that spent tokens could not be
-priced**, because a partial sum would read as the whole. With no request and no price,
-there is no cost. It is never shown as zero.
+**An estimate with an unpriced part is no figure at all.** A partial sum would read as
+the whole, so
+[the estimate is absent rather than zero](domain.invariants.md#invariant-an-estimate-with-an-unpriced-part-is-no-figure).
+With no request and no price, there is no cost.
 
 ### Cost Baseline
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/features.md#each-stage-against-its-usual-cost]
+related: [.devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/features.md#each-stage-against-its-usual-cost, .devbook/domain/sessions/domain.invariants.md#cost-baseline]
 aliases: [DeliveryRunBaselines, CostAgainstUsual, CostBand, DeliveryRunCostComparison, DeliveryRunCostInsight, usual cost, cost baseline]
 ```
 
@@ -597,9 +596,9 @@ Reads a run's cost against its usual, from the figures `Cost Attribution` gives 
 and the runs before it. The median is used rather than the mean, because one runaway run
 would otherwise move the baseline for the next thirty.
 
-**The earlier runs** are runs of the same skill id that finished, marked done, and started
-before this one. The latest 30 count, and the run itself never does. A run with no start
-is placed by its last update.
+**The earlier runs** are
+[the latest 30 finished runs of the same skill that started before this one](domain.invariants.md#invariant-a-run-is-compared-with-the-latest-thirty-finished-runs-of-its-skill),
+never the run itself.
 
 **A stage** is matched to the earlier runs' stages by name. Its figures are its cost, its
 share of what the run's priced stages cost, and its ratio to the median cost of that
@@ -637,7 +636,7 @@ once the run records them.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/features.md#share-of-the-week-and-the-weekly-limit]
+related: [.devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/features.md#share-of-the-week-and-the-weekly-limit, .devbook/domain/sessions/domain.invariants.md#weekly-usage]
 aliases: [WeeklyUsage, UsageWeek, WeeklyLimit, UsageShare, share of the week]
 ```
 
@@ -658,13 +657,15 @@ later, so a session still running cannot outgrow the total it is divided by.
 reported from seven days before that refusal's reset time up to the refusal. A refusal
 that carried no reset time counts from seven days before the refusal itself. Fable's
 limit counts the requests to a Fable model only. A refusal with no reported cost before
-it sizes nothing. The percentage of a limit is always an estimate and labelled one.
+it sizes nothing. The percentage of a limit is always an estimate, and
+[it is labelled one](requirements.md#requirement-a-share-of-the-weekly-limit-is-labelled-an-estimate).
 Nothing the product reads states the limit's size, and requests made on another machine
 never reach this one.
 
 **A session's share** is its own requests inside the week. **A run's** is the requests
 its stages and their sub-agent calls claim, matched as `Cost Attribution` matches them.
-Nothing reported inside the week is no share, never zero.
+[Nothing reported inside the week is no share](domain.invariants.md#invariant-nothing-reported-inside-the-week-is-no-share),
+never zero.
 
 ### Model Price Table
 
@@ -751,10 +752,11 @@ The row is the unit the list shows, because a session and a run describe the sam
 from two sides, and either may be the one this environment still has.
 
 Every fact read off a row comes from whichever source has it, and the row says nothing
-either source did not. A schedule's row is titled by the schedule, since each of its
-runs cut a worktree nobody reopens. Any other run-only row is titled by its worktree,
-dated by the run, and placed on the environment the file was read on. A run-only row is
-Finished, because there is no liveness evidence for it. A session row's repository is
+either source did not.
+[A run-only row speaks with its run's facts](domain.invariants.md#invariant-a-run-only-row-speaks-with-its-runs-facts):
+a schedule's row is titled by the schedule, since each of its runs cut a worktree
+nobody reopens. [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
+because there is no liveness evidence for it. A session row's repository is
 the session's. Where the agent recorded none, it is the tracker item a run of it named:
 a recorded fact from a second source, not the guess from a path the Session Log forbids.
 
@@ -852,7 +854,7 @@ path that already delivered its last update.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/domain.md#session-identity, .devbook/domain/sessions/features.md#under-the-session-that-drove-it]
+related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/domain.md#session-identity, .devbook/domain/sessions/features.md#under-the-session-that-drove-it, .devbook/domain/sessions/domain.invariants.md#run-attachment]
 aliases: [SessionRows, attached run, run-only row, stray run]
 ```
 
@@ -873,30 +875,30 @@ flowchart TD
     F -->|no| I[A run-only row]
 ```
 
-**Identity first.** A run that names its sessions joins by identity, with no worktree
-or window test. Where it names sessions and the list holds none of them, it is never
-attached by its worktree. The run said whose it is, and a guess would put it on
-someone else's row.
+**Identity first.**
+[A run that names its sessions joins by identity](domain.invariants.md#invariant-a-run-that-names-its-sessions-joins-by-identity),
+with no worktree or window test, even where the list holds none of them. The run said
+whose it is, and a guess would put it on someone else's row.
 
-**A run that names no session needs both a place and a time.**
+**[A run that names no session needs both a place and a time](domain.invariants.md#invariant-a-run-that-names-no-session-joins-by-place-and-time).**
 
-- **The worktree.** The run's key must equal the key derived from the session's
+- **The worktree.** The run's key is compared with the key derived from the session's
   `Working Location`, or from a folder above it, since a session may be started below
-  the worktree's top level. Keys are compared without regard to letter case. The
-  dashboard slugs git's casing of the leaf, and a session records the folder as it was
-  launched in. A replicated record has no working folder, so it is matched on the
-  worktree key its record carried.
-- **The window.** That session's `Activity Window` must overlap the run's. A worktree is
-  worked in by several sessions over its life, so the worktree alone names a place, and
-  only the overlap names a time.
+  the worktree's top level. Letter case is ignored, because the dashboard slugs git's
+  casing of the leaf and a session records the folder as it was launched in. A
+  replicated record has no working folder, so it is matched on the worktree key its
+  record carried.
+- **The window.** A worktree is worked in by several sessions over its life, so the
+  worktree alone names a place, and only the overlap of the two `Activity Window`s
+  names a time.
 
 Where more than one session passes both tests, the one whose start is nearest the run's
 own wins, because the session that opened the run started with it. A run whose file
 does not date its start is placed by its last update, the one moment it is known to
 have existed.
 
-A run that matches nothing becomes a row of its own and is never dropped. Its session
-may be older than the `Session Limit` keeps, or may have been read on another
+[A run that matches nothing is never dropped](domain.invariants.md#invariant-a-run-that-matches-nothing-is-never-dropped):
+it becomes a row of its own. Its session may be older than the `Session Limit` keeps, or may have been read on another
 environment, and neither is a reason to hide the work. The rows come back in the order
 the sessions were given, then the schedules' rows, then the other run-only rows, most
 recently updated first. Ordering for display is `Session Grouping`'s job.
@@ -915,7 +917,8 @@ A service rather than a property of the session, because the answer depends on t
 current time and an `Agent Session` holds no clock. The threshold itself is a policy
 of this context; see [Stale Threshold](#stale-threshold).
 
-Invocation semantics: query-oriented; evaluated per reading, never persisted. Nothing
+Invocation semantics: query-oriented; evaluated per reading, and
+[never persisted](domain.invariants.md#invariant-state-is-derived-never-carried). Nothing
 moves a session into `stalled`. It reads as stalled while the silence lasts, and reads
 as running again the moment the agent writes.
 
@@ -923,14 +926,15 @@ as running again the moment the agent writes.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run, .devbook/domain/sessions/domain.invariants.md#session-view]
 aliases: [AgentSessionView, view, live, all, AgentSessionEnvironments]
 ```
 
 Narrows a set of `Session Row`s to the ones a reader currently wants in front of
 them: the live ones, or all of them. A row is a session with its runs, or a run the
-list holds no session for, and the view narrows both alike. A run-only row is always
-Finished, so the live view never keeps one.
+list holds no session for, and the view narrows both alike.
+[A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
+so the live view never keeps one.
 
 ```mermaid
 flowchart LR
@@ -941,9 +945,9 @@ flowchart LR
     E --> F[Session Grouping]
 ```
 
-**Narrow first, then group.** A surface applies the narrowings in the order drawn above,
-and only then carves what is left into groups. Never the reverse, so an environment
-with nothing live on it loses its section rather than keeping an empty one. The shell's
+**[Narrow first, then group](domain.invariants.md#invariant-rows-are-narrowed-before-they-are-grouped).**
+A surface applies the narrowings in the order drawn above, and only then carves what is
+left into groups, so an environment with nothing live on it loses its section. The shell's
 repository scope is the shell's, not this context's; the surface applies it first. Each
 narrowing only removes rows, so their order does not change which rows remain. It does
 decide what Live's tally counts: the live rows among what the other narrowings kept.
@@ -972,7 +976,8 @@ third view, because a view answers a question about liveness and the environment
 answers one about place. Folded together, "Live" would mean "live here" on some presses
 and "live anywhere" on others.
 
-**Grouping is the one operation that never removes rows.** The narrowings are the ones
+**Grouping is the one operation that
+[never removes rows](domain.invariants.md#invariant-grouping-never-removes-a-row).** The narrowings are the ones
 that do: the environment, the view, and the surface's own
 [with delivery runs](features.md#only-the-rows-with-a-run) toggle. Because only the
 narrowings shorten the list, the surface can say what they left out.
@@ -996,7 +1001,7 @@ session that then shows an empty list would answer a question nobody asked.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#session-grouping]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#session-grouping, .devbook/domain/sessions/domain.invariants.md#session-grouping]
 aliases: [AgentSessionGrouping]
 ```
 
@@ -1021,12 +1026,13 @@ Each section carries the key that made it one, so a surface can tell apart two
 sections whose headings match.
 
 A service because grouping spans sessions rather than belonging to any one of them,
-and a pure one: no I/O and no state. Only When reads a clock and a time zone, and both
-are handed in: the moment the list was read, not the moment it is drawn. So a press in
-the filter bar never moves a row from one day into another. It guarantees two
-properties that a reader relies on without being told:
+and a pure one: no I/O and no state.
+[Only When reads a clock and a time zone](domain.invariants.md#invariant-a-rows-day-is-read-against-the-moment-the-list-was-read),
+and both are handed in. It guarantees two properties that a reader relies on without
+being told:
 
-- **Grouping rearranges and never filters.** Every session in, every session out. A
+- **Grouping rearranges and
+  [never filters](domain.invariants.md#invariant-grouping-never-removes-a-row).** A
   count taken before grouping is still correct after it.
 - **Group order does not depend on group size.** When's buckets keep their own order,
   repositories and environments sort by name, and agents follow the `Agent` enum. So a
@@ -1178,10 +1184,11 @@ Per agent, not overall. An environment can hold hundreds of records, and the age
 not hold them in equal numbers. A single overall limit would be filled by whichever
 agent kept more history, and would quietly empty a list whose purpose is showing both.
 
-A limit on how much is described, never a claim about how much exists. The number
-discovered travels back beside the sessions, and a reading that dropped anything says
-so. It applies to the list's reading only; a reading since a horizon
-([Session History](#session-history)) has no limit.
+A limit on how much is described, never a claim about how much exists:
+[the log says how complete it is](domain.invariants.md#invariant-the-log-says-how-complete-it-is).
+It applies to the list's reading only, and
+[a reading since a horizon is never capped by it](domain.invariants.md#invariant-a-reading-since-a-horizon-is-never-capped-by-the-session-limit)
+([Session History](#session-history)).
 
 ### Session History
 
@@ -1199,8 +1206,8 @@ the history would show figures for weeks no source was asked to keep. The weeks 
 the history are never read, so a 26-week window has no earlier 26 weeks to compare
 with.
 
-A reading since a horizon describes every session active at or after it, however
-many. So a consumer that counts is never handed the session limit as its total. A
+[A reading since a horizon describes every session active at or after it](domain.invariants.md#invariant-a-reading-since-a-horizon-is-never-capped-by-the-session-limit),
+so a consumer that counts is never handed the session limit as its total. A
 source that keeps another environment's records has to keep two sets: the newest
 sessions up to the limit, and everything inside the history whether or not it is among
 them. A fleet count is only as complete as the least complete store behind it.
@@ -1259,7 +1266,9 @@ a subagent's hand-back, a scheduled run or any other tool result. That is what s
 apart from a prompt: a prompt ends a [wait](#wait) whoever sent it, and most prompts
 are sent by an SDK or a skill.
 
-Sessions keeps only the instant of each human turn, never its text. A session
+Sessions
+[keeps only the instant of each human turn](domain.invariants.md#invariant-a-human-turn-is-kept-as-its-instant-alone),
+never its text. A session
 whose transcript does not record who made a turn has no human turns; a Copilot
 session is one. Roadmap Planning draws the person's
 [working stretches](../roadmap/domain.md#working-stretch) from these instants, and
