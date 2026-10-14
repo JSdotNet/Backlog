@@ -29,7 +29,8 @@ namespace Backlog.Desktop.UI.Devbook;
 /// slashes, and still carrying the area folder at the front.</param>
 /// <param name="Anchor">The heading slug the reference named, or
 /// <see langword="null"/> when it addresses the file as a whole. Carried because it
-/// is part of what the author wrote; nothing scrolls to it yet.</param>
+/// is part of what the author wrote. On a scenario page it names the part the pane
+/// marks and scrolls to; on any other chapter nothing scrolls to it yet.</param>
 public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anchor)
 {
     /// <summary>The same file as the Devbook menu spells it: beneath the area's

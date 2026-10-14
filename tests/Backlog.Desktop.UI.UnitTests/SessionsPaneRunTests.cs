@@ -807,8 +807,9 @@ public sealed class SessionsPaneRunTests
         });
     }
 
-    /// <summary>A verify stage's scenario evidence (BL2) shows under the fold,
-    /// one row per part with the run's outcome as its dot.</summary>
+    /// <summary>A verify stage's scenario evidence (BL2) shows in that stage's own
+    /// panel, one row per part with the run's outcome as its dot, and nowhere else
+    /// on the run line.</summary>
     [Fact]
     public void A_verify_stage_shows_its_scenario_evidence_per_part()
     {
@@ -835,20 +836,34 @@ public sealed class SessionsPaneRunTests
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
         pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
 
+        // Folded, the Verify row already says how its parts went.
         pane.WaitForAssertion(() =>
         {
-            var list = Assert.Single(pane.FindAll("[data-testid='sessions-run-evidence-list']"));
-            Assert.Equal("Verify: scenario evidence", list.GetAttribute("aria-label"));
-            Assert.Equal("1 of 2 passing", list.QuerySelector("[data-testid='sessions-run-evidence-list-count']")!.TextContent.Trim());
+            var verify = pane.Find("[data-testid='sessions-stage'][data-stage='Verify']");
+            Assert.Equal("1 of 2 passing", verify.QuerySelector("[data-testid='sessions-stage-evidence-summary']")!.TextContent.Trim());
+        });
 
-            var parts = list.QuerySelectorAll("[data-testid='sessions-run-evidence-list-part']");
+        pane.Find("[data-testid='sessions-stage'][data-stage='Verify'] [data-testid='sessions-stage-toggle']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var list = Assert.Single(pane.FindAll("[data-testid='sessions-stage-evidence']"));
+            Assert.Null(list.Closest("[hidden]"));
+            Assert.NotNull(list.Closest("[data-testid='sessions-stage'][data-stage='Verify'] [data-testid='sessions-stage-panel']"));
+            Assert.Equal("Scenario evidence", list.GetAttribute("aria-label"));
+            Assert.Equal("1 of 2 passing", list.QuerySelector("[data-testid='sessions-stage-evidence-count']")!.TextContent.Trim());
+
+            var parts = list.QuerySelectorAll("[data-testid='sessions-stage-evidence-part']");
             Assert.Equal(["passed", "never-run"], parts.Select(part => part.GetAttribute("data-state")));
             Assert.Equal("statuses-are-set-up", parts[0].QuerySelector(".scenario-checklist__part")!.TextContent.Trim());
             Assert.Equal("set-up-and-fill-the-backlog", parts[0].QuerySelector(".scenario-checklist__page")!.TextContent.Trim());
 
             // A run's evidence is no item: it never says proved.
-            Assert.Empty(list.QuerySelectorAll("[data-testid='sessions-run-evidence-list-proved']"));
+            Assert.Empty(list.QuerySelectorAll("[data-testid='sessions-stage-evidence-proved']"));
         });
+
+        // Nothing draws the evidence outside the stage list.
+        Assert.All(pane.FindAll(".scenario-checklist"), checklist => Assert.NotNull(checklist.Closest("[data-testid='sessions-stages']")));
     }
 
     [Fact]
@@ -866,8 +881,12 @@ public sealed class SessionsPaneRunTests
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
         pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
 
-        pane.WaitForAssertion(() => Assert.Equal("true", pane.Find("[data-testid='sessions-run'] .fold__trigger").GetAttribute("aria-expanded")));
-        Assert.Empty(pane.FindAll("[data-testid='sessions-run-evidence']"));
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-stage-toggle']")));
+        pane.Find("[data-testid='sessions-stage-toggle']").Click();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-stage-panel']")));
+        Assert.Empty(pane.FindAll("[data-testid='sessions-stage-evidence-summary']"));
+        Assert.Empty(pane.FindAll(".scenario-checklist"));
     }
 
     private static void ShowAll(IRenderedComponent<SessionsPane> pane)

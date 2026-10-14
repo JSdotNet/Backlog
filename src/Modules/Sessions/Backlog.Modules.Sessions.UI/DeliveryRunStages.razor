@@ -1,4 +1,5 @@
 @using global::Backlog.UI.Components.Metrics
+@using global::Backlog.UI.Components.Devbook
 
 @*
     How each stage of one delivery run ran, as a list: the legend above it, then one
@@ -20,6 +21,10 @@
     (DeliveryRunStageUsual), and on each sub-agent call. Reported by Claude Code, or estimated from
     tokens at the Settings prices and marked so; with neither, nothing is drawn —
     never a zero.
+
+    Scenario evidence (BL2), where a stage reported any — the verify stage, for a
+    delivery run: the folded row says how many of its parts passed, and the panel
+    lists them, so the evidence sits under the stage that ran it.
 *@
 @if (_stages.Count > 0)
 {
@@ -55,6 +60,12 @@
                                 <StageMark Kind="@mark"
                                            Title="@(mark is StageMarkKind.Drift ? DeliveryRunStageResolution.DriftTitle(stage) : null)"
                                            TestId="sessions-stage-mark" />
+                            }
+                            @if (EvidenceOf(position) is { Count: > 0 } evidence)
+                            {
+                                <span class="sessions-stage__evidence"
+                                      title="Scenario parts this stage ran; open the stage for each part"
+                                      data-testid="sessions-stage-evidence-summary">@ScenarioPartChecklist.SummaryOf(evidence)</span>
                             }
                             @if (CostOf(position) is { } cost)
                             {
@@ -139,6 +150,19 @@
                                         }
                                     </dd>
                                 </div>
+                                @if (EvidenceOf(position) is { Count: > 0 } parts)
+                                {
+                                    @* The parts stay plain text: a run's evidence opens
+                                       nothing, it only says what the stage ran. *@
+                                    <div class="sessions-stage__fact">
+                                        <dt>Evidence</dt>
+                                        <dd>
+                                            <ScenarioPartChecklist Parts="@parts"
+                                                                   Heading="Scenario evidence"
+                                                                   TestId="sessions-stage-evidence" />
+                                        </dd>
+                                    </div>
+                                }
                             </dl>
                         </ChildContent>
                     </FoldControl>
@@ -177,6 +201,12 @@
         Comparison is { } comparison && stage < comparison.Stages.Count ? comparison.Stages[stage] : null;
 
     private CostFigure? CostOf(int stage) => Costs is { } costs && stage < costs.Count ? costs[stage].Stage : null;
+
+    /// <summary>The scenario parts the stage reported, as checklist rows. Read from
+    /// the run's own stage, because the resolved execution carries no evidence; the
+    /// resolution maps the run's stages one to one, so the positions agree.</summary>
+    private IReadOnlyList<ScenarioChecklistPart> EvidenceOf(int stage) =>
+        stage < Run.Stages.Count ? DeliveryRunLine.EvidenceParts(Run.Stages[stage]) : [];
 
     private CostFigure? WorkerCostOf(int stage, int worker) =>
         Costs is { } costs && stage < costs.Count && worker < costs[stage].Workers.Count ? costs[stage].Workers[worker] : null;

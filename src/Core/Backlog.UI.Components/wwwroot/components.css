@@ -3278,6 +3278,16 @@ button.devbook-chip__label:focus-visible {
 
 .devbook-scenario-part__title { font-weight: 600; }
 
+/* The part the reader opened the page at, from an entry's Acceptance checklist:
+   the accent edge says which one they asked for, until they pick another chapter. */
+.devbook-scenario-part--focused {
+    margin-left: calc(-1 * var(--spacing-sm));
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+}
+
 .devbook-scenario-part__duration,
 .devbook-scenario-part__steps {
     margin: 0;

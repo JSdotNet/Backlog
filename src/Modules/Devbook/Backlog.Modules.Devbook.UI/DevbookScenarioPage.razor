@@ -9,7 +9,13 @@
     starts, who is signed in, the profile, the data sets, and the flag and setting
     overrides. A field the page leaves out is left out here too, except the
     profile, which reads `default` when absent because that is what the run used.
+
+    A part opened from elsewhere — an entry's Acceptance checklist — is the current
+    one: marked, and scrolled to once per request, until the reader picks another
+    chapter.
 *@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 <section class="devbook-scenario-page" aria-label="Scenario run" data-testid="devbook-scenario-page" data-state="@ScenarioEvidence.Slug(Scenario.State)">
     <p class="devbook-scenario-page__summary" data-testid="devbook-scenario-summary">
         <DevbookScenarioDot State="@Scenario.State" TestId="devbook-scenario-page-dot" />
@@ -41,7 +47,11 @@
         {
             var outcome = Scenario.Run?.Part(part.Anchor);
             var slug = OutcomeSlug(outcome);
-            <li class="devbook-scenario-part devbook-scenario-part--@slug" data-testid="devbook-scenario-part" data-anchor="@part.Anchor">
+            var focused = IsFocused(part);
+            <li class="@PartClass(slug, focused)"
+                aria-current="@(focused ? "true" : null)"
+                data-testid="devbook-scenario-part"
+                data-anchor="@part.Anchor">
                 <div class="devbook-scenario-part__header">
                     <span class="devbook-scenario-part__title">@part.Title</span>
                     <Badge Kind="scenario-outcome" Slug="@slug" TestId="devbook-scenario-part-outcome">@OutcomeLabel(outcome)</Badge>
@@ -83,6 +93,45 @@
 
     [Parameter]
     public DevbookScenarioStore? Store { get; set; }
+
+    /// <summary>The part the reader opened the page at — a part pressed in an entry's
+    /// Acceptance checklist — marked as the current one and scrolled into view, or
+    /// null for none. An anchor no part has marks nothing. A new request for the same
+    /// part is a new value, so it is scrolled to again.</summary>
+    [Parameter]
+    public DevbookFocus? Focus { get; set; }
+
+    /// <summary>The focus last scrolled to, so a re-render — a screenshot landing —
+    /// does not pull the pane back to the part after the reader scrolled away.</summary>
+    private DevbookFocus? _revealed;
+
+    private bool IsFocused(ScenarioPart part) =>
+        Focus is { Anchor.Length: > 0 } focus && string.Equals(part.Anchor, focus.Anchor, StringComparison.Ordinal);
+
+    private static string PartClass(string slug, bool focused) =>
+        focused
+            ? $"devbook-scenario-part devbook-scenario-part--{slug} devbook-scenario-part--focused"
+            : $"devbook-scenario-part devbook-scenario-part--{slug}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Focus is not { } focus || focus == _revealed) return;
+        if (!Scenario.Page.Parts.Any(IsFocused)) return;
+
+        _revealed = focus;
+
+        // The library's reveal rather than scrollIntoView: it scrolls the nearest
+        // scroll container only, and leaves the workspace — overflow hidden — where
+        // it is.
+        try
+        {
+            await JS.InvokeVoidAsync("backlogRevealRow", "[data-testid='devbook-scenario-part'][aria-current='true']");
+        }
+        catch (JSDisconnectedException)
+        {
+            // The window went while the pane was drawing; there is nothing to scroll.
+        }
+    }
 
     private IEnumerable<(string Field, string Value)> SetupFields()
     {

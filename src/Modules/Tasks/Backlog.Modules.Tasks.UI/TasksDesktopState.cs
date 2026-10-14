@@ -6150,11 +6150,11 @@ public sealed class EntryRow
     }
 
     /// <summary>
-    /// Whether the steps view is leaving body text off the screen.
+    /// Whether the entry opens with prose before its first chapter.
     /// <para>
     /// The steps view lists chapters, and the prose an entry opens with is not one.
     /// A view that quietly hid it would make the markdown look like it had lost
-    /// text, so the pane says so instead and puts the block one press away —
+    /// text, so the pane reads it out above the steps (<see cref="PreviewBlocks"/>) —
     /// <c>.devbook/design/content-editing.md#round-trip-fidelity</c> is about the text
     /// surviving, and a reader who cannot see it has no way to know that it did.
     /// </para>
