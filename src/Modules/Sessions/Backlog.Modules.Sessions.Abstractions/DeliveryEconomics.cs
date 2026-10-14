@@ -150,6 +150,32 @@ public sealed record DeliveryQuality(DeliveryQualityMeasure Measure, double? Val
         _ => $"Share of runs in which Verify found a defect review had passed, over {RunsWord(Runs)}"
     };
 
+    /// <summary>
+    /// Whether the cheaper configuration's measure is within a tenth of the dearer one's,
+    /// in the measure's worse direction: Build &amp; Test reads higher as better, every
+    /// other measure lower. The tenth is of the dearer value, at least of 1 — ten points
+    /// for a share, a tenth of the rounds or blockers for a count — so a dearer value of
+    /// zero still leaves room. True for a phase with no measure: there is nothing for the
+    /// cheaper one to fall short on. Null where either side reported nothing: unknown,
+    /// never assumed level.
+    /// </summary>
+    public static bool? Within(DeliveryQuality cheaper, DeliveryQuality dearer)
+    {
+        ArgumentNullException.ThrowIfNull(cheaper);
+        ArgumentNullException.ThrowIfNull(dearer);
+
+        if (dearer.Measure is DeliveryQualityMeasure.None) return true;
+        if (cheaper.Value is not { } low || dearer.Value is not { } high) return null;
+
+        var worse = dearer.Measure is DeliveryQualityMeasure.GreenFirstTime ? high - low : low - high;
+
+        return worse <= Tolerance * Math.Max(Math.Abs(high), 1) + 1e-9;
+    }
+
+    /// <summary>How far the cheaper configuration's quality may fall short and still count
+    /// as level: a tenth.</summary>
+    public const double Tolerance = 0.1;
+
     internal static string Percent(double share) =>
         $"{Math.Round(share * 100, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%";
 
@@ -283,9 +309,66 @@ public sealed record DeliveryConfigurationCost(
 }
 
 /// <summary>
-/// One lesson card: two configurations of a phase compared on cost. Quality joins it
-/// once the delivery engine reports it; until then the card says it compares cost only
-/// and claims nothing about quality.
+/// How far a lesson can be trusted, from the smaller of its two sample sizes.
+/// </summary>
+public enum DeliveryConfidence
+{
+    /// <summary>Under 10 priced runs on either side.</summary>
+    NotEnoughToCall,
+
+    /// <summary>10 to 20 priced runs on the smaller side.</summary>
+    KeepBothRunning,
+
+    /// <summary>More than 20 priced runs on both sides.</summary>
+    FairlyConfident
+}
+
+/// <summary>
+/// The phase table's verdict on a phase: whether its configuration is worth tuning, and
+/// which way.
+/// </summary>
+public enum DeliveryVerdict
+{
+    /// <summary>The dearer configuration lowers the median run cost: the cheaper phase
+    /// raises the run's cost.</summary>
+    WorthIt,
+
+    /// <summary>The cheaper configuration lowers the run cost and is within a tenth of the
+    /// dearer one on the quality measure.</summary>
+    TryCheaper,
+
+    /// <summary>The phase is under 2% of the run's cost.</summary>
+    NothingToTune,
+
+    /// <summary>One configuration only has run the phase.</summary>
+    NotCompared,
+
+    /// <summary>Two configurations ran it, and the comparison does not settle either way
+    /// yet: too few runs for a lesson, the whole-run difference unknown or nil, or the
+    /// cheaper one's quality short of the dearer one's or not reported.</summary>
+    NoCall
+}
+
+/// <summary>A phase's verdict and why, for the table's verdict column.</summary>
+/// <param name="Kind">The verdict.</param>
+/// <param name="Reason">Why, in a sentence, for a tooltip.</param>
+public sealed record DeliveryPhaseVerdict(DeliveryVerdict Kind, string Reason)
+{
+    /// <summary>The verdict as the column reads it.</summary>
+    public string Label => Kind switch
+    {
+        DeliveryVerdict.WorthIt => "Worth it",
+        DeliveryVerdict.TryCheaper => "Try cheaper",
+        DeliveryVerdict.NothingToTune => "Nothing to tune",
+        DeliveryVerdict.NotCompared => "Not compared",
+        _ => "No call yet"
+    };
+}
+
+/// <summary>
+/// One lesson card: two configurations of a phase compared on phase cost, whole-run cost
+/// and the phase's quality measure side by side, with how far the sample sizes let it be
+/// trusted.
 /// </summary>
 /// <param name="SkillId">The flow.</param>
 /// <param name="Phase">The phase, as the table names it.</param>
@@ -297,8 +380,9 @@ public sealed record DeliveryConfigurationCost(
 /// less the dearer one's, over the runs each priced in every stage they finished — below
 /// zero where its runs cost less too — or null where either side has fewer than
 /// <see cref="DeliveryRunBaselines.MinimumRuns"/> such runs: the difference is unknown.</param>
-/// <param name="KeepsNow">Whether the cheaper configuration is the configuration now: the
-/// card then confirms it, and copies no request, since there is nothing to change.</param>
+/// <param name="KeepsNow">Whether the cheaper configuration is the configuration now and
+/// its whole runs cost no more: the card then confirms it, and copies no request, since
+/// there is nothing to change.</param>
 public sealed record DeliveryLesson(
     string SkillId,
     string Phase,
@@ -335,7 +419,7 @@ public sealed record DeliveryLesson(
                 null => $"{head}; the whole-run difference is unknown",
                 < 0 and var less => $"{head}, and whole runs cost {Amount(-less)} less",
                 0 => $"{head}, and whole runs cost the same",
-                var more => $"{head}, but whole runs cost {Amount(more.Value)} more"
+                var more => $"{head}, but whole runs cost {Amount(more.Value)} more: the cheaper phase raises the run's cost"
             };
         }
     }
@@ -345,34 +429,98 @@ public sealed record DeliveryLesson(
     public string Samples =>
         $"{Cheaper.Configuration.Label}: {Cheaper.PricedRuns} runs · {Dearer.Configuration.Label}: {Dearer.PricedRuns} runs";
 
-    /// <summary>What the card says about quality, which it never compares.</summary>
-    public string QualityNote => Cheaper.QualityRuns == 0 || Dearer.QualityRuns == 0
-        ? "Quality not reported: this compares cost only."
-        : "Quality not compared: this compares cost only.";
+    /// <summary>How far the lesson can be trusted, from the smaller sample: under 10 runs
+    /// on either side it is not enough to call, 10 to 20 keep both running, more is
+    /// fairly confident.</summary>
+    public DeliveryConfidence Confidence => Math.Min(Cheaper.PricedRuns, Dearer.PricedRuns) switch
+    {
+        < 10 => DeliveryConfidence.NotEnoughToCall,
+        <= 20 => DeliveryConfidence.KeepBothRunning,
+        _ => DeliveryConfidence.FairlyConfident
+    };
+
+    /// <summary>The confidence in words, with the smaller sample it stands on.</summary>
+    public string ConfidenceLine
+    {
+        get
+        {
+            var smaller = Math.Min(Cheaper.PricedRuns, Dearer.PricedRuns);
+
+            return Confidence switch
+            {
+                DeliveryConfidence.NotEnoughToCall => $"Not enough to call: {smaller} runs on the smaller side, under 10.",
+                DeliveryConfidence.KeepBothRunning => $"Keep both running: {smaller} runs on the smaller side, 10 to 20.",
+                _ => $"Fairly confident: {smaller} runs on the smaller side, over 20."
+            };
+        }
+    }
+
+    /// <summary>The phase's quality measure for both configurations side by side, such as
+    /// "Quality measure: Sonnet at high effort 1.2 rounds · Opus 1.4 rounds", or that the
+    /// phase has none.</summary>
+    public string QualityNote => Cheaper.Quality.Measure is DeliveryQualityMeasure.None
+        ? "This phase has no quality measure: this compares cost only."
+        : $"Quality measure: {Cheaper.Configuration.Label} {Cheaper.Quality.Label} · {Dearer.Configuration.Label} {Dearer.Quality.Label}";
+
+    /// <summary>Whether the cheaper configuration is within a tenth of the dearer one on
+    /// the quality measure (<see cref="DeliveryQuality.Within"/>), or null where either
+    /// side reported nothing.</summary>
+    public bool? QualityWithin => DeliveryQuality.Within(Cheaper.Quality, Dearer.Quality);
+
+    /// <summary>Whether the dearer configuration is the configuration now.</summary>
+    public bool DearerIsNow { get; init; }
+
+    /// <summary>The configuration the lesson points to: the dearer one where its whole
+    /// runs cost less — the cheaper phase raises the run's cost — else the cheaper one.</summary>
+    public DeliveryConfigurationCost Target => RunDifferenceUsdMicros > 0 ? Dearer : Cheaper;
 
     /// <summary>The request the card's button copies, for the person to paste into a
-    /// session: the <c>devbook-config:local</c> skill, the flow, the phase and the
-    /// configuration. Null where the cheaper is the configuration now: setting what is
-    /// already set changes nothing. The app never writes the overlay itself.</summary>
+    /// session: the <c>devbook-config:local</c> skill, the flow, the phase, and the model
+    /// and effort of <see cref="Target"/> — its agent and mode too where the phase's
+    /// configurations differ on them. Null where the target is the configuration now:
+    /// setting what is already set changes nothing. The app never writes the overlay
+    /// itself.</summary>
     public string? Request
     {
         get
         {
-            if (KeepsNow) return null;
+            var dearer = ReferenceEquals(Target, Dearer);
 
-            var run = RunDifferenceUsdMicros switch
-            {
-                null => "; the whole-run difference is unknown",
-                < 0 and var less => $", and the whole run {Amount(-less)} cheaper",
-                0 => ", and the whole run the same",
-                var more => $", and the whole run {Amount(more.Value)} dearer"
-            };
+            if (dearer ? DearerIsNow : CheaperIsNow) return null;
 
-            return $"Use devbook-config:local to set the {Phase} phase of {SkillId} to {Cheaper.Configuration.Label} in my personal overlay. "
-                   + $"The Delivery economics page found it {Amount(PhaseSavingUsdMicros)} cheaper per run of that phase than {Dearer.Configuration.Label}, "
-                   + $"over {Cheaper.PricedRuns} and {Dearer.PricedRuns} priced runs{run}. Quality was not compared.";
+            var target = Target.Configuration;
+            var other = dearer ? Cheaper : Dearer;
+
+            var model = target.Family is { Length: > 0 } family ? $"its model to {family}" : "its model to the session's";
+            var effort = target.Effort is { } level ? $"its effort to {level}" : "leave its effort unset";
+            // The agent and the mode only where the phase's configurations differ on them —
+            // a request that set the model and effort alone would change nothing there.
+            var agent = target.Agent is { } name ? $", its agent to {name}" : string.Empty;
+            var mode = target.Mode is { } how ? $", its mode to {how.ToString().ToLowerInvariant()}" : string.Empty;
+
+            var evidence = dearer
+                ? $"The Delivery economics page found its whole runs {Amount(RunDifferenceUsdMicros!.Value)} cheaper (medians) than with {other.Configuration.Label}, "
+                  + $"though the phase itself costs {Amount(PhaseSavingUsdMicros)} more"
+                : $"The Delivery economics page found it {Amount(PhaseSavingUsdMicros)} cheaper per run of that phase than {other.Configuration.Label}"
+                  + RunDifferenceUsdMicros switch
+                  {
+                      null => ", the whole-run difference unknown",
+                      < 0 and var less => $", and the whole run {Amount(-less)} cheaper",
+                      _ => ", and the whole run the same"
+                  };
+
+            var quality = Cheaper.Quality.Measure is DeliveryQualityMeasure.None
+                ? "The phase has no quality measure."
+                : $"Quality measure: {target.Label} {Target.Quality.Label}, against {other.Quality.Label}.";
+
+            return $"Use devbook-config:local to set the {Phase} phase of {SkillId} in my personal overlay: {model}{agent}{mode}, {effort}. "
+                   + $"{evidence}, over {Target.PricedRuns} and {other.PricedRuns} priced runs. {quality} {ConfidenceLine}";
         }
     }
+
+    /// <summary>Whether the cheaper configuration is the configuration now, whether or
+    /// not its whole runs cost more.</summary>
+    public bool CheaperIsNow { get; init; }
 
     private static string Amount(long usdMicros) => new CostFigure(usdMicros, CostSource.Reported).Label;
 }
@@ -762,8 +910,8 @@ public static class DeliveryEconomics
     /// The phase's lesson, or null unless two configurations each priced at least
     /// <see cref="DeliveryRunBaselines.MinimumRuns"/> runs of it at different median
     /// costs. The cheapest of those is compared with the configuration now where that
-    /// qualifies, else with the other that priced most runs. Cost only: quality is not
-    /// reported, so it is not compared.
+    /// qualifies, else with the other that priced most runs. The quality measure is set
+    /// side by side, never folded into the cost.
     /// </summary>
     /// <param name="skillId">The flow, which the copied request names.</param>
     /// <param name="phase">The phase.</param>
@@ -795,9 +943,64 @@ public static class DeliveryEconomics
             ? cheaperRun.UsdMicros - dearerRun.UsdMicros
             : null;
 
-        var keepsNow = Matches(phase, cheaper.Configuration);
+        var cheaperIsNow = Matches(phase, cheaper.Configuration);
 
-        return new DeliveryLesson(skillId, phase.Name, cheaper, dearer, saving, difference, keepsNow);
+        // The card confirms the configuration now only where its whole runs cost no more:
+        // a cheaper phase that raises the run's cost is no reason to keep it.
+        return new DeliveryLesson(skillId, phase.Name, cheaper, dearer, saving, difference, cheaperIsNow && difference is not > 0)
+        {
+            CheaperIsNow = cheaperIsNow,
+            DearerIsNow = Matches(phase, dearer.Configuration)
+        };
+    }
+
+    /// <summary>The share of the run under which a phase has nothing to tune: 2%.</summary>
+    public const double NothingToTuneShare = 0.02;
+
+    /// <summary>
+    /// The phase table's verdict on a phase, the first rule that holds:
+    /// <list type="number">
+    /// <item><b>Nothing to tune</b> — the phase is under 2% of the run's cost (its
+    /// <see cref="DeliveryPhase.Share"/>).</item>
+    /// <item><b>Not compared</b> — one configuration only has run it.</item>
+    /// <item><b>Worth it</b> — the dearer configuration lowers the median run cost.</item>
+    /// <item><b>Try cheaper</b> — the cheaper one lowers the run cost and is within a
+    /// tenth of the dearer one on the quality measure.</item>
+    /// <item><b>No call yet</b> — otherwise: no lesson stands, the whole-run difference
+    /// is unknown or nil, or the cheaper one's quality is short or not reported.</item>
+    /// </list>
+    /// </summary>
+    public static DeliveryPhaseVerdict VerdictOf(DeliveryPhase phase)
+    {
+        ArgumentNullException.ThrowIfNull(phase);
+
+        if (phase.Share is { } share && share < NothingToTuneShare)
+        {
+            // Two decimals, so a share just under 2% never reads as "2%: under 2%".
+            var percent = (share * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+            return new(DeliveryVerdict.NothingToTune, $"{percent}% of the run's cost: under 2%, so a cheaper configuration would save little");
+        }
+
+        if (phase.Configurations < 2)
+        {
+            return new(DeliveryVerdict.NotCompared, "Only one configuration has run this phase, so there is nothing to compare it with");
+        }
+
+        if (Lesson(string.Empty, phase) is not { } lesson)
+        {
+            return new(DeliveryVerdict.NoCall, "No two configurations have five priced runs each at different medians yet");
+        }
+
+        return lesson.RunDifferenceUsdMicros switch
+        {
+            null => new(DeliveryVerdict.NoCall, "The whole-run difference is unknown: too few fully priced runs on a side"),
+            > 0 => new(DeliveryVerdict.WorthIt, $"{lesson.Dearer.Configuration.Label} costs more in the phase but lowers the median run cost"),
+            < 0 when lesson.QualityWithin is true => new(DeliveryVerdict.TryCheaper, $"{lesson.Cheaper.Configuration.Label} lowers the run cost and is within 10% on the quality measure"),
+            < 0 when lesson.QualityWithin is null => new(DeliveryVerdict.NoCall, "The cheaper configuration lowers the run cost, but its quality measure was not reported on both sides"),
+            < 0 => new(DeliveryVerdict.NoCall, "The cheaper configuration lowers the run cost, but falls more than 10% short on the quality measure"),
+            _ => new(DeliveryVerdict.NoCall, "Whole runs cost the same either way")
+        };
     }
 
     /// <summary>

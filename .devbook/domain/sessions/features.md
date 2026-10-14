@@ -1059,6 +1059,8 @@ related: [.devbook/domain/sessions/features.md#each-stage-against-its-usual-cost
 The page has a button in the Sessions header. A run's one-line insight also opens it,
 filtered to that run's flow. The second way in exists because the insight raises the
 question, "is this stage always this expensive?", and the page is where it is answered.
+A Sessions breadcrumb at the top of the page leads back to the list, and the focus
+returns to whichever way in was used.
 
 ### The flow at a glance
 
@@ -1092,7 +1094,8 @@ row shows:
 - how many runs priced the phase;
 - the median phase cost;
 - the phase's share of the run;
-- the phase's [quality measure](#the-quality-measure-per-phase).
+- the phase's [quality measure](#the-quality-measure-per-phase);
+- the phase's [verdict](#the-verdict-per-phase).
 
 The share is the phase's median over the sum of the medians of the phases the latest run
 carries, so the shares add up to the whole. A phase only older runs carried keeps its
@@ -1139,6 +1142,30 @@ stage (see [Delivery Run](domain.md#delivery-run)). Only the phase that reviews 
 the work knows them, so this product records what is reported and works out none of the
 three itself. Each count describes the stage's latest pass.
 
+### The verdict per phase
+
+```meta
+type: sub-feature
+```
+
+The table's last column gives each phase a verdict, the first of these rules that holds:
+
+| Verdict | When |
+| --- | --- |
+| Nothing to tune | The phase is under 2% of the run's cost. |
+| Not compared | One configuration only has run the phase. Its panel suggests trying a cheaper model or effort through the personal overlay. |
+| Worth it | The dearer configuration lowers the median run cost. |
+| Try cheaper | The cheaper configuration lowers the run cost and is within 10% of the dearer one on the quality measure. |
+| No call yet | Anything else: too few runs for a lesson, the whole-run difference unknown or nil, or the cheaper configuration's quality short of the dearer one's or not reported. |
+
+The two configurations compared are the lesson card's. Within 10% is measured in the
+measure's worse direction, against a tenth of the dearer value or of 1, whichever is
+larger: ten points for a share, a tenth of the rounds or blockers for a count. Build &
+Test reads higher as better and every other measure lower. A phase with no quality
+measure has nothing to fall short on. A measure nobody reported on one side is unknown,
+never assumed level, so it gives no call rather than Try cheaper. The verdict's reason
+is the badge's tooltip.
+
 ### Lesson cards
 
 ```meta
@@ -1152,19 +1179,33 @@ flowchart LR
     C --> D[Personal overlay changed]
 ```
 
-The page draws its findings as lesson cards. A card compares two configurations of a
-phase once each priced at least five runs of it at different medians, and states the
-lesson and the number of runs it is drawn from, for example "Sonnet at high effort runs
-Implement for $2.00 less than Opus (medians), and whole runs cost $2.00 less". The card's
-button copies a request for the `devbook-config:local` skill, which changes the person's
-own overlay of the repository's configuration. A card whose cheaper configuration is the
-one configured now says to keep it, and copies nothing.
+The page draws its findings as lesson cards. The selected phase's panel shows one once
+two configurations of the phase each priced at least five runs of it at different
+medians. The card compares the cheaper configuration with the dearer one, on phase cost
+and whole-run cost, for example "Sonnet at high effort runs Implement for $2.00 less than
+Opus (medians), and whole runs cost $2.00 less". Where the cheaper phase makes whole runs
+dearer, the card says the cheaper phase raises the run's cost. The card sets the phase's
+quality measure for the two configurations side by side, and states the number of runs
+each side is drawn from.
 
-A card compares cost only and says so. The quality measure sits on each configuration
-beside it, for the reader to weigh.
+A confidence line reads the smaller of the two sample sizes:
 
-The sample size is on every card because a lesson from three runs reads as confidently as
-one from forty. Only the number tells them apart. The app never writes the overlay
+| Runs on the smaller side | Confidence line |
+| --- | --- |
+| Under 10 | Not enough to call |
+| 10 to 20 | Keep both running |
+| More than 20 | Fairly confident |
+
+The card's button copies a request for the `devbook-config:local` skill, which changes
+the person's own overlay of the repository's configuration: it sets that phase's model
+and effort, and its agent and mode where the configurations differ on them. The request points to
+the dearer configuration where its whole runs cost less, and to the cheaper one
+otherwise, and carries the figures, the quality measures and the confidence line it
+stands on. A card that points to the configuration now copies nothing; where that is the
+cheaper one, it says to keep it.
+
+The sample size and the confidence line are on every card because a lesson from three
+runs reads as confidently as one from forty. Only the number tells them apart. The app never writes the overlay
 itself, for two reasons. The overlay belongs to the person and to the skill that keeps it.
 A change to how a flow runs should also be a step the person takes on purpose, in a
 session where they can see it happen.
