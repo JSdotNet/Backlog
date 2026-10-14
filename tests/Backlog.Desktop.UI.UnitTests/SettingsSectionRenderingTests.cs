@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.AzureFoundry;
+﻿using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
@@ -253,10 +253,10 @@ public sealed class SettingsSectionRenderingTests
     private static void SwitchFeature(IRenderedComponent<Settings> component, string name, bool on)
     {
         SettingsMenu.Open(component, "Features");
-        component.FindAll(".feature-flag")
+        var toggle = component.FindAll(".feature-flag")
             .Single(row => row.QuerySelector(".feature-flag__title")?.TextContent == name)
-            .QuerySelector("input")!
-            .Change(on);
+            .QuerySelector("[role='switch']")!;
+        if (toggle.GetAttribute("aria-checked") != (on ? "true" : "false")) toggle.Click();
     }
 
     private static string Normalize(string text) =>

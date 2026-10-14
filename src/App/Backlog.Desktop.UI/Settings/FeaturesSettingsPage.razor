@@ -73,11 +73,13 @@
                     <div class="feature-flags" role="list" aria-label="@($"{section.Title} feature flags")">
                         @foreach (var feature in rows)
                         {
-                            @* A flag row is the shared Toggle in its native-checkbox
-                               shape: the whole row is a label, so the box is reachable
-                               by clicking the text. *@
+                            @* A flag row is the shared Toggle in its switch shape: a
+                               button with role="switch", named by the feature's title
+                               through aria-labelledby, so Space and Enter flip it like
+                               any button. The row's stylesheet draws the switch on the
+                               trailing edge at 44 × 26. A locked feature's switch is
+                               disabled and stays on. *@
                             <Toggle @key="feature.Key"
-                                    NativeCheckbox="true"
                                     BaseClass="feature-flag"
                                     CssClass="@(feature.AlwaysEnabled ? "feature-flag--locked" : null)"
                                     TextCssClass="feature-flag__content"
