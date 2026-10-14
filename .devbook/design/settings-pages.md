@@ -67,6 +67,12 @@ Rules:
 - The headline MUST be one sentence, computed from the store on each render, so
   it moves in the same render as the control that changed it.
 - A page MUST NOT render a heading of its own that restates the headline.
+- Navigation focuses the headline (`FocusOnNavigate`, `tabindex="-1"`) so a screen
+  reader announces the page, and the headline draws no focus outline for it: it
+  is never a tab stop, and a ring would cover the eyebrow on every page load. The
+  rule is a focus-visibility exemption under
+  [Focus Visibility](accessibility.md#focus-visibility); every control on the page
+  keeps its own ring. `SettingsHeadlineFocusTests` holds it.
 
 ## Saved as You Go
 
