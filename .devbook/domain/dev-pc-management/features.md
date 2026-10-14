@@ -208,8 +208,22 @@ where the note under the row says what to do.
 A machine with no catalog yet opens on "No tool catalog on this machine yet",
 where the catalog would be written, and two choices side by side: create this
 machine's catalog — the recommended one — or import a team catalog somebody
-already keeps; a quieter third way creates the catalog and goes straight to adding
-tools one at a time. A catalog that exists with nothing in it offers the same
+already keeps; a quieter third way creates an empty catalog and goes straight to
+adding tools one at a time.
+
+"Create from this machine" writes a catalog that already holds what the hosts here
+have installed, read from their own manifests: every Copilot plugin with a source
+to install it from, every Claude plugin installed for the user — one entry for a
+plugin both hosts have — every Claude marketplace, and every MCP server registered
+with Claude or Claude Desktop, each switched on or off as its host has it.
+Applications are left out, because nothing can name one before its entry exists,
+and so are plugins installed only for one project, Copilot's own MCP servers, and
+every header and environment value, which is where tokens live. What was left out
+is said after the write. Neither way ever writes over a catalog that is already
+there. The web harness reads no host's manifests, so there it writes the empty
+catalog and says so.
+
+A catalog that exists with nothing in it offers the same
 arrangement, to add a tool or import a team catalog. Both choices are offered only
 where the host can write the catalog; a read-only host says so instead. While the
 first check of the machine is still running, the pane shows the shape of what is

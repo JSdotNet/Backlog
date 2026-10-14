@@ -208,7 +208,7 @@
                                     <h3 class="tools-start__option-title">Create from this machine</h3>
                                     <Badge Kind="tone" Slug="settled" CssClass="tools-start__badge">Recommended</Badge>
                                 </div>
-                                <p class="tools-start__option-body">Write this machine's catalog at the path above, then add what it should have.</p>
+                                <p class="tools-start__option-body">Write this machine's catalog at the path above, starting from the plugins, marketplaces and MCP servers Claude and Copilot already have here.</p>
                                 <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="CreateCatalogAsync" TestId="tools-create-catalog">
                                     @(_toolActionKey == CreateKey ? "Creating..." : "Create catalog")
                                 </AppButton>
@@ -2163,7 +2163,10 @@
         }
     }
 
-    private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogAsync());
+    /// <summary>"Create from this machine": the catalog written already holds what
+    /// the hosts here have installed, so the first check shows the machine as it
+    /// is rather than an empty list to fill by hand.</summary>
+    private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogFromMachineAsync());
 
     /// <summary>"Add tools one at a time": the catalog the add form writes into
     /// has to exist first, so this writes it and then opens the form — the port's

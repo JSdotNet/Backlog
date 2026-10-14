@@ -1488,6 +1488,39 @@ public sealed class DevToolService : IDevToolService
             paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
             paths => $"Created a tool catalog at {paths.CatalogPath}.");
 
+    /// <summary>Where "Create from this machine" reads the hosts' manifests, or
+    /// nothing for this user's own. A test points it at a folder of its own so it
+    /// neither reads nor depends on the machine it runs on.</summary>
+    internal DevToolHostManifestPaths? HostManifestPaths { get; init; }
+
+    public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default) =>
+        _catalogOnly?.CreateCatalogFromMachineAsync(ct) ?? CreateSeededCatalogAsync(ct);
+
+    private Task<DevToolActionResult> CreateSeededCatalogAsync(CancellationToken ct)
+    {
+        DevToolCatalogSeedResult? seed = null;
+
+        return EditCatalogAsync(
+            async paths =>
+            {
+                // Checked before the manifests are read, so a refusal costs no
+                // reads; the write below checks again under the lock.
+                if (DevToolConfiguration.CatalogExists(paths))
+                {
+                    throw new InvalidOperationException($"A tool catalog already exists at {paths.CatalogPath}.");
+                }
+
+                var manifests = HostManifestPaths
+                    ?? (_claudeDesktopConfigPaths is { } desktop
+                        ? DevToolHostManifestPaths.ForCurrentUser() with { ClaudeDesktopConfigCandidates = desktop }
+                        : DevToolHostManifestPaths.ForCurrentUser());
+
+                seed = await DevToolCatalogSeed.ReadAsync(manifests, ct).ConfigureAwait(false);
+                await DevToolConfiguration.CreateCatalogAsync(paths, seed.Catalog, ct).ConfigureAwait(false);
+            },
+            paths => seed!.Describe(paths.CatalogPath));
+    }
+
     public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>
         _catalogOnly?.AddAsync(draft, ct) ?? EditCatalogAsync(
             paths => DevToolConfiguration.AddToCatalogAsync(paths, draft, ct),
