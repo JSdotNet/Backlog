@@ -194,6 +194,37 @@ public class SprintProgressTests
     }
 
     [Fact]
+    public void Each_member_carries_the_days_it_started_was_blocked_and_joined_and_the_reading_its_day()
+    {
+        var series = Make.SeriesWithOpenSprint();
+        Link(series, "+plan");
+        var started = Make.Task("Started", SprintTaskStatus.InProgress, plan: "+plan", createdOn: Monday.AddDays(-3)) with
+        {
+            StartedOn = Monday.AddDays(2)
+        };
+        var blocked = Make.Task("Blocked", plan: "+plan", blocked: true, createdOn: Monday.AddDays(1)) with
+        {
+            BlockedSince = Monday.AddDays(2)
+        };
+        var added = Make.Task("Added");
+        Add(series, added.Id, Monday.AddDays(3));
+
+        var progress = Read(series, [started, blocked, added]);
+
+        var first = progress.Members.Single(member => member.TaskId == started.Id);
+        Assert.Equal(Monday.AddDays(2), first.StartedOn);
+        Assert.Null(first.BlockedSince);
+        Assert.Equal(Monday, first.JoinedOn);
+
+        var second = progress.Members.Single(member => member.TaskId == blocked.Id);
+        Assert.Equal(Monday.AddDays(2), second.BlockedSince);
+        Assert.Equal(Monday.AddDays(1), second.JoinedOn);
+
+        Assert.Equal(Monday.AddDays(3), progress.Members.Single(member => member.TaskId == added.Id).JoinedOn);
+        Assert.Equal(Thursday, progress.ReadOn);
+    }
+
+    [Fact]
     public void A_goal_task_picked_by_two_rules_counts_once()
     {
         var series = Make.SeriesWithOpenSprint();

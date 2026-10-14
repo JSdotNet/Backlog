@@ -840,8 +840,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
 
     /// <summary>
     /// The linked read's query for <paramref name="numbers"/>: the pinned read's aliases,
-    /// each asking for the number, title, url, state, draft flag, merge time and author
-    /// and nothing else. The numbers are integers the caller holds, so writing them into
+    /// each asking for the number, title, url, state, draft flag, merge time, the time it
+    /// was opened and author, and nothing else. The numbers are integers the caller holds, so writing them into
     /// the text cannot inject anything.
     /// </summary>
     internal static string LinkedPullRequestsQuery(IEnumerable<int> numbers)
@@ -856,6 +856,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                       state
                       isDraft
                       mergedAt
+                      createdAt
                       author { login }
                     }
                 """));
@@ -908,7 +909,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 repositoryFullName,
                 state,
                 Login(pull, "author"),
-                state is GitHubItemState.Merged ? Timestamp(pull, "mergedAt") : null));
+                state is GitHubItemState.Merged ? Timestamp(pull, "mergedAt") : null,
+                Timestamp(pull, "createdAt")));
         }
 
         return pulls;

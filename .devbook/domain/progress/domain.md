@@ -174,7 +174,9 @@ related: [.devbook/domain/progress/features.md#sprints-in-the-briefs]
 ```
 
 Two choices a series makes: whether its open sprint shows in the daily brief,
-and whether it shows in the weekly brief. Each is on or off on its own.
+and whether it shows in the weekly brief. Each is on or off on its own. The daily
+choice also draws the [Since yesterday strip](features.md#the-daily-strip) on the
+sprint view.
 
 ### Series Switch
 
@@ -278,8 +280,11 @@ all the work by where each member stands, done, blocked, in progress or not
 started in that order, and how many were
 [added after the start](#added-after-the-start). It gives the pace as members
 done inside the window per working day so far, Monday to Friday. A sprint with no
-goal task has not met its goal. It stores nothing: every answer is read afresh,
-so a task finished elsewhere moves the sprint at once.
+goal task has not met its goal. Each member carries the days that place it in time:
+the day it was done, the day work on it started and the day it was marked blocked as
+Tasks records them, the day it joined the sprint, and the day each linked pull request
+was opened; the reading carries the day it was made. It stores nothing: every answer
+is read afresh, so a task finished elsewhere moves the sprint at once.
 
 ## Ubiquitous Language
 

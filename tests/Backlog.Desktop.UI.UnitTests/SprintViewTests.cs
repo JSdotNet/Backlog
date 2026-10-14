@@ -299,10 +299,77 @@ public sealed class SprintViewTests : IDisposable
         Assert.Equal("every task in the sprint · met at 80%", SprintBoardMapper.GoalRules([GoalRuleDto.Everything()], 80));
     }
 
+    // ---- The Since yesterday strip ------------------------------------------------------------
+
+    [Fact]
+    public async Task A_series_shown_in_the_daily_draws_the_since_yesterday_strip_above_the_goal_card_and_it_folds()
+    {
+        Compose(on: true, Series("Fincent", ["fincent"]) with { ShowInDailyBrief = true });
+        var rendered = RenderTab(["fincent"]);
+        rendered.WaitForAssertion(() => rendered.Find("[data-testid=in-progress-view-switch-sprint]"));
+
+        await rendered.Find("[data-testid=in-progress-view-switch-sprint]").ClickAsync(new());
+
+        rendered.WaitForAssertion(() => rendered.Find("[data-testid=sprint-daily]"));
+        var board = rendered.Find("[data-testid=sprint-board]");
+        var order = board.QuerySelectorAll("[data-testid=sprint-daily], [data-testid=sprint-board-goal]").Select(element => element.GetAttribute("data-testid"));
+        Assert.Equal(["sprint-daily", "sprint-board-goal"], order);
+        Assert.Equal("Daily · Wed 7 Oct · Sprint 42, day 3 of 10", rendered.Find("[data-testid=sprint-daily-label]").TextContent);
+        Assert.Equal("Nothing landed since yesterday; Openspec is blocked.", rendered.Find("[data-testid=sprint-daily-headline]").TextContent);
+        Assert.Equal("Openspec · blocked", rendered.Find("[data-testid=sprint-daily-blocked] .sprint-daily__text").TextContent);
+        Assert.False(rendered.Find("[data-testid=sprint-daily-body]").HasAttribute("hidden"));
+
+        await rendered.Find("[data-testid=sprint-daily-toggle]").ClickAsync(new());
+
+        Assert.True(rendered.Find("[data-testid=sprint-daily-body]").HasAttribute("hidden"));
+        Assert.Equal("false", rendered.Find("[data-testid=sprint-daily-toggle]").GetAttribute("aria-expanded"));
+        Assert.Equal("Nothing landed since yesterday; Openspec is blocked.", rendered.Find("[data-testid=sprint-daily-headline]").TextContent);
+    }
+
+    [Fact]
+    public async Task Copy_for_the_stand_up_puts_the_strip_and_the_sprint_table_on_the_clipboard()
+    {
+        var copy = _context.JSInterop.Setup<bool>("backlogClipboard.copyRich", _ => true);
+        copy.SetResult(true);
+        Compose(on: true, Series("Fincent", ["fincent"]) with { ShowInDailyBrief = true });
+        var rendered = RenderTab(["fincent"]);
+        rendered.WaitForAssertion(() => rendered.Find("[data-testid=in-progress-view-switch-sprint]"));
+        await rendered.Find("[data-testid=in-progress-view-switch-sprint]").ClickAsync(new());
+        rendered.WaitForAssertion(() => rendered.Find("[data-testid=sprint-daily-copy-button]"));
+
+        await rendered.Find("[data-testid=sprint-daily-copy-button]").ClickAsync(new());
+
+        var invocation = Assert.Single(copy.Invocations);
+        var html = Assert.IsType<string>(invocation.Arguments[0]);
+        var text = Assert.IsType<string>(invocation.Arguments[1]);
+        Assert.StartsWith("Daily · Wed 7 Oct · Sprint 42, day 3 of 10\r\nNothing landed since yesterday; Openspec is blocked.\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("\r\nOn today\r\n- Klantrekening\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("\r\nBlocked and open questions\r\n- Openspec · blocked\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("\r\nPlan\tItem\tStatus\tPull requests\tOwner\tNote\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("Nothing landed since yesterday; Openspec is blocked.", html, StringComparison.Ordinal);
+        Assert.Contains("<table", html, StringComparison.Ordinal);
+        Assert.True(html.IndexOf("Pace", StringComparison.Ordinal) < html.IndexOf("<table", StringComparison.Ordinal));
+        Assert.Equal("Copy for the stand-up", rendered.Find("[data-testid=sprint-daily-copy-button]").TextContent.Trim());
+        rendered.WaitForAssertion(() => Assert.Equal("Copied", rendered.Find("[data-testid=sprint-daily-copy-status]").TextContent));
+    }
+
+    [Fact]
+    public async Task A_series_not_shown_in_the_daily_has_no_strip()
+    {
+        Compose(on: true, Series("Fincent", ["fincent"]));
+        var rendered = RenderTab(["fincent"]);
+        rendered.WaitForAssertion(() => rendered.Find("[data-testid=in-progress-view-switch-sprint]"));
+
+        await rendered.Find("[data-testid=in-progress-view-switch-sprint]").ClickAsync(new());
+
+        rendered.WaitForAssertion(() => rendered.Find("[data-testid=sprint-board-goal]"));
+        Assert.Empty(rendered.FindAll("[data-testid=sprint-daily]"));
+    }
+
     // ---- The pull request reader -------------------------------------------------------------
 
     [Fact]
-    public async Task The_reader_answers_state_merge_day_and_author_from_github_and_reads_a_merged_one_once()
+    public async Task The_reader_answers_state_merge_day_author_and_opened_day_from_github_and_reads_a_merged_one_once()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-sprint-pulls", Guid.NewGuid().ToString("n"));
         try
@@ -312,7 +379,7 @@ public sealed class SprintViewTests : IDisposable
             settings.SetRepositories(parsed);
             var client = new TasksPaneHost.FakeGitHubClient();
             client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(4, "u", "t", "JSdotNet/Backlog", GitHubItemState.Merged, "jsdotnet", new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero)));
-            client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(5, "u", "t", "JSdotNet/Backlog", GitHubItemState.Open, "octo", null));
+            client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(5, "u", "t", "JSdotNet/Backlog", GitHubItemState.Open, "octo", null, new DateTimeOffset(2026, 10, 6, 12, 0, 0, TimeSpan.Zero)));
             var reader = new GitHubSprintPullRequests(() => new GitHubIntegration(settings, client, new ConnectedProbe()));
 
             var first = await reader.ReadAsync([new("JSdotNet/Backlog", "4"), new("JSdotNet/Backlog", "5"), new("JSdotNet/Backlog", "6")], TestContext.Current.CancellationToken);
@@ -320,6 +387,7 @@ public sealed class SprintViewTests : IDisposable
             Assert.Equal([LinkedPullRequestState.Merged, LinkedPullRequestState.Open, LinkedPullRequestState.Unknown], first.Select(pull => pull.State));
             Assert.Equal(["jsdotnet", "octo", null], first.Select(pull => pull.Author));
             Assert.Equal(new DateOnly(2026, 10, 7), first[0].MergedOn);
+            Assert.Equal(new DateOnly(2026, 10, 6), first[1].OpenedOn);
 
             client.ReadByNumber.Clear();
             await reader.ReadAsync([new("JSdotNet/Backlog", "4"), new("JSdotNet/Backlog", "6")], TestContext.Current.CancellationToken);
@@ -458,7 +526,7 @@ public sealed class SprintViewTests : IDisposable
             return Task.FromResult(Result.Success(new SprintProgressDto(
                 found.Id, found.Name, sprint.Number, sprint.Name, sprint.Start, sprint.End, sprint.Goal, sprint.IsOpen,
                 members, found.GoalRules, [.. members.Select(member => member.TaskId)],
-                new SprintCountsDto(1, 1, 1, 0, 0), new SprintCountsDto(1, 1, 1, 0, 0), 100, false, 10, 3, 0.3)));
+                new SprintCountsDto(1, 1, 1, 0, 0), new SprintCountsDto(1, 1, 1, 0, 0), 100, false, 10, 3, 0.3, sprint.Start.AddDays(2))));
         }
 
         public Task<Result<SprintSeriesDto>> GetSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

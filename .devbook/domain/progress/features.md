@@ -300,6 +300,41 @@ The button is unavailable while the sprint is being read.
 
 The daily strip's **Copy for the stand-up** copies the same table.
 
+### The daily strip
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/progress/domain.md#sprint-progress, .devbook/domain/progress/requirements.md#requirement-the-daily-strip-shows-only-for-the-open-sprint-of-a-series-in-the-daily]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintDailyTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_series_shown_in_the_daily_draws_the_since_yesterday_strip_above_the_goal_card_and_it_folds, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Copy_for_the_stand_up_puts_the_strip_and_the_sprint_table_on_the_clipboard, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_series_not_shown_in_the_daily_has_no_strip]
+```
+
+A collapsible **Since yesterday** strip sits at the top of the sprint view, under the
+header and above the goal card, while the open sprint is shown and its series has
+"Show it in the daily" on. Its header holds a label — the day, the sprint and its
+working day — and one headline sentence on what landed and what is stuck, and folds
+the rest away. Open, it shows:
+
+- a summary: the series, the goal tasks done of their total, all the work done of its
+  total and the working days left;
+- **Since yesterday**: what was done, opened for review, started and added to the
+  sprint since the previous working day — Friday on a Monday — up to today, with the
+  pull requests merged or opened; "Nothing moved" when nothing did;
+- **On today**: each member in progress, then each unfinished member waiting on review
+  with an open pull request;
+- **Blocked and open questions**: each blocked member with the day it was marked, and
+  each member carrying an open question in its note's words;
+- **Pace**: how many goal tasks are open, the blocked among them, and whether the goal
+  is at risk; then all the work against the even pace and about how much lands by the
+  last working day at the pace so far.
+
+The goal is at risk while it is not met and a goal task is blocked, the last working
+day has come, or the goal tasks still needed outnumber what the pace so far lands in
+the working days left. Every sentence is a fixed template filled from the sprint
+reading; none is written by a model. **Copy for the stand-up** puts the strip on the
+clipboard followed by the sprint's table from [Copying a sprint as a table](#copying-a-sprint-as-a-table):
+as HTML, which pastes formatted, and as plain text beside it.
+
 ### Keeping a note on an item
 
 ```meta

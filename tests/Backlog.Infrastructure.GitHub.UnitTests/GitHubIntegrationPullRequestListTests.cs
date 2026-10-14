@@ -446,7 +446,7 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", Pinned(
                 ("p1", PinnedNode(1, "MERGED", "2026-10-01T08:00:00Z", mergedAt: "2026-10-01T07:30:00Z", author: "JSdotNet")),
-                ("p4", PinnedNode(4, "OPEN", "2026-10-01T09:00:00Z", author: "someone", isDraft: true))))
+                ("p4", PinnedNode(4, "OPEN", "2026-10-01T09:00:00Z", author: "someone", isDraft: true, createdAt: "2026-09-30T09:00:00Z"))))
             .Returns("graphql#JSdotNet/Archify", Pinned(("p2", PinnedNode(2, "CLOSED", "2026-10-01T10:00:00Z", author: "octocat"))));
 
         var listing = await Integration(transport).ListLinkedPullRequestsAsync(
@@ -469,6 +469,8 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         var draft = Assert.Single(listing.PullRequests, pull => pull.Number == 4);
         Assert.Equal(GitHubItemState.Draft, draft.State);
         Assert.Equal("someone", draft.AuthorLogin);
+        Assert.Equal(new DateTimeOffset(2026, 9, 30, 9, 0, 0, TimeSpan.Zero), draft.CreatedAt);
+        Assert.All(transport.Bodies.Where(body => body!.Contains("pullRequest(number:", StringComparison.Ordinal)), body => Assert.Contains("createdAt", body!, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -544,8 +546,9 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
             {{string.Join(",", pulls.Select(pull => $"\"{pull.Alias}\": {pull.Node}"))}} } } }
         """;
 
-    private static string PinnedNode(int number, string state, string updatedAt, string? mergedAt = null, string author = "someone", bool isDraft = false) => $$"""
+    private static string PinnedNode(int number, string state, string updatedAt, string? mergedAt = null, string author = "someone", bool isDraft = false, string? createdAt = null) => $$"""
         { "id": "PR_{{number}}", "number": {{number}}, "title": "#{{number}}", "url": "https://github.com/x/y/pull/{{number}}",
+          "createdAt": {{(createdAt is null ? "null" : $"\"{createdAt}\"")}},
           "state": "{{state}}", "isDraft": {{(isDraft ? "true" : "false")}}, "mergedAt": {{(mergedAt is null ? "null" : $"\"{mergedAt}\"")}},
           "headRefName": "branch-{{number}}", "headRefOid": "sha{{number}}", "baseRefName": "main",
           "mergeStateStatus": "UNKNOWN", "mergeable": "UNKNOWN", "viewerDidAuthor": false, "author": { "login": "{{author}}" },

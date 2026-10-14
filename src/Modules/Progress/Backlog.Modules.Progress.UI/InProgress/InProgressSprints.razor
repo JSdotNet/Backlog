@@ -25,6 +25,10 @@
     sessions and pull requests as it lands. A scope with repositories of several series
     shows the first series in scope order.
 
+    Over the board, while the open sprint is shown and its series shows in the daily
+    brief, the Since yesterday strip (.devbook/domain/progress/features.md#the-daily-strip),
+    written from the same reading by SprintDailyMapper.
+
     While the sprint shown is the open one it takes writes
     (.devbook/domain/progress/features.md#filling-a-sprint): "Add to sprint…" beside
     Refresh, over the tasks the host lists (Candidates), and a menu on every row for the
@@ -53,6 +57,12 @@
                          OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull)"
                          RowMenu="@(Writable is null ? null : RowMenuFor)"
                          OnRowMenu="OnRowMenuAsync">
+                <Daily>
+                    @if (_daily is { } daily)
+                    {
+                        <SprintDailyStrip Model="daily" Table="Table" />
+                    }
+                </Daily>
                 <Actions>
                     @if (Writable is not null && Candidates is not null)
                     {
@@ -166,6 +176,7 @@ else
     private int? _number;
     private SprintProgressDto? _progress;
     private SprintBoardModel? _model;
+    private SprintDailyModel? _daily;
     private SprintBoardModel? _tableModel;
     private SprintTable _table = EmptyTable;
     private string? _error;
@@ -285,6 +296,7 @@ else
     {
         _progress = null;
         _model = null;
+        _daily = null;
         _error = null;
         _writeError = null;
         _picking = false;
@@ -497,6 +509,7 @@ else
         {
             _progress = null;
             _model = null;
+            _daily = null;
             _error = "The sprint could not be read: Progress is not composed in this host.";
             return;
         }
@@ -512,12 +525,14 @@ else
             {
                 _progress = null;
                 _model = null;
+                _daily = null;
                 _error = read.Error.Message;
                 return;
             }
 
             _progress = read.Value;
             _model = SprintBoardMapper.ToModel(read.Value, series);
+            _daily = SprintDailyMapper.ToModel(read.Value, series);
             _error = null;
         }
         finally

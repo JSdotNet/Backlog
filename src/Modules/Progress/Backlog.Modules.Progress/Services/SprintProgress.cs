@@ -99,7 +99,8 @@ public static class SprintProgress
             series.Threshold.IsMet(goal.Done, goal.Total),
             WorkingDaysBetween(sprint.Window.Start, sprint.Window.End),
             elapsed,
-            elapsed == 0 ? 0 : (double)doneInWindow / elapsed);
+            elapsed == 0 ? 0 : (double)doneInWindow / elapsed,
+            today);
     }
 
     /// <summary>Monday to Friday from <paramref name="first"/> to <paramref name="last"/>,
@@ -144,6 +145,7 @@ public static class SprintProgress
     {
         var item = sprint.ItemFor(task.Id);
         var done = IsDone(task, pulls);
+        var joined = JoinedOn(series, sprint, task, item);
         var state = done
             ? SprintWorkState.Done
             : task.IsBlocked
@@ -168,10 +170,13 @@ public static class SprintProgress
             [.. pulls.Select(pull => pull.Author).OfType<string>().Where(author => author.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)],
             IsGoal(series, sprint, task, item),
             item?.AddedDirectly ?? false,
-            JoinedOn(series, sprint, task, item) > sprint.Window.Start,
+            joined > sprint.Window.Start,
             item?.Note,
             item?.OpenQuestion ?? false,
-            item?.Outcome);
+            item?.Outcome,
+            task.StartedOn,
+            task.IsBlocked ? task.BlockedSince : null,
+            joined);
     }
 
     /// <summary>The plan the row is grouped under: a linked plan that brings it in, else

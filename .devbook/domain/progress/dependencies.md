@@ -28,8 +28,8 @@ That is a transport too: Progress publishes `ISprintSeriesReplication`, the sync
 client routes a document to it by kind and never reads inside, and which copy wins
 is Progress's decision, by each series' own stamp.
 
-A linked pull request's merged state and its author are read from GitHub by the
-same infrastructure reads the pull requests list uses. That is a transport rather
+A linked pull request's merged state, its author and the day it was opened are read
+from GitHub by the same infrastructure reads the pull requests list uses. That is a transport rather
 than a relationship with another context: Progress reaches a pull request only
 through the task that links it. In the desktop app `ISprintPullRequestReader` reads
 them by number, the read the In progress view's linked pull requests use; a merged one

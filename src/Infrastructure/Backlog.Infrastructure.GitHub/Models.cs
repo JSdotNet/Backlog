@@ -404,6 +404,8 @@ public sealed record GitHubPullRequestReference(string RepositoryFullName, int N
 /// account.</param>
 /// <param name="MergedAt">When it merged; null unless <paramref name="State"/> is
 /// <see cref="GitHubItemState.Merged"/>.</param>
+/// <param name="CreatedAt">When it was opened; null where the answer did not say. Last
+/// and defaulted, so a caller written before it still constructs one.</param>
 public sealed record GitHubLinkedPullRequest(
     int Number,
     string Url,
@@ -411,7 +413,8 @@ public sealed record GitHubLinkedPullRequest(
     string RepositoryFullName,
     GitHubItemState State,
     string? AuthorLogin,
-    DateTimeOffset? MergedAt);
+    DateTimeOffset? MergedAt,
+    DateTimeOffset? CreatedAt = null);
 
 /// <summary>The linked pull requests of several repositories, read together, and the
 /// repositories that could not be read — failures beside the answers, as

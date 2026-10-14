@@ -64,6 +64,20 @@ public class SprintTaskSourceTests
     }
 
     [Fact]
+    public void A_task_carries_the_day_it_started_and_the_day_it_was_blocked()
+    {
+        var entry = Entry("Started", EntryStatus.InProgress, blockedSince: new DateOnly(2026, 10, 9)) with
+        {
+            StartedOn = new DateOnly(2026, 10, 7)
+        };
+
+        var task = Assert.Single(Select([entry], new SprintTaskQuery([entry.Id], [], ["backlog"])));
+
+        Assert.Equal(new DateOnly(2026, 10, 7), task.StartedOn);
+        Assert.Equal(new DateOnly(2026, 10, 9), task.BlockedSince);
+    }
+
+    [Fact]
     public void A_task_named_by_id_is_read_in_whatever_repository_it_lives()
     {
         var elsewhere = Entry("Elsewhere", repoId: "JSdotNet/Tools");

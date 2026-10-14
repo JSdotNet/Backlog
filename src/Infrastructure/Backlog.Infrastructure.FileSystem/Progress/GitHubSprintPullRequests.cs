@@ -11,7 +11,8 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// Progress's <see cref="ISprintPullRequestReader"/>, answered from GitHub through the
 /// read by number the In progress view's linked pull requests already use
 /// (<see cref="GitHubIntegration.ListLinkedPullRequestsAsync"/>): each pull request's
-/// state, merge day and author (<c>.devbook/domain/progress/dependencies.md</c>).
+/// state, merge day, author and the day it was opened
+/// (<c>.devbook/domain/progress/dependencies.md</c>).
 /// <para>
 /// On the reader's terms: a merged pull request cannot change again, so it is read once
 /// and kept for the life of the process; any other is read again once its answer is
@@ -71,7 +72,8 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub, Ti
                             reference.Number.ToString(CultureInfo.InvariantCulture),
                             State(pull.State),
                             pull.MergedAt is { } merged ? DateOnly.FromDateTime(merged.ToLocalTime().Date) : null,
-                            string.IsNullOrWhiteSpace(pull.AuthorLogin) ? null : pull.AuthorLogin), now);
+                            string.IsNullOrWhiteSpace(pull.AuthorLogin) ? null : pull.AuthorLogin,
+                            pull.CreatedAt is { } opened ? DateOnly.FromDateTime(opened.ToLocalTime().Date) : null), now);
                     }
                     else if (!refused.Contains(reference.RepositoryFullName.Trim()))
                     {

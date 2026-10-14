@@ -22,6 +22,24 @@ Needs you lists what is blocked, waiting on review or carrying an open question;
         </div>
     </Story>
 
+    <Story Name="Since yesterday"
+           Description="The stand-up strip at the top of the sprint view, drawn only for the open sprint of a series with Show it in the daily on. Every sentence is a fixed template the host fills from its sprint reading: what was done, opened for review, started and added since the previous working day; what is in progress and waiting on review; what is blocked or carries an open question; and the pace, with the goal at risk in the error tone.
+
+The header folds the strip to its label and headline. Copy for the stand-up puts the strip on the clipboard as HTML and as plain text; in the sprint view the sprint's table follows it."
+           Code="@DailyCode">
+        <div class="sb-menu-wide">
+            <SprintDailyStrip Model="@Daily" TestId="sprint-view-daily" />
+        </div>
+    </Story>
+
+    <Story Name="A quiet day"
+           Description="Nothing moved since Friday, nothing is blocked and the goal is on track: each section says so in one line, and the blocked section is not drawn."
+           Code="@QuietCode">
+        <div class="sb-menu-wide">
+            <SprintDailyStrip Model="@Quiet" TestId="sprint-view-daily-quiet" />
+        </div>
+    </Story>
+
     <Story Name="The switch"
            Description="Now | Sprint n, a radio pair beside the title in both views, so it never moves when pressed. Now is the view by task, unchanged; the sprint side names the sprint it opens on."
            Code="@SwitchCode">
@@ -51,7 +69,8 @@ Needs you lists what is blocked, waiting on review or carrying an open question;
     private static readonly DesignGuideline[] Rules =
     [
         new("color-scheme.md#badge-and-chip-tones", "The tones the status dots, the pull request chips and the goal badges wear."),
-        new("interaction-guidelines.md#error-states", "Where a sprint that cannot be read says so, in the module's words.")
+        new("interaction-guidelines.md#error-states", "Where a sprint that cannot be read says so, in the module's words."),
+        new("accessibility.md#iconography-accessibility", "Why the strip's markers never carry a line's meaning on their own: every line says what it is in words.")
     ];
 
     private string? _said;
@@ -145,6 +164,54 @@ Needs you lists what is blocked, waiting on review or carrying an open question;
         PaceReading = "Nothing is in the sprint yet.",
         Rows = []
     };
+
+    private static SprintBoardPullRequest Open(string number) => new(Fincent1, number, SprintPullRequestState.Open);
+
+    private static readonly SprintDailyModel Daily = new(
+        "Daily · Tue 13 Oct · Sprint 42, day 7 of 10",
+        "2 items landed since yesterday; Openspec has been blocked for 2 working days.",
+        "Fincent team · goal 12 of 17 · all work 13 of 29 · 3 working days left",
+        [
+            new(SprintDailyLineKind.Done, "Done: Reserveringsdefinities and Categorieën", [Merged("4685")]),
+            new(SprintDailyLineKind.OpenedForReview, "Opened for review: Klantrekening", [Open("4707")]),
+            SprintDailyLine.Of(SprintDailyLineKind.Started, "Started: Signalering uitwerken"),
+            SprintDailyLine.Of(SprintDailyLineKind.Added, "Added to the sprint: Klantrekening")
+        ],
+        [
+            new(SprintDailyLineKind.InProgress, "Fix specs (taal + diagrams op juiste plek)", [new(Fincent1, "4710", SprintPullRequestState.Draft)]),
+            SprintDailyLine.Of(SprintDailyLineKind.InProgress, "Budgetbeheer aanpassen"),
+            SprintDailyLine.Of(SprintDailyLineKind.InProgress, "Signalering uitwerken"),
+            new(SprintDailyLineKind.WaitingOnReview, "Review waiting: Local dev platform", [Open("4572")])
+        ],
+        [
+            SprintDailyLine.Of(SprintDailyLineKind.Blocked, "Openspec · blocked since Fri 9 Oct"),
+            SprintDailyLine.Of(SprintDailyLineKind.OpenQuestion, "Categorieën · Import?"),
+            SprintDailyLine.Of(SprintDailyLineKind.OpenQuestion, "Fix specs · Align with demo?")
+        ],
+        "Goal: 5 tasks open, Openspec blocked among them, so the goal is at risk. All work: 7 behind the even pace; about 19 of 29 land by Friday.",
+        true);
+
+    private static readonly SprintDailyModel Quiet = Daily with
+    {
+        Label = "Daily · Mon 12 Oct · Sprint 42, day 6 of 10",
+        Headline = "Nothing landed since Friday; the goal is on track.",
+        SinceYesterday = [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing moved since Friday.")],
+        OnToday = [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing is in progress.")],
+        Blocked = [],
+        Summary = "Fincent team · goal 15 of 17 · all work 18 of 29 · 4 working days left",
+        Pace = "Goal: 2 tasks open, on track. All work: on the even pace; about 29 of 29 land by Friday.",
+        GoalAtRisk = false
+    };
+
+    private const string DailyCode = """
+        <SprintBoard Model="@sprint" ...>
+            <Daily><SprintDailyStrip Model="@daily" Table="@SprintTableClipboard.Build(sprint)" /></Daily>
+        </SprintBoard>
+        """;
+
+    private const string QuietCode = """
+        <SprintDailyStrip Model="@(daily with { SinceYesterday = [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing moved since Friday.")], ... })" />
+        """;
 
     private const string BoardCode = """
         <SprintBoard Model="@sprint"
