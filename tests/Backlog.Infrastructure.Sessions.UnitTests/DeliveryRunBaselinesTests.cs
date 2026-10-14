@@ -239,6 +239,63 @@ public sealed class DeliveryRunBaselinesTests
         Assert.Null(comparison.Insight);
     }
 
+    [Theory]
+    [InlineData("active")]
+    [InlineData("running")]
+    [InlineData("blocked")]
+    [InlineData("parked")]
+    [InlineData("cancelled")]
+    public void A_run_that_has_not_finished_has_no_insight_whatever_its_status_word(string status)
+    {
+        var comparison = DeliveryRunBaselines.Compare(Run("now", Nine, status), Costs(12m, 1m), Earlier(2m, 3m, 4m, 5m, 6m));
+
+        Assert.Null(comparison.Insight);
+    }
+
+    [Theory]
+    [InlineData("done")]
+    [InlineData("completed")]
+    public void A_finished_run_has_its_insight(string status) =>
+        Assert.NotNull(DeliveryRunBaselines.Compare(Run("now", Nine, status), Costs(12m, 1m), Earlier(2m, 3m, 4m, 5m, 6m)).Insight);
+
+    [Fact]
+    public void The_insight_names_the_review_rounds_behind_an_Implement_or_Review_stage()
+    {
+        // The stages' own counts: Implement's latest round was 2.
+        var stages = new[] { Stage("Implement", done: 2) with { Round = 2 }, Stage("Review") with { Round = 2, Blockers = 0 } };
+        var run = Run("now", Nine, "done", "flow-code", stages);
+
+        var fromStages = DeliveryRunBaselines.Compare(run, Costs(12m, 1m), Earlier(2m, 3m, 4m, 5m, 6m)).Insight!;
+
+        Assert.Equal(2, fromStages.ReviewRounds);
+        Assert.Equal("2.6× the usual flow-code run · Implement explains most of it: $8.00 over its usual, entered again once, over 2 review rounds", fromStages.Text);
+
+        // The run's cumulative facts count every Review pass over every slice.
+        var cumulative = run with { Quality = new DeliveryQualityFacts(ReviewRounds: 3, HighestSliceRounds: 2, null, null, null, null) };
+
+        Assert.Equal(3, DeliveryRunBaselines.Compare(cumulative, Costs(12m, 1m), Earlier(2m, 3m, 4m, 5m, 6m)).Insight!.ReviewRounds);
+    }
+
+    [Fact]
+    public void The_insight_names_no_review_rounds_for_another_stage_or_a_run_that_reported_none()
+    {
+        // Review is cheaper than usual, Implement dearer: the run's cheaper, Review explains it.
+        var earlier = Enumerable.Range(0, 5)
+            .Select(index => new PricedDeliveryRun(Run($"e{index}", Nine.AddDays(-index - 1), "done", "flow-code", Stage("Build & Test"), Stage("Review")), Costs(4m, 4m)))
+            .ToList();
+        var run = Run("now", Nine, "done", "flow-code", Stage("Build & Test") with { Round = 3 }, Stage("Review"));
+
+        var build = DeliveryRunBaselines.Compare(run, Costs(1m, 4m), earlier).Insight!;
+
+        Assert.Equal("Build & Test", build.Stage);
+        Assert.Null(build.ReviewRounds);
+        Assert.DoesNotContain("review round", build.Text, StringComparison.Ordinal);
+
+        var silent = DeliveryRunBaselines.Compare(Run("now", Nine), Costs(12m, 1m), Earlier(2m, 3m, 4m, 5m, 6m)).Insight!;
+
+        Assert.Null(silent.ReviewRounds);
+    }
+
     [Fact]
     public void A_run_nothing_priced_has_no_total_and_no_insight()
     {

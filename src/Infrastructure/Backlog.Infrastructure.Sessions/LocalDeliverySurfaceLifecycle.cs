@@ -472,6 +472,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string status,
         string? summary = null,
         IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null,
+        JsonObject? quality = null,
         CancellationToken cancellationToken = default)
     {
         if (!DeliveryRunStatuses.IsFinal(status))
@@ -495,6 +496,11 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             // the run file says what the run found whether or not anything else keeps
             // chapter verdicts.
             if (verdicts is { Count: > 0 }) run["verdicts"] = VerdictNodes(verdicts);
+
+            // The run's Quality Facts as the flow closed them: cumulative, so they
+            // replace whatever an earlier call sent rather than merging into it.
+            // Cloned because a node belongs to one parent.
+            if (quality is not null) run["quality"] = quality.DeepClone();
 
             await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
 

@@ -135,6 +135,37 @@ public class SurfaceToolsTests
         await new SurfaceTools(surface).FinishRunAsync(Worktree, "run-1", "done", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(surface.Verdicts);
+        Assert.Null(surface.Quality);
+    }
+
+    [Fact]
+    public async Task A_run_finished_with_its_quality_facts_hands_the_port_the_object()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+
+        await new SurfaceTools(surface).FinishRunAsync(
+            Worktree,
+            "run-1",
+            "done",
+            quality: Element("""{"reviewRounds":{"reportedBy":"Review","total":3},"escapedDefects":{"total":1,"items":[{"foundAt":"Verify","summary":"x"}]}}"""),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, surface.Quality!["reviewRounds"]!["total"]!.GetValue<int>());
+        Assert.Equal("Verify", surface.Quality["escapedDefects"]!["items"]![0]!["foundAt"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("\"three rounds\"")]
+    [InlineData("[]")]
+    public async Task Quality_that_is_not_an_object_is_refused_by_name_and_leaves_the_run_open(string json)
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+
+        var refused = await Assert.ThrowsAsync<McpException>(() =>
+            new SurfaceTools(surface).FinishRunAsync(Worktree, "run-1", "done", quality: Element(json), cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("quality", refused.Message, StringComparison.Ordinal);
+        Assert.Empty(surface.Calls);
     }
 
     [Fact]

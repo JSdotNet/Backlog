@@ -257,4 +257,142 @@ public sealed class DeliveryRunStagesTests
         Assert.Null(stages[2].QuerySelector("[data-testid='sessions-stage-ratio']"));
         Assert.Null(stages[3].QuerySelector("[data-testid='sessions-stage-usual']"));
     }
+
+    // What each pass found — Stage Counts on the rows, the run's Quality Facts in the panel.
+
+    [Fact]
+    public async Task A_run_with_cumulative_facts_shows_each_pass_on_its_row_and_the_run_across_every_pass_in_the_panel()
+    {
+        using var context = new BunitContext();
+
+        var run = await Fixture.ReadAsync("quality-facts.json");
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run));
+        var stages = list.FindAll("[data-testid='sessions-stage']");
+
+        // The rows: what the latest pass reported, which here ended clean.
+        Assert.Equal("round 1", Found(stages[2])!.TextContent.Trim());
+        Assert.Equal("round 1 · no blockers", Found(stages[3])!.TextContent.Trim());
+        Assert.Equal("clean", Found(stages[3])!.GetAttribute("data-tone"));
+        Assert.Equal("no defects", Found(stages[5])!.TextContent.Trim());
+        Assert.Null(Found(stages[4]));
+
+        // The panels: the run's record across every pass, which did not.
+        Assert.Equal(
+            "Latest pass: round 1 · no blockers. Across the run: 3 review rounds, 2 blockers left open over 3 rounds",
+            FoundFact(stages[3]));
+        Assert.Equal("Latest pass: no defects. Across the run: 1 defect found", FoundFact(stages[5]));
+        Assert.Equal("Latest pass: round 1. Across the run: 3 review rounds", FoundFact(stages[2]));
+
+        // Implement's one sub-agent call worked the stage's round.
+        Assert.Contains("round 1", stages[2].QuerySelector("[data-testid='sessions-stage-worker']")!.TextContent);
+    }
+
+    [Fact]
+    public async Task A_run_without_cumulative_facts_shows_its_stage_counts_and_says_nothing_across_the_run()
+    {
+        using var context = new BunitContext();
+
+        var run = await Fixture.ReadAsync("quality-signals.json");
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run));
+        var stages = list.FindAll("[data-testid='sessions-stage']");
+
+        Assert.Equal("round 2 · no blockers", Found(stages[3])!.TextContent.Trim());
+
+        var verify = Found(stages[5])!;
+        Assert.Equal("1 defect found", verify.TextContent.Trim());
+        Assert.Equal("found", verify.GetAttribute("data-tone"));
+
+        Assert.Equal("Latest pass: round 2 · no blockers", FoundFact(stages[3]));
+
+        // Each of Review's calls names the round it worked.
+        var workers = stages[3].QuerySelectorAll("[data-testid='sessions-stage-worker']");
+        Assert.Contains("round 1", workers[0].TextContent);
+        Assert.Contains("round 2", workers[1].TextContent);
+    }
+
+    [Fact]
+    public async Task A_run_from_before_the_counts_shows_none_and_never_a_zero()
+    {
+        using var context = new BunitContext();
+
+        var run = await Fixture.ReadAsync("delegated-phase-map.json");
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run));
+
+        Assert.Empty(list.FindAll("[data-testid='sessions-stage-found']"));
+        Assert.Empty(list.FindAll("[data-testid='sessions-stage-found-fact']"));
+    }
+
+    [Fact]
+    public void A_revise_call_carries_its_round_on_its_badge()
+    {
+        using var context = new BunitContext();
+
+        var run = Run();
+        var stages = run.Stages.ToList();
+        stages[2] = stages[2] with { Round = 3 };
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run with { Stages = stages }));
+        var gate = list.FindAll("[data-testid='sessions-stage-panel']")[2];
+
+        Assert.Equal("revise · round 3", gate.QuerySelector("[data-testid='sessions-stage-revise']")!.TextContent.Trim());
+        Assert.DoesNotContain("round 3", gate.QuerySelector(".sessions-stage__worker-facts")!.TextContent);
+    }
+
+    [Fact]
+    public void A_sub_agent_call_with_no_round_names_none()
+    {
+        var worker = new DeliveryRunStageWorker("Explore", "claude-sonnet-5", null, "contract", 1_000, 10, 1, false, false, false, true);
+
+        Assert.DoesNotContain("round", DeliveryRunStages.WorkerFacts(worker));
+        Assert.Contains("slice contract · round 2", DeliveryRunStages.WorkerFacts(worker with { Round = 2 }));
+        Assert.Equal("revise round", DeliveryRunStages.ReviseLabel(worker));
+    }
+
+    [Fact]
+    public void A_run_whose_rounds_left_no_blocker_open_says_so_in_words()
+    {
+        var review = new DeliveryRunStageExecution(
+            "Review", "done", DeliveryRunStageMode.Inline, true, null, null, null, null, null, [], [], null, null, [], [], 1, null, null, 0, false)
+        {
+            Round = 1,
+            Blockers = 0
+        };
+        var facts = new DeliveryQualityFacts(1, 1, 1, 0, 0, 0);
+
+        Assert.Equal(
+            "Latest pass: round 1 · no blockers. Across the run: 1 review round, no blockers left open over 1 round",
+            DeliveryRunStages.FoundFact(review, facts));
+    }
+
+    private static AngleSharp.Dom.IElement? Found(AngleSharp.Dom.IElement stage) =>
+        stage.QuerySelector("[data-testid='sessions-stage-found']");
+
+    private static string? FoundFact(AngleSharp.Dom.IElement stage) =>
+        stage.QuerySelector("[data-testid='sessions-stage-found-fact']")?.TextContent.Trim();
+
+    /// <summary>A recorded run file read through the product's own reader, laid out as
+    /// the Backlog surface lays its folder out.</summary>
+    private static class Fixture
+    {
+        public static async Task<DeliveryRun> ReadAsync(string name)
+        {
+            var home = Path.Combine(Path.GetTempPath(), "backlog-stage-list-tests", Guid.NewGuid().ToString("n"));
+            var folder = Path.Combine(home, "backlog", "fixture-1a2b3c4d", "runs");
+
+            Directory.CreateDirectory(folder);
+            File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "delivery-runs", name), Path.Combine(folder, name));
+
+            try
+            {
+                var catalog = await new Backlog.Infrastructure.Sessions.LocalDeliveryRunSource(home, "machine", "Machine")
+                    .GetRunsAsync(TestContext.Current.CancellationToken);
+
+                return Assert.Single(catalog.Runs);
+            }
+            finally
+            {
+                Directory.Delete(home, recursive: true);
+            }
+        }
+    }
 }

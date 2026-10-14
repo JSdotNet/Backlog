@@ -833,6 +833,75 @@ public sealed class DeliveryEconomicsTests
         Assert.Equal(0, silent.RoundRuns);
     }
 
+    /// <summary>A run of the five stages whose latest passes read clean — Review's last
+    /// round left no blocker, Verify re-ran with no defect — carrying the cumulative
+    /// facts that say otherwise.</summary>
+    private static PricedDeliveryRun Cumulative(string id, int daysAgo, DeliveryQualityFacts? facts)
+    {
+        var priced = Flow(id, daysAgo, FiveStages(rounds: 1, blockers: 0, defects: 0));
+
+        return priced with { Run = priced.Run with { Quality = facts } };
+    }
+
+    [Fact]
+    public void Cumulative_quality_facts_win_over_a_latest_pass_that_ended_clean()
+    {
+        // Three review rounds, two blockers over them, one defect Verify found and fixed.
+        var facts = new DeliveryQualityFacts(ReviewRounds: 3, HighestSliceRounds: 2, BlockerRounds: 3, BlockersOpen: 2, EscapedDefects: 2, VerifyDefects: 1);
+        var report = DeliveryEconomics.Of([Cumulative("a", 1, facts)]);
+
+        var implement = report.Phases.Single(phase => phase.Name == "Implement").Quality;
+        var review = report.Phases.Single(phase => phase.Name == "Review").Quality;
+        var verify = report.Phases.Single(phase => phase.Name == "Verify").Quality;
+
+        Assert.Equal(2.0, implement.Value!.Value, 6);
+        Assert.Equal(2.0 / 3, review.Value!.Value, 6);
+        Assert.Equal(1, review.Escaped);
+        Assert.Equal(1.0, verify.Value!.Value, 6);
+        Assert.Equal(1, report.EscapedDefects);
+        Assert.Equal(1, report.MultiRoundRuns);
+    }
+
+    [Fact]
+    public void A_run_without_cumulative_facts_falls_back_to_its_stage_counts()
+    {
+        var report = DeliveryEconomics.Of([Cumulative("a", 1, null)]);
+
+        Assert.Equal(1.0, report.Phases.Single(phase => phase.Name == "Implement").Quality.Value!.Value, 6);
+        Assert.Equal(0.0, report.Phases.Single(phase => phase.Name == "Review").Quality.Value!.Value, 6);
+        Assert.Equal(0.0, report.Phases.Single(phase => phase.Name == "Verify").Quality.Value!.Value, 6);
+        Assert.Equal(0, report.EscapedDefects);
+    }
+
+    [Fact]
+    public void A_fact_the_run_did_not_state_falls_back_on_its_own_and_none_reads_as_absent()
+    {
+        // Escaped defects only: rounds and blockers come from the stages.
+        var escapesOnly = new DeliveryQualityFacts(null, null, null, null, EscapedDefects: 1, VerifyDefects: 1);
+        var mixed = DeliveryEconomics.Of([Cumulative("a", 1, escapesOnly)]);
+
+        Assert.Equal(1.0, mixed.Phases.Single(phase => phase.Name == "Implement").Quality.Value!.Value, 6);
+        Assert.Equal(0.0, mixed.Phases.Single(phase => phase.Name == "Review").Quality.Value!.Value, 6);
+        Assert.Equal(1, mixed.EscapedDefects);
+
+        // Neither facts nor counts: not reported, never zero.
+        var silent = DeliveryEconomics.Of([Flow("old", 1, FiveStages())]);
+
+        Assert.Null(silent.Phases.Single(phase => phase.Name == "Review").Quality.Value);
+        Assert.Null(silent.Phases.Single(phase => phase.Name == "Verify").Quality.Value);
+        Assert.Null(DeliveryEconomics.ReviewRoundsOf(Flow("old", 1, FiveStages()).Run));
+    }
+
+    [Fact]
+    public void Review_rounds_total_every_slice_where_the_run_states_them()
+    {
+        var run = Run("r", Now, stages: [Reported("Implement", round: 1), Reported("Review", round: 1)]);
+
+        Assert.Equal(1, DeliveryEconomics.ReviewRoundsOf(run));
+        Assert.Equal(3, DeliveryEconomics.ReviewRoundsOf(run with { Quality = new DeliveryQualityFacts(3, 2, null, null, null, null) }));
+        Assert.Equal(2, DeliveryEconomics.RoundsOf(run with { Quality = new DeliveryQualityFacts(3, 2, null, null, null, null) }));
+    }
+
     // Seam 8 — what a lesson can be trusted on, and the phase table's verdict.
 
     /// <summary>Runs of Implement then Review under one configuration, Implement reporting

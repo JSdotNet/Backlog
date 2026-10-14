@@ -311,7 +311,8 @@ internal sealed partial class DeliveryRunReader
                 Schedule = Text(root, "schedule"),
                 Repository = Text(root, "repo"),
                 Verdicts = Verdicts(root),
-                RunContext = ObjectText(root, "runContext")
+                RunContext = ObjectText(root, "runContext"),
+                Quality = DeliveryQualityFacts.Of(root)
             };
         }
     }

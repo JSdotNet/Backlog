@@ -1,0 +1,52 @@
+{
+  "id": "run-mv8q3d5g-qf2b0c",
+  "skillId": "flow-code",
+  "title": "A run under way, keeping its quality facts in the run context",
+  "status": "in_progress",
+  "changeKind": "new-functionality",
+  "startedAt": "2026-10-14T12:00:00.000Z",
+  "updatedAt": "2026-10-14T12:50:00.000Z",
+  "repo": "JSdotNet/Backlog",
+  "runContext": {
+    "quality": {
+      "reviewRounds": { "reportedBy": "Review", "total": 2,
+                        "slices": [{ "slice": "whole diff", "rounds": 2 }] },
+      "blockers": { "reportedBy": "Review",
+                    "rule": { "open": 0, "fixed": 1 }, "bug": { "open": 0, "fixed": 0 },
+                    "rounds": [{ "slice": "whole diff", "round": 1, "rule": { "open": 1, "fixed": 0 }, "bug": { "open": 0, "fixed": 0 } },
+                               { "slice": "whole diff", "round": 2, "rule": { "open": 0, "fixed": 1 }, "bug": { "open": 0, "fixed": 0 } }] }
+    }
+  },
+  "stages": [
+    {
+      "name": "Implement",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 300100,
+      "agents": [],
+      "execution": {
+        "mode": "inline",
+        "round": 2
+      }
+    },
+    {
+      "name": "Review",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 120400,
+      "agents": [],
+      "execution": {
+        "mode": "inline",
+        "round": 2,
+        "blockers": 0
+      }
+    },
+    {
+      "name": "Verify",
+      "status": "in_progress",
+      "doneCount": 0,
+      "durationMs": null,
+      "agents": []
+    }
+  ]
+}
