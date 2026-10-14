@@ -169,13 +169,115 @@ public class DashboardWeeklyBriefTests
         Assert.Equal("true", pane.Find("[data-testid='dashboard-tab-tasks']").GetAttribute("aria-selected"));
     }
 
-    private static BunitContext Context(bool ready = false)
+    /// <summary>
+    /// A sprint series shown in the weekly brief puts a Sprint block first, before
+    /// Shipping: the series, its repositories and the week of the sprint; the templated
+    /// sentence; the figures; what shipped by plan, with the merged pull requests linked;
+    /// and what carries into the next week.
+    /// </summary>
+    [Fact]
+    public void A_sprint_shown_in_the_weekly_brief_puts_its_block_first()
+    {
+        var source = new SprintSource([SprintFixtures.Sprint42()]);
+        using var context = Context(sprints: source);
+        var pane = context.Render<DashboardPane>();
+
+        pane.Find("[data-testid='dashboard-brief-link']").Click();
+
+        var brief = pane.Find("[data-testid='dashboard-brief']");
+        Assert.Equal(
+            ["dashboard-brief-sprint", .. Blocks, "dashboard-brief-carry"],
+            brief.Children.Skip(1).Select(child => child.GetAttribute("data-testid")));
+
+        // Every week the brief can step to, read once: weeks 37 to 41.
+        Assert.Equal([(new DateOnly(2026, 9, 7), new DateOnly(2026, 10, 11))], source.Asked);
+
+        Assert.Equal("Sprint 42", pane.Find("[data-testid='dashboard-brief-sprint-name']").TextContent);
+        Assert.Equal(
+            "Fincent team · Fincent, devbook · week 1 of 2 · 05 Oct – 18 Oct",
+            pane.Find("[data-testid='dashboard-brief-sprint-meta']").TextContent);
+        Assert.StartsWith(
+            "2 of 4 goal tasks and 3 of 6 items done after the first week",
+            pane.Find("[data-testid='dashboard-brief-sprint-summary']").TextContent,
+            StringComparison.Ordinal);
+
+        Assert.Equal("2 of 4", Value("goal"));
+        Assert.Equal("3", Value("done"));
+        Assert.Equal("6", Value("items"));
+        Assert.Contains("+1 added", pane.Find("[data-testid='dashboard-brief-sprint-figure-items'] dt").TextContent, StringComparison.Ordinal);
+        Assert.Equal("3", Value("merged"));
+        Assert.Equal("1", Value("blocked"));
+
+        Assert.Equal(
+            ["+feature-flags", "+rekeningen", "+specs"],
+            pane.FindAll("[data-testid='dashboard-brief-sprint-plan-name']").Select(name => name.TextContent));
+        Assert.Equal(
+            ["https://github.com/innovadis-dev/Fincent/pull/4560", "https://github.com/innovadis-dev/Fincent/pull/4558", "https://github.com/innovadis-dev/Fincent/pull/4530"],
+            pane.FindAll("a[data-testid='dashboard-brief-sprint-pull']").Select(link => link.GetAttribute("href")));
+
+        Assert.Equal("Into week 2", pane.Find("[data-testid='dashboard-brief-sprint-into-heading']").TextContent);
+        Assert.Equal(
+            "3 open going into the second week, Openspec blocked among them. Local dev platform #4572 waits on review.",
+            pane.Find("[data-testid='dashboard-brief-sprint-into-detail']").TextContent);
+
+        // A step back moves what the block draws, never what it fetches: week 40 is
+        // before the sprint, so the block goes.
+        pane.Find("[data-testid='dashboard-brief-earlier']").Click();
+
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-brief-sprint']"));
+        Assert.Single(source.Asked);
+
+        string Value(string figure) =>
+            pane.Find($"[data-testid='dashboard-brief-sprint-figure-{figure}'] dd").TextContent;
+    }
+
+    /// <summary>With no series shown — Progress off, or none marked — the port answers
+    /// with no sprint and the brief is exactly the one it was.</summary>
+    [Fact]
+    public void With_no_sprint_to_show_the_brief_is_unchanged()
+    {
+        using var context = Context(sprints: new SprintSource([]));
+        var pane = context.Render<DashboardPane>();
+
+        pane.Find("[data-testid='dashboard-brief-link']").Click();
+
+        Assert.Equal(
+            [.. Blocks, "dashboard-brief-carry"],
+            pane.Find("[data-testid='dashboard-brief']").Children.Skip(1).Select(child => child.GetAttribute("data-testid")));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-brief-sprint']"));
+    }
+
+    /// <summary>The repository filter keeps a series with a repository in focus.</summary>
+    [Fact]
+    public void A_sprint_outside_the_repositories_in_focus_draws_no_block()
+    {
+        using var context = Context(sprints: new SprintSource([SprintFixtures.Sprint42()]));
+        var brief = context.Render<WeeklyBrief>(parameters => parameters
+            .Add(component => component.Scope, DashboardScope.Default with { Repositories = RepositoryFocus.Of("tools") }));
+
+        Assert.Empty(brief.FindAll("[data-testid='dashboard-brief-sprint']"));
+    }
+
+    private sealed class SprintSource(IReadOnlyList<SprintBriefSprint> sprints) : ISprintBriefSource
+    {
+        public List<(DateOnly From, DateOnly To)> Asked { get; } = [];
+
+        public Task<IReadOnlyList<SprintBriefSprint>> ReadAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
+        {
+            Asked.Add((from, to));
+            return Task.FromResult(sprints);
+        }
+    }
+
+    private static BunitContext Context(bool ready = false, ISprintBriefSource? sprints = null)
     {
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         _ = context.Services.AddUnavailableDashboard("backlog");
         context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Now));
+
+        if (sprints is not null) context.Services.AddSingleton(sprints);
 
         if (ready)
         {

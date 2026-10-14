@@ -45,9 +45,9 @@ public class InfrastructureGraphTests
             + "repository: the Tasks issues connector, the Dashboard's activity and drift issues, the "
             + "Devbook folders a repository keeps, the Sessions repository resolver and the Sync replica "
             + "of the settings. Splitting it by context would mean one registry per context."),
-        ("Backlog.Infrastructure.Sync", 6,
-            "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Devbook "
-            + "and Sessions — over the Sync module's own contract, so it sees each context's published "
+        ("Backlog.Infrastructure.Sync", 7,
+            "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Progress, "
+            + "Devbook and Sessions — over the Sync module's own contract, so it sees each context's published "
             + "surface by design.")
     ];
 

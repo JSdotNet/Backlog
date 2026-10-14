@@ -231,6 +231,33 @@ No outcome changes the task. The next sprint is numbered one higher and starts o
 the first start weekday after the closed sprint's last day. It starts with no
 linked plan: an unfinished task a plan brought in moves on only when it is carried.
 
+## Syncing sprints between devices
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
+related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md, .devbook/domain/progress/domain.md#sprint-series, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/domain/progress/requirements.md#syncing-sprints-between-devices]
+```
+
+Keep every sprint series the same on every desktop the person has paired. A series
+travels whole beside the tasks the devices already sync
+([Multi-device sync](../tasks/features.md#multi-device-sync)): its cadence, naming,
+goal rules and brief choices, every sprint with its dates and goal, which tasks and
+plans belong to each, the goal marks, the notes and open questions, and how each
+closed sprint ended. It travels only while sync is on and the device is paired.
+
+Each series is replaced whole, never merged, as the roadmap's
+[plan](../roadmap/features.md#syncing-the-plan-between-devices) is. When two devices
+have both changed one series since they last synced, the **newer change wins on
+every device** and the older one is lost. Two different series are two documents,
+so a change to one never displaces a change to the other. A device that has **never
+set up a series has nothing to send**.
+
+Series travel whether the [Progress area](context.md#progress-area) is on or off,
+because the series recorded while it is off are kept. The phone keeps no sprints and
+lists none.
+
 ## Sprints in the briefs
 
 ```meta
@@ -238,8 +265,33 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/progress/context.md#progress-area
 related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/productivity/features.md#the-weekly-brief, .devbook/domain/progress/requirements.md#sprints-in-the-briefs]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintWeekBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.ProgressSprintBriefSourceTests]
 ```
 
 Read the open sprint of a series in the daily and the weekly brief, for a series
-that chose to show there. The brief names the sprint, its goal, how many goal
+that chose to show there. The daily brief names the sprint, its goal, how many goal
 tasks are done, and whether the goal is met.
+
+The weekly brief opens with a Sprint block for each series that shows there and has a
+sprint overlapping the reported week; paging back a week reads that week's sprint.
+The block holds:
+
+- the sprint's name, then the series, its repositories, "week n of m" and the sprint's
+  window;
+- one sentence from a fixed template: the goal tasks and the items done by the week's
+  end against an even pace, what was added after the start and removed, and what is
+  blocked;
+- five figures: goal tasks done, done this week, items in the sprint with those added
+  after the start, pull requests merged that week, and blocked;
+- "Shipped, by plan": the members done that week, under their plan, each with the
+  pull requests it merged, linked to GitHub;
+- "Into week n", or "Into next week" in the sprint's last week: the items still open,
+  the blocked among them, and the pull requests waiting on review.
+
+The even pace is the share of the sprint's items that would be done by the week's end
+at the same rate every working day, Monday to Friday. Blocked, added and removed are
+the members' current marks, because a sprint keeps no history of them; a task taken
+out of an open sprint leaves no member, so only a close's Back to the backlog and Drop
+count as removed. The Dashboard reads all of this through its own port, answered from
+the Progress context's published surface. With Progress off, or no series showing in
+the weekly brief, there is no Sprint block and the brief is unchanged.

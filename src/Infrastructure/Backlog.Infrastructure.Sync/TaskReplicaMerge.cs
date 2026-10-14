@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
@@ -123,6 +124,12 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// The port decides by the note's own stamp. A head composed without it holds
 /// notes on the replica, as it holds captures.
 /// </para>
+/// <para>
+/// <b>Nor is a sprint series.</b> A <c>sprint-series</c> document is one of
+/// Progress's series, whole, and goes to its replication port on the terms the
+/// roadmap's documents do: the port decides by the series' own stamp, and a head
+/// without it skips the document.
+/// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
@@ -132,7 +139,8 @@ public sealed class TaskReplicaMerge(
     ITaskChangeSignal? changes = null,
     IRoadmapReplication? roadmap = null,
     IGitHubSettingsReplication? github = null,
-    IInboxNoteReplication? notes = null)
+    IInboxNoteReplication? notes = null,
+    ISprintSeriesReplication? sprints = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -160,6 +168,10 @@ public sealed class TaskReplicaMerge(
     /// <summary>Where a note goes, or null on a head without an inbox store,
     /// which leaves notes on the replica.</summary>
     private readonly IInboxNoteReplication? _notes = notes;
+
+    /// <summary>Where a sprint series goes, or null on a head without Progress — the
+    /// phone, or a build from before the port.</summary>
+    private readonly ISprintSeriesReplication? _sprints = sprints;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -596,6 +608,11 @@ public sealed class TaskReplicaMerge(
             return await ApplyGitHubSettingsAsync(record, settings, moved, cancellationToken).ConfigureAwait(false);
         }
 
+        if (SprintReplicaDocuments.IsSeries(record.Change))
+        {
+            return await ApplySprintSeriesAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
         var local = await _tasks
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
@@ -773,6 +790,52 @@ public sealed class TaskReplicaMerge(
                 Moved(moved, SyncDirection.Received, SyncItemKind.Note, id, title, "archived");
                 return ApplyOutcome.Written;
 
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands a sprint series document to Progress's port and counts what it answered,
+    /// exactly as <see cref="ApplyRoadmapAsync"/> does for the roadmap's.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplySprintSeriesAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        // Skipped, not held, on a head without the port, for the reason the roadmap's
+        // documents give: the series will not land until this build can take it.
+        if (_sprints is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no sprint series.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _sprints
+            .ApplyAsync(SprintReplicaDocuments.ToCopy(record.Change), cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case SprintSeriesReplicaOutcome.Taken:
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.SprintSeries, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case SprintSeriesReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that series. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
+            // An echo or an older copy: the local one stands, as it does for a task.
             default:
                 return ApplyOutcome.Held;
         }

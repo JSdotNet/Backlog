@@ -1,6 +1,8 @@
 using Backlog.Infrastructure.Sqlite.Inbox;
+using Backlog.Infrastructure.Sqlite.Progress;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Inbox;
+using Backlog.Modules.Progress;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,5 +68,24 @@ public sealed class SqliteRegistrationTests
         var store = provider.GetRequiredService<RootedSqliteInboxRepository>();
         Assert.Same(store, provider.GetRequiredService<IInboxItemRepository>());
         Assert.Same(store, provider.GetRequiredService<IInboxOrganizerRepository>());
+    }
+
+    [Fact]
+    public void One_sprint_series_store_answers_both_of_its_ports()
+    {
+        var services = new ServiceCollection();
+        services.AddSqlite(_ => Path.GetTempPath());
+
+        Assert.All(
+            services.Where(d => d.ServiceType == typeof(ISprintSeriesRepository)
+                || d.ServiceType == typeof(ISprintSeriesReplicaStore)
+                || d.ServiceType == typeof(RootedSqliteSprintSeriesRepository)),
+            d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));
+
+        using var provider = services.BuildServiceProvider();
+
+        var store = provider.GetRequiredService<RootedSqliteSprintSeriesRepository>();
+        Assert.Same(store, provider.GetRequiredService<ISprintSeriesRepository>());
+        Assert.Same(store, provider.GetRequiredService<ISprintSeriesReplicaStore>());
     }
 }

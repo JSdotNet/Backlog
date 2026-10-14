@@ -21,6 +21,13 @@ and none of them writes to the other side.
 | [Roadmap Planning](../roadmap/domain.md#roadmap-tag) | Customer/Supplier (Progress = customer) | Reads the plan tag vocabulary | `.devbook/domain/roadmap/domain.md#roadmap-tag` | The plans a person can link to a sprint, or name in an `InPlans` goal rule, are the plans the roadmap knows by tag. Progress relies on the tag never changing when a plan is renamed. |
 | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Progress = customer) | Registry lookup by repository alias | `.devbook/domain/repository-management/domain.md#repository-alias` | A series names its repositories by alias, and a plan link gathers tasks only in those repositories. Progress conforms to the registry's identity. The Sprints settings page reads the registry's aliases through `ISprintRepositories` to offer the repositories in no series. |
 
+A sprint series travels to the person's other desktops through the sync client, on
+the task feed, as one whole document per series under the kind token
+`sprint-series` ([Syncing sprints between devices](features.md#syncing-sprints-between-devices)).
+That is a transport too: Progress publishes `ISprintSeriesReplication`, the sync
+client routes a document to it by kind and never reads inside, and which copy wins
+is Progress's decision, by each series' own stamp.
+
 A linked pull request's merged state and its author are read from GitHub by the
 same infrastructure reads the pull requests list uses. That is a transport rather
 than a relationship with another context: Progress reaches a pull request only

@@ -1,4 +1,5 @@
 using Backlog.Modules.Progress;
+using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.DomainModels;
 
 namespace Backlog.Infrastructure.Sqlite.Progress;
@@ -9,7 +10,8 @@ namespace Backlog.Infrastructure.Sqlite.Progress;
 /// changes, the same arrangement as the task and roadmap repositories, which follow the
 /// same root to the same file.
 /// </summary>
-public sealed class RootedSqliteSprintSeriesRepository(Func<string> currentRootDirectory) : ISprintSeriesRepository
+public sealed class RootedSqliteSprintSeriesRepository(Func<string> currentRootDirectory)
+    : ISprintSeriesRepository, ISprintSeriesReplicaStore
 {
     private readonly Func<string> _currentRootDirectory =
         currentRootDirectory ?? throw new ArgumentNullException(nameof(currentRootDirectory));
@@ -43,4 +45,13 @@ public sealed class RootedSqliteSprintSeriesRepository(Func<string> currentRootD
 
     public Task SaveAsync(SprintSeries series, CancellationToken cancellationToken = default) =>
         Current.SaveAsync(series, cancellationToken);
+
+    public Task<IReadOnlyList<SprintSeriesReplicaCopyDto>> ReadAllAsync(CancellationToken cancellationToken = default) =>
+        Current.ReadAllAsync(cancellationToken);
+
+    public Task<SprintSeriesReplicaCopyDto?> ReadAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Current.ReadAsync(id, cancellationToken);
+
+    public Task<bool> TryWriteAsync(SprintSeriesReplicaCopyDto copy, CancellationToken cancellationToken = default) =>
+        Current.TryWriteAsync(copy, cancellationToken);
 }

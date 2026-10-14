@@ -311,6 +311,67 @@ The system SHALL leave a task's status, tags and plan unchanged whichever close 
 - **Then** the task is still In progress
 - **And** Sprint 4 records it as dropped
 
+## Syncing sprints between devices
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/progress/features.md#syncing-sprints-between-devices]
+```
+
+The scenarios use two paired desktops, A and B, with sync on.
+
+### Requirement: A change reaches the other desktop
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL hold, on every paired desktop, the same series a change was made to on one of them, once both have synced.
+
+#### Scenario: A note written on one desktop
+
+- **Given** the series "Core" on A and B, with Sprint 4 open
+- **When** the person writes the note "Waiting on review" on a member on A, and A and then B sync
+- **Then** B shows the member with the note "Waiting on review"
+
+### Requirement: The newer change wins per series
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL keep, for each series, the change saved last when two desktops changed that series before either synced, and SHALL keep changes to two different series made on two desktops.
+
+#### Scenario: One series changed on both desktops
+
+- **Given** the series "Core" on A and B
+- **When** the person writes a note on A, then writes another on the same member on B, and both sync
+- **Then** both desktops show the note written on B
+
+#### Scenario: Two series changed on two desktops
+
+- **Given** the series "Core" and "Docs" on A and B
+- **When** the person changes Sprint 4's goal of "Core" on A and of "Docs" on B, and both sync
+- **Then** both desktops show both new goals
+
+### Requirement: A desktop with no series sends none
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL send no series from a desktop that never set one up.
+
+#### Scenario: A newly paired desktop
+
+- **Given** the series "Core" on A, and B newly paired with no series
+- **When** B syncs
+- **Then** B holds "Core" as A has it, and A still holds its own "Core"
+
 ## Sprints in the briefs
 
 ```meta
