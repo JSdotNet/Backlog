@@ -142,7 +142,7 @@ public partial class Settings
     }
 
     /// <summary>Brings the card's field into view and focus when a link opened
-    /// the screen at the Brain card - the chip's "Set up your Brain" - so the
+    /// the screen at the Brain card - the Devbook pane's first-use prompt - so the
     /// first thing in front of the person is the field they came to fill.</summary>
     private async Task RevealBrainCardAsync()
     {

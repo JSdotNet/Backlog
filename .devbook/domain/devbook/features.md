@@ -12,7 +12,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/inbox/features.md#routing, .devbook/domain/devbook/features.md#capture-into-the-brain]
 ```
 
@@ -25,7 +24,6 @@ comes from is [Capture into the Brain](#capture-into-the-brain).
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#knowledge-capture]
 related: [.devbook/domain/devbook/domain.md#para-category, .devbook/domain/devbook/features.md#brain-folder-setup]
 ```
@@ -45,7 +43,6 @@ name its area in its `para` field instead, which wins over the folder.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
 ```
 
@@ -58,7 +55,6 @@ so with a [repo link](#repo-links-and-backlinks).
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/devbook/domain.md#tag, .devbook/domain/devbook/domain.md#roadmap-contribution]
 ```
 
@@ -74,7 +70,6 @@ reads.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/devbook/requirements.md#bi-directional-linking, .devbook/domain/devbook/domain.md#task-link, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
@@ -102,7 +97,6 @@ details is not built.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/devbook/requirements.md#brain-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#shell-header]
 ```
 
@@ -112,21 +106,21 @@ worn in the Brain's teal. It cannot be removed, and it needs no repository, so
 the scope works for a person who has configured none.
 
 Brain is the scope of everything filed against no repository. Pressed alone, it
-narrows Tasks, Board, Calendar, In progress, the Dashboard, Sessions and Pull
-requests to the tasks with no repository. It also opens the Brain in the Devbook
-pane. Ctrl adds it to the repositories already pressed, and nothing pressed still
+narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the
+tasks with no repository. It also opens the Brain in the Devbook pane. Pull
+requests and the Roadmap read Brain alone as nothing pressed: every pull request
+belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still
 means everything.
 
 The scope is remembered with Brain in its place, so a fresh shell reopens on it.
 The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows.
-Until a Brain folder is set up, the chip reads **Set up your Brain** and still
-scopes the tasks.
+Until a Brain folder is set up, the chip reads **Set up your Brain**, still
+scopes the tasks, and its tooltip points to Settings › Storage.
 
 ## Brain folder setup
 
 ```meta
 type: feature
-status: draft
 setting: .devbook/domain/devbook/context.md#brain-folder
 related: [.devbook/domain/devbook/requirements.md#brain-folder-setup, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/domain.md#para-category]
 ```
@@ -158,7 +152,6 @@ one, the browser harness among them, takes a typed path.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/devbook/requirements.md#brain-mode-of-the-devbook-pane, .devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/design/interaction-guidelines.md#shell-header]
 ```
@@ -215,7 +208,6 @@ ordinary notes. The warning names every pair.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
 related: [.devbook/domain/devbook/requirements.md#repo-links-and-backlinks, .devbook/domain/devbook/domain.md#repo-link, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
 ```
@@ -253,7 +245,6 @@ A repository devbook has no way to link into a Brain.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#devbook-retrieval]
 related: [.devbook/domain/devbook/requirements.md#unified-search, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
@@ -278,7 +269,6 @@ without touching the header's scope or the task filter.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
 related: [.devbook/domain/devbook/requirements.md#atlas-edges, .devbook/design/component-libraries.md]
 ```
@@ -307,7 +297,6 @@ drawing an empty map.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
 related: [.devbook/domain/devbook/requirements.md#capture-into-the-brain, .devbook/domain/inbox/features.md#route-to-brain, .devbook/domain/inbox/domain.md#itemtriaged]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
@@ -337,7 +326,6 @@ an assistant calls over MCP ([MCP Brain scope](#mcp-brain-scope)).
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#capture-into-the-brain]
 related: [.devbook/domain/devbook/requirements.md#mcp-brain-scope, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#review-notes-in-a-chapter]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.McpToolCreationTests.A_host_without_the_brain_ports_still_builds_the_devbook_tools]
