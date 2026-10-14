@@ -104,6 +104,9 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     }
 
     /// <inheritdoc />
+    public string? CurrentToken => _settings.McpServerToken;
+
+    /// <inheritdoc />
     /// <remarks>
     /// Written out rather than left to the compiler because the <c>add</c> has
     /// something of its own to do — see <see cref="Listen"/>. The combine and

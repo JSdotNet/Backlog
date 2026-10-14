@@ -108,7 +108,7 @@
                the run is still changing, and a second run cannot start over the
                first. *@
             <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
-                @(Updating ? UpdatingLabel : _toolsLoading ? "Checking..." : "Check for updates")
+                @(Updating ? UpdatingLabel : _toolsLoading ? "Checking…" : "Check for updates")
             </AppButton>
             <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync" TestId="tools-update-all">
                 @(Updating ? UpdatingLabel : UpdateAllLabel)
@@ -208,7 +208,7 @@
                                     <h3 class="tools-start__option-title">Create from this machine</h3>
                                     <Badge Kind="tone" Slug="settled" CssClass="tools-start__badge">Recommended</Badge>
                                 </div>
-                                <p class="tools-start__option-body">Write this machine's catalog at the path above, then add what it should have.</p>
+                                <p class="tools-start__option-body">Write this machine's catalog at the path above, starting from the plugins, marketplaces and MCP servers Claude and Copilot already have here.</p>
                                 <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="CreateCatalogAsync" TestId="tools-create-catalog">
                                     @(_toolActionKey == CreateKey ? "Creating..." : "Create catalog")
                                 </AppButton>
@@ -281,7 +281,8 @@
                 @* The library's tab strip: role="tablist", a roving tabindex, and the
                    arrow, Home and End keys. One row that scrolls sideways when the
                    pane is narrow, never a wrapped stack. *@
-                <Tabs ActiveId="@_activeTab"
+                <Tabs @ref="_tabs"
+                      ActiveId="@_activeTab"
                       ActiveIdChanged="ChooseTab"
                       AriaLabel="Kinds of tool"
                       CssClass="tools-tabs"
@@ -290,10 +291,13 @@
                       TestId="tools-tabs"
                       ListTestId="tools-tablist">
                     <ListTrailing>
-                        @if (_commands.Count > 0)
+                        @if (_lastRun is not null || _commands.Count > 0)
                         {
-                            @* A button rather than an anchor: it opens the transcript
-                               fold in the rail rather than navigating anywhere. *@
+                            @* A button rather than an anchor: it opens a transcript
+                               rather than navigating anywhere. The saved last run's
+                               dialog when there is one, so the link is there after a
+                               restart, before this session has run a command; the
+                               rail's command fold otherwise. *@
                             <AppButton Variant="ButtonVariant.Ghost"
                                        CssClass="tools-tabs__transcript"
                                        OnClick="ShowTranscript"
@@ -666,6 +670,19 @@
                                TestId="tools-add-claude-args" />
                 }
             }
+
+            @if (_draftKind is DevToolKind.Application or DevToolKind.McpServer)
+            {
+                @* The two kinds a row can be installed by hand for. The Overview's
+                   Needs you card links to this page for such a row, and falls
+                   back to the page it can derive from the id when there is none. *@
+                <TextField Label="Download page"
+                           Value="@_draftDownload"
+                           ValueChanged="value => _draftDownload = value"
+                           HelpText="Optional. Where somebody installing it by hand gets it — an http or https address."
+                           ErrorMessage="@_draftDownloadError"
+                           TestId="tools-add-download" />
+            }
         </div>
     </ChildContent>
     <Footer>
@@ -861,14 +878,37 @@
         Preferences?.SetTab(TabSlug(tabId));
     }
 
+    private Tabs? _tabs;
+
+    /// <summary>Shows a tab from a control inside the Overview — a By kind link, a
+    /// Needs you "See how on" link — and takes focus to that tab: the control that
+    /// was pressed goes with the panel this hides. The strip's own tabs move focus
+    /// themselves, so they call <see cref="ChooseTab"/> alone.</summary>
+    private void OpenTab(string tabId)
+    {
+        ChooseTab(tabId);
+        _tabs?.FocusTab(tabId);
+    }
+
     private void ChooseHostFilter(string hostFilter)
     {
         _hostFilter = hostFilter;
         Preferences?.SetHostFilter(hostFilter);
     }
 
-    /// <summary>Opens the transcript the strip's link names.</summary>
-    private void ShowTranscript() => _commandsShown = true;
+    /// <summary>Opens the transcript the strip's link names: the last run's, as
+    /// the Overview's "Open full transcript" does, or the rail's command fold when
+    /// no run has been saved.</summary>
+    private void ShowTranscript()
+    {
+        if (_lastRun is not null)
+        {
+            OpenLastRunTranscript();
+            return;
+        }
+
+        _commandsShown = true;
+    }
 
     /// <summary>Whether a row is for the hosts the filter shows. Claude is Claude
     /// Code or Claude Desktop; a row with no host — an application, a checklist
@@ -1522,6 +1562,8 @@
     private string _draftDetectExpect = string.Empty;
     private string _draftInstallCommand = string.Empty;
     private string _draftInstallArgs = string.Empty;
+    private string _draftDownload = string.Empty;
+    private string? _draftDownloadError;
     private string? _draftIdError;
     private string? _draftSourceError;
     private string? _draftDetectError;
@@ -1829,9 +1871,14 @@
     private static string GroupLabel(ToolGroup group) =>
         $"{group.Title} — {Counted(group.Tools.Count, group.Outstanding)}";
 
-    private static string Counted(int count, int outstanding) => outstanding == 0
-        ? $"{count} row(s), nothing outstanding"
-        : $"{count} row(s), {outstanding} outstanding";
+    private static string Counted(int count, int outstanding)
+    {
+        var rows = count == 1 ? "1 row" : $"{count} rows";
+
+        return outstanding == 0
+            ? $"{rows}, nothing outstanding"
+            : $"{rows}, {outstanding} outstanding";
+    }
 
     /// <summary>Whichever groups somebody has opened or closed by hand. Held per
     /// group key so it survives a refresh: checking for updates re-reads every row
@@ -2148,7 +2195,10 @@
         }
     }
 
-    private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogAsync());
+    /// <summary>"Create from this machine": the catalog written already holds what
+    /// the hosts here have installed, so the first check shows the machine as it
+    /// is rather than an empty list to fill by hand.</summary>
+    private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogFromMachineAsync());
 
     /// <summary>"Add tools one at a time": the catalog the add form writes into
     /// has to exist first, so this writes it and then opens the form — the port's
@@ -2315,6 +2365,7 @@
         _draftSourceError = null;
         _draftDetectError = null;
         _draftCommandError = null;
+        _draftDownloadError = null;
     }
 
     /// <summary>Which kind of MCP server is being added. Spelled out like the
@@ -2375,6 +2426,7 @@
         _draftSourceError = null;
         _draftDetectError = null;
         _draftCommandError = null;
+        _draftDownloadError = null;
 
         var plugin = _draftKind is DevToolKind.Plugin;
         var marketplace = _draftKind is DevToolKind.Marketplace;
@@ -2446,7 +2498,16 @@
             _draftCommandError = "An MCP server reached over HTTP needs the URL that serves it.";
         }
 
-        if (_draftIdError is not null || _draftSourceError is not null || _draftDetectError is not null || _draftCommandError is not null)
+        // A page the Overview would refuse to link, refused under its own field
+        // in the port's own words.
+        var takesDownload = application || _draftKind is DevToolKind.McpServer;
+        if (takesDownload && !string.IsNullOrWhiteSpace(_draftDownload) && !DevToolConfiguration.IsLinkableDownload(_draftDownload))
+        {
+            _draftDownloadError = DevToolConfiguration.DownloadNotLinkableMessage;
+        }
+
+        if (_draftIdError is not null || _draftSourceError is not null || _draftDetectError is not null || _draftCommandError is not null
+            || _draftDownloadError is not null)
         {
             return;
         }
@@ -2491,7 +2552,8 @@
             DetectArgs = command ? SplitArgs(_draftDetectArgs) : [],
             DetectExpect = command ? NullIfBlank(_draftDetectExpect) : null,
             InstallCommand = command ? NullIfBlank(_draftInstallCommand) : null,
-            InstallArgs = command ? SplitArgs(_draftInstallArgs) : []
+            InstallArgs = command ? SplitArgs(_draftInstallArgs) : [],
+            Download = takesDownload ? NullIfBlank(_draftDownload) : null
         };
 
         if (await RunCatalogEditAsync(AddKey, () => DevTools.AddAsync(draft)))
@@ -2654,6 +2716,8 @@
         _draftDetectExpect = string.Empty;
         _draftInstallCommand = string.Empty;
         _draftInstallArgs = string.Empty;
+        _draftDownload = string.Empty;
+        _draftDownloadError = null;
         _draftIdError = null;
         _draftSourceError = null;
         _draftDetectError = null;
@@ -2723,43 +2787,67 @@
     private static bool InstallsFromHere(DevToolInfo tool) =>
         tool.CanInstall || (tool.Kind is DevToolKind.Marketplace && !tool.Installed);
 
-    /// <summary>The Updates tile's split: one line per host the filter shows, and
-    /// one for machine software, which has no host. A row for both hosts that is
-    /// behind on one counts under that one; a row whose hosts do not say which
-    /// counts under every host it is for.</summary>
+    private const DevToolHosts ClaudeGroup = DevToolHosts.Claude | DevToolHosts.ClaudeDesktop;
+
+    /// <summary>The Updates tile's split, which always adds up to the tile's
+    /// figure: every row behind counts on exactly one line. Copilot or Claude for a
+    /// row for one host, or for a row for both that only one host reports behind;
+    /// Both for a row for both hosts whose host states say both or neither; Machine
+    /// for machine software, which has no host. The lines the filter shows appear
+    /// even at 0 — Copilot, Claude and Machine under All hosts, the one host under
+    /// a host filter — and any other line appears when it has a row, so a row the
+    /// filter lets through is never left off the sum.</summary>
     private IReadOnlyList<(string Label, int Count)> UpdatesByHost
     {
         get
         {
-            var behind = HostRows.Where(tool => StateOf(tool) is ToolState.Update).ToArray();
+            var counts = HostRows
+                .Where(tool => StateOf(tool) is ToolState.Update)
+                .GroupBy(UpdatesOn)
+                .ToDictionary(group => group.Key, group => group.Count());
+
             var lines = new List<(string Label, int Count)>();
 
-            if (_hostFilter is AllHosts or CopilotHosts)
+            void Line(string label, bool shown)
             {
-                lines.Add(("Copilot", behind.Count(tool => UpdatesOn(tool, DevToolHosts.Copilot))));
+                var count = counts.GetValueOrDefault(label);
+                if (shown || count > 0) lines.Add((label, count));
             }
 
-            if (_hostFilter is AllHosts or ClaudeHosts)
-            {
-                lines.Add(("Claude", behind.Count(tool => UpdatesOn(tool, DevToolHosts.Claude | DevToolHosts.ClaudeDesktop))));
-            }
-
-            if (_hostFilter is AllHosts)
-            {
-                lines.Add(("Machine", behind.Count(tool => tool.Hosts is DevToolHosts.None)));
-            }
+            Line(CopilotLine, _hostFilter is AllHosts or CopilotHosts);
+            Line(ClaudeLine, _hostFilter is AllHosts or ClaudeHosts);
+            Line(BothLine, false);
+            Line(MachineLine, _hostFilter is AllHosts);
 
             return lines;
         }
     }
 
-    private static bool UpdatesOn(DevToolInfo tool, DevToolHosts hosts)
+    private const string CopilotLine = "Copilot";
+    private const string ClaudeLine = "Claude";
+    private const string BothLine = "Both";
+    private const string MachineLine = "Machine";
+
+    /// <summary>The one Updates line a row behind counts on.</summary>
+    private static string UpdatesOn(DevToolInfo tool)
     {
-        if ((tool.Hosts & hosts) == DevToolHosts.None) return false;
+        var onCopilot = (tool.Hosts & DevToolHosts.Copilot) != DevToolHosts.None;
+        var onClaude = (tool.Hosts & ClaudeGroup) != DevToolHosts.None;
+
+        if (!onCopilot && !onClaude) return MachineLine;
+        if (!onClaude) return CopilotLine;
+        if (!onCopilot) return ClaudeLine;
 
         var reporting = tool.HostStates.Where(state => state.ReportsUpdate || state.RegistrationDrifted).ToArray();
+        var copilotReports = reporting.Any(state => (state.Host & DevToolHosts.Copilot) != DevToolHosts.None);
+        var claudeReports = reporting.Any(state => (state.Host & ClaudeGroup) != DevToolHosts.None);
 
-        return reporting.Length == 0 || reporting.Any(state => (state.Host & hosts) != DevToolHosts.None);
+        return (copilotReports, claudeReports) switch
+        {
+            (true, false) => CopilotLine,
+            (false, true) => ClaudeLine,
+            _ => BothLine
+        };
     }
 
     /// <summary>What a Needs you card offers: the one control it carries.</summary>
@@ -2859,7 +2947,7 @@
             tool.Hosts,
             Detail(null, "not installed", KindLabel(tool), NoteOf(tool)),
             NeedControl.DownloadLink,
-            DownloadPage(tool));
+            DownloadPageOf(tool));
     }
 
     private static NeedItem ConfirmNeed(DevToolInfo tool) => new(
@@ -2880,17 +2968,28 @@
         Array.Find(KindTabs, tab => tab.Holds(tool)) is { } tab ? Capitalised(tab.NounOne) : tool.Kind.ToString();
 
     /// <summary>
-    /// Where somebody installing a row by hand gets it.
+    /// Where somebody installing a row by hand gets it: the catalog's own
+    /// <c>download</c> page when the entry names one the screen may link, and the
+    /// derived page below otherwise.
     ///
-    /// <para>The catalog names no download page, so the address is derived from
-    /// the mechanism the row already declares: a winget id has a package page on
-    /// winstall.app, which links the publisher's own download, and a VS Code
-    /// extension has its Marketplace page. A row declared any other way — a
-    /// command, a server registered by one — has no address to derive, and its
-    /// card links to its kind tab instead, where the note under the row says what
-    /// to do.</para>
+    /// <para>Only an http or https address is linked. The catalog is a
+    /// hand-edited file, and a <c>javascript:</c> or <c>file:</c> value in it is
+    /// treated as though the entry named nothing.</para>
     /// </summary>
-    private static string? DownloadPage(DevToolInfo tool)
+    private static string? DownloadPageOf(DevToolInfo tool) =>
+        DevToolConfiguration.IsLinkableDownload(tool.Download) ? tool.Download!.Trim() : DerivedDownloadPage(tool);
+
+    /// <summary>
+    /// The download page a row's own mechanism implies, for an entry whose
+    /// catalog names none.
+    ///
+    /// <para>A winget id has a package page on winstall.app, which links the
+    /// publisher's own download, and a VS Code extension has its Marketplace
+    /// page. A row declared any other way — a command, a server registered by
+    /// one — has no address to derive, and its card links to its kind tab
+    /// instead, where the note under the row says what to do.</para>
+    /// </summary>
+    private static string? DerivedDownloadPage(DevToolInfo tool)
     {
         if (tool.Kind is not DevToolKind.Application || !tool.Key.StartsWith("app:", StringComparison.Ordinal)) return null;
 
@@ -3105,7 +3204,7 @@
                                        class="tools-overview-kinds__link"
                                        data-testid="@($"tools-overview-kind-{bar.Slug}")"
                                        aria-label="@($"{bar.Title}: {bar.Matches} of {bar.Total} match, open the {bar.Title} tab")"
-                                       @onclick="() => ChooseTab(tabId)"
+                                       @onclick="() => OpenTab(tabId)"
                                        @onclick:preventDefault="true">
                                         <span class="tools-overview-kinds__name">@bar.Title</span>
                                         <span class="tools-overview-kinds__ratio" data-testid="@($"tools-overview-kind-{bar.Slug}-count")">@bar.Matches/@bar.Total</span>
@@ -3185,7 +3284,7 @@
             @<a href="@($"#{TabIdOf(need.Tool!)}")"
                 class="tools-overview-need__tab-link"
                 data-testid="tools-overview-need-open-tab"
-                @onclick="() => ChooseTab(TabIdOf(need.Tool!))"
+                @onclick="() => OpenTab(TabIdOf(need.Tool!))"
                 @onclick:preventDefault="true">
                 See how on @TabTitle(TabIdOf(need.Tool!))
             </a>,

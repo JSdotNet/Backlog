@@ -139,7 +139,7 @@ The `env` block of `~/.claude/settings.json` (or a project's `.claude/settings.j
 | `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` | `http/protobuf`, as the copied block writes it. `http/json` works too: the endpoint reads both. |
 | `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | The endpoint Settings → Claude Code shows. |
 | `OTEL_EXPORTER_OTLP_LOGS_HEADERS` | `Authorization=Bearer <token>`, from the copied block. The harness needs none. |
-| `OTEL_LOG_TOOL_DETAILS` | `1`, so each request's `agent.name` and `skill.name` arrive instead of being redacted. Not in the copied block; add it. |
+| `OTEL_LOG_TOOL_DETAILS` | `1`, so each request's `agent.name` and `skill.name` arrive instead of being redacted. Without it a stage whose sub-agents ran shows an estimated cost, never a reported one. |
 
 - The copied block uses the logs signal's own keys, so an exporter for metrics or traces
   that is already configured elsewhere keeps going there, and the token goes only to this
@@ -152,7 +152,9 @@ The `env` block of `~/.claude/settings.json` (or a project's `.claude/settings.j
   Code session and run one prompt in it. Its session id is the name of its transcript under
   `~/.claude/projects/`. Then read `claude_api_requests` in the workspace's `backlog.db`
   with any SQLite client, `WHERE session_id = '<that id>'`: one row per model request, with
-  the model, the cost and the tokens. No app screen shows these rows yet.
+  the model, the effort, the cost and the tokens. In the app, the Sessions page shows them on
+  the selected session: its cost and effort in the detail panel, each stage's cost on the stage
+  rows, and the run's on its run line.
 
 ## Never
 

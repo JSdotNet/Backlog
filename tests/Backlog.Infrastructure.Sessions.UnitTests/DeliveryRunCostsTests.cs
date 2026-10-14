@@ -295,6 +295,73 @@ public sealed class DeliveryRunCostsTests
         Assert.Equal(stage.Workers[0], stage.Workers[1]);
     }
 
+    /// <summary>A session exporting without <c>OTEL_LOG_TOOL_DETAILS</c>: its sub-agents'
+    /// requests carry no <c>agent.name</c> and a <c>query_source</c> of
+    /// <c>agent:custom</c>, so they match no worker and the main loop's requests are all
+    /// the stage could claim.</summary>
+    [Fact]
+    public void A_stage_whose_window_holds_unnamed_sub_agent_requests_is_estimated_rather_than_reported_in_part()
+    {
+        var requests = new[]
+        {
+            Request("main", Nine.AddMinutes(12), 7),
+            Request("unnamed", Nine.AddMinutes(16), 1_000, source: "agent:custom")
+        };
+
+        var costs = DeliveryRunCosts.Of(Run(Usage()), requests, Prices, ownerModel: "claude-opus-5-5");
+
+        var sonnet = 2_000 * 3 + 2_000 * 15 + 2_000_000 * 0.3m + 200_000 * 3.75m;
+        Assert.Equal(new CostFigure((long)sonnet, CostSource.Estimated), costs[1].Stage);
+        Assert.Equal(CostSource.Estimated, costs[1].Workers[0]!.Source);
+
+        // With no price to estimate from, the stage has no figure: never the main loop's 7.
+        var unpriced = DeliveryRunCosts.Of(Run(Usage()), requests, ModelPriceTable.Empty, ownerModel: "claude-opus-5-5");
+        Assert.Null(unpriced[1].Stage);
+
+        // Only Implement's window holds the unnamed request; Scope's does not.
+        var run = Run();
+        var resolved = DeliveryRunStageResolution.Of(run);
+        Assert.True(DeliveryRunCosts.HasUnnamedSubAgentRequests(run.Stages[1], resolved[1], requests));
+        Assert.False(DeliveryRunCosts.HasUnnamedSubAgentRequests(run.Stages[0], resolved[0], requests));
+    }
+
+    [Fact]
+    public void An_unnamed_sub_agent_request_counts_inside_the_window_only_and_a_running_stage_has_no_end()
+    {
+        var run = Run();
+        var resolved = DeliveryRunStageResolution.Of(run);
+        var implement = run.Stages[1];
+
+        // Implement runs 9:10-9:30: a request on either edge is inside, a second past either is not.
+        Assert.True(DeliveryRunCosts.HasUnnamedSubAgentRequests(implement, resolved[1], [Request("start", Nine.AddMinutes(10), 1, source: "agent:custom")]));
+        Assert.True(DeliveryRunCosts.HasUnnamedSubAgentRequests(implement, resolved[1], [Request("end", Nine.AddMinutes(30), 1, source: "agent:custom")]));
+        Assert.False(DeliveryRunCosts.HasUnnamedSubAgentRequests(implement, resolved[1], [Request("after", Nine.AddMinutes(30).AddSeconds(1), 1, source: "agent:custom")]));
+
+        // Still under way: no end, so a later request is still the stage's.
+        var running = implement with { CompletedAt = null };
+        Assert.True(DeliveryRunCosts.HasUnnamedSubAgentRequests(running, resolved[1], [Request("later", Nine.AddHours(2), 1, source: "agent:custom")]));
+
+        // A stage that never started has no window at all.
+        Assert.False(DeliveryRunCosts.HasUnnamedSubAgentRequests(implement with { StartedAt = null }, resolved[1], [Request("any", Nine.AddMinutes(15), 1, source: "agent:custom")]));
+    }
+
+    [Fact]
+    public void A_named_sub_agent_request_keeps_the_stage_reported()
+    {
+        var requests = new[]
+        {
+            Request("main", Nine.AddMinutes(12), 7),
+            // With the detail flag on: agent.name arrives beside agent:custom.
+            Request("named", Nine.AddMinutes(16), 1_000, agent: "csharp-coding:coding"),
+            // A source that does name the worker needs no agent.name.
+            Request("by-source", Nine.AddMinutes(17), 10_000, source: "agent:csharp-coding:coding")
+        };
+
+        var costs = DeliveryRunCosts.Of(Run(Usage()), requests, Prices, ownerModel: "claude-opus-5-5");
+
+        Assert.Equal(new CostFigure(11_007, CostSource.Reported), costs[1].Stage);
+    }
+
     [Fact]
     public void A_stage_re_entered_after_requested_changes_is_estimated_rather_than_reported_in_part()
     {

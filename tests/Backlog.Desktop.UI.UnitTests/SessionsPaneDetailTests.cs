@@ -401,6 +401,34 @@ public sealed class SessionsPaneDetailTests
         });
     }
 
+    /// <summary>The effort the session's own main-loop requests reported wins over the
+    /// one its run file recorded, on the selected row and in the panel.</summary>
+    [Fact]
+    public void The_effort_the_sessions_requests_reported_wins_over_the_run_files()
+    {
+        var run = Run() with
+        {
+            Stages = [new DeliveryRunStage("Scope", "done", 60_000, 1) { Execution = """{"mode":"inline","effort":"medium"}""" }]
+        };
+        var requests = new StubRequestStore(
+        [
+            new ClaudeApiRequest("req_1", Claude.Id, Noon.AddMinutes(-30), "claude-opus-5-5", "high", 1_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_2", Claude.Id, Noon.AddMinutes(-20), "claude-opus-5-5", "max", 1_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_3", Claude.Id, Noon.AddMinutes(-10), "claude-sonnet-5", "low", 1_000, 1, 2, 3, 4, 5, "agent:custom", "Explore", null, null)
+        ]);
+
+        using var context = Context([Claude], [run]);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(requests);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("max", pane.Find("[data-testid='sessions-fact-effort-chip']").TextContent.Trim());
+            Assert.Equal("max", pane.Find("[data-testid='sessions-row'] [data-testid='sessions-effort']").TextContent.Trim());
+        });
+    }
+
     [Fact]
     public void Without_telemetry_the_panel_estimates_the_cost_from_tokens_and_says_so()
     {

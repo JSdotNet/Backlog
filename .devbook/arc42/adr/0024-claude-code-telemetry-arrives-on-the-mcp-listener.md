@@ -15,10 +15,10 @@ as a row of `backlog.db`, once per `request_id`.
 ```meta
 ```
 
-Proposed, 2026-10-08, and built in the same change: the `cost-receiver` item of the
-`pr-session-pages-redesign` plan, run unattended. It becomes accepted when the
-repository owner approves that change at its Personal Validation gate, on its draft
-pull request.
+Accepted, 2026-10-14, by the repository owner at the Personal Validation gate of the
+`sessions-chapter-status` item of the `pr-session-pages-redesign` plan. Proposed
+2026-10-08 and built in the same change, the plan's `cost-receiver` item, run
+unattended.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below means
 the local one. It extends ADR 0012 with a second protocol on the same listener, and

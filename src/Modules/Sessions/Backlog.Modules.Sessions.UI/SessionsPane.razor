@@ -340,7 +340,7 @@ else
                 <span aria-hidden="true">·</span>
                 <span class="sessions-row__model" data-testid="sessions-model">
                     @ModelLabel(row.Model)
-                    <EffortChip Effort="@row.Effort" TestId="sessions-effort" />
+                    <EffortChip Effort="@EffortOf(row)" TestId="sessions-effort" />
                 </span>
                 <span class="sessions-row__spacer" aria-hidden="true"></span>
                 <span class="sessions-row__tokens" title="@TokensTitle(row.Session?.ModelUsage)" data-testid="sessions-tokens">@OutputLabel(row.OutputTokens)</span>
@@ -424,7 +424,7 @@ else
                 <div class="sessions-fact">
                     <dt>Effort</dt>
                     <dd data-testid="sessions-fact-effort">
-                        @if (row.Effort is { } effort)
+                        @if (EffortOf(row) is { } effort)
                         {
                             <EffortChip Effort="@effort" TestId="sessions-fact-effort-chip" />
                         }
@@ -808,11 +808,13 @@ else
 
     public void Dispose() => _disposed = true;
 
-    /// <summary>What one row cost, worked out once its requests are in.</summary>
+    /// <summary>What one row cost, worked out once its requests are in — and the effort
+    /// those requests reported, which the same read answers.</summary>
     private sealed record RowCosts(
         CostFigure? Session,
         IReadOnlyDictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>> Stages,
-        IReadOnlyDictionary<DeliveryRun, DeliveryRunCostComparison> Comparisons)
+        IReadOnlyDictionary<DeliveryRun, DeliveryRunCostComparison> Comparisons,
+        string? Effort)
     {
         public IReadOnlyList<DeliveryRunStageCost>? StagesOf(DeliveryRun run) => Stages.TryGetValue(run, out var costs) ? costs : null;
 
@@ -900,6 +902,11 @@ else
 
     private RowCosts? CostsOf(SessionRow row) => _costs.TryGetValue(row.Key, out var costs) ? costs : null;
 
+    /// <summary>The row's effort: telemetry's once the row's requests have been read —
+    /// which <see cref="SessionRow.EffortFrom"/> already falls back from to the run files
+    /// — and the run files' until then.</summary>
+    private string? EffortOf(SessionRow row) => CostsOf(row) is { } costs ? costs.Effort : row.Effort;
+
     /// <summary>The sessions whose requests a row's costs are read from: its own, and
     /// every one its runs name.</summary>
     private static IReadOnlyList<string> CostSessionsOf(SessionRow row) =>
@@ -933,10 +940,13 @@ else
 
         if (_disposed || generation != _statusGeneration) return;
 
-        var sessionId = row.Session?.Id ?? row.Runs.SelectMany(run => run.SessionIds).FirstOrDefault();
+        var sessionId = row.OwnerSessionId;
         var stages = new Dictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>>(ReferenceEqualityComparer.Instance);
         var comparisons = new Dictionary<DeliveryRun, DeliveryRunCostComparison>(ReferenceEqualityComparer.Instance);
         CostFigure? session;
+
+        // The effort the session's own requests reported, ahead of the run files'.
+        var effort = row.EffortFrom(requests);
 
         try
         {
@@ -958,7 +968,7 @@ else
 
         // The row's own figures first: pricing the earlier runs its comparison needs
         // reads up to thirty runs' requests, and the row's cost should not wait on them.
-        _costs[row.Key] = new RowCosts(session, stages, new Dictionary<DeliveryRun, DeliveryRunCostComparison>());
+        _costs[row.Key] = new RowCosts(session, stages, new Dictionary<DeliveryRun, DeliveryRunCostComparison>(), effort);
 
         // Whether something changed since the last redraw. A redraw is spent only
         // before waiting on work still out, and once at the end: a row whose week and
@@ -1019,7 +1029,7 @@ else
 
         if (comparisons.Count > 0)
         {
-            _costs[row.Key] = new RowCosts(session, stages, comparisons);
+            _costs[row.Key] = new RowCosts(session, stages, comparisons, effort);
             undrawn = true;
         }
 

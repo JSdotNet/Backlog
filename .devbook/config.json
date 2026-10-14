@@ -104,7 +104,7 @@
   ],
   "components": {
     "delivery": {
-      "pluginVersion": "1.25.0"
+      "pluginVersion": "1.26.0"
     },
     "devbook": {
       "pluginVersion": "1.25.0",

@@ -147,6 +147,18 @@ public sealed record DeliveryRunStageExecution(
     /// <summary>Whether a value on the stage was inferred rather than recorded — the ?
     /// mark. The mode is the value inference decides.</summary>
     public bool Inferred => !ModeRecorded;
+
+    /// <summary>The implement ⇄ review round the stage's latest pass worked, as
+    /// <see cref="DeliveryRunStage.Round"/> carries it; null where it reported none.</summary>
+    public int? Round { get; init; }
+
+    /// <summary>The blockers Review's latest round left open
+    /// (<see cref="DeliveryRunStage.Blockers"/>); null where it reported none.</summary>
+    public int? Blockers { get; init; }
+
+    /// <summary>The defects Verify's latest pass found that review had passed
+    /// (<see cref="DeliveryRunStage.DefectsFound"/>); null where it reported none.</summary>
+    public int? DefectsFound { get; init; }
 }
 
 /// <summary>
@@ -368,7 +380,12 @@ public static partial class DeliveryRunStageResolution
             DurationMs: stage.DurationMs,
             OutputTokens: run.TokenUsage?.ByStage.FirstOrDefault(usage => string.Equals(usage.StageName, stage.Name, StringComparison.Ordinal))?.Total.OutputTokens,
             ToolCalls: stage.ToolCalls,
-            RunRecordsPhases: map is { Count: > 0 });
+            RunRecordsPhases: map is { Count: > 0 })
+        {
+            Round = stage.Round,
+            Blockers = stage.Blockers,
+            DefectsFound = stage.DefectsFound
+        };
     }
 
     /// <summary>

@@ -22,6 +22,11 @@
     tokens at the Settings prices and marked so; with neither, nothing is drawn —
     never a zero.
 
+    What the pass found (Stage Counts): Implement's and Review's round, Review's open
+    blockers and Verify's defects on the row, as the stage's latest pass reported them;
+    the panel's Found line adds the run's cumulative Quality Facts where it carries
+    them, and each sub-agent call names the round it worked. Absent stays absent.
+
     Scenario evidence (BL2), where a stage reported any — the verify stage, for a
     delivery run: the folded row says how many of its parts passed, and the panel
     lists them, so the evidence sits under the stage that ran it.
@@ -60,6 +65,12 @@
                                 <StageMark Kind="@mark"
                                            Title="@(mark is StageMarkKind.Drift ? DeliveryRunStageResolution.DriftTitle(stage) : null)"
                                            TestId="sessions-stage-mark" />
+                            }
+                            @if (Found(stage) is { } found)
+                            {
+                                <span class="sessions-stage__found"
+                                      data-testid="sessions-stage-found"
+                                      data-tone="@(FoundSomething(stage) ? "found" : "clean")">@found</span>
                             }
                             @if (EvidenceOf(position) is { Count: > 0 } evidence)
                             {
@@ -104,6 +115,13 @@
                                     <dt>MCP servers</dt>
                                     <dd class="data-table__mono" data-testid="sessions-stage-mcp">@Servers(stage)</dd>
                                 </div>
+                                @if (FoundFact(stage, Run.Quality) is { } foundFact)
+                                {
+                                    <div class="sessions-stage__fact">
+                                        <dt>Found</dt>
+                                        <dd data-testid="sessions-stage-found-fact">@foundFact</dd>
+                                    </div>
+                                }
                                 @if (stage.Before.Count > 0 || stage.After.Count > 0)
                                 {
                                     <div class="sessions-stage__fact">
@@ -141,7 +159,7 @@
                                                         <span class="data-table__mono">@worker.Agent</span>
                                                         @if (worker.Revise)
                                                         {
-                                                            <Badge Kind="trigger" CssClass="sessions-stage__revise" Title="Ran under the gate: a revise round after you asked for changes" TestId="sessions-stage-revise">revise round</Badge>
+                                                            <Badge Kind="trigger" CssClass="sessions-stage__revise" Title="@ReviseTitle(worker)" TestId="sessions-stage-revise">@ReviseLabel(worker)</Badge>
                                                         }
                                                         <span class="sessions-stage__worker-facts">@WorkerFacts(worker, workerCost)</span>
                                                     </li>
@@ -325,8 +343,75 @@
         return string.Join(" · ", parts);
     }
 
-    /// <summary>One sub-agent call: its model, how long, its tokens and tool calls, and
-    /// how it ended — each left out where the run did not record it.</summary>
+    /// <summary>
+    /// What the stage's latest pass found, for the row: Implement's and Review's round,
+    /// Review's open blockers, Verify's defects — each left out where the stage did not
+    /// report it, and null where it reported none. Zero reads as clean, never as absent.
+    /// </summary>
+    internal static string? Found(DeliveryRunStageExecution stage)
+    {
+        var parts = new List<string>();
+
+        if (stage.Round is { } round) parts.Add($"round {round}");
+        if (stage.Blockers is { } blockers) parts.Add(blockers == 0 ? "no blockers" : Plural(blockers, "blocker") + " open");
+        if (stage.DefectsFound is { } defects) parts.Add(defects == 0 ? "no defects" : Plural(defects, "defect") + " found");
+
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
+    /// <summary>Whether the latest pass left a blocker open or found a defect.</summary>
+    internal static bool FoundSomething(DeliveryRunStageExecution stage) =>
+        stage.Blockers is > 0 || stage.DefectsFound is > 0;
+
+    /// <summary>
+    /// The panel's Found line: what the latest pass reported, then — on Implement,
+    /// Review and Verify — what the run's cumulative Quality Facts say across every pass,
+    /// where the run carries them. Null where neither says anything.
+    /// </summary>
+    internal static string? FoundFact(DeliveryRunStageExecution stage, DeliveryQualityFacts? facts)
+    {
+        var sentences = new List<string>();
+
+        if (Found(stage) is { } latest) sentences.Add($"Latest pass: {latest}");
+
+        var measure = DeliveryEconomics.MeasureOf(stage.Name);
+        var across = new List<string>();
+
+        if (facts is not null && measure is DeliveryQualityMeasure.ReviewRounds or DeliveryQualityMeasure.BlockersPerRound
+            && facts.ReviewRounds is { } rounds)
+        {
+            across.Add(Plural(rounds, "review round"));
+        }
+
+        if (facts is not null && measure is DeliveryQualityMeasure.BlockersPerRound
+            && facts.BlockerRounds is { } listed && facts.BlockersOpen is { } open)
+        {
+            across.Add($"{(open == 0 ? "no blockers" : Plural(open, "blocker"))} left open over {Plural(listed, "round")}");
+        }
+
+        if (facts is not null && measure is DeliveryQualityMeasure.DefectFound && facts.VerifyDefects is { } defects)
+        {
+            across.Add(defects == 0 ? "no defect found" : $"{Plural(defects, "defect")} found");
+        }
+
+        if (across.Count > 0) sentences.Add($"Across the run: {string.Join(", ", across)}");
+
+        return sentences.Count == 0 ? null : string.Join(". ", sentences);
+    }
+
+    private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+
+    /// <summary>The revise badge: the round the call worked, where it carries one.</summary>
+    internal static string ReviseLabel(DeliveryRunStageWorker worker) =>
+        worker.Round is { } round ? $"revise · round {round}" : "revise round";
+
+    private static string ReviseTitle(DeliveryRunStageWorker worker) => worker.Round is { } round
+        ? $"Ran under the gate: a revise round after you asked for changes, working implement-review round {round}"
+        : "Ran under the gate: a revise round after you asked for changes";
+
+    /// <summary>One sub-agent call: its model, its round, how long, its tokens and tool
+    /// calls, and how it ended — each left out where the run did not record it. A revise
+    /// call's round is on its badge instead.</summary>
     internal static string WorkerFacts(DeliveryRunStageWorker worker, CostFigure? cost = null)
     {
         var facts = new List<string>();
@@ -334,6 +419,7 @@
         if (worker.Model is { } model) facts.Add(AgentModels.Label(model));
         if (worker.Effort is { } effort) facts.Add($"{effort} effort");
         if (worker.Slice is { } slice) facts.Add($"slice {slice}");
+        if (worker.Round is { } round && !worker.Revise) facts.Add($"round {round}");
         if (worker.DurationMs is { } ms) facts.Add(DeliveryRunLine.Duration(ms));
         if (worker.Tokens is { } tokens) facts.Add($"{MetricFormat.Compact(tokens)} tokens");
         if (worker.ToolCalls is { } calls) facts.Add(calls == 1 ? "1 tool call" : $"{calls} tool calls");

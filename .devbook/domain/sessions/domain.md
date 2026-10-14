@@ -331,6 +331,17 @@ each record replaces the one before. A count reads only as a whole number from z
 up. A run file from before the phases sent them, or a stage that did not run the work,
 reads them as absent, never as zero: zero is a clean round, and nobody reported one.
 
+**A run can keep its quality facts across every pass.** Because a stage's counts are
+its latest pass, a review that ended on a clean round reads zero blockers, and a Verify
+that found a defect and re-ran clean reads zero defects. The delivery contract's Quality
+Facts are the run's cumulative record: `reviewRounds` with its slices, `blockers` with a
+row per round, and `escapedDefects` with the stage that found each one. `finish_run`
+sends them as the run's `quality`, and the flow keeps the running count in
+`runContext.quality`; a run is read from the first of the two that it holds. A reader
+takes a run's rounds, blockers per round and Verify's defects from those facts where the
+run carries them, and from the stages' own counts otherwise. A run with neither reads
+them as absent, never as zero.
+
 **A run can say what started it, and a sweep what it found.** Where the writer said,
 a run carries its trigger, `attended` or `scheduled`. It also carries the schedule
 that fired it and the repository it worked in.
@@ -575,9 +586,12 @@ So a sub-agent still running after its stage was marked done is still its stage'
 [the unit is estimated](domain.invariants.md#invariant-a-cost-that-cannot-be-told-apart-is-estimated).**
 A stage re-entered after requested changes is the common case. Its start is stamped
 again on every pass, so its window holds the latest pass only, and a figure over it
-would read as the whole stage. A call that recorded no end, unless it is the stage's
-one call of that agent, and two overlapping calls of one agent, such as a fan-out, are
-the others.
+would read as the whole stage. A stage whose window holds a sub-agent's request that
+names no agent is another: a session that exports without `OTEL_LOG_TOOL_DETAILS` sends
+no `agent.name`, and every custom agent's `query_source` reads `agent:custom`, so the
+stage could claim only its main loop. A call that recorded no end, unless it is the
+stage's one call of that agent, and two overlapping calls of one agent, such as a
+fan-out, are the others.
 
 **An estimate with an unpriced part is no figure at all.** A partial sum would read as
 the whole, so
@@ -623,14 +637,16 @@ and priced every stage this run priced, and its total is the sum of those same s
 Summed over whatever each earlier run priced, a run from before per-stage tokens were
 counted would read as a cheap run. The median would sink, and every later run would read
 many times its usual while each of its stages read typical. The run needs at least five
-samples and is compared only once it has left in-progress.
+samples and is compared only once it has finished: a run still active, blocked or
+parked is owed the stages that would move its total.
 
 **The insight** names the run's ratio and the stage that explains most of the
 difference. When the run cost more than usual, that is the stage whose cost exceeds its
 own median by the most. When it cost less, it is the stage furthest below its median. A
 typical run names no stage. The stage's re-entries are its done count less one, which
-counts the implement–review loop and every revise round. Review rounds are to join it
-once the run records them.
+counts the implement–review loop and every revise round. Where the stage is Implement
+or Review, the insight adds the run's review rounds: the Quality Facts' total where the
+run carries them, else the highest round Implement or Review reported.
 
 ### Weekly Usage
 
@@ -649,7 +665,9 @@ measurements.
 weekly refusal carried. With none, it ends at the latest Fable refusal's reset time. A
 reset that has passed rolls forward a whole week at a time, because the allowance
 renews on the same beat each week. The reset instant belongs to the next week. With no
-refusal carrying a reset time, the week is the seven days up to now. The total is every
+refusal carrying a reset time, the week is the seven days up to now. Only refusals of
+the last 28 days are read: an older one is forgotten, and places the week and sizes a
+limit no more than a refusal never recorded. The total is every
 request reported inside the week up to the moment it was read. A share counts nothing
 later, so a session still running cannot outgrow the total it is divided by.
 
@@ -765,11 +783,16 @@ whichever side recorded it, and never from a default:
 
 - **Model**: the model the session spent the most output on, else the first model a
   run of it observed.
-- **Effort**: the reasoning effort the owner session ran at. It is read from the latest
-  stage of a run on the row that ran inline, in the owner session, and recorded its
-  effort. A delegated stage's effort is its sub-agent's and says nothing about the
-  session. Telemetry, once it is received, is the better source. With neither, the
-  effort is not recorded.
+- **Effort**: the reasoning effort the owner session ran at. Telemetry answers first:
+  the effort on the owner session's most recent main-loop request in the
+  `Claude API Request Log`, on the row's model. A main-loop request is one whose
+  `query_source` is `repl_main_thread` or `sdk`, so a side query such as a compaction
+  or a title is not one. The requests are read for the selected row, so a row reads
+  telemetry once it has been selected and the run files until then. Otherwise it is read
+  from the latest stage of a run on the row that ran inline, in the owner session, and
+  recorded its effort. A sub-agent's request and a delegated stage carry the
+  sub-agent's effort and say nothing about the session. With neither, the effort is not
+  recorded.
 - **Output**: the session's own output tokens, summed over its models, else its runs'
   totals.
 - **Duration**: from its start to its last activity, where the start is dated.
@@ -1218,9 +1241,9 @@ the depth changes what each session carries, never which sessions are answered.
 
 ```meta
 type: term
-status: draft
 aliases: [AgentSessionDetail, AgentSessionQuery.Detail, AgentSessionQuery.TimestampsOnly]
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-limit, .devbook/domain/sessions/domain.md#session-history, .devbook/domain/sessions/domain.md#session-identity, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/domain.md#activity-window, .devbook/domain/sessions/dependencies.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.The_timestamps_depth_keeps_the_shape_it_was_asked_of, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.The_keeper_reads_its_sessions_at_full_depth, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncReadingDepthTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.LinkedSessionStatesTests.The_states_are_read_from_the_inventory_at_the_timestamps_depth]
 ```
 
 How much of each session a reading carries: **full**, which is what a reading is
@@ -1251,9 +1274,9 @@ what state: a task's linked-session badge, or a roadmap entry dated by its sessi
 
 ```meta
 type: term
-status: draft
 aliases: [human turn, HumanTurn]
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_prompt_the_person_made_is_a_human_turn_and_its_prompt_source_is_not_what_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_task_notification_or_a_hand_back_is_not_a_human_turn, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_scheduled_tasks_opening_prompt_is_not_a_human_turn, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.An_answer_to_the_agents_question_is_a_human_turn_and_no_other_tool_result_is, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.Human_turns_are_kept_with_the_record]
 ```
 
 A turn the person made in a session: starting the session, or a follow-up prompt.

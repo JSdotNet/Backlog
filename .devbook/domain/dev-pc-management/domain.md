@@ -120,6 +120,16 @@ is kept; a run still in progress is never recorded; and the outcome is partly
 failed exactly when at least one step succeeded and at least one failed. A
 missing or unreadable record reads as none.
 
+The transcript is redacted before the record is written, because the record can
+sit inside a synced storage root: this machine's MCP token is masked by value —
+read, never minted to be masked — and so is every known secret shape a tool's
+output can carry, whoever passed it in: a `Bearer` credential, an upper-case
+`…_TOKEN=`, `…_API_KEY=` or similar assignment, a non-`Bearer` `Authorization:`
+header, an `X-Api-Key:`-style header, a `?token=`-style query value, and a token
+its issuer marks by prefix (`ghp_`, `github_pat_`, `sk-`, `xox…-`, `AKIA`, a
+signed JWT). Each masked value reads `[redacted]`; a `${…}` placeholder and text
+matching no shape are kept byte for byte.
+
 ### Tool Run Step
 
 ```meta
@@ -131,6 +141,25 @@ aliases: [DevToolRunStep]
 One tool's part in a Last Tool Run: `name`, `from_version` (none for an install),
 `to_version` (the version the run was taking it to), `outcome` (succeeded or
 failed), and `duration`.
+
+### Tool Catalog Entry
+
+```meta
+type: value-object
+status: draft
+aliases: [DevToolApplication, DevToolMcpServer, catalog entry]
+related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog, .devbook/domain/dev-pc-management/features.md#overview-tab]
+```
+
+One tool the repository's catalog declares: its kind (plugin, marketplace, MCP
+server, application), the id it is addressed by, how it is installed, the hosts
+it is for, whether it is enabled, and, for an application or an MCP server, an
+optional `download` page — where somebody installing it by hand gets it.
+Invariants: the id is what every per-PC override and every action addresses, so
+an entry without one is refused; a property the entry leaves out means its
+default, so a catalog written before `download` existed reads as naming no page;
+and the Add tool path writes `download` only as an http or https address, while
+a hand-edited value is kept as written and only ever linked when it is one.
 
 ### Tool Baseline
 

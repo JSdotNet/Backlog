@@ -261,7 +261,7 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
 
     private const string EffortCode = """
         <EffortChip Effort="xhigh" />
-        <EffortChip Effort="@row.Effort" />   @* null draws nothing *@
+        <EffortChip Effort="@row.EffortFrom(requests)" />   @* null draws nothing *@
         """;
 
     private const string ModeCode = """

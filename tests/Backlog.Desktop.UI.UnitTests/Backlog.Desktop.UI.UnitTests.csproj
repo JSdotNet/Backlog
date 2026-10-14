@@ -144,4 +144,10 @@
     <None Include="..\Fixtures\claude-code-otlp\*" Link="Fixtures\claude-code-otlp\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Recorded delivery run files, so DeliveryRunStagesTests draws a run read through the
+       product's own reader — with the cumulative quality facts and without them. -->
+  <ItemGroup>
+    <None Include="..\Fixtures\delivery-runs\*" Link="Fixtures\delivery-runs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

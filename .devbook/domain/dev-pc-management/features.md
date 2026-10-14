@@ -129,7 +129,8 @@ only a person editing a file can maintain. A person can:
 
 - create the catalog where none exists, after being shown the resolved path it
   will be written to;
-- add or remove an entry;
+- add or remove an entry, giving an application or an MCP server the download
+  page somebody installing it by hand gets it from;
 - import a JSON file or pasted text to replace the whole catalog in one step. The
   prior catalog is kept as a backup, and invalid input is rejected without
   touching what is already declared.
@@ -184,7 +185,10 @@ related: [.devbook/domain/dev-pc-management/requirements.md#overview-tab]
 
 Read every kind at once. Four headline figures lead: how many entries match the
 catalog out of how many this machine wants, with the share that is matching,
-behind, missing and not confirmed; how many are behind, by host; how many are
+behind, missing and not confirmed; how many are behind, by host — each entry
+counted once, under the one host it is for or the one that reports it behind,
+under Both when it is for both and both or neither say, or as the machine's own
+software, so the lines add up to the figure; how many are
 missing, and how many of those can be installed from here rather than by hand; and
 how many cached plugin versions nothing loads any more. Under them, Needs you lists
 every entry that needs action, updates first, then missing entries, then
@@ -194,15 +198,38 @@ clear the cache — and says that everything matches the catalog when nothing is
 left. Beside it, one bar per kind says how many of that kind's entries match, and
 opens that kind's tab, and the last run this machine finished says how it ended,
 what it was, when, how many of its steps succeeded and how long it took, with the
-end of its transcript and the whole of it a click away. An entry switched off on
+end of its transcript and the whole of it a click away. The tab strip's "Last run
+transcript" opens that same whole transcript whenever there is a last run, after
+a restart too, before anything has run in this session; a tab opened from the
+Overview takes the keyboard focus with it, to that tab in the strip. An entry switched off on
 this machine, or one whose version could not be looked up, is left out of every
 figure. The host filter narrows every figure here as it does on the kind tabs.
+
+The download page an entry installed by hand links to is the one its catalog
+entry names, when that is an http or https address. Otherwise it is derived from
+the entry's mechanism — the winstall.app page for a winget id, the Marketplace
+page for a VS Code extension — and an entry with neither links to its kind's tab,
+where the note under the row says what to do.
 
 A machine with no catalog yet opens on "No tool catalog on this machine yet",
 where the catalog would be written, and two choices side by side: create this
 machine's catalog — the recommended one — or import a team catalog somebody
-already keeps; a quieter third way creates the catalog and goes straight to adding
-tools one at a time. A catalog that exists with nothing in it offers the same
+already keeps; a quieter third way creates an empty catalog and goes straight to
+adding tools one at a time.
+
+"Create from this machine" writes a catalog that already holds what the hosts here
+have installed, read from their own manifests: every Copilot plugin with a source
+to install it from, every Claude plugin installed for the user — one entry for a
+plugin both hosts have — every Claude marketplace, and every MCP server registered
+with Claude or Claude Desktop, each switched on or off as its host has it.
+Applications are left out, because nothing can name one before its entry exists,
+and so are plugins installed only for one project, Copilot's own MCP servers, and
+every header and environment value, which is where tokens live. What was left out
+is said after the write. Neither way ever writes over a catalog that is already
+there. The web harness reads no host's manifests, so there it writes the empty
+catalog and says so.
+
+A catalog that exists with nothing in it offers the same
 arrangement, to add a tool or import a team catalog. Both choices are offered only
 where the host can write the catalog; a read-only host says so instead. While the
 first check of the machine is still running, the pane shows the shape of what is
