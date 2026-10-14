@@ -1916,7 +1916,16 @@ public static class DevToolConfiguration
     /// hand-written.</summary>
     /// <exception cref="InvalidOperationException">A catalog is already there.
     /// Creating over it would discard every entry in it.</exception>
-    public static async Task CreateCatalogAsync(DevToolConfigurationPaths paths, CancellationToken ct = default)
+    public static Task CreateCatalogAsync(DevToolConfigurationPaths paths, CancellationToken ct = default) =>
+        CreateCatalogAsync(paths, seed: null, ct);
+
+    /// <summary>Writes a new catalog holding <paramref name="seed"/>, or the empty
+    /// one when there is no seed — "Create from this machine" and "add tools one
+    /// at a time" are the same write with a different first document, so they
+    /// share the one guard rather than each keeping a copy of it.</summary>
+    /// <exception cref="InvalidOperationException">A catalog is already there.
+    /// Seeding over it would discard every entry in it just the same.</exception>
+    public static async Task CreateCatalogAsync(DevToolConfigurationPaths paths, JsonObject? seed, CancellationToken ct = default)
     {
         await CatalogWriteLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -1926,7 +1935,15 @@ public static class DevToolConfiguration
                 throw new InvalidOperationException($"A tool catalog already exists at {paths.CatalogPath}.");
             }
 
-            await WriteCatalogAsync(paths.CatalogPath, EmptyCatalog(), ct).ConfigureAwait(false);
+            var root = seed ?? EmptyCatalog();
+
+            // The two arrays every reader expects are there even when the machine
+            // had nothing of one kind, so the seeded file reads like the empty one
+            // with entries in it rather than a different shape.
+            root["plugins"] ??= new JsonArray();
+            root[McpServersArrayName] ??= new JsonArray();
+
+            await WriteCatalogAsync(paths.CatalogPath, root, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -3086,6 +3103,14 @@ public interface IDevToolService
     /// is false.</summary>
     Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default);
 
+    /// <summary>Writes a new catalog seeded with what this machine's hosts already
+    /// have: the Claude and Copilot plugins and Claude marketplaces their own
+    /// manifests list, and the MCP servers registered with Claude and Claude
+    /// Desktop. Refused over an existing catalog, exactly as
+    /// <see cref="CreateCatalogAsync"/> is. A host that can see nothing installed
+    /// writes the empty catalog and says so.</summary>
+    Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default);
+
     Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default);
 
     Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default);
@@ -3195,6 +3220,9 @@ public sealed class UnsupportedDevToolService : IDevToolService
         Task.FromResult(DevToolActionResult.Failed(Message));
 
     public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
+
+    public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default) =>
         Task.FromResult(DevToolActionResult.Failed(Message));
 
     public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>

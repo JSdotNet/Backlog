@@ -380,7 +380,8 @@ public sealed class ToolsPaneTests
 
         pane.Find("[data-testid='tools-create-catalog']").Click();
 
-        Assert.Equal(1, service.Creates);
+        Assert.Equal(1, service.SeededCreates);
+        Assert.Equal(0, service.Creates);
         Assert.Equal(readsBefore + 1, service.Reads);
     }
 
@@ -395,7 +396,8 @@ public sealed class ToolsPaneTests
 
         pane.Find("[data-testid='tools-create-catalog']").Click();
 
-        Assert.Equal(1, service.Creates);
+        Assert.Equal(1, service.SeededCreates);
+        Assert.Equal(0, service.Creates);
 
         // A refresh here would replace the refusal with the ordinary "showing
         // tools from ..." line, which is the one moment it is worth less.
@@ -1947,7 +1949,11 @@ public sealed class ToolsPaneTests
 
         public int Reads { get; private set; }
 
+        /// <summary>Empty catalogs written: "add tools one at a time".</summary>
         public int Creates { get; private set; }
+
+        /// <summary>Catalogs written from this machine: the recommended card.</summary>
+        public int SeededCreates { get; private set; }
 
         public List<DevToolDraft> Added { get; } = [];
 
@@ -2049,6 +2055,12 @@ public sealed class ToolsPaneTests
         public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default)
         {
             Creates++;
+            return Answer();
+        }
+
+        public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default)
+        {
+            SeededCreates++;
             return Answer();
         }
 

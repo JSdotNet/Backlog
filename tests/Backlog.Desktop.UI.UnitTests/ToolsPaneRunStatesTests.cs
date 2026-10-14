@@ -209,6 +209,12 @@ public sealed class ToolsPaneRunStatesTests
         Assert.Contains("Recommended", create.TextContent, StringComparison.Ordinal);
         Assert.Contains("btn--primary", create.QuerySelector("[data-testid='tools-create-catalog']")!.ClassName, StringComparison.Ordinal);
 
+        // The card promises a catalog built from what is here, and says what that is.
+        Assert.Contains(
+            "starting from the plugins, marketplaces and MCP servers Claude and Copilot already have here",
+            create.QuerySelector(".tools-start__option-body")!.TextContent,
+            StringComparison.Ordinal);
+
         var import = pane.Find("[data-testid='tools-start-import']");
         Assert.Contains("Import a team catalog", import.TextContent, StringComparison.Ordinal);
         Assert.NotNull(import.QuerySelector("[data-testid='tools-import-open']"));
