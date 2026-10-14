@@ -76,6 +76,80 @@
         attempt(focusFrames);
     };
 
+    // A card the settings search found, brought into view when its link is
+    // followed. The link names the card by its title, so the card's heading is
+    // looked for on the page on screen — the settings page that is not hidden —
+    // and the card is the nearest settings card, Brain card or titled block
+    // around it. The nearest scroll container is scrolled until the card's top is
+    // in view, for the reason backlogRevealRow gives, smoothly unless the reader
+    // asked for reduced motion. Its border then lights in the focus colour for a
+    // moment: the class is the stylesheet's, which keeps the light and drops the
+    // fade under reduced motion. Waited for longer than a row, because a page
+    // opened for the first time draws its cards after its own reads.
+    const settingsCardFrames = 30;
+    const settingsCardFoundMs = 1600;
+
+    window.backlogRevealSettingsCard = (title) => {
+        const wanted = (title ?? '').trim().toLowerCase();
+        if (!wanted) return;
+
+        const find = () => {
+            const pages = document.querySelectorAll('.settings-frame__content > .setting:not([hidden])');
+            for (const page of pages) {
+                for (const heading of page.querySelectorAll('h2, h3, h4, h5, h6')) {
+                    if (heading.textContent.trim().toLowerCase() === wanted) {
+                        return heading.closest('.settings-card, .brain-card, .devbook-folders') ?? heading.parentElement;
+                    }
+                }
+            }
+            return null;
+        };
+
+        const attempt = framesLeft => {
+            const card = find();
+            if (!card) {
+                if (framesLeft > 0) requestAnimationFrame(() => attempt(framesLeft - 1));
+                return;
+            }
+
+            const reduced = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+            let container = card.parentElement;
+            while (container && container !== document.body) {
+                const overflowY = getComputedStyle(container).overflowY;
+                if (overflowY === 'auto' || overflowY === 'scroll') break;
+                container = container.parentElement;
+            }
+            if (container && container !== document.body) {
+                const offset = card.getBoundingClientRect().top - container.getBoundingClientRect().top;
+                container.scrollTo({ top: container.scrollTop + offset - 16, behavior: reduced ? 'auto' : 'smooth' });
+            } else {
+                card.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+            }
+
+            card.classList.remove('settings-card-found');
+            void card.offsetWidth;
+            card.classList.add('settings-card-found');
+            setTimeout(() => card.classList.remove('settings-card-found'), settingsCardFoundMs);
+        };
+
+        attempt(settingsCardFrames);
+    };
+
+    // A card link to the page already on screen changes only the address's
+    // fragment, and Blazor tells .NET nothing about a move within the page — so
+    // the screen, which reveals the card on every other move, never hears of it.
+    // That one case is answered here, from the link itself — where there is a
+    // document to listen to: the script's own tests run it with a stand-in.
+    document.addEventListener?.('click', event => {
+        const link = event.target instanceof Element ? event.target.closest('a[data-settings-card]') : null;
+        if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const target = new URL(link.href, document.baseURI);
+        if (target.pathname !== location.pathname) return;
+
+        requestAnimationFrame(() => window.backlogRevealSettingsCard(link.dataset.settingsCard));
+    });
+
     // Tab inside a quick edit belongs to the list, not to the browser: it commits
     // the rename and opens the field on the next row, and a browser that also
     // moved the focus ring on would land it one control past the field that just

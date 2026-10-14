@@ -49,8 +49,8 @@
 @* The pages the modules bring, each registered by its own .UI project; empty in
    a host that registers none, and then only the app-wide pages are drawn. *@
 @inject IEnumerable<SettingsSection> RegisteredSections
-@* Only to bring the Brain card's field into view when a link opened this page
-   at it; see OnAfterRenderAsync. *@
+@* To bring the Brain card's field into view when a link opened this page at it,
+   and a card the search found when its link is followed; see OnAfterRenderAsync. *@
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -71,12 +71,21 @@
                    Eyebrow="@SettingsPages.Eyebrow(ActivePage.Group)"
                    PageChosen="@PageChosen"
                    TestId="settings-frame">
+        <Search>
+            <SettingsSearch Value="@_search" ValueChanged="@OnSearchChanged" TestId="settings-search" />
+        </Search>
         <Menu>
-            @foreach (var group in SettingsPages.Menu(OfferedPages, _activeId))
+            @* While the search has text the menu lists only what it matched, and
+               a group it left empty is not drawn; see SettingsPages.Find. *@
+            @if (SearchMatches.Count == 0)
+            {
+                <p class="settings-frame__no-match" role="status" data-testid="settings-search-empty">@SettingsPages.NoMatch(_search)</p>
+            }
+            @foreach (var group in SettingsPages.Menu([.. SearchMatches.Select(match => match.Page)], _activeId))
             {
                 <SettingsMenuGroup @key="group.Group"
                                    Label="@SettingsPages.GroupLabel(group.Group)"
-                                   Items="@group.Items"
+                                   Items="@WithMatchedCards(group.Items)"
                                    TestId="@($"settings-menu-{group.Group.ToString().ToLowerInvariant()}")" />
             }
         </Menu>
@@ -202,6 +211,34 @@
     private SettingsSection ActivePage =>
         OfferedPages.FirstOrDefault(page => page.Id == _activeId) ?? SettingsPages.BuiltIn[0];
 
+    /// <summary>What the header's search holds; blank lists every page.</summary>
+    private string _search = string.Empty;
+
+    /// <summary>The title of a card a followed search link named, to bring into
+    /// view once the page is drawn; null when there is none waiting.</summary>
+    private string? _cardToReveal;
+
+    /// <summary>The pages the menu lists while <see cref="_search"/> holds what it
+    /// does, each with the card titles it matched.</summary>
+    private IReadOnlyList<SettingsSearchMatch> SearchMatches => SettingsPages.Find(OfferedPages, _search);
+
+    private void OnSearchChanged(string value) => _search = value;
+
+    /// <summary>The menu items of one group, each with the cards the search
+    /// matched on its page listed under it as links.</summary>
+    private IReadOnlyList<SettingsMenuItem> WithMatchedCards(IReadOnlyList<SettingsMenuItem> items)
+    {
+        if (!SettingsPages.IsSearching(_search)) return items;
+
+        var matches = SearchMatches.ToDictionary(match => match.Page.Id, match => match.Cards, StringComparer.Ordinal);
+        return
+        [
+            .. items.Select(item => matches.TryGetValue(item.Id, out var cards) && cards.Count > 0
+                ? item with { Cards = [.. cards.Select(card => new SettingsMenuCardLink(card, SettingsPages.CardHref(item.Id, card)))] }
+                : item)
+        ];
+    }
+
     /// <summary>Every page the menu offers, in menu order.</summary>
     private IReadOnlyList<SettingsSection> OfferedPages =>
         SettingsPages.InMenuOrder(SettingsPages.BuiltIn.Where(page => IsBuiltInPageAvailable(page.Id)), OfferedSections);
@@ -284,11 +321,22 @@
         // all. Every opened page is redrawn with the screen.
         DevbookFolders.Changed += OnDevbookFoldersChanged;
 
+        // A card link the search listed is the page's address with the card in
+        // its fragment. The address is read on every move to another page - a
+        // move that keeps the route may set no parameter - and once here for a
+        // screen opened at a card. A link to a card of the page already on screen
+        // moves only the fragment, which Blazor does not report; components.js
+        // reveals that one from the link.
+        Navigation.LocationChanged += OnLocationChanged;
+        _cardToReveal = CardInAddress(Navigation.Uri);
+
         return Task.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await RevealFoundCardAsync();
+
         if (!firstRender) return;
 
         await RevealBrainCardAsync();
@@ -326,11 +374,55 @@
         }
     }
 
-    /// <summary>Lets go of the one subscription the screen itself holds: a screen
+    /// <summary>The title of the card <paramref name="uri"/> names on the page it
+    /// addresses, or null where it names none.</summary>
+    private string? CardInAddress(string uri)
+    {
+        var address = new Uri(uri);
+        if (string.IsNullOrEmpty(address.Fragment)) return null;
+
+        var pageId = Navigation.ToBaseRelativePath(uri).Split('#', '?')[0].Split('/').LastOrDefault();
+        var page = OfferedPages.FirstOrDefault(candidate => string.Equals(candidate.Id, pageId, StringComparison.OrdinalIgnoreCase));
+        return page is null ? null : SettingsPages.CardNamedBy(page, address.Fragment);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var card = CardInAddress(e.Location);
+        if (card is null) return;
+
+        _cardToReveal = card;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Scrolls the card a followed search link named into view and
+    /// lights its border for a moment. The script looks for the card's heading on
+    /// the page on screen and waits a few frames for it, because the page may be
+    /// drawn for the first time by the render that asked.</summary>
+    private async Task RevealFoundCardAsync()
+    {
+        if (_cardToReveal is not { } card) return;
+        _cardToReveal = null;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogRevealSettingsCard", card);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+        {
+            // Bringing the card into view is a courtesy; the page is already open.
+        }
+    }
+
+    /// <summary>Lets go of the subscriptions the screen itself holds: a screen
     /// still on a singleton's event would be kept alive by it and would call
     /// <c>StateHasChanged</c> on a renderer that is gone. The pages let go of
     /// their own.</summary>
-    public void Dispose() => DevbookFolders.Changed -= OnDevbookFoldersChanged;
+    public void Dispose()
+    {
+        DevbookFolders.Changed -= OnDevbookFoldersChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
 
     private void OnDevbookFoldersChanged() => _ = InvokeAsync(StateHasChanged);
 }

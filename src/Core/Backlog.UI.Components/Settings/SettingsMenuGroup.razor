@@ -18,6 +18,12 @@
     is the whole screen - the frame's grouped list at phone width, where a row
     reads as "opens a page" - so the markup does not change with the width and
     the frame's stylesheet decides.
+
+    While the settings search has text, a page whose cards it matched lists
+    them under its link, each a link of its own to the page with the card named
+    in the address's fragment. The host brings that card into view; a link to the
+    page already on screen moves only the fragment, so components.js answers that
+    one from the link's data-settings-card.
 *@
 
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -37,6 +43,20 @@
                     }
                     <ChevronUpIcon CssClass="settings-menu-group__chevron" />
                 </a>
+                @if (item.Cards is { Count: > 0 } cards)
+                {
+                    <ul class="settings-menu-group__cards" aria-label="@($"Matching cards on {item.Label}")">
+                        @foreach (var card in cards)
+                        {
+                            <li @key="card.Label">
+                                <a class="settings-menu-group__card"
+                                   href="@card.Href"
+                                   data-settings-card="@card.Label"
+                                   data-testid="settings-menu-card">@card.Label</a>
+                            </li>
+                        }
+                    </ul>
+                }
             </li>
         }
     </ul>

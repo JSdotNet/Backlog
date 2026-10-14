@@ -439,6 +439,18 @@ chevron and the page's badge value when it has one; `settings/<page>` is the
 page alone at full width, and its back link goes to that list instead of to
 the tasks. The screen tells the frame which address it is on (`PageChosen`);
 the stylesheet decides the width.
+The header's search slot holds the library's `SettingsSearch`, *Find a
+setting*, and `SettingsPages.Find` decides what it keeps: a page whose title or
+one of whose declared card titles holds the text, ignoring case — never a
+field's label or what a page draws, so no page is rendered to search it. While
+it has text the menu lists only those pages, drops a group left empty, and
+lists each matched card under its page as a link to `settings/<page>#card-<title>`;
+following one opens the page and `backlogRevealSettingsCard` scrolls the card into
+view and lights its border in `--color-border-focus` for a moment, without the
+fade under reduced motion. A search that keeps nothing says
+`No setting matches "<text>".` in the menu's place, and Escape clears it. At
+phone width the field takes a row of its own above the grouped list it filters,
+and is not drawn on a page's address.
 The Repositories page draws the
 working set as the library's `DataTable`, a row per repository, and opens that
 repository's card in place in a detail row under it; `HasRowDetail` keeps the
