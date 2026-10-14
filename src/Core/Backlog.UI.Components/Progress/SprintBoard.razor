@@ -163,6 +163,10 @@
     {
         <div class="sprint-row sprint-row--head" aria-hidden="true">
             <span>Status</span><span>Item</span><span>Pull requests</span><span>Owner</span><span>Note</span>
+            @if (RowMenu is not null)
+            {
+                <span></span>
+            }
         </div>
     }
 
@@ -248,9 +252,32 @@
                             @row.Note
                         }
                     </span>
+                    @if (RowMenu is not null)
+                    {
+                        <IconButton AriaLabel="@($"Sprint actions for {row.Title}")"
+                                    Title="Sprint actions"
+                                    CssClass="sprint-row__menu"
+                                    TestId="sprint-row-menu"
+                                    aria-haspopup="menu"
+                                    OnClick="e => OpenRowMenu(row, e)">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.25" cy="8" r="1.35"></circle><circle cx="8" cy="8" r="1.35"></circle><circle cx="12.75" cy="8" r="1.35"></circle></svg>
+                        </IconButton>
+                    }
                 </div>
             }
         </section>
+    }
+
+    @if (RowMenu is not null)
+    {
+        <ContextMenu Open="_menuRow is not null"
+                     OpenChanged="open => { if (!open) _menuRow = null; }"
+                     X="@_menuX"
+                     Y="@_menuY"
+                     Items="@(_menuRow is { } menuRow ? RowMenu(menuRow) : [])"
+                     AriaLabel="@(_menuRow is { } named ? $"Sprint actions for {named.Title}" : "Sprint actions")"
+                     TestId="sprint-row-menu-list"
+                     OnItemSelected="ChooseRowMenuAsync" />
     }
 
     <section class="sprint-board__outside" aria-label="Outside the sprint" data-testid="sprint-board-outside">
@@ -344,6 +371,19 @@
     [Parameter]
     public EventCallback<string> OnOpenPullRequest { get; set; }
 
+    /// <summary>
+    /// The acts a row's menu offers, by row: set, every row carries a "Sprint actions"
+    /// button that opens them. Unset, rows carry no menu and the board only reads — the
+    /// storybook's view, and a closed sprint's. The host says which acts apply to which
+    /// row, because only it knows what the sprint records about the task.
+    /// </summary>
+    [Parameter]
+    public Func<SprintBoardRow, IReadOnlyList<MenuItem>>? RowMenu { get; set; }
+
+    /// <summary>An act chosen from a row's menu.</summary>
+    [Parameter]
+    public EventCallback<SprintRowMenuChoice> OnRowMenu { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
 
@@ -359,6 +399,26 @@
     private string? _repository;
     private bool _byPlan = true;
     private bool _outsideOpen;
+    private SprintBoardRow? _menuRow;
+    private double _menuX;
+    private double _menuY;
+
+    /// <summary>The menu opens where the button was pressed, as every context menu of
+    /// the library does.</summary>
+    private void OpenRowMenu(SprintBoardRow row, MouseEventArgs e)
+    {
+        _menuX = e.ClientX;
+        _menuY = e.ClientY;
+        _menuRow = row;
+    }
+
+    private async Task ChooseRowMenuAsync(MenuItem item)
+    {
+        if (_menuRow is not { } row) return;
+
+        _menuRow = null;
+        await OnRowMenu.InvokeAsync(new SprintRowMenuChoice(row, item));
+    }
 
     protected override void OnParametersSet()
     {
@@ -369,7 +429,14 @@
         }
     }
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "sprint-board" : $"sprint-board {CssClass}";
+    private string ClassValue
+    {
+        get
+        {
+            var value = RowMenu is null ? "sprint-board" : "sprint-board sprint-board--editable";
+            return string.IsNullOrWhiteSpace(CssClass) ? value : $"{value} {CssClass}";
+        }
+    }
 
     private string SeriesLine => $"{Board.SeriesName} · {Board.RepositoryCount} · {Board.Dates}";
 

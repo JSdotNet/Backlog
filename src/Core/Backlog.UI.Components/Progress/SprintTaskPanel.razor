@@ -1,0 +1,130 @@
+@*
+    A task's "Sprint" section in its side panel
+    (.devbook/domain/progress/features.md#planning-from-a-task): how the task stands in
+    the open sprint of its series, and the acts that change that — add it or take it
+    out, link or unlink its plan, mark it as goal, and its note and open question.
+
+    Every value is a parameter and every act a callback, on the SprintBoard precedent:
+    the shell composes it from Progress UI, which turns each act into the module's own
+    write. Nothing here is the task's; the panel says so, because it sits among the
+    task's own fields.
+
+    An act is offered only where it applies: removing a task a plan alone brought in is
+    unlinking the plan, so that is what is offered; marks and notes only on a member.
+*@
+<section class="@ClassValue" aria-labelledby="@HeadingId" data-testid="@TestId">
+    <div class="sprint-task-panel__header">
+        <h3 class="sprint-task-panel__heading" id="@HeadingId">Sprint</h3>
+        <span class="sprint-task-panel__series" data-testid="sprint-task-series">@SeriesLine</span>
+    </div>
+
+    <p class="sprint-task-panel__line" data-testid="sprint-task-line">
+        @Model.Line
+        @if (Model.IsMember && Model.IsGoal)
+        {
+            <Badge BaseClass="sprint-board__goal-badge" Kind="" CssClass="sprint-row__tag" TestId="sprint-task-goal">Goal</Badge>
+        }
+    </p>
+
+    @if (Model.IsMember && (Model.OpenQuestion || !string.IsNullOrWhiteSpace(Model.Note)))
+    {
+        <p class="sprint-task-panel__note" data-testid="sprint-task-note">
+            @if (Model.OpenQuestion)
+            {
+                <Badge BaseClass="sprint-row__question" Kind="" TestId="sprint-task-question">@(string.IsNullOrWhiteSpace(Model.Note) ? "Open question" : Model.Note)</Badge>
+            }
+            else
+            {
+                @Model.Note
+            }
+        </p>
+    }
+
+    <Alert Message="@Error" TestId="sprint-task-error" />
+
+    @if (Model.SprintName is not null)
+    {
+        <div class="sprint-task-panel__actions">
+            @if (!Model.AddedDirectly)
+            {
+                <AppButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Busy="Busy" BusyLabel="Saving"
+                           TestId="sprint-task-add" OnClick="() => OnAdd.InvokeAsync()">@($"Add to {Model.SprintName}")</AppButton>
+            }
+            else
+            {
+                <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" Disabled="Busy"
+                           TestId="sprint-task-remove" OnClick="() => OnRemove.InvokeAsync()">@($"Remove from {Model.SprintName}")</AppButton>
+            }
+
+            @if (Model.PlanTag is { } plan)
+            {
+                @if (Model.PlanLinked)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" Disabled="Busy"
+                               TestId="sprint-task-unlink-plan" OnClick="() => OnUnlinkPlan.InvokeAsync()">@($"Unlink +{plan}")</AppButton>
+                }
+                else
+                {
+                    <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" Disabled="Busy"
+                               TestId="sprint-task-link-plan" OnClick="() => OnLinkPlan.InvokeAsync()">@($"Add +{plan} to {Model.SprintName}")</AppButton>
+                }
+            }
+
+            @if (Model.IsMember)
+            {
+                <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" Disabled="Busy"
+                           TestId="sprint-task-goal-toggle" OnClick="() => OnGoalChanged.InvokeAsync(!Model.IsGoal)">@(Model.IsGoal ? "Unmark goal" : "Mark as goal")</AppButton>
+                <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" Disabled="Busy"
+                           TestId="sprint-task-edit-note" OnClick="() => OnEditNote.InvokeAsync()">@(string.IsNullOrWhiteSpace(Model.Note) && !Model.OpenQuestion ? "Add a note…" : "Edit note…")</AppButton>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private readonly string _headingId = "sprint-task-" + Guid.NewGuid().ToString("N")[..8];
+
+    [Parameter, EditorRequired]
+    public SprintTaskPanelModel Model { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback OnAdd { get; set; }
+
+    [Parameter]
+    public EventCallback OnRemove { get; set; }
+
+    [Parameter]
+    public EventCallback OnLinkPlan { get; set; }
+
+    [Parameter]
+    public EventCallback OnUnlinkPlan { get; set; }
+
+    /// <summary>Mark as goal (true) or take the mark off (false).</summary>
+    [Parameter]
+    public EventCallback<bool> OnGoalChanged { get; set; }
+
+    /// <summary>The note and open question are to be edited: the host opens
+    /// <see cref="SprintItemNoteDialog"/>.</summary>
+    [Parameter]
+    public EventCallback OnEditNote { get; set; }
+
+    /// <summary>A write is under way: every act waits for it.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Why the last act was refused, in the module's words.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "sprint-task-panel";
+
+    private string HeadingId => _headingId;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "sprint-task-panel" : $"sprint-task-panel {CssClass}";
+
+    private string SeriesLine => Model.Dates is null ? Model.SeriesName : $"{Model.SeriesName} · {Model.Dates}";
+}

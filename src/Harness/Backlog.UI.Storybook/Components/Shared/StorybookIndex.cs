@@ -436,7 +436,8 @@ internal static class StorybookIndex
         new("Progress",
         [
             new("sprint-settings", "Sprint settings", "SprintSeriesCard: one sprint series on Settings › Sprints — its switch, its repositories with only the free ones offered, its length, start day and name pattern, how the sprint goal is counted, and which briefs show it."),
-            new("sprint-view", "Sprint view", "SprintBoard and SprintViewSwitch: the In progress tab's sprint view — the Since yesterday strip, the goal card, the done line against the even pace, Needs you, one group per plan with its rows and pull request chips, and the folded Outside the sprint line.")
+            new("sprint-view", "Sprint view", "SprintBoard and SprintViewSwitch: the In progress tab's sprint view — the Since yesterday strip, the goal card, the done line against the even pace, Needs you, one group per plan with its rows and pull request chips, and the folded Outside the sprint line."),
+            new("sprint-planning", "Sprint planning", "SprintAddPicker, SprintItemNoteDialog, SprintTaskPanel and the row menu SprintBoard carries while its sprint takes writes: adding a task or a whole plan to the open sprint, taking it out, marking it as goal, and its note and open question — from the sprint view and from a task's side panel.")
         ]),
 
         new("Dashboard",

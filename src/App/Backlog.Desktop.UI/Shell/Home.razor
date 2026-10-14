@@ -1513,17 +1513,44 @@
 
     /// <summary>The fragment behind <see cref="LinkedWorkFor"/>. It reads the flags
     /// and the reader as it draws, so only whether it is offered at all is decided
-    /// here, and that is a feature's to change.</summary>
-    private RenderFragment<EntryRow>? BuildLinkedWork() => InProgressViewOffered
-        ? row => @<LinkedWorkSection @key="row.Key"
-                                     Row="row"
-                                     Reader="_work"
-                                     OnOpenSession="OpenSessionAsync"
-                                     OnOpenPullRequest="OpenPullRequestAsync"
-                                     OnOpenInProgress="() => ShowView(ShellView.InProgress)"
-                                     ShowSessions="SessionsOffered"
-                                     ShowPullRequests="PullRequestsOffered" />
-        : null;
+    /// here, and that is a feature's to change.
+    /// <para>
+    /// The slot carries the entry's Sprint section too, composed from Progress UI the
+    /// same way (<c>.devbook/domain/progress/features.md#planning-from-a-task</c>): the
+    /// Tasks pane draws whatever the shell hands it and gains no sprint field (local
+    /// ADR 0028). The section draws nothing while the entry's repositories are in no
+    /// series switched on.
+    /// </para></summary>
+    private RenderFragment<EntryRow>? BuildLinkedWork()
+    {
+        var linked = InProgressViewOffered;
+        var sprint = SprintSectionOffered;
+        if (!linked && !sprint) return null;
+
+        return row => builder =>
+        {
+            if (linked) builder.AddContent(0, LinkedWorkSectionFor(row));
+            if (sprint) builder.AddContent(1, SprintSectionFor(row));
+        };
+    }
+
+    private RenderFragment LinkedWorkSectionFor(EntryRow row) =>
+        @<LinkedWorkSection @key="row.Key"
+                            Row="row"
+                            Reader="_work"
+                            OnOpenSession="OpenSessionAsync"
+                            OnOpenPullRequest="OpenPullRequestAsync"
+                            OnOpenInProgress="() => ShowView(ShellView.InProgress)"
+                            ShowSessions="SessionsOffered"
+                            ShowPullRequests="PullRequestsOffered" />;
+
+    private RenderFragment SprintSectionFor(EntryRow row) =>
+        @<Backlog.Modules.Progress.UI.Planning.TaskSprintSection @key="row.Key"
+                                                                Candidate="SprintCandidates.Of(State, row)" />;
+
+    /// <summary>Whether an entry's side panel carries its Sprint section: while the
+    /// Progress area is on.</summary>
+    private bool SprintSectionOffered => IsFeatureEnabled(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Progress);
 
     /// <summary>
     /// The repository an entry's reference asked the Devbook pane to read, and the

@@ -20572,3 +20572,151 @@ button.sprint-pr:focus-visible {
         display: none;
     }
 }
+
+/* Planning a sprint (.devbook/domain/progress/features.md#filling-a-sprint): the row
+   menu a board carries while its sprint takes writes, the "Add to sprint" picker, the
+   note dialog and a task's Sprint section. */
+.sprint-board--editable .sprint-row {
+    grid-template-columns: 7.5rem minmax(8rem, 1fr) minmax(0, 12rem) 6rem 10.5rem 2rem;
+}
+
+.sprint-row__menu {
+    justify-self: end;
+}
+
+.sprint-add-picker__description,
+.sprint-note-dialog__description {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-add-picker__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.sprint-add-picker__status {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-add-picker__lists {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-height: 24rem;
+    overflow-y: auto;
+}
+
+.sprint-add-picker__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.sprint-add-picker__options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sprint-add-picker__option {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sprint-add-picker__option:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+}
+
+.sprint-add-picker__option:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.sprint-add-picker__option:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.sprint-add-picker__label {
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-add-picker__detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-task-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.sprint-task-panel__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.sprint-task-panel__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-task-panel__series {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-task-panel__line {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.sprint-task-panel__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-task-panel__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+@container (max-width: 760px) {
+    .sprint-board--editable .sprint-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sprint-row__menu {
+        justify-self: start;
+    }
+}
