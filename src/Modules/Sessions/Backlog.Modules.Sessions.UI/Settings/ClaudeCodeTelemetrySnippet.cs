@@ -33,7 +33,11 @@ public static class ClaudeCodeTelemetrySnippet
             ["CLAUDE_CODE_ENABLE_TELEMETRY"] = "1",
             ["OTEL_LOGS_EXPORTER"] = "otlp",
             ["OTEL_EXPORTER_OTLP_LOGS_PROTOCOL"] = "http/protobuf",
-            ["OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"] = endpoint.ToString()
+            ["OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"] = endpoint.ToString(),
+            // Without it Claude Code redacts each request's agent.name and skill.name,
+            // so no request can be told to a stage's sub-agent and a stage's reported
+            // cost would be its main loop alone.
+            ["OTEL_LOG_TOOL_DETAILS"] = "1"
         };
 
         if (!string.IsNullOrEmpty(token)) env["OTEL_EXPORTER_OTLP_LOGS_HEADERS"] = $"Authorization=Bearer {token}";

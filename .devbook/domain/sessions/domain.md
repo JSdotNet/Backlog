@@ -575,9 +575,12 @@ So a sub-agent still running after its stage was marked done is still its stage'
 [the unit is estimated](domain.invariants.md#invariant-a-cost-that-cannot-be-told-apart-is-estimated).**
 A stage re-entered after requested changes is the common case. Its start is stamped
 again on every pass, so its window holds the latest pass only, and a figure over it
-would read as the whole stage. A call that recorded no end, unless it is the stage's
-one call of that agent, and two overlapping calls of one agent, such as a fan-out, are
-the others.
+would read as the whole stage. A stage whose window holds a sub-agent's request that
+names no agent is another: a session that exports without `OTEL_LOG_TOOL_DETAILS` sends
+no `agent.name`, and every custom agent's `query_source` reads `agent:custom`, so the
+stage could claim only its main loop. A call that recorded no end, unless it is the
+stage's one call of that agent, and two overlapping calls of one agent, such as a
+fan-out, are the others.
 
 **An estimate with an unpriced part is no figure at all.** A partial sum would read as
 the whole, so
@@ -765,11 +768,16 @@ whichever side recorded it, and never from a default:
 
 - **Model**: the model the session spent the most output on, else the first model a
   run of it observed.
-- **Effort**: the reasoning effort the owner session ran at. It is read from the latest
-  stage of a run on the row that ran inline, in the owner session, and recorded its
-  effort. A delegated stage's effort is its sub-agent's and says nothing about the
-  session. Telemetry, once it is received, is the better source. With neither, the
-  effort is not recorded.
+- **Effort**: the reasoning effort the owner session ran at. Telemetry answers first:
+  the effort on the owner session's most recent main-loop request in the
+  `Claude API Request Log`, on the row's model. A main-loop request is one whose
+  `query_source` is `repl_main_thread` or `sdk`, so a side query such as a compaction
+  or a title is not one. The requests are read for the selected row, so a row reads
+  telemetry once it has been selected and the run files until then. Otherwise it is read
+  from the latest stage of a run on the row that ran inline, in the owner session, and
+  recorded its effort. A sub-agent's request and a delegated stage carry the
+  sub-agent's effort and say nothing about the session. With neither, the effort is not
+  recorded.
 - **Output**: the session's own output tokens, summed over its models, else its runs'
   totals.
 - **Duration**: from its start to its last activity, where the start is dated.

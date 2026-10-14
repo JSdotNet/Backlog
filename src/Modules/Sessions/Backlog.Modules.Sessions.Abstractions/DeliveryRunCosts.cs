@@ -196,7 +196,9 @@ public sealed record DeliveryRunStageCost(CostFigure? Stage, IReadOnlyList<CostF
 /// stage's start and its completion by the main loop; plus the requests a sub-agent made
 /// whose <c>agent.name</c>, or the name in a <c>query_source</c> of <c>agent:&lt;name&gt;</c>,
 /// matches one of the stage's workers, within the stage's window or within that worker's
-/// own call. A stage still under way has no end yet.</item>
+/// own call. A stage still under way has no end yet. A window that also holds a
+/// sub-agent request naming no agent is estimated instead — see
+/// <see cref="HasUnnamedSubAgentRequests"/>.</item>
 /// <item><b>Sub-agent call.</b> The matching sub-agent's requests between the call's
 /// start — its end less its duration — and its end; where the call recorded no end, and
 /// it is the stage's only call of that agent, the agent's requests within the stage.</item>
@@ -427,9 +429,42 @@ public static class DeliveryRunCosts
             workers.Add(Reported(WorkerRequests(stage, resolved, index, own)) ?? EstimateWorker(run, stage, resolved, index, prices));
         }
 
-        var figure = Reported(StageRequests(stage, resolved, own)) ?? EstimateStage(run, stage, resolved, prices, ownerModel);
+        // A window holding a sub-agent's request that names no agent - the session
+        // exported without OTEL_LOG_TOOL_DETAILS - cannot be told whose it is, so the
+        // requests the stage does claim are only part of it. Their sum would read as
+        // the whole; the stage is estimated instead.
+        var reported = HasUnnamedSubAgentRequests(stage, resolved, own) ? null : Reported(StageRequests(stage, resolved, own));
+        var figure = reported ?? EstimateStage(run, stage, resolved, prices, ownerModel);
 
         return new DeliveryRunStageCost(figure, workers);
+    }
+
+    /// <summary>
+    /// Whether the stage's window holds a request a sub-agent made whose agent cannot be
+    /// named: no <c>agent.name</c> — Claude Code redacts it unless
+    /// <c>OTEL_LOG_TOOL_DETAILS</c> is set — and a <c>query_source</c> of
+    /// <c>agent:&lt;x&gt;</c> naming none of the stage's workers, such as the
+    /// <c>agent:custom</c> every custom agent reports under.
+    /// </summary>
+    public static bool HasUnnamedSubAgentRequests(
+        DeliveryRunStage stage,
+        DeliveryRunStageExecution resolved,
+        IReadOnlyList<ClaudeApiRequest> requests)
+    {
+        ArgumentNullException.ThrowIfNull(stage);
+        ArgumentNullException.ThrowIfNull(resolved);
+        ArgumentNullException.ThrowIfNull(requests);
+
+        if (stage.StartedAt is not { } start) return false;
+
+        var end = stage.CompletedAt;
+
+        return requests.Any(request =>
+            string.IsNullOrWhiteSpace(request.AgentName)
+            && SubAgentOf(request) is { } source
+            && request.Timestamp >= start
+            && (end is null || request.Timestamp <= end)
+            && !resolved.Workers.Any(worker => SameAgent(source, worker.Agent)));
     }
 
     /// <summary>The reported sum, or null where no request carried a cost.</summary>

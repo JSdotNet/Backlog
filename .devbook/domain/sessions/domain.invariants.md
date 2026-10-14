@@ -534,13 +534,13 @@ Enforced at: `DeliveryRunCosts.StageRequests()` and `WorkerRequests()`
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_stage_re_entered_after_requested_changes_is_estimated_rather_than_reported_in_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.Two_overlapping_calls_of_one_agent_claim_no_requests_and_fall_back_to_their_estimates, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_call_with_no_end_claims_its_agents_requests_in_the_stage_only_when_it_is_the_only_call]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_stage_re_entered_after_requested_changes_is_estimated_rather_than_reported_in_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.Two_overlapping_calls_of_one_agent_claim_no_requests_and_fall_back_to_their_estimates, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_call_with_no_end_claims_its_agents_requests_in_the_stage_only_when_it_is_the_only_call, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_stage_whose_window_holds_unnamed_sub_agent_requests_is_estimated_rather_than_reported_in_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests.A_named_sub_agent_request_keeps_the_stage_reported]
 ```
 
-A stage re-entered after requested changes, a call that recorded no end unless it is its agent's only call in the stage, and two overlapping calls of one agent are given an estimated cost, never a reported one.
+A stage re-entered after requested changes, a stage whose window holds a sub-agent's request that names no agent, a call that recorded no end unless it is its agent's only call in the stage, and two overlapping calls of one agent are given an estimated cost, never a reported one.
 A reported figure over a window that holds only part of the work would read as the whole.
 
-Enforced at: `DeliveryRunCosts.Of()`
+Enforced at: `DeliveryRunCosts.Of()` and `HasUnnamedSubAgentRequests()`
 
 ### Invariant: An estimate with an unpriced part is no figure
 
