@@ -194,13 +194,14 @@ and the tasks' sync also turns this on, and that switch starts off. A record of 
 the assistants have been doing is the kind of thing a person agrees to let off a
 machine, rather than finds out has left it. One switch is enough because the question
 a person answers is whether this machine takes part in sync at all. The sanitization
-boundary makes that one answer safe to give: only the whitelisted metadata travels,
-never the transcript ([Session Record Sync](../../arc42/08-crosscutting-concepts.md#session-record-sync)).
+boundary makes that one answer safe to give
+([Session Record Sync](../../arc42/08-crosscutting-concepts.md#session-record-sync));
+[what may travel](domain.invariants.md#invariant-only-the-published-fields-travel)
+is an invariant of the log.
 Until sync is on, the list holds everything read here and nothing else.
 
-**A row from elsewhere says less than a row read here, and visibly so.** Only the
-whitelisted metadata travelled. That is which agent, which machine, which repository
-and branch, when the session was alive, how much of it there was, its title, and the
+**A row from elsewhere says less than a row read here, and visibly so.** What
+travelled is which agent, which machine, which repository and branch, when the session was alive, how much of it there was, its title, and the
 usage limits that refused it. So such a row has no working folder to show. That is not
 a gap waiting to be closed, because a folder names a disk the reading machine cannot
 see. The row still carries the delivery runs filed under that folder, matched on the
@@ -217,8 +218,9 @@ quiet register: the transcript is gone, and what it shows is what the last readi
 kept.
 
 The pane amends the records of the sessions that moved each time it opens. **Update
-records**, beside Refresh, amends every record the files still hold, adding to each and
-never replacing it. It says how many records it amended and started. With sync on, it
+records**, beside Refresh, amends every record the files still hold, under
+[the rule every amendment keeps](domain.invariants.md#invariant-a-session-record-is-added-to-and-never-taken-from).
+It says how many records it amended and started. With sync on, it
 sends every record again so the other machines are amended too.
 
 **And it reads as finished once it goes quiet, sooner than the truth may be.** A

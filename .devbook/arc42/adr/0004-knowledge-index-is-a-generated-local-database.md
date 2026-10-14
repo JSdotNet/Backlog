@@ -8,7 +8,24 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
 
 Accepted, and built — with the exceptions the note below names rather than
 leaves to be discovered. What is not built is the refresh machinery that was
-never required for correctness, and the semantic tier's one live call.
+never required for correctness. The semantic tier's live call is built since
+2026-10-13; see the amendment below.
+
+> **Amended 2026-10-13: the semantic tier is written.** *(Proposed with the
+> `+brain` draft pull request that builds it; it stands once that is validated.)*
+> After every check the app's refresher (local ADR 0015) embeds the chapters its
+> database has no vector for — repository devbooks and the Brain alike, into the
+> database in app storage and never into the folder (local ADR 0026 §4) — through
+> the Azure AI Foundry deployment `text-embedding-3-small`, the one
+> `infra/foundry/main.bicep` creates behind `includeEmbeddingModel`. Rows are keyed
+> by `content_hash` and record their model, and `meta.embeddingModel` names it; a
+> rebuild carries over the vectors of every chapter whose text did not change, so
+> an edit costs the chapters it touched, at a fraction of a cent for the whole
+> corpus. Nothing is called while Foundry has no endpoint or key, or after the
+> deployment answered that it is not there or the key is refused, until the
+> settings change; the search panel then answers by words alone, as the ladder
+> says. `tools/devbook/build-database.mjs` still writes the table empty: vectors are
+> the app's, not CI's. This closes the open question *which embedding model*.
 
 > **Partly superseded 2026-09-25 by local ADR 0015.** The database no longer lives
 > in the repository and the Node generator is no longer its only writer: it lives
@@ -99,7 +116,8 @@ never required for correctness, and the semantic tier's one live call.
 > present, comparing recorded size and modification time and only hashing when
 > those disagree.
 >
-> **The semantic tier is wired and makes no live call.** The table, the port and
+> **The semantic tier is wired and makes no live call.** *(Superseded 2026-10-13
+> by the amendment under Status: the app now writes the vectors.)* The table, the port and
 > the brute-force cosine reader exist and are tested; `text-embedding-3-small` is
 > declared in `infra/foundry/main.bicep` behind `includeEmbeddingModel`. Nothing
 > has been provisioned in Azure and nothing computes an embedding, so
@@ -515,5 +533,7 @@ Open, and deliberately not decided here:
   safe: with no answer at all the app simply runs on markdown, which is exactly
   what it does today.
 - **Which embedding model**, and therefore what the database is pinned to.
+  *Closed 2026-10-13: `text-embedding-3-small`, the deployment `infra/foundry`
+  creates, written by the app after each check — see the amendment under Status.*
 - **Whether chapter body text is stored** in the database. FTS and chunking both
   need it, and it duplicates the markdown either way.

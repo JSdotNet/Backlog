@@ -34,6 +34,10 @@ Organize notes into the areas the Brain's `CONVENTIONS.md` declares, one top
 folder each, shown as one tab each. A Brain that declares none uses the PARA set:
 an inbox for what is not filed yet, Projects (active, deadline), Areas
 (ongoing), Resources (reference), People, a Journal, and Archive (inactive).
+A dated area lists newest first: the `journal` folder, or any area whose
+`Holds` line in `CONVENTIONS.md` says *dated*. Its entries are named by date, so
+the name descending is the date descending, at every level of the folder; every
+other area lists by name.
 Moving a note to another area is moving its file to another folder; a note may
 name its area in its `para` field instead, which wins over the folder.
 
@@ -71,12 +75,28 @@ reads.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/devbook/requirements.md#bi-directional-linking, .devbook/domain/devbook/domain.md#task-link, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
-Link from tasks to notes (reference or embed inline) and from notes
-back to related tasks or projects, supporting queries that cross both
-domains and embedding knowledge context directly in task details.
+Link a Brain note to the tasks it is about, and see the link from both ends. A
+note names its tasks in its `tasks` field, one [Task Link](domain.md#task-link)
+per task, by the task's stored id. The Brain's database carries the field, and
+the app reads it both ways from there:
+
+- **From the note.** Under its links into devbooks, the note shows a **Tasks**
+  section: each task this backlog holds is a gold chip reading its title, and
+  pressing it opens the task in the task list. An id this backlog does not hold is
+  a dashed chip reading *not in this backlog*, never an error — one Brain is read
+  beside more than one backlog.
+- **From the task.** A task row, in the Brain scope and in a repository scope,
+  carries a teal **◆ n note** badge counting the Brain notes that name it. With one
+  note, pressing it opens that note in the Devbook pane, Brain side; with several,
+  it lists them to pick from.
+
+The reverse is read, never written: a task's record carries no note, and the badge
+is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so
+another reader of the same backlog sees none. Embedding a note's content in a task's
+details is not built.
 
 ## Brain scope
 
@@ -151,9 +171,12 @@ repository's branch picker would be, and there is one tab per area the Brain
 declares.
 
 The tree, the rendered chapter and the editor are the ones a repository devbook
-uses, and a Brain note is always editable. What only a repository has is absent:
-branch updates, sync verdicts and scenario marks. So is opening the folder in an
-editor. Search is offered on the Brain as on a repository, because it is one
+uses, and a Brain note is always editable. The reader leaves a remark on a
+note's block as on a chapter's, and edits, resolves or deletes it there. A Brain
+remark is stored under the Brain's scope, by the note's path from the Brain's
+root, so the agent lists and resolves it on `#brain`. What only a repository
+has is absent: branch updates, sync verdicts and scenario marks. So is opening
+the folder in an editor. Search is offered on the Brain as on a repository, because it is one
 [Unified search](#unified-search) wherever it is opened. The **Atlas** button
 opens the Brain's own map instead of a repository's
 ([Atlas edges](#atlas-edges)). Ask AI takes no Brain note as the open chapter.
@@ -170,6 +193,11 @@ with the switch.
 On the Brain, and while the switch shows, the pane names itself *Devbook* at the
 start of its tab strip. The switch sits right after the title, so it stays in
 place as the badge and the path come and go.
+
+The pane's own width decides its layout, not the window's. Narrower than a menu
+beside a readable column, as at the side pane's minimum, the menu sits above the
+note, capped so the note still starts on screen, and a note's title wraps above
+its path rather than ending in an ellipsis.
 
 With no folder set up yet, the pane on the Brain asks for one. A folder that is
 set but missing, or is not a path, says so in words and shows no tabs. A
@@ -216,6 +244,9 @@ repository, so personal notes never reach shared history. A link to any heading
 of the chapter's file counts. A note is listed once. If all its links sit inside
 chapters, it is listed under the first. If any link is in `related` or outside
 every chapter, it is listed on its own. A chapter no note links to draws no box.
+Each note in the box is a link: following it puts the note on the Brain side of
+the pane, the way a Brain search result does, and leaves the header's scope and
+the task filter alone.
 A repository devbook has no way to link into a Brain.
 
 ## Unified search
@@ -236,7 +267,7 @@ own database. A source with no database yet is named as not searchable rather
 than silently left out.
 
 Search by meaning is additive, as it is for one devbook: it is asked only while
-it is switched on, once typing pauses, and the words answer is drawn while it is
+it is switched on and a model is there to answer, once typing pauses, and the words answer is drawn while it is
 on its way. Within a source the two answers are merged by where each put a
 chapter, never by their scores, which are on different scales; a chapter both
 found is one result. Opening a result from the devbook on screen opens it there.
@@ -261,7 +292,10 @@ repository gather in one group named for that alias. One chapter is one node,
 whichever devbook layout or alias case a note wrote it in. A link this machine
 can follow is a solid edge to a filled node. One it cannot is a dashed edge to a
 hollow node, like its chip. The atlas reads no repository: what a repository
-node shows is the link's own words.
+node shows is the link's own words. An edge's label sits at the middle of its
+curve unless that overlaps a node, a node's label, or another edge's label; it
+then steps along the curve or just above or below it, and an edge with no free
+seat goes unlabelled, because the node labels are what the reader navigates by.
 
 Selecting a repository node shows the link's chip. A gold chip opens that
 repository's devbook at the chapter, as a chip in a note does. A dashed one says
@@ -316,7 +350,9 @@ a chapter, and list and resolve the reader's [remarks](domain.md#remark).
 
 The spelling is not the empty string the shell stores for the Brain (local
 ADR 0027 §5). An empty repository argument is already refused as missing, and a
-session that forgot it must never be handed the person's own notes. It is not
+session that forgot it must never be handed the person's own notes. On these
+tools that refusal names both things the argument can be: an `owner/name`, or
+`#brain` for the Brain. It is not
 `brain` either, which a repository could be called. A GitHub owner or name cannot
 hold a `#`, and a configured repository line that starts with one is a comment.
 So `#brain` matches no repository, and it is matched before any repository is
@@ -494,17 +530,17 @@ run says so on its source line.
 
 ```meta
 type: sub-feature
-related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/08-crosscutting-concepts.md#storage-and-sync]
+related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/08-crosscutting-concepts.md#storage-and-sync, .devbook/domain/devbook/requirements.md#remarks-on-a-chapter]
 ```
 
 Let a reader leave a [remark](domain.md#remark) against one block of a chapter
 while reading it, and keep it. A remark can be a question, a flag or a note to
 self, and it sits beside the prose rather than inside it. It belongs to the
 person, not to the repository. The app keeps it, it moves with the person's
-backlog, and it reaches their other devices through sync. It is never written
-into the repository's devbook folders, so a reader can remark on a chapter read
-from a branch nobody can edit. A remark can be resolved, which keeps it visible
-and quiet, or deleted.
+backlog, and it reaches their other devices through sync. Because it stays out
+of the repository, a reader can remark on a chapter read from a branch nobody
+can edit; [the Remark invariants](domain.invariants.md#remark) say how. A remark
+can be resolved, which keeps it visible and quiet, or deleted.
 
 A remark is not a [Review Note](domain.md#review-note), the `annotation` fence a
 repository writes into a chapter; those are shown under
@@ -512,9 +548,9 @@ repository writes into a chapter; those are shown under
 remark into a review note.
 
 A remark is anchored to the block it was left on, and remembers what that block
-said. When the chapter changes above it, the remark follows its own passage to
-wherever it has moved. A remark whose passage has been deleted, or rewritten into
-something else, is shown at the end of the chapter rather than lost.
+said, so the chapter can change under it without the remark being lost. Where the
+read view then shows it is in
+[the requirements of this feature](requirements.md#remarks-on-a-chapter).
 
 ### Review notes in a chapter
 

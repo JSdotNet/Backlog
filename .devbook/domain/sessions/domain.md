@@ -38,15 +38,13 @@ one of them means. Every [rule of the log](domain.invariants.md#session-log)
 survives, because the thing that replicates is a record, not an authority:
 
 - **Still single-writer.** A session ran on one environment, and only that
-  environment holds the evidence for it, so only that environment writes its
-  records. There is nothing to reconcile: no second version, no last-write-wins, and
-  no lost edit. A session that moves gets a later record rather than an edit to an
-  earlier one. None of that rests on good behaviour. A record is addressed first by
-  the environment that gathered it, so an environment can only ever write records of
-  its own. On the reading side, a reading knows how it came by each record: read
-  here, or arrived from elsewhere. It offers back only what it gathered itself. An
-  environment that re-published another's records would attach somebody else's work
-  to itself, which is how a single-writer rule fails without anyone editing anything.
+  environment holds the evidence for it. So there is nothing to reconcile between
+  environments: no second version of another's record and no lost edit. None of
+  that rests on good behaviour, and
+  [the single-writer invariant](domain.invariants.md#invariant-only-the-gathering-environment-writes-a-session-record)
+  says where it is enforced. A reading knows how it came by each record: read here,
+  or arrived from elsewhere. Re-publishing another environment's records is how a
+  single-writer rule fails without anyone editing anything.
 - **Still one environment per log.** A reading that spans machines is a composition
   of several Session Logs, as grouping by environment already is. A replicated record
   names the environment that gathered it, so nothing asserts a fact nobody gathered.
@@ -62,34 +60,31 @@ survives, because the thing that replicates is a record, not an authority:
   context already applies locally to an agent that leaves no marker. `stalled` claims
   that something is still there and quiet, and nothing in a record can tell that
   apart from something that is gone.
-- **Only a whitelist travels.** Local ADR 0005 fixes it, in the table below. No
-  prompt, tool output or file content ever travels, which is the whole reason a
-  record can leave the machine at all.
+- **Only a whitelist travels.** Local ADR 0005 fixes it, in the table below, and
+  [an invariant](domain.invariants.md#invariant-only-the-published-fields-travel)
+  holds every record to it.
 - **The list carries this context's identity in full.** Local ADR 0005 settled that
-  in the whitelist rather than in the pushing code. `Session Identity` is `agent`
-  plus `session_id`, never `session_id` alone, because two agents may issue the same
-  string. A record without its agent would let the receiving log merge two unrelated
-  sessions, which is the failure the identity rule exists to prevent. The replica
-  keys a record on the environment, the agent and the session id together. So two
-  unrelated sessions have no one key under which they could arrive.
+  in the whitelist rather than in the pushing code. A record without its agent
+  would let the receiving log merge two unrelated sessions, which is the failure
+  [the identity invariant](domain.invariants.md#invariant-a-session-is-identified-by-agent-and-session-id-together)
+  exists to prevent.
 - **Retention is the store's, not this context's.** A replicated record expires
   after twelve months by container TTL. Nothing here reaps or deletes a record.
 - **An environment keeps a [Session Record](#session-record) of each of its own
   sessions.** The record answers once the transcript is gone. The assistant
   cleans its transcripts away; Claude does so after a month by default. A session
   read from nothing is a session the log no longer holds. So every reading amends the
-  local record, whether sync is on or not. A record is added to and never taken
-  from:
-  - a value the reading lacks keeps what the record held;
-  - earlier runs and waits are kept;
-  - limit hits are a union.
+  local record, whether sync is on or not, and
+  [what an amendment may change](domain.invariants.md#invariant-a-session-record-is-added-to-and-never-taken-from)
+  is an invariant.
 
   The answer for one session comes from the files as read now, then from this
   environment's record, then from what sync carried. With sync on, the records an
-  environment pushed also come back down the feed, and are kept as a second copy. A
-  record read back is never pushed again, so this does not make the log
-  multi-writer. Those copies show under the environment's own identity rather than
-  the machine id the sync service issued.
+  environment pushed also come back down the feed, and are kept as a second copy.
+  That does not make the log multi-writer, because
+  [such a copy is never pushed again](domain.invariants.md#invariant-only-the-gathering-environment-writes-a-session-record).
+  Those copies show under the environment's own identity rather than the machine
+  id the sync service issued.
 
 | Field on the wire | Why it travels, and on what terms |
 | --- | --- |
@@ -111,8 +106,8 @@ survives, because the thing that replicates is a record, not an authority:
 | pull requests the session linked | Repository, number and address. |
 | tokens per model | Counts, never content. |
 
-A field not in the table does not travel. So `working_folder` does not: it describes
-one machine's disk and means nothing on the other.
+`working_folder` is not in the table: it describes one machine's disk and means
+nothing on the other.
 
 Runs, waits and human turns are instants, the same kind of fact as the activity
 window. A record keeps three cases apart, and a reader never reads an absence as a
@@ -160,9 +155,9 @@ type: value-object
 aliases: [SessionIdentity]
 ```
 
-What makes a session that session: `agent` plus `session_id`. Equality by both.
-Never by `session_id` alone: two agents may issue the same string, and an
-environment reading both would silently merge two unrelated sessions.
+What makes a session that session: `agent` plus `session_id`. Why the agent is
+part of it is
+[an invariant of the log](domain.invariants.md#invariant-a-session-is-identified-by-agent-and-session-id-together).
 
 ### Working Location
 

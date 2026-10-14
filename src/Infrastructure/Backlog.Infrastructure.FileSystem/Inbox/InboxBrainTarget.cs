@@ -19,8 +19,16 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// Its source is <see cref="BrainNoteSource.Inbox"/>.
 /// </para>
 /// </summary>
-public sealed class InboxBrainTarget(IBrainNoteWriter writer) : IInboxBrainTarget
+public sealed class InboxBrainTarget(IBrainNoteWriter writer, IBrainFolderSource? brain = null) : IInboxBrainTarget
 {
+    /// <summary>The Brain folder's own refusal while it cannot be resolved — the
+    /// words the writer would refuse in — else null. Without a folder source to ask,
+    /// the writer is the only judge, and a route is offered.</summary>
+    public string? UnavailableReason =>
+        brain?.Resolve(BrainConventions.FolderKey) is { Available: false } location
+            ? location.Message ?? BrainFolderSource.NoBrainFolder
+            : null;
+
     public async Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -54,4 +62,6 @@ internal sealed class NoBrainTarget : IInboxBrainTarget
 {
     public Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default) =>
         Task.FromResult(Result.Failure<string>(InboxErrors.BrainUnavailable(InboxErrors.NoBrainHere)));
+
+    public string? UnavailableReason => InboxErrors.NoBrainHere;
 }

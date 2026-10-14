@@ -211,6 +211,8 @@ internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<b
 
     public string? BrainRoot => inner.BrainRoot;
 
+    public bool BrainFolderPresent() => inner.BrainFolderPresent();
+
     public IReadOnlyList<BrainArea> Areas()
     {
         Interlocked.Increment(ref _areas);

@@ -113,7 +113,8 @@ otherwise have needed a second sync protocol of its own. It is one document row 
 the file with `tasks` and not the schema. The reasoning above survives; the example
 does not. The Inbox's `inbox_items`, `inbox_lists` and `inbox_groups` tables joined
 the same file on 2026-09-15 under the same rule — owned by their module, created by
-the same idempotent `IF NOT EXISTS` DDL on every open, and never touched by another
+the same idempotent `IF NOT EXISTS` DDL whenever the file is not stamped with
+their store's current schema (local ADR 0006), and never touched by another
 module's adapter (local ADR 0009).
 
 ### No migration

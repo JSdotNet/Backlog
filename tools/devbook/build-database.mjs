@@ -671,7 +671,7 @@ export async function buildDatabase(repoRoot, target, generator = null) {
         counts.open_annotations = Number(db.prepare('SELECT coalesce(sum(open_annotations), 0) AS total FROM chapter').get().total);
         counts.files = chapters.files;
         counts.demo_link = chapters.demo_link;
-        counts.chapter_embedding = 0; // the semantic tier is wired and makes no live call yet.
+        counts.chapter_embedding = 0; // vectors are the app's: its refresher embeds into the database it built (DevbookChapterEmbeddings).
         counts.archify_artifact = await insertArchify(db, repoRoot, folders, problems);
         counts.demo = await insertDemos(db, repoRoot, folders, generator, problems);
 

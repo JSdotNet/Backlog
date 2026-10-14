@@ -40,7 +40,10 @@ public sealed class AnnotationReplicaMerge
         _store = store;
     }
 
-    /// <summary>The wire shape of one stored annotation, tombstone or live.</summary>
+    /// <summary>The wire shape of one stored annotation, tombstone or live.
+    /// A tombstone travels without its body: a deletion says nothing about what
+    /// the remark said, and a body edited past the service's bound before the
+    /// delete would otherwise keep the deletion off every other device.</summary>
     public static AnnotationChange ToChange(DevbookAnnotation annotation)
     {
         ArgumentNullException.ThrowIfNull(annotation);
@@ -53,7 +56,7 @@ public sealed class AnnotationReplicaMerge
                 annotation.RepositoryAlias,
                 annotation.ChapterPath,
                 annotation.BlockIndex,
-                annotation.Body,
+                annotation.DeletedAt is null ? annotation.Body : string.Empty,
                 annotation.Author,
                 annotation.CreatedAt,
                 annotation.Resolved,

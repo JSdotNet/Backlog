@@ -90,8 +90,10 @@ classDiagram
   directions consistent.
 - `effort` is the [Effort](domain.md#effort) scalar on the root. It carries no relationship to another type. Roadmap
   Planning reads and totals it; Devbook owns it.
-- `Tag` and `RoadmapContribution` are both owned value objects, and neither draws
-  an edge in the knowledge graph. Why they are two different things is the
+- `Tag` and `RoadmapContribution` are both owned value objects, and neither is an
+  edge in the knowledge graph; for the contribution, see
+  [its invariant](domain.invariants.md#invariant-a-roadmap-contribution-draws-no-graph-edge).
+  Why they are two different things is the
   [Roadmap Contribution](domain.md#roadmap-contribution) chapter's.
 
 ## Chapter metadata the panels read

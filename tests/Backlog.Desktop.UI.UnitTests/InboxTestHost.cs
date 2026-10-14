@@ -119,6 +119,10 @@ internal sealed class FakeInboxItems : IInboxItems
     /// of an app with no Foundry, where no AI triage surface is drawn.</summary>
     public bool TriageAdvisorAvailable { get; set; }
 
+    /// <summary>Why To Brain cannot be taken; null by default, a Brain that can
+    /// take a note.</summary>
+    public string? BrainUnavailableReason { get; set; }
+
     /// <summary>What the advisor answers per item; an item with no entry is
     /// answered with no cards.</summary>
     public Dictionary<Guid, Result<InboxTriageAdviceDto>> TriageAdvice { get; } = [];

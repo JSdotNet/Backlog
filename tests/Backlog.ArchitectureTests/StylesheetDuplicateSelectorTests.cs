@@ -71,7 +71,6 @@ public class StylesheetDuplicateSelectorTests
             new(".tools-panel__eyebrow", 2, SharedWithSiblings),
             new(".tools-panel__subtitle", 2, SharedWithSiblings),
             new(".tools-panel__message", 2, SharedWithSiblings),
-            new(".tools-panel__count", 2, SharedWithSiblings),
             new(".tools-inventory__meta", 2, SharedWithSiblings),
             new(".sessions-panel__eyebrow", 2, SharedWithSiblings),
             new(".sessions-panel__title", 2, SharedWithSiblings),
@@ -286,9 +285,9 @@ public class StylesheetDuplicateSelectorTests
     [Theory]
     [InlineData(App, ".shell--wide", "margin: 0; max-width: none")]
     [InlineData(App, ".tools-panel__title", "color: var(--color-primary); font-size: var(--font-size-lg); margin: 0")]
-    [InlineData(App, ".tools-panel__eyebrow", "color: var(--color-primary); font-size: var(--font-size-xs); font-weight: 700; letter-spacing: 0.08em; margin: 0; text-transform: uppercase")]
-    [InlineData(App, ".tools-panel__subtitle", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0")]
-    [InlineData(App, ".tools-panel__message", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0")]
+    [InlineData(App, ".tools-panel__eyebrow", "color: var(--color-primary); font-size: var(--font-size-xs); font-weight: 700; letter-spacing: 0.08em; margin: 0; overflow-wrap: anywhere; text-transform: uppercase")]
+    [InlineData(App, ".tools-panel__subtitle", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
+    [InlineData(App, ".tools-panel__message", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
     [InlineData(App, ".tech-node", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-left: 4px solid var(--color-border-strong); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-sm); padding: var(--spacing-md)")]
     [InlineData(App, ".design-token", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); padding: var(--spacing-md)")]
     [InlineData(App, ".folder-section", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-md); grid-template-columns: minmax(0, 1fr); overflow-x: auto; padding: var(--spacing-md)")]

@@ -34,7 +34,8 @@ and assignee (local ADR 0020).
 The task also carries two attributes that place it in the person's own working
 set rather than in any external system:
 
-- `area`, its [Area](#area). A blank area is normalized to unfiled.
+- `area`, its [Area](#area). What a blank area reads as is
+  [an invariant of the task](domain.invariants.md#invariant-a-blank-area-is-unfiled).
 - `order`, a manual rank used to hand-sequence tasks within the backlog. Tasks
   that have never been ranked share the default and fall back to recency.
 
@@ -80,8 +81,10 @@ finished plan from its first task's start to its last task's tick.
 
 `depends_on` lists the task's [Dependencies](#dependency), held as plain
 identifiers, the same rule `repo_ids` follows. Every `Task` is its own aggregate
-root, so there is no object graph between them. `Readiness` is derived from this
-list on every read and never stored. [Dependency](#dependency) says why an
+root, so there is no object graph between them. [Readiness](#readiness) is read
+from this list, and
+[how it is derived](domain.invariants.md#invariant-readiness-is-derived-and-never-stored)
+is an invariant. [Dependency](#dependency) says why an
 unresolvable id still blocks and why no invariant prevents a cycle.
 
 `planned_hours` lists the task's [Planned Hours](#planned-hours) in date order.
@@ -136,8 +139,9 @@ therefore a different plan from one written under `+slug`. The sigil is lifted
 at the roadmap boundary and nowhere here
 (`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
 
-The task also carries an optional `effort`, its [Effort](#effort); the model
-rejects a negative number. Deriving the estimate is not built here. This is the
+The task also carries an optional `effort`, its [Effort](#effort), within
+[the bounds the task enforces](domain.invariants.md#invariant-effort-is-never-negative).
+Deriving the estimate is not built here. This is the
 point at which the value becomes registrable and visible, and the model does not
 care whether a person or an AI agent put the number there. Roadmap Planning
 totals it through
@@ -417,26 +421,26 @@ aliases: [TaskReadiness, ready, blocked]
 ```
 
 Where a task stands once the tasks it waits on are taken into account:
-`done`, `ready`, `blocked`. It is derived on every read from `depends_on` and
-never stored, because a stored readiness would go stale the moment a predecessor
-was completed.
+`done`, `ready`, `blocked`. It is read from `depends_on`, and
+[how it is derived](domain.invariants.md#invariant-readiness-is-derived-and-never-stored)
+is an invariant of the task.
 
 There are three values rather than two. "Not done" covers both the task that can
 be picked up now and the task that cannot. Telling those two apart is the whole
 reason anyone writes a dependency down.
 
 Readiness is orthogonal to `Task Status`. Status is the recorded lifecycle state;
-readiness is a conclusion about whether the task can be started. They share only
-`done`, and a recorded `done` wins over the derivation. A task somebody marked
-done is done even if something it named is still outstanding, because done is a
-recorded fact where blocked is only a conclusion.
+readiness is a conclusion about whether the task can be started. Readiness's
+`done` is the [tick](#completed), not the status of the same name: what a
+ticked task reads is
+[an invariant of the task](domain.invariants.md#invariant-a-ticked-task-reads-done).
 
 ## Projection
 
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/06-runtime-view.md#task-to-github-issue]
+related: [.devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/06-runtime-view.md#task-to-github-issue, .devbook/domain/tasks/requirements.md#projection]
 aliases: [ProjectionRef]
 ```
 
@@ -450,10 +454,11 @@ repository as one GitHub issue, and the issue's reference is kept on the task; s
 [Issue projection and state read-back](features.md#issue-projection-and-state-read-back).
 
 The intended design is an event-triggered policy, or process manager, not invoked
-as part of a synchronous aggregate command. It would react to `TaskProjected` by
-creating one GitHub issue or CLI task per `repo_id`, and to `TaskCompleted` by
-closing all of them. Neither event is emitted yet; see
-[Occurrence Spawning](#occurrence-spawning) for why this context publishes none.
+as part of a synchronous aggregate command. It would react to `TaskProjected` and
+`TaskCompleted`; what it will promise on each is in
+[the Projection requirements](requirements.md#projection). Neither event is
+emitted yet; see [Occurrence Spawning](#occurrence-spawning) for why this context
+publishes none.
 
 A `Projection Ref` recorded by hand, such as a session or pull request linked to
 a task, can be taken off again. The unlink use case removes every ref naming that
@@ -886,12 +891,9 @@ aliases: [effort, story points, story-point estimate]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/domain.md#effort]
 ```
 
-The size of a Task in **story points**: an optional, non-negative integer. It
-has three cases at the edges:
-
-- Absent means "not estimated".
-- `0` is a real zero-point estimate.
-- A negative is rejected.
+The size of a Task in **story points**: an optional integer. Absent means "not
+estimated", and `0` is a real zero-point estimate. The range the task accepts is
+[an invariant of the task](domain.invariants.md#invariant-effort-is-never-negative).
 
 It sizes the work, not the time spent on it. It is an estimate however it was
 arrived at, whether set by hand or derived by an AI agent from the task's

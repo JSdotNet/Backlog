@@ -225,19 +225,19 @@ public sealed class SqliteSprintSeriesRepository : ISprintSeriesRepository, ISpr
     private static string Key(Guid id) => id.ToString("D", CultureInfo.InvariantCulture);
 
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
 
-    /// <summary>Idempotent DDL run on every open (local ADR 0003): an existing
-    /// <c>backlog.db</c> gains this table and loses nothing.</summary>
-    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
-    {
-        await SqliteSchema.EnsureAsync(connection, """
+    /// <summary>Idempotent DDL run on any open the file is not yet stamped for
+    /// (local ADR 0003): an existing <c>backlog.db</c> gains this table and loses
+    /// nothing.</summary>
+    internal static readonly SqliteSchemaDefinition Schema = new(
+        owner: "progress",
+        ddl: """
             CREATE TABLE IF NOT EXISTS progress_series (
                 id         TEXT PRIMARY KEY NOT NULL,
                 document   TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
-            """, cancellationToken).ConfigureAwait(false);
-    }
+            """);
 }

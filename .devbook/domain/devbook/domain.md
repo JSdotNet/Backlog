@@ -77,6 +77,11 @@ aliases: [TaskLink, task_id]
 A typed link to a Task: `task_id`, `link_type`
 (reference or embed), and `linked_at`. Immutable; equality is by value.
 
+A note writes it as one value of its `tasks` field: the task's stored id, a GUID,
+compared case-insensitively and with or without braces. Only `task_id` is written
+today; a link is a reference. A value that is no GUID links no task, and the note
+lists it as written.
+
 ### Tag
 
 ```meta
@@ -104,17 +109,18 @@ contributes to: a lowercase kebab-case slug, held in the chapter's `roadmap` lis
 A note may declare several, or none. Equality is by value.
 
 It **names** a roadmap item rather than **addressing** a chapter, and that
-distinction is the one most easily misread. A `Task Link` and a knowledge
-cross-reference are `<path>#<slug>` addresses. Each resolves to a specific node
-and draws an edge in the knowledge graph. A `Roadmap Contribution` is a bare tag
+distinction is the one most easily misread. A knowledge cross-reference is a
+`<path>#<slug>` address that resolves to a specific node and draws an edge in the
+knowledge graph, and a `Task Link` resolves to one task by its id. A `Roadmap Contribution` is a bare tag
 slug that resolves to nothing here. It is the same vocabulary a
 [Roadmap Tag](../roadmap/domain.md#roadmap-tag) holds and a Task files under, and
 Roadmap Planning reads a chapter's contributions when it gathers work by tag.
 
-Because it names rather than addresses, it produces **no graph edge**, exactly
-like an alias: a chapter contributing to `sync-service` is not linked to any
-document called that. Nothing validates the slug, and a slug matching no current
-roadmap item is a normal, harmless state.
+Because it names rather than addresses, it behaves like an alias: a chapter
+contributing to `sync-service` is not linked to any document called that; see
+[its invariant](domain.invariants.md#invariant-a-roadmap-contribution-draws-no-graph-edge).
+Nothing validates the slug, and a slug matching no current roadmap item is a
+normal, harmless state.
 
 It is also not a [Tag](#tag), even though both are loosely "tags". A Tag is this
 context's own `#keyword` for discovery, and it finds notes here. A Roadmap
@@ -173,7 +179,7 @@ over MCP), or `import`.
 type: aggregate
 status: draft
 aliases: [DevbookAnnotation, remark, reading note]
-related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/domain/devbook/domain.md#review-note]
+related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/domain/devbook/domain.md#review-note, .devbook/domain/devbook/domain.invariants.md#remark, .devbook/domain/devbook/requirements.md#remarks-on-a-chapter]
 ```
 
 A person's own note on one block of a chapter, kept by the app rather than by the
@@ -184,20 +190,20 @@ remark names the same chapter on all of them.
 
 A remark is anchored by two things: the block's index and a digest of what the
 block said. The index says where to look. The digest says whether the block found
-there is still the one the remark was about. When the chapter changes above a
-remark, the remark follows its passage. A remark whose block has gone shows at the
-end of the chapter rather than being lost.
+there is still the one the remark was about. Where the read view shows a remark
+once the chapter has changed is in
+[the requirements of Remarks on a chapter](requirements.md#remarks-on-a-chapter).
 
 It is an aggregate because its lifecycle is the person's alone: add, edit,
-resolve, delete. Each change stamps the remark, so replication can tell which
-version is newer, and no other record changes with it. It replicates as a whole
-document, newest change winning, through a replica container of its own (local
-ADR 0011). Deleting one leaves a tombstone, so the deletion replicates too. A
-remark with an empty body is a draft open in the read view. It is kept on this
-device and never replicated.
+resolve, delete. No other record changes with it. It replicates as a whole
+document through a replica container of its own (local ADR 0011). A remark with
+an empty body is a *draft*, open in the read view and not yet written. How each
+change is stamped, which version wins, what a deletion leaves, what happens to a
+draft, and where a remark is stored are
+[the Remark invariants](domain.invariants.md#remark).
 
-A remark is never written into a repository's devbook folders. That is what lets
-a reader remark on a branch snapshot nobody can write to. It is not a
+A remark lives with the app rather than in the repository, so a reader can remark
+on a branch snapshot nobody can write to. It is not a
 [Review Note](#review-note), and neither is converted into the other.
 
 ## Cross-Linking

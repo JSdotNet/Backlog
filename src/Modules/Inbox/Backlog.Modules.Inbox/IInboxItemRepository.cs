@@ -20,6 +20,24 @@ public interface IInboxItemRepository
     /// <summary>The full aggregate, or null when there is no item with that id.</summary>
     Task<InboxItem?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>The full aggregates among <paramref name="ids"/> that exist, in
+    /// no promised order; an id with no item is left out. What a batch read —
+    /// the list's suggestion markers — asks for, so a store can answer it in one
+    /// round trip. This default reads them one at a time, which keeps every
+    /// store that only answers <see cref="GetAsync"/> serving it.</summary>
+    async Task<IReadOnlyList<InboxItem>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var found = new List<InboxItem>(ids.Count);
+        foreach (var id in ids)
+        {
+            if (await GetAsync(id, cancellationToken).ConfigureAwait(false) is { } item) found.Add(item);
+        }
+
+        return found;
+    }
+
     /// <summary>Every item in every status, newest capture first. Archived
     /// included on purpose: which slice to show is the screen's decision, and a
     /// read that hid the archive would need a second read to show it.</summary>

@@ -49,6 +49,9 @@ public sealed class RootedSqliteInboxRepository(Func<string> currentRootDirector
     public Task<InboxItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
         Current.GetAsync(id, cancellationToken);
 
+    public Task<IReadOnlyList<InboxItem>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) =>
+        Current.GetManyAsync(ids, cancellationToken);
+
     public Task<IReadOnlyList<InboxItem>> ListAsync(CancellationToken cancellationToken = default) =>
         Current.ListAsync(cancellationToken);
 

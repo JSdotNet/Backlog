@@ -23,6 +23,12 @@ public interface IBrainFolderSource : IDevbookFolderSource
     /// words.</summary>
     string? BrainRoot { get; }
 
+    /// <summary>Whether <see cref="BrainRoot"/> is set and the folder is there now:
+    /// one look at the disk, no read of a note — the cheap question a screen asks
+    /// to notice a folder that went away without raising
+    /// <see cref="IDevbookFolderSource.Changed"/>.</summary>
+    bool BrainFolderPresent();
+
     /// <summary>The areas the Brain shows, in order: what its
     /// <c>CONVENTIONS.md</c> declares, or the PARA set.</summary>
     IReadOnlyList<BrainArea> Areas();
