@@ -11,7 +11,7 @@ namespace Backlog.Modules.Progress.Features.CreateSeries;
 /// (<c>.devbook/domain/progress/features.md#setting-up-a-sprint-series</c>).</summary>
 public sealed record CreateSeriesCommand(CreateSprintSeries Request);
 
-public sealed class CreateSeriesCommandHandler(ISprintSeriesRepository repository, ProgressGate gate)
+public sealed class CreateSeriesCommandHandler(ISprintSeriesRepository repository, ProgressGate gate, SeriesSaved saved)
     : ICommandHandler<CreateSeriesCommand, Result<SprintSeriesDto>>
 {
     public async Task<Result<SprintSeriesDto>> Handle(CreateSeriesCommand command, CancellationToken cancellationToken = default)
@@ -47,6 +47,8 @@ public sealed class CreateSeriesCommandHandler(ISprintSeriesRepository repositor
         if (created.IsFailure) return created.Error;
 
         await repository.SaveAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.
+        saved.Raise();
         return created.Value.ToDto();
     }
 }

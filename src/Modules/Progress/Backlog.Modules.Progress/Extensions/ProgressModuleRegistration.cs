@@ -39,6 +39,7 @@ public static class ProgressModuleRegistration
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<ProgressGate>();
+        services.TryAddSingleton<SeriesSaved>();
         services.TryAddSingleton<ISprintPullRequestReader, UnreadPullRequests>();
 
         services.AddScoped<SeriesChanges>();
@@ -64,6 +65,17 @@ public static class ProgressModuleRegistration
             sp.GetService<IAppFeatureSettings>()));
         services.AddScoped<ISprintSeriesPlanning>(sp => sp.GetRequiredService<SprintSeriesPlanning>());
         services.AddScoped<ISprintProgress>(sp => sp.GetRequiredService<SprintSeriesPlanning>());
+
+        // Each series as a document that travels between a person's devices, the way
+        // Roadmap Planning's plan does (local ADR 0018). A singleton, because it holds
+        // the series' save notice for a sync loop to hear. The store is the host's: a
+        // head that registers none keeps no series, so a copy reads as unreadable
+        // rather than failing the provider. Not behind the progress switch: series
+        // recorded while it is off are kept, so they travel too.
+        services.TryAddSingleton<ISprintSeriesReplication>(sp => new SprintSeriesReplication(
+            sp.GetService<ISprintSeriesReplicaStore>(),
+            sp.GetRequiredService<SeriesSaved>(),
+            sp.GetRequiredService<ProgressGate>()));
 
         return services;
     }
