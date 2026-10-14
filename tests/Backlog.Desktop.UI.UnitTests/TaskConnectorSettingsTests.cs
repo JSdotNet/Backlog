@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.SharedKernel.Results;
+using Backlog.UI.Components.Settings;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using static Backlog.Desktop.UI.UnitTests.LinkedTaskPaneTests;
@@ -32,6 +33,68 @@ public sealed class TaskConnectorSettingsTests
         var section = Assert.Single(services.BuildServiceProvider().GetServices<SettingsSection>());
         Assert.Equal("Connectors", section.Title);
         Assert.Equal(typeof(TaskConnectorSettings), section.Component);
+    }
+
+    /// <summary>Inside the settings frame the page's headline counts the connected
+    /// targets, and moves when one is connected.</summary>
+    [Fact]
+    public async Task The_headline_counts_the_connected_sources()
+    {
+        var (context, _, _) = Compose(true, new ConnectedTarget(FakeConnector.Id, "owner/one"));
+        using var _context = context;
+
+        var frame = context.Render<SettingsFrame>(parameters => parameters
+            .Add(f => f.Title, "Connectors")
+            .AddChildContent<TaskConnectorSettings>());
+
+        string Headline() => frame.Find("[data-testid='settings-headline']").TextContent.Trim();
+
+        Assert.Equal("1 task source connected.", Headline());
+
+        await frame.Find("input#task-connector-target").InputAsync(new() { Value = "owner/two" });
+        await frame.Find("[data-testid='task-connector-connect']").ClickAsync(new());
+
+        frame.WaitForAssertion(() => Assert.Equal("2 task sources connected.", Headline()));
+    }
+
+    [Fact]
+    public void With_nothing_connected_the_headline_says_so()
+    {
+        Assert.Equal("No task sources connected.", TaskConnectorSettings.Headline(0));
+        Assert.Equal("5 task sources connected.", TaskConnectorSettings.Headline(5));
+    }
+
+    /// <summary>The cards the page draws are the ones its section declares, in that
+    /// order: connect, connected, and disconnected once a source left tasks behind.</summary>
+    [Fact]
+    public void The_cards_on_the_page_are_the_ones_its_section_declares()
+    {
+        var section = Assert.Single(new ServiceCollection().AddTaskConnectorSettings().BuildServiceProvider().GetServices<SettingsSection>());
+        Assert.Equal(["Connect a task source", "Connected task sources", "Disconnected sources"], section.CardTitles!);
+
+        var (context, _, _) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Equal(section.CardTitles!, page.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()));
+        Assert.NotNull(page.Find("section.settings-card[data-testid='task-connectors-connect-card'] [data-testid='task-connectors-connect']"));
+        Assert.NotNull(page.Find("section.settings-card[data-testid='task-connectors-connected-card'] [data-testid='task-connectors-none']"));
+        Assert.NotNull(page.Find("section.settings-card[data-testid='task-connectors-disconnected-card'] [data-testid='task-connectors-disconnected']"));
+    }
+
+    /// <summary>With no connector installed only the connect card is drawn, saying
+    /// so; there is nothing connected to list.</summary>
+    [Fact]
+    public void With_no_connector_installed_only_the_connect_card_is_drawn()
+    {
+        var (context, _, _) = Compose(withConnector: false);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Equal(["Connect a task source"], page.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()));
+        Assert.NotNull(page.Find("section.settings-card [data-testid='task-connectors-empty']"));
     }
 
     [Fact]

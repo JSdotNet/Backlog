@@ -62,8 +62,11 @@ the item's suggestion row, and nothing is assigned until the reader takes the
 chip. So a rule that matches too much costs a rejected chip, not a wrong
 entry.
 
-The rules are written on the Repositories page of Settings, beside the
-repositories they name. The field shows only while the [Inbox pane](#inbox-pane)
+The rules are written on the Inbox page of Settings, in its one card, Inbox
+routing rules. The page's headline counts the rules in force —
+`2 routing rules sort what lands in the Inbox.`, or
+`No routing rules yet; everything lands in the Inbox unsorted.` — so a refused
+set does not move it. The page shows only while the [Inbox pane](#inbox-pane)
 is on. The whole set is refused when one line does not read, and the message
 names that line, so the rules in use are always the last set that read. They
 are the reader's own and local to the machine, like the organiser. They are

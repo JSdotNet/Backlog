@@ -19,7 +19,13 @@ public static class TaskConnectorSettingsRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("connectors", "Connectors", Order, typeof(TaskConnectorSettings), Group: SettingsGroup.ProductAreas));
+        services.AddSingleton(new SettingsSection(
+            "connectors",
+            "Connectors",
+            Order,
+            typeof(TaskConnectorSettings),
+            Group: SettingsGroup.ProductAreas,
+            CardTitles: TaskConnectorSettings.CardTitles));
 
         return services;
     }
