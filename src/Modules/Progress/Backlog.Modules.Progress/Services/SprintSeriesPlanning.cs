@@ -65,6 +65,9 @@ public sealed class SprintSeriesPlanning(
     public Task<Result<SprintSeriesDto>> ShowInBriefsAsync(Guid seriesId, bool daily, bool weekly, CancellationToken cancellationToken = default) =>
         Gate(() => configure.Handle(new ShowInBriefsCommand(seriesId, daily, weekly), cancellationToken));
 
+    public Task<Result<SprintSeriesDto>> SwitchAsync(Guid seriesId, bool on, CancellationToken cancellationToken = default) =>
+        Gate(() => configure.Handle(new SwitchSeriesCommand(seriesId, on), cancellationToken));
+
     public Task<Result<SprintSeriesDto>> SetGoalRulesAsync(Guid seriesId, IReadOnlyList<GoalRuleDto> rules, int goalShare, CancellationToken cancellationToken = default) =>
         Gate(() => configure.Handle(new SetGoalRulesCommand(seriesId, rules, goalShare), cancellationToken));
 

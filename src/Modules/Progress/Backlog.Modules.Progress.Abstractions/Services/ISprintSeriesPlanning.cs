@@ -21,7 +21,9 @@ public interface ISprintSeriesPlanning
     Task<Result<SprintSeriesDto>> GetSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default);
 
     /// <summary>The series a repository belongs to, or null when it belongs to none
-    /// — which is the case the In progress view stays unchanged for.</summary>
+    /// — which is the case the In progress view stays unchanged for. A repository of a
+    /// series switched off answers null too: the series still holds it, but nothing
+    /// reads it as working to that series' cadence until it is switched back on.</summary>
     Task<Result<SprintSeriesDto?>> FindSeriesOfAsync(string repositoryAlias, CancellationToken cancellationToken = default);
 
     Task<Result<SprintSeriesDto>> CreateSeriesAsync(CreateSprintSeries request, CancellationToken cancellationToken = default);
@@ -49,6 +51,11 @@ public interface ISprintSeriesPlanning
         bool daily,
         bool weekly,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Switches a series on or off. Its repositories, settings and sprints
+    /// are kept either way, and it keeps holding its repositories against every other
+    /// series.</summary>
+    Task<Result<SprintSeriesDto>> SwitchAsync(Guid seriesId, bool on, CancellationToken cancellationToken = default);
 
     Task<Result<SprintSeriesDto>> SetGoalRulesAsync(
         Guid seriesId,

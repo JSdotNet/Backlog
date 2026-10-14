@@ -51,6 +51,27 @@ The system SHALL show the In progress view, unchanged, for a repository that bel
 - **When** the person scopes the header to `tools`
 - **Then** the In progress view shows, with no sprint in it
 
+### Requirement: A switched-off series' repositories keep the In progress view
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL treat the repositories of a switched-off series as in no series when it is asked which series a repository works to, and SHALL keep them out of every other series.
+
+#### Scenario: Switching a series off
+
+- **Given** the repository `backlog` belongs to the series "Core", which has an open sprint
+- **When** the person switches "Core" off
+- **Then** `backlog` reads as in no series, and "Core" keeps its repositories and its open sprint
+
+#### Scenario: A switched-off series still holds its repository
+
+- **Given** the series "Core" is switched off and has `backlog`
+- **When** the person adds `backlog` to the series "Docs"
+- **Then** the change is refused and `backlog` stays in "Core"
+
 ### Requirement: A sprint is named by the pattern
 
 ```meta

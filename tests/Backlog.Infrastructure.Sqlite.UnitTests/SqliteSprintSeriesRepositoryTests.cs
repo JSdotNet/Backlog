@@ -130,6 +130,36 @@ public sealed class SqliteSprintSeriesRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_switched_off_series_comes_back_off()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = Series("backlog");
+        series.Switch(on: false);
+
+        await _repository.SaveAsync(series, ct);
+        var loaded = await _repository.GetAsync(series.Id, ct);
+
+        Assert.False(loaded!.IsOn);
+    }
+
+    [Fact]
+    public async Task A_document_written_before_the_switch_existed_reads_as_on()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = Series("backlog");
+        await _repository.SaveAsync(series, ct);
+        var id = series.Id.ToString();
+        var stored = await ScalarAsync("SELECT document FROM progress_series;", ct);
+        var withoutSwitch = stored.Replace(",\"isOn\":true", string.Empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("isOn", withoutSwitch, StringComparison.Ordinal);
+        await ExecuteAsync($"UPDATE progress_series SET document = '{withoutSwitch.Replace("'", "''", StringComparison.Ordinal)}' WHERE id = '{id}';", ct);
+
+        var loaded = await _repository.GetAsync(series.Id, ct);
+
+        Assert.True(loaded!.IsOn);
+    }
+
+    [Fact]
     public async Task The_document_writes_dates_as_days_and_enums_by_name()
     {
         var ct = TestContext.Current.CancellationToken;

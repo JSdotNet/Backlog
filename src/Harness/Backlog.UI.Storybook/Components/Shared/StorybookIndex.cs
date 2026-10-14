@@ -17,7 +17,7 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// <item><b>Parts.</b> Input and action, Structure and navigation, Feedback,
 /// Content, Devbook — the components that compose into everything
 /// else.</item>
-/// <item><b>Subjects.</b> Integrations, Task list, Roadmap, Dashboard — a set of
+/// <item><b>Subjects.</b> Integrations, Task list, Roadmap, Progress, Dashboard — a set of
 /// components that only mean something together, each its own chapter because
 /// each is its own convention.</item>
 /// <item><b>Combined usage.</b> The whole surfaces: a document, a folder, an
@@ -427,6 +427,15 @@ internal static class StorybookIndex
         new("Roadmap",
         [
             new("roadmap", "Roadmap", "RoadmapTimeline and RoadmapTimelineBar: a plan against a quarter-ruled time axis, with swimlanes, dependency arrows and bars you can drag — and RoadmapPlanShelf, the work still waiting for a place on it.")
+        ]),
+
+        // Its own chapter, after Roadmap: a sprint series is a cadence a set of
+        // repositories works to, a convention of its own. The page draws the card
+        // its folder holds and the Card, TagChip and AppButton the Settings page
+        // lays around it, all three introduced further up.
+        new("Progress",
+        [
+            new("sprint-settings", "Sprint settings", "SprintSeriesCard: one sprint series on Settings › Sprints — its switch, its repositories with only the free ones offered, its length, start day and name pattern, how the sprint goal is counted, and which briefs show it.")
         ]),
 
         new("Dashboard",
