@@ -28,7 +28,8 @@ public static class SessionsSettingsRegistration
             Order,
             typeof(ClaudeCodeTelemetrySettings),
             SessionFeatures.Sessions,
-            SettingsGroup.Ai));
+            SettingsGroup.Ai,
+            CardTitles: [ClaudeCodeTelemetrySettings.CardTitle]));
 
         // The rates that price a run Claude Code reported no cost for, beside the page
         // that says how to have it report one.
@@ -38,7 +39,8 @@ public static class SessionsSettingsRegistration
             Order + 1,
             typeof(ModelPriceSettings),
             SessionFeatures.Sessions,
-            SettingsGroup.Ai));
+            SettingsGroup.Ai,
+            CardTitles: [ModelPriceSettings.CardTitle]));
 
         return services;
     }
