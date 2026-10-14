@@ -420,9 +420,18 @@ pages. What more than one page reads is a `SettingsScreenContext` the screen
 owns and hands to every page: how this machine reaches GitHub, which logins the
 GitHub CLI holds, and that a feature was switched. A `SettingsSection` names
 its menu group and the titles of the cards it draws, which the settings search
-reads without rendering a page. Within a group the app-wide pages come first,
+reads without rendering a page. Storage & backup is drawn as two
+`SettingsCard`s in a wrapping row — *Where the backlog is stored*, with the
+branch snapshot folder inside it, and *Backup*, with **Back up now** in its
+header — under a headline read from `BackupWorker.Last`, whose
+`BackupState.DailyCopies` counts the days a copy was committed on. Within a group the app-wide pages come first,
 then the registered sections by their order, and every page opened is kept
-alive, hidden, while another is on screen. Below the width that holds the menu
+alive, hidden, while another is on screen. The Features page reads its counts
+from the feature store on every render: a headline of how many features are on
+and how many of those are unfinished (Dev or Beta), three `MetricTile` figures,
+an unpersisted `RadioGroup` filter (All, On, Off, Unfinished), and one
+`SettingsCard` per `AppFeatures.Sections` entry whose titles are the page's
+search list. Below the width that holds the menu
 and the page side by side — a container query on the frame's own width, not the
 window's — the screen shows one of them: `settings` is the menu alone as a
 grouped list, each group's pages in one rounded card of 52px rows with a

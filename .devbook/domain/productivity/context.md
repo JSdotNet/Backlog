@@ -92,6 +92,14 @@ pointer, which would then be rewritten every time somebody moved Friday's
 finishing time. Times are written as `HH:mm` so the file, the field, and the
 reader all spell them the same way.
 
+The Working week page's headline says the week in force in one sentence:
+`You work Mon–Fri, 09:00–17:30.` A run of three worked days or more reads as a
+range and the rest as a list, so `Mon, Tue, Thu, Fri` shows where the gap is.
+The hours are named only when every worked day shares them; otherwise the
+sentence ends `each day at its own hours`, and a week with no worked day says
+`You have no working days set.` It reads the stored week, so a refused time
+never reaches it.
+
 `scope: user` fits: the choice is one person's, and it follows that person. With
 sync on, the week travels as a `workingWeek` key inside the roadmap's synced
 `planning-pace` document, newest change winning (ADR 0019). A change here writes

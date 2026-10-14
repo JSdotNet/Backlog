@@ -87,7 +87,7 @@ public sealed class SettingsSectionRenderingTests
         using var settings = RenderSettings();
 
         Assert.Equal("Features", SettingsMenu.Current(settings.Component));
-        Assert.Equal("Features", Headline(settings.Component));
+        Assert.EndsWith("of them still unfinished.", Headline(settings.Component));
         Assert.Equal("Settings · Workspace", settings.Component.Find("[data-testid='settings-eyebrow']").TextContent.Trim());
     }
 
@@ -170,7 +170,7 @@ public sealed class SettingsSectionRenderingTests
 
         // Kept alive and hidden, the page no longer writes the headline.
         SettingsMenu.Open(settings.Component, "Features");
-        Assert.Equal("Features", Headline(settings.Component));
+        Assert.EndsWith("of them still unfinished.", Headline(settings.Component));
 
         SettingsMenu.Open(settings.Component, "Worded");
         Assert.Equal("Say what this page is for in one sentence.", Headline(settings.Component));
@@ -238,8 +238,10 @@ public sealed class SettingsSectionRenderingTests
         Assert.Contains("settings-frame--index", frame.ClassList);
         Assert.Empty(settings.Component.FindAll("[data-testid='back-to-menu-link']"));
 
-        // The headline over the list is the Features page's, which /settings opens.
-        Assert.Equal("Features", Headline(settings.Component));
+        // The headline over the list is the Features page's sentence, which
+        // /settings opens: the page is hidden at phone width but still on screen
+        // as far as the cascade goes, so it writes the headline.
+        Assert.EndsWith("of them still unfinished.", Headline(settings.Component));
     }
 
     [Fact]

@@ -35,8 +35,22 @@ public static class DashboardSettingsRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("dashboard", "Dashboard", Order, typeof(DashboardSettings), DashboardFeatures.Dashboard, SettingsGroup.ProductAreas));
-        services.AddSingleton(new SettingsSection("working-week", "Working week", WorkingWeekOrder, typeof(WorkingWeekSettings), Group: SettingsGroup.ProductAreas));
+        services.AddSingleton(new SettingsSection(
+            "dashboard",
+            "Dashboard",
+            Order,
+            typeof(DashboardSettings),
+            DashboardFeatures.Dashboard,
+            SettingsGroup.ProductAreas,
+            CardTitles: [DashboardSettings.UsageResetCardTitle, DashboardSettings.SpendBudgetCardTitle]));
+
+        services.AddSingleton(new SettingsSection(
+            "working-week",
+            "Working week",
+            WorkingWeekOrder,
+            typeof(WorkingWeekSettings),
+            Group: SettingsGroup.ProductAreas,
+            CardTitles: [WorkingWeekSettings.CardTitle]));
 
         return services;
     }
