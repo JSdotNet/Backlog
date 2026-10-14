@@ -32,7 +32,28 @@ public sealed class SettingsBadgesTests
     [InlineData(true, true, true, "3/3")]
     public void Ai_providers_reads_how_many_of_the_three_are_set_up(bool claude, bool gitHub, bool azureFoundry, string expected)
     {
-        Assert.Equal(expected, SettingsBadges.AiProviders(claude, gitHub, azureFoundry));
+        Assert.Equal(expected, SettingsBadges.AiProviders(usageMetrics: true, aiAssistant: true, claude, gitHub, azureFoundry));
+    }
+
+    /// <summary>With usage metrics off the page offers Azure Foundry alone, so
+    /// Claude and GitHub are neither offered nor counted.</summary>
+    [Theory]
+    [InlineData(false, "0/1")]
+    [InlineData(true, "1/1")]
+    public void Ai_providers_counts_Azure_Foundry_alone_while_usage_metrics_are_off(bool azureFoundry, string expected)
+    {
+        Assert.Equal(expected, SettingsBadges.AiProviders(usageMetrics: false, aiAssistant: true, claude: true, gitHub: true, azureFoundry));
+    }
+
+    /// <summary>With the AI assistant off the page offers the two usage providers,
+    /// so a configured Azure Foundry is not counted.</summary>
+    [Theory]
+    [InlineData(false, false, "0/2")]
+    [InlineData(true, false, "1/2")]
+    [InlineData(true, true, "2/2")]
+    public void Ai_providers_counts_the_two_usage_providers_while_the_assistant_is_off(bool claude, bool gitHub, string expected)
+    {
+        Assert.Equal(expected, SettingsBadges.AiProviders(usageMetrics: true, aiAssistant: false, claude, gitHub, azureFoundry: true));
     }
 
     [Fact]

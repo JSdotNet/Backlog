@@ -492,7 +492,7 @@
                                 Signing in with the GitHub CLI is preferred. This repository token is only used as a fallback for <code>@activeRepo.FullName</code> when <code>gh</code> is not signed in.
                             </p>
                             <p class="setting__status" data-testid="github-connection-status" role="status">
-                                @(Screen.Connection?.Summary ?? "Checking how this machine can reach GitHub...")
+                                @(Screen.IsCheckingConnection || Screen.Connection is null ? "Checking how this machine can reach GitHub..." : Screen.Connection.Summary)
                             </p>
                             <TextField Bare="true"
                                        LabelCssClass="setting__label"

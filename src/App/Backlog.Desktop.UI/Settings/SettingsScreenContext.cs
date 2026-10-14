@@ -36,10 +36,15 @@ public sealed class SettingsScreenContext
         _featuresChanged = featuresChanged;
     }
 
-    /// <summary>How this machine reaches GitHub, or null while it is being asked.
-    /// The AI page's usage test replaces it with the answer it got, through
+    /// <summary>How this machine reaches GitHub, or null until it has first been
+    /// asked. A re-check keeps the previous answer until the new one arrives, so the
+    /// AI page's figures and the menu badge do not dip while it runs. The AI page's
+    /// usage test replaces it with the answer it got, through
     /// <see cref="ReportConnection"/>.</summary>
     public GitHubConnection? Connection { get; private set; }
+
+    /// <summary>True while <see cref="CheckConnectionAsync"/> is waiting on an answer.</summary>
+    public bool IsCheckingConnection { get; private set; }
 
     /// <summary>An answer about the connection that a page got for itself.</summary>
     public void ReportConnection(GitHubConnection connection)
@@ -66,9 +71,12 @@ public sealed class SettingsScreenContext
         FeaturesChanged?.Invoke();
     }
 
+    /// <summary>Asks again how this machine reaches GitHub. The previous answer
+    /// stands until the new one arrives; <see cref="IsCheckingConnection"/> says a
+    /// check is under way.</summary>
     public async Task CheckConnectionAsync()
     {
-        Connection = null;
+        IsCheckingConnection = true;
         _redraw();
 
         try
@@ -78,6 +86,10 @@ public sealed class SettingsScreenContext
         catch (Exception)
         {
             Connection = new GitHubConnection(false, "Couldn't work out how to reach GitHub from this machine.");
+        }
+        finally
+        {
+            IsCheckingConnection = false;
         }
 
         _redraw();
