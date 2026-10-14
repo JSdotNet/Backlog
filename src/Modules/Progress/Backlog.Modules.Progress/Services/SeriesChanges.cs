@@ -10,7 +10,7 @@ namespace Backlog.Modules.Progress.Services;
 /// <see cref="ProgressGate"/>, load the series, apply the change, and save only when it
 /// succeeded — a refused change leaves the stored series as it was.
 /// </summary>
-public sealed class SeriesChanges(ISprintSeriesRepository repository, ProgressGate gate)
+public sealed class SeriesChanges(ISprintSeriesRepository repository, ProgressGate gate, SeriesSaved saved)
 {
     public async Task<Result<SprintSeriesDto>> ChangeAsync(
         Guid seriesId,
@@ -28,6 +28,8 @@ public sealed class SeriesChanges(ISprintSeriesRepository repository, ProgressGa
         if (changed.IsFailure) return changed.Error;
 
         await repository.SaveAsync(series, cancellationToken).ConfigureAwait(false);
+        held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.
+        saved.Raise();
         return series.ToDto();
     }
 
@@ -49,6 +51,8 @@ public sealed class SeriesChanges(ISprintSeriesRepository repository, ProgressGa
         if (changed.IsFailure) return changed.Error;
 
         await repository.SaveAsync(series, cancellationToken).ConfigureAwait(false);
+        held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.
+        saved.Raise();
         return series.ToDto();
     }
 }

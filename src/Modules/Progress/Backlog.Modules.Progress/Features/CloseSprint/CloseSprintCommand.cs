@@ -20,6 +20,7 @@ public sealed record CloseSprintCommand(Guid SeriesId, IReadOnlyDictionary<Guid,
 public sealed class CloseSprintCommandHandler(
     ISprintSeriesRepository repository,
     ProgressGate gate,
+    SeriesSaved saved,
     ISprintTaskSource tasks,
     ISprintPullRequestReader pullRequests,
     TimeProvider time)
@@ -51,6 +52,8 @@ public sealed class CloseSprintCommandHandler(
         if (closed.IsFailure) return closed.Error;
 
         await repository.SaveAsync(series, cancellationToken).ConfigureAwait(false);
+        held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.
+        saved.Raise();
         return series.ToDto();
     }
 }

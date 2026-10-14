@@ -201,6 +201,33 @@ No outcome changes the task. The next sprint is numbered one higher and starts o
 the first start weekday after the closed sprint's last day. It starts with no
 linked plan: an unfinished task a plan brought in moves on only when it is carried.
 
+## Syncing sprints between devices
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
+related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md, .devbook/domain/progress/domain.md#sprint-series, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/domain/progress/requirements.md#syncing-sprints-between-devices]
+```
+
+Keep every sprint series the same on every desktop the person has paired. A series
+travels whole beside the tasks the devices already sync
+([Multi-device sync](../tasks/features.md#multi-device-sync)): its cadence, naming,
+goal rules and brief choices, every sprint with its dates and goal, which tasks and
+plans belong to each, the goal marks, the notes and open questions, and how each
+closed sprint ended. It travels only while sync is on and the device is paired.
+
+Each series is replaced whole, never merged, as the roadmap's
+[plan](../roadmap/features.md#syncing-the-plan-between-devices) is. When two devices
+have both changed one series since they last synced, the **newer change wins on
+every device** and the older one is lost. Two different series are two documents,
+so a change to one never displaces a change to the other. A device that has **never
+set up a series has nothing to send**.
+
+Series travel whether the [Progress area](context.md#progress-area) is on or off,
+because the series recorded while it is off are kept. The phone keeps no sprints and
+lists none.
+
 ## Sprints in the briefs
 
 ```meta

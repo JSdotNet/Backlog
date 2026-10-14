@@ -58,9 +58,12 @@ public static class SqliteRegistration
         services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
 
         // Progress's sprint series: one row per series in the same file, following
-        // the same root (local ADR 0028).
-        services.AddSingleton<ISprintSeriesRepository>(sp =>
+        // the same root (local ADR 0028). The row is also the document that travels to
+        // the person's other devices, so one instance answers both ports.
+        services.AddSingleton(sp =>
             new RootedSqliteSprintSeriesRepository(() => rootDirectory(sp)));
+        services.AddSingleton<ISprintSeriesRepository>(sp => sp.GetRequiredService<RootedSqliteSprintSeriesRepository>());
+        services.AddSingleton<ISprintSeriesReplicaStore>(sp => sp.GetRequiredService<RootedSqliteSprintSeriesRepository>());
 
         services.AddSingleton<RootedSqliteInboxRepository>(sp =>
             new RootedSqliteInboxRepository(() => rootDirectory(sp)));
