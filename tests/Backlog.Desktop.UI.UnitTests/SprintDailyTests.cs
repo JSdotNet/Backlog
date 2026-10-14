@@ -214,6 +214,33 @@ public sealed class SprintDailyTests
             SprintDailyCopy.PlainText(daily));
     }
 
+    [Fact]
+    public void The_stand_up_copy_carries_the_strip_then_the_sprint_table_as_html_and_as_text()
+    {
+        var daily = new SprintDailyModel(
+            "Daily · Tue 13 Oct",
+            "Fix <specs> & more.",
+            "Fincent",
+            [new SprintDailyLine(SprintDailyLineKind.Done, "Done: Categorieën", [new SprintBoardPullRequest("o/r", "4685", SprintPullRequestState.Merged)])],
+            [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing is in progress.")],
+            [],
+            "Goal: 1 task open, so the goal is at risk.",
+            true);
+        var table = new SprintTable("<table>rows</table>", "Plan\tItem");
+
+        var copy = SprintDailyCopy.StandUp(daily, table);
+
+        Assert.Equal(
+            "Daily · Tue 13 Oct\r\nFix <specs> & more.\r\nFincent\r\n\r\nSince yesterday\r\n- Done: Categorieën (#4685)\r\n\r\n"
+            + "On today\r\n- Nothing is in progress.\r\n\r\nPace\r\nGoal: 1 task open, so the goal is at risk.\r\n\r\nPlan\tItem\r\n",
+            copy.Text);
+        Assert.Contains("Fix &lt;specs&gt; &amp; more.", copy.Html, StringComparison.Ordinal);
+        Assert.Contains("<a href=\"https://github.com/o/r/pull/4685\"", copy.Html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Blocked and open questions", copy.Html, StringComparison.Ordinal);
+        Assert.EndsWith("<br><table>rows</table></div>", copy.Html, StringComparison.Ordinal);
+        Assert.Equal(SprintDailyCopy.StandUp(daily, null).Text + "\r\nPlan\tItem\r\n", copy.Text);
+    }
+
     // ---- Fixtures ----------------------------------------------------------------------------
 
     private static SprintSeriesDto Series(bool daily) =>

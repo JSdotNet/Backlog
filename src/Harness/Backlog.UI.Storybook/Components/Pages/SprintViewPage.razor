@@ -25,7 +25,7 @@ Needs you lists what is blocked, waiting on review or carrying an open question;
     <Story Name="Since yesterday"
            Description="The stand-up strip at the top of the sprint view, drawn only for the open sprint of a series with Show it in the daily on. Every sentence is a fixed template the host fills from its sprint reading: what was done, opened for review, started and added since the previous working day; what is in progress and waiting on review; what is blocked or carries an open question; and the pace, with the goal at risk in the error tone.
 
-The header folds the strip to its label and headline. Copy for the stand-up puts the strip on the clipboard as plain text."
+The header folds the strip to its label and headline. Copy for the stand-up puts the strip on the clipboard as HTML and as plain text; in the sprint view the sprint's table follows it."
            Code="@DailyCode">
         <div class="sb-menu-wide">
             <SprintDailyStrip Model="@Daily" TestId="sprint-view-daily" />
@@ -198,13 +198,14 @@ The header folds the strip to its label and headline. Copy for the stand-up puts
         SinceYesterday = [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing moved since Friday.")],
         OnToday = [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing is in progress.")],
         Blocked = [],
+        Summary = "Fincent team · goal 15 of 17 · all work 18 of 29 · 4 working days left",
         Pace = "Goal: 2 tasks open, on track. All work: on the even pace; about 29 of 29 land by Friday.",
         GoalAtRisk = false
     };
 
     private const string DailyCode = """
         <SprintBoard Model="@sprint" ...>
-            <Daily><SprintDailyStrip Model="@daily" /></Daily>
+            <Daily><SprintDailyStrip Model="@daily" Table="@SprintTableClipboard.Build(sprint)" /></Daily>
         </SprintBoard>
         """;
 

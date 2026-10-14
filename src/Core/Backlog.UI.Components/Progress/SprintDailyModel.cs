@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 
 namespace Backlog.UI.Components.Progress;
@@ -53,14 +54,50 @@ public sealed record SprintDailyLine(SprintDailyLineKind Kind, string Text, IRea
 }
 
 /// <summary>
-/// The strip as the text the <b>Copy for the stand-up</b> button puts on the clipboard.
-/// <para>
-/// The one place the strip leaves as text: the copy-as-table step's clipboard helper
-/// replaces <see cref="PlainText"/> here when it lands, and nothing else changes.
-/// </para>
+/// What the <b>Copy for the stand-up</b> button puts on the clipboard: the strip, then the
+/// sprint's table from <see cref="SprintTableClipboard"/>
+/// (<c>.devbook/domain/progress/features.md#copying-a-sprint-as-a-table</c>), as HTML with
+/// every style inline and as plain text beside it, the way Copy as table carries the table
+/// alone.
 /// </summary>
 public static class SprintDailyCopy
 {
+    private const string NewLine = "\r\n";
+    private const string Wrapper = "font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#1F2328";
+    private const string LabelStyle = "margin:0;color:#57606A;font-size:9pt;font-weight:600;text-transform:uppercase;letter-spacing:0.06em";
+    private const string HeadlineStyle = "margin:4px 0;font-size:13pt;font-weight:600";
+    private const string SummaryStyle = "margin:0 0 8px;color:#57606A";
+    private const string HeadingStyle = "margin:10px 0 2px;font-weight:600";
+    private const string ListStyle = "margin:0;padding-left:20px";
+    private const string RiskStyle = "margin:0;color:#CF222E";
+    private const string PaceStyle = "margin:0";
+    private const string LinkStyle = "color:#0969DA;text-decoration:underline";
+
+    /// <summary>The stand-up copy: the strip, a blank line, then <paramref name="table"/>
+    /// when there is one. Plain text lines end in <c>\r\n</c>, as the table's do.</summary>
+    public static SprintTable StandUp(SprintDailyModel model, SprintTable? table)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var text = PlainText(model).Replace("\n", NewLine, StringComparison.Ordinal);
+        if (table is not null) text += NewLine + table.Text + NewLine;
+
+        var html = new StringBuilder();
+        html.Append($"<div style=\"{Wrapper}\">");
+        html.Append($"<p style=\"{LabelStyle}\">{Encode(model.Label)}</p>");
+        html.Append($"<p style=\"{HeadlineStyle}\">{Encode(model.Headline)}</p>");
+        html.Append($"<p style=\"{SummaryStyle}\">{Encode(model.Summary)}</p>");
+        HtmlSection(html, "Since yesterday", model.SinceYesterday);
+        HtmlSection(html, "On today", model.OnToday);
+        HtmlSection(html, "Blocked and open questions", model.Blocked);
+        html.Append($"<p style=\"{HeadingStyle}\">Pace</p>");
+        html.Append($"<p style=\"{(model.GoalAtRisk ? RiskStyle : PaceStyle)}\">{Encode(model.Pace)}</p>");
+        if (table is not null) html.Append("<br>").Append(table.Html);
+        html.Append("</div>");
+
+        return new SprintTable(html.ToString(), text);
+    }
+
     /// <summary>The label, headline and summary, then each section under its heading
     /// with a "- " per line and the pull requests by number. Lines end in <c>\n</c>.</summary>
     public static string PlainText(SprintDailyModel model)
@@ -97,4 +134,28 @@ public static class SprintDailyCopy
         text.Append('\n').Append(heading).Append('\n');
         foreach (var line in lines) text.Append("- ").Append(LineText(line)).Append('\n');
     }
+
+    private static void HtmlSection(StringBuilder html, string heading, IReadOnlyList<SprintDailyLine> lines)
+    {
+        if (lines.Count == 0) return;
+
+        html.Append($"<p style=\"{HeadingStyle}\">{heading}</p><ul style=\"{ListStyle}\">");
+        foreach (var line in lines)
+        {
+            html.Append("<li>").Append(Encode(line.Text));
+            foreach (var pull in line.PullRequests)
+            {
+                var number = Encode($"#{pull.Number.Trim()}");
+                html.Append(' ').Append(SprintTableClipboard.PullRequestUrl(pull) is { } url
+                    ? $"<a href=\"{Encode(url)}\" style=\"{LinkStyle}\">{number}</a>"
+                    : number);
+            }
+
+            html.Append("</li>");
+        }
+
+        html.Append("</ul>");
+    }
+
+    private static string Encode(string value) => WebUtility.HtmlEncode(value);
 }

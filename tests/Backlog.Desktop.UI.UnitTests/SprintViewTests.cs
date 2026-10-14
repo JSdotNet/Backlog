@@ -327,9 +327,9 @@ public sealed class SprintViewTests : IDisposable
     }
 
     [Fact]
-    public async Task Copy_for_the_stand_up_puts_the_strip_on_the_clipboard_as_plain_text()
+    public async Task Copy_for_the_stand_up_puts_the_strip_and_the_sprint_table_on_the_clipboard()
     {
-        var copy = _context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true);
+        var copy = _context.JSInterop.Setup<bool>("backlogClipboard.copyRich", _ => true);
         copy.SetResult(true);
         Compose(on: true, Series("Fincent", ["fincent"]) with { ShowInDailyBrief = true });
         var rendered = RenderTab(["fincent"]);
@@ -339,10 +339,16 @@ public sealed class SprintViewTests : IDisposable
 
         await rendered.Find("[data-testid=sprint-daily-copy-button]").ClickAsync(new());
 
-        var text = Assert.IsType<string>(Assert.Single(copy.Invocations).Arguments[0]);
-        Assert.StartsWith("Daily · Wed 7 Oct · Sprint 42, day 3 of 10\nNothing landed since yesterday; Openspec is blocked.\n", text, StringComparison.Ordinal);
-        Assert.Contains("\nOn today\n- Klantrekening\n", text, StringComparison.Ordinal);
-        Assert.Contains("\nBlocked and open questions\n- Openspec · blocked\n", text, StringComparison.Ordinal);
+        var invocation = Assert.Single(copy.Invocations);
+        var html = Assert.IsType<string>(invocation.Arguments[0]);
+        var text = Assert.IsType<string>(invocation.Arguments[1]);
+        Assert.StartsWith("Daily · Wed 7 Oct · Sprint 42, day 3 of 10\r\nNothing landed since yesterday; Openspec is blocked.\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("\r\nOn today\r\n- Klantrekening\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("\r\nBlocked and open questions\r\n- Openspec · blocked\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("\r\nPlan\tItem\tStatus\tPull requests\tOwner\tNote\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("Nothing landed since yesterday; Openspec is blocked.", html, StringComparison.Ordinal);
+        Assert.Contains("<table", html, StringComparison.Ordinal);
+        Assert.True(html.IndexOf("Pace", StringComparison.Ordinal) < html.IndexOf("<table", StringComparison.Ordinal));
         Assert.Equal("Copy for the stand-up", rendered.Find("[data-testid=sprint-daily-copy-button]").TextContent.Trim());
         rendered.WaitForAssertion(() => Assert.Equal("Copied", rendered.Find("[data-testid=sprint-daily-copy-status]").TextContent));
     }

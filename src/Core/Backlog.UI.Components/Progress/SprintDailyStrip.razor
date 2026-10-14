@@ -8,8 +8,8 @@
     and the pace, then Copy for the stand-up. Every sentence is the host's, written from
     fixed templates (SprintDailyModel): the strip lays them out and never words anything.
 
-    The copy goes through SprintDailyCopy alone, so the copy-as-table step's clipboard
-    helper replaces one call when it lands.
+    Copy for the stand-up carries the strip and then the sprint's table (Table, from
+    SprintTableClipboard) as HTML and as plain text, through CopyButton's Html.
 *@
 
 <section class="@ClassValue" aria-label="Since yesterday" data-testid="@TestId" data-open="@(_open ? "true" : "false")">
@@ -42,7 +42,8 @@
         </div>
 
         <div class="sprint-daily__actions">
-            <CopyButton Text="@SprintDailyCopy.PlainText(Model)"
+            <CopyButton Text="@StandUp.Text"
+                        Html="@StandUp.Html"
                         Label="Copy for the stand-up"
                         ButtonCssClass="btn--secondary sprint-daily__copy"
                         StatusCssClass="sprint-daily__copy-status"
@@ -56,6 +57,16 @@
 @code {
     private bool _open = true;
     private readonly string _bodyId = "sprint-daily-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The sprint's table, copied for the stand-up after the strip; null copies
+    /// the strip alone.</summary>
+    [Parameter]
+    public SprintTable? Table { get; set; }
+
+    /// <summary>Built once per parameter set, not on every render.</summary>
+    private SprintTable StandUp { get; set; } = new(string.Empty, string.Empty);
+
+    protected override void OnParametersSet() => StandUp = SprintDailyCopy.StandUp(Model, Table);
 
     /// <summary>The strip, every sentence written.</summary>
     [Parameter, EditorRequired]
