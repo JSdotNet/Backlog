@@ -628,8 +628,8 @@ about matches no chapter.
 
 ```meta
 type: sub-feature
-status: draft
 related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Update_stage_passes_the_verify_evidence_through_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliverySurfaceLifecycleTests.A_verify_stage_keeps_its_scenario_evidence_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_scenario_evidence_is_read_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_verify_stage_shows_its_scenario_evidence_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_run_with_no_evidence_draws_no_evidence_list]
 ```
 
 A run's verify stage can say which parts of which scenario pages it ran. It reports
@@ -891,9 +891,9 @@ The panel says:
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
 related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunBaselinesTests, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.WeeklyUsageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.ClaudeCodeOtlpLogsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.ModelPriceSettingsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests]
 ```
 
 A run and each of its stages show what they cost in money, and whether that was usual. A
@@ -910,6 +910,7 @@ reported is left out, never shown as zero.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/domain.md#cost-attribution, .devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ClaudeCodeOtlpLogsTests, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests]
 ```
 
 ```mermaid
@@ -929,7 +930,7 @@ Claude Code's own figure is preferred because Claude Code knows the price it app
 each request. A price the product worked out afterwards would only be a second guess at
 the same number.
 
-The receiving end is built. The desktop app takes Claude Code's OpenTelemetry logs at
+The desktop app takes Claude Code's OpenTelemetry logs at
 `/v1/logs` on the port its MCP server listens on. It keeps each
 `claude_code.api_request` event once, in its local database, as the
 [Claude API Request Log](domain.md#claude-api-request-log). Settings has a **Claude
@@ -963,6 +964,7 @@ arrived, are in `.claude/skills/run-backlog/SKILL.md`, under Claude Code telemet
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/domain.md#model-price-table, .devbook/domain/sessions/domain.md#cost-attribution]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ModelPriceSettingsTests, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests]
 ```
 
 A price table in Settings gives a price per model. It covers the runs that sent no
@@ -993,6 +995,7 @@ from one this product worked out.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#delivery-economics, .devbook/domain/sessions/domain.md#cost-baseline]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunBaselinesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.A_finished_run_reads_its_cost_against_the_usual_run_of_its_flow, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.A_finished_runs_insight_line_opens_delivery_economics_on_its_flow]
 ```
 
 Each stage row in a run's fold shows its cost, its share of the run's cost, and its ratio
@@ -1028,14 +1031,20 @@ run's flow.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#weekly-usage, .devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/requirements.md#share-of-the-week-and-the-weekly-limit]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.WeeklyUsageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.The_panel_and_the_run_show_their_share_of_the_week, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.After_a_weekly_refusal_the_share_carries_an_estimate_of_the_limit]
 ```
 
 Each run and each session shows its share of the week's usage. The share is the cost
 Claude Code reported for it inside the week, over the cost reported for every session
 that week. The session's share is a fact on the session detail, and each run's is a line
-under the run. The week ends at the reset time the latest weekly-limit refusal carried,
-rolled forward a week at a time once that reset has passed. With no such refusal
-recorded, the week is the last seven days.
+under the run. The week ends at the reset time the latest all-models weekly-limit
+refusal carried, rolled forward a week at a time once that reset has passed. With no
+all-models refusal recorded, the latest Fable refusal's reset time places the week
+instead. With neither recorded, the week is the last seven days.
+
+Only refusals from the last 28 days count, for the week and for the limits below. An
+older refusal is forgotten: it neither places the week nor sizes a limit, so after four
+weeks without one the week is the last seven days again and no percentage is shown.
 
 Once a weekly-limit hit has been recorded, each run also shows an estimated percentage
 of the weekly limit. The weekly limit for Fable is kept separate, because Claude counts
@@ -1053,6 +1062,7 @@ be a guess dressed as a measurement, so none is shown until one is recorded.
 type: feature
 depends-on: [.devbook/domain/sessions/features.md#the-cost-of-a-run-and-its-stages]
 related: [.devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran, .devbook/domain/sessions/domain.md#delivery-run, .devbook/design/effort-and-mode-chips.md#effort-chips, .devbook/design/effort-and-mode-chips.md#mode-chips]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryEconomicsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryEconomicsPageTests]
 ```
 
 A page under Sessions compares how the flows' configurations perform, so a person can
@@ -1183,6 +1193,11 @@ measure has nothing to fall short on. A measure nobody reported on one side is u
 never assumed level, so it gives no call rather than Try cheaper. The verdict's reason
 is the badge's tooltip.
 
+No call yet is a verdict of its own by decision, not a blank left where a verdict
+failed. Worth it and Try cheaper each tell the person to act, so either needs the
+evidence to stand on. Every phase that lacks it says so in the same column, with the
+reason, rather than leaving the reader to guess whether the page looked at all.
+
 ### Lesson cards
 
 ```meta
@@ -1204,6 +1219,11 @@ Opus (medians), and whole runs cost $2.00 less". Where the cheaper phase makes w
 dearer, the card says the cheaper phase raises the run's cost. The card sets the phase's
 quality measure for the two configurations side by side, and states the number of runs
 each side is drawn from.
+
+Five priced runs a side is a decision, and the same five the
+[Cost Baseline](domain.md#cost-baseline) asks before it calls a cost usual. Fewer than
+that, and one runaway run decides the median. Below it the page draws no card, and the
+phase is never Worth it or Try cheaper, whatever the two medians say.
 
 A confidence line reads the smaller of the two sample sizes:
 
