@@ -7197,6 +7197,47 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The sessions pane's content as a column, so the layout can take the height the
+   notices above it leave. Not on the economics page, which shares the content
+   class and has nothing beside its table. */
+.sessions-panel__content--columns {
+    display: flex;
+    flex-direction: column;
+}
+
+.sessions-panel__content--columns > * {
+    flex: none;
+}
+
+/* While the list and the panel sit side by side (28rem + 32rem + the gap), each
+   scrolls on its own: the list's bar sits beside the list, and a long run in the
+   panel does not carry the list away. Once the panel drops under the list, the
+   content scrolls as one again. */
+@container sessions-content (min-width: 61.5rem) {
+    .sessions-panel__content--columns > .sessions-layout {
+        flex: 1 1 0;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        min-height: 0;
+    }
+
+    .sessions-layout > .sessions-list,
+    .sessions-layout > .sessions-detail {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    /* Room for a row's focus outline, which sits outside the row and would
+       otherwise be cut by the list's own scroll box; the margin keeps the rows
+       in line with the header. Only inline: a block margin would push the
+       column past the content and give it a scrollbar again. */
+    .sessions-layout > .sessions-list {
+        padding: 4px;
+        margin-inline: -4px;
+    }
+}
+
 .sessions-group {
     display: flex;
     flex-direction: column;
