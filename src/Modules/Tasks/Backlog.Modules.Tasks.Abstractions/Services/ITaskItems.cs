@@ -26,6 +26,27 @@ public interface ITaskItems
     /// <summary>Everything in the backlog, in rank order.</summary>
     Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>One entry, or null when no live entry has that id — the read for a
+    /// caller that already knows which entry it means, so it does not map the
+    /// whole backlog to find one.
+    /// <para>
+    /// Implemented by default over <see cref="ListAsync"/>, so a host or a test
+    /// double that keeps the list alone still composes; the module's own port
+    /// overrides it with a single-row read.
+    /// </para></summary>
+    async Task<TaskItemDto?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+        (await ListAsync(cancellationToken).ConfigureAwait(false)).FirstOrDefault(entry => entry.Id == id);
+
+    /// <summary>How many live entries there are — what appending at the end of
+    /// the backlog needs, and nothing more.
+    /// <para>
+    /// Implemented by default over <see cref="ListAsync"/>, as
+    /// <see cref="GetAsync"/> is; the module's own port overrides it with a count
+    /// the store answers without reading a row.
+    /// </para></summary>
+    async Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        (await ListAsync(cancellationToken).ConfigureAwait(false)).Count;
+
     /// <summary>Writes one block of entry markdown down — creating the entry when
     /// <paramref name="id"/> is null. Fails with a validation error while the
     /// text still has no title, which is an ordinary state for something

@@ -11,11 +11,11 @@ related: [".devbook/arc42/01-introduction-and-goals.md#requirements-overview"]
 
 ```mermaid
 C4Context
-    title System Context — Prompt Backlog
+    title System Context — Backlog
 
     Person(user, "ME", "Personal owner of the system across projects and devices")
 
-    System(promptBacklog, "Prompt Backlog", "Local-first personal productivity system: capture, triage, backlog, knowledge, and monitoring")
+    System(promptBacklog, "Backlog", "Local-first personal productivity system: capture, triage, backlog, knowledge, and monitoring")
 
     System_Ext(github, "GitHub", "Issue tracking, repository management, and webhook events")
     System_Ext(youtube, "YouTube", "Subscription feed for content capture")
@@ -40,10 +40,9 @@ related: [".devbook/domain/context-map.md", ".devbook/domain/capture/domain.md#c
 ```
 
 The most important internal boundary distinguishes *how items enter* from *what
-happens after arrival*. Bounded-context ownership, the `ItemCaptured` published
-language contract, and the DDD relationship semantics for this boundary are the
-authority of `.devbook/domain/context-map.md`; this chapter only records the
-architectural consequence:
+happens after arrival*. `.devbook/domain/context-map.md` owns the bounded contexts,
+the `ItemCaptured` published language contract, and the relationship between them.
+This chapter records only the architectural consequence:
 
 | Concern | Owner |
 |---|---|
@@ -52,10 +51,9 @@ architectural consequence:
 
 Capture delivers normalized `InboxItem`s to the Inbox incoming queue via the
 `ItemCaptured` contract (see `.devbook/domain/capture/domain.md#itemcaptured`).
-The current recommendation keeps capture tightly coupled to Inbox as one
-deployable pipeline (raw input → triage → route), with an optional future split
-if capture tooling becomes independently owned (tracked in
-`.devbook/arc42/11-risks-and-technical-debt.md`).
+Capture stays tightly coupled to Inbox as one deployable pipeline (raw input →
+triage → route). It may split later if capture tooling becomes independently
+owned; `.devbook/arc42/11-risks-and-technical-debt.md` tracks that as R4.
 
 ## External Interfaces
 
@@ -81,7 +79,7 @@ desktop workers**, so their credentials never leave the user's machine.
 related: [".devbook/arc42/05-building-block-view.md#container-view"]
 ```
 
-Three cross-domain access channels plus one optional platform component are in scope:
+These are in scope:
 
 | Channel / component | Role |
 |---|---|
@@ -89,7 +87,7 @@ Three cross-domain access channels plus one optional platform component are in s
 | **Mobile App** | Mobile-first, offline-first capture; syncs via cloud. |
 | **IDE Extensions** | VS Code, Visual Studio & GitHub Copilot App integration for backlog/knowledge browsing and capture. |
 | **Cloud Service** (optional) | Thin sync/coordination layer: device sync, webhook forwarding, push, machine registry. |
-| **MCP endpoint** (inside the Desktop App) | An AI session's tool surface over the running desktop app — plan items, status moves, reading notes — on loopback; see local ADR 0012 in `.devbook/arc42/adr/`. |
+| **MCP endpoint** (inside the Desktop App) | An AI session's tool surface over the running desktop app, on loopback: plan items, status moves, and [remarks](../domain/devbook/domain.md#remark) on devbook chapters. See local ADR 0012 in `.devbook/arc42/adr/`. |
 
 
 

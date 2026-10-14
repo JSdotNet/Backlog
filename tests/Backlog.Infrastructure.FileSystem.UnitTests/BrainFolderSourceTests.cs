@@ -30,6 +30,37 @@ public class BrainFolderSourceTests : IDisposable
         Assert.Null(Source().BrainRoot);
     }
 
+    /// <summary>The pane's cheap look for a folder that went away: present only
+    /// while a folder is set and is on disk.</summary>
+    [Fact]
+    public void The_brain_folder_is_present_only_while_set_and_on_disk()
+    {
+        Assert.False(Source().BrainFolderPresent());
+
+        _setting = Brain;
+        Assert.False(Source().BrainFolderPresent());
+
+        Directory.CreateDirectory(Brain);
+        Assert.True(Source().BrainFolderPresent());
+
+        Directory.Delete(Brain);
+        Assert.False(Source().BrainFolderPresent());
+    }
+
+    /// <summary>The Brain's folder setting has one definition, in
+    /// <see cref="BrainConventions"/>, so the assistant tools — which cannot reference
+    /// this project — and this source cannot describe it two ways.</summary>
+    [Fact]
+    public void The_brain_folder_is_the_one_its_conventions_define()
+    {
+        _setting = null;
+
+        Assert.Same(BrainConventions.Folder, BrainFolderSource.Folder);
+        Assert.Same(BrainConventions.Folder, Assert.Single(Source().Folders(null)));
+        Assert.Equal(BrainConventions.ScopeLabel, BrainFolderSource.ScopeLabel);
+        Assert.Equal(BrainConventions.Folder, Source().Resolve(BrainConventions.FolderKey).Folder);
+    }
+
     [Fact]
     public void A_set_folder_resolves_local_and_always_editable()
     {

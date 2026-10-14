@@ -1167,6 +1167,54 @@ public sealed class SessionSyncSessionTests
         Assert.Empty(fixture.State.Saved);
     }
 
+    /// <summary>The footer redraws on every <c>Changed</c>, so a push batch is
+    /// recorded as one change to the log, however many sessions it carried.</summary>
+    [Fact]
+    public async Task A_pushed_batch_is_recorded_with_one_change_to_the_log()
+    {
+        var activity = new SyncActivityLog();
+        var raised = 0;
+        activity.Changed += () => raised++;
+
+        using var fixture = Fixture.Create(
+            sessions:
+            [
+                AgentSessions.Local(id: "one", title: "First"),
+                AgentSessions.Local(id: "two", title: "Second"),
+                AgentSessions.Local(id: "three", title: "Third"),
+            ],
+            activity: activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([3], fixture.BatchSizes);
+        Assert.Equal(1, raised);
+        Assert.Equal(3, activity.Count);
+    }
+
+    /// <summary>And a pull as one, however many pages it read: the received entries
+    /// wait for the pull's one write, so a first pull of a year of records is one redraw.</summary>
+    [Fact]
+    public async Task A_pull_is_recorded_with_one_change_to_the_log()
+    {
+        var activity = new SyncActivityLog();
+        var raised = 0;
+        activity.Changed += () => raised++;
+
+        using var fixture = Fixture.Create(
+            respond: (request, index) => request.Method != HttpMethod.Get
+                ? StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}""")
+                : index == 0
+                    ? Page(Entry(OtherDevice, "a") + "," + Entry(OtherDevice, "b"), "cursor-1", hasMore: true)
+                    : Page(Entry(OtherDevice, "c") + "," + Entry(OtherDevice, "d") + "," + Entry(OtherDevice, "e"), "cursor-2", hasMore: false),
+            activity: activity);
+
+        await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, raised);
+        Assert.Equal(["e", "d", "c", "b", "a"], activity.Snapshot().Select(entry => entry.Id).ToArray());
+    }
+
     // --- Fixture ---------------------------------------------------------------
 
     /// <summary>The JSON the service would send for one entry, serialized from the

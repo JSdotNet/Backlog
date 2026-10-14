@@ -79,7 +79,28 @@ public sealed class DevbookPaneBrainModeTests
             Assert.Contains("Second note.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal);
             Assert.Equal("work/beta.md", component.Find("[data-testid='brain-note-file'] .file-view__path").TextContent.Trim());
         });
-        Assert.NotEmpty(component.FindComponents<DevbookMarkdownView>());
+        Assert.NotEmpty(component.FindComponents<MarkdownView>());
+    }
+
+    /// <summary>"Journal sorts newest first" (the Devbook vs Brain board): the
+    /// journal tab lists today's entry on top and opens on it, while every other
+    /// area keeps its order by name.</summary>
+    [Fact]
+    public async Task The_journal_tab_lists_and_opens_the_newest_entry_first()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote(BrainConventions.FileName, "## Areas\n\n- Journal — `journal`\n");
+        harness.WriteNote("journal/2026-10-01.md", "# October first\n\nOlder entry.\n");
+        harness.WriteNote("journal/2026-10-13.md", "# October thirteenth\n\nNewest entry.\n");
+        harness.WriteNote("journal/2026-09-30.md", "# September thirtieth\n\nOldest entry.\n");
+
+        var component = harness.RenderBrain();
+
+        component.WaitForAssertion(() =>
+            Assert.Contains("Newest entry.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal));
+        Assert.Equal(
+            ["2026 10 13", "2026 10 01", "2026 09 30"],
+            component.FindAll(".devbook-menu__item--file").Select(item => item.TextContent.Trim()));
     }
 
     /// <summary>None of what a repository devbook carries — a version to check, a

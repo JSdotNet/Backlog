@@ -1,7 +1,7 @@
 # ADR 0015: Resilience for outbound dependencies
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md", ".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/06-runtime-view.md", ".devbook/arc42/09-architecture-decisions.md", ".devbook/tech/shared.md#microsoftextensionshttpresilience"]
 ```
 
 Inherited from the organization's ADR 0015 (decided 2026-06-04,
@@ -38,8 +38,17 @@ primary-path result.
   gets Polly's standard pipeline — timeout, retry with jittered backoff, and
   circuit breaker — without per-adapter wiring.
 - The adapters registered through `AddHttpClient` therefore inherit it:
-  `ClaudeAdminTransport`, the sync clients, and the mobile `CloudSyncClient`.
-  `AzureFoundryChatClient` used to, and now carries its own — see below.
+  `ClaudeAdminTransport`, the mobile `CloudSyncClient`, and the sync service's
+  `sync-token` client, `DevicePairingClient`, and `InboxAttachmentSyncSource`.
+  `AzureFoundryChatClient` and the three replication clients used to inherit
+  it, and now carry their own pipeline. See below.
+- The replication clients are `TaskSyncClient`, `SessionSyncClient`, and
+  `AnnotationSyncClient`. `SyncClientRegistration.WithReplicationPipeline`
+  removes the default pipeline from each and adds the replication pipeline.
+  That pipeline never retries an unsafe method, so a push goes out once and
+  only a pull retries. One attempt gets 100 seconds and one call 5 minutes in
+  total. Each client's `HttpClient.Timeout` is 5 minutes 30 seconds, so the
+  token fetch in front of the pipeline is bounded too.
 - `CopilotCliLauncher` is not an HTTP adapter — it launches a CLI process. The
   resilience pipeline does not reach it; process timeouts and cancellation are
   its equivalent obligation.
@@ -49,11 +58,14 @@ primary-path result.
 
 ## Deviations and gaps
 
-- **Two clients live outside DI and therefore outside the pipeline.**
-  `TokenTransport` in `Backlog.Infrastructure.GitHub` falls back to
-  `new HttpClient()` when none is injected, with no explicit timeout at all;
-  `DevToolService.Marketplace` is a static client that at least sets a 20-second
-  timeout. Resolving both from `IHttpClientFactory` closes the hole.
+- **One client lives outside DI and therefore outside the pipeline.**
+  `DevToolService.Marketplace` is a static client with a 20-second timeout;
+  resolving it from `IHttpClientFactory` closes the hole. The hosts compose
+  `TokenTransport` with the named `GitHub` client from `GitHubHttpRegistration`.
+  Its pipeline retries reads only and allows 100 s per attempt and 5 minutes in
+  total. Since 2026-10 that client also carries every GitHub call that names no
+  account, sent with the token the `gh` CLI holds. When GitHub answers that token
+  with a 401, the transport does not resend the call.
 - **The Cosmos client is outside the pipeline by construction, and says so.**
   `CosmosClient` owns its own transport and never resolves through
   `IHttpClientFactory`, so `AddStandardResilienceHandler()` cannot reach it —
@@ -61,11 +73,15 @@ primary-path result.
   not cover. Its resilience is the SDK's own options, stated in the one place the
   client is built (`Backlog.Infrastructure.Cosmos`,
   `Extensions/CosmosReplicaRegistration.cs`): a 10-second `RequestTimeout`,
-  retries on rate-limited requests capped at three attempts and ten seconds
-  total, and Gateway connection mode. The mandatory-timeout rule is met; what is
+  nine retries on rate-limited requests within ten seconds in total, and
+  Gateway connection mode. Nine is the SDK's own default. A push writes eight
+  documents of one owner at once, all on one logical partition, so a large
+  push can meet the partition's burst limit. A rate limit that outlives these
+  retries fails the whole push and costs the device a sync cycle. The
+  mandatory-timeout rule is met; what is
   not is the circuit breaker, which the SDK has no equivalent for, and the retry
   is the SDK's 429-only policy rather than the standard pipeline's transient set.
-- **Two HTTP adapters now set a purposeful per-dependency pipeline; the rest
+- **Six HTTP clients now set a purposeful per-dependency pipeline; the rest
   still inherit the standard handler's defaults.** The named `capture-feeds`
   client in `Backlog.Infrastructure.Capture` (`FeedFetcher`) configures its own
   — 1 retry, a 10 s attempt timeout, 15 s total — rather than the standard
@@ -84,5 +100,18 @@ primary-path result.
   `TimeoutRejectedException` in the Home page's Ask handler and took the page
   down; the client now translates every transport failure into its own
   `AzureFoundryException` at the adapter boundary, which is the other half of
-  the same fix.
+  the same fix. The named `GitHub` client (`Backlog.Infrastructure.GitHub`,
+  `GitHubHttpRegistration`) removes the host's default pipeline and puts its own
+  on. It carries writes that are not safe to send twice: an issue `POST`, a ref
+  `POST`, and the backup's database `PUT`. Its pipeline therefore retries reads
+  only and sends every unsafe method once. The backup `PUT` and a branch snapshot
+  download run to megabytes, so each attempt gets 100 s and a call 5 minutes in
+  total.
+  The three replication clients in `Backlog.Infrastructure.Sync`
+  change the defaults because a push is not idempotent. The standard pipeline
+  re-sends a push whose attempt ran past 10 seconds or answered 503, and
+  neither says the batch did not land. A replica that already holds every
+  item refuses each one as not later. The session then reports as refused
+  what the service kept. The longer attempt fits a full batch against a cold
+  replica, where 10 seconds did not.
 - Circuit-breaker state changes are not surfaced as metrics.

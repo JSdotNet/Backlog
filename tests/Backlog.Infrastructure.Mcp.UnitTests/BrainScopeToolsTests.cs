@@ -350,7 +350,24 @@ public sealed class BrainScopeToolsTests : IDisposable
         var failure = await Assert.ThrowsAsync<McpException>(call);
 
         Assert.Contains("repository.required", failure.Message, StringComparison.Ordinal);
+
+        // And it names both things the argument can be on these tools.
+        Assert.Contains("owner/name", failure.Message, StringComparison.Ordinal);
+        Assert.Contains(BrainMcpScope.Value + " for the Brain", failure.Message, StringComparison.Ordinal);
         Assert.Empty(store.Resolved);
+    }
+
+    /// <summary>A tool that takes no Brain keeps the refusal that names only a
+    /// repository: offering <c>#brain</c> there would be offering what it refuses.</summary>
+    [Fact]
+    public void A_blank_repository_on_a_tool_without_the_brain_names_only_a_repository()
+    {
+        var refused = RepositoryScope.Resolve(new FakeRepositoryDirectory([Backlog]), " ");
+
+        Assert.True(refused.IsFailure);
+        Assert.Equal(RepositoryScope.RequiredCode, refused.Error.Code);
+        Assert.Equal(RepositoryScope.RequiredMessage, refused.Error.Message);
+        Assert.DoesNotContain(BrainMcpScope.Value, refused.Error.Message, StringComparison.Ordinal);
     }
 
     private DevbookTools Tools(

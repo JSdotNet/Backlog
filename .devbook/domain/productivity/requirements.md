@@ -285,7 +285,7 @@ type: requirement
 status: draft
 ```
 
-The system SHALL show for each day in the dashboard's period the person's actual hours split into the time inside that date's office hours and the time outside them, beside the date's planned hours.
+The system SHALL show for each day in the dashboard's window the person's actual hours split into the time inside that date's office hours and the time outside them, beside the date's planned hours.
 
 #### Scenario: A stretch that runs past the end of the day
 
@@ -330,7 +330,7 @@ type: requirement
 status: draft
 ```
 
-The system SHALL show for each week in the dashboard's period the sum of its days' time inside office hours, time outside them, and planned hours.
+The system SHALL show for each week in the dashboard's window the sum of its days' time inside office hours, time outside them, and planned hours.
 
 #### Scenario: A week with a late day and a blocked day
 

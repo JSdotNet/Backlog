@@ -2,35 +2,30 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Repository Baseline Scan and Health Signal",
+    "title": "IDE Context-aware Capture",
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [1400, 700]
+    "viewBox": [960, 540]
   },
   "participants": [
-    { "id": "scheduler", "type": "backend", "label": "Desktop Scheduler" },
-    { "id": "repomgmt", "type": "backend", "label": "Repository Management" },
-    { "id": "reporegistry", "type": "database", "label": "Repository Registry" },
-    { "id": "pkg", "type": "external", "label": "Package Registries" },
-    { "id": "techstack", "type": "backend", "label": "Technology Stack" },
-    { "id": "index", "type": "database", "label": "Local JSON Index" },
-    { "id": "monitoring", "type": "backend", "label": "Monitoring Service" }
+    { "id": "me", "type": "external", "label": "ME" },
+    { "id": "ext", "type": "frontend", "label": "VS Code extension" },
+    { "id": "sync", "type": "cloud", "label": "Sync Service" }
   ],
   "segments": [
-    { "from": 150, "to": 248, "label": "Start scan" },
-    { "from": 264, "to": 360, "label": "Loop: for each registered manifest" },
-    { "from": 376, "to": 604, "label": "Compare baselines and signal" }
+    { "from": 150, "to": 292, "label": "Confirm the title" },
+    { "from": 308, "to": 448, "label": "Post to the inbox" }
   ],
   "messages": [
-    { "id": "start-scan", "from": "scheduler", "to": "repomgmt", "y": 182, "label": "Start dependency scan", "variant": "emphasis" },
-    { "id": "load-repos", "from": "repomgmt", "to": "reporegistry", "y": 226, "label": "Load registered repos and manifests", "variant": "default" },
-    { "id": "query-packages", "from": "repomgmt", "to": "pkg", "y": 294, "label": "Query latest package metadata", "variant": "default" },
-    { "id": "package-versions", "from": "pkg", "to": "repomgmt", "y": 338, "label": "Current versions / advisories", "variant": "return" },
-    { "id": "compare-baselines", "from": "repomgmt", "to": "techstack", "y": 406, "label": "Compare discovered versions to baselines", "variant": "emphasis" },
-    { "id": "drift-evaluation", "from": "techstack", "to": "repomgmt", "y": 450, "label": "Drift and policy evaluation", "variant": "return" },
-    { "id": "persist-snapshot", "from": "repomgmt", "to": "index", "y": 494, "label": "Persist repository health snapshot", "variant": "default" },
-    { "id": "emit-signals", "from": "repomgmt", "to": "monitoring", "y": 538, "label": "Emit ProgressSignal(s)", "variant": "emphasis" },
-    { "id": "state-updated", "from": "monitoring", "to": "scheduler", "y": 582, "label": "Dashboard/alert state updated", "variant": "return" }
+    { "id": "run-capture", "from": "me", "to": "ext", "y": 182, "label": "Select text, run backlog.capture", "variant": "default" },
+    { "id": "title-box", "from": "ext", "to": "me", "y": 226, "label": "Title box, pre-filled with the selection's first line", "variant": "default" },
+    { "id": "confirm-title", "from": "me", "to": "ext", "y": 270, "label": "Confirm the title", "variant": "default" },
+    { "id": "post-inbox", "from": "ext", "to": "sync", "y": 338, "label": "POST /api/sync/inbox (title, source=vscode)", "variant": "emphasis" },
+    { "id": "inbox-created", "from": "sync", "to": "ext", "y": 382, "label": "201 Created", "variant": "return" },
+    { "id": "captured", "from": "ext", "to": "me", "y": 426, "label": "\"Backlog: captured …\"", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "sync", "from": 332, "to": 388, "type": "cloud" }
   ]
 }

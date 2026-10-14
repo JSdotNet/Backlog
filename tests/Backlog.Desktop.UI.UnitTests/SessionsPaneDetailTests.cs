@@ -242,6 +242,102 @@ public sealed class SessionsPaneDetailTests
         });
     }
 
+    /// <summary>
+    /// A row leading to several pull requests asks about each once and, when the
+    /// answers are in, redraws the panel once for all of them — not once per answer.
+    /// </summary>
+    [Fact]
+    public void The_verdicts_of_one_rows_pull_requests_are_drawn_in_one_redraw()
+    {
+        var session = Claude with
+        {
+            PullRequests =
+            [
+                new AgentPullRequest("JSdotNet/Backlog", 1036, "https://github.com/JSdotNet/Backlog/pull/1036", Noon.AddHours(-1)),
+                new AgentPullRequest("JSdotNet/Backlog", 1037, "https://github.com/JSdotNet/Backlog/pull/1037", Noon.AddMinutes(-30))
+            ]
+        };
+        var answers = new Dictionary<string, TaskCompletionSource<SessionPullRequestStatus?>>();
+        var asked = new List<string>();
+
+        using var context = Context([session], []);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.PullRequestStatus, pull =>
+            {
+                lock (asked)
+                {
+                    asked.Add(pull.Label);
+                    var answer = new TaskCompletionSource<SessionPullRequestStatus?>();
+                    answers[pull.Label] = answer;
+                    return answer.Task;
+                }
+            }));
+
+        pane.WaitForAssertion(() =>
+        {
+            lock (asked) Assert.Equal(2, asked.Count);
+        });
+        var renders = pane.RenderCount;
+        var builds = pane.Instance.ViewBuilds;
+
+        lock (asked)
+        {
+            foreach (var answer in answers.Values) answer.SetResult(new("Ready", "ok", null, "Every check passed."));
+        }
+
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='sessions-pull-request-verdict']").Count));
+
+        Assert.Equal(renders + 1, pane.RenderCount);
+        Assert.Equal(["PR #1036", "PR #1037"], asked.Order());
+
+        // The redraw the answers asked for reused the derived list: nothing it is
+        // derived from moved.
+        Assert.Equal(builds, pane.Instance.ViewBuilds);
+    }
+
+    /// <summary>A filter, the grouping or a new scope from the parent derives the
+    /// list again — the kept view never outlives what it was worked out from.</summary>
+    [Fact]
+    public void A_filter_the_grouping_or_the_parents_scope_derives_the_list_again()
+    {
+        var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var finished = Copilot with { State = AgentSessionState.Finished, LastActivityAt = Noon.AddDays(-1) };
+
+        using var context = Context([Claude, finished], []);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-row']")));
+        var builds = pane.Instance.ViewBuilds;
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count));
+        Assert.True(pane.Instance.ViewBuilds > builds);
+        builds = pane.Instance.ViewBuilds;
+
+        SessionsPaneTests.GroupBy(pane, "machine");
+
+        pane.WaitForAssertion(() => Assert.Equal(["DEV-TOWER"], pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim())));
+        Assert.True(pane.Instance.ViewBuilds > builds);
+
+        // The same scope and the same callback, answering differently: the parent
+        // setting the parameters again is what tells the pane to ask them again.
+        IReadOnlyList<string> scope = ["backlog"];
+        pane.Render(parameters => parameters
+            .Add(p => p.RepositoryScope, scope)
+            .Add(p => p.RepositoryAlias, repository => repository is not null && aliases.TryGetValue(repository, out var alias) ? alias : null));
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='sessions-row']")));
+
+        aliases["JSdotNet/Backlog"] = "backlog";
+        pane.Render();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("Copilot/0012e2c7", Assert.Single(pane.FindAll("[data-testid='sessions-row']")).GetAttribute("data-row-key")));
+    }
+
     [Fact]
     public void The_task_card_names_the_entry_and_opens_it()
     {
@@ -352,6 +448,43 @@ public sealed class SessionsPaneDetailTests
         pane.Find("[data-testid='sessions-refresh']").Click();
 
         pane.WaitForAssertion(() => Assert.Contains("$5.00", pane.Find("[data-testid='sessions-fact-cost']").TextContent));
+    }
+
+    /// <summary>
+    /// A second row picked once the week is already read draws its costs and its share
+    /// in one redraw: there is nothing left to wait on, so nothing to draw ahead of.
+    /// </summary>
+    [Fact]
+    public void A_row_picked_after_the_week_is_read_draws_its_costs_in_one_redraw()
+    {
+        // Answering after a yield, the way the real store answers off a file: a store
+        // answering at once lets every redraw fold into the render that asked.
+        var requests = new YieldingRequestStore(new StubRequestStore(
+        [
+            new ClaudeApiRequest("req_1", Claude.Id, Noon.AddMinutes(-30), "claude-opus-5-5", "high", 1_000_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_2", Copilot.Id, Noon.AddMinutes(-25), "claude-opus-5-5", "high", 1_000_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null)
+        ]));
+
+        using var context = Context([Claude, Copilot], []);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(requests);
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal("50% of this week", pane.Find("[data-testid='sessions-share'] [data-testid='usage-share-week']").TextContent.Trim()));
+        var renders = pane.RenderCount;
+
+        SessionsPaneTests.Pick(pane, "Copilot/0012e2c7");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("Copilot/0012e2c7", pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key"));
+            Assert.NotNull(pane.Find("[data-testid='sessions-fact-cost']"));
+            Assert.Equal("50% of this week", pane.Find("[data-testid='sessions-share'] [data-testid='usage-share-week']").TextContent.Trim());
+        });
+
+        // One for the press, one for the costs and the share together.
+        Assert.Equal(renders + 2, pane.RenderCount);
     }
 
     [Fact]
@@ -801,6 +934,18 @@ public sealed class SessionsPaneDetailTests
 
         public Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<ClaudeApiRequest>>([.. requests.Where(request => sessionId is null || request.SessionId == sessionId)]);
+    }
+
+    private sealed class YieldingRequestStore(IClaudeApiRequestStore inner) : IClaudeApiRequestStore
+    {
+        public Task<int> AddAsync(IReadOnlyList<ClaudeApiRequest> added, CancellationToken cancellationToken = default) =>
+            inner.AddAsync(added, cancellationToken);
+
+        public async Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+            return await inner.ListAsync(sessionId, cancellationToken);
+        }
     }
 
     internal sealed class StubPriceStore(ModelPriceTable table) : IModelPriceStore

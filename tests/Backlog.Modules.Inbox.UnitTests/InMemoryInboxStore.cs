@@ -44,8 +44,26 @@ internal sealed class InMemoryInboxStore : IInboxItemRepository, IInboxOrganizer
         return Task.CompletedTask;
     }
 
-    public Task<InboxItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Items.GetValueOrDefault(id));
+    /// <summary>How many single-item reads a handler made.</summary>
+    public int GetReads { get; private set; }
+
+    /// <summary>How many batch reads a handler made.</summary>
+    public int GetManyReads { get; private set; }
+
+    public Task<InboxItem?> GetAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        GetReads++;
+        return Task.FromResult(Items.GetValueOrDefault(id));
+    }
+
+    /// <summary>The items that exist among <paramref name="ids"/>, in the order
+    /// asked — one read, the way the real store answers a batch.</summary>
+    public Task<IReadOnlyList<InboxItem>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        GetManyReads++;
+        return Task.FromResult<IReadOnlyList<InboxItem>>(
+            [.. ids.Select(id => Items.GetValueOrDefault(id)).OfType<InboxItem>()]);
+    }
 
     /// <summary>Newest capture first, every status — the order and the scope the
     /// real store promises.</summary>

@@ -314,6 +314,25 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
         return DevToolActionResult.Ok($"Removed {tool.Name} {version} from Claude's plugin cache.");
     }
 
+    /// <summary>The last run, kept in the same per-PC file the desktop app uses
+    /// but under this harness's own storage root — the sandbox catalog's folder —
+    /// so a harness restart reads back what the run before it left, and nothing
+    /// is written to the real machine.</summary>
+    public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) =>
+        DevToolLastRunStore.ReadAsync(Paths.LastRunPath, ct);
+
+    public async Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default)
+    {
+        // The port's promise: a record the disk refuses never fails the run.
+        try
+        {
+            await DevToolLastRunStore.WriteAsync(Paths.LastRunPath, run, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
     public async Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default)
     {
         var catalog = await ListAsync(ct).ConfigureAwait(false);

@@ -319,6 +319,25 @@ public class SurfaceToolsTests
         Assert.Empty(surface.Calls);
     }
 
+    /// <summary>
+    /// A string holding the JSON text of an object is that object — agents send a
+    /// structured argument that way often enough that refusing it would cost a run
+    /// its record over a quoting choice. A string holding anything else is still
+    /// refused, by the case above.
+    /// </summary>
+    [Fact]
+    public async Task A_run_context_or_execution_sent_as_JSON_text_reaches_the_port_as_the_object()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+        var tools = new SurfaceTools(surface);
+
+        await tools.SetRunContextAsync(Worktree, "run-1", runContext: JsonSerializer.SerializeToElement(RunContextJson), cancellationToken: TestContext.Current.CancellationToken);
+        await tools.UpdateStageAsync(Worktree, "run-1", 2, "in_progress", execution: JsonSerializer.SerializeToElement(ExecutionJson), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(RunContextJson), surface.RunContext));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(ExecutionJson), surface.Execution));
+    }
+
     [Fact]
     public async Task Get_run_carries_the_run_context_and_each_stage_execution_as_objects()
     {

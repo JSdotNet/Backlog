@@ -382,7 +382,10 @@ function applyBrainFields(node, meta, area) {
     }
 }
 
-/** Every `.md` under `folder`, as the generator's graph walk finds them. */
+/** Every `.md` under `folder`, as the generator's graph walk finds them. A
+ *  reparse point is neither a file nor a directory to `Dirent`, so a OneDrive
+ *  placeholder is skipped here where the C# builder indexes it by name: the one
+ *  stated difference between the two writers (`.devbook/tech/tooling.md`). */
 async function markdownUnder(root, folder) {
     const { readdir } = await import('node:fs/promises');
     const found = [];

@@ -1,5 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks.Features.CountTasks;
 using Backlog.Modules.Tasks.Features.DeleteTask;
+using Backlog.Modules.Tasks.Features.GetTask;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
@@ -44,6 +46,8 @@ public static class TasksModuleRegistration
         services.TryAddSingleton<ITaskChangeSignal, TaskChangeSignal>();
 
         services.AddScoped<IQueryHandler<ListTasksQuery, IReadOnlyList<TaskItemDto>>, ListTasksQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTaskQuery, TaskItemDto?>, GetTaskQueryHandler>();
+        services.AddScoped<IQueryHandler<CountTasksQuery, int>, CountTasksQueryHandler>();
         services.AddScoped<ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>, SaveTaskFromTextCommandHandler>();
         services.AddScoped<ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>>, LinkTaskToIssueCommandHandler>();
         services.AddScoped<ICommandHandler<UnlinkTaskFromIssueCommand, Result<TaskItemDto>>, UnlinkTaskFromIssueCommandHandler>();

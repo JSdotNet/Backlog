@@ -5,8 +5,8 @@ status: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop"]
 ```
 
-> The canonical, local-first Windows client. It owns the data and runs all
-> capture workers, so this is the richest layer of the graph.
+> The canonical, local-first Windows client. It owns the data and runs capture
+> locally, so this is the richest layer of the graph.
 
 ## Windows
 
@@ -50,10 +50,10 @@ The native Windows head that `.devbook/tech/shared.md#net-maui` uses on this pla
 - **Used for** — hosting the desktop client's native shell, windowing, and OS
   integration; also hosts the WebView2 surface that renders the app's actual UI
   (`.devbook/tech/shared.md#blazor-hybrid`).
-- **Why** — `.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` supersedes the
-  original plain-WinUI-3 choice: the app is no longer authored directly as WinUI
-  XAML, but MAUI's Windows head still is WinUI 3, so the native filesystem-access
-  and background-worker guarantees are unchanged.
+- **Why** — [ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md)
+  chose a MAUI shell over a plain WinUI 3 app, and MAUI's Windows head is WinUI 3.
+  The app is authored as Razor components rather than WinUI XAML, and it keeps
+  WinUI 3's native filesystem access and background workers.
 
 ## WebView2
 
@@ -85,19 +85,17 @@ alternatives: ["Markdown files with YAML frontmatter", "LiteDB"]
 
 The file-backed persistence layer, implemented in-app rather than bought in.
 
-- **Used for** — `Backlog.Infrastructure.Sqlite` holds the canonical `tasks`
-  table, the `roadmap_plan` table, a single document row per workspace, and the
-  Inbox's `inbox_items`, `inbox_lists` and `inbox_groups`;
-  `RootedSqliteTaskRepository`, `RootedSqliteRoadmapPlanRepository` and
-  `RootedSqliteInboxRepository` bind them to the workspace root the user chose, so
-  the desktop head and the web harness open the same database the same way. Each
-  adapter creates only its own tables — the three modules share the file, not the
-  schema. Settings and feature
-  flags stay JSON files beside it, per-device on purpose.
-- **Why** — `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`
-  replaced the earlier markdown-document store and its two derived indexes with
-  one database that cannot disagree with itself. Markdown remains the *content*
-  of an entry, as a text column — not its storage format.
+- **Used for** — `Backlog.Infrastructure.Sqlite` holds the tables
+  [SQLite](shared.md#sqlite) lists. `RootedSqliteTaskRepository`,
+  `RootedSqliteRoadmapPlanRepository` and `RootedSqliteInboxRepository` bind them
+  to the workspace root the user chose. The desktop head and the web harness
+  therefore open the same database the same way. Each adapter creates only its
+  own tables. Settings and feature flags stay JSON files beside the database,
+  per device on purpose.
+- **Why** — [ADR 0003](../arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md)
+  chose one database that cannot disagree with itself over a markdown-document
+  store with two derived indexes. Markdown remains the *content* of an entry, as
+  a text column, not its storage format.
 
 ## Background Workers
 
@@ -111,8 +109,8 @@ related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
 In-process hosted services that poll external sources on the local machine.
 
 - **Used for** — YouTube, website, and email capture, GitHub issue sync, and
-  stale-item detection. Still `candidate`: no hosted service is implemented yet,
-  and the capture paths currently run on demand.
+  stale-item detection. It stays `candidate`: no hosted service is implemented
+  yet, and the capture paths run on demand.
 - **Why** — keeping fetching local is what keeps external credentials off the
   cloud (quality goal 2).
 
@@ -128,13 +126,13 @@ related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sy
 
 The .NET wrapper over Windows DPAPI.
 
-- **Used for** — `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync`,
-  encrypting the device's registration credential at rest under `CurrentUser`
-  scope, at `%LOCALAPPDATA%\Backlog\device-credential.json` on the desktop
-  head (each web harness keeps its own copy under its own path, so the two
-  harnesses register as distinct devices).
-- **Why** — the OS credential store local ADR 0005's Identity section names for
-  Windows: no key of the app's own to generate, rotate, or leak.
+- **Used for** — `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync`
+  encrypts the device's registration credential at rest under `CurrentUser`
+  scope. On the desktop head the credential lives at
+  `%LOCALAPPDATA%\Backlog\device-credential.json`. Each web harness keeps its own
+  copy under its own path, so the two harnesses register as distinct devices.
+- **Why** — it is the OS credential store local ADR 0005's Identity section names
+  for Windows. The app has no key of its own to generate, rotate, or leak.
 
 ## Model Context Protocol C# SDK
 
@@ -149,12 +147,12 @@ related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-a
 The `ModelContextProtocol` packages the desktop app serves its own MCP server
 with.
 
-- **Used for** — `ModelContextProtocol.Core` in `Backlog.Infrastructure.Mcp`,
-  which defines the tools; `ModelContextProtocol` in `Backlog.Desktop.UI`; and
-  `ModelContextProtocol.AspNetCore` in the desktop head and its web harness,
-  which host the Streamable HTTP endpoint agents reach as the `backlog` server.
-- **Why** — local ADR 0012 puts the server inside the running app so it reads
-  the same store the person does; the official SDK carries the protocol so the
+- **Used for** — `ModelContextProtocol.Core` in `Backlog.Infrastructure.Mcp`
+  defines the tools, and `Backlog.Desktop.UI` references `ModelContextProtocol`.
+  `ModelContextProtocol.AspNetCore` in the desktop head and its web harness hosts
+  the Streamable HTTP endpoint that agents reach as the `backlog` server.
+- **Why** — local ADR 0012 puts the server inside the running app, so it reads
+  the same store the person does. The official SDK carries the protocol, so the
   repository writes only tools.
 
 ## GitHub CLI
@@ -170,9 +168,13 @@ alternatives: ["Octokit.NET", "raw REST calls"]
 The local integration path to GitHub from the desktop (`gh`).
 
 - **Used for** — creating and updating issues from backlog items without routing
-  credentials through the cloud service. `GhCliTransport` in
-  `Backlog.Infrastructure.GitHub` is the seam; the clients above it (issues,
-  activity, billing, identity) never see a token.
+  credentials through the cloud service. `ResolvingGitHubTransport` in
+  `Backlog.Infrastructure.GitHub` is the seam. For a call that names no account, it
+  asks `gh api user` who is signed in and borrows that login's github.com token
+  with `gh auth token`. It holds that token in memory only, for five minutes, and
+  sends the call over HTTP. `GhCliTransport`, one `gh api` process per call, is the
+  fallback when `gh` holds no github.com token or points at another host. The
+  clients above the seam (issues, activity, billing, identity) never see a token.
 - **Why** — reuses the developer's existing authenticated GitHub session; also
   already the mandated tool for GitHub operations in this repository.
 
@@ -190,26 +192,27 @@ The packaging and update format for the Windows client.
 - **Used for** — building the desktop app as a signed, sideloadable MSIX and
   installing/updating it on the user's machines.
 - **Why** — the standard distribution model for Windows App SDK applications.
-- **How** — Release + Windows builds switch to `WindowsPackageType=MSIX` and
+- **How** — Release builds for Windows switch to `WindowsPackageType=MSIX` and
   emit a single signed MSIX (`AppxBundle=Never`, `SideloadOnly`). Debug stays
-  unpackaged (`WindowsPackageType=None`) so the Aspire desktop resource and the
+  unpackaged (`WindowsPackageType=None`), so the Aspire desktop resource and the
   WebView2 CDP attach used by Playwright keep working. The MSIX is published as a
   GitHub Release asset and installed by sideloading rather than through the
-  Microsoft Store; its `Identity Name` (`JSdotNet.Backlog.Desktop`) and
+  Microsoft Store. Its `Identity Name` (`JSdotNet.Backlog.Desktop`) and
   `Publisher` (`CN=JSdotNet`) must match the App Installer's `MainPackage`
-  exactly or updates will not apply. Because it is self-signed, the signing
+  exactly, or updates will not apply. The package is self-signed, so the signing
   certificate has to be trusted on the target machine before the first install.
 - **Where it writes** — the manifest sets
-  `desktop6:FileSystemWriteVirtualization` to `disabled` (with the
-  `unvirtualizedResources` capability that requires), so the packaged app
-  writes to the `%LOCALAPPDATA%\Backlog` it names on the Storage settings page
-  rather than to the package's `LocalCache\Local` redirect. Installs from
-  before that opt-out left their state in the redirect; `PackagedAppData`
-  adopts it on the first start (see [Installation and
-  Updates](../arc42/07-deployment-view.md#installation-and-updates)). Only a
-  packaged Release build runs MakeAppx over the manifest — PR CI builds with
-  `WindowsPackageType=None` — so a manifest change is checked with an unsigned
-  local publish (`-p:AppxPackageSigningEnabled=false`, MSIX left on).
+  `desktop6:FileSystemWriteVirtualization` to `disabled`, with the
+  `unvirtualizedResources` capability that requires. The packaged app therefore
+  writes to the `%LOCALAPPDATA%\Backlog` it names on the Storage settings page,
+  not to the package's `LocalCache\Local` redirect. Installs from before that
+  opt-out left their state in the redirect, and `PackagedAppData` adopts it on
+  the first start (see
+  [Installation and Updates](../arc42/07-deployment-view.md#installation-and-updates)).
+- **Checking a manifest change** — only a packaged Release build runs MakeAppx
+  over the manifest, and PR CI builds with `WindowsPackageType=None`. A manifest
+  change is therefore checked with an unsigned local publish
+  (`-p:AppxPackageSigningEnabled=false`, MSIX left on).
 
 ## App Installer (`.appinstaller`)
 
@@ -222,18 +225,35 @@ related: [".devbook/arc42/07-deployment-view.md#installation-and-updates"]
 
 The XML manifest that turns a bare MSIX into an updatable install.
 
+```mermaid
+sequenceDiagram
+    participant Release as Release workflow
+    participant GH as GitHub Releases
+    participant Windows as App Installer (Windows)
+    participant App as Desktop app
+    participant PM as PackageManager
+    Release->>Release: New-AppInstaller.ps1 fills the template
+    Release->>GH: publish the MSIX and the .appinstaller
+    Windows->>GH: check on launch and in the background
+    App->>PM: version clicked: is there an update?
+    PM-->>App: yes
+    App->>GH: read the .appinstaller back
+    GH-->>App: MainPackage/@Version
+    App->>App: the update window names the version
+```
+
 - **Used for** — declaring the stable update source and the current package, so
   the app can check for and pull newer versions from GitHub Releases.
-- **Why** — App Installer's `UpdateSettings` (`OnLaunch` +
+- **Why** — App Installer's `UpdateSettings` (`OnLaunch` and
   `AutomaticBackgroundTask`) gives launch-time and background update checks
-  without any custom update server; clicking the version in the app header
-  drives the same mechanism via `PackageManager`.
-- **How** — generated from `build/Backlog.Desktop.appinstaller.template` by
-  `build/New-AppInstaller.ps1` during the release workflow. Its own `Uri` points
-  at the `latest` release download (stable), while `MainPackage/@Uri` points at
-  the tagged release asset; `Name`, `Publisher`, and `ProcessorArchitecture` are
-  kept identical to the signed MSIX. The app reads the same manifest back after a
-  positive update check — `PackageManager` only answers whether an update exists —
-  so the update window can name the version it would install
-  (`MainPackage/@Version`, via `AppInstallerManifest`); when the manifest is
-  unreachable the update is still offered, just unnamed.
+  without a custom update server. Clicking the version in the app header drives
+  the same mechanism through `PackageManager`.
+- **How** — `build/New-AppInstaller.ps1` generates it from
+  `build/Backlog.Desktop.appinstaller.template` during the release workflow. Its
+  own `Uri` points at the `latest` release download, which is stable.
+  `MainPackage/@Uri` points at the tagged release asset. `Name`, `Publisher`,
+  and `ProcessorArchitecture` are kept identical to the signed MSIX.
+- **Version name** — `PackageManager` only answers whether an update exists. The
+  app therefore reads the manifest back through `AppInstallerManifest` to name
+  the version it would install. When the manifest is unreachable, the update is
+  still offered without a version.

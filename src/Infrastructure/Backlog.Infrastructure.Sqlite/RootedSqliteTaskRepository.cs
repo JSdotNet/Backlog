@@ -62,6 +62,18 @@ public sealed class RootedSqliteTaskRepository(
         _changes?.Raise();
     }
 
+    /// <summary>One write, so one signal: a listener reloading on it reloads once
+    /// for a drag rather than once per row it moved.</summary>
+    public async Task SaveManyAsync(IReadOnlyCollection<TaskItem> tasks, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tasks);
+        if (tasks.Count == 0) return;
+
+        await Current.SaveManyAsync(tasks, cancellationToken).ConfigureAwait(false);
+
+        _changes?.Raise();
+    }
+
     public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
         Current.GetAsync(id, cancellationToken);
 
@@ -70,6 +82,9 @@ public sealed class RootedSqliteTaskRepository(
 
     public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
         Current.ListAsync(cancellationToken);
+
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        Current.CountAsync(cancellationToken);
 
     public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
         DateTimeOffset since,

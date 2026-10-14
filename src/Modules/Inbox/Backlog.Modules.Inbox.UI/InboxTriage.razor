@@ -399,9 +399,12 @@
                         <span class="inbox-triage__decision-label">Move to backlog</span>
                         <span class="inbox-triage__decision-hint">@State.TriageRouteHint</span>
                     </AppButton>
+                    @* Disabled with the Brain's own reason while it cannot take a
+                       note, rather than offered and then refused. *@
+                    @{ var brainUnavailable = State.ToBrainUnavailableReason; }
                     <AppButton CssClass="inbox-triage__decision"
-                               Disabled="@(!open || Busy)"
-                               Title="Keep it as a note in your Brain (b)"
+                               Disabled="@(!open || Busy || brainUnavailable is not null)"
+                               Title="@(brainUnavailable ?? InboxDesktopState.ToBrainTitle)"
                                OnClick="State.RouteToBrainAsync"
                                TestId="inbox-to-brain">
                         <kbd class="inbox-pane__key" aria-hidden="true">B</kbd>

@@ -224,9 +224,11 @@ public sealed class SessionSyncSession
             pushed += response.Value.Accepted;
             sent += batch.Count;
 
-            foreach (var item in batch)
+            // One RecordRange per batch, so the footer redraws once per request.
+            if (_activity is { } syncLog)
             {
-                _activity?.Record(SyncDirection.Sent, SyncItemKind.Session, item.Session.Id, item.Session.Title);
+                syncLog.RecordRange(batch.Select(item => syncLog.Entry(
+                    SyncDirection.Sent, SyncItemKind.Session, item.Session.Id, item.Session.Title)));
             }
 
             if (ReplicaRoutes.WatermarkAfter([.. batch.Select(item => item.Session)], final: sent >= outgoing.Count, session => session.LastActivityAt) is { } advanced)
@@ -496,12 +498,12 @@ public sealed class SessionSyncSession
             // is received once it is kept. A save that threw has skipped this, and
             // the next pull — receiving the same records from the same cursor —
             // names them then, once, rather than this pull naming sessions this
-            // device never held.
-            foreach (var entry in received)
+            // device never held. One RecordRange for the pull, so the footer redraws once.
+            if (received.Count > 0 && _activity is { } syncLog)
             {
-                _activity?.Record(
+                syncLog.RecordRange(received.Select(entry => syncLog.Entry(
                     SyncDirection.Received, SyncItemKind.Session, entry.Record.SessionId,
-                    SessionTitle(entry.Record));
+                    SessionTitle(entry.Record))));
             }
         }
 

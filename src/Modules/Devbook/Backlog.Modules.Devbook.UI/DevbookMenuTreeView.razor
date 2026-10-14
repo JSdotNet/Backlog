@@ -82,8 +82,22 @@
 
     private IReadOnlyList<TreeNode> TreeNodes { get; set; } = [];
 
+    /// <summary>The root and rows the tree was last mapped from, or null before
+    /// the first mapping.</summary>
+    private DevbookMenuNode? _mappedRootFolder;
+    private IReadOnlyList<DevbookMenuNode>? _mappedNodes;
+
+    /// <summary>Maps the tree when the host hands in another one. The pane passes
+    /// callbacks, so it hands this its parameters again on every render of its
+    /// own — every keystroke typed into a task beside it — and a menu that has not
+    /// changed has nothing to map. The pane keeps the same root and rows until a
+    /// menu load replaces them, so reference identity is the whole test.</summary>
     protected override void OnParametersSet()
     {
+        if (_mappedNodes is not null && ReferenceEquals(_mappedRootFolder, RootFolder) && ReferenceEquals(_mappedNodes, Nodes)) return;
+
+        _mappedRootFolder = RootFolder;
+        _mappedNodes = Nodes;
         _originals.Clear();
         RootTreeNode = RootFolder is null ? null : Map(RootFolder, "root");
         TreeNodes = [.. Nodes.Select((node, index) => Map(node, index.ToString()))];

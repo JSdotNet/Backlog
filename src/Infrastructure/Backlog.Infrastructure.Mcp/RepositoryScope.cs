@@ -37,9 +37,24 @@ internal static class RepositoryScope
     /// <summary>The code every unknown-repository answer carries.</summary>
     internal const string NotFoundCode = "repository.not_found";
 
+    /// <summary>The code an answer to a call with no repository carries.</summary>
+    internal const string RequiredCode = "repository.required";
+
+    /// <summary>What a call with no repository is told.</summary>
+    internal const string RequiredMessage =
+        "A repository is required, in owner/name form — the git remote of the checkout you are working in.";
+
+    /// <summary>What a call with no repository is told by a tool that also takes
+    /// the Brain, so the refusal names both things the argument can be.</summary>
+    internal const string RequiredOrBrainMessage =
+        "A repository is required, in owner/name form — the git remote of the checkout you are working in — or "
+        + BrainMcpScope.Value + " for the Brain.";
+
     /// <summary>The repository, or the error naming what was asked for. Never a
-    /// registration.</summary>
-    internal static Result<TasksRepositoryRef> Resolve(IRepositoryDirectory directory, string? repository)
+    /// registration. <paramref name="acceptsBrain"/> is set by a tool that takes
+    /// <see cref="BrainMcpScope.Value"/> too — matched before this is asked — so
+    /// that its refusal of a blank argument says so.</summary>
+    internal static Result<TasksRepositoryRef> Resolve(IRepositoryDirectory directory, string? repository, bool acceptsBrain = false)
     {
         ArgumentNullException.ThrowIfNull(directory);
 
@@ -47,9 +62,7 @@ internal static class RepositoryScope
 
         if (string.IsNullOrEmpty(name))
         {
-            return Error.Validation(
-                "repository.required",
-                "A repository is required, in owner/name form — the git remote of the checkout you are working in.");
+            return Error.Validation(RequiredCode, acceptsBrain ? RequiredOrBrainMessage : RequiredMessage);
         }
 
         return directory.Resolve(name) is { } resolved

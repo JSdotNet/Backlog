@@ -5060,13 +5060,15 @@
         <path d="M 154 157 L 748 157" class="a-emphasis" stroke-width="2.2" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Transition paths -->
-        <path data-edge-from="unprocessed" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan" data-edge-key="0" data-edge-id="route-out" data-composition-points="480,157;651,157" d="M 480 157 L 651 157" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="unprocessed" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan / To Brain" data-edge-key="0" data-edge-id="route-out" data-composition-points="480,150;651,150" d="M 480 150 L 651 150" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.1" marker-end="url(#arrowhead)"/>
         <path data-edge-from="unprocessed" data-edge-to="deferred" data-edge-label="Defer for later review" data-edge-key="1" data-edge-id="defer" data-composition-points="395,188;395,278" d="M 395 188 L 395 278" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.1" marker-end="url(#arrowhead)"/>
         <path data-edge-from="deferred" data-edge-to="unprocessed" data-edge-label="Review date reached / Return to inbox" data-edge-key="2" data-edge-id="review-date" data-composition-points="409,278;409,188" d="M 409 278 L 409 188" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="unprocessed" data-edge-to="archived" data-edge-label="Dismiss / not actionable" data-edge-key="3" data-edge-id="dismiss" data-composition-points="402,126;402,96;850,96;850,479;615,479" d="M 402 126 L 402 106 Q 402 96 412 96 L 840 96 Q 850 96 850 106 L 850 469 Q 850 479 840 479 L 615 479" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="unprocessed" data-edge-to="archived" data-edge-label="Dismiss / not actionable" data-edge-key="3" data-edge-id="dismiss" data-composition-points="402,126;402,80;850,80;850,479;615,479" d="M 402 126 L 402 90 Q 402 80 412 80 L 840 80 Q 850 80 850 90 L 850 469 Q 850 479 840 479 L 615 479" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.1" marker-end="url(#arrowhead)"/>
         <path data-edge-from="deferred" data-edge-to="deferred" data-edge-label="Change the review date" data-edge-key="4" data-edge-id="change-review-date" data-composition-points="402,336;402,372;300,372;300,307;324,307" d="M 402 336 L 402 362 Q 402 372 392 372 L 310 372 Q 300 372 300 362 L 300 317 Q 300 307 310 307 L 324 307" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="deferred" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan" data-edge-key="5" data-edge-id="route-deferred" data-composition-points="480,300;710,300;710,188" d="M 480 300 L 700 300 Q 710 300 710 290 L 710 188" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="deferred" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan / To Brain" data-edge-key="5" data-edge-id="route-deferred" data-composition-points="480,300;710,300;710,188" d="M 480 300 L 700 300 Q 710 300 710 290 L 710 188" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.1" marker-end="url(#arrowhead)"/>
         <path data-edge-from="deferred" data-edge-to="archived" data-edge-label="Dismissed after deferral" data-edge-key="6" data-edge-id="dismiss-deferred" data-composition-points="480,314;556,314;556,450" d="M 480 314 L 546 314 Q 556 314 556 324 L 556 450" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="routed" data-edge-to="unprocessed" data-edge-label="Undo (return to the inbox)" data-edge-key="7" data-edge-id="undo-routed" data-composition-points="651,164;480,164" d="M 651 164 L 480 164" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="archived" data-edge-to="unprocessed" data-edge-label="Undo (restore)" data-edge-key="8" data-edge-id="undo-archived" data-composition-points="497,479;250,479;250,157;324,157" d="M 497 479 L 260 479 Q 250 479 250 469 L 250 167 Q 250 157 260 157 L 324 157" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.1" marker-end="url(#arrowhead)"/>
 
         <!-- States -->
         <g id="node-unprocessed" data-node-id="unprocessed" data-node-label="Unprocessed" tabindex="0" role="button" aria-label="Focus Unprocessed, capture delivers item / typed by hand, Inbox" aria-pressed="false" data-node-kind="start" data-node-sublabel="capture delivers item / typed by hand" data-node-context="Inbox">
@@ -5114,9 +5116,9 @@
         </g>
 
         <!-- Transition labels -->
-        <g data-detail="context" data-edge-from="unprocessed" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan" data-edge-key="0" data-edge-id="route-out">
-          <rect x="490.9" y="136" width="149.20000000000002" height="16" rx="4" class="c-mask"/>
-          <text x="565.5" y="147" class="t-muted" font-size="8" text-anchor="middle">Route to Tasks / Create plan</text>
+        <g data-detail="context" data-edge-from="unprocessed" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan / To Brain" data-edge-key="0" data-edge-id="route-out">
+          <rect x="463.95" y="103" width="203.10000000000002" height="16" rx="4" class="c-mask"/>
+          <text x="565.5" y="114" class="t-muted" font-size="8" text-anchor="middle">Route to Tasks / Create plan / To Brain</text>
         </g>
         <g data-detail="context" data-edge-from="unprocessed" data-edge-to="deferred" data-edge-label="Defer for later review" data-edge-key="1" data-edge-id="defer">
           <rect x="269.1" y="227" width="119.80000000000001" height="16" rx="4" class="c-mask"/>
@@ -5127,20 +5129,28 @@
           <text x="512" y="222" class="t-muted" font-size="8" text-anchor="middle">Review date reached / Return to inbox</text>
         </g>
         <g data-detail="context" data-edge-from="unprocessed" data-edge-to="archived" data-edge-label="Dismiss / not actionable" data-edge-key="3" data-edge-id="dismiss">
-          <rect x="561.2" y="75" width="129.60000000000002" height="16" rx="4" class="c-mask"/>
-          <text x="626" y="86" class="t-muted" font-size="8" text-anchor="middle">Dismiss / not actionable</text>
+          <rect x="561.2" y="59" width="129.60000000000002" height="16" rx="4" class="c-mask"/>
+          <text x="626" y="70" class="t-muted" font-size="8" text-anchor="middle">Dismiss / not actionable</text>
         </g>
         <g data-detail="context" data-edge-from="deferred" data-edge-to="deferred" data-edge-label="Change the review date" data-edge-key="4" data-edge-id="change-review-date">
           <rect x="291.1" y="351" width="119.80000000000001" height="16" rx="4" class="c-mask"/>
           <text x="351" y="362" class="t-muted" font-size="8" text-anchor="middle">Change the review date</text>
         </g>
-        <g data-detail="context" data-edge-from="deferred" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan" data-edge-key="5" data-edge-id="route-deferred">
-          <rect x="635.4" y="223" width="149.20000000000002" height="16" rx="4" class="c-mask"/>
-          <text x="710" y="234" class="t-muted" font-size="8" text-anchor="middle">Route to Tasks / Create plan</text>
+        <g data-detail="context" data-edge-from="deferred" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan / To Brain" data-edge-key="5" data-edge-id="route-deferred">
+          <rect x="608.45" y="223" width="203.10000000000002" height="16" rx="4" class="c-mask"/>
+          <text x="710" y="234" class="t-muted" font-size="8" text-anchor="middle">Route to Tasks / Create plan / To Brain</text>
         </g>
         <g data-detail="context" data-edge-from="deferred" data-edge-to="archived" data-edge-label="Dismissed after deferral" data-edge-key="6" data-edge-id="dismiss-deferred">
           <rect x="491.2" y="361" width="129.60000000000002" height="16" rx="4" class="c-mask"/>
           <text x="556" y="372" class="t-muted" font-size="8" text-anchor="middle">Dismissed after deferral</text>
+        </g>
+        <g data-detail="context" data-edge-from="routed" data-edge-to="unprocessed" data-edge-label="Undo (return to the inbox)" data-edge-key="7" data-edge-id="undo-routed">
+          <rect x="495.8" y="171" width="139.4" height="16" rx="4" class="c-mask"/>
+          <text x="565.5" y="182" class="t-muted" font-size="8" text-anchor="middle">Undo (return to the inbox)</text>
+        </g>
+        <g data-detail="context" data-edge-from="archived" data-edge-to="unprocessed" data-edge-label="Undo (restore)" data-edge-key="8" data-edge-id="undo-archived">
+          <rect x="209.7" y="297" width="80.60000000000001" height="16" rx="4" class="c-mask"/>
+          <text x="250" y="308" class="t-muted" font-size="8" text-anchor="middle">Undo (restore)</text>
         </g>
 
         <!-- Legend -->

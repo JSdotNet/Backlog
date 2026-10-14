@@ -344,6 +344,20 @@ public sealed class AzureFoundryException : Exception
         : base(message, innerException)
     {
     }
+
+    /// <summary>The service answered, and not with success: the message in this
+    /// client's words, and the status it answered with so a caller can tell a
+    /// deployment that is not there from one that is busy.</summary>
+    public AzureFoundryException(string message, int statusCode)
+        : base(message)
+    {
+        StatusCode = statusCode;
+    }
+
+    /// <summary>The HTTP status the service answered with, or
+    /// <see langword="null"/> when it was never reached — not configured,
+    /// unreachable, or an answer this client could not read.</summary>
+    public int? StatusCode { get; }
 }
 
 public sealed class UnavailableAzureFoundryChatClient : IAzureFoundryChatClient

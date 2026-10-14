@@ -33,7 +33,7 @@ public sealed class BrainFolderSource : IBrainFolderSource
     public const string NoBrainFolder = "Pick a folder for your Brain in Settings › Storage.";
 
     /// <summary>What the scope label of every Brain location reads.</summary>
-    public const string ScopeLabel = "Brain";
+    public const string ScopeLabel = BrainConventions.ScopeLabel;
 
     private readonly Func<string?> _brainFolder;
 
@@ -43,9 +43,10 @@ public sealed class BrainFolderSource : IBrainFolderSource
         _brainFolder = brainFolder;
     }
 
-    /// <summary>The one folder setting the Brain has.</summary>
-    public static DevbookFolderSetting Folder { get; } =
-        new(BrainConventions.FolderKey, ScopeLabel, string.Empty, SupportsPathOverride: false);
+    /// <summary>The one folder setting the Brain has — <see cref="BrainConventions.Folder"/>,
+    /// defined there so the assistant tools, which cannot reference this project,
+    /// name the same one.</summary>
+    public static DevbookFolderSetting Folder => BrainConventions.Folder;
 
     public event Action? Changed;
 
@@ -54,6 +55,9 @@ public sealed class BrainFolderSource : IBrainFolderSource
     /// <summary>The Brain's absolute folder, or null while none is set or the
     /// setting is not a usable path.</summary>
     public string? BrainRoot => RootFor(_brainFolder());
+
+    /// <inheritdoc />
+    public bool BrainFolderPresent() => BrainRoot is { } root && Directory.Exists(root);
 
     /// <summary>A configured folder as an absolute root, or null when it is blank,
     /// relative — which would resolve against wherever the process happens to

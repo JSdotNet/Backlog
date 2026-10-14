@@ -20,12 +20,13 @@ The language a task's content is written in, and the format of this repository's
 own knowledge folders.
 
 - **Used for** — the text of an entry, held as a column in the SQLite store; the
-  `.devbook/arc42`/`.devbook/domain`/`.devbook/tech`/`.devbook/design`/`.devbook/ai` documents; and the knowledge
-  notes the product manages.
+  documents in the five `.devbook/` folders; and the knowledge notes the product
+  manages.
 - **Why** — plain text is durable, diffable, greppable, and editable without the
-  app. Note the boundary drawn by
-  `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`: markdown is the
-  *content* of a task, no longer its *storage format*.
+  app.
+  [ADR 0003](../arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md)
+  draws the boundary: markdown is the *content* of a task, not its *storage
+  format*.
 
 ## JSON
 
@@ -71,9 +72,9 @@ Diagram-as-text notation embedded directly in Markdown.
 - **Used for** — the technology graph, C4/deployment/sequence diagrams in
   `.devbook/arc42`, and domain model/flow diagrams in `.devbook/domain`.
 - **Why** — diagrams stay version-controlled and reviewable in the same diff as
-  the prose they belong to; rendered natively by GitHub and by the app's own
-  Devbook viewer. A mermaid fence stays canonical even where an Archify
-  artifact renders the same diagram more richly.
+  the prose they belong to. GitHub and the app's own Devbook viewer render them
+  natively. A mermaid fence stays canonical even where an Archify artifact
+  renders the same diagram more richly.
 
 ## .NET Runtime
 
@@ -168,11 +169,12 @@ channels: a WinUI 3 head on Windows, native Android views on Android.
 - **Used for** — the desktop client's native shell (per
   `.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`) and the phone client's
   native Android app shell, platform integrations, and offline storage.
-- **Why** — accepted by ADR 0001 for desktop, so the whole stack can be
-  launched from one Aspire AppHost and driven by Playwright; named as the
-  preferred stack for mobile in `.devbook/arc42/04-solution-strategy.md#technology-choices`,
-  keeping both channels in C# alongside the cloud service. Mobile's choice is
-  not yet hardened into its own ADR.
+- **Why** — ADR 0001 accepts it for desktop, so the whole stack can be launched
+  from one Aspire AppHost and driven by Playwright.
+  [Technology choices](../arc42/04-solution-strategy.md#technology-choices)
+  names it as the preferred stack for mobile, which keeps both channels in C#
+  alongside the cloud service. Mobile's choice is not yet hardened into its own
+  ADR.
 - **How** — the workload version is a single `$(MauiVersion)` property in the
   root `Directory.Build.props`, so the two heads and `Microsoft.Maui.Core` in
   ServiceDefaults cannot drift apart.
@@ -190,13 +192,13 @@ alternatives: ["XAML-only MAUI UI", "Plain WinUI 3", "Blazor WebAssembly PWA"]
 Razor Components rendered inside the MAUI shell's embedded WebView, through
 `Microsoft.AspNetCore.Components.WebView.Maui`.
 
-- **Used for** — the desktop client's entire UI (accepted, per ADR 0001) —
-  authored as Razor components instead of XAML, so Playwright can attach over
-  WebView2's CDP debugging port. The Android head renders the same components.
-- **Why** — accepted for desktop by
-  `.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`: unlike plain MAUI XAML,
-  it gives desktop a Chromium-based, Playwright-drivable UI surface while
-  keeping full native filesystem/background-worker access.
+- **Used for** — the desktop client's entire UI. The desktop UI is Razor
+  components, not XAML, so Playwright can attach over WebView2's CDP debugging
+  port. The Android head renders the same components: `Backlog.Mobile` hosts a
+  `BlazorWebView` over `Backlog.Mobile.UI`.
+- **Why** — ADR 0001 accepts it for desktop. Unlike plain MAUI XAML, it gives
+  desktop a Chromium-based, Playwright-drivable UI surface and keeps full native
+  filesystem and background-worker access.
 
 ## Razor Components
 
@@ -211,9 +213,9 @@ related: [".devbook/tech/testing.md#bunit", ".devbook/design/component-libraries
 The component model every screen in the product is written in
 (`Microsoft.AspNetCore.Components.Web`).
 
-- **Used for** — the shared component library `Backlog.UI.Components`, the seven
+- **Used for** — the shared component library `Backlog.UI.Components`, the
   per-module UI projects, and both channel UI projects (`Backlog.Desktop.UI`,
-  `Backlog.Mobile.UI`) — ten projects reference the package directly.
+  `Backlog.Mobile.UI`). Each of them references the package directly.
 - **Why** — one component model renders identically inside the MAUI WebView and
   inside the Blazor Server harness hosts, so a component is written once and can
   be reviewed in a browser.
@@ -269,30 +271,49 @@ alternatives: ["Docker Compose only", "no orchestration"]
 The app model that composes every runnable piece of this repository into one
 local run.
 
-- **Used for** — the AppHost starts the sync service with the Cosmos emulator
-  and the Azurite `storage` emulator beside it, the three web harnesses, and the
-  Foundry test service, and registers everything that needs a device, a
-  CLI, or an account behind `WithExplicitStart()`: the desktop head, both Android
-  registrations (`mobile-android` through the MSBuild `Run` target, and
-  `mobile-maui-android-emulator` — the platform child of the `mobile-maui` parent
-  registration — through `Aspire.Hosting.Maui`), the `mobile-tunnel` dev tunnel
-  that publishes `sync` to an emulator, and two VS Code extension resources. A
-  `foundry-local` model sits beside the Foundry test service, guarded rather than
-  deferred: Foundry Local launches the `foundry` CLI as the app model comes up
-  rather than when the resource is started, so it is registered only on a machine
-  that has the CLI. `Backlog.Aspire.ServiceDefaults` gives every host the same
-  telemetry, resilience, service discovery, and health checks.
+```mermaid
+flowchart LR
+    AppHost["Backlog.Aspire.AppHost"]
+    subgraph Started["Started with the run"]
+        Sync["sync<br/>with the cosmos and storage emulators"]
+        Harnesses["desktop-web-harness<br/>mobile-web-harness<br/>ui-storybook"]
+        FoundryTest["azure-foundry-test"]
+    end
+    subgraph Explicit["Behind WithExplicitStart()"]
+        Heads["desktop<br/>mobile-android<br/>mobile-maui"]
+        Tunnel["mobile-tunnel"]
+        VsCode["ide-vscode-build<br/>ide-vscode-host"]
+    end
+    subgraph Guarded["Registered only where the foundry CLI is"]
+        FoundryLocal["foundry-local"]
+    end
+    AppHost --> Started
+    AppHost --> Explicit
+    AppHost --> Guarded
+```
+
+- **Used for** — composing one local run. Everything that needs a device, a
+  CLI, or an account waits behind explicit start. `mobile-android` runs the
+  Android head through the MSBuild `Run` target. `mobile-maui` is the parent
+  registration from `Aspire.Hosting.Maui`, and its platform child
+  `mobile-maui-android-emulator` runs the head. `mobile-tunnel` is the dev tunnel
+  that publishes `sync` to an emulator. `Backlog.Aspire.ServiceDefaults` gives
+  every host the same telemetry, resilience, service discovery, and health
+  checks.
+- **Exception** — `foundry-local` is guarded rather than deferred. Foundry Local
+  launches the `foundry` CLI as the app model comes up, not when the resource is
+  started. The AppHost therefore registers it only on a machine that has the CLI.
 - **Why** — one command starts the whole system with a dashboard, logs, and
   traces, which is what makes agent-driven QA possible at all. It spans every
   channel rather than only the cloud service, which is why it is documented here
   and not in `cloud.md`.
-- **How** — ports are always dynamic (`localhost:0`), and worktree sessions run
-  `aspire start --isolated` so parallel sessions get independent ports and
-  user-secrets state. The AppHost is opted in to the Aspire CLI bundle
-  (`AspireUseCliBundle=true`), so `dotnet run` on it acquires the CLI pinned to
-  the `Aspire.AppHost.Sdk` version through dnx and delegates to `aspire run`
-  rather than running a differently versioned CLI or none at all. `ASPIRE010`, the
-  advisory for staying opted out, is no longer suppressed.
+- **How** — ports are always dynamic (`localhost:0`). Worktree sessions run
+  `aspire start --isolated`, so parallel sessions get independent ports and
+  user-secrets state. The AppHost opts in to the Aspire CLI bundle
+  (`AspireUseCliBundle=true`). `dotnet run` on it therefore acquires, through
+  dnx, the CLI pinned to the `Aspire.AppHost.Sdk` version and delegates to
+  `aspire run`, rather than running a differently versioned CLI or none.
+  `ASPIRE010`, the advisory for staying opted out, is not suppressed.
 
 ## OpenTelemetry
 
@@ -311,7 +332,7 @@ The observability stack wired into every host through `ServiceDefaults`.
   (`OpenTelemetry.Extensions.Hosting`, `.Exporter.OpenTelemetryProtocol`,
   `.Instrumentation.Http`, `.Instrumentation.Runtime`).
 - **Why** — org ADR 0010 governs observability for the sync service, and the same
-  wiring is what the QA workflow monitors during a validation run.
+  wiring is what QA monitors during the `phase-verify` stage of a `flow-*` run.
 
 ## SQLite
 
@@ -325,18 +346,21 @@ alternatives: ["Markdown files with YAML frontmatter", "LiteDB", "Azure Cosmos D
 
 The embedded database that is the canonical local store for tasks.
 
-- **Used for** — `backlog.db`, which three modules share without sharing a
-  schema: Tasks keeps one `tasks` table (scalar columns for the scalar fields,
-  JSON text columns for the six owned collections, and the entry's markdown as
-  one of those columns), Roadmap Planning one `roadmap_plan` document row, and
-  the Inbox `inbox_items`, `inbox_lists` and `inbox_groups`. The phone keeps its
-  outbox and task view in a SQLite file of its own, and the generated devbook
-  database is SQLite too.
+- **Used for** — `backlog.db`. Three modules share it but not a schema:
+  - Tasks keeps one `tasks` table. It has scalar columns for the scalar fields,
+    JSON text columns for the six owned collections, and a column for the
+    entry's markdown.
+  - Roadmap Planning keeps the `roadmap_plan` table, a single document row per
+    workspace.
+  - The Inbox keeps `inbox_items`, `inbox_lists` and `inbox_groups`.
+
+  The phone keeps its outbox and task view in a SQLite file of its own, and the
+  generated devbook database is SQLite too.
 - **Why** — accepted by
-  `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`, which retired
-  an arrangement of three files that could disagree about one task. It
-  supersedes "markdown is the canonical format" for storage without touching
-  markdown as the published entry language (ADR 0002).
+  [ADR 0003](../arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md),
+  which retired an arrangement of three files that could disagree about one
+  task. It supersedes "markdown is the canonical format" for storage, without
+  touching markdown as the published entry language (ADR 0002).
 
 ## Microsoft.Data.Sqlite
 
@@ -396,15 +420,20 @@ status: adopted
 type: package
 version: "10.9.0"
 depends-on: [".devbook/tech/shared.md#microsoftextensionshttp"]
+related: [".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md"]
 ```
 
 Standard retry, timeout, and circuit-breaker handlers for HTTP clients.
 
 - **Used for** — the standard resilience handler `Backlog.Aspire.ServiceDefaults`
   applies to every registered client. The `capture-feeds` client in
-  `Backlog.Infrastructure.Capture` replaces that default with its own pipeline —
-  1 retry, a 10 s attempt timeout, 15 s total — because a feed poll is a button
-  press on the user's own machine, not a background job.
+  `Backlog.Infrastructure.Capture` replaces that default with a pipeline of its
+  own. Its own pipeline makes one retry, with a 10-second attempt timeout and 15
+  seconds in total. It differs because a feed poll is a button press on the
+  user's own machine, not a background job. `Backlog.Infrastructure.Sync`
+  references the package directly, because its three replication clients also
+  replace the default. Their pipeline never retries a push, since a re-sent
+  push that already landed reports its items as refused.
 - **Why** — every external call in this system crosses a network the app does not
   control, and the shipped defaults beat per-call ad-hoc retries.
 
@@ -421,12 +450,14 @@ related: [".devbook/tech/shared.md#microsoftextensionshttpresilience", ".devbook
 The resilience pipeline library under the HTTP resilience handlers.
 
 - **Used for** — a direct `Polly.Core` reference in
-  `Backlog.Infrastructure.Sync`, so `SyncHttp` and `SyncTokenProvider` can catch
-  what the host's resilience pipeline throws when it gives up —
-  `TimeoutRejectedException` and `ExecutionRejectedException` — and name the
-  cause rather than falling into a catch-all.
-- **Why** — those exception types are Polly's, not the handler package's; the
-  version is pinned centrally so it matches what
+  `Backlog.Infrastructure.Sync` and `Backlog.Infrastructure.SpecManager`. Both
+  catch what a resilience pipeline throws when it gives up, and name the cause
+  rather than falling into a catch-all. In Sync, `SyncHttp` and
+  `SyncTokenProvider` catch `TimeoutRejectedException` and
+  `ExecutionRejectedException`. In SpecManager, the sign-in reads an
+  `ExecutionRejectedException` as the server being out of reach.
+- **Why** — those exception types are Polly's, not the handler package's. The
+  version is pinned centrally, so it matches what
   `Microsoft.Extensions.Http.Resilience` resolves.
 
 ## Microsoft.Extensions.ServiceDiscovery
@@ -457,9 +488,11 @@ related: [".devbook/tech/shared.md#opentelemetry"]
 
 The logging abstraction, plus the debug provider on the two MAUI heads.
 
-- **Used for** — application logging everywhere.
-  `Microsoft.Extensions.Logging.Debug` is referenced by `Backlog.Desktop` and
-  `Backlog.Mobile` so a debugger-attached run has output without a console.
+- **Used for** — application logging everywhere. Both heads add the debug
+  provider, so a debugger-attached run has output without a console.
+  `Backlog.Mobile` references `Microsoft.Extensions.Logging.Debug` directly.
+  `Backlog.Desktop` gets it from the ASP.NET Core shared framework, so naming the
+  package there would only raise NU1510.
 - **Why** — it is the abstraction OpenTelemetry's log pipeline consumes.
 
 ## YamlDotNet
@@ -472,11 +505,11 @@ related: [".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md"]
 alternatives: ["Markdig", "hand-written meta-block parser"]
 ```
 
-A YAML serializer, no longer pinned or referenced by any project.
+A YAML serializer that no project pins or references.
 
-- **Used for** — nothing directly today. It reaches the build transitively
-  through the Aspire AppHost, at whatever version that resolution lands on;
-  `Directory.Packages.props` no longer carries a `PackageVersion` entry for it.
+- **Used for** — nothing directly. It reaches the build transitively through the
+  Aspire AppHost, at whatever version that resolution lands on.
+  `Directory.Packages.props` carries no `PackageVersion` entry for it.
 - **Why `hold`** — it was the frontmatter serializer for the markdown task store
   that `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md` retired, and
   that ADR names its round-trip repair pass as one of the reasons for the move.
@@ -512,10 +545,10 @@ Code session activity.
 - **Used for** — importing usage evidence for productivity metrics through the
   Admin API's usage, cost, and Claude Code reports, via
   `Backlog.Infrastructure.Claude`.
-- **Why** — it is the only authoritative record of what was actually spent.
-  Kept a candidate because the reports are organization-scoped: Anthropic
+- **Why** — it is the only authoritative record of what was actually spent. It
+  stays a candidate because the reports are organization-scoped. Anthropic
   documents the Admin API as unavailable to individual accounts, so this
-  dependency only pays off for a person whose subscription sits behind an
+  dependency pays off only for a person whose subscription sits behind an
   organization. The recorded alternative covers everyone else.
 
 ## GitHub Copilot Usage APIs
@@ -532,7 +565,8 @@ The organization-level record of Copilot seat activity and usage metrics.
 - **Used for** — importing Copilot activity evidence alongside Claude usage, over
   the same transport the product already uses for issues (`CopilotUsageClient` in
   `Backlog.Infrastructure.GitHub`).
-- **Why** — the same reasoning as above, with a sharper limit: GitHub publishes
-  no endpoint for an individual subscriber's own Copilot usage at all, and the
-  organization endpoints are owner-only. Everything here is therefore
-  conditional on the person owning an organization.
+- **Why** — the same reasoning as the
+  [Anthropic Claude Platform](#anthropic-claude-platform), with a sharper limit.
+  GitHub publishes no endpoint for an individual subscriber's own Copilot usage
+  at all, and the organization endpoints are owner-only. Everything here
+  therefore depends on the person owning an organization.

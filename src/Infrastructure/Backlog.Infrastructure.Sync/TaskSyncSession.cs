@@ -238,14 +238,12 @@ public sealed class TaskSyncSession
             // shortfall on every line, because the response cannot say which of
             // them stayed behind; the all-or-nothing echo is the case that
             // happens on every cycle, and it is listed nowhere.
-            if (response.Value.Accepted > 0)
+            // One RecordRange per batch, so the footer redraws once per request.
+            if (response.Value.Accepted > 0 && _activity is { } activity)
             {
-                foreach (var task in batch)
-                {
-                    _activity?.Record(
-                        SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
-                        SentNote(task.DeletedAt is null ? null : "deleted", refusedInBatch, batch.Count));
-                }
+                activity.RecordRange(batch.Select(task => activity.Entry(
+                    SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+                    SentNote(task.DeletedAt is null ? null : "deleted", refusedInBatch, batch.Count))));
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, task => task.UpdatedAt) is { } advanced)
@@ -284,17 +282,11 @@ public sealed class TaskSyncSession
 
                 pushed += response.Value.Accepted;
 
-                foreach (var ack in batch)
+                if (_activity is { } activity)
                 {
-                    if (IsNoteAcknowledgement(ack))
-                    {
-                        _activity?.Record(
-                            SyncDirection.Sent, SyncItemKind.Note, ack.CaptureId.ToString("D"), ack.Title, "archived");
-                        continue;
-                    }
-
-                    _activity?.Record(
-                        SyncDirection.Sent, SyncItemKind.Capture, ack.CaptureId.ToString("D"), ack.Title, "acknowledged");
+                    activity.RecordRange(batch.Select(ack => IsNoteAcknowledgement(ack)
+                        ? activity.Entry(SyncDirection.Sent, SyncItemKind.Note, ack.CaptureId.ToString("D"), ack.Title, "archived")
+                        : activity.Entry(SyncDirection.Sent, SyncItemKind.Capture, ack.CaptureId.ToString("D"), ack.Title, "acknowledged")));
                 }
 
                 await _outbox
@@ -586,12 +578,10 @@ public sealed class TaskSyncSession
 
             pushed += response.Value.Accepted;
 
-            if (response.Value.Accepted > 0)
+            if (response.Value.Accepted > 0 && _activity is { } activity)
             {
-                foreach (var note in batch)
-                {
-                    _activity?.Record(SyncDirection.Sent, SyncItemKind.Note, note.Id.ToString("D"), note.Title);
-                }
+                activity.RecordRange(batch.Select(note => activity.Entry(
+                    SyncDirection.Sent, SyncItemKind.Note, note.Id.ToString("D"), note.Title)));
             }
 
             await notes.MarkPushedAsync(batch, cancellationToken).ConfigureAwait(false);

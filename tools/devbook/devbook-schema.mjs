@@ -144,8 +144,10 @@ export const SCHEMA_VERSION = (() => {
  * and renamed into place.
  *
  * `chapter_embedding` — keyed by `content_hash` rather than by chapter address,
- * so an unchanged chapter that moved is never re-embedded. Written empty in the
- * change that introduced it; the semantic tier is wired and makes no live call.
+ * so an unchanged chapter that moved is never re-embedded. This writer leaves it
+ * empty; the app fills it after its own build (`DevbookChapterEmbeddings`, through
+ * the Foundry `text-embedding-3-small` deployment) and carries the rows across a
+ * rebuild for text that did not change.
  * `vector` is `dimensions` IEEE-754 single-precision values, little-endian,
  * packed with no header — byte for byte what a `Float32Array` serialises to,
  * which is why this writer needs no encoder of its own. That layout is a

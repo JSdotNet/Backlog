@@ -24,10 +24,10 @@ uses on this channel.
 - **Why** — the personal-use scope is Android-first; iOS is not in the current
   baseline.
 
-The mobile app shell itself (.NET MAUI, optionally with Blazor Hybrid) is
-documented once in `.devbook/tech/shared.md#net-maui` and `.devbook/tech/shared.md#blazor-hybrid`,
-since the desktop channel now uses the same framework
-(`.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`).
+The mobile app shell itself, .NET MAUI with Blazor Hybrid, is documented once in
+[.NET MAUI](shared.md#net-maui) and [Blazor Hybrid](shared.md#blazor-hybrid),
+because the desktop channel uses the same framework
+([ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md)).
 
 ## Local Offline Store
 
@@ -44,11 +44,11 @@ made while offline. Two stores in `Backlog.Mobile.UI` share it, each with its
 own tables.
 
 - **Used for** — `SqliteDeviceStore` holds the outbox of captures and tasks
-  waiting for the next sync flush, and the cached inbox the phone draws before
-  it asks the service; `SqliteTaskViewStore` holds the task view, the phone's
-  projection of the task feed.
-- **Why** — mobile is not canonical, so it only needs a durable queue plus a
-  cache, not the whole task database; it keeps a schema of its own rather than
+  waiting for the next sync flush. It also holds the cached inbox the phone draws
+  before it asks the service. `SqliteTaskViewStore` holds the task view, the
+  phone's projection of the task feed.
+- **Why** — mobile is not canonical, so it needs only a durable queue and a
+  cache, not the whole task database. It keeps a schema of its own rather than
   sharing the desktop's adapter.
 
 ## SkiaSharp
@@ -68,11 +68,11 @@ enter the outbox. It serves the Notes editor and the capture sheet's photo.
 - **Used for** — decoding a photo, resizing it to a 1600 px longest edge
   and re-encoding it as JPEG; the EXIF orientation is carried over by hand and
   everything else in EXIF is dropped.
-- **Why** — MIT-licensed, with the Android and Windows natives in the package,
-  so the MAUI head, the browser harness and the unit tests run the one codec
-  and the downscaler has one implementation a test can hold. ImageSharp's split
-  licence and a per-platform pair (Android `Bitmap` beside a browser canvas)
-  were the alternatives.
+- **Why** — it is MIT-licensed, with the Android and Windows natives in the
+  package. The MAUI head, the browser harness and the unit tests therefore run
+  one codec, and the downscaler has one implementation a test can hold. The
+  alternatives were ImageSharp, with its split licence, and a per-platform pair
+  of Android `Bitmap` beside a browser canvas.
 
 ## Android SDK Build Tools
 
@@ -88,9 +88,9 @@ The Android toolchain the MAUI Android head builds and signs through.
 - **Used for** — producing the APK, and `apksigner verify`, which
   `.github/workflows/release-mobile.yml` runs before publishing so an unsigned
   package cannot reach a release.
-- **Why** — signing verification has to be a separate check: `dotnet publish`
-  will happily produce an unsigned package if a signing value is missing, and
-  that failure is silent at the point it happens.
+- **Why** — signing verification has to be a separate check. `dotnet publish`
+  produces an unsigned package when a signing value is missing, and that failure
+  is silent at the point it happens.
 
 ## Java JDK
 
@@ -124,14 +124,15 @@ The packaging and release format for the Android client.
   Play, and an `.apk` (not `.aab`) is required because `.aab` bundles are only
   consumable by the Play Store.
 - **How** — `dotnet publish` targets `net10.0-android` with
-  `AndroidPackageFormat=apk`, `ApplicationDisplayVersion` set to the semantic
-  version, and `ApplicationVersion` set to a packed integer `versionCode`
-  (`major*10^7 + minor*10^5 + patch`) so a newer release always installs over
-  an older one. Signing values
-  (`AndroidSigningKeyStore`/`AndroidSigningKeyAlias`/`AndroidSigningStorePass`/
-  `AndroidSigningKeyPass`) are passed on the publish command line from
-  repository secrets in `.github/workflows/release-mobile.yml`, which refuses
-  to produce an unsigned package and runs `apksigner verify` before
-  publishing; `Backlog.Mobile.csproj` itself is unchanged. Because the
-  keystore is self-signed, an APK signed with a different key cannot upgrade
-  an existing install (Android rejects signature changes).
+  `AndroidPackageFormat=apk`. `ApplicationDisplayVersion` is the semantic
+  version. `ApplicationVersion` is a packed integer `versionCode`
+  (`major*10^7 + minor*10^5 + patch`), so a newer release always installs over
+  an older one.
+- **Signing** — `.github/workflows/release-mobile.yml` passes the signing values
+  on the publish command line from repository secrets: `AndroidSigningKeyStore`,
+  `AndroidSigningKeyAlias`, `AndroidSigningStorePass`, and
+  `AndroidSigningKeyPass`. `Backlog.Mobile.csproj` carries none of them. The
+  workflow refuses to produce an unsigned package and runs `apksigner verify`
+  before publishing. The keystore is self-signed, and Android rejects signature
+  changes, so an APK signed with a different key cannot upgrade an existing
+  install.

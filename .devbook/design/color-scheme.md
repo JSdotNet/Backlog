@@ -10,7 +10,7 @@ related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/desig
 > Because the product is **dark mode only**, only the dark-mode column
 > of the org palette is adopted here; the light column is intentionally dropped.
 > Brand, semantic and text tokens are the guide's values unchanged. **Surface and
-> border tokens are a deliberate project deviation** — see
+> border tokens are a deliberate project deviation**; see
 > [Surface and Border Deviation](#surface-and-border-deviation).
 > This file is the single source of token *values*; all other `.devbook/design` files and
 > product code reference token **names** only.
@@ -24,8 +24,9 @@ related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/desig
   imported 2026-08-27. This file is authoritative from that date.
 - **Selection:** dark-mode values only (the product has no light theme).
 - **Deviation:** the surface and border ramps are project values, not the
-  guide's. Recorded in [Surface and Border Deviation](#surface-and-border-deviation)
-  with the measured contrast pairs the override contract requires.
+  guide's. [Surface and Border Deviation](#surface-and-border-deviation) records
+  them with the measured contrast pairs that the guide's
+  `05-customization-guide` asks an override to show.
 - **Contrast rules, elevation-by-color, and focus-ring rules** are also
   sourced from that guide and from `04-motion-and-interaction`.
 - The palette **includes a defined dark mode**, so no draft/invented palette was
@@ -57,9 +58,9 @@ the product uses.
 ```meta
 ```
 
-Semantic colors are **surface/background tokens first** — render readable
-foreground text and icons on top of them; do not treat them as strong
-standalone UI colors, and do not invent a second, stronger semantic palette.
+Semantic colors are **surface and background tokens first**. Render readable
+foreground text and icons on top of them. Do not treat them as strong standalone
+UI colors, and do not invent a second, stronger semantic palette.
 
 | Token | Value (dark) | Usage |
 |---|---|---|
@@ -70,43 +71,35 @@ standalone UI colors, and do not invent a second, stronger semantic palette.
 | `color-error-text` | `#EC8E97` | Error text, icons and input outlines — the legible foreground for the `color-error` surface, and for error text with no surface behind it |
 | `color-info` | `#0A2C31` | Informational notices, neutral announcement surfaces |
 
-`color-error-text` and `color-success-text` are the two deliberate exceptions to
-"surfaces only", and they exist because the rule above left a hole. Foreground
-text on a semantic panel covers a banner, but a bare status line, a status icon,
-or an input outline has no semantic surface behind it and so had no sanctioned
-colour at all. Both are **foregrounds only** — neither is ever painted as a
-background — and they do not open the door to a second semantic palette, because
-they serve the two meanings that needed one. `color-warning` and `color-info` get
-no counterpart: no rule paints either as text, and a token nothing uses is a
-value nothing measures.
+`color-error-text` and `color-success-text` are the two exceptions to "surfaces
+only". A bare status line, a status icon or an input outline has no semantic
+surface behind it, and without these two it would have no sanctioned colour.
+Both are **foregrounds only**: neither is ever painted as a background. They do
+not open the door to a second semantic palette, because they serve only the two
+meanings that needed a foreground. `color-warning` and `color-info` get no
+counterpart. No rule paints either as text, and a token nothing uses is a value
+nothing measures.
 
-Each is a legibility correction to the colour already in use rather than a new
-colour: same hue, same saturation, lightness lifted until the binding pair
-passes. The binding pair is `color-background-raised` in both cases — it is the
-lightest surface either ink sits on, and a status string lands in a dropdown, a
-popover or a badge next.
+Each foreground is a legibility correction to the colour already in use, not a
+new colour. It keeps the hue and the saturation and lifts only the lightness,
+until its [binding pair](#contrast-rules-wcag-aa-minimum) passes. The binding
+pair is `color-background-raised` in both cases. It is the lightest surface
+either ink sits on, and dropdowns, popovers and badges are built on it.
 
-**`color-error-text`.** Two unsanctioned answers grew up in the gap: a raw
-`#E4626F` repeated through the desktop stylesheet, and a `--color-danger` that
-product code referenced but nothing ever declared. This token is the missing
-answer.
+**`color-error-text`.** Before this token, the desktop stylesheet repeated a raw
+`#E4626F`, and product code referenced a `--color-danger` that nothing declared.
+This token is the sanctioned answer to both.
 
-**The value is derived, not picked.** `#E4626F`, the incumbent literal, is
-hsl(354, 70.7%, 63.9%) and measures 5.59:1 on `color-background`, 4.86:1 on
-`color-background-alt` and **3.65:1** on `color-background-raised`. It fails the
-4.5:1 AA this document requires of a foreground on a semantic surface. No error
-message sits on a raised surface *today* — dialogs, modals and popovers are all
-built on `color-background` — so the alternative was to keep the incumbent and
-restrict it to the two surfaces it clears. That was rejected: the restriction
-would have to be honoured by the author of every future one-line error rule,
-nothing would enforce it, and the table below already states the requirement
-unrestricted, for a foreground on *any* semantic surface.
-`color-background-raised` is live for dropdowns, popovers and badges, which is
-where an error string lands next.
-
-`#EC8E97` is hsl(354, 70.7%, **74.0%**) — the same hue and the same saturation
-with only the lightness lifted, so this is a legibility correction to the colour
-already in use rather than a redesign of it.
+**The value is derived, not picked.** The incumbent `#E4626F` is
+hsl(354, 70.7%, 63.9%). It measures 5.59:1 on `color-background`, 4.86:1 on
+`color-background-alt` and **3.65:1** on `color-background-raised`, so it fails
+the 4.5:1 this document requires of a foreground on a semantic surface. No error
+message sits on a raised surface today, because dialogs and modals are built on
+`color-background`. Keeping the incumbent and restricting it to the two surfaces
+it clears was therefore an option, and it was rejected. The author of every
+future error rule would have to honour the restriction, and nothing would
+enforce it. The contrast table below also states the requirement for a
+foreground on *any* semantic surface. `#EC8E97` is hsl(354, 70.7%, **74.0%**).
 
 | Pairing | Required | `color-error-text` |
 |---|---|---|
@@ -119,23 +112,22 @@ already in use rather than a redesign of it.
 | as a border vs `color-background-raised` | 3:1 | **5.17:1** |
 
 Every ratio is computed with the WCAG 2.1 relative-luminance formula. The
-binding pair is the raised surface, as it was for the incumbent. 72% lightness
-(`#EA858F`, 4.80:1 on raised) is the lowest lightness that passes at all; 74% was
-chosen so the binding pair is not sitting 0.3 above the threshold, where a later
-surface adjustment would quietly push it back under.
+binding pair is the raised surface, as it was for the incumbent. The lowest
+lightness that passes at all is 72% (`#EA858F`, 4.80:1 on raised). The token
+uses 74% so its binding pair does not sit 0.3 above the threshold, where a later
+surface adjustment would push it back under.
 
-**`color-success-text`.** The success meaning fell into the same hole and took
-the other way out of it. Nothing invented a literal: `.setting__status--ok` in
-the desktop stylesheet painted the Settings confirmation line in `color-success`
-itself, the surface token used as ink. That is **1.49:1** on `color-background`,
-1.29:1 on `color-background-alt` and 1.03:1 on `color-background-raised` — a
-near-black green on a near-black page, which is not a weak colour choice but an
-invisible line. This token is what that rule should have named.
+**`color-success-text`.** The success meaning had the same gap. The Settings
+confirmation line (`.setting__status--ok` in the desktop stylesheet) was painted
+in `color-success` itself, the surface token used as ink. That measures
+**1.49:1** on `color-background`, 1.29:1 on `color-background-alt` and 1.03:1 on
+`color-background-raised`. A near-black green on a near-black page is not a weak
+colour choice; it is an invisible line. This token is the ink that rule uses.
 
 **The value is derived, not picked**, the same way. `#72C086` is
-hsl(135, 38.2%, **60.0%**) against `#1A3A22`'s hsl(135, 38.1%, 16.5%): the hue
-and the saturation of the colour already in use, with only the lightness lifted.
-It is a legibility correction to `color-success`, not a second green.
+hsl(135, 38.2%, **60.0%**), and `color-success` (`#1A3A22`) is
+hsl(135, 38.1%, 16.5%): the same hue and saturation, with only the lightness
+lifted.
 
 | Pairing | Required | `color-success-text` |
 |---|---|---|
@@ -147,9 +139,8 @@ It is a legibility correction to `color-success`, not a second green.
 | as a border vs `color-background-alt` | 3:1 | **7.43:1** |
 | as a border vs `color-background-raised` | 3:1 | **5.58:1** |
 
-Same formula, same binding pair: the raised surface at 5.58:1, with the same
-margin above 4.5 that `color-error-text` was tuned for, so a later surface
-adjustment does not quietly push it back under.
+The binding pair is again the raised surface, at 5.58:1. That keeps the same
+margin above 4.5:1 that `color-error-text` was tuned for.
 
 ### Neutral / Text
 
@@ -200,12 +191,12 @@ contrast pairs validated for the default palette. **This product overrides them
 anyway**, and discharges that rationale by re-validating every affected pair.
 
 **What changed and why.** The guide's dark surfaces are a slate ramp
-(`#0F172A` / `#1E293B` / `#334155`, borders `#475569` / `#64748B`). Slate carries
-a blue cast that reads as a tinted background rather than a neutral one, and
-tints the whole product against a warm gold brand. The replacement is a neutral
-grey at a darker base, holding the ramp's rhythm: each surface is ~2.4x the
-luminance of the one below, which is the spacing slate had, so elevation-by-colour
-still reads at the same strength.
+(`#0F172A` / `#1E293B` / `#334155`, borders `#475569` / `#64748B`). Slate has a
+blue cast, so the background reads as tinted rather than neutral, and it tints
+the whole product against a warm gold brand. The product uses a neutral grey at
+a darker base instead. It keeps slate's rhythm: each surface has about 2.4 times
+the luminance of the one below, so elevation by colour reads at the same
+strength.
 
 | Token | Guide (dark) | This product |
 |---|---|---|
@@ -236,9 +227,9 @@ Every pair improved on the guide's own values.
 
 **Known gap.** `color-border` does not meet the 3:1 this document requires of UI
 component boundaries. It did not meet it under the guide's values either
-(2.36:1), so the deviation neither introduced nor resolved the failure — it is
-inherited from the org palette. A neutral around `#616166` clears 3:1 against the
-current base if the heavier divider weight is judged acceptable.
+(2.36:1), so the gap is inherited from the org palette rather than introduced by
+the deviation. A neutral around `#616166` clears 3:1 against the current base, if
+the heavier divider weight is judged acceptable.
 `[TODO: clarify]` whether to raise this against the org guide or override locally.
 
 ## Full Token Reference
@@ -273,11 +264,33 @@ Copy-paste reference of every color token and its single dark value.
 | `color-border-strong` | `#737379` |
 | `color-border-focus` | `#F2C14E` |
 
-The twenty-two tokens above are the whole colour palette. `components.css` declares
-exactly these, plus the code-block theme in `#syntax-highlighting-tokens`, the
-band identity set in `#band-identity-tokens`, and the derived role tokens in
-`#role-tokens`; anything else in product code is a literal and MUST be replaced by
-a token.
+The tokens above are the whole colour palette. Every other colour family in this
+file takes its values from it:
+
+```mermaid
+flowchart LR
+    palette["Palette<br/>color-*"]
+    code["Code theme<br/>code-*"]
+    band["Band identity<br/>color-band-1…5"]
+    chart["Chart roles<br/>chart-*"]
+    integration["Integration roles<br/>integration-*"]
+    tones["Badge and chip tones"]
+    palette -- "some runs by var()" --> code
+    palette -- "color-primary" --> band
+    code -- "four run hues" --> band
+    palette -- "var() or color-mix()" --> chart
+    band -- "chart-category-*" --> chart
+    palette -- "var() or color-mix()" --> integration
+    palette -- "inks, surfaces, edges" --> tones
+```
+
+The code theme spends a few hues of its own; the band set and the role tokens add
+no value the palette and the code theme do not already carry. `components.css`
+declares exactly the palette, plus the code theme in
+[Syntax Highlighting Tokens](#syntax-highlighting-tokens), the band identity set
+in [Band Identity Tokens](#band-identity-tokens), and the derived role tokens in
+[Role Tokens](#role-tokens). Anything else in product code is a literal and MUST
+be replaced by a token.
 
 ## Syntax Highlighting Tokens
 
@@ -307,11 +320,10 @@ palette**: each token names what a run of code *is*, never what a piece of UI
 Rules:
 
 - Every value is measured against `color-background`, which is what a code block
-  sits on: runs of actual code clear 9.3:1, and the two deliberately quiet ones —
-  the comment grey at 6.1:1 and the line-number grey at 5.3:1 — still clear AA.
-  These are the figures against the neutral base in
-  `#surface-and-border-deviation`; each rose by ~5% when the base got darker, so
-  the theme needed no revision, only re-measurement.
+  sits on. Runs of actual code clear 9.3:1. The two deliberately quiet greys
+  still clear AA: the comment grey at 6.1:1 and the line-number grey at 5.3:1.
+  These figures are against the neutral base in
+  [Surface and Border Deviation](#surface-and-border-deviation).
 - The hues here are ones the product palette does not otherwise spend, so no two
   kinds of run read as the same thing.
 - A new language MUST map onto these tokens; it MUST NOT add a colour.
@@ -322,17 +334,19 @@ Rules:
 related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/accessibility.md#contrast", ".devbook/domain/roadmap/features.md#repository-scoped-planning"]
 ```
 
-A workspace holds several repositories at once, and a reader needs to tell one
-project's work from another's at a glance — on a portfolio plan, in a list of
-entries, and on the filter that scopes the whole app. That is the second thing in
-this product to need more than one hue, and it is the same *kind* of thing as the
-first: like the code theme above, this is **a theme, not a second semantic
-palette**. Each token names *which repository* something belongs to — an identity —
-never what a piece of UI *means*.
+A workspace holds several repositories at once. A reader needs to tell one
+project's work from another's at a glance in three places:
 
-The set was introduced for the roadmap band and was restricted to it while the band
-was its only consumer. It is now the product's **repository identity**, and the
-restriction is a list rather than a single surface. Exactly these may use one:
+- on a portfolio plan,
+- in a list of entries,
+- on the filter that scopes the whole app.
+
+Like the code theme above, the band set is **a theme, not a second semantic
+palette**. Each token names *which repository* something belongs to, an
+identity, and never what a piece of UI *means*.
+
+The set is the product's **repository identity**. Exactly these consumers may
+use one:
 
 | Consumer | Mark |
 |---|---|
@@ -345,36 +359,34 @@ restriction is a list rather than a single surface. Exactly these may use one:
 | A repository box in the Inbox triage picker, "Move to backlog in" | the identity edge below, along the box's leading edge |
 | The colour picker in Settings → Repositories | a solid swatch of the hue itself |
 | The **Brain** chip leading the repository scope in the app header | the identity edge below, in `color-band-2`; see [The Brain's accent](#the-brains-accent) |
-| The **Brain** badge after the Devbook pane's title, the **From your Brain** box under a repository chapter, and a Brain note's edges in the Brain's atlas | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
+| The header's Devbook toggle while it reads **Brain**, the **Brain** badge after the Devbook pane's title, the **From your Brain** box under a repository chapter, a Brain note's Tasks section, the **◆ n note** badge on a task row, and a Brain note's edges in the Brain's atlas | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
 
-The picker is the one place a hue is painted as a fill rather than an edge, and that
-is not an exception to the rule below — it is the rule's own consequence. A control
-whose subject *is* the colour has to show the colour; a swatch reading "sample of
-band 3" in a 4px sliver would be a picker you cannot pick from. Every swatch is
-labelled and the chosen one is marked, so the fill is still not the sole carrier.
+The roadmap's bars, the dashboard's repository bands and the Settings picker
+paint a hue as a fill; every other consumer takes the identity edge. The
+picker's fill follows from the rules below rather than breaking them. A control
+whose subject *is* the colour has to show the colour: a swatch that showed
+band 3 as a 4px sliver would be a picker you cannot pick from. Every swatch is
+labelled and the chosen one is marked, so the fill is still not the sole
+carrier.
 
-Nothing else may. A new consumer is an addition to that table, argued here, and
-never a hue added to the set.
+No other surface may use the set. A new consumer is a row added to that table,
+argued here, and never a hue added to the set.
 
-The triage picker earns its row on the same ground as the entry row: what is being
-chosen there is the repository the entry will belong to, and the box is the place the
-reader decides it, so the hue the entry will wear afterwards is the one the box wears
-now. Each box is labelled with the alias and the edge is additive on an unchanged box,
-so with the layer off the picker reads exactly as it does with it on, less the stripe.
+The triage picker earns its row on the same ground as the entry row. The reader
+decides there which repository the entry will belong to, so the box wears the hue
+the entry will wear afterwards. Each box is labelled with the alias, and the edge
+is added to an otherwise unchanged box. With the layer off, the picker reads
+exactly as it does with the layer on, less the stripe.
 
 **No new colour value is introduced.** Every value below already appears in this
-document: one is `color-primary`, and the other four are the hues the code theme
-already spends. That is the difference from [Role Tokens](#role-tokens), whose
-values are all *derived* from a palette token — these are not derived, but they are
-not new either, so the count of colours this product uses is unchanged and there is
-no new value for this file to disagree with.
+document: one is `color-primary`, and the other four are hues the code theme
+already spends. [Role Tokens](#role-tokens) are *derived* from palette tokens.
+The band tokens are not derived, but they are not new either, so the product's
+set of colours does not grow and no value here can disagree with another.
 
-They are their own token names rather than references to `code-type` and friends
-because the code theme's own rule says nothing outside a code block may use one of
-its tokens. Reading that as "the names are reserved, the values are the file's" is
-the honest reading rather than a loophole: the rule exists so a reader never has to
-wonder whether a coloured run is a type name, and a band in a Gantt chart cannot be
-mistaken for one.
+They are token names of their own rather than references to `code-type` and the
+other code tokens, because nothing outside a code block may use a code token. The
+rule reserves the code token names, not their values.
 
 | Token | Value | Source in this file |
 |---|---|---|
@@ -389,10 +401,10 @@ mistaken for one.
 ```meta
 ```
 
-A band colour is painted three ways: a 4px left border on the band's own label, the
-label's surface as `color-mix(in srgb, <token> 24%, color-background)`, and
-`color-text-primary` on that surface. A border is a non-text mark and owes 3:1; ink
-on a surface owes the 4.5:1 in
+A band colour is painted three ways: a 4px left border on the band's own label,
+the label's surface as `color-mix(in srgb, <token> 24%, color-background)`, and
+`color-text-primary` on that surface. A border is a non-text mark and owes 3:1.
+Ink on a surface owes the 4.5:1 in
 [#contrast-rules-wcag-aa-minimum](#contrast-rules-wcag-aa-minimum).
 
 | Token | Border vs `color-background` | Border vs `color-background-alt` | 24% label surface | `color-text-primary` on it |
@@ -403,40 +415,42 @@ on a surface owes the 4.5:1 in
 | `color-band-4` | 9.36:1 | 8.13:1 | `#473628` | 10.91:1 |
 | `color-band-5` | 6.15:1 | 5.34:1 | `#2E3139` | 12.34:1 |
 
-Every ratio is the WCAG 2.1 relative-luminance formula. The binding pair is
-`color-band-5` as a border on `color-background-alt` at 5.34:1 — still two and a
-half times the 3:1 it owes, because the set was chosen from values already measured
-against these surfaces rather than picked for looks.
+Every ratio uses the WCAG 2.1 relative-luminance formula. The binding pair is
+`color-band-5` as a border on `color-background-alt`, at 5.34:1. That is 1.78
+times the 3:1 it owes. The margin comes from choosing the set from values already
+measured against these surfaces, not from values picked for looks.
 
 ### The identity edge
 
 ```meta
 ```
 
-Off the roadmap the hue is **additive only**: a 4px rule along one edge of a
-control that was already there, painted as an inset shadow rather than a border so
-the element's own box, padding and alignment are untouched. Nothing is tinted,
-nothing is recoloured, and every surface, border and text token the control already
-wore stays exactly as it was. A chip that read correctly before the repository had a
-colour reads identically after it, with a stripe along its edge.
+Off the roadmap the hue is **additive only**. It is a 4px rule along one edge of
+a control that was already there. The rule is painted as an inset shadow rather
+than a border, so the element's own box, padding and alignment stay as they
+were. Nothing is tinted or recoloured, and the control keeps every surface,
+border and text token it already wore. A chip that read correctly before its
+repository had a colour reads the same afterwards, with a stripe along its edge.
 
-Which edge is the control's to choose, and it chooses the one nothing else is
-using. A row takes its leading edge. The header's scope chips, fused into one
-strip, take the bottom: fused, their leading edges are the hairlines between them,
-and a 4px rule against a 1px hairline read as a thick border on some chips and not
-others — the shape of the group arguing with the mark. The bottom is free there,
-because the anchor's mark is an underline under the word rather than on the box.
+Each control takes the edge nothing else on it uses:
 
-That restraint is the whole reason the set may leave the roadmap. A band is a region
-of a chart and can afford a 24% wash; a filter chip and an entry row sit inside dense
-chrome that already spends its contrast on status, priority and selection. A wash
-there would put an identity hue in competition with colours that carry meaning, which
-is the one thing the rule above forbids.
+- A row takes its leading edge.
+- The header's scope chips take the bottom edge. They are fused into one strip,
+  so their leading edges are the hairlines between them, and a 4px rule against
+  a 1px hairline reads as a thick border on some chips and not others. The bottom
+  is free, because the anchor's mark is an underline under the word rather than
+  on the box.
 
-The edge is a non-text mark and owes 3:1 against whatever the control is filled with.
-The two fills it lands on that the table above does not already cover are
-`color-background-raised` — the resting scope chip and a selected entry row — and
-`color-primary`, the active scope chip.
+That restraint is the reason the set may leave the roadmap. A band is a region of
+a chart and can afford a 24% wash. A filter chip and an entry row sit inside
+dense chrome that already spends its contrast on status, priority and selection.
+A wash there would put an identity hue in competition with colours that carry
+meaning, which the rules below forbid.
+
+The edge is a non-text mark and owes 3:1 against the control's fill. Two of the
+fills it lands on are not in the table above. One is `color-background-raised`,
+the resting scope chip and a selected entry row. The other is `color-primary`,
+the active scope chip.
 
 | Token | Edge vs `color-background-raised` |
 |---|---|
@@ -446,16 +460,16 @@ The two fills it lands on that the table above does not already cover are
 | `color-band-4` | 6.11:1 |
 | `color-band-5` | 4.01:1 |
 
-`color-band-5` at 4.01:1 is the binding pair for the edge, a third above the 3:1 it
-owes.
+`color-band-5` at 4.01:1 is the binding pair for the edge, a third above the 3:1
+it owes.
 
-**The active scope chip is the one case the ratio cannot answer.** It is filled with
-`color-primary`, and `color-band-1` *is* `color-primary` — a band-1 edge on a
-selected chip would measure 1:1 and disappear. The edge is therefore separated from
-that fill by a 1px seam in `color-background`, which clears 3:1 on both sides
-(11.15:1 against `color-band-1`, 11.15:1 against `color-primary`). The seam is drawn
-only on the active chip, because it is the only place two sanctioned colours meet;
-it runs along whichever edge the mark took.
+**The active scope chip is the one case the ratio cannot answer.** It is filled
+with `color-primary`, and `color-band-1` *is* `color-primary`, so a band-1 edge on
+that chip would measure 1:1 and disappear. A 1px seam in `color-background`
+therefore separates the edge from the fill. The seam clears 3:1 on both sides:
+11.15:1 against `color-band-1` and 11.15:1 against `color-primary`. Only the
+active chip draws the seam, because it is the only place two sanctioned colours
+meet. The seam runs along whichever edge the mark took.
 
 Rules:
 
@@ -463,46 +477,45 @@ Rules:
   It carries no severity, no status and no priority. Priority on a roadmap is the
   ordinal shade ramp on the bars, which is one hue and stays that way.
 - **Colour is never the sole carrier.** Every band is also labelled with its
-  repository alias written down its own side, every bar names its band in its
-  accessible name, and the repository filter lists them by full name. The band
-  sidebar is `aria-hidden` and so is every identity edge, so a reader who never sees
-  a hue loses nothing — on any of the surfaces above, the alias is still written
-  there in words.
+  repository alias, written down its own side. Every bar names its band in its
+  accessible name, and the repository filter lists repositories by full name.
+  The band sidebar and every identity edge are `aria-hidden`. A reader who never
+  sees a hue loses nothing, because each surface above also writes the alias in
+  words.
 - **Colour never competes with meaning.** Status, priority, severity and selection
-  keep the colours they have. An identity hue is only ever an edge beside them, never
-  the fill behind them, so the two can be read at the same time without either
-  becoming ambiguous.
-- **One choice, one place.** A repository's hue is chosen in Settings and every
-  surface reads that one answer, so the same project is the same colour on the
-  roadmap, on the filter and on a row. A surface that picked its own would be a
-  second identity for the same thing.
+  keep the colours they have. An identity hue is only ever an edge beside them,
+  never the fill behind them, so both can be read at once without either becoming
+  ambiguous.
+- **One choice, one place.** A repository's hue is chosen in Settings, and every
+  surface reads that one answer. The same project is then the same colour on the
+  roadmap, on the filter and on a row. A surface that picked its own hue would
+  give the same repository a second identity.
 - **The layer is opt-in, and off is the default.** Which hue a repository wears is
-  chosen in Settings; whether the hues are drawn at all is a switch on the main
-  page, off until somebody asks for it. Two controls because they are two
-  questions: one is set once and left alone, the other is about the screen in front
-  of you. The consumer table above therefore says which surfaces *may* carry an
-  identity, not which ones always do — with the layer off, each renders the
-  uncoloured presentation it already has for a repository nobody gave a colour to,
-  and the Settings picker keeps showing its swatches, because a control whose
-  subject is the colour has to show it. That the layer can be off in its entirety
-  is also why **colour is never the sole carrier** above is not a formality: with
-  the hues gone, the alias written in words is all that is left.
+  chosen in Settings. Whether the hues are drawn at all is a switch on the main
+  page, off until somebody turns it on. These are two controls because they answer
+  two questions: the hue is set once and left alone, and the switch is about the
+  screen in front of you. The consumer table therefore says which surfaces *may*
+  carry an identity, not which ones always do. With the layer off, each surface
+  renders the uncoloured presentation it has for a repository with no colour,
+  and the Settings picker still shows its swatches. Because the whole layer can be
+  off, *colour is never the sole carrier* is not a formality: with the hues gone,
+  the alias in words is all that is left.
 - **Hues are assigned by position** in the configured-repository list and wrap after
   five, so a sixth repository repeats the first hue. An explicit choice in Settings
-  overrides the position, and an automatic hue steps over the ones already claimed so
-  it never lands on a neighbour's. Two repositories sharing a hue is acceptable
-  precisely because the hue is not the identifier — the label is.
+  overrides the position. An automatic hue skips the hues already claimed, so it
+  never lands on a neighbour's. Two repositories may share a hue, because the
+  label identifies a repository and the hue does not.
 - A new consumer wanting categorical colour MUST justify itself against this
   section rather than adding hues, exactly as a new language MUST map onto the code
   theme rather than adding a colour.
 
 Provenance note: the organization's `01-color-palette` guide defines five token
-groups — brand, semantic, text, background, border — and has **no categorical or
+groups (brand, semantic, text, background and border). It has **no categorical or
 identity group** to conform to, so there was nothing upstream to adopt. Its
-`05-customization-guide` makes colour the one thing a project may customize, which
-is the envelope this sits inside; the override contract's "both light and dark
-variants" does not bite, because this product is dark-only and every value here is
-one the file already carries.
+`05-customization-guide` makes colour the one thing a project may customize, and
+this set stays inside that allowance. That guide's override rules ask for both
+light and dark variants. The requirement does not apply here, because the product
+is dark only and every value in the set is one this file already carries.
 
 ### The Brain's accent
 
@@ -514,28 +527,31 @@ The person's [Brain](../domain/devbook/domain.md#brain) sits in the repository
 scope beside the repositories (local ADR 0027), so it takes an identity from the
 same set rather than a hue of its own: **`color-band-2`, teal `#7FD1C1`**. Gold,
 `color-primary`, stays what marks a repository devbook. Two devbooks can be on
-screen at once, the Brain's note and the repository chapter it links to, and
-the pair is what tells them apart: teal says *your own notes*, gold says *a
+screen at once: a Brain note and the repository chapter it links to. The two
+colours tell them apart. Teal says *your own notes*, and gold says *a
 repository's devbook*.
 
 | Surface | Mark |
 |---|---|
 | The Brain chip in the header's repository scope | the identity edge along the chip's bottom, as a repository chip's |
+| The header's Devbook toggle, which reads **Brain** while the pane shows the Brain | the identity edge along its bottom, pressed or not; pressed, `color-band-2` takes `color-primary`'s place on its border and a 16% fill, with `color-text-primary` ink |
 | The Brain badge after the Devbook pane's title, while the pane shows the Brain | a badge in the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
 | The **From your Brain** box under a repository chapter | the band painting on the box's leading edge and surface |
 | The **Brain** card on Settings › Storage | a 1px `color-band-2` border round the card and a 10px `color-band-2` swatch before its title, which reads *Brain* |
 | The edge from a Brain note in the Brain's atlas | `color-band-2` stroke, solid when the link resolves and dashed when it does not |
 | A resolved `repo:` link chip in a Brain note | gold: the `live` tone of [Badge and chip tones](#badge-and-chip-tones), the followable-badge rule, since following it opens a repository devbook |
 | An unresolved `repo:` link chip | the `quiet` tone inside a dashed `color-border-strong` edge, with *not on this machine* in words |
+| The **Tasks** section of a Brain note, and the **◆ n note** badge on a task row naming the Brain notes that link to it | the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
+| A task chip in a note's Tasks section | gold, the `live` tone, when this backlog holds the task, since following it opens the task; the `quiet` tone inside a dashed `color-border-strong` edge, with *not in this backlog* in words, when it does not |
 
 Rules:
 
 - **No new value.** `color-band-2` already exists, as the code theme's
   `code-type`. The Brain spends nothing the palette does not already carry.
-- **The Brain's accent is always drawn.** It does not wait on the header's
-  Colors switch, because it marks the Brain, a place that is always in the
-  scope, and not a repository identity the person opted into. A repository chip
-  keeps the switch's rule.
+- **The Brain's accent is always drawn.** It does not wait on the header's Colors
+  switch. It marks the Brain, a place that is always in the scope, and not a
+  repository identity the person opted into. A repository chip keeps the
+  switch's rule.
 - **Never the sole carrier.** The chip reads **Brain**, sits first, and a
   divider sets it off from the repository chips; the badge and the box say
   *Brain* in words. Band 2 is shared: a repository whose hue is band 2 wears the
@@ -551,14 +567,18 @@ Rules:
 related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/accessibility.md#contrast"]
 ```
 
-Two component families need role names the twenty-two palette tokens do not provide:
-a chart needs a series colour, a track, a gridline and a baseline, and an
-integration affordance needs a live state, a landed one, a quiet one and the two
-surfaces the product acts on. Like the code theme these are **themes, not a
-second palette** — with one difference that matters: **every value below is
-derived.** Each is a `var()` of a palette token or a `color-mix()` of one against
-the surface it is drawn on, so none holds a colour of its own, the palette is
-still twenty-two colours, and there is no new value for this file to disagree with.
+Two component families need role names the palette does not provide:
+
+- A chart needs a series colour, a track, a gridline and a baseline.
+- An integration affordance needs a live state, a landed one, a quiet one, and
+  the two surfaces the product acts on.
+
+Like the code theme, these are **themes, not a second palette**. Unlike the code
+theme, **every value below is derived.** Each is a `var()` of a palette token, or
+a `color-mix()` of one against the surface it is drawn on. None holds a colour of
+its own, so the palette does not grow and no value here can disagree with it. The
+diagram in [Full Token Reference](#full-token-reference) shows where each family
+takes its values from.
 
 ### Badge and chip tones
 
@@ -570,12 +590,8 @@ the value belongs to. Each family maps its own vocabulary onto **one shared tone
 scale**, so a reader learns the scale once and reads it in every family. The
 vocabulary is always the caller's; the tone is always this file's.
 
-The families the stylesheet ships are `status`, `priority`, `type`, `area`,
-`kind`, `alias`, `feature`, `progress`, `source`, `tool`, `glob`, `gh` and
-`integration`. This paragraph named three of them for a long time while the
-stylesheet grew to thirteen, so read the list as a count that has drifted before
-and may drift again — `components.css` is the authority on which families exist,
-and this file is the authority on what any of them may look like.
+`components.css` is the authority on which badge families exist, and this file
+is the authority on what any of them may look like.
 
 | Tone | What it means | Palette derivation |
 |---|---|---|
@@ -596,9 +612,9 @@ Rules:
   always the one to look at. A state that is merely information MUST NOT be
   filled.
 - A filled chip takes `color-border-strong` as its boundary rather than a mix of
-  its own surface — the semantic tokens are 1.04:1 to 1.31:1 against the raised
-  surface and are invisible as boundaries. See `#integration-roles`, which records
-  the same finding for state chips.
+  its own surface. The semantic tokens are 1.04:1 to 1.31:1 against the raised
+  surface, so as boundaries they are invisible. [Integration roles](#integration-roles)
+  records the same finding for state chips.
 - A badge's text is small, so it MUST clear the 4.5:1 that
   `#contrast-rules-wcag-aa-minimum` sets for supporting text. `color-text-disabled`
   is **not** available to a badge: an out-of-force value is information, not a
@@ -606,27 +622,28 @@ Rules:
 - Colour MUST NOT be the only carrier. Every badge prints its value as text, and
   a badge carrying a glyph keeps the words beside it (see
   `accessibility.md#iconography-accessibility`).
-- **A value in no vocabulary is flagged, not styled.** Where the folder or family
-  defines a vocabulary and the value is not in it, the badge MUST render the value
-  verbatim, wear `archived`, and name the expected values on its `title`. Painting
-  an unrecognised value like every other unknown word lets a typo sit in a file
+- **A value in no vocabulary is flagged, not styled.** A folder or family may
+  define a vocabulary. A value not in it MUST render verbatim, wear `archived`,
+  and name the expected values on its `title`. Painting
+  an unrecognised value like every other word would let a typo sit in a file
   indefinitely.
 - A status that can be changed MUST be drawn as the same badge as one that cannot.
   A reader must never learn from a colour or a shape that an editable status is a
   different kind of status.
-- **A badge that can be followed MUST say so at rest.** Where a family draws the
-  same value as a link in one place and as plain text in another — an alias a host
-  can resolve beside one it cannot — the followable one takes the `live` ink and
-  edge, and the other keeps its quiet treatment. Hover and focus are not enough:
-  a reader who does not already suspect there is something to click never finds
-  out. The fill stays out of it, because filled still means the product acts on
-  it, and following a link is the reader acting. `gh` is exempt and is the reason
-  the rule is written this way: those badges are already anchors, and their state
-  colours are the cue.
+- **A badge that can be followed MUST say so at rest.** Some families draw the
+  same value as a link in one place and as plain text in another, such as an
+  alias one host can resolve and another cannot. The followable one takes the
+  `live` ink and edge, and the other keeps its quiet treatment. Hover and focus
+  are not enough, because a reader who does not already suspect a link never
+  finds out. The fill stays out of it: filled means the product acts on it, and
+  following a link is the reader acting. `gh` badges are exempt, and they are why
+  the rule is worded this way. They are already anchors, and their state colours
+  are the cue.
 
 Knowledge chapters are the largest consumer of this scale: five folders spell
-their lifecycles five different ways, and `README.md#status-vocabulary` maps each
-word onto the tones above. Review surface: storybook → *Badges*, and
+their lifecycles five different ways. `DevbookStatus`
+(`src/Core/Backlog.UI.Components/Devbook/DevbookStatus.cs`) maps each folder's
+words onto one set of status tones. Review surface: storybook → *Badges*, and
 *Devbook* → **State**.
 
 ### Chart roles
@@ -654,20 +671,20 @@ Measured on `color-background-alt`, which is the card a chart sits on.
 Rules:
 
 - The palette carries exactly one saturated hue, so charts are **single-hue by
-  rule**. Part-to-whole takes the ordinal ramp; two measures or two providers are
-  drawn as two charts, never as two series on one plot. This is not contradicted by
-  `#band-identity-tokens`: that set colours an *identity* — which repository a row
-  belongs to — where this rule is about a *measure*. A second hue on one plot would
-  say "this quantity is a different kind of quantity", which is exactly the claim
-  one hue exists to avoid making.
-- **Deviation — category hues on a stack.** A stacked chart whose bands are
-  repositories or models, not measures, may ask for `chart-category-*` so each band's
-  size reads against its neighbours; four shades of one hue stopped doing that past
-  two or three bands. The hues are the band identity set, re-used by position, so the
-  palette gains nothing. They are drawn only while no band on the chart wears an
-  identity: with the header's Colors switch on, a category hue beside a repository's
-  would read as one more repository. The legend names every band, so the hue is
-  never the sole carrier. Consumer: the dashboard's Sessions part
+  rule**. Part-to-whole takes the ordinal ramp. Two measures or two providers are
+  drawn as two charts, never as two series on one plot.
+  [Band Identity Tokens](#band-identity-tokens) does not contradict this: that set
+  colours an *identity*, which repository a row belongs to, and this rule is about
+  a *measure*. A second hue on one plot would say that one quantity is a different
+  kind of quantity, which is the claim the single hue exists to avoid.
+- **Deviation: category hues on a stack.** A stacked chart whose bands are
+  repositories or models, not measures, may ask for `chart-category-*` so each
+  band's size reads against its neighbours. Shades of one hue stop doing that past
+  two or three bands. The hues are the band identity set, reused by position, so
+  the palette gains nothing. They are drawn only while no band on the chart wears
+  an identity: with the header's Colors switch on, a category hue beside a
+  repository's would read as one more repository. The legend names every band, so
+  the hue is never the sole carrier. Consumer: the dashboard's Sessions part
   (`MetricStackedBars` with `Categorical`).
 - Every ramp step clears the 3:1 a non-text mark owes its background. The track
   is deliberately below it, because it is the absence of data rather than data.
@@ -709,17 +726,18 @@ Rules:
   tokens are backgrounds, as this file requires.
 - `integration-edge` misses the 3:1 a component boundary owes its surface. That
   is the inherited `color-border` gap recorded in
-  `#surface-and-border-deviation`, and it is acceptable in this family only
-  because an edge is never a sole carrier: every chip also has a stroked icon at
-  or above 3:1 and a text label.
+  [Surface and Border Deviation](#surface-and-border-deviation). It is acceptable
+  in this family only because an edge is never a sole carrier: every chip also
+  has a stroked icon at or above 3:1 and a text label.
 - `integration-ai-edge` is the tint that says a machine wrote something. It is a
   mix rather than a new hue because the palette carries one saturated hue and
   this file forbids inventing a second semantic set to get another.
 - A provider mark MUST be drawn on an affordance exactly when the work it names
-  leaves this application — a hand-off to a Claude or GitHub Copilot session, or
-  the session that comes back to be tracked — and MUST NOT be drawn on the
-  product's own AI features, whose output is attributed to "AI" and to no vendor:
-  the mark is the reader's only cue that something went somewhere, not a logo.
+  leaves this application: a hand-off to a Claude or GitHub Copilot session, or
+  the session that comes back to be tracked.
+- A provider mark MUST NOT be drawn on the product's own AI features, whose output
+  is attributed to "AI" and to no vendor. The mark is the reader's only cue that
+  something went somewhere; it is not a logo.
 
 A new role token MUST be derived from a palette token. A family that needed a
 value of its own would be a second palette, which
@@ -743,6 +761,11 @@ text. Every color pairing MUST be verified against these rules.
 | Focus ring (`color-border-focus`) vs adjacent background | **3:1** | Non-text contrast for focus visibility. |
 | UI component boundaries (`color-border`) vs adjacent surface | **3:1** | Non-text contrast for perceivable controls. |
 
+A token's **binding pair** is the pairing, among those it is measured in, with
+the smallest margin over the ratio it owes. It is the pairing that fails first
+when a surface or the token moves, so it is the one this file reports and the one
+a change re-measures.
+
 Rules:
 
 - `color-text-disabled` is **exempt** from contrast requirements — it
@@ -756,9 +779,6 @@ Rules:
 ```meta
 related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
-
-In dark mode, elevation is expressed primarily by **lighter surface color**, not
-by heavy shadows.
 
 | Elevation level | Surface token | Typical use |
 |---|---|---|
@@ -825,24 +845,27 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook"]
 
 The Foundations page does not transcribe this file. It reads the tokens out of
 the live document, computes each ratio, and scores it against the thresholds in
-`#contrast-rules-wcag-aa-minimum` — so a value edited in `components.css` and not
-here shows up as a mismatch rather than passing unnoticed. It is also where the
-measured pairs in `#surface-and-border-deviation` come from: the override
-contract asks for evidence, and the evidence is generated rather than asserted.
+[Contrast Rules](#contrast-rules-wcag-aa-minimum). A value edited in
+`components.css` and not here therefore shows up as a mismatch rather than
+passing unnoticed. The measured pairs in
+[Surface and Border Deviation](#surface-and-border-deviation) come from the same
+page, so the evidence the customization guide asks of an override is generated
+rather than asserted.
 
 `DesignTokenTests.Every_colour_the_library_declares_matches_the_value_in_dotdesign`
-closes the same loop at build time — it fails when a value here and a value in
-`components.css` disagree, when this file's own tables disagree with each other,
-or when the stylesheet declares a colour this file does not name. The deviation
-chapter is excluded from that comparison, because its second column is
-deliberately a value the product does not use.
+closes the same loop at build time. It fails when any of these holds:
 
-Materialized: all twenty-two palette tokens, all ten code tokens, and the five
-band identity tokens. The band set adds no new colour value — each is a value one
-of the other two families already carries — so it moves the count not at all;
-`color-success-text` does, because `#72C086` is a value nothing else carries.
-The number of distinct colours the product declares is twenty-five.
+- a value here and a value in `components.css` disagree;
+- this file's own tables disagree with each other;
+- the stylesheet declares a colour this file does not name.
 
-Not yet materialized: the per-stack mapping above is web-only in practice —
-there is no mobile MAUI `ResourceDictionary` and no IDE webview yet, so the CSS
+The deviation chapter is excluded from that comparison, because its second column
+is deliberately a value the product does not use.
+
+Materialized: every palette token, every code-theme token, and every band
+identity token. The band set adds no colour value of its own, because each band
+is a value the palette or the code theme already carries.
+
+Not yet materialized: the per-stack mapping above is web-only in practice.
+There is no mobile MAUI `ResourceDictionary` and no IDE webview yet, so the CSS
 custom properties are currently the whole story.

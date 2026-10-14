@@ -53,15 +53,15 @@
                 automatically and waits for nothing, because it depends on nothing.
             </p>
             <p>
-                Standalone, Kestrel picks the port and prints it. Mermaid is the one thing
-                fetched from a CDN, on first use, so on a machine with no egress the
+                Standalone, Kestrel picks the port and prints it. Nothing here needs the
+                network. Mermaid ships with the component library, pinned, and loads from
+                it the first time a diagram renders, so the
                 <a href="diagrams">Diagrams</a> and
-                <a href="markdown/diagrams">Diagrams in markdown</a> pages fall back to
-                showing their source instead of a picture — unless the host has pointed
-                <code>window.backlogDiagramLibrarySources</code> at a local copy. The
+                <a href="markdown/diagrams">Diagrams in markdown</a> pages draw on a
+                machine with no egress. The
                 <a href="graph-explorer">graph explorer</a> and
-                <a href="graph-atlas">graph atlas</a> draw on their own canvas, so they
-                render offline, and so does everything else.
+                <a href="graph-atlas">graph atlas</a> draw on their own canvas, and
+                everything else is the library's own markup.
             </p>
         </div>
     </Story>

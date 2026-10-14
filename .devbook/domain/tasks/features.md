@@ -30,15 +30,17 @@ depends-on: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
 Edit and enrich tasks over time: set priority and status, add context links,
-and flag oversized items with suggested splits. The desktop experience keeps
-Markdown canonical while letting users adjust type, priority, repository,
-status, and metadata tags directly from the reading layout. The task's
-repository picker lists **Brain** first, set off from the repositories, and
-picking it clears the task's repository: Brain is the name the app gives to
-filing a task against no repository, where the picker used to read *No repo*
-(local ADR 0027). Expanded tasks
-open into an inline Markdown editor for the full task body; compact tasks can
-stay on one line when they only need metadata-level refinement.
+and flag oversized items with suggested splits. On the desktop a person edits the
+task's Markdown content directly. They can also adjust type, priority,
+repository, status, and metadata tags from the reading layout.
+
+The task's repository picker lists **Brain** first, set off from the
+repositories. Picking it clears the task's repository: Brain is the name the app
+gives to filing a task against no repository (local ADR 0027).
+
+Expanded tasks open into an inline Markdown editor for the full task body.
+Compact tasks can stay on one line when they only need metadata-level
+refinement.
 
 ![Desktop task with inline Markdown editing](assets/task-inline-markdown-editing.png)
 
@@ -52,24 +54,23 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/f
 
 Choose a task's tags from a picker that offers every
 [Roadmap Item](../roadmap/domain.md#roadmap-item) tag alongside the tags already
-in use, so a person can file a task against planned work by picking the plan's
-own vocabulary rather than retyping — and matching it exactly, which is what lets
-the roadmap gather the task back under that tag later.
+in use. A person files a task against planned work by picking the plan's own
+vocabulary rather than retyping it. The tag then matches exactly, which is what
+lets the roadmap gather the task back under that tag later.
 
 The picker offers **every** roadmap tag, including ones no task has used yet, so
 a task can be filed against planned work before anything else has been. That is
-the point of borrowing the vocabulary rather than inventing a parallel one: the
-tag a person picks here is the same slug the roadmap item holds, and it keeps
-matching because the roadmap tag does not change when the item's title is renamed.
-Tags remain free-form strings on the task — nothing forces a tag to come from the
-roadmap — but the ones that do come from it line up on both sides on purpose.
+the point of borrowing the vocabulary rather than inventing a parallel one. The
+tag a person picks here is the same slug the roadmap item holds. It keeps
+matching because the roadmap tag does not change when the item's title is
+renamed. Tags remain free-form strings on the task, and nothing forces a tag to
+come from the roadmap. The ones that do come from it line up on both sides on
+purpose.
 
-A roadmap tag is its own kind of tag on the task, and it reads as one: the picker
-offers the slug wearing a plan sigil, `+release-q4`, beside the `#` of a general
-tag and the `@` of a person, so a reader can tell at a glance which tags file the
-task against planned work. The sigil is the task's spelling, not the roadmap's —
-the item still holds the bare slug, and it gathers a task whether the task wears
-`+release-q4` or a bare `release-q4` filed before the sigil existed.
+The picker offers each roadmap tag wearing its plan sigil, `+release-q4`, so a
+reader can tell at a glance which tags file the task against planned work. The
+[Roadmap Tag](domain.md#roadmap-tag) term says how the sigil reads and how the
+roadmap matches it.
 
 ### Sub-items and steps
 
@@ -78,16 +79,13 @@ type: sub-feature
 status: draft
 ```
 
-Break a task into ordered sub-items with title, status (pending → done), and
-notes. Sub-items can be toggled between open and done from the rendered task,
-reorder/add/remove independently, parent progress reflects completion (e.g. 3/5
-done), and they can project to GitHub issue task lists.
+Break a task into ordered sub-items with a title, a status (pending or done),
+and notes. A person toggles a sub-item between open and done from the rendered
+task, and can reorder, add and remove sub-items independently. The parent shows
+its progress, such as 3/5 done. Sub-items can project to GitHub issue task lists.
 
-A step is a sub-item; the product has one concept here, not two. A sub-item
-carries those four attributes and nothing more — it has no type, priority, task
-status or tags of its own, and none of the task's scheduling or dependency
-attributes. A breakdown step needing its own priority is a task rather than a
-step, and a step inherits its parent's deadline by belonging to it.
+A step is a [Sub-Item](domain.md#sub-item); that chapter says what a step
+carries and what stays on the task.
 
 ### Attached material
 
@@ -97,28 +95,17 @@ status: draft
 related: [.devbook/domain/tasks/domain.md#attachment]
 ```
 
-Point a task at the folder or archive where its material is kept — the review
-pack, the screenshots, the exported data — and take the pointer off again. The
-task says which place and what it is called, and whether that place is a folder
-or an archive.
+Point a task at the folder or archive where its material is kept, such as the
+review pack, the screenshots, or the exported data. Take the pointer off again
+when it is no longer needed. The task says which place and what it is called,
+and whether that place is a folder or an archive.
 
-One place per task, not a list. What a person means by "the files for this" is
-a folder they already keep them in, and a task that listed members
-would grow its own presentation by however many files somebody dropped on it. A
-second place is not a second attachment; it is either the same folder further up
-or a different task.
-
-A pointer, not a copy. Nothing is imported and nothing is stored beside the
-task: the task stays the Markdown that gets committed and shared, and the
-material stays where its owner put it. The consequence is stated rather than
-hidden — a path is meaningful on the machine that wrote it, so a task read
-somewhere else may name a place that is not there, and the task is no less valid
-for it. Attaching is a claim about where material lives, not a promise that the
-reader can reach it.
-
-How much is in the place is not recorded, only where it is. A count would be true
-at the moment it was written and wrong after the next file was added, and an
-task that asserted one would be asserting something it cannot keep.
+The [Attachment](domain.md#attachment) chapter owns the rules: one place per
+task rather than a list, and a pointer rather than a copy. Task attachments are
+machine-local (local ADR 0014), so a path is meaningful on the machine that wrote
+it. A task read somewhere else may name a place that is not there, and the task
+is no less valid for it. How much is in the place is not recorded, only where it
+is.
 
 ### Acceptance from scenario parts
 
@@ -163,13 +150,16 @@ at once, so a decision that applies to a batch is recorded once instead of
 task by task. The selection is made in the list itself and carries a running
 count of how many tasks it holds.
 
-The fields that can be set this way are repo, status, type, priority, tags, My
-Day, reminder, and due date. Setting a repo replaces whatever repos each task
-targeted before. Tags are the exception to replacement: a bulk tag change adds
-the chosen tags to every selected task, or withdraws one named tag from every
-selected task, and leaves each task's remaining tags untouched. Status, type,
-and priority always hold a value, so they can only be set; My Day, reminder,
-and due date can also be cleared across the selection.
+| Field | Set | Add | Withdraw | Clear |
+|---|---|---|---|---|
+| Repo | Yes, replacing whatever repos each task targeted | | | |
+| Status, type, priority | Yes | | | |
+| Tags | | The chosen tags, to every selected task | One named tag, from every selected task | |
+| My Day, reminder, due date | Yes | | | Yes |
+
+Tags are the one field a bulk change does not replace: each task's remaining tags
+stay untouched. Status, type, and priority always hold a value, so they can only
+be set.
 
 A bulk change reaches only the field being set. Every other field on every
 selected task keeps the value it had, and a task already holding the target
@@ -182,12 +172,12 @@ rest of the batch, so a batch that only partly succeeds says so.
 Marking a batch done spawns a successor for each recurring task it holds, on
 the same terms as completing those tasks one at a time.
 
-A selected task that leaves the current view — because a filter changed, or
-because the change itself moved it out — leaves the selection with it.
+A selected task that leaves the current view leaves the selection with it. That
+happens when a filter changes, or when the change itself moves the task out.
 
 The selection can also be deleted as a whole. The act is offered beside the
 field changes, names how many tasks it will take, and applies as directly as
-deleting one task does; the outcome is reported on the same terms as a field
+deleting one task does. The outcome is reported on the same terms as a field
 change, so a task the store refuses is counted rather than the batch abandoned.
 Deleting everything selected empties the selection.
 
@@ -207,13 +197,12 @@ than a gap to be nagged about. A re-estimate happens when the *understanding of
 the size* changes, not when time passes.
 
 An AI assistant may derive the estimate from the task's own content, and a person
-can always set or correct it by hand. The deriving is not built yet; this feature
+can always set or correct it by hand. The deriving is not built yet. This feature
 makes the value **registrable and visible**, which is what has to exist before
-anything can total it. When a roadmap
-item gathers this task, the points registered here are what it
-[adds up](../roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort) —
-and a task left unestimated is counted as unestimated there, never silently as
-zero.
+anything can total it. When a roadmap item gathers this task, the points
+registered here are what it
+[adds up](../roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort).
+A task left unestimated is counted as unestimated there, never silently as zero.
 
 ## Open-work report
 
@@ -225,24 +214,29 @@ related: [.devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-t
 ```
 
 Say how much work is open, not only how it splits. The filter chips each count
-a slice; the total sits at the end of the filter bar as one line — how many tasks
+a slice. The total sits at the end of the filter bar as one line: how many tasks
 are open, the points they carry, and how many carry none. It counts what the
 repository scope leaves in view, before any status, tag or other filter narrows
-the list, so pressing a filter changes what is shown and never the total. Open
-means not ticked off, and the points follow the
+the list. Pressing a filter therefore changes what is shown and never the total.
+Open means not ticked off. The points follow the
 [effort total's rule](../roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort):
 zero is an estimate, and the unestimated count is said beside the sum rather
 than folded into it.
 
-The line is also the way into a report of that same open work: the headline
-numbers and what was ticked off in the last seven days, as tasks and as points
-under the same rule; each plan's open tasks,
-points and progress, with the work filed under no plan as its own line; how the
-open work splits by status, priority, type and repository; and what needs
-attention — overdue and due within the week, each task named and opening from
-the report, and how many tasks are waiting and what they weigh. Waiting work is
-totalled rather than listed: each row in the pane already names
-[what it waits on](#task-dependencies).
+The line is also the way into a report of that same open work. The report has
+these sections:
+
+- The headline numbers, and what was ticked off in the last seven days, as tasks
+  and as points under the same rule.
+- Each plan's open tasks, points and progress, with the work filed under no plan
+  as its own line.
+- How the open work splits by status, priority, type and repository.
+- What needs attention: the tasks overdue and due within the week, each named
+  and opening from the report, and how many tasks are waiting and what they
+  weigh.
+
+Waiting work is totalled rather than listed, because each row in the pane
+already names [what it waits on](#task-dependencies).
 
 ## Scheduling and recurrence
 
@@ -262,12 +256,12 @@ All three are optional and none of them changes the task lifecycle. A task
 with a due date in the past is overdue, which is read by comparison rather than
 recorded as a status, so nothing has to sweep the backlog to keep status honest.
 
-The scheduling fields are written on the task's metadata line as named tokens
-— `due:2026-08-21`, `remind:2026-08-21T09:00`, `repeat:weekly` — alongside the
-existing sigil tokens for type, priority, status, area and tags. Named rather
-than sigil-prefixed because the punctuation namespace is nearly exhausted and
-five one-character marks for five date-shaped concepts would be unreadable in a
-file people hand-edit.
+The scheduling fields are written on the task's metadata line as named tokens,
+such as `due:2026-08-21`, `remind:2026-08-21T09:00` and `repeat:weekly`. They sit
+alongside the sigil tokens for type, priority, status, area and tags. They are
+named rather than sigil-prefixed because the punctuation namespace is nearly
+exhausted. Five one-character marks for five date-shaped concepts would be
+unreadable in a file people hand-edit.
 
 ### Due dates
 
@@ -277,8 +271,8 @@ status: proposed
 ```
 
 Commit a task to a calendar day, its [Due Date](domain.md#due-date). How that
-date is said on screen — "Today", "Friday, 21 August", or a localized format —
-belongs to the channel showing it, not to the task.
+date is said on screen belongs to the channel showing it, not to the task. It may
+read "Today", "Friday, 21 August", or a localized format.
 
 ### Reminders
 
@@ -288,9 +282,9 @@ status: proposed
 ```
 
 Ask to be reminded of a task at a chosen local date and time, its
-[Reminder](domain.md#reminder). One whose time has passed reads as overdue and
-keeps reading that way until it is cleared or the task is completed, so a reminder that came due while the app was
-closed surfaces rather than being silently missed.
+[Reminder](domain.md#reminder). One whose time has passed reads as overdue until
+it is cleared or the task is completed. A reminder that came due while the app
+was closed therefore surfaces rather than being silently missed.
 
 ### Recurring tasks
 
@@ -306,12 +300,13 @@ The repeat is anchored to the due date rather than to when the work actually
 finished, so a task completed three days late still falls due on its original
 weekday.
 
-Completing a recurring task — ticking it off, not merely setting its status to
-`done` — leaves it completed and creates the next occurrence as a new task.
-The finished occurrence stays as the record of what was done
-rather than being rolled forward and overwritten, which means a repeating task
-accumulates one completed task per occurrence — archiving is what keeps that
-from crowding the default views.
+Ticking a recurring task off, which is what [Completed](domain.md#completed)
+means, leaves it completed and creates the next occurrence as a new task. The
+finished occurrence stays as the record of what was done rather than being
+rolled forward and overwritten. A repeating task therefore accumulates one
+completed task per occurrence, and archiving keeps those out of the default
+views. [Occurrence Spawning](domain.md#occurrence-spawning) says what the new
+occurrence carries over.
 
 ## My Day
 
@@ -326,9 +321,9 @@ Pick the tasks to work on today, separately from when they are due: a task
 due next Friday can be in today's [My Day](domain.md#my-day), and a task due
 today need not be.
 
-My Day expires on its own, so yesterday's list clears itself with no timer, no
-timezone rule and no overnight sweep, and a device that was switched
-off for a week comes back to an empty My Day rather than a stale one.
+My Day expires on its own. Yesterday's list clears itself without a timer, a
+timezone rule or an overnight sweep. A device that was switched off for a week
+comes back to an empty My Day rather than a stale one.
 
 A task in today's My Day may also carry an [Agenda Time](domain.md#agenda-time):
 a start time and a duration that place it in the day, such as 10:45 for 45
@@ -361,38 +356,47 @@ flowchart TD
     Current -- no --> Agenda["Agenda, in time order"]
 ```
 
-**Now** holds the timed task whose block contains the current time, as a card
-at the top labelled `Now · until 11:30`, with the task's first open step, a bar
-of its steps, and the ways into Focus and the task's own page. Between blocks
-the card shows the next timed task to start instead, labelled `Next · 14:00`;
-with no timed task still to come there is no card. **Agenda** holds the other
-open timed tasks in time order, each showing its block as `10:45–11:30`.
-**Anytime today** holds the open tasks without an agenda time, in the order My
-Day keeps them. **Done today** holds the tasks ticked off today. Every row
-ticks its task off or back on, and opens the task's own page.
+**Now** holds the timed task whose block contains the current time. It shows as
+a card at the top labelled `Now · until 11:30`. The card carries the task's first
+open step, a bar of its steps, and the ways into Focus and the task's own page.
+Between blocks the card shows the next timed task to start instead, labelled
+`Next · 14:00`. With no timed task still to come there is no card.
 
-The task's own page has a way back to Today, the title, and chips for the
-task's area, its block as `Today · 10:45–11:30` when it has an agenda time
-today, and its effort as `3 points`. Below them sits **Focus on this** when the
-task has an agenda time today, then the task's steps as a checklist headed by
-how many are done, as `2 of 5`, and then the task's own text, read-only. At the
-bottom are **Move to tomorrow** and **Mark done**. Both return to Today. The
-steps, Move to tomorrow and Mark done change a task only while it is in today's
-My Day and not yet ticked off. Any other task is shown with its steps locked and
-without the two buttons or Focus.
+- **Agenda** holds the other open timed tasks in time order, each showing its
+  block as `10:45–11:30`.
+- **Anytime today** holds the open tasks without an agenda time, in the order My
+  Day keeps them.
+- **Done today** holds the tasks ticked off today.
+
+Every row ticks its task off or back on, and opens the task's own page.
+
+The task's own page shows, from top to bottom:
+
+- a way back to Today, and the title;
+- chips for the task's area, its block as `Today · 10:45–11:30` when it has an
+  agenda time today, and its effort as `3 points`;
+- **Focus on this**, when the task has an agenda time today;
+- the task's steps as a checklist headed by how many are done, as `2 of 5`;
+- the task's own text, read-only;
+- **Move to tomorrow** and **Mark done**, which both return to Today.
+
+The steps, Move to tomorrow and Mark done change a task only while it is in
+today's My Day and not yet ticked off. Any other task is shown with its steps
+locked and without the two buttons or Focus.
 
 **Focus** exists only for a task with an agenda time today that is not yet
 ticked off. Opening Focus for any other task opens the task's own page instead.
 Focus shows the task's area and when its block ends, as `Sync · until 11:30`,
-the title, and a ring counting down to the end of the block, as `28:40` left in
-this block, which moves every second. Once the block has ended it reads how far
-over it is, as `Over by 03:12`. The countdown is the block itself, so there is
-no pause. Below the ring sits the current step, the first one not ticked off,
-as `Step 2 of 5 · now`, then the steps in order. **Step done — next** ticks off
-the current step. When no step is left it becomes **Complete task**, which
-ticks off the task and returns to Today. **Capture a thought** opens the
-capture sheet over Focus, and saving the thought, cancelling or tapping outside
-the sheet comes back to Focus.
+and the title. A ring counts down to the end of the block every second, as
+`28:40` left in this block. Once the block has ended it reads how far over it
+is, as `Over by 03:12`. The countdown is the block itself, so there is no pause.
+
+Below the ring sits the current step, the first one not ticked off, as
+`Step 2 of 5 · now`, then the steps in order. **Step done — next** ticks off the
+current step. When no step is left it becomes **Complete task**, which ticks off
+the task and returns to Today. **Capture a thought** opens the capture sheet over
+Focus. Saving the thought, cancelling, or tapping outside the sheet comes back to
+Focus.
 
 The phone reads everything about a task. It changes four things and nothing
 else:
@@ -435,23 +439,19 @@ type: sub-feature
 status: proposed
 ```
 
-Read off what can actually be started. A task is done, ready when everything
-it waits on is finished, or blocked when something is not — and a blocked task
-says what it is waiting for rather than only that it cannot proceed. Readiness is
-derived every time it is read, never stored, so finishing one task unblocks its
+Read off what can actually be started, as each task's
+[Readiness](domain.md#readiness). A blocked task says what it is waiting for
+rather than only that it cannot proceed. Finishing one task unblocks its
 dependents with nothing to recalculate or keep in sync.
 
 Two questions get separate answers because they are separate questions: which
-task to pick up first, and which tasks could be started now. In a straight
-chain those are the same task; when finishing one step unblocks three, they are
-not, and a view that answered only the first would leave the other two to be
-noticed by their waiting lines disappearing.
+task to pick up first, and which tasks could be started now. In a straight chain
+those are the same task. When finishing one step unblocks three, they are not. A
+view that answered only the first would leave the other two to be noticed by
+their waiting lines disappearing.
 
-A dependency naming a task that cannot be found still blocks. Treating an
-unresolvable id as satisfied would let a chain report itself ready when the step
-it waits on is merely missing from view, which is the one failure that looks
-exactly like success. Dependency loops are named rather than broken: which edge
-in a loop is the wrong one is answerable only by the person who wrote them.
+A dependency naming a task that cannot be found still blocks, and dependency
+loops are named rather than broken; [Dependency](domain.md#dependency) says why.
 
 ## Multi-repo targeting
 
@@ -463,8 +463,8 @@ related: [.devbook/domain/tasks/features.md#projection]
 ```
 
 Let one logical task target multiple repositories (`repo_ids[]`) while remaining
-a single source of truth — one item, one priority, one status — with a unified
-view across all contexts.
+a single source of truth: one item, one priority, one status. The person sees it
+in one view across all contexts.
 
 ## Projection
 
@@ -472,12 +472,14 @@ view across all contexts.
 type: feature
 status: draft
 depends-on: [.devbook/domain/tasks/features.md#multi-repo-targeting]
-related: [.devbook/domain/monitoring/features.md#tasks-and-github-progress]
+related: [.devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/domain/tasks/requirements.md#projection]
 ```
 
-Spawn and close downstream artifacts from a task: one GitHub issue and/or
-Copilot CLI task per target repo, created when work starts and closed on
-completion, without duplicating the task.
+Spawn and close downstream artifacts from a task, without duplicating the task.
+What ships is the issue push below, made when the person asks. The
+automatic create-and-close is the intended [Projection](domain.md#projection)
+policy, and what it will promise is in
+[its requirements](requirements.md#projection).
 
 ### Issue projection and state read-back
 
@@ -489,10 +491,10 @@ related: [.devbook/domain/repository-management/features.md#github-access-resolu
 ```
 
 Push a task to its target repository as an issue carrying the task's title,
-body, and tags, and keep the resulting issue reference on the task so the link
+body, and tags. The resulting issue reference is kept on the task, so the link
 is part of the item rather than a note about it. The task can then be asked to
-re-read that issue's current state, and the pull request that references it, so
-downstream progress is visible from the backlog. Reading GitHub state is a
+re-read that issue's current state, and the pull request that references it.
+Downstream progress is then visible from the backlog. Reading GitHub state is a
 deliberate act rather than a background poll, because the backlog has to open
 instantly and offline.
 
@@ -513,8 +515,9 @@ sub-items and notes alone.
 Every linked task shows a source badge on its row, in the editor header and in
 My Day, and the badge opens the item at the source. The Tasks pane filters by
 source and by "Assigned to me". A label written `+slug` at the source files the
-task under that plan, so it appears on the roadmap's shelf without a step in
-Backlog.
+task under that plan. It then appears on the roadmap's
+[shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first)
+without a step in Backlog.
 
 ### Promote to plan
 
@@ -524,11 +527,13 @@ status: proposed
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-Turn one linked task that is really an epic into a Roadmap Item. The person
-picks Promote to plan, and the item is created under the issue's plan tag. Its
-steps come from the issue's sub-issues, its checklist, or a plan generated from
-its body and imported. The original task is then archived, or kept as an
-umbrella step, as the connected target's setting says.
+Turn one linked task that is really a body of work spanning several tasks into
+a Roadmap Item. The person picks Promote to plan, and the item is created under
+the issue's plan tag. Its steps come from the issue's sub-issues, its checklist,
+or a plan generated from its body and imported. The
+[Connected Target](domain.md#connected-target)'s setting then decides what
+happens to the original task. It is either archived, or kept as the one task
+that stands for the whole of the work.
 
 ## Search, filter and organize
 
@@ -539,43 +544,50 @@ related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/a
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key]
 ```
 
-Search across title, body, tags, and linked knowledge notes; filter by area
-(a self-chosen grouping such as "repos", "projects", or "inbox"), repo, type,
-status, priority, and recency; grouped views; and inline embedding of
-Devbook content. The repository scope can hold several repositories at once while
-a screen that can show several is in front of the reader — the task views, In
-progress, the Dashboard, the session list and the pull requests list — and
+Find and narrow the backlog:
+
+- Search across title, body, tags, and linked knowledge notes.
+- Filter by [Area](domain.md#area), repo, type, status, priority, and recency.
+- Read the tasks in grouped views, with Devbook content embedded inline.
+
+The repository scope can hold several repositories at once while a screen that
+can show several is in front of the reader. Those screens are the task views, In
+progress, the Dashboard, the session list and the pull requests list. The scope
 narrows back to one on the roadmap and on Tools, which read one repository or
 none.
 
 The scope leads with a permanent **Brain** chip, the
 [Brain scope](../devbook/features.md#brain-scope): Brain is the scope of
-everything filed against no repository. Pressed alone it shows only the tasks
-with no repository, in every view that reads the scope; Ctrl adds it to the
-repositories already pressed, as it adds a repository; and nothing pressed
-still means every task. It replaces the filter bar's *No repo* chip, which
-narrowed the same rows beside the scope under a second name and was never
-remembered, so the filter bar no longer carries one (local ADR 0027).
+everything filed against no repository.
 
-The repository scope is remembered on this device in the order it was chosen, so
-the app reopens on the same repositories with the first one chosen still first,
-and with Brain in its place when it was pressed.
-The Devbook beside them is then offered straight away, with no chip to press. A
-repository that is no longer configured is dropped when the scope comes back, and
-a scope with none left is every repository. The scope is remembered as it stands
-after any narrowing, so a scope narrowed back to one comes back as that one.
+- Pressed alone, it shows only the tasks with no repository, in every view that
+  reads the scope.
+- Ctrl adds it to the repositories already pressed, as it adds a repository.
+- Nothing pressed still means every task.
+
+The filter bar carries no separate chip for tasks with no repository; Brain is
+the one way to narrow to them (local ADR 0027).
+
+The repository scope is remembered on this device in the order it was chosen.
+The app reopens on the same repositories with the first one chosen still first,
+and with Brain in its place when it was pressed. The Devbook beside them is then
+offered straight away, with no chip to press. A repository that is no longer
+configured is dropped when the scope comes back, and a scope with none left is
+every repository. The scope is remembered as it stands after any narrowing, so a
+scope narrowed back to one comes back as that one.
 
 The filtered tasks can be read three ways, picked in the header's view switch:
 **Tasks**, the list with the open task beside it; the
 [Board](#board-view); and the [Calendar](#calendar-view). The three share one
-filter bar, one open task and one selection, so switching between them never
-loses what the reader narrowed to or was looking at. Among its filters is the
-[Task Type](domain.md#task-type) — prompt, task, idea or test, one at a time — so
-the Board and the Calendar, its tray of tasks with no due date included, narrow
-by type the way the list does. The filter bar belongs to
-these three and to nothing else in the shell. The view last chosen is the one the
-app reopens on, and Tasks when nothing was remembered. The Inbox and the Devbook
-open beside any of them.
+filter bar, one open task and one selection. Switching between them therefore
+never loses what the reader narrowed to or was looking at.
+
+Among the filters is the [Task Type](domain.md#task-type): prompt, task, idea or
+test, one at a time. The Board and the Calendar, including its tray of tasks with
+no due date, narrow by type the way the list does. The filter bar belongs to
+these three and to nothing else in the shell. The app reopens on the view last
+chosen, and on Tasks when nothing was remembered. The Inbox and the Devbook open
+beside any of them.
 
 ### Manual ordering
 
@@ -597,25 +609,29 @@ related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/do
 ```
 
 The same filtered tasks laid out as columns of cards, under the same filters
-and beside the same open task. The columns are by status by default — Draft,
-Ready, In progress and Done — and can be by plan instead, one per
-[Roadmap Tag](domain.md#roadmap-tag) in view and then the tasks in no plan, by
-repository, or by [Priority](domain.md#priority). By repository, the tasks filed
-against no repository gather in a column titled **Brain**, the name the scope
-gives them, where it used to read *No repository*. Each column says how many
-tasks it holds, the [Effort](domain.md#effort) they add up to, and how many of
-them nobody has estimated. A task under two plans is in both plan columns. The
-choice of columns is remembered with the view.
+and beside the same open task. The columns can be:
 
-While the columns are by status the status filter steps aside, since every
-status is a column, and a task can be dragged to another column. Only a move
-the [task lifecycle](flow.md#task-lifecycle) allows is taken: while a task is
-held, the columns it may go to are marked, and the others say why not and what
-has to happen first — a ready task has to be started before it can be done.
+- by status, the default: Draft, Ready, In progress and Done;
+- by plan: one per [Roadmap Tag](domain.md#roadmap-tag) in view, then the tasks
+  in no plan;
+- by repository, with the tasks filed against no repository in a column titled
+  **Brain**, the name the scope gives them;
+- by [Priority](domain.md#priority).
+
+Each column says how many tasks it holds, the [Effort](domain.md#effort) they
+add up to, and how many of them nobody has estimated. A task under two plans is
+in both plan columns. The choice of columns is remembered with the view.
+
+While the columns are by status, the status filter steps aside, since every
+status is a column. A task can then be dragged to another column. Only a move
+the [task lifecycle](flow.md#task-lifecycle) allows is taken. While a task is
+held, the columns it may go to are marked. The others say why not and what has
+to happen first: a ready task, for example, has to be started before it can be
+done.
 Dropping it makes the same status change the task's own status picker makes.
-Each status column ends in a way to write a new task straight into that
-status. Opening a task from a card opens it as the list would; with the task
-open beside it the board scrolls sideways rather than squeezing its columns.
+Each status column ends in a way to write a new task straight into that status.
+Opening a task from a card opens it as the list would. With the task open beside
+it, the board scrolls sideways rather than squeezing its columns.
 
 ### Calendar view
 
@@ -631,46 +647,55 @@ The same filtered tasks laid out on a month or on a week by their
 task. A **Month | Week** choice beside the month's name picks the range. One of
 the two is always pressed, and the choice is remembered on this device. The month
 runs Monday to Sunday in whole weeks, so its first and last rows reach into the
-neighbouring months; those days are dimmed and weekends are shaded. Today is
+neighbouring months. Those days are dimmed, and weekends are shaded. Today is
 marked and says how many tasks are in [My Day](#my-day).
 
-Each day lists its tasks with where each one is in its lifecycle: an open task
+Each day lists its tasks with where each one is in its lifecycle. An open task
 past its due date stands out as overdue, and a finished one is struck through. On
 the month, past two a day folds the rest behind a count that opens the whole day.
-A recurring task shows on its due date only — the next occurrence is written when
+A recurring task shows on its due date only. The next occurrence is written when
 this one is finished, so there is no series to place. The open tasks with no due
-date wait beside the calendar; dragging one onto a day gives it that due date, and
-dragging a task to another day moves it. Opening a task from the calendar opens it
-as the list would. Only the due date places a task here.
+date wait beside the calendar. Dragging one onto a day gives it that due date,
+and dragging a task to another day moves it. Opening a task from the calendar
+opens it as the list would. Only the due date places a task here.
 
 The week shows its seven days, Monday first, as tall columns. Each day there lists
-every one of its tasks with nothing folded, and no day is dimmed: the reader picked
-the week, so a day of the neighbouring month is part of it. The plans, the
+every one of its tasks with nothing folded, and no day is dimmed. The reader
+picked the week, so a day of the neighbouring month is part of it. The plans, the
 [planned hours](#planned-hours) and the drags work there as they do on the month.
-Previous and next step a week at a time and say so, and the heading names the
-week's days, such as "5 – 11 October 2026". Switching to the week opens on the
-week holding today when today is in the month shown, and on the month's first week
-otherwise. Switching back to the month shows the month holding the week's
-Thursday, so a week across two months lands in the month that holds most of its
-days. Only the range is remembered, never the date shown.
+Previous and next step a week at a time and say so. The heading names the week's
+days, such as "5 – 11 October 2026".
 
-The roadmap's plans can be drawn over the month: a **Show plans** choice beside
-the month's name, off until the reader turns it on and remembered on this device.
-Each planned item's window is a bar across the days it spans, cut at every week,
-under the day numbers and above the tasks; plans that overlap in a week each take
-a row of their own, and a bar carried on from the week before opens with "…". A
-bar says its title, its plan tag and how many of its points are finished out of
-the total. It wears its repository's colour, as on the roadmap, while repository
-colours are showing, and a neutral grey while they are not. A milestone is a
-diamond on its date. Beside the tasks with no due date, **Plans without a
-window** lists the plans waiting on the roadmap's
-[shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first);
-dropping one on a day starts its window there, and the roadmap — never the Tasks
-view — works out where it ends from its points and the pace, as it places any
-plan. The drop is a pointer gesture; the keyboard way to the same result is the
-roadmap's own shelf, whose **Plan it** places the plan from today, and the roadmap's
-item editor, which moves its window to any day. The plans are the roadmap's: the
-Calendar reads them and starts a shelf plan, and changes nothing else about them.
+- Switching to the week opens on the week holding today when today is in the
+  month shown, and on the month's first week otherwise.
+- Switching back to the month shows the month holding the week's Thursday. A
+  week across two months therefore lands in the month that holds most of its
+  days.
+- Only the range is remembered, never the date shown.
+
+The roadmap's plans can be drawn over the month. A **Show plans** choice beside
+the month's name turns them on; it is off until the reader turns it on, and
+remembered on this device.
+
+- Each planned item's window is a bar across the days it spans, cut at every
+  week, under the day numbers and above the tasks.
+- Plans that overlap in a week each take a row of their own. A bar carried on
+  from the week before opens with "…".
+- A bar says its title, its plan tag and how many of its points are finished out
+  of the total.
+- A bar wears its repository's colour, as on the roadmap, while repository
+  colours are showing, and a neutral grey while they are not.
+- A milestone is a diamond on its date.
+
+Beside the tasks with no due date, **Plans without a window** lists the plans
+waiting on the roadmap's
+[shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first).
+Dropping one on a day starts its window there. The roadmap, never the Tasks view,
+works out where it ends from its points and the pace, as it places any plan. The
+drop is a pointer gesture. The keyboard ways to the same result are on the
+roadmap: its shelf's **Plan it** places the plan from today, and its item editor
+moves the window to any day. The plans are the roadmap's. The Calendar reads them
+and starts a shelf plan, and changes nothing else about them.
 
 ### Planned hours
 
@@ -681,40 +706,43 @@ related: [.devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/f
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarHoursTests, unit:dotnet:Backlog.UI.Components.UnitTests.PlannedHoursEditorTests, unit:dotnet:Backlog.UI.Components.UnitTests.CalendarHoursTests]
 ```
 
-The person can set hours aside for a task on a day of the
-[Calendar](#calendar-view) — [Planned Hours](domain.md#planned-hours), a day and a
-number of hours, never a time of day. A task can have hours on several days, one
-figure a day. A day shows each task with hours on it as a chip of its own with the
-figure — "Refactor sync · 3h" — drawn apart from the due-date chips, and adds the
-day's hours up against the hours the person works that day, read from the roadmap's
-working week and days off. A day holding more than that is marked, and says by how
-much.
+The person can set [Planned Hours](domain.md#planned-hours) aside for a task on
+a day of the [Calendar](#calendar-view). A day shows each task with hours on it
+as a chip of its own with the figure, such as "Refactor sync · 3h", drawn apart
+from the due-date chips. The day adds its hours up against the hours the person
+works that day, read from the roadmap's working week and days off. A day holding
+more than that is marked, and says by how much.
 
-Hours are set from a day's **Add hours…**, which asks for the task and the figure,
-or by dragging a task — from the month or from the tasks with no due date — onto a
-day with Shift held, which asks for the figure only and leaves the due date where
-it was. Pressing a task's hours on a day changes or removes them; the open task's
+Hours are set in either of two ways:
+
+- From a day's **Add hours…**, which asks for the task and the figure.
+- By dragging a task onto a day with Shift held, from the month or from the
+  tasks with no due date. This asks for the figure only and leaves the due date
+  where it was.
+
+Pressing a task's hours on a day changes or removes them. The open task's
 **Planned hours** lists every day it has hours on, to change, remove or add one.
 The hours follow the filters and the repository colours the way the task chips do.
 
 The figure is typed, or taken from a short list of suggestions: half an hour, and
 1, 2, 3, 4, 6 and 8 hours. A typed figure is rounded to the quarter hour. A figure
 that is not a number, is none, or is more than a whole day is refused with a
-sentence that says why. In
-the open task's **Planned hours**, a refused figure on a day goes back to the
-figure that stood. Taking a suggestion for a day there changes that day at once,
-and a typed figure is kept on Enter or when the field is left. On the line that
-adds a day, a suggestion only fills in the figure, and **Add hours** adds the day
-and the figure together.
+sentence that says why.
+
+In the open task's **Planned hours**, a refused figure on a day goes back to the
+figure that stood. Taking a suggestion for a day there changes that day at once.
+A typed figure is kept on Enter or when the field is left. On the line that adds
+a day, a suggestion only fills in the figure, and **Add hours** adds the day and
+the figure together.
 
 When the day's hours editor closes, the keyboard focus goes back to what opened
 it. That is the task's hours on the day, or the day's **Add hours…** when the
 editor was opened from there or by a Shift drag. After the hours are removed, the
 focus goes to **Add hours…**, since the hours it came from are gone.
 
-The hours are the person's own plan for their days. The roadmap never reads them:
-a plan's window and the pace it is placed at still come from points and the work
-finished, so setting hours aside moves no bar on the roadmap or the Calendar.
+The roadmap never reads planned hours. A plan's window and the pace it is placed
+at come from points and the work finished, so setting hours aside moves no bar on
+the roadmap or the Calendar.
 
 ## Prompt features
 
@@ -723,8 +751,9 @@ type: feature
 status: draft
 ```
 
-One-click copy of prompt text to clipboard, usage-history logging on copy/use,
-and reopening historical prompts from the usage log.
+Copy a prompt's text to the clipboard in one click. Each copy or use is logged
+in the task's usage history, and a person can reopen earlier prompts from that
+log.
 
 ### Copy as a runnable paste
 
@@ -735,18 +764,20 @@ related: [.devbook/domain/tasks/features.md#import, .devbook/domain/tasks/domain
 ```
 
 What the copy hands over is a prompt an AI session can run, not a title and
-some prose. The copy leads with one line that invokes the session's run skill
-on the [Task](domain.md#task) by the id Backlog itself knows it by, and then
-the title and body as written. The metadata line stays behind, as it always
-has: it is the app's bookkeeping, not part of the brief — and the plan a task
-was [imported](#import) under, the repositories it targets and the tasks it
-[waits on](#task-dependencies) are Backlog's to answer when the session asks
-by that id. A session that can ask checks whether the task is still
-outstanding before doing anything, and tells Backlog when the work is picked
-up and when it lands; one that cannot simply reads a prompt with one more line
-on top. Every [type](domain.md#task-type) is copied this way — a `task` too —
-because the copy says which entry it is and the session, not the copy, decides
-whether to run it.
+some prose. The copy leads with one line that invokes the
+`backlog-tools:run-plan-item` skill on the [Task](domain.md#task), by the id
+Backlog itself knows it by. The title and body follow as written.
+
+The metadata line stays behind, because it is the app's bookkeeping and not part
+of the brief. The plan a task was [imported](#import) under, the repositories it
+targets and the tasks it [waits on](#task-dependencies) are Backlog's to answer
+when the session asks by that id. A session that can ask checks whether the task
+is still outstanding before doing anything. It tells Backlog when the work is
+picked up and when it lands. A session that cannot ask reads a prompt with one
+more line on top.
+
+Every [type](domain.md#task-type) is copied this way, a `task` too. The copy says
+which entry it is, and the session, not the copy, decides whether to run it.
 
 ### Hand-off to Copilot CLI
 
@@ -757,10 +788,10 @@ feature-flag: .devbook/domain/tasks/context.md#copilot-cli
 related: [.devbook/domain/productivity/features.md#ai-activity-capture]
 ```
 
-Hand a task to GitHub Copilot CLI as a task brief without retyping it: the
-task's own markdown — title, metadata, body, and sub-items — is the brief, and
-the hand-off is recorded in the task's usage history so the task itself shows
-that AI was put to work on it.
+Hand a task to GitHub Copilot CLI as a task brief without retyping it. The
+task's own Markdown is the brief: its title, metadata, body, and sub-items. The
+hand-off is recorded in the task's usage history, so the task itself shows that
+AI was put to work on it.
 
 ## Import
 
@@ -771,96 +802,108 @@ depends-on: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/ta
 related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/inbox/domain.md#triage]
 ```
 
-Bring in a plan that lists a sequence of work to do across one or more
-repositories, in the order its entries depend on each other, and turn the whole
-plan into tasks in one step instead of typing each one in by hand. Most plans
+Bring in a plan that lists a sequence of work across one or more repositories,
+in the order its entries depend on each other. Import turns the whole plan into
+tasks in one step instead of typing each one in by hand. Most plans
 are sequences of AI prompts to run, which is the case Import was written for. A
 plan can be brought in as an uploaded file or pasted directly, whichever is
-faster in the moment — both read the same plan. Import builds nothing that task
-creation does not already offer — it is a faster way of filling the backlog,
-not a second way of holding work.
+faster in the moment; both read the same plan. Import builds nothing that task
+creation does not already offer. It is a faster way of filling the backlog, not
+a second way of holding work.
 
 Each entry in the plan becomes one [Task](domain.md#task) of the
-[type](domain.md#task-type) the plan states for it — the same four types
-[task creation](#task-creation) already offers, with `prompt` the common case
+[type](domain.md#task-type) the plan states for it. These are the same four types
+[task creation](#task-creation) already offers. `prompt` is the common case,
 because an AI prompt to run is what a plan mostly holds. An entry that states no
-type becomes a plain `task`, the default a hand-typed task gets. So one plan can
-legitimately mix kinds without announcing that it does: the prompts to run
-alongside the step only a person can do and the thing worth coming back to
-later. Import reads the type off the entry rather than deciding for the plan
-that its entries are all of a kind.
+type becomes a plain `task`, the default a hand-typed task gets. One plan can
+therefore mix kinds without announcing that it does: the prompts to run, the step
+only a person can do, and the thing worth coming back to later. Import reads the
+type off the entry rather than deciding for the plan that its entries are all of
+a kind.
 
 An entry may also state the [status](domain.md#task-status) it should arrive at.
-What the plan states is the status the task is created with — the value
-directly, not a lifecycle step applied on top of a new task — so every status is
-reachable this way, the settled ones included, and a plan can record a step
-that was finished before the plan was ever imported, or hold back one still
-being shaped as `draft` — unless the entry came from an inbox item. An entry
-stating no status starts at `ready`. This is the one default Import sets
-differently from a hand-typed task, which starts at `draft` because it is being shaped as it is typed: a plan is work already agreed
-and written down to be picked up, and a plan whose every entry landed at `draft`
-would leave somebody promoting each one by hand before
+Where the entry came from decides which status the task is born with:
+
+| The entry | The task is born |
+|---|---|
+| Was drafted from an inbox item | `draft`, whatever status its text states |
+| States a status | At that status, set directly rather than as a lifecycle step |
+| States no status | `ready` |
+
+A stated status is reachable whatever it is, the settled ones included. A plan
+can therefore record a step finished before the plan was imported, or hold back
+one still being shaped as `draft`.
+
+`ready` is the one default Import sets differently from a hand-typed task. A
+hand-typed task starts at `draft` because it is being shaped as it is typed. A
+plan is work already agreed and written down to be picked up. If every entry
+landed at `draft`, somebody would have to promote each one by hand before
 [Readiness](domain.md#readiness) showed any of it.
 
-An entry drafted from an inbox item — the one item a plan was drafted from
-(`sourceInboxId`), or, for a batch of items routed together, the item its `id:`
-maps to (`sourceInboxIds`) — carries that item as its `source_inbox_id` and is
-born `draft` whatever status its text states. A model wrote it about captured
-content, and nobody has read it yet; the provenance decides, not the text. It
+An entry drafted from an inbox item carries that item as its `source_inbox_id`.
+The item is the one a plan was drafted from (`sourceInboxId`). For a batch of
+items routed together, it is the item the entry's `id:` maps to
+(`sourceInboxIds`). A model wrote the entry about captured content, and nobody
+has read it yet, so the provenance decides the status and not the text. This
 governs birth only: a later version that restates the status of a task already
 under way still moves it.
 
-The entry's own instructions become that task's body, and the order the plan
+The entry's own instructions become that task's body. The order the plan
 declares between entries becomes an ordinary
-[task dependency](#task-dependencies) between the tasks import
-creates — the same relationship a person would have typed by hand, resolved
-from the plan's own local entry references to the real task ids as the
-tasks are created. "What's next" for an imported chain reads no differently
-than for any other: by [Readiness](domain.md#readiness), grouped by
-[repository](#multi-repo-targeting). The plan itself becomes one of the
-task's tags, filed the same way a task is
-[filed against a roadmap tag](#filing-a-task-against-a-roadmap-tag), so
-everything one plan brought in can be found and filtered as a group without a
-separate "which plan was this" lookup.
+[task dependency](#task-dependencies) between the tasks import creates. It is
+the same relationship a person would have typed by hand. Import resolves the
+plan's own local entry references to the real task ids as the tasks are created.
+"What's next" for an imported chain reads no differently than for any other: by
+[Readiness](domain.md#readiness), grouped by [repository](#multi-repo-targeting).
 
-A plan also carries work around a prompt that is not the prompt itself: a
-setup or dependency step the repository needs before the prompt can run —
-installing a plugin, say — a reminder to update that repository's knowledge
-docs or devbook, and a task only a person can do. None of these are a new
-kind of thing. They land as ordinary [sub-items](#sub-items-and-steps) on the
-task they belong to, ordered ahead of the entry they gate. A step is a step
-whichever list it came from; import adds no second vocabulary for what a
-sub-item already says, and a sub-item created by import is indistinguishable
-from one a person typed by hand, because it is the same thing.
+The plan itself becomes one of the task's tags, filed the same way a task is
+[filed against a roadmap tag](#filing-a-task-against-a-roadmap-tag). Everything
+one plan brought in can then be found and filtered as a group without a separate
+"which plan was this" lookup.
 
-Every task import creates carries where it came from — see
-[Task](domain.md#task) — so a batch of entries brought in
-together stays traceable back to the plan and the specific item that produced
-each one.
+A plan also carries work around a prompt that is not the prompt itself:
 
-A document may also carry entries that are not tasks at all. An entry whose
-type word is `plan` describes the plan itself as a piece of planned work — its
-title, its tag, its repositories, what it waits on, when it is due — and Import
-hands it to [Roadmap Planning](../roadmap/features.md#laying-out-imported-plans)
-rather than creating a task from it, after the document's task entries have been
-written. One document may hold `plan` entries and task entries together, or only
-one kind; the task entries are created exactly as described above whichever
-company they keep, and a `plan` entry is the one kind of entry Import will act
-on that nothing else in this context will — pasted anywhere but Import, it is
-refused rather than made into a task. The decision, and how the two kinds
-combine, is `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`.
+- a setup or dependency step the repository needs before the prompt can run,
+  such as installing a plugin;
+- a reminder to update that repository's knowledge docs or devbook;
+- a task only a person can do.
+
+None of these is a new kind of thing. They land as ordinary
+[sub-items](#sub-items-and-steps) on the task they belong to, ordered ahead of
+the entry they gate. Import adds no second vocabulary for what a sub-item
+already says. A sub-item created by import is the same thing as one a person
+typed by hand.
+
+Every task import creates carries where it came from; see
+[Task](domain.md#task). A batch of entries brought in together therefore stays
+traceable back to the plan and the specific item that produced each one.
+
+A document may also carry entries that are not tasks at all. An entry whose type
+word is `plan` describes the plan itself as a piece of planned work: its title,
+its tag, its repositories, what it waits on, and when it is due. Import hands it
+to [Roadmap Planning](../roadmap/features.md#laying-out-imported-plans) after the
+document's task entries have been written, rather than creating a task from it.
+
+One document may hold `plan` entries and task entries together, or only one
+kind. The task entries are created exactly as described above whichever company
+they keep. A `plan` entry is the one kind of entry Import will act on that
+nothing else in this context will. Pasted anywhere but Import, it is refused
+rather than made into a task. The decision, and how the two kinds combine, is
+`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`.
 
 Before anything is written, Import says what the document will produce: how many
 roadmap items and how many tasks. A document of task entries alone can also be
-laid out on the roadmap at once — one item per plan tag its entries carry,
-titled from the tag and scoped to the repositories those entries name — but only
-when the person asks: it is off by default, because a plan brought in again for
-its tasks should not grow an item nobody wanted. Each level of the document
-waits only on its own kind: a task entry's `after:` naming a `plan` entry, or the
-other way round, is reported as unresolved rather than kept. The result reports
-both halves apart, because they do not stand or fall together: the tasks are
-written first, and a roadmap that refuses its half — a document whose plans wait
-on each other in a circle — leaves the tasks written and says so.
+laid out on the roadmap at once, but only when the person asks. It then gets one
+item per plan tag its entries carry, titled from the tag and scoped to the
+repositories those entries name. This is off by default, because a plan brought
+in again for its tasks should not grow an item nobody wanted.
+
+Each level of the document waits only on its own kind. A task entry's `after:`
+naming a `plan` entry, or the other way round, is reported as unresolved rather
+than kept. The result reports both halves apart, because they do not stand or
+fall together. The tasks are written first. A roadmap that refuses its half,
+such as a document whose plans wait on each other in a circle, leaves the tasks
+written and says so.
 
 ### Repository resolution on import
 
@@ -875,22 +918,20 @@ against the same [Repository Registry](../repository-management/domain.md#reposi
 [multi-repo targeting](#multi-repo-targeting) already resolves `repo_ids`
 against. A name the registry already knows resolves to its `repo_id` as
 usual. A name the registry has never seen is registered there on the spot,
-using Repository Management's existing
-[registration capability](../repository-management/features.md#repository-registration),
-before the task naming it is created — so a plan can introduce a repository
-to the product just by mentioning it, without a separate registration step
-first.
+before the task naming it is created. Import uses Repository Management's
+[registration capability](../repository-management/features.md#repository-registration)
+for this. A plan can therefore introduce a repository to the product just by
+mentioning it, without a separate registration step first.
 
 Import triggers registration; it does not perform it. The repository is
-registered with whatever the plan states about it (at minimum, its name); what
-a registered repository holds and how registration behaves stays Repository
-Management's decision, and Import gains no authority over it beyond the
-ability to ask for it.
+registered with whatever the plan states about it, at minimum its name. What a
+registered repository holds and how registration behaves stay Repository
+Management's decision. Import gains no authority over them beyond the ability to
+ask.
 
-The Import dialog also offers a "Target repository" field for the whole
-batch: when filled in, it is applied as the resolved repository for any
-entry in the plan that names none of its own, without touching an entry that
-already carries its own `repo:` token.
+The Import dialog also offers a "Target repository" field for the whole batch.
+When it is filled in, it becomes the resolved repository for every entry that
+names none of its own. An entry that carries its own `repo:` token keeps it.
 
 ### Re-importing an updated plan
 
@@ -901,34 +942,38 @@ related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#
 ```
 
 Bring in a later version of a plan already imported once, and have it replace
-that plan rather than add to it. Bringing a version in first clears what the
-previous one left behind: every task that plan produced which nobody has started
-yet — still `draft` or `ready` — is deleted, and the version being brought in is
-written in its place. The plan's id is what a task remembers about where it came
-from, so a task carrying the same tag that came from somewhere else was never
-part of the plan and is not touched.
+that plan rather than add to it. What happens to each task the plan produced
+depends on its status:
 
-What survives a re-import is the work somebody has actually taken up. A task
-already `in progress` is kept and brought up to date from the new version: its
-instructions, its type, its dependencies, its target repository, and its
-setup/knowledge/manual sub-items are replaced with what the new version says.
-Status is the one field a later version moves only when it asks to: restate it
-and the task moves there, leave it out and the task keeps whatever progress it
-has made since it was imported — a plan that says nothing about where an entry
-stands is not asking for work already under way to be sent back to `draft`. A
-task already `done` or `archived` is never touched by a later import: the whole
-entry is skipped, a restated status included, the same way finishing a
-recurring task leaves that occurrence as the settled record of
-what was done rather than something a later change reopens.
+| The task's status | What the re-import does |
+|---|---|
+| `draft` or `ready`, so nobody has started it | Deletes it, then writes the new version's entry in its place |
+| `in_progress` | Keeps it and brings it up to date from the new version |
+| `done` or `archived` | Skips the whole entry, a restated status included |
 
-Because clearing is by plan rather than by what the new version happens to
-mention, a not-yet-started task the plan has stopped describing goes with the
-version that described it — that is how a plan drops work nobody began. Each
-entry keeping the same id across versions is what lets a task already under way
-or already finished be recognized as the same entry rather than stood beside;
-an entry id the plan never carried is simply created, whichever version
-introduced it. A task replaced this way is a new task, so a dependency written
-against the one it replaced from outside the plan no longer resolves.
+The plan's id is what a task remembers about where it came from. A task carrying
+the same tag that came from somewhere else was never part of the plan and is not
+touched.
+
+An `in_progress` task takes the new version's instructions, type, dependencies,
+target repository, and setup, knowledge and manual sub-items. Status is the one
+field a later version moves only when it asks to. If the version restates it, the
+task moves there. If the version leaves it out, the task keeps whatever progress
+it has made since it was imported. A plan that says nothing about where an entry
+stands is not asking for work already under way to be sent back to `draft`.
+
+A `done` or `archived` task is left alone the same way finishing a recurring task
+leaves that occurrence: as the settled record of what was done, which a later
+change does not reopen.
+
+Clearing is by plan rather than by what the new version happens to mention. A
+not-yet-started task the plan has stopped describing therefore goes with the
+version that described it; that is how a plan drops work nobody began. Each entry
+keeps the same id across versions, which is what lets a task already under way or
+finished be recognized as the same entry rather than stood beside. An entry id
+the plan never carried is created, whichever version introduced it. A task
+replaced this way is a new task, so a dependency on it written from outside the
+plan stops resolving.
 
 ## AI assistance over the visible backlog
 
@@ -965,20 +1010,18 @@ again rather than restoring where it stood before. `flow.md` holds the
 lifecycle this follows.
 
 Ticking a task off records that it is [Completed](domain.md#completed), a
-separate fact from either status. A task can be ticked from any status, and a
-`done` or `archived` task stays on the open list until it is ticked. The
-checkbox also moves a task not yet in an end state to `done` in the same save;
-a `done` or `archived` task keeps its status, reaching `done` through the
-status picker does not tick, and unticking clears the tick without reopening
-anything.
+separate fact from either status; that term says how the two differ. The
+checkbox also moves a task not yet in an end state to `done` in the same save,
+as the [Task](domain.md#task) chapter describes. Reaching `done` through the
+status picker does not tick.
 
 A task that moves to in progress is [Started](domain.md#started), shown as
 `started:` on its metadata line beside `completed:`. The roadmap reads the two
 together to draw a finished plan where its work actually ran. The detail panel
 shows the day as a read-only **Started** badge beside the effort, only on a task
-that has one, and the Board's In progress slot says the drop will stamp it —
-"Moves to In progress and stamps Started" under "Drop to start" — only when the
-task has no stamp yet, since an earlier one is kept.
+that has one. The Board's In progress slot reads "Moves to In progress and
+stamps Started" under "Drop to start". It says so only when the task has no
+stamp yet, since an earlier one is kept.
 
 ## Refresh from shared storage
 
@@ -996,13 +1039,13 @@ the shared backlog file, and could be switched off or slowed down in Settings �
 Storage. Neither the setting nor the check exists any more.
 
 It was an interim mechanism, and it did not work. It assumed two machines could
-share one backlog through a shared folder, which was true while a task was its
-own markdown file and stopped being true when the store became a single binary
+share one backlog through a shared folder. That held while a task was its own
+Markdown file, and stopped holding when the store became a single binary
 database. Pointing the workspace root at a file-sync product produced conflicted
 copies of that database and silently reverted committed edits. Polling it more
 often did not help: the corruption was in the sharing, not in the staleness.
-What the check also happened to do — show a synced change in the task list
-without reopening the app — is now done by the sync itself.
+The check also showed a synced change in the task list without reopening the
+app; the sync itself does that now.
 
 ## Multi-device sync
 
@@ -1019,27 +1062,24 @@ reconciles with the others through the sync service; the cloud carries a replica
 of the tasks and never becomes the authority for them.
 
 Working offline is the ordinary case, not a degraded one. Every task can be
-created, edited, completed, and deleted with no connectivity; the only thing
-connectivity buys is that the other machine finds out sooner. When it does, the
-task list shows what arrived without the app being reopened — except under an
-entry that is being edited, where the change waits until the editing is done
-rather than replacing the text under the caret.
+created, edited, completed, and deleted with no connectivity. Connectivity only
+lets the other machine find out sooner. When it does, the task list shows what
+arrived without the app being reopened. The one exception is an entry being
+edited: there the change waits until the editing is done rather than replacing
+the text under the caret.
 
 When the same task was edited in two places, the later edit wins whole. This is
-deliberate and it does lose the other edit — the alternative, merging field by
-field, would require the domain to have a rule for reconciling two different
-priorities or two different statuses, and it has none. What the person sees is
-one task with one status.
+deliberate, and it does lose the other edit. Merging field by field would need a
+domain rule for reconciling two different priorities or two different statuses,
+and the domain has none. What the person sees is one task with one status.
 
-**What is built so far is the identity half, not the reconciliation half.**
-[Pairing a device](#pairing-a-device) — registering the first device, pairing a
-second under the same owner, and exchanging a credential for a short-lived
-token on every call — is implemented, and the sync service already refuses any
-inbox call that does not carry a valid token. Pushing and pulling the task
-change feed itself, the later-edit-wins reconciliation this section describes,
-and the Cosmos-backed replica are not; the owner and pairing-code registry the
-identity model needs is still an in-memory stand-in rather than a durable
-store.
+Both halves are built. [Pairing a device](#pairing-a-device) gives each device
+its identity, and the sync service refuses any call that does not carry a valid
+token. The task change feed is pushed and pulled through the sync service, which
+keeps devices, pairing codes and the task replica in Azure Cosmos DB. The
+desktop's replica merge applies the later-edit-wins rule to each pulled copy.
+How the feed moves is
+[Task Sync](../../arc42/08-crosscutting-concepts.md#task-sync).
 
 ### Pairing a device
 
@@ -1054,22 +1094,32 @@ on the first, once. There is no account and no sign-in: personal use requires no
 login (`.devbook/arc42/02-constraints.md`), so devices are paired to each other rather
 than to an identity.
 
-The first device to hold a backlog names an owner and registers itself, receiving
-its own registration credential — shown once, never stored anywhere in the clear.
-A second device asks the first for a pairing code, enters it once, and registers
-under that same owner with a registration credential of its own; the code is
-single-use and expires shortly after it is shown, so a code that leaks or goes
-unused stops being a way in. Neither device ever holds the other's credential.
-Before every sync call a device exchanges its own credential for a short-lived
-token, and it is the token — not the credential — that the call actually carries.
+```mermaid
+sequenceDiagram
+    participant First as First device
+    participant Second as Second device
+    participant Sync as Sync service
+    First->>Sync: Register, naming a new owner
+    Sync-->>First: Registration credential, shown once
+    First->>Sync: Ask for a pairing code
+    Sync-->>First: Pairing code
+    Note over First,Second: The person enters the code on the second device
+    Second->>Sync: Redeem the code
+    Sync-->>Second: Its own registration credential, same owner
+    Second->>Sync: Exchange credential for a device token
+    Sync-->>Second: Short-lived device token
+```
 
-A paired device can therefore reach exactly one owner's tasks and no one else's,
-a boundary the sync service enforces by reading the owner out of the presented
-token and scoping every query to it, not one the cloud store enforces on its own.
+The [Owner](domain.md#owner), [Pairing code](domain.md#pairing-code),
+[Registration credential](domain.md#registration-credential) and
+[Device token](domain.md#device-token) terms give each step's rules. A
+registration credential is never stored anywhere in the clear. Neither device
+ever holds the other's credential.
 
-**Deferred:** the owner's devices and outstanding pairing codes are held in
-memory rather than durably, so a restart of the sync service unpairs every
-device until the Cosmos-backed store lands.
+A paired device can therefore reach exactly one owner's tasks and no one else's.
+The sync service enforces that boundary by reading the owner out of the presented
+token and scoping every query to it. The cloud store does not enforce it on its
+own.
 
 ## Backup to a repository
 
@@ -1081,16 +1131,17 @@ related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/r
 
 Keep a copy of the backlog somewhere other than the machine it lives on, by
 committing it to a GitHub repository the person names. A backup is the whole
-backlog as one file — the same file the app reads — committed at a fixed place in
-that repository, so every earlier backup is in the repository's history and the
-newest is always at the same address. A backup that would commit exactly what the
-repository already holds is skipped rather than recorded as a change.
+backlog as one file, the same file the app reads. It is committed at a fixed
+place in that repository. Every earlier backup is therefore in the repository's
+history, and the newest is always at the same address. A backup that would
+commit exactly what the repository already holds is skipped rather than recorded
+as a change.
 
-Backups run on a schedule — every day at a time, or every week on a day at a
-time — and on demand from Settings → Storage, which also says when the last
-backup ran, whether it committed anything, and when the next one is due. A
-scheduled backup missed while the app was closed is taken shortly after the app
-next opens.
+Backups run on a schedule, every day at a set time or every week on a set day
+and time. They also run on demand from Settings → Storage. That screen says when
+the last backup ran, whether it committed anything, and when the next one is
+due. A scheduled backup missed while the app was closed is taken shortly after
+the app next opens.
 
 A backup is one-way. Nothing about it ever changes the backlog on the machine:
 getting a backup back is a decision the person makes and carries out by hand,
@@ -1113,18 +1164,17 @@ related: [.devbook/domain/roadmap/features.md, .devbook/domain/roadmap/domain.md
 [Roadmap Planning](../roadmap/features.md). This chapter is kept, at this heading,
 because other chapters reference it; it is not the model any more.
 
-What this chapter used to say was that the roadmap groups *selected backlog
-tasks* by theme, horizon, environment or repository, and that its progress is
-derived from those tasks rather than stored. The first half turned out to be too
-narrow: a plan has to be able to hold work that has not been refined into a task
-yet, which is most of what planning is, so the plan is stored in its own right and
-a planned item may *optionally* name the task that executes it.
+This chapter said that the roadmap groups *selected backlog tasks* by theme,
+horizon, environment or repository, and derives its progress from those tasks.
+The first half was too narrow. A plan has to hold work that has not been refined
+into a task yet, which is most of what planning is. The plan is therefore stored
+in its own right, and a planned item may *optionally* name the task that
+executes it.
 
-The second half survives: **Task
-remains the source of truth for a work item's status and execution priority.**
-Roadmap Planning owns planning priority and sequence; it never writes a task's
-status or priority, and the progress it shows for a linked item is read from the
-task rather than maintained by hand.
+The second half survives: **Task remains the source of truth for a work item's
+status and execution priority.** Roadmap Planning owns planning priority and
+sequence. It never writes a task's status or priority, and it reads the progress
+it shows for a linked item from the task rather than keeping it by hand.
 
 What Tasks keeps from this feature is the
 [refinement and prioritization](#refinement-and-prioritization) that makes
