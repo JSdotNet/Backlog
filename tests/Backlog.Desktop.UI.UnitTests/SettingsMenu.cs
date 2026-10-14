@@ -17,18 +17,27 @@ internal static class SettingsMenu
 
     private const string AddressPrefix = "settings/";
 
+    /// <summary>The page's name on a link, without the badge beside it.</summary>
+    private const string Name = ".settings-menu-group__name";
+
     /// <summary>Every page the menu lists, in menu order.</summary>
     public static string[] Pages(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(Links).Select(link => link.TextContent.Trim())];
+        [.. component.FindAll(Links).Select(Label)];
 
     /// <summary>The page the menu marks as the one on screen.</summary>
     public static string Current(IRenderedComponent<Settings> component) =>
-        component.Find(Links + "[aria-current='page']").TextContent.Trim();
+        Label(component.Find(Links + "[aria-current='page']"));
+
+    /// <summary>The badge the menu draws beside the page with id
+    /// <paramref name="pageId"/>, or null when it draws none.</summary>
+    public static string? Badge(IRenderedComponent<Settings> component, string pageId) =>
+        component.Find($"{Links}[data-page='{pageId}']")
+            .QuerySelector("[data-testid='settings-menu-badge']")?.TextContent.Trim();
 
     /// <summary>Follows the menu link labelled <paramref name="title"/>.</summary>
     public static void Open(IRenderedComponent<Settings> component, string title)
     {
-        var href = component.FindAll(Links).Single(link => link.TextContent.Trim() == title).GetAttribute("href")!;
+        var href = component.FindAll(Links).Single(link => Label(link) == title).GetAttribute("href")!;
 
         Assert.StartsWith(AddressPrefix, href, StringComparison.Ordinal);
         Navigate(component, href[AddressPrefix.Length..]);
@@ -60,4 +69,7 @@ internal static class SettingsMenu
         Assert.Equal("false", button.GetAttribute("aria-expanded"));
         button.Click();
     }
+
+    private static string Label(AngleSharp.Dom.IElement link) =>
+        (link.QuerySelector(Name) ?? link).TextContent.Trim();
 }

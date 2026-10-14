@@ -15,7 +15,8 @@ namespace Backlog.Modules.Sync.UI;
 /// </para>
 /// <para>
 /// Offered behind <see cref="SyncFeatures.Sync"/>, the switch the shell used to
-/// check for itself, so the page is not in the menu while sync is off.
+/// check for itself, so while sync is off the menu marks the page Off and it shows
+/// only a note pointing at the Features page.
 /// </para>
 /// </remarks>
 public static class SyncSettingsRegistration

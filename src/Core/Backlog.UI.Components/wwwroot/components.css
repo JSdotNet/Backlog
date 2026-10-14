@@ -19884,6 +19884,11 @@ select.field__input {
         font-weight: inherit;
     }
 
+    .settings-frame--index .settings-menu-group__link--current .settings-menu-group__badge {
+        color: var(--color-text-secondary);
+        font-weight: inherit;
+    }
+
     .settings-frame--index .settings-menu-group__chevron {
         display: block;
     }
@@ -19952,8 +19957,14 @@ select.field__input {
 .settings-menu-group__badge {
     flex: none;
     color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
+}
+
+/* The page on screen: its value in the accent, as the canvas draws it. */
+.settings-menu-group__link--current .settings-menu-group__badge {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 /* Shown only in the frame's grouped list at phone width; turned a quarter to

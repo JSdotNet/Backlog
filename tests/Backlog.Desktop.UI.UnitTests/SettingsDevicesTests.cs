@@ -38,11 +38,17 @@ public sealed class SettingsDevicesTests
     private static readonly Guid Device = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     [Fact]
-    public void The_devices_tab_is_not_offered_until_the_feature_is_on()
+    public void With_the_feature_off_the_devices_tab_is_offered_as_Off_and_shows_only_the_note()
     {
         using var context = RenderSettings(syncEnabled: false);
 
-        Assert.DoesNotContain("Devices", SettingsTabs(context.Component));
+        Assert.Contains("Devices", SettingsTabs(context.Component));
+        Assert.Equal("Off", SettingsMenu.Badge(context.Component, "devices"));
+
+        SettingsMenu.Open(context.Component, "Devices");
+
+        Assert.Empty(context.Component.FindComponents<DevicesSettings>());
+        Assert.StartsWith("Sync is turned off.", context.Component.Find("[data-testid='settings-feature-off']").TextContent.Trim());
     }
 
     /// <summary>

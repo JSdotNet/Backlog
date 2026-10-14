@@ -39,6 +39,7 @@
 @using Backlog.SharedKernel
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Devbook.Abstractions
+@using Backlog.Infrastructure.Claude
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -72,7 +73,7 @@
                    PageChosen="@PageChosen"
                    TestId="settings-frame">
         <Menu>
-            @foreach (var group in SettingsPages.Menu(OfferedPages, _activeId))
+            @foreach (var group in SettingsPages.Menu(OfferedPages, _activeId, BadgeFor))
             {
                 <SettingsMenuGroup @key="group.Group"
                                    Label="@SettingsPages.GroupLabel(group.Group)"
@@ -85,7 +86,7 @@
                change to one page is a change to one file. A page is drawn from its
                first opening and kept alive, hidden, while another is on screen -
                what a page holds (a status line, a test result, a half-typed draft)
-               lives as long as the screen. A page whose feature is switched off is
+               lives as long as the screen. An app-wide page whose features are switched off is
                withdrawn, and its state with it. The cascade tells the page's
                SettingsHeadline whether it is the one on screen, so a hidden page
                never writes the headline. *@
@@ -143,14 +144,27 @@
             @* The modules' own pages. The shell knows each only as a title, a group
                and a component: what is on the page, and what it writes, is the
                module's. Its headline is its title unless it renders a
-               SettingsHeadline of its own. *@
+               SettingsHeadline of its own. A page whose feature is off stays in the
+               menu, and shows only a note pointing at the Features page in place of
+               its component - which is disposed, so switching the feature back on
+               starts it afresh. *@
             @foreach (var section in OfferedSections.Where(section => IsOpen(section.Id)))
             {
                 <CascadingValue @key="section.Id" Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(section.Id)">
                     <section class="setting"
                              hidden="@(!IsShowing(section.Id))"
                              aria-label="@($"{section.Title} settings")">
-                        <DynamicComponent Type="@section.Component" />
+                        @if (IsSwitchedOff(section))
+                        {
+                            <p class="settings-feature-off" data-testid="settings-feature-off">
+                                @SettingsBadges.FeatureName(AppFeatures.All, section.FeatureKey!, section.Title) is turned off.
+                                Turn it on on the <a href="@SettingsPages.Href(SettingsPages.Features)">Features page</a> to use these settings.
+                            </p>
+                        }
+                        else
+                        {
+                            <DynamicComponent Type="@section.Component" />
+                        }
                     </section>
                 </CascadingValue>
             }
@@ -189,7 +203,8 @@
     private string _activeId = SettingsPages.Features;
 
     /// <summary>The pages opened since the screen was, each kept alive until the
-    /// screen closes or its feature is switched off.</summary>
+    /// screen closes or, for an app-wide page, its features are switched off. A
+    /// module page stays; only its component gives way to the note.</summary>
     private readonly HashSet<string> _opened = new(StringComparer.Ordinal);
 
     private bool IsOpen(string id) => _opened.Contains(id) && OfferedPages.Any(page => page.Id == id);
@@ -206,12 +221,47 @@
     private IReadOnlyList<SettingsSection> OfferedPages =>
         SettingsPages.InMenuOrder(SettingsPages.BuiltIn.Where(page => IsBuiltInPageAvailable(page.Id)), OfferedSections);
 
-    /// <summary>The registered sections the menu offers, lowest order first: those
-    /// whose feature is on, and never one that would take an app-wide page's id.</summary>
+    /// <summary>The registered sections the menu offers, lowest order first: every
+    /// one, its feature on or off, but never one that would take an app-wide page's
+    /// id.</summary>
     private IEnumerable<SettingsSection> OfferedSections => RegisteredSections
         .Where(section => !SettingsPages.IsBuiltIn(section.Id))
-        .Where(section => section.FeatureKey is null || Features.IsEnabled(section.FeatureKey))
         .OrderBy(section => section.Order);
+
+    /// <summary>Whether the feature a registered section's settings belong to is
+    /// off: the menu says <c>Off</c> and the page shows a note instead of its
+    /// component.</summary>
+    private bool IsSwitchedOff(SettingsSection section) =>
+        section.FeatureKey is not null && !Features.IsEnabled(section.FeatureKey);
+
+    /// <summary>The badge sources the registered sections name, by page id,
+    /// resolved once from the container. A source the container does not hold is
+    /// left out, and its page draws no badge.</summary>
+    private readonly Dictionary<string, ISettingsBadgeSource> _badgeSources = new(StringComparer.Ordinal);
+
+    /// <summary>Read off rather than injected, as the AI page's own stores are
+    /// not in every host; without one its provider counts as not set up.</summary>
+    private ClaudeSettingsStore? _claude;
+
+    private AzureFoundrySettingsStore? _azureFoundry;
+
+    /// <summary>The value the menu draws on the right of <paramref name="page"/>'s
+    /// name, or null for none.</summary>
+    private string? BadgeFor(SettingsSection page) => page.Id switch
+    {
+        SettingsPages.Features => SettingsBadges.Features(AppFeatures.All, Features.IsEnabled),
+        SettingsPages.Repositories => SettingsBadges.Count(GitHub.Repositories.Count),
+        SettingsPages.Accounts => SettingsBadges.Count(GitHub.Settings.Current.Accounts.Count),
+        SettingsPages.Ai => SettingsBadges.AiProviders(
+            claude: _claude?.Current.IsConfigured == true,
+            // Usage is read as every configured account, or as this machine's own
+            // sign-in when there is none - the AI page's own rule.
+            gitHub: GitHub.Settings.Current.Accounts.Count > 0 || _screen.Connection?.IsConnected == true,
+            azureFoundry: _azureFoundry?.Current.IsConfigured == true),
+        SettingsPages.Storage => null,
+        _ when IsSwitchedOff(page) => SettingsBadges.Off,
+        _ => _badgeSources.GetValueOrDefault(page.Id)?.Badge,
+    };
 
     private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatures.UsageMetrics);
 
@@ -284,6 +334,24 @@
         // all. Every opened page is redrawn with the screen.
         DevbookFolders.Changed += OnDevbookFoldersChanged;
 
+        // Every badge in the menu follows the setting behind it, wherever that
+        // setting was changed - this screen, another window, a sync.
+        _claude = Services.GetService<ClaudeSettingsStore>();
+        _azureFoundry = Services.GetService<AzureFoundrySettingsStore>();
+        Features.Changed += OnFeaturesChanged;
+        GitHub.Settings.Changed += OnBadgeChanged;
+        if (_claude is not null) _claude.Changed += OnBadgeChanged;
+        if (_azureFoundry is not null) _azureFoundry.Changed += OnBadgeChanged;
+
+        foreach (var section in OfferedSections)
+        {
+            if (section.BadgeSource is null || _badgeSources.ContainsKey(section.Id)) continue;
+            if (Services.GetService(section.BadgeSource) is not ISettingsBadgeSource source) continue;
+
+            _badgeSources[section.Id] = source;
+            source.Changed += OnBadgeChanged;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -326,11 +394,31 @@
         }
     }
 
-    /// <summary>Lets go of the one subscription the screen itself holds: a screen
+    /// <summary>Lets go of the subscriptions the screen itself holds: a screen
     /// still on a singleton's event would be kept alive by it and would call
     /// <c>StateHasChanged</c> on a renderer that is gone. The pages let go of
     /// their own.</summary>
-    public void Dispose() => DevbookFolders.Changed -= OnDevbookFoldersChanged;
+    public void Dispose()
+    {
+        DevbookFolders.Changed -= OnDevbookFoldersChanged;
+        Features.Changed -= OnFeaturesChanged;
+        GitHub.Settings.Changed -= OnBadgeChanged;
+        if (_claude is not null) _claude.Changed -= OnBadgeChanged;
+        if (_azureFoundry is not null) _azureFoundry.Changed -= OnBadgeChanged;
+        foreach (var source in _badgeSources.Values) source.Changed -= OnBadgeChanged;
+    }
 
     private void OnDevbookFoldersChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>A setting behind a badge changed, perhaps on another thread.</summary>
+    private void OnBadgeChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>A feature was switched, here or anywhere else - another window, a
+    /// sync. The page on screen may no longer be offered, so the screen settles
+    /// which page it shows before it redraws the menu's badges.</summary>
+    private void OnFeaturesChanged() => _ = InvokeAsync(() =>
+    {
+        EnsureActiveSettingsPage();
+        StateHasChanged();
+    });
 }
