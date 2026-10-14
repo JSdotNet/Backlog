@@ -577,6 +577,50 @@ The system SHALL record each change made in the Days off dialog as the same day 
 - **When** the person adds days off from Monday 12 October to Sunday 25 October on the first device
 - **Then** the second device's Days off dialog lists the same ten blocked dates
 
+## Forecasting work in flight
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/roadmap/features.md#forecasting-work-in-flight]
+```
+
+> The requirements of forecasting a plan in flight. The feature chapter says how
+> each part is forecast; this says how a finished part looks beside the rest.
+
+### Requirement: A finished part is drawn as done
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw a part whose counted tasks are all done in a done style that tells it apart from an unfinished part by more than its lock and its full fill.
+
+A part counts its own tasks and the shared tasks
+[it carries](#requirement-a-shared-task-counts-where-own-work-is-still-open), so a
+band whose own tasks are all done can draw finished while shared tasks filed under
+it are still open. A part that counts no task is drawn as done only when the whole
+plan is finished.
+
+#### Scenario: A finished part beside an open one
+
+- **Given** a plan whose own task in `finance` was done on Tuesday 6 October and whose own task in `fincent` is open, with shared tasks filed under both still open
+- **When** the roadmap draws the plan on Monday 12 October
+- **Then** `finance`'s bar is drawn in the done style, `fincent`'s is not, and both are locked
+
+#### Scenario: A finished plan looking back
+
+- **Given** a plan whose tasks were all done by Friday 9 October
+- **When** the person scrolls the roadmap back to that week
+- **Then** each of its bars is drawn in the done style
+
+#### Scenario: A repository holding none of the plan's tasks
+
+- **Given** a plan filed under `app` and `docs` whose one task is filed under `app` alone and is open
+- **When** the roadmap draws the plan on Monday 12 October
+- **Then** neither `app`'s bar nor `docs`'s is drawn in the done style
+
 ## Placing a plan in time
 
 ```meta
@@ -587,7 +631,8 @@ related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 
 > The requirements of placing a plan in time. The feature chapter says how a plan
 > is placed; this says how a plan filed under several repositories is laid out per
-> repository, and how the day overrides count, for a plan and for a measured pace.
+> repository, where a shared task counts, and how the day overrides count, for a
+> plan and for a measured pace.
 
 ### Requirement: Each repository draws its own part at its own pace
 
@@ -597,16 +642,15 @@ status: draft
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.ImportPlanAcrossRoadmapTests.A_plan_waiting_on_a_plan_imported_with_it_starts_the_worked_day_after_it_ends, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemPartsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.OneRepositorysSliceOfALargePlan_SpansOnlyThatRepositorysWork]
 ```
 
-The system SHALL lay out a plan sized by its effort as one part per repository, each counting the full points of the tasks filed there at that repository's pace from the day after what it waits on ends, and SHALL end the plan's window on the latest part end.
+The system SHALL lay out a plan sized by its effort as one part per repository, each counting its own tasks and the shared tasks it carries at its repository's pace from the day after what it waits on ends, and SHALL end the plan's window on the latest part end.
+
+An [own task](domain.md#own-task) is filed under one repository, and a
+[shared task](domain.md#shared-task) under several. Which bands carry a shared
+task is
+[the next requirement](#requirement-a-shared-task-counts-where-own-work-is-still-open).
 
 The scenarios start on Monday 12 October. Each plan waits on nothing unless the
 scenario says so, and its window is still sized by its effort.
-
-#### Scenario: A task filed under two repositories counts in both
-
-- **Given** a plan whose one task of 8 points is filed under `app` and `site`, `app` placed at 8 points a week and `site` at 4
-- **When** the roadmap lays the plan out
-- **Then** `app`'s band draws it from Monday 12 to Friday 16 October and `site`'s band from Monday 12 to Friday 23 October
 
 #### Scenario: A part waits on another repository's part
 
@@ -628,9 +672,41 @@ scenario says so, and its window is still sized by its effort.
 
 #### Scenario: Dragging a part moves the whole plan
 
-- **Given** the plan of the second scenario, drawn from Monday 12 to Friday 16 October in `app` and from Monday 19 to Friday 23 October in `site`
+- **Given** the plan of the first scenario, drawn from Monday 12 to Friday 16 October in `app` and from Monday 19 to Friday 23 October in `site`
 - **When** the person drags the `site` part to a new date
 - **Then** the plan is moved by hand, and both bands draw it over its one moved window
+
+### Requirement: A shared task counts where own work is still open
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL count a shared task in full in each of its bands that still holds open own tasks, else in the bands whose own work ended last, or in all its bands when none had own tasks.
+
+A band whose own tasks are all done therefore draws its part as finished, where
+its work ran, as long as each open shared task filed under it has another band
+whose own work is still open. The scenarios start on Monday 12 October, and each
+plan waits on nothing.
+
+#### Scenario: A task filed under two repositories counts in both
+
+- **Given** a plan whose one task of 8 points is filed under `app` and `site`, `app` placed at 8 points a week and `site` at 4
+- **When** the roadmap lays the plan out
+- **Then** `app`'s band draws it from Monday 12 to Friday 16 October and `site`'s band from Monday 12 to Friday 23 October
+
+#### Scenario: A band whose own task is done draws finished while shared tasks stay open
+
+- **Given** a plan whose own task in `finance`, of 5 points, was started on Monday 5 October and done on Tuesday 6 October, whose own task in `fincent`, of 6 points, is open, and whose three shared tasks of 2 points each, filed under `finance` and `fincent`, are open, `fincent` placed at 6 points a week
+- **When** the roadmap lays the plan out
+- **Then** `finance`'s band draws its part as finished from Monday 5 to Tuesday 6 October, `fincent`'s band draws 12 points from Monday 12 to Friday 23 October, and the plan's window ends on Friday 23 October
+
+#### Scenario: Shared tasks left alone count where own work ended last
+
+- **Given** the plan of the previous scenario, except that `fincent`'s own task was started on Wednesday 7 October and done on Thursday 8 October
+- **When** the roadmap lays the plan out
+- **Then** `finance`'s band draws its part as finished from Monday 5 to Tuesday 6 October, and `fincent`'s band draws its part from Wednesday 7 to Friday 16 October, carrying the 6 shared points
 
 ### Requirement: An effort window counts the overrides
 
