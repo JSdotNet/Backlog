@@ -33,23 +33,25 @@ export const splitTitle = (title: string, fallback: number) => {
   return m ? { n: Number(m[1]), title: (m[2] ?? '').trim() } : { n: fallback, title: title.trim() }
 }
 
-/** The PlanItemsPayload: { planId, count, entries: EntryPayload[] }, wire tokens lowercase. */
+/**
+ * The PlanItemsPayload: { planId, count, entries: EntryPayload[] }, wire tokens lowercase.
+ * An entry with no step number in its title — a follow-up create_item filed under the plan tag —
+ * is numbered after the highest step, so it never shows a number an imported step holds.
+ */
 export const parsePlan = (tag: string, text: string | undefined): Plan | null => {
   const body = parseJson(text) as { planId?: string; entries?: Record<string, unknown>[] } | null
   if (!body || !Array.isArray(body.entries)) return null
-  const entries: PlanEntry[] = []
-  for (const raw of body.entries) {
-    const type = String(raw.type ?? '').toLowerCase()
-    if (type === 'plan') continue
-    const { n, title } = splitTitle(String(raw.title ?? ''), entries.length + 1)
-    entries.push({
-      id: String(raw.id ?? ''),
-      n,
-      title,
-      type,
-      status: normStatus(raw.status),
-    })
-  }
+  const split = body.entries
+    .filter(raw => String(raw.type ?? '').toLowerCase() !== 'plan')
+    .map(raw => ({ raw, ...splitTitle(String(raw.title ?? ''), NaN) }))
+  let next = Math.max(0, ...split.map(s => s.n).filter(n => !Number.isNaN(n)))
+  const entries: PlanEntry[] = split.map(({ raw, n, title }) => ({
+    id: String(raw.id ?? ''),
+    n: Number.isNaN(n) ? ++next : n,
+    title,
+    type: String(raw.type ?? '').toLowerCase(),
+    status: normStatus(raw.status),
+  }))
   return { tag: body.planId ?? tag, entries }
 }
 
