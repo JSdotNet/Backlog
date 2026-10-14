@@ -373,6 +373,36 @@ No outcome changes the task. The next sprint is numbered one higher and starts o
 the first start weekday after the closed sprint's last day. It starts with no
 linked plan: an unfinished task a plan brought in moves on only when it is carried.
 
+### Closing from the sprint view
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/features.md#the-sprint-view, .devbook/domain/progress/features.md#copying-a-sprint-as-a-table, .devbook/domain/progress/requirements.md#closing-a-sprint]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintCloseTests, unit:dotnet:Backlog.UI.Components.UnitTests.SprintCloseDialogTests]
+```
+
+While the sprint view shows the open sprint, **Close sprint…** beside Add opens the
+close dialog over the sprint as last read. It reviews the sprint:
+
+- the goal met or not, with the goal tasks done of their total;
+- all the sprint's work done of its total;
+- how many items were added after the start.
+
+Then it lists every unfinished item, with its goal mark, its plan, its owner and where
+it stands under the title, and an outcome beside it: **Carry to Sprint n** — the
+default — **Back to the backlog** or **Drop**. **Set all to Sprint n** puts every item
+back on carry. Below the list the person writes the next sprint's goal.
+
+**Copy the review as a table** copies the table from
+[Copying a sprint as a table](#copying-a-sprint-as-a-table) with a **Result** column
+added: Done, Carried to Sprint n, Back to the backlog or Dropped, following the choices
+as they stand. **Close and start Sprint n** closes the sprint through Progress and the
+view opens on the sprint it started. A refusal stays in the dialog in Progress's words.
+
+The closed sprint stays one step back through previous, read-only like every closed
+sprint, and still holds every item it had at closing.
+
 ## Syncing sprints between devices
 
 ```meta

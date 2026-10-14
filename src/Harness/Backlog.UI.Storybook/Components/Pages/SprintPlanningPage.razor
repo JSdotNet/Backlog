@@ -3,7 +3,7 @@
 <PageTitle>Sprint planning — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Sprint planning"
-           Summary="SprintAddPicker, SprintItemNoteDialog and SprintTaskPanel, with the row menu SprintBoard carries while its sprint takes writes: adding a task or a whole plan to the open sprint, taking it out, marking it as goal, and its one-line note and open question — from the sprint view and from a task's side panel. Every value is handed in and every act a callback; nothing here changes a task."
+           Summary="SprintAddPicker, SprintItemNoteDialog, SprintCloseDialog and SprintTaskPanel, with the row menu SprintBoard carries while its sprint takes writes: adding a task or a whole plan to the open sprint, taking it out, marking it as goal, its one-line note and open question, and closing the sprint into the next — from the sprint view and from a task's side panel. Every value is handed in and every act a callback; nothing here changes a task."
            Guidelines="@Rules">
 
     <Story Name="A row menu on the open sprint"
@@ -53,6 +53,20 @@
         </div>
     </Story>
 
+    <Story Name="Closing a sprint"
+           Description="Close sprint… beside Add on the open sprint. The review: the goal met or not with the goal tasks done of their total, all the work done of its total, and how much was added after the start. Every unfinished item starts on Carry to the next sprint; pick Back to the backlog or Drop per item, or Set all to put them back on carry. Then the next sprint's goal, and Close and start. Copy the review as a table copies the sprint's table with a Result column that follows the choices. Nothing here changes a task."
+           Code="@CloseCode">
+        <div class="sb-menu-wide">
+            <AppButton Variant="ButtonVariant.Secondary" TestId="sprint-planning-open-close" OnClick="() => _closing = true">Close sprint…</AppButton>
+            <SprintCloseDialog Open="_closing"
+                               OpenChanged="value => _closing = value"
+                               Model="@Closing"
+                               OnClose="@((SprintCloseDecision decision) => { _closing = false; _closed = $"Closed: {string.Join(", ", decision.Choices.Select(choice => $"{choice.Key} {choice.Value}"))}; next goal “{decision.NextGoal}”."; })"
+                               TestId="sprint-planning-close" />
+            <p class="sb-state" data-testid="sprint-planning-closed">@(_closed ?? "Open Close sprint…, pick the outcomes and close.")</p>
+        </div>
+    </Story>
+
     <Story Name="A task's Sprint section"
            Description="In a task's side panel, beside Sessions and pull requests: how the task stands in the open sprint of its series, and the acts that change that. A task a linked plan brought in offers Add (to keep it when the plan goes) and Unlink; one outside the sprint offers Add and adding its plan; marks and notes only on a member."
            Code="@PanelCode">
@@ -78,6 +92,8 @@
     private string? _added;
     private bool _picking;
     private bool _noting;
+    private bool _closing;
+    private string? _closed;
 
     private static readonly IReadOnlyList<string> Repositories = ["Fincent", "devbook-marketplace"];
 
@@ -96,6 +112,12 @@
         "Rekeningen specs shipped", new SprintBoardCounts(1, 1, 0, 0), "+rekeningen", false,
         SprintBoardCounts.Of(Rows), "Day 7 of 10 · 3 working days left", [0, 1, 1], 10,
         "Goal: 1 open with 3 working days left.", ["rekeningen"], Rows);
+
+    private static readonly SprintCloseModel Closing = new(
+        "Sprint 42", "Sprint 43", "Fincent team · Mon 5 Oct – Sun 18 Oct · goal: Rekeningen specs shipped",
+        GoalMet: false, GoalDone: 1, GoalTotal: 2, AllDone: 1, AllTotal: 3, AddedAfterStart: 0,
+        [new("2", "Categorieën", "Goal · +rekeningen · in progress"), new("3", "Grootboek uitwerken", "not started")],
+        Rows, ["rekeningen"]);
 
     private static IReadOnlyList<MenuItem> MenuFor(SprintBoardRow row) =>
     [
@@ -137,6 +159,11 @@
         <SprintItemNoteDialog Open="@noting" OpenChanged="v => noting = v" TaskTitle="Categorieën"
                               SprintName="Sprint 42" Current="@(new SprintItemNote(note, question))"
                               Error="@error" Busy="@writing" OnSave="SaveNoteAsync" />
+        """;
+
+    private const string CloseCode = """
+        <SprintCloseDialog Open="@closing" OpenChanged="v => closing = v" Model="@review"
+                           Error="@error" Busy="@writing" OnClose="CloseSprintAsync" />
         """;
 
     private const string PanelCode = """
