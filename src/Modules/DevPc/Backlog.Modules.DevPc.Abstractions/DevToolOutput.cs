@@ -394,6 +394,73 @@ public static partial class DevToolOutput
         return BearerTokenRegex().Replace(redacted, $"Bearer {RedactedValue}");
     }
 
+    /// <summary>
+    /// A run's transcript as it may be kept on disk: <see cref="Redact"/>, and then
+    /// every secret shape a CLI is known to print, masked whoever passed it in.
+    /// </summary>
+    /// <param name="text">The transcript, as the command log drew it.</param>
+    /// <param name="secrets">The values known to be secret — this machine's MCP
+    /// token, read without minting one.</param>
+    /// <remarks>
+    /// <para>For the record that outlives the pane, which is why it is a second
+    /// pass rather than the command log's own: the log masks what an action
+    /// seeded before it ran, and a run that seeded nothing — an update that
+    /// minted no token, a <c>claude mcp get</c> echoing a registration made by
+    /// hand — reaches here carrying whatever the CLI printed. The record lands in
+    /// <c>.tools/&lt;pc&gt;/</c>, which can sit inside a synced storage root, so
+    /// it is held to the stricter rule.</para>
+    ///
+    /// <para>Shapes rather than words. Each pattern names a credential by where it
+    /// stands — an upper-case <c>…_TOKEN=</c> assignment, an
+    /// <c>Authorization:</c> or <c>X-Api-Key:</c> header, a <c>?token=</c>
+    /// query value — or by a prefix its issuer gives every one of them
+    /// (<c>ghp_</c>, <c>github_pat_</c>, <c>sk-</c>, <c>xox…-</c>,
+    /// <c>AKIA</c>, a three-part JWT). Prose that says "token" is left alone, and
+    /// so is a <c>${…}</c> placeholder: it is the catalog's own spelling, not a
+    /// value. Text matching none of them is returned exactly as it came.</para>
+    /// </remarks>
+    public static string RedactTranscript(string? text, IEnumerable<string?> secrets)
+    {
+        var redacted = Redact(text, secrets);
+
+        if (redacted.Length == 0)
+        {
+            return redacted;
+        }
+
+        foreach (var shape in SecretShapes)
+        {
+            redacted = shape.Replace(redacted, MaskValue);
+        }
+
+        return redacted;
+    }
+
+    private static readonly Regex[] SecretShapes =
+    [
+        SecretAssignmentRegex(),
+        AuthorizationHeaderRegex(),
+        ApiKeyHeaderRegex(),
+        SecretQueryValueRegex(),
+        IssuedTokenRegex()
+    ];
+
+    /// <summary>The match with its <c>value</c> group masked, or the whole match
+    /// when the pattern has none.</summary>
+    private static string MaskValue(Match match)
+    {
+        var value = match.Groups["value"];
+
+        if (!value.Success)
+        {
+            return RedactedValue;
+        }
+
+        var start = value.Index - match.Index;
+
+        return string.Concat(match.Value.AsSpan(0, start), RedactedValue, match.Value.AsSpan(start + value.Length));
+    }
+
     /// <summary>What a masked value reads as. Recognisable rather than a run of
     /// asterisks, so that somebody reading a log can tell a redaction from a
     /// password that happens to look like one.</summary>
@@ -1109,6 +1176,41 @@ public static partial class DevToolOutput
     /// quote in it, so nothing is left unmasked by stopping at one.</para></summary>
     [GeneratedRegex("Bearer\\s+[^\\s\"']+", RegexOptions.IgnoreCase)]
     private static partial Regex BearerTokenRegex();
+
+    /// <summary>An environment-style assignment to a name that says it holds a
+    /// secret — <c>BACKLOG_MCP_TOKEN=…</c>, <c>GITHUB_TOKEN: …</c>,
+    /// <c>FOO_API_KEY=…</c>. Upper case only and case-sensitive, so a sentence
+    /// such as "invalid token: expired" is prose and not a match; a value that
+    /// opens with <c>$</c> is a reference to the variable rather than its value.
+    /// See <see cref="RedactTranscript"/>.</summary>
+    [GeneratedRegex("\\b[A-Z][A-Z0-9_]*_(?:TOKEN|SECRET|API_KEY|APIKEY|PASSWORD|PAT)\\s*[=:]\\s*[\"']?(?<value>(?!\\[redacted\\])[^\\s\"'$][^\\s\"']*)")]
+    private static partial Regex SecretAssignmentRegex();
+
+    /// <summary>An <c>Authorization:</c> header in any scheme but <c>Bearer</c>,
+    /// which <see cref="BearerTokenRegex"/> has already masked — <c>Basic …</c>,
+    /// <c>token …</c>, or a bare credential.</summary>
+    [GeneratedRegex("\\b(?:Proxy-)?Authorization\\s*:\\s*(?!Bearer\\b)(?:[A-Za-z]+\\s+)?(?<value>(?!\\$\\{|\\[redacted\\])[^\\s\"']+)", RegexOptions.IgnoreCase)]
+    private static partial Regex AuthorizationHeaderRegex();
+
+    /// <summary>A header whose name says it carries a key or a token —
+    /// <c>X-Api-Key</c>, <c>Api-Key</c>, <c>X-Auth-Token</c>,
+    /// <c>X-Access-Token</c> — as <c>claude mcp get</c> prints its
+    /// <c>Headers:</c> block and as a <c>--header</c> argument spells it.</summary>
+    [GeneratedRegex("\\b(?:X-)?(?:Api-Key|Auth-Token|Access-Token)\\s*:\\s*(?<value>(?!\\$\\{|\\[redacted\\])[^\\s\"']+)", RegexOptions.IgnoreCase)]
+    private static partial Regex ApiKeyHeaderRegex();
+
+    /// <summary>A query value whose name says it is a credential —
+    /// <c>?token=</c>, <c>&amp;access_token=</c>, <c>?api_key=</c> — the
+    /// other place a URL carries one.</summary>
+    [GeneratedRegex("[?&](?:access_token|token|api_key|apikey|secret|sig)=(?<value>(?!\\$\\{|\\[redacted\\])[^&\\s\"'#]+)", RegexOptions.IgnoreCase)]
+    private static partial Regex SecretQueryValueRegex();
+
+    /// <summary>A credential an issuer marks by its prefix: GitHub's personal,
+    /// OAuth, user, server and refresh tokens and its fine-grained PATs, OpenAI
+    /// and Anthropic <c>sk-</c> keys, Slack tokens, AWS access key ids, and a
+    /// signed JWT. Masked whole, wherever it stands.</summary>
+    [GeneratedRegex("\\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,}|sk-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]+)")]
+    private static partial Regex IssuedTokenRegex();
 
     /// <summary>The version <c>winget show</c> leads with. Anchored hard at the
     /// start of a line — no leading whitespace allowed — because the installer

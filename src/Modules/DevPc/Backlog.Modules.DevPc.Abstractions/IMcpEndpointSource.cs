@@ -56,6 +56,14 @@ public interface IMcpEndpointSource
     /// persist a credential nobody asked for.</remarks>
     string EnsureToken();
 
+    /// <summary>The token this machine already has, or <see langword="null"/>
+    /// when none has been minted — read, never created.</summary>
+    /// <remarks>For masking rather than registering: a value that has to be kept
+    /// out of what is written down, such as the last run's transcript, is only a
+    /// secret if it exists, and minting one in order to hide it would persist a
+    /// credential nobody asked for.</remarks>
+    string? CurrentToken { get; }
+
     /// <summary>Raised when any of the above has changed, so a pane that drew
     /// them can draw them again. The port is a setting a person edits while the
     /// pane is open.</summary>
