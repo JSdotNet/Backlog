@@ -168,7 +168,7 @@ public sealed class GhCliAccountSource : IGhCliAccountSource
                     accounts.Add(new GhCliAccount(
                         login,
                         Text(entry, "host") ?? host.Name,
-                        string.Equals(Text(entry, "state"), "active", StringComparison.OrdinalIgnoreCase),
+                        IsActive(entry),
                         Text(entry, "scopes")));
                 }
             }
@@ -183,6 +183,15 @@ public sealed class GhCliAccountSource : IGhCliAccountSource
             return [];
         }
     }
+
+    /// <summary>Whether gh is using this login now. The gh this was checked against
+    /// (2.x) answers <c>"active": true</c> beside <c>"state": "success"</c>, where
+    /// <c>state</c> is whether the token is valid; an answer with no
+    /// <c>active</c> flag falls back to reading <c>"state": "active"</c>.</summary>
+    private static bool IsActive(JsonElement entry) =>
+        entry.TryGetProperty("active", out var active) && active.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? active.GetBoolean()
+            : string.Equals(Text(entry, "state"), "active", StringComparison.OrdinalIgnoreCase);
 
     private static string? Text(JsonElement element, string property) =>
         element.TryGetProperty(property, out var value) && value.ValueKind is JsonValueKind.String

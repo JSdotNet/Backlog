@@ -60,6 +60,33 @@ public sealed class GhCliAccountSourceTests
             });
     }
 
+    /// <summary>The shape gh 2.x really answers: <c>state</c> says whether the token
+    /// is valid and a separate <c>active</c> flag says which login is in use. Read
+    /// as <c>state</c> alone, no account was ever active, so Settings never called
+    /// one Active.</summary>
+    [Fact]
+    public async Task The_active_flag_says_which_login_gh_is_using()
+    {
+        using var gh = new GhStub().Answers(
+            """
+            {
+              "hosts": {
+                "github.com": [
+                  { "state": "success", "active": true, "host": "github.com", "login": "JSdotNet", "scopes": "repo" },
+                  { "state": "success", "active": false, "host": "github.com", "login": "j-schepers_innobv", "scopes": "repo" }
+                ]
+              }
+            }
+            """);
+
+        var accounts = await gh.Source().ListAsync(TestContext.Current.CancellationToken);
+
+        Assert.Collection(
+            accounts,
+            first => Assert.True(first.Active),
+            second => Assert.False(second.Active));
+    }
+
     /// <summary>The host key names the host when the entry does not, which is how a
     /// GitHub Enterprise Server account arrives.</summary>
     [Fact]
