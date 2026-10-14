@@ -115,7 +115,7 @@
         """;
 
     private const string AbsentCode = """
-        <EffortChip Effort="@row.Effort" />   @* null draws nothing *@
+        <EffortChip Effort="@row.EffortFrom(requests)" />   @* null draws nothing *@
         <EffortChip Effort="turbo" />         @* off the ladder: low treatment, titled *@
         """;
 
@@ -129,7 +129,7 @@
 
     private const string RowCode = """
         <span>Opus 5.5</span>
-        <EffortChip Effort="@row.Effort" />
+        <EffortChip Effort="@row.EffortFrom(requests)" />
         <StageStrip Steps="@DeliveryRunProgress.Steps(run)" Summary="@DeliveryRunProgress.Summary(run)" />
         """;
 }

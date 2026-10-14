@@ -44,6 +44,20 @@ public sealed class SessionPullRequestStatusesTests
         Assert.False(string.IsNullOrWhiteSpace(status.Reason));
     }
 
+    /// <summary>A stacked pull request's card names the pull request it waits on, as
+    /// the pane's banner does, so the two screens give it the same reason.</summary>
+    [Fact]
+    public void A_stacked_pull_request_names_its_parent_as_the_pane_does()
+    {
+        var parent = Pull() with { Number = 41, HeadRefName = "feature/base" };
+        var pull = Pull() with { BaseRefName = "feature/base" };
+
+        var status = SessionPullRequestStatuses.Of(pull, waitsOn: parent);
+
+        Assert.Equal(PullRequestVerdict.Of(pull, parent)!.Reason, status.Reason);
+        Assert.EndsWith("and it waits on #41, which has to merge first.", status.Reason, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_merged_pull_request_is_merged_and_settled()
     {

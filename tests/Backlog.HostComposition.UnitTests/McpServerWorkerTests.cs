@@ -1,8 +1,11 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 
 using Backlog.Desktop.Mcp;
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Modules.Sessions.Abstractions;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -91,6 +94,85 @@ public sealed class McpServerWorkerTests : IDisposable
 
         using var probe = new TcpListener(IPAddress.Loopback, port);
         probe.Start();
+    }
+
+    /// <summary>
+    /// Claude Code's OTLP logs reach the head's listener at <c>/v1/logs</c> behind the
+    /// same bearer-token guard as <c>/mcp</c> (local ADR 0024): the real listener, bound
+    /// on loopback, refuses an export with no token and one with the wrong token —
+    /// storing nothing — and stores the one carrying the token the Settings page copies.
+    /// </summary>
+    [Fact]
+    public async Task The_logs_route_refuses_a_missing_or_wrong_token_and_stores_the_right_ones_export()
+    {
+        var store = new RecordingRequestStore();
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<IClaudeApiRequestStore>(store)
+            .BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = settings.EnsureMcpServerToken();
+
+        using (var response = await client.SendAsync(Export(null), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+        }
+
+        using (var response = await client.SendAsync(Export(token + "-wrong"), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        Assert.Empty(store.Added);
+
+        using (var response = await client.SendAsync(Export(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        Assert.Equal(["req_011CYfixture0000000000001", "req_011CYfixture0000000000002"], store.Added.Select(request => request.RequestId));
+    }
+
+    /// <summary>The JSON fixture <c>ClaudeCodeOtlpLogsTests</c> describes, posted the
+    /// way the exporter posts it, with <paramref name="token"/> as its bearer header.</summary>
+    private static HttpRequestMessage Export(string? token)
+    {
+        var content = new ByteArrayContent(
+            File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "claude-code-otlp", "claude-code-logs.json")));
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        var request = new HttpRequestMessage(HttpMethod.Post, ClaudeCodeLogsEndpoint.RoutePath) { Content = content };
+        if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return request;
+    }
+
+    /// <summary>Keeps every request the route stored, in order.</summary>
+    private sealed class RecordingRequestStore : IClaudeApiRequestStore
+    {
+        private readonly List<ClaudeApiRequest> _added = [];
+
+        public IReadOnlyList<ClaudeApiRequest> Added
+        {
+            get
+            {
+                lock (_added) return [.. _added];
+            }
+        }
+
+        public Task<int> AddAsync(IReadOnlyList<ClaudeApiRequest> requests, CancellationToken cancellationToken = default)
+        {
+            lock (_added) _added.AddRange(requests);
+            return Task.FromResult(requests.Count);
+        }
+
+        public Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ClaudeApiRequest>>([.. Added.Where(request => sessionId is null || request.SessionId == sessionId)]);
     }
 
     public void Dispose()

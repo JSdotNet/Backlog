@@ -139,15 +139,11 @@ internal sealed record PullRequestVerdict(
     /// <param name="waitsOn">The open pull request it is stacked on —
     /// <see cref="PullRequestStacks.ParentOf"/> — named in the reason; null for one at
     /// the bottom of a stack or in none.</param>
-    /// <param name="failedCheckIsActionsRun">Whether at least one failed check is a GitHub
-    /// Actions run, the only kind of check GitHub can be asked to run again, so the only
-    /// one Re-run failed is offered for.</param>
     /// <returns>Null for a pull request closed without merging: there is nothing left
     /// to get ready, and nothing to merge.</returns>
     public static PullRequestVerdict? Of(
         GitHubOpenPullRequest pull,
-        GitHubOpenPullRequest? waitsOn = null,
-        bool failedCheckIsActionsRun = false)
+        GitHubOpenPullRequest? waitsOn = null)
     {
         ArgumentNullException.ThrowIfNull(pull);
 
@@ -161,7 +157,7 @@ internal sealed record PullRequestVerdict(
             return null;
         }
 
-        var verdict = Open(pull, failedCheckIsActionsRun);
+        var verdict = Open(pull);
         if (waitsOn is null)
         {
             return verdict with { Reason = $"{verdict.Reason}." };
@@ -191,7 +187,7 @@ internal sealed record PullRequestVerdict(
 
     /// <summary>The verdict by precedence, its reason still a clause without its stop so
     /// a stack can be named in the same sentence.</summary>
-    private static PullRequestVerdict Open(GitHubOpenPullRequest pull, bool failedCheckIsActionsRun)
+    private static PullRequestVerdict Open(GitHubOpenPullRequest pull)
     {
         var counts = pull.CheckCounts;
         var baseRef = pull.BaseRefName;
@@ -210,14 +206,17 @@ internal sealed record PullRequestVerdict(
         // failure is what decides, so a failed count is enough.
         if (pull.Checks == GitHubCheckState.Failing || counts is { Failed: > 0 })
         {
+            // Re-run failed only where a failed check is a GitHub Actions run, the only
+            // kind GitHub can be asked to run again.
+            var rerun = pull.CanRerunFailed;
             var failed = counts is { Failed: > 0 } ? counts : null;
             return new(
                 PullRequestVerdictKind.FailingChecks, PullRequestLane.NeedsYou, PullRequestTone.Fault,
                 failed is null ? "Failing checks" : $"{failed.Failed} failing",
                 failed is null ? "Checks failing" : $"{failed.Failed} of {failed.Total} checks failing",
                 "Merging is blocked until the failing checks pass",
-                failedCheckIsActionsRun ? PullRequestAct.RerunFailed : PullRequestAct.OpenOnGitHub,
-                failedCheckIsActionsRun ? PullRequestAct.OpenOnGitHub : null);
+                rerun ? PullRequestAct.RerunFailed : PullRequestAct.OpenOnGitHub,
+                rerun ? PullRequestAct.OpenOnGitHub : null);
         }
 
         // A repository that asks for no review has no decision, but a reviewer who asked
@@ -289,12 +288,29 @@ internal sealed record PullRequestVerdict(
         // GitHub can still hold back a pull request none of the above describes — a rule
         // this read does not name. Merge now would be refused there, so the act hands it
         // to auto-merge instead, as the pane's merge act already does.
+        var merge = pull.MergeReady ? PullRequestAct.Merge : PullRequestAct.MergeWhenReady;
+
+        // Behind is GitHub's BEHIND state, set only where the repository requires an
+        // up-to-date branch. Behind where it does not, the pull request is still ready,
+        // but the reason says how far, so it never contradicts the Up to date line, and
+        // Update branch is there for whoever wants to catch it up first.
+        if (pull.BehindBy is > 0 and var behind)
+        {
+            var commits = behind == 1 ? "1 commit" : $"{behind} commits";
+            return new(
+                PullRequestVerdictKind.Ready, PullRequestLane.ReadyToMerge, PullRequestTone.Settled,
+                "Ready to merge",
+                "Ready to merge",
+                $"{checks}{approvals}; it is {commits} behind {baseRef}, which this repository does not require it to catch up on",
+                merge, PullRequestAct.UpdateBranch);
+        }
+
         return new(
             PullRequestVerdictKind.Ready, PullRequestLane.ReadyToMerge, PullRequestTone.Settled,
             "Ready to merge",
             "Ready to merge",
             $"{checks} and it is up to date with {baseRef}{approvals}",
-            pull.MergeReady ? PullRequestAct.Merge : PullRequestAct.MergeWhenReady, null);
+            merge, null);
     }
 
     private static PullRequestVerdict Merged(string baseRef, string? mergedBy) => new(

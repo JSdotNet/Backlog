@@ -79,6 +79,25 @@ public sealed class ClaudeCodeTelemetrySettingsTests
         Assert.False(env.TryGetProperty("OTEL_EXPORTER_OTLP_HEADERS", out _));
     }
 
+    /// <summary>Without it Claude Code redacts <c>agent.name</c>, no request can be told
+    /// to a stage's sub-agent, and a stage could be priced from its main loop alone.</summary>
+    [Fact]
+    public void The_settings_block_asks_for_the_tool_details_that_name_each_requests_sub_agent()
+    {
+        foreach (var token in new[] { "t", null })
+        {
+            using var document = JsonDocument.Parse(ClaudeCodeTelemetrySnippet.Settings(new Uri("http://127.0.0.1:5757/v1/logs"), token));
+
+            Assert.Equal("1", document.RootElement.GetProperty("env").GetProperty("OTEL_LOG_TOOL_DETAILS").GetString());
+        }
+
+        using var context = new BunitContext();
+        var page = Render(context);
+
+        Assert.Contains("OTEL_LOG_TOOL_DETAILS", page.Find("[data-testid='claude-code-telemetry-settings']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("OTEL_LOG_TOOL_DETAILS", page.Markup, StringComparison.Ordinal);
+    }
+
     /// <summary>Inside the settings frame the page writes its own sentence over the
     /// title the frame would otherwise show.</summary>
     [Fact]

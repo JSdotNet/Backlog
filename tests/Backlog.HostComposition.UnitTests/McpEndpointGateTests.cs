@@ -477,7 +477,7 @@ public class McpEndpointGateTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new DeliveryStageUpdated(runId, stageIndex, status, DoneCount: 0, SessionTitle: null));
 
-        public Task FinishRunAsync(string worktree, string runId, string status, string? summary = null, IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null, CancellationToken cancellationToken = default) =>
+        public Task FinishRunAsync(string worktree, string runId, string status, string? summary = null, IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null, JsonObject? quality = null, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
         public Task<IReadOnlyList<DeliveryRun>> ListRunsAsync(string worktree, CancellationToken cancellationToken = default) =>

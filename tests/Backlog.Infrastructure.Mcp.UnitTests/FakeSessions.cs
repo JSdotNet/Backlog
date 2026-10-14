@@ -70,6 +70,8 @@ internal sealed class FakeDeliverySurfaceLifecycle(
 
     public IReadOnlyList<DeliverySyncUnitVerdict>? Verdicts { get; private set; }
 
+    public JsonObject? Quality { get; private set; }
+
     public int? StageIndex { get; private set; }
 
     public string? Status { get; private set; }
@@ -184,6 +186,7 @@ internal sealed class FakeDeliverySurfaceLifecycle(
         string status,
         string? summary = null,
         IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null,
+        JsonObject? quality = null,
         CancellationToken cancellationToken = default)
     {
         Calls.Add(DeliverySurfaceOperations.FinishRun);
@@ -191,6 +194,7 @@ internal sealed class FakeDeliverySurfaceLifecycle(
         RunId = runId;
         Status = status;
         Verdicts = verdicts;
+        Quality = quality;
 
         return Task.CompletedTask;
     }

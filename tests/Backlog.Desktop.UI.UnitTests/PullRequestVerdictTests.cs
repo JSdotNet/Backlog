@@ -81,8 +81,17 @@ public sealed class PullRequestVerdictTests
     private static GitHubOpenPullRequest Parent() =>
         Pull() with { Number = 41, HeadRefName = "feature/base", BaseRefName = "main" };
 
-    private static PullRequestVerdict Open(GitHubOpenPullRequest pull, GitHubOpenPullRequest? waitsOn = null, bool failedCheckIsActionsRun = false) =>
-        PullRequestVerdict.Of(pull, waitsOn, failedCheckIsActionsRun)!;
+    private static PullRequestVerdict Open(GitHubOpenPullRequest pull, GitHubOpenPullRequest? waitsOn = null) =>
+        PullRequestVerdict.Of(pull, waitsOn)!;
+
+    /// <summary>The pull request with one failed check that is a GitHub Actions run, so
+    /// <see cref="GitHubOpenPullRequest.CanRerunFailed"/> holds.</summary>
+    private static GitHubOpenPullRequest WithFailedActionsRun(GitHubOpenPullRequest pull) =>
+        pull with { HeadChecks = [new GitHubCheck("build", GitHubCheckState.Failing, null, null, WorkflowRunId: 101)] };
+
+    /// <summary>The pull request whose only failed check another service set.</summary>
+    private static GitHubOpenPullRequest WithFailedExternalCheck(GitHubOpenPullRequest pull) =>
+        pull with { HeadChecks = [new GitHubCheck("ci/external", GitHubCheckState.Failing, null, null, WorkflowRunId: null)] };
 
     // ---- Every verdict ----------------------------------------------------------------
 
@@ -103,7 +112,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void Failing_checks_from_GitHub_Actions_offer_Re_run_failed_and_then_GitHub()
     {
-        var verdict = Open(Pull(Condition.FailingChecks), failedCheckIsActionsRun: true);
+        var verdict = Open(WithFailedActionsRun(Pull(Condition.FailingChecks)));
 
         Assert.Equal(PullRequestVerdictKind.FailingChecks, verdict.Kind);
         Assert.Equal(PullRequestLane.NeedsYou, verdict.Lane);
@@ -119,7 +128,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void Failing_checks_from_another_service_offer_only_GitHub()
     {
-        var verdict = Open(Pull(Condition.FailingChecks), failedCheckIsActionsRun: false);
+        var verdict = Open(WithFailedExternalCheck(Pull(Condition.FailingChecks)));
 
         Assert.Equal(PullRequestVerdictKind.FailingChecks, verdict.Kind);
         Assert.Equal(PullRequestAct.OpenOnGitHub, verdict.PrimaryAct);
@@ -275,6 +284,67 @@ public sealed class PullRequestVerdictTests
 
         Assert.Equal(PullRequestVerdictKind.Ready, verdict.Kind);
         Assert.Equal(PullRequestAct.MergeWhenReady, verdict.PrimaryAct);
+    }
+
+    /// <summary>Behind is GitHub's state, set only where the repository requires an
+    /// up-to-date branch. Behind where it does not, the pull request is still ready, but
+    /// the reason says how far behind it is and that nothing requires catching up, so it
+    /// never contradicts the Up to date line — and Update branch is offered second.</summary>
+    [Theory]
+    [InlineData(3, "Checks pass with one approval; it is 3 commits behind main, which this repository does not require it to catch up on.")]
+    [InlineData(1, "Checks pass with one approval; it is 1 commit behind main, which this repository does not require it to catch up on.")]
+    public void Ready_behind_a_base_that_does_not_require_it_says_how_far_and_offers_Update_branch(int behind, string reason)
+    {
+        var verdict = Open(Pull() with { BehindBy = behind });
+
+        Assert.Equal(PullRequestVerdictKind.Ready, verdict.Kind);
+        Assert.Equal(PullRequestLane.ReadyToMerge, verdict.Lane);
+        Assert.Equal(reason, verdict.Reason);
+        Assert.DoesNotContain("up to date", verdict.Reason, StringComparison.Ordinal);
+        Assert.Equal(PullRequestAct.Merge, verdict.PrimaryAct);
+        Assert.Equal(PullRequestAct.UpdateBranch, verdict.SecondaryAct);
+        AssertOneSentence(verdict.Reason);
+    }
+
+    [Fact]
+    public void Ready_level_with_its_base_says_it_is_up_to_date_and_offers_no_update()
+    {
+        var verdict = Open(Pull() with { BehindBy = 0 });
+
+        Assert.Equal("Checks pass and it is up to date with main with one approval.", verdict.Reason);
+        Assert.Null(verdict.SecondaryAct);
+    }
+
+    /// <summary>GitHub's BEHIND state still decides Behind, whatever the count says.</summary>
+    [Fact]
+    public void Behind_where_the_repository_requires_it_stays_Behind()
+    {
+        var verdict = Open(Pull(Condition.Behind) with { BehindBy = 3 });
+
+        Assert.Equal(PullRequestVerdictKind.Behind, verdict.Kind);
+        Assert.Equal(PullRequestAct.UpdateBranch, verdict.PrimaryAct);
+    }
+
+    /// <summary>A stacked pull request behind its parent's branch keeps Update branch,
+    /// first now that its merge acts are gone, and names its parent too.</summary>
+    [Fact]
+    public void A_stacked_pull_request_behind_by_keeps_Update_branch()
+    {
+        var verdict = Open(Pull() with { BehindBy = 2 }, waitsOn: Parent());
+
+        Assert.Equal(PullRequestAct.UpdateBranch, verdict.PrimaryAct);
+        Assert.Null(verdict.SecondaryAct);
+        Assert.Contains("2 commits behind main", verdict.Reason, StringComparison.Ordinal);
+        Assert.EndsWith("and it waits on #41, which has to merge first.", verdict.Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>Re-run failed is read off the pull request itself: a failed Actions run
+    /// it carries is enough, with no word from the caller.</summary>
+    [Fact]
+    public void Re_run_failed_is_read_off_the_pull_requests_own_checks()
+    {
+        Assert.Equal(PullRequestAct.RerunFailed, Open(WithFailedActionsRun(Pull(Condition.FailingChecks))).PrimaryAct);
+        Assert.Equal(PullRequestAct.OpenOnGitHub, Open(Pull(Condition.FailingChecks)).PrimaryAct);
     }
 
     [Fact]
@@ -442,7 +512,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void A_stacked_pull_request_keeps_its_other_acts()
     {
-        var verdict = Open(Pull(Condition.FailingChecks), waitsOn: Parent(), failedCheckIsActionsRun: true);
+        var verdict = Open(WithFailedActionsRun(Pull(Condition.FailingChecks)), waitsOn: Parent());
 
         Assert.Equal(PullRequestAct.RerunFailed, verdict.PrimaryAct);
         Assert.Equal(PullRequestAct.OpenOnGitHub, verdict.SecondaryAct);

@@ -13,8 +13,9 @@ namespace Backlog.Desktop.UI.PullRequests;
 /// <para>
 /// Read by number — the pinned read — rather than from the open list, because a
 /// session's pull request may since have merged or closed, and the open list would not
-/// hold it. One pull request per call: the panel asks for the row it shows, not for the
-/// whole list.
+/// hold it. One pull request per call: the panel asks for the row it shows. An open one
+/// is then placed among its repository's open pull requests, so a stacked one names the
+/// pull request it waits on, as the pane does.
 /// </para>
 /// </summary>
 internal static partial class SessionPullRequestStatuses
@@ -30,17 +31,45 @@ internal static partial class SessionPullRequestStatuses
             candidate.Number == pin.Number
             && string.Equals(candidate.RepositoryFullName, pin.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
 
-        return found is null ? null : Of(found);
+        if (found is null) return null;
+
+        return Of(found, await StackParentOfAsync(gitHub, found));
+    }
+
+    /// <summary>
+    /// The open pull request <paramref name="pull"/> is stacked on, found the way the
+    /// pane finds it — <see cref="PullRequestStacks"/> over its repository's open pull
+    /// requests — so a stacked pull request's reason names its parent on the card as
+    /// it does in the pane. Null for one merged or closed, one in a repository that is
+    /// not configured, and one at the bottom of a stack or in none.
+    /// </summary>
+    private static async Task<GitHubOpenPullRequest?> StackParentOfAsync(GitHubIntegration gitHub, GitHubOpenPullRequest pull)
+    {
+        if (!pull.IsOpen) return null;
+
+        var repository = gitHub.Repositories.FirstOrDefault(candidate =>
+            string.Equals(candidate.FullName, pull.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
+        if (repository is null) return null;
+
+        var open = await gitHub.ListOpenPullRequestsAsync([repository]);
+        var others = open.PullRequests.Where(candidate => candidate.Number != pull.Number
+            || !string.Equals(candidate.RepositoryFullName, pull.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
+
+        return PullRequestStacks.Of([.. others, pull]).ParentOf(pull);
     }
 
     /// <summary>A pull request as the session list's card draws it: its verdict's label
     /// and tone, its title, and the verdict's reason. Closed without merging is no
     /// verdict, so it reads as closed in the archived tone.</summary>
-    public static SessionPullRequestStatus Of(GitHubOpenPullRequest pull)
+    /// <param name="pull">The pull request.</param>
+    /// <param name="waitsOn">The open pull request it is stacked on, as
+    /// <see cref="PullRequestVerdict.Of(GitHubOpenPullRequest, GitHubOpenPullRequest?)"/>
+    /// takes it, so the card's reason is the pane's.</param>
+    public static SessionPullRequestStatus Of(GitHubOpenPullRequest pull, GitHubOpenPullRequest? waitsOn = null)
     {
         ArgumentNullException.ThrowIfNull(pull);
 
-        return PullRequestVerdict.Of(pull) is { } verdict
+        return PullRequestVerdict.Of(pull, waitsOn) is { } verdict
             ? new SessionPullRequestStatus(verdict.Label, verdict.Tone.ToString().ToLowerInvariant(), pull.Title, verdict.Reason)
             : new SessionPullRequestStatus("Closed", "archived", pull.Title, "Closed without merging.");
     }
