@@ -45,6 +45,7 @@
     }
 
     <InProgressBoard Tasks="@Tasks"
+                     ViewSwitch="ViewSwitch"
                      Loose="@Loose"
                      NeedsYouFirst="NeedsYouFirst"
                      NeedsYouFirstChanged="OnNeedsYouFirstChangedAsync"
@@ -80,6 +81,12 @@
     /// <summary>The shell's reader, shared with the side panel.</summary>
     [Parameter, EditorRequired]
     public WorkInProgressReader Reader { get; set; } = default!;
+
+    /// <summary>The Now | Sprint n switch, drawn beside the title while the header's
+    /// scope holds a repository in a sprint series (InProgressTab); null otherwise,
+    /// which leaves the view exactly as it is.</summary>
+    [Parameter]
+    public RenderFragment? ViewSwitch { get; set; }
 
     /// <summary>How the shell opens an entry in the Tasks view, by its id.</summary>
     [Parameter]

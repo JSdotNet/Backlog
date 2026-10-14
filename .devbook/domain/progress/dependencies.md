@@ -31,7 +31,11 @@ is Progress's decision, by each series' own stamp.
 A linked pull request's merged state and its author are read from GitHub by the
 same infrastructure reads the pull requests list uses. That is a transport rather
 than a relationship with another context: Progress reaches a pull request only
-through the task that links it.
+through the task that links it. In the desktop app `ISprintPullRequestReader` reads
+them by number, the read the In progress view's linked pull requests use; a merged one
+is read once, the rest at most once a minute. Where no GitHub is configured, or GitHub
+does not answer, a pull request reads as unknown and a member is done by its task's
+status alone.
 
 ## Inbound dependents (known)
 

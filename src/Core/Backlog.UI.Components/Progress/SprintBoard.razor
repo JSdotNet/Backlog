@@ -1,0 +1,496 @@
+@using System.Globalization
+@*
+    The In progress tab's sprint view (.devbook/domain/progress/features.md
+    #following-a-sprint): one sprint of the series in scope, read against its members'
+    current state.
+
+    The header names the series, its repositories and the sprint's dates, steps to the
+    previous and next sprint, and narrows the rows to one repository or groups them by
+    plan. Under it the goal card — the goal, the goal tasks done of total as a bar by
+    status, the rules that counted them, then all the sprint's work — and the done
+    line against the even pace; then what needs the person; then one group per plan,
+    a row per member; and last, folded, the live work running against tasks the
+    sprint does not hold.
+
+    Every value is a parameter and every act a callback, on the SprintSeriesCard
+    precedent, so the storybook draws each state with no series behind it. What the
+    board keeps of its own is the reader's view of it: the repository filter, the
+    grouping and the fold. The rules it groups and counts by are SprintBoardRules'.
+
+    The header's view switch is the host's (ViewSwitch): the same Now | Sprint n
+    control sits in the Now view's header, so switching never moves it.
+*@
+
+<div class="@ClassValue" data-testid="@TestId">
+    <div class="sprint-board__header">
+        <h2 class="sprint-board__title" id="@TitleId" tabindex="-1">In progress</h2>
+        @ViewSwitch
+        @if (Model is not null)
+        {
+            <span class="sprint-board__series" data-testid="sprint-board-series">@SeriesLine</span>
+        }
+        <span class="sprint-board__spacer"></span>
+        <IconButton AriaLabel="Previous sprint"
+                    Title="Previous sprint"
+                    Disabled="@(Model is not { HasPrevious: true })"
+                    TestId="sprint-board-previous"
+                    OnClick="() => OnPrevious.InvokeAsync()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+        </IconButton>
+        <IconButton AriaLabel="Next sprint"
+                    Title="Next sprint"
+                    Disabled="@(Model is not { HasNext: true })"
+                    TestId="sprint-board-next"
+                    OnClick="() => OnNext.InvokeAsync()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+        </IconButton>
+        @if (Model is not null)
+        {
+            <SelectField Label="Repository"
+                         Options="@RepositoryOptions"
+                         CurrentValue="@(_repository ?? AllRepositories)"
+                         BaseClass="sprint-board__select"
+                         SelectCssClass="sprint-board__select-control"
+                         TestId="sprint-board-repository"
+                         OnChanged="OnRepositoryChanged" />
+            <SelectField Label="Group"
+                         Options="@GroupOptions"
+                         CurrentValue="@(_byPlan ? GroupByPlan : GroupNone)"
+                         BaseClass="sprint-board__select"
+                         SelectCssClass="sprint-board__select-control"
+                         TestId="sprint-board-group"
+                         OnChanged="OnGroupChanged" />
+        }
+        @Actions
+    </div>
+
+    @if (Model is null)
+    {
+        if (Error is not null)
+        {
+            <Alert Message="@Error" TestId="sprint-board-error" />
+        }
+        else
+        {
+            <Spinner Label="Reading the sprint" TestId="sprint-board-reading" />
+        }
+    }
+    else
+    {
+    <div class="sprint-board__cards">
+        <section class="sprint-board__card sprint-board__card--goal" aria-label="Sprint goal" data-testid="sprint-board-goal">
+            <div class="sprint-board__goal-line">
+                <span class="sprint-board__eyebrow">Sprint goal</span>
+                <span class="sprint-board__goal-text" data-testid="sprint-board-goal-text">@(string.IsNullOrWhiteSpace(Board.Goal) ? "No goal set for this sprint." : Board.Goal)</span>
+                @if (Board.GoalMet)
+                {
+                    <Badge BaseClass="sprint-board__goal-badge" Kind="" TestId="sprint-board-goal-met">Goal met</Badge>
+                }
+            </div>
+            <div class="sprint-board__goal-body">
+                <div class="sprint-board__goal-figure">
+                    <span class="sprint-board__goal-done" data-testid="sprint-board-goal-count">@Board.GoalCounts.Done.ToString(CultureInfo.InvariantCulture) <span class="sprint-board__goal-of">of @Board.GoalCounts.Total.ToString(CultureInfo.InvariantCulture) goal tasks</span></span>
+                    <span class="sprint-board__day" data-testid="sprint-board-day">@Board.DayText</span>
+                </div>
+                <div class="sprint-board__goal-bars">
+                    @StatusBar(Board.GoalCounts, "Goal", "sprint-board__bar sprint-board__bar--goal", "sprint-board-goal-bar")
+                    <div class="sprint-board__legend">
+                        <span class="sprint-status sprint-status--done"><i aria-hidden="true"></i>@Board.GoalCounts.Done done</span>
+                        <span class="sprint-status sprint-status--progress"><i aria-hidden="true"></i>@Board.GoalCounts.InProgress in progress</span>
+                        <span class="sprint-status sprint-status--blocked"><i aria-hidden="true"></i>@Board.GoalCounts.Blocked blocked</span>
+                        <span class="sprint-status sprint-status--todo"><i aria-hidden="true"></i>@Board.GoalCounts.NotStarted not started</span>
+                        <span class="sprint-board__rules" data-testid="sprint-board-goal-rules">Counts: @Board.GoalRules</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sprint-board__all">
+                <span class="sprint-board__all-count" data-testid="sprint-board-all-count">All sprint work: @Board.AllWork.Done of @Board.AllWork.Total done</span>
+                @StatusBar(Board.AllWork, "All sprint work", "sprint-board__bar sprint-board__bar--all", "sprint-board-all-bar")
+                <span class="sprint-board__all-extra" data-testid="sprint-board-all-extra">@AllWorkExtra</span>
+            </div>
+        </section>
+
+        <section class="sprint-board__card sprint-board__card--pace" aria-label="Done per day" data-testid="sprint-board-pace">
+            <span class="sprint-board__eyebrow">Done per day</span>
+            <svg class="sprint-board__chart" viewBox="0 0 300 96" preserveAspectRatio="none" role="img" aria-label="@ChartLabel" data-testid="sprint-board-chart">
+                <line class="sprint-board__chart-pace" x1="0" y1="92" x2="300" y2="4"></line>
+                @if (Board.DonePerDay.Count > 0)
+                {
+                    <polyline class="sprint-board__chart-done" points="@DonePoints"></polyline>
+                    <circle class="sprint-board__chart-today" cx="@Num(LastX)" cy="@Num(LastY)" r="4"></circle>
+                    <line class="sprint-board__chart-now" x1="@Num(LastX)" y1="0" x2="@Num(LastX)" y2="96"></line>
+                }
+            </svg>
+            <span class="sprint-board__pace" data-testid="sprint-board-pace-reading">@Board.PaceReading</span>
+        </section>
+    </div>
+
+    if (NeedsYouItems.Count > 0)
+    {
+        <section class="sprint-board__needs" aria-label="Needs you" data-testid="sprint-board-needs-you">
+            <div class="sprint-board__needs-head">
+                <span class="sprint-board__dot" aria-hidden="true"></span>
+                <h3 class="sprint-board__section-title">Needs you</h3>
+                <span class="sprint-board__count" data-testid="sprint-board-needs-you-count">@NeedsYouItems.Count</span>
+                <span class="sprint-board__hint">Blocked, waiting on review, or carrying an open question.</span>
+            </div>
+            <div class="sprint-board__needs-list">
+                @foreach (var item in NeedsYouItems)
+                {
+                    <AppButton @key="item.Row.TaskId"
+                               Variant="ButtonVariant.None"
+                               BaseClass="@($"sprint-board__need sprint-board__need--{Slug(item.Kind)}")"
+                               TestId="sprint-board-need"
+                               data-kind="@Slug(item.Kind)"
+                               OnClick="() => OnOpenTask.InvokeAsync(item.Row.TaskId)">
+                        <span class="sprint-board__need-title">@item.Row.Title</span>
+                        <span class="sprint-board__need-reason">@item.Reason</span>
+                    </AppButton>
+                }
+            </div>
+        </section>
+    }
+
+    if (Groups.Count == 0)
+    {
+        <EmptyState Title="@(Board.Rows.Count == 0 ? "Nothing in this sprint yet" : "Nothing in this repository")"
+                    Description="@(Board.Rows.Count == 0 ? "Tasks added to the sprint, and the tasks of the plans linked to it, show here." : "Choose All repositories to see the rest of the sprint.")"
+                    TestId="sprint-board-empty" />
+    }
+    else
+    {
+        <div class="sprint-row sprint-row--head" aria-hidden="true">
+            <span>Status</span><span>Item</span><span>Pull requests</span><span>Owner</span><span>Note</span>
+        </div>
+    }
+
+    foreach (var group in Groups)
+    {
+        <section @key="(group.Plan ?? string.Empty)"
+                 class="sprint-board__group"
+                 aria-label="@GroupName(group)"
+                 data-testid="sprint-board-group-section"
+                 data-plan="@(group.Plan ?? string.Empty)">
+            <div class="sprint-board__group-head">
+                <h3 class="sprint-board__section-title">@GroupName(group)</h3>
+                @if (group.IsGoalPlan)
+                {
+                    <Badge BaseClass="sprint-board__goal-badge" Kind="" TestId="sprint-board-goal-plan">Goal plan</Badge>
+                }
+                <span class="sprint-board__group-count" data-testid="sprint-board-group-count">@GroupCount(group.Counts)</span>
+                @StatusBar(group.Counts, GroupName(group), "sprint-board__bar sprint-board__bar--group", null)
+            </div>
+            @foreach (var row in group.Rows)
+            {
+                <div @key="row.TaskId"
+                     class="@RowClass(row)"
+                     data-testid="sprint-row"
+                     data-task-id="@row.TaskId"
+                     data-state="@Slug(row.State)">
+                    <span class="@($"sprint-status sprint-status--{StatusSlug(row)}")" data-testid="sprint-row-status"><i aria-hidden="true"></i>@row.StatusText</span>
+                    <span class="sprint-row__title">
+                        @if (OnOpenTask.HasDelegate)
+                        {
+                            <AppButton Variant="ButtonVariant.None"
+                                       BaseClass="sprint-row__open"
+                                       TestId="sprint-row-title"
+                                       OnClick="() => OnOpenTask.InvokeAsync(row.TaskId)">@row.Title</AppButton>
+                        }
+                        else
+                        {
+                            <span data-testid="sprint-row-title">@row.Title</span>
+                        }
+                        @if (row.IsGoal && !group.IsGoalPlan)
+                        {
+                            <Badge BaseClass="sprint-board__goal-badge" Kind="" CssClass="sprint-row__tag" TestId="sprint-row-goal">Goal</Badge>
+                        }
+                        @if (row.AddedAfterStart)
+                        {
+                            <Badge BaseClass="sprint-row__added" Kind="" TestId="sprint-row-added">added</Badge>
+                        }
+                    </span>
+                    <span class="sprint-row__pulls" data-testid="sprint-row-pulls">
+                        @foreach (var pull in row.PullRequests)
+                        {
+                            @if (OnOpenPullRequest.HasDelegate)
+                            {
+                                <Badge @key="pull.Key"
+                                       BaseClass="sprint-pr"
+                                       Kind=""
+                                       Slug="@Slug(pull.State)"
+                                       Title="@PullTitle(pull)"
+                                       TestId="sprint-row-pull"
+                                       OnClick="() => OnOpenPullRequest.InvokeAsync(pull.Key)"
+                                       data-state="@Slug(pull.State)">@pull.Label</Badge>
+                            }
+                            else
+                            {
+                                <Badge @key="pull.Key"
+                                       BaseClass="sprint-pr"
+                                       Kind=""
+                                       Slug="@Slug(pull.State)"
+                                       Title="@PullTitle(pull)"
+                                       TestId="sprint-row-pull"
+                                       data-state="@Slug(pull.State)">@pull.Label</Badge>
+                            }
+                        }
+                    </span>
+                    <span class="sprint-row__owner" data-testid="sprint-row-owner">@string.Join(", ", row.Owners)</span>
+                    <span class="sprint-row__note" data-testid="sprint-row-note">
+                        @if (row.OpenQuestion)
+                        {
+                            <Badge BaseClass="sprint-row__question" Kind="" TestId="sprint-row-question">@(string.IsNullOrWhiteSpace(row.Note) ? "Open question" : row.Note)</Badge>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(row.Note))
+                        {
+                            @row.Note
+                        }
+                    </span>
+                </div>
+            }
+        </section>
+    }
+
+    <section class="sprint-board__outside" aria-label="Outside the sprint" data-testid="sprint-board-outside">
+        <div class="sprint-board__outside-head">
+            <h3 class="sprint-board__section-title">Outside the sprint</h3>
+            <span class="sprint-board__outside-line" data-testid="sprint-board-outside-line">@SprintBoardRules.OutsideLine(Outside, Board.SprintName)</span>
+            <span class="sprint-board__spacer"></span>
+            @if (Outside.Count > 0)
+            {
+                <AppButton Variant="ButtonVariant.Secondary"
+                           Size="ButtonSize.Small"
+                           TestId="sprint-board-outside-toggle"
+                           aria-expanded="@(_outsideOpen ? "true" : "false")"
+                           aria-controls="@OutsideListId"
+                           OnClick="() => _outsideOpen = !_outsideOpen">@(_outsideOpen ? "Hide" : "Show")</AppButton>
+            }
+        </div>
+        @if (Outside.Count > 0)
+        {
+            <ul class="sprint-board__outside-list" id="@OutsideListId" hidden="@(!_outsideOpen)" data-testid="sprint-board-outside-list">
+                @foreach (var item in Outside)
+                {
+                    <li @key="item.Key" class="sprint-board__outside-item" data-testid="sprint-board-outside-item">
+                        @if (item.TaskId is { } taskId && OnOpenTask.HasDelegate)
+                        {
+                            <AppButton Variant="ButtonVariant.None"
+                                       BaseClass="sprint-row__open"
+                                       OnClick="() => OnOpenTask.InvokeAsync(taskId)">@item.Title</AppButton>
+                        }
+                        else
+                        {
+                            <span>@item.Title</span>
+                        }
+                        <span class="sprint-board__outside-what">@OutsideWhat(item)</span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+    }
+</div>
+
+@code {
+    private const string AllRepositories = "*";
+    private const string GroupByPlan = "plan";
+    private const string GroupNone = "none";
+
+    /// <summary>The sprint to draw, or null while it is being read or could not be —
+    /// the header alone is drawn then, with <see cref="Error"/> or a spinner under it, so
+    /// the switch and the host's Refresh stay where they are.</summary>
+    [Parameter]
+    public SprintBoardModel? Model { get; set; }
+
+    /// <summary>The sprint being drawn: read only where <see cref="Model"/> is set.</summary>
+    private SprintBoardModel Board => Model!;
+
+    /// <summary>Why the sprint could not be read, in the host's words; drawn while
+    /// <see cref="Model"/> is null.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>Live work running against tasks the sprint does not hold.</summary>
+    [Parameter]
+    public IReadOnlyList<SprintBoardOutside> Outside { get; set; } = [];
+
+    /// <summary>The host's Now | Sprint n switch, drawn beside the title.</summary>
+    [Parameter]
+    public RenderFragment? ViewSwitch { get; set; }
+
+    /// <summary>The host's own header actions, after the filters — Refresh.</summary>
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    /// <summary>A member's title, a Needs you card or an outside task was pressed: the
+    /// task's id.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenTask { get; set; }
+
+    /// <summary>A pull request chip was pressed: its <c>owner/name#number</c> key.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenPullRequest { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "sprint-board";
+
+    /// <summary>The title's id, a focus target for the host.</summary>
+    public const string TitleId = "sprint-board-title";
+
+    private readonly string _outsideListId = "sprint-outside-" + Guid.NewGuid().ToString("N");
+    private string OutsideListId => _outsideListId;
+
+    private string? _repository;
+    private bool _byPlan = true;
+    private bool _outsideOpen;
+
+    protected override void OnParametersSet()
+    {
+        // A repository the series no longer holds is no filter at all.
+        if (_repository is not null && Model is not null && !Board.Repositories.Contains(_repository, StringComparer.OrdinalIgnoreCase))
+        {
+            _repository = null;
+        }
+    }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "sprint-board" : $"sprint-board {CssClass}";
+
+    private string SeriesLine => $"{Board.SeriesName} · {Board.RepositoryCount} · {Board.Dates}";
+
+    private IReadOnlyList<SelectorOption> RepositoryOptions =>
+        [new(AllRepositories, "All repositories"), .. Board.Repositories.Select(alias => new SelectorOption(alias, alias))];
+
+    private static readonly IReadOnlyList<SelectorOption> GroupOptions =
+        [new(GroupByPlan, "Group: Plan"), new(GroupNone, "Group: None")];
+
+    private void OnRepositoryChanged(string? value) =>
+        _repository = string.IsNullOrWhiteSpace(value) || value == AllRepositories ? null : value;
+
+    private void OnGroupChanged(string? value) => _byPlan = value != GroupNone;
+
+    private IReadOnlyList<SprintBoardRow> VisibleRows => SprintBoardRules.Filter(Board.Rows, _repository);
+
+    private IReadOnlyList<SprintBoardGroup> Groups => SprintBoardRules.Group(VisibleRows, Board.GoalPlans, _byPlan);
+
+    private IReadOnlyList<SprintNeedsYou> NeedsYouItems => SprintBoardRules.NeedsYou(VisibleRows);
+
+    private string AllWorkExtra
+    {
+        get
+        {
+            var added = Board.AllWork.AddedAfterStart;
+            var outside = $"{Board.OutsideGoal.ToString(CultureInfo.InvariantCulture)} outside the goal";
+            return added == 0 ? outside : $"{outside} · +{added.ToString(CultureInfo.InvariantCulture)} added after the start";
+        }
+    }
+
+    private static string PullTitle(SprintBoardPullRequest pull) => pull.State switch
+    {
+        SprintPullRequestState.Unknown => $"{pull.Repository}#{pull.Number} — state not read yet",
+        _ => $"{pull.Repository}#{pull.Number} — {pull.State.ToString().ToLowerInvariant()}"
+    };
+
+    private string GroupName(SprintBoardGroup group) =>
+        group.Plan is { } plan ? $"+{plan}" : _byPlan ? "No plan" : "All sprint work";
+
+    private static string GroupCount(SprintBoardCounts counts)
+    {
+        var text = $"{counts.Done.ToString(CultureInfo.InvariantCulture)} of {counts.Total.ToString(CultureInfo.InvariantCulture)} done";
+        return counts.Blocked == 0 ? text : $"{text} · {counts.Blocked.ToString(CultureInfo.InvariantCulture)} blocked";
+    }
+
+    private static string OutsideWhat(SprintBoardOutside item)
+    {
+        var parts = new List<string>(2);
+        if (item.Sessions > 0) parts.Add(SprintBoardRules.Count(item.Sessions, "session", "sessions"));
+        if (item.PullRequests > 0) parts.Add(SprintBoardRules.Count(item.PullRequests, "pull request", "pull requests"));
+        return string.Join(" · ", parts);
+    }
+
+    private static string RowClass(SprintBoardRow row) =>
+        row.State is SprintRowState.Done ? "sprint-row sprint-row--done" : "sprint-row";
+
+    private static string StatusSlug(SprintBoardRow row) => row.State switch
+    {
+        SprintRowState.Done => "done",
+        SprintRowState.Blocked => "blocked",
+        SprintRowState.InProgress => "progress",
+        _ => "todo"
+    };
+
+    private static string Slug(SprintRowState state) => state switch
+    {
+        SprintRowState.Done => "done",
+        SprintRowState.Blocked => "blocked",
+        SprintRowState.InProgress => "in-progress",
+        _ => "not-started"
+    };
+
+    private static string Slug(SprintPullRequestState state) => state.ToString().ToLowerInvariant();
+
+    private static string Slug(SprintNeedsYouKind kind) => kind switch
+    {
+        SprintNeedsYouKind.Blocked => "blocked",
+        SprintNeedsYouKind.WaitingOnReview => "review",
+        _ => "question"
+    };
+
+    /// <summary>A bar by status — done, in progress, blocked — over the counts' total,
+    /// with the same figures said for a screen reader.</summary>
+    private static RenderFragment StatusBar(SprintBoardCounts counts, string name, string cssClass, string? testId) =>
+        @<div class="@cssClass"
+              role="img"
+              data-testid="@testId"
+              aria-label="@($"{name}: {counts.Done} done, {counts.InProgress} in progress, {counts.Blocked} blocked, {counts.NotStarted} not started")">
+            @if (counts.Total > 0)
+            {
+                <span class="sprint-board__bar-done" style="width: @Percent(counts.Done, counts.Total)"></span>
+                <span class="sprint-board__bar-progress" style="width: @Percent(counts.InProgress, counts.Total)"></span>
+                <span class="sprint-board__bar-blocked" style="width: @Percent(counts.Blocked, counts.Total)"></span>
+            }
+        </div>;
+
+    private static string Percent(int part, int total) =>
+        (100.0 * part / total).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    // The chart: the even pace from nothing at the start to every member done at the
+    // end, dashed, and the done line through the end of each working day so far.
+    private int ChartTotal => Math.Max(1, Board.AllWork.Total);
+
+    private int ChartDays => Math.Max(1, Board.WorkingDays);
+
+    private static double X(int day, int days) => 300.0 * day / days;
+
+    private double Y(int done) => 92 - (88.0 * Math.Min(done, ChartTotal) / ChartTotal);
+
+    private string DonePoints =>
+        string.Join(" ", Board.DonePerDay.Select((done, index) => $"{Num(X(index + 1, ChartDays))},{Num(Y(done))}")
+            .Prepend($"0,{Num(Y(0))}"));
+
+    private double LastX => X(Board.DonePerDay.Count, ChartDays);
+
+    private double LastY => Y(Board.DonePerDay.Count == 0 ? 0 : Board.DonePerDay[^1]);
+
+    private static string Num(double value) => value.ToString("0.#", CultureInfo.InvariantCulture);
+
+    private string ChartLabel
+    {
+        get
+        {
+            var days = Board.DonePerDay.Count;
+            if (days == 0) return $"Done items per working day against the even pace to {Board.AllWork.Total}: the sprint has not reached its first working day.";
+
+            var pace = (int)Math.Round((double)Board.AllWork.Total * days / ChartDays, MidpointRounding.AwayFromZero);
+            return $"Done items per working day against the even pace to {Board.AllWork.Total}: {string.Join(", ", Board.DonePerDay)} after {SprintBoardRules.Count(days, "day", "days")}; the even pace is {pace}";
+        }
+    }
+}

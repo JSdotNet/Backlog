@@ -1360,7 +1360,10 @@ repository scope, each with the sessions and pull requests linked to it beside i
 
 It is the first option of the work in progress group in the header. It is a main view
 rather than a takeover, so the Devbook still opens beside it. It is offered while the
-session list or the pull requests list is.
+session list or the pull requests list is. While the scope holds a repository of a
+sprint series, a **Now | Sprint n** switch beside the title opens
+[the sprint view](../progress/features.md#the-sprint-view); this view is its Now side,
+unchanged.
 
 The scope is the task list's whole repository scope: the repositories chosen in the
 header, and its "No repository" scope too. Under "No repository", only the tasks filed

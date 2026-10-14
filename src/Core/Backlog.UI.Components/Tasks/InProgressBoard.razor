@@ -22,6 +22,7 @@
 <div class="@ClassValue" data-testid="@TestId">
     <div class="in-progress-board__header">
         <h2 class="in-progress-board__title" id="@TitleId" tabindex="-1">In progress</h2>
+        @ViewSwitch
         <span class="in-progress-board__summary" data-testid="in-progress-summary">@Summary</span>
         <span class="in-progress-board__spacer"></span>
         @Actions
@@ -246,6 +247,12 @@
         OnUnlink.HasDelegate
             ? EventCallback.Factory.Create<WorkPullRequest>(this, pull => OnUnlink.InvokeAsync(new InProgressUnlink(task, PullRequest: pull)))
             : default;
+
+    /// <summary>A view switch of the host's — the Now | Sprint n switch while the
+    /// header's scope holds a repository in a sprint series — drawn beside the title.
+    /// Null draws nothing, so the header is exactly what it was without one.</summary>
+    [Parameter]
+    public RenderFragment? ViewSwitch { get; set; }
 
     /// <summary>Header controls of the host's own — a Refresh, a reading time — drawn
     /// before the toggles.</summary>

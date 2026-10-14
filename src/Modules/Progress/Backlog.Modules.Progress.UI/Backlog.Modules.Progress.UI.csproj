@@ -4,8 +4,10 @@
     The Progress module's UI (.devbook/domain/progress/features.md): the one rule every
     Progress screen draws under — ProgressOnly renders its content only while the
     progress switch is on, so with it off nothing of Progress is drawn — and Settings ›
-    Sprints, registered on the settings screen by AddProgressSettings. The sprint view
-    and the sprint lines in the briefs are later slices of the same plan and land here.
+    Sprints, registered on the settings screen by AddProgressSettings — and the In
+    progress tab's sprint view (InProgress/InProgressSprints), which the desktop shell
+    composes around its view by task. The board it draws is the shared library's
+    SprintBoard, so the storybook shows it with no series behind it.
 
     It references the shared control library rather than growing its own controls,
     which is the rule every module UI project follows, and the module's published
