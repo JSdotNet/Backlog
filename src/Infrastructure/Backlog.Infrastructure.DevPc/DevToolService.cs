@@ -1125,7 +1125,8 @@ public sealed class DevToolService : IDevToolService
         {
             Hosts = hosts,
             HostStates = states,
-            Installable = declared.Installable
+            Installable = declared.Installable,
+            Download = declared.Download
         };
     }
 
@@ -3150,7 +3151,11 @@ public sealed class DevToolService : IDevToolService
             // Whatever the entry filed itself under, unchanged. The pane groups on
             // it and does not interpret it: a heading this version has never seen
             // is a heading somebody added to the catalog, not an error.
-            Group = application.Group
+            Group = application.Group,
+
+            // Carried as the catalog spelled it; the pane decides whether it is
+            // an address it may link.
+            Download = application.Download
         };
 
     /// <summary>

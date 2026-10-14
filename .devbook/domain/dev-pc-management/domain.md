@@ -132,6 +132,25 @@ One tool's part in a Last Tool Run: `name`, `from_version` (none for an install)
 `to_version` (the version the run was taking it to), `outcome` (succeeded or
 failed), and `duration`.
 
+### Tool Catalog Entry
+
+```meta
+type: value-object
+status: draft
+aliases: [DevToolApplication, DevToolMcpServer, catalog entry]
+related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog, .devbook/domain/dev-pc-management/features.md#overview-tab]
+```
+
+One tool the repository's catalog declares: its kind (plugin, marketplace, MCP
+server, application), the id it is addressed by, how it is installed, the hosts
+it is for, whether it is enabled, and, for an application or an MCP server, an
+optional `download` page — where somebody installing it by hand gets it.
+Invariants: the id is what every per-PC override and every action addresses, so
+an entry without one is refused; a property the entry leaves out means its
+default, so a catalog written before `download` existed reads as naming no page;
+and the Add tool path writes `download` only as an http or https address, while
+a hand-edited value is kept as written and only ever linked when it is one.
+
 ### Tool Baseline
 
 ```meta

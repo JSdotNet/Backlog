@@ -129,7 +129,8 @@ only a person editing a file can maintain. A person can:
 
 - create the catalog where none exists, after being shown the resolved path it
   will be written to;
-- add or remove an entry;
+- add or remove an entry, giving an application or an MCP server the download
+  page somebody installing it by hand gets it from;
 - import a JSON file or pasted text to replace the whole catalog in one step. The
   prior catalog is kept as a backup, and invalid input is rejected without
   touching what is already declared.
@@ -197,6 +198,12 @@ what it was, when, how many of its steps succeeded and how long it took, with th
 end of its transcript and the whole of it a click away. An entry switched off on
 this machine, or one whose version could not be looked up, is left out of every
 figure. The host filter narrows every figure here as it does on the kind tabs.
+
+The download page an entry installed by hand links to is the one its catalog
+entry names, when that is an http or https address. Otherwise it is derived from
+the entry's mechanism — the winstall.app page for a winget id, the Marketplace
+page for a VS Code extension — and an entry with neither links to its kind's tab,
+where the note under the row says what to do.
 
 A machine with no catalog yet opens on "No tool catalog on this machine yet",
 where the catalog would be written, and two choices side by side: create this
