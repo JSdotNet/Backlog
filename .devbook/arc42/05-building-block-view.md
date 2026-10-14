@@ -422,7 +422,11 @@ GitHub CLI holds, and that a feature was switched. A `SettingsSection` names
 its menu group and the titles of the cards it draws, which the settings search
 reads without rendering a page. Within a group the app-wide pages come first,
 then the registered sections by their order, and every page opened is kept
-alive, hidden, while another is on screen.
+alive, hidden, while another is on screen. GitHub accounts is one
+`SettingsCard` of rows, one per configured account, each naming its login, whether
+the GitHub CLI is using it now and how many repositories are worked as it;
+choosing a row opens that account's card under it, across the whole list, one
+at a time.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the

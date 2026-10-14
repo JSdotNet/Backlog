@@ -4,7 +4,6 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.UI.Components.Layout;
 
 using Bunit;
 
@@ -87,6 +86,7 @@ public sealed class SettingsAccountsTests
         });
 
         OpenAccountsTab(settings.Component);
+        ExpandAccount(settings.Component, "JSdotNet");
         settings.Component.WaitForElement("[data-testid='remove-account-button']").Click();
 
         Assert.Null(settings.GitHub.Current.Account("JSdotNet"));
@@ -184,6 +184,7 @@ public sealed class SettingsAccountsTests
             Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet")])));
 
         OpenAccountsTab(settings.Component);
+        ExpandAccount(settings.Component, "JSdotNet");
 
         var note = settings.Component.WaitForElement("[data-testid='accounts-storage-note']").TextContent;
         Assert.Contains("sync to your paired devices", note, StringComparison.Ordinal);
@@ -233,6 +234,7 @@ public sealed class SettingsAccountsTests
             Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet")])));
 
         OpenAccountsTab(settings.Component);
+        ExpandAccount(settings.Component, "JSdotNet");
         settings.Component.Find("[data-testid='account-credential-select'] select").Change("PersonalAccessToken");
 
         Assert.Equal(
@@ -252,6 +254,7 @@ public sealed class SettingsAccountsTests
         ])));
 
         OpenAccountsTab(settings.Component);
+        ExpandAccount(settings.Component, "JSdotNet");
         settings.Component.Find("[data-testid='account-token-input']").Input("ghp_pasted");
         settings.Component.Find("[data-testid='account-token-input']").Change("ghp_pasted");
 
@@ -274,7 +277,7 @@ public sealed class SettingsAccountsTests
         ])));
 
         OpenAccountsTab(settings.Component);
-        settings.Component.FindAll("[data-testid='account-subpage-tab']")[1].Click();
+        ExpandAccount(settings.Component, "octocat");
 
         var endpoint = settings.Component.Find("[data-testid='account-endpoint-input']");
         Assert.Equal("account-endpoint-octocat", endpoint.GetAttribute("id"));
@@ -343,13 +346,12 @@ public sealed class SettingsAccountsTests
     }
 
     /// <summary>
-    /// Forgetting the first account leaves the second one's panel standing rather
-    /// than handing the first panel the second one's login: each account panel is
-    /// keyed by its login, so the component that was octocat's panel before is
-    /// octocat's panel after, and its tab is the one selected.
+    /// Forgetting the open account closes its card and leaves the other row
+    /// standing, closed: the rows are keyed by login, so octocat's row is the same
+    /// row after JSdotNet goes, and no card is handed to a login nobody chose.
     /// </summary>
     [Fact]
-    public void Forgetting_the_first_account_keeps_the_second_panel_bound()
+    public void Forgetting_an_open_account_closes_its_card_and_keeps_the_other_row()
     {
         using var settings = RenderSettings(seed: store => Assert.Null(store.SetAccounts(
         [
@@ -357,25 +359,178 @@ public sealed class SettingsAccountsTests
             new GitHubAccount("octocat")
         ])));
         OpenAccountsTab(settings.Component);
-        var octocatPanel = settings.Component.FindComponents<TabPanel>().Single(panel => panel.Instance.Id == "octocat").Instance;
+        ExpandAccount(settings.Component, "JSdotNet");
 
         settings.Component.Find("[data-testid='remove-account-button']").Click();
 
         Assert.Null(settings.GitHub.Current.Account("JSdotNet"));
-        var remaining = Assert.Single(
-            settings.Component.FindComponents<TabPanel>(),
-            panel => panel.Instance.Id is "JSdotNet" or "octocat");
-        Assert.Equal("octocat", remaining.Instance.Id);
-        Assert.Same(octocatPanel, remaining.Instance);
-
-        var tab = Assert.Single(settings.Component.FindAll("[data-testid='account-subpage-tab']"));
-        Assert.Equal("true", tab.GetAttribute("aria-selected"));
-
-        var card = settings.Component.Find("[data-testid='github-account-card']");
-        Assert.Equal("octocat account settings", card.GetAttribute("aria-label"));
-        Assert.False(card.HasAttribute("hidden"));
-        Assert.Equal(tab.GetAttribute("aria-controls"), card.GetAttribute("id"));
+        settings.Component.WaitForAssertion(() =>
+        {
+            var row = Assert.Single(settings.Component.FindAll("[data-testid='account-row']"));
+            Assert.Contains("octocat", row.TextContent, StringComparison.Ordinal);
+            Assert.Equal("false", row.GetAttribute("aria-expanded"));
+            Assert.Empty(settings.Component.FindAll("[data-testid='github-account-card']"));
+        });
     }
+
+    [Fact]
+    public void With_no_account_the_headline_says_none_is_signed_in()
+    {
+        using var settings = RenderSettings();
+        OpenAccountsTab(settings.Component);
+
+        Assert.Equal("No GitHub account is signed in yet.", Headline(settings.Component));
+        Assert.Empty(settings.Component.FindAll("[data-testid='account-row']"));
+        Assert.Single(settings.Component.FindAll("[data-testid='github-accounts-empty']"));
+    }
+
+    /// <summary>The headline counts the accounts and names the one the GitHub CLI
+    /// is using; each row says whether it is that one and how many repositories
+    /// are worked as it.</summary>
+    [Fact]
+    public void The_headline_and_rows_name_the_active_account_and_count_its_repositories()
+    {
+        using var settings = RenderSettings(
+            cliAccounts: [Signed("JSdotNet", active: true), Signed("octocat", active: false)],
+            seed: store =>
+            {
+                Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet"), new GitHubAccount("octocat")]));
+                Assert.Null(store.SetRepositoryAccount("backlog", "JSdotNet"));
+                Assert.Null(store.SetRepositoryAccount("spec", "JSdotNet"));
+            });
+        OpenAccountsTab(settings.Component);
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal("2 GitHub accounts signed in; JSdotNet is active.", Headline(settings.Component));
+
+            var meta = settings.Component.FindAll("[data-testid='account-row-meta']")
+                .Select(element => element.TextContent.Trim())
+                .ToArray();
+            Assert.Equal(["Active · 2 repositories", "Signed in · 0 repositories"], meta);
+        });
+    }
+
+    /// <summary>Without the GitHub CLI there is nobody to say which account is in
+    /// use, so the headline counts and names none, and no row claims to be active.</summary>
+    [Fact]
+    public void Without_a_cli_answer_no_account_is_called_active()
+    {
+        using var settings = RenderSettings(seed: store =>
+        {
+            Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet")]));
+            Assert.Null(store.SetRepositoryAccount("backlog", "JSdotNet"));
+        });
+        OpenAccountsTab(settings.Component);
+
+        Assert.Equal("1 GitHub account signed in.", Headline(settings.Component));
+        Assert.Equal("Signed in · 1 repository", settings.Component.Find("[data-testid='account-row-meta']").TextContent.Trim());
+    }
+
+    /// <summary>Each row carries a decorative initial and the login in its own
+    /// element, and the whole list sits in the "GitHub accounts" card with its
+    /// description and the Add account action in the header.</summary>
+    [Fact]
+    public void The_accounts_card_lists_one_row_per_account()
+    {
+        using var settings = RenderSettings(seed: store => Assert.Null(store.SetAccounts(
+        [
+            new GitHubAccount("JSdotNet"),
+            new GitHubAccount("octocat")
+        ])));
+        OpenAccountsTab(settings.Component);
+
+        var card = settings.Component.Find("[data-testid='github-accounts-card']");
+        Assert.Equal("GitHub accounts", card.QuerySelector(".settings-card__title")?.TextContent);
+        Assert.Equal(
+            "Signed in through the GitHub CLI. Each repository picks the account it reads with.",
+            card.QuerySelector(".settings-card__description")?.TextContent);
+        Assert.Equal("Add account", card.QuerySelector(".settings-card__action [data-testid='accounts-add-button']")?.TextContent.Trim());
+
+        var rows = settings.Component.FindAll("[data-testid='account-row']");
+        Assert.Equal(2, rows.Count);
+        Assert.Equal("J", rows[0].QuerySelector(".account-row__avatar")?.TextContent);
+        Assert.Equal("true", rows[0].QuerySelector(".account-row__avatar")?.GetAttribute("aria-hidden"));
+        Assert.Equal("octocat", rows[1].QuerySelector(".account-row__login")?.TextContent);
+        Assert.All(rows, row => Assert.Equal("false", row.GetAttribute("aria-expanded")));
+        Assert.Empty(settings.Component.FindAll("[data-testid='github-account-card']"));
+    }
+
+    /// <summary>One card open at a time, right under its row and across the whole
+    /// list; choosing the open row again closes it.</summary>
+    [Fact]
+    public void Choosing_a_row_opens_its_card_under_it_and_closes_the_other()
+    {
+        using var settings = RenderSettings(seed: store => Assert.Null(store.SetAccounts(
+        [
+            new GitHubAccount("JSdotNet"),
+            new GitHubAccount("octocat")
+        ])));
+        OpenAccountsTab(settings.Component);
+
+        ExpandAccount(settings.Component, "JSdotNet");
+        AssertOpen(settings.Component, "JSdotNet");
+
+        ExpandAccount(settings.Component, "octocat");
+        AssertOpen(settings.Component, "octocat");
+
+        ExpandAccount(settings.Component, "octocat");
+        Assert.All(
+            settings.Component.FindAll("[data-testid='account-row']"),
+            row => Assert.Equal("false", row.GetAttribute("aria-expanded")));
+        Assert.Empty(settings.Component.FindAll("[data-testid='github-account-card']"));
+    }
+
+    /// <summary>An account just added is the card to look at: its credential is
+    /// chosen there.</summary>
+    [Fact]
+    public void An_account_just_added_opens_its_card()
+    {
+        using var settings = RenderSettings(cliAccounts: [Signed("JSdotNet", active: true)]);
+        OpenAccountsTab(settings.Component);
+
+        settings.Component.WaitForElement("[data-testid='add-gh-cli-account-button']").Click();
+
+        settings.Component.WaitForAssertion(() => AssertOpen(settings.Component, "JSdotNet"));
+    }
+
+    [Fact]
+    public void Add_account_takes_focus_to_the_login_field()
+    {
+        using var settings = RenderSettings();
+        var focus = settings.TestContext.JSInterop.SetupVoid("backlogFocus", "account-login");
+        OpenAccountsTab(settings.Component);
+
+        settings.Component.Find("[data-testid='accounts-add-button']").Click();
+
+        focus.VerifyInvoke("backlogFocus");
+        Assert.NotNull(settings.Component.Find("#account-login"));
+    }
+
+    private static void AssertOpen(IRenderedComponent<Settings> component, string login)
+    {
+        var card = Assert.Single(component.FindAll("[data-testid='github-account-card']"));
+        Assert.Equal($"{login} account settings", card.GetAttribute("aria-label"));
+
+        // The card's list item comes straight after the open row's, and spans the grid.
+        var editorItem = card.ParentElement!;
+        Assert.Contains("account-list__editor", editorItem.ClassName, StringComparison.Ordinal);
+        var openRow = editorItem.PreviousElementSibling!.QuerySelector("[data-testid='account-row']")!;
+        Assert.Contains(login, openRow.TextContent, StringComparison.Ordinal);
+        Assert.Equal("true", openRow.GetAttribute("aria-expanded"));
+        Assert.Equal(card.GetAttribute("id"), openRow.GetAttribute("aria-controls"));
+
+        Assert.Single(component.FindAll("[data-testid='account-row'][aria-expanded='true']"));
+    }
+
+    private static void ExpandAccount(IRenderedComponent<Settings> component, string login) =>
+        component.WaitForElements("[data-testid='account-row']")
+            .Single(row => string.Equals(
+                row.QuerySelector(".account-row__login")?.TextContent, login, StringComparison.OrdinalIgnoreCase))
+            .Click();
+
+    private static string Headline(IRenderedComponent<Settings> component) =>
+        component.Find("[data-testid='settings-headline']").TextContent.Trim();
 
     private static GhCliAccount Signed(string login, bool active) =>
         new(login, "github.com", active, "repo, read:org");
@@ -412,6 +567,7 @@ public sealed class SettingsAccountsTests
             accountProbe: probe);
 
         OpenAccountsTab(settings.Component);
+        ExpandAccount(settings.Component, "JSdotNet");
         var before = settings.GitHub.Current;
 
         Assert.Equal("false", LastStep(settings.Component, "github-account-setup-steps").GetAttribute("data-done"));
@@ -435,6 +591,7 @@ public sealed class SettingsAccountsTests
             accountProbe: probe);
 
         OpenAccountsTab(settings.Component);
+        ExpandAccount(settings.Component, "JSdotNet");
         settings.Component.Find("[data-testid='test-account-button']").Click();
 
         settings.Component.WaitForAssertion(() =>
@@ -455,6 +612,7 @@ public sealed class SettingsAccountsTests
             Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet") { Credential = GitHubCredentialKind.PersonalAccessToken }])));
 
         OpenAccountsTab(settings.Component);
+        ExpandAccount(settings.Component, "JSdotNet");
 
         var steps = settings.Component.FindAll("[data-testid='github-account-setup-steps'] [data-testid='setup-step']");
         Assert.Equal("false", steps[0].GetAttribute("data-done"));
