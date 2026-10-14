@@ -874,6 +874,50 @@ public sealed class SettingsAiUsageTests
     }
 
     /// <summary>
+    /// Azure Foundry's tile reads its one usage source like the others: how long ago
+    /// Cost Management last answered, then why it last refused.
+    /// </summary>
+    [Fact]
+    public void The_foundry_tile_says_when_its_spend_was_last_read_and_why_a_read_failed()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero));
+        var reads = new StubUsageReadStatus();
+        reads.Set(UsageSource.AzureFoundry, new UsageReadStatus(clock.GetUtcNow().AddHours(-2), null, null));
+        using var context = RenderSettings(
+            aiAssistantEnabled: true,
+            usageMetricsEnabled: true,
+            reads: reads,
+            clock: clock);
+        Assert.Null(context.AzureFoundryStore.SetConnection("https://ai.example.openai.azure.com", "gpt-5.4", null, AzureFoundrySettingsStore.DefaultApiVersion));
+        Assert.Null(context.AzureFoundryStore.SetApiKey("key"));
+
+        OpenAiTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var foundry = context.Component.FindAll("[data-testid='ai-provider-tile']")[2];
+            Assert.Equal("azurefoundry", foundry.GetAttribute("data-provider"));
+
+            var read = foundry.QuerySelector("[data-testid='ai-provider-read']");
+            Assert.NotNull(read);
+            Assert.Equal("Read 2 h ago", read.TextContent.Trim());
+            Assert.Contains("ai-provider-tile__read--ok", read.ClassList);
+        });
+
+        reads.Set(
+            UsageSource.AzureFoundry,
+            new UsageReadStatus(clock.GetUtcNow().AddHours(-2), clock.GetUtcNow(), "Azure Cost Management answered 403 Forbidden."));
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var read = context.Component.FindAll("[data-testid='ai-provider-tile']")[2].QuerySelector("[data-testid='ai-provider-read']");
+            Assert.NotNull(read);
+            Assert.Equal("Last read failed: Azure Cost Management answered 403 Forbidden.", read.TextContent.Trim());
+            Assert.Contains("ai-provider-tile__read--failed", read.ClassList);
+        });
+    }
+
+    /// <summary>
     /// The assistant's feature is on, and the assistant is still nowhere: the card
     /// whose fields fix that says why, until they are filled in.
     /// </summary>
