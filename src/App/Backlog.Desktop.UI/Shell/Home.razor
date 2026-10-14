@@ -720,18 +720,20 @@
                 }
                 else if (InProgressViewVisible)
                 {
-                    @* A view like the roadmap: no Escape, no filter bar. *@
+                    @* A view like the roadmap: no Escape, no filter bar. The tab is the
+                       view by task and, while the scope holds a repository in a sprint
+                       series, the sprint view beside it (InProgressTab). *@
                     <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
-                        <InProgressView Reader="_work"
-                                        OnOpenTask="OpenEntryAsync"
-                                        OnOpenSession="OpenSessionAsync"
-                                        OnOpenPullRequest="OpenPullRequestAsync"
-                                        ShowSessions="SessionsOffered"
-                                        ShowPullRequests="PullRequestsOffered"
-                                        NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
-                                        NeedsYouFirstChanged="OnNeedsYouFirstChanged"
-                                        IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
-                                        IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
+                        <InProgressTab Reader="_work"
+                                       OnOpenTask="OpenEntryAsync"
+                                       OnOpenSession="OpenSessionAsync"
+                                       OnOpenPullRequest="OpenPullRequestAsync"
+                                       ShowSessions="SessionsOffered"
+                                       ShowPullRequests="PullRequestsOffered"
+                                       NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
+                                       NeedsYouFirstChanged="OnNeedsYouFirstChanged"
+                                       IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
+                                       IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
                     </div>
                 }
                 else

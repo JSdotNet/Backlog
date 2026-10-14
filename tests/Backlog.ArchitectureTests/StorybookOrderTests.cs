@@ -67,7 +67,7 @@ public class StorybookOrderTests
         ["Notes"] = ["notes"],
         ["Overlays"] = ["overlays"],
         ["Roadmap"] = ["roadmap"],
-        ["Progress"] = ["sprint-settings"],
+        ["Progress"] = ["sprint-settings", "sprint-view"],
         ["Selection"] = ["selection-bar"],
         ["Selects"] = ["selects"],
         ["Shell"] = ["app-shell"],

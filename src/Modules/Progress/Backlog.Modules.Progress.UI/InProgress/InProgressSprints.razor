@@ -1,0 +1,300 @@
+@using global::Backlog.Modules.Progress.Abstractions.DataTransferObjects
+@using global::Backlog.Modules.Progress.Abstractions.Services
+@using global::Backlog.UI.Components.Buttons
+@using global::Backlog.UI.Components.Progress
+@implements IDisposable
+@*
+    The In progress tab's two views (.devbook/domain/progress/features.md
+    #following-a-sprint): Now, the host's view by task, and the sprint view of the
+    series the header's repository scope works to.
+
+    While Progress is on and the scope holds a repository of a series switched on
+    with a sprint to show, the header carries the Now | Sprint n switch; otherwise
+    nothing here is drawn but the host's Now view, exactly as it is without Progress
+    (.devbook/domain/progress/requirements.md#a-repository-in-no-series-keeps-the-in-progress-view).
+    The host draws Now and places the switch it is handed in its own header, so the
+    switch never moves between the two.
+
+    The sprint is read through ISprintProgress when the sprint view opens, on a step
+    to another sprint and on Refresh, and never on its own timer — the Now view's own
+    terms. The host's Revision only redraws, so the outside line takes in a read of its
+    sessions and pull requests as it lands. A scope with repositories of several series
+    shows the first series in scope order.
+*@
+
+@if (_series is { } series && SwitchName(series) is { } sprintName)
+{
+    var viewSwitch = Switch(sprintName);
+    if (_sprint)
+    {
+        <div class="in-progress-sprints" data-testid="in-progress-sprints">
+            @* The model is null while the sprint is read and when it could not be: the
+               board draws its header alone then — the switch and Refresh with it — and
+               the error or a spinner under it. *@
+            <SprintBoard Model="_model"
+                         Error="@_error"
+                         Outside="@OutsideWork"
+                         ViewSwitch="viewSwitch"
+                         OnPrevious="() => StepAsync(-1)"
+                         OnNext="() => StepAsync(1)"
+                         OnOpenTask="OpenTaskAsync"
+                         OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull)">
+                <Actions>
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="in-progress-sprint-refresh"
+                               Busy="_reading"
+                               BusyLabel="Reading"
+                               OnClick="RefreshAsync">Refresh</AppButton>
+                </Actions>
+            </SprintBoard>
+        </div>
+    }
+    else
+    {
+        @Now(viewSwitch)
+    }
+}
+else
+{
+    @Now(null)
+}
+
+@code {
+    [Inject] private IServiceProvider Services { get; set; } = default!;
+
+    /// <summary>The header's repository scope, by alias, in its order; empty for every
+    /// repository. The Brain's reserved empty value is no repository.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
+    /// <summary>The Now view, given the switch to draw beside its title — null while
+    /// there is no sprint to switch to, which leaves it exactly as it is.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment<RenderFragment?> Now { get; set; } = default!;
+
+    /// <summary>The host's live work against tasks the sprint does not hold, asked with
+    /// the ids of the tasks it does. Null draws the outside line with nothing in it.</summary>
+    [Parameter]
+    public Func<IReadOnlySet<Guid>, IReadOnlyList<SprintBoardOutside>>? Outside { get; set; }
+
+    /// <summary>Moves whenever the host has something new to show — a read of its
+    /// sessions and pull requests landing — so an open sprint view redraws its outside
+    /// line.</summary>
+    [Parameter]
+    public int Revision { get; set; }
+
+    /// <summary>A member, a Needs you card or an outside task was pressed.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnOpenTask { get; set; }
+
+    /// <summary>A pull request chip was pressed: its <c>owner/name#number</c> key.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenPullRequest { get; set; }
+
+    /// <summary>The sprint view opened, or Refresh was pressed: the host reads its own
+    /// sessions and pull requests, as its Now view does when it opens.</summary>
+    [Parameter]
+    public EventCallback<bool> OnRead { get; set; }
+
+    private IAppFeatureSettings? _features;
+    private bool _on;
+    private string _scopeKey = "\u0000";
+
+    private SprintSeriesDto? _series;
+    private bool _sprint;
+    private int? _number;
+    private SprintProgressDto? _progress;
+    private SprintBoardModel? _model;
+    private string? _error;
+    private bool _reading;
+    private int _generation;
+    private int _findGeneration;
+
+    protected override void OnInitialized()
+    {
+        _features = Services.GetService(typeof(IAppFeatureSettings)) as IAppFeatureSettings;
+        _on = IsOn();
+        if (_features is not null) _features.Changed += OnFeaturesChanged;
+    }
+
+    private bool IsOn() => _features?.IsEnabled(ProgressFeatures.Progress) ?? false;
+
+    private void OnFeaturesChanged() => _ = InvokeAsync(async () =>
+    {
+        var on = IsOn();
+        if (on == _on) return;
+
+        _on = on;
+        await FindSeriesAsync();
+        StateHasChanged();
+    });
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // The count leads, so every repository ([]) and the Brain alone ([""]) differ.
+        var key = $"{Repositories.Count}\u001e{string.Join("\u001f", Repositories.Select(alias => alias.Trim().ToUpperInvariant()))}";
+        if (key != _scopeKey)
+        {
+            _scopeKey = key;
+            await FindSeriesAsync();
+        }
+    }
+
+    /// <summary>The first series switched on, holding a scoped repository, with a
+    /// sprint to show — or none, which leaves the Now view as it is.</summary>
+    private async Task FindSeriesAsync()
+    {
+        // A scope change and a feature switch can both be looking at once; the last
+        // to start is the one that counts.
+        var generation = ++_findGeneration;
+        var found = _on ? await SeriesInScopeAsync() : null;
+        if (generation != _findGeneration) return;
+
+        var changed = found?.Id != _series?.Id;
+        _series = found;
+
+        if (_series is null)
+        {
+            _sprint = false;
+            Clear();
+            return;
+        }
+
+        if (changed)
+        {
+            _number = null;
+            Clear();
+        }
+
+        if (_sprint) await ReadSprintAsync();
+    }
+
+    private async Task<SprintSeriesDto?> SeriesInScopeAsync()
+    {
+        if (Services.GetService(typeof(ISprintSeriesPlanning)) is not ISprintSeriesPlanning planning) return null;
+
+        var listed = await planning.ListSeriesAsync();
+        if (listed.IsFailure) return null;
+
+        var candidates = listed.Value.Where(series => series.IsOn && series.Sprints.Count > 0).ToList();
+        var scope = Repositories.Select(alias => alias.Trim()).Where(alias => alias.Length > 0).ToList();
+
+        // Every repository is in scope when none is chosen: the first series that runs.
+        if (Repositories.Count == 0) return candidates.FirstOrDefault();
+
+        foreach (var alias in scope)
+        {
+            var series = candidates.FirstOrDefault(candidate => candidate.Repositories.Contains(alias, StringComparer.OrdinalIgnoreCase));
+            if (series is not null) return series;
+        }
+
+        return null;
+    }
+
+    private void Clear()
+    {
+        _progress = null;
+        _model = null;
+        _error = null;
+    }
+
+    /// <summary>What the switch calls the sprint view: the sprint it opens on — the
+    /// open one, or the last one the series ran.</summary>
+    private string? SwitchName(SprintSeriesDto series)
+    {
+        var sprint = _number is { } number
+            ? series.Sprints.FirstOrDefault(candidate => candidate.Number == number)
+            : series.OpenSprint ?? series.Sprints.LastOrDefault();
+
+        return (sprint ?? series.OpenSprint ?? series.Sprints.LastOrDefault())?.Name;
+    }
+
+    private RenderFragment Switch(string sprintName) => @<SprintViewSwitch Sprint="_sprint"
+                                                                            SprintName="@sprintName"
+                                                                            SprintChanged="OnSwitchAsync" />;
+
+    private async Task OnSwitchAsync(bool sprint)
+    {
+        _sprint = sprint;
+        if (!sprint)
+        {
+            // Back on Now, the switch names the open sprint again and opens on it.
+            _number = null;
+            Clear();
+            return;
+        }
+
+        await OnRead.InvokeAsync(false);
+        await ReadSprintAsync();
+    }
+
+    private async Task StepAsync(int step)
+    {
+        if (_series is null || _progress is null) return;
+
+        var numbers = _series.Sprints.Select(sprint => sprint.Number).OrderBy(number => number).ToList();
+        int? next = step < 0
+            ? numbers.LastOrDefault(number => number < _progress.Number) is var previous and > 0 ? previous : null
+            : numbers.FirstOrDefault(number => number > _progress.Number) is var later and > 0 ? later : null;
+        if (next is null) return;
+
+        _number = next;
+        await ReadSprintAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        await OnRead.InvokeAsync(true);
+        await ReadSprintAsync();
+    }
+
+    private async Task ReadSprintAsync()
+    {
+        if (_series is not { } series) return;
+        if (Services.GetService(typeof(ISprintProgress)) is not ISprintProgress progress)
+        {
+            _progress = null;
+            _model = null;
+            _error = "The sprint could not be read: Progress is not composed in this host.";
+            return;
+        }
+
+        var generation = ++_generation;
+        _reading = true;
+        try
+        {
+            var read = await progress.ReadAsync(series.Id, _number);
+            if (generation != _generation) return;
+
+            if (read.IsFailure)
+            {
+                _progress = null;
+                _model = null;
+                _error = read.Error.Message;
+                return;
+            }
+
+            _progress = read.Value;
+            _model = SprintBoardMapper.ToModel(read.Value, series);
+            _error = null;
+        }
+        finally
+        {
+            if (generation == _generation) _reading = false;
+        }
+    }
+
+    private IReadOnlyList<SprintBoardOutside> OutsideWork =>
+        Outside is null || _progress is null
+            ? []
+            : Outside(_progress.Members.Select(member => member.TaskId).ToHashSet());
+
+    private Task OpenTaskAsync(string taskId) =>
+        Guid.TryParse(taskId, out var id) ? OnOpenTask.InvokeAsync(id) : Task.CompletedTask;
+
+    public void Dispose()
+    {
+        if (_features is not null) _features.Changed -= OnFeaturesChanged;
+    }
+}

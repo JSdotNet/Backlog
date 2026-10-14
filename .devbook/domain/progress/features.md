@@ -193,6 +193,43 @@ many goal tasks are done, and whether the goal is met. Each member shows as a ro
 with its task, whether it is done, and its owner. The owner is the author of the
 task's linked pull requests. A task with no linked pull request shows no owner.
 
+### The sprint view
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/requirements.md#requirement-a-repository-in-no-series-keeps-the-in-progress-view, .devbook/domain/sessions/features.md#in-progress-by-task]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.With_progress_off_the_now_view_is_drawn_with_no_switch, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_repository_in_no_series_keeps_the_now_view_unchanged, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_switched_off_series_reads_as_no_series, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Choosing_the_sprint_draws_the_sprint_view_and_choosing_now_brings_the_now_view_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Pull_request_chips_are_coloured_by_state_and_the_owner_is_their_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.The_pace_reading_names_the_open_goal_tasks_the_blocked_ones_and_the_gap_to_the_even_pace]
+```
+
+The [In progress](../sessions/features.md#in-progress-by-task) tab shows the sprint.
+While the header's repository scope holds a repository of a series that is switched on
+and has a sprint, a **Now | Sprint n** switch sits beside the title. Now is the view by
+task, unchanged. With no such repository in scope, or Progress off, there is no switch.
+A scope with repositories of several series shows the first series in scope order.
+
+The sprint side opens on the open sprint and steps to the previous and next one. It
+shows:
+
+- the series' name, how many repositories it has and the sprint's dates;
+- a filter to one of the series' repositories, and grouping by plan or none;
+- the goal card: the goal in words, the goal tasks done of their total with a bar by
+  status, the goal rules that counted them, then all the sprint's work done of its
+  total, how much is outside the goal and how much was added after the start;
+- the done line: members done by the end of each working day against the even pace —
+  every member done by the last working day — with one sentence on where the sprint
+  stands;
+- **Needs you**: the members that are blocked, wait on review with an open pull
+  request, or carry an open question;
+- one group per plan, a goal plan's group marked "Goal plan", and a row per member:
+  its status, its title with "Goal" or "added" where they apply, a chip per linked pull
+  request coloured by its state (merged green, open amber, draft grey), its owner and
+  its note;
+- folded, "Outside the sprint": the live sessions and open pull requests on work the
+  sprint does not hold.
+
+The sprint is read when the side opens, on a step and on Refresh.
+
 ### Keeping a note on an item
 
 ```meta
