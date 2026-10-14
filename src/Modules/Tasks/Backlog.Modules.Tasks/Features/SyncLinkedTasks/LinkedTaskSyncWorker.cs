@@ -263,9 +263,12 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                     return Failed(result.Error, target);
                 }
 
-                _log.LogDebug(
-                    "Linked task sync for {Connector} {Target}: {Summary}",
-                    connectorId, target, result.Value);
+                // Information, not Debug: the Aspire dashboard shows nothing below
+                // it, and a sync that worked must leave a trace there too.
+                var summary = result.Value;
+                _log.LogInformation(
+                    "Linked task sync for {Connector} {Target}: {Fetched} fetched, {Created} created, {Updated} updated, {Archived} archived",
+                    connectorId, target, summary.Fetched, summary.Created, summary.Updated, summary.Vanished);
                 return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(result.Value)}.");
             }
         }

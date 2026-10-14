@@ -33,6 +33,22 @@ public sealed class SyncLinkedTasksTests
 
     // --- Creating -------------------------------------------------------------
 
+    /// <summary>Fetched counts what the source answered, whatever the sync then did
+    /// with it, so a log line can tell a source that answered nothing from one whose
+    /// items all stood still.</summary>
+    [Fact]
+    public async Task Fetched_counts_every_item_the_source_answered()
+    {
+        _connector.Items.Add(Item("I_1"));
+        _connector.Items.Add(Item("I_2"));
+
+        var first = await SyncAsync();
+        var second = await SyncAsync();
+
+        Assert.Equal((2, 2), (first.Fetched, first.Created));
+        Assert.Equal((2, 2), (second.Fetched, second.Unchanged));
+    }
+
     [Fact]
     public async Task An_open_item_becomes_a_ready_linked_task()
     {
