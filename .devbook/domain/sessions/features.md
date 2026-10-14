@@ -966,7 +966,9 @@ no prices, because a list it shipped would be wrong the day a price changed. A r
 saved as soon as it names a model. A rate is written with a point, such as 0.30. A rate
 that does not read that way, such as one with a comma, is refused and nothing is saved.
 So is a second row for the same model. A rate left empty is unknown, never free, so a
-stage that spent tokens of that kind is not priced at all.
+stage that spent tokens of that kind is not priced at all. The page's headline counts
+the prices saved, as in `2 model prices price the runs Claude Code reported no cost for.`
+A row still being typed, or a refused rate, does not move it.
 
 An estimated figure carries the words "estimated from tokens" on the session's detail
 and on each sub-agent call. A stage row, which has less room, marks it "est." with those

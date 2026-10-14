@@ -70,6 +70,7 @@ public class StorybookOrderTests
         ["Progress"] = ["sprint-settings", "sprint-view", "sprint-planning"],
         ["Selection"] = ["selection-bar"],
         ["Selects"] = ["selects"],
+        ["Settings"] = ["settings-"],
         ["Shell"] = ["app-shell"],
         ["Tasks"] = ["task-list", "inputs"]
     };

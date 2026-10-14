@@ -26,8 +26,13 @@ namespace Backlog.Infrastructure.GitHub.Dashboard;
 /// included credit is not in the response, so it is not invented: what can be said
 /// is how much was consumed and how much of that was charged.
 /// </para>
+/// <para>
+/// When a host composes <paramref name="reads"/>, the read is recorded there as one
+/// GitHub source: any month answering is a successful read, every month refusing a
+/// failed one.
+/// </para>
 /// </remarks>
-internal sealed class CopilotSpendSource(IGitHubBillingClient billing) : ICopilotSpendSource
+internal sealed class CopilotSpendSource(IGitHubBillingClient billing, IUsageReadRecorder? reads = null) : ICopilotSpendSource
 {
     /// <summary>The longest window this adapter will walk, in months. The trend asks
     /// for seven; anything past a couple of years is a caller mistake.</summary>
@@ -47,6 +52,29 @@ internal sealed class CopilotSpendSource(IGitHubBillingClient billing) : ICopilo
         DateOnly to,
         CancellationToken cancellationToken = default)
     {
+        string? lastRefusal = null;
+
+        try
+        {
+            var report = await ReadAsync(from, to, refusal => lastRefusal = refusal, cancellationToken).ConfigureAwait(false);
+            reads?.Succeeded(UsageSource.GitHub);
+            return report;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Every month refused: the last refusal says why in GitHub's own words,
+            // where the summary below only says that none answered.
+            reads?.Failed(UsageSource.GitHub, lastRefusal ?? exception.Message);
+            throw;
+        }
+    }
+
+    private async Task<SpendReport> ReadAsync(
+        DateOnly from,
+        DateOnly to,
+        Action<string> refused,
+        CancellationToken cancellationToken)
+    {
         var entries = new List<SpendEntry>();
         var covered = 0m;
         var read = false;
@@ -60,16 +88,18 @@ internal sealed class CopilotSpendSource(IGitHubBillingClient billing) : ICopilo
                     .GetAiCreditUsageAsync(month.Year, month.Month, day: null, cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (GitHubException)
+            catch (GitHubException exception)
             {
                 // A month GitHub will not report — before the account existed, or
                 // before metered billing started — is a gap in the trend rather
                 // than a failure of it. The first month that does answer proves the
                 // source works.
+                refused(exception.Message);
                 continue;
             }
-            catch (GitHubNotConfiguredException)
+            catch (GitHubNotConfiguredException exception)
             {
+                refused(exception.Message);
                 continue;
             }
 

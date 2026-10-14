@@ -74,7 +74,7 @@ public sealed class WorkTools(ITaskItems entries, IRepositoryDirectory repositor
     }
 
     [McpServerTool(Name = GetPlanItems, Title = "Get the items of an import plan", ReadOnly = true, Idempotent = true, OpenWorld = false)]
-    [Description("The backlog entries one import plan produced, in rank order, whichever repository they are filed against. Read-only.")]
+    [Description("The backlog entries of one import plan, in rank order, whichever repository they are filed against: the ones the import produced and the ones filed under the plan tag since. Read-only.")]
     public async Task<PlanItemsPayload> GetPlanItemsAsync(
         [Description("The plan tag exactly as the entries carry it, sigil included, e.g. +backlog-mcp-server.")]
         string planId,
@@ -94,8 +94,16 @@ public sealed class WorkTools(ITaskItems entries, IRepositoryDirectory repositor
         // so a tool that stripped or added one would answer for a plan nobody
         // named — and a case-insensitive match would merge two tags the grammar
         // keeps apart.
+        //
+        // An entry with no plan id belongs to the plan whose tag it carries: only
+        // an import sets the id, so a follow-up filed under the tag by create_item
+        // or typed in the pane has none and is the plan's all the same. Read here
+        // rather than written there, so the entries filed before this need no
+        // backfill. An entry an import filed under another plan stays that plan's.
         var filtered = all
-            .Where(entry => string.Equals(entry.ImportPlanId, planId, StringComparison.Ordinal))
+            .Where(entry => entry.ImportPlanId is { } owner
+                ? string.Equals(owner, planId, StringComparison.Ordinal)
+                : entry.Tags.Contains(planId, StringComparer.Ordinal))
             .OrderBy(entry => entry.Order)
             .Select(Projections.Entry)
             .ToList();

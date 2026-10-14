@@ -30,6 +30,27 @@ test('reads the plan, numbering each entry by its title', () => {
   ])
 })
 
+test('numbers a follow-up filed under the plan tag after the highest step, never reusing one', () => {
+  const mixed = JSON.stringify({
+    planId: '+demo',
+    entries: [
+      { id: 'a1', title: '1 - First prompt', type: 'prompt', status: 'done' },
+      { id: 'f1', title: 'Follow-up from review', type: 'prompt', status: 'ready' },
+      { id: 'b2', title: '2 - Second prompt', type: 'prompt', status: 'ready' },
+      { id: 'f2', title: 'Another follow-up', type: 'prompt', status: 'ready' },
+      { id: 'c3', title: '3 - Check by hand', type: 'test', status: 'ready' },
+    ],
+  })
+  const plan = parsePlan('+demo', mixed)
+  expect(plan?.entries.map(e => [e.id, e.n, e.title])).toEqual([
+    ['a1', 1, 'First prompt'],
+    ['f1', 4, 'Follow-up from review'],
+    ['b2', 2, 'Second prompt'],
+    ['f2', 5, 'Another follow-up'],
+    ['c3', 3, 'Check by hand'],
+  ])
+})
+
 test('recognises the brief, the surface tools and the returns', () => {
   expect(parseBrief(BRIEF)).toEqual({ tag: '+demo', n: 2, title: 'Second prompt', entryId: 'b2' })
   expect(surfaceOp('mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage')).toBe('update_stage')

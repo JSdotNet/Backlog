@@ -8,7 +8,6 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
-using Backlog.UI.Components.Layout;
 
 using Bunit;
 
@@ -30,7 +29,7 @@ public sealed class SettingsRepositoryRenameTests
     public void Renaming_from_the_card_re_points_entries_and_inbox_items_and_says_so()
     {
         using var settings = RenderSettings(entriesMoved: 12, itemsMoved: 1);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Rename(settings.Component, "JSdotNet/Backlog-renamed");
 
@@ -55,7 +54,7 @@ public sealed class SettingsRepositoryRenameTests
     public void Renaming_onto_a_configured_repository_merges_into_it_and_says_so_on_its_card()
     {
         using var settings = RenderSettings(entriesMoved: 3);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Rename(settings.Component, "JSdotNet/Docs");
 
@@ -75,7 +74,7 @@ public sealed class SettingsRepositoryRenameTests
     public void Rename_sits_before_Remove_on_the_card()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var buttons = settings.Component.FindAll(".repo-card__actions button");
 
@@ -84,12 +83,12 @@ public sealed class SettingsRepositoryRenameTests
 
     /// <summary>
     /// A registry that arrives with two rows sharing an alias — a placeholder a plan
-    /// registered beside the real repository — still opens the tab. Each subpage is
-    /// keyed by its alias, so a shared one threw Blazor's duplicate-key exception and
-    /// the whole page showed the unhandled-error banner.
+    /// registered beside the real repository — still opens the page with a row each.
+    /// Rows keyed by the alias threw Blazor's duplicate-key exception and the whole
+    /// page showed the unhandled-error banner, so they are keyed by the id.
     /// </summary>
     [Fact]
-    public void A_registry_with_a_shared_alias_opens_the_tab_with_a_card_each()
+    public void A_registry_with_a_shared_alias_opens_the_page_with_a_row_each()
     {
         using var settings = RenderSettings(registry: """
             {
@@ -100,11 +99,9 @@ public sealed class SettingsRepositoryRenameTests
             }
             """);
 
-        OpenRepositoriesTab(settings.Component);
+        SettingsMenu.Open(settings.Component, "Repositories");
 
-        Assert.Equal(
-            ["finance/finance", "JSdotNet/finance"],
-            settings.Component.FindAll("[data-testid='repo-subpage-tab']").Select(tab => tab.TextContent.Trim()));
+        Assert.Equal(2, settings.Component.FindAll("[data-testid='repo-edit']").Count);
     }
 
     /// <summary>A refusal from the store is the form's to show and leaves the
@@ -114,7 +111,7 @@ public sealed class SettingsRepositoryRenameTests
     public void A_name_that_is_not_a_coordinate_is_refused_on_the_form_and_renames_nothing()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Rename(settings.Component, "not-a-repository");
 
@@ -130,7 +127,7 @@ public sealed class SettingsRepositoryRenameTests
     public void A_module_that_refuses_is_reported_in_the_status_line()
     {
         using var settings = RenderSettings(tasksRefuse: true);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Rename(settings.Component, "JSdotNet/Backlog-renamed");
 
@@ -148,7 +145,7 @@ public sealed class SettingsRepositoryRenameTests
     public void Retyping_an_owner_name_in_the_list_renames_nothing_and_points_at_Rename()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Retype(settings.Component, "backlog = JSdotNet/Backlog-renamed\ndocs = JSdotNet/Docs");
 
@@ -162,7 +159,7 @@ public sealed class SettingsRepositoryRenameTests
     public void Relabelling_an_alias_calls_neither_module_and_shows_no_hint()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Retype(settings.Component, "bl = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
 
@@ -172,63 +169,54 @@ public sealed class SettingsRepositoryRenameTests
     }
 
     /// <summary>
-    /// Removing the first repository leaves the second one's panel standing rather
-    /// than handing the first panel the second one's id: each repository panel is
-    /// keyed by its alias, so the component that was the docs panel before the
-    /// removal is the docs panel after it, and its tab is the one selected.
+    /// Removing the repository whose row is open leaves the other one's row standing,
+    /// closed, rather than handing its card the removed one's settings: rows are keyed
+    /// by the repository, so what is left is the docs row and nothing of the
+    /// backlog card stays open under it.
     /// </summary>
     [Fact]
-    public void Removing_the_first_repository_keeps_the_second_panel_bound()
+    public void Removing_the_open_repository_closes_its_card_and_keeps_the_other_row()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
-        var docsPanel = RepositoryPanel(settings.Component, "docs");
+        OpenRepositoryCard(settings.Component);
 
         settings.Component.Find("[data-testid='remove-repository-button']").Click();
 
-        var remaining = Assert.Single(
-            settings.Component.FindComponents<TabPanel>(),
-            panel => panel.Instance.Id is "backlog" or "docs");
-        Assert.Equal("docs", remaining.Instance.Id);
-        Assert.Same(docsPanel, remaining.Instance);
+        var edit = Assert.Single(settings.Component.FindAll("[data-testid='repo-edit']"));
+        Assert.Equal("Edit docs", edit.GetAttribute("aria-label"));
+        Assert.Equal("false", edit.GetAttribute("aria-expanded"));
+        Assert.Empty(settings.Component.FindAll("[data-testid='github-repo-card']"));
 
-        var tab = Assert.Single(settings.Component.FindAll("[data-testid='repo-subpage-tab']"));
-        Assert.Equal("JSdotNet/Docs", tab.TextContent.Trim());
-        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+        SettingsMenu.EditRepository(settings.Component, "docs");
 
         var card = settings.Component.Find("[data-testid='github-repo-card']");
         Assert.Equal("JSdotNet/Docs repository settings", card.GetAttribute("aria-label"));
-        Assert.False(card.HasAttribute("hidden"));
-        Assert.Equal(tab.GetAttribute("aria-controls"), card.GetAttribute("id"));
     }
 
     /// <summary>
     /// The same, with the first repository removed the other way: by saving the
     /// repositories text without its line. What is left on screen is the second
-    /// repository's own panel, carrying its own alias and its own clone directory
-    /// rather than the removed one's, so nothing the first card held leaks into the
-    /// card that survives it.
+    /// repository's own card, open under its own row, carrying its own alias and its
+    /// own clone directory rather than the removed one's, so nothing the first card
+    /// held leaks into the card that survives it.
     /// </summary>
     [Fact]
-    public void Removing_the_first_repository_from_the_text_keeps_the_second_panel_bound_to_its_own_settings()
+    public void Removing_the_first_repository_from_the_text_keeps_the_second_card_bound_to_its_own_settings()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
         var backlogClone = Path.Combine(settings.Root, "clones", "backlog");
         var docsClone = Path.Combine(settings.Root, "clones", "docs");
 
         SetCloneDirectory(settings.Component, backlogClone);
-        OpenRepositoryPage(settings.Component, "JSdotNet/Docs");
+        SettingsMenu.EditRepository(settings.Component, "docs");
         SetCloneDirectory(settings.Component, docsClone);
-        var docsPanel = RepositoryPanel(settings.Component, "docs");
 
         Retype(settings.Component, "docs = JSdotNet/Docs");
 
         Assert.Equal("JSdotNet/Docs", Assert.Single(settings.GitHub.Current.Repositories).FullName);
-        var remaining = Assert.Single(
-            settings.Component.FindComponents<TabPanel>(),
-            panel => panel.Instance.Id is "backlog" or "docs");
-        Assert.Same(docsPanel, remaining.Instance);
+        var edit = Assert.Single(settings.Component.FindAll("[data-testid='repo-edit']"));
+        Assert.Equal("true", edit.GetAttribute("aria-expanded"));
 
         var card = settings.Component.Find("[data-testid='github-repo-card']");
         Assert.Equal("JSdotNet/Docs repository settings", card.GetAttribute("aria-label"));
@@ -247,12 +235,6 @@ public sealed class SettingsRepositoryRenameTests
         component.Find("[data-testid='repo-clone-directory-input']").Change(directory);
     }
 
-    private static void OpenRepositoryPage(IRenderedComponent<Settings> component, string fullName) =>
-        component.FindAll("[data-testid='repo-subpage-tab']").Single(tab => tab.TextContent.Trim() == fullName).Click();
-
-    private static TabPanel RepositoryPanel(IRenderedComponent<Settings> component, string alias) =>
-        component.FindComponents<TabPanel>().Single(panel => panel.Instance.Id == alias).Instance;
-
     private static void Rename(IRenderedComponent<Settings> component, string newName)
     {
         component.Find("[data-testid='rename-repository-button']").Click();
@@ -266,8 +248,8 @@ public sealed class SettingsRepositoryRenameTests
         component.Find("[data-testid='github-repos-input']").Change(text);
     }
 
-    private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
+    private static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
+        SettingsMenu.OpenRepository(component);
 
     private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null)
     {

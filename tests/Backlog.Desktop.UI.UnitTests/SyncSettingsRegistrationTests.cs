@@ -28,10 +28,11 @@ public sealed class SyncSettingsRegistrationTests
         Assert.Equal(typeof(DevicesSettings), section.Component);
         Assert.Equal(SyncFeatures.Sync, section.FeatureKey);
         Assert.DoesNotContain(section.Id, ShellPageIds);
-        Assert.Single(services);
+        // The section and the badge source it names (ModuleSettingsBadgeSourceTests).
+        Assert.Equal(2, services.Count);
 
-        // The tab sat straight after Repositories while the shell drew it, so it
-        // stays there: ahead of every other module's section.
-        Assert.True(section.Order < TaskConnectorSettingsRegistration.Order);
+        // Last of the Product areas pages, after Connectors.
+        Assert.Equal(SettingsGroup.ProductAreas, section.Group);
+        Assert.True(section.Order > TaskConnectorSettingsRegistration.Order);
     }
 }

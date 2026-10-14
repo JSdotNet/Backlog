@@ -41,6 +41,13 @@ repository is itself an opt-in capability, so a single-repository setup stays
 uncluttered. While it is off, every entry belongs to the first repository in the
 registry.
 
+The working set is read as one list: a row per repository naming its alias with
+its colour beside it, where it is cloned on this machine, where its devbook was
+found — or that it has none — and the account it is worked as, under a sentence
+counting the repositories and how many of them carry a devbook. Everything
+decided about one repository is edited under its own row, one repository at a
+time, and a repository just registered opens there, ready to be set up.
+
 ### Following a repository rename
 
 ```meta

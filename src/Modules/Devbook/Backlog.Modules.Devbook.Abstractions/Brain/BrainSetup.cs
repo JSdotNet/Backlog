@@ -25,7 +25,7 @@ public static class BrainSetup
     /// <summary>Settings opened on its Storage page, at the Brain card. Relative,
     /// like every other link to the settings screen, so it resolves against the
     /// host's base address.</summary>
-    public const string SettingsHref = "settings?page=storage#" + CardId;
+    public const string SettingsHref = "settings/storage#" + CardId;
 
     /// <summary>The chip's name for the settings as they stand.</summary>
     public static string ChipLabel(IBrainSettings settings)

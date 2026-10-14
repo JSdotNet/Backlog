@@ -1,0 +1,105 @@
+@*
+    One group of the settings menu: a small uppercase label and the pages under
+    it, each a link to the page's own address.
+
+    Links rather than buttons, on purpose. A settings page has an address, so
+    choosing one is navigation: Back returns to the page before, a page can be
+    linked to from anywhere in the app, and the browser's own affordances - open
+    in a new window, copy the address - work. The current page is marked with
+    aria-current="page", which is what a screen reader announces for it, and
+    with the raised surface, which is what everyone else sees - except under a
+    frame with no page chosen, where at phone width the menu is the whole screen
+    and nothing on it is current (see PageChosen).
+
+    The label is a paragraph the list points at with aria-labelledby, not a
+    heading. The menu sits beside the page, and headings there would interleave
+    with the page's own outline under its h1.
+
+    A link holds the page's name, its badge value when the host gives it one, and
+    a chevron. The chevron is drawn at every width and shown only where the menu
+    is the whole screen - the frame's grouped list at phone width, where a row
+    reads as "opens a page" - so the markup does not change with the width and
+    the frame's stylesheet decides.
+
+    While the settings search has text, a page whose cards it matched lists
+    them under its link, each a link of its own to the page with the card named
+    in the address's fragment. The host brings that card into view; a link to the
+    page already on screen moves only the fragment, so components.js answers that
+    one from the link's data-settings-card.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <p class="settings-menu-group__label" id="@LabelId">@Label</p>
+    <ul class="settings-menu-group__list" aria-labelledby="@LabelId">
+        @foreach (var item in Items)
+        {
+            <li @key="item.Id" class="settings-menu-group__item">
+                <a class="@LinkClass(item)"
+                   href="@item.Href"
+                   data-page="@item.Id"
+                   aria-current="@(item.Current && PageChosen ? "page" : null)">
+                    <span class="settings-menu-group__name">@item.Label</span>
+                    @if (item.Current && !PageChosen)
+                    {
+                        <span class="sr-only settings-menu-group__current-note"> (current page)</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(item.Badge))
+                    {
+                        <span class="settings-menu-group__badge" data-testid="settings-menu-badge">@item.Badge</span>
+                    }
+                    <ChevronUpIcon CssClass="settings-menu-group__chevron" />
+                </a>
+                @if (item.Cards is { Count: > 0 } cards)
+                {
+                    <ul class="settings-menu-group__cards" aria-label="@($"Matching cards on {item.Label}")">
+                        @foreach (var card in cards)
+                        {
+                            <li @key="card.Label">
+                                <a class="settings-menu-group__card"
+                                   href="@card.Href"
+                                   data-settings-card="@card.Label"
+                                   data-testid="settings-menu-card">@card.Label</a>
+                            </li>
+                        }
+                    </ul>
+                }
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    /// <summary>The group's label: Workspace, AI, Product areas.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>The pages in the group, in the order they are listed.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SettingsMenuItem> Items { get; set; } = [];
+
+    /// <summary>Whether the frame around the menu has a page chosen - see
+    /// <see cref="SettingsFrame.PageChosen"/>. True outside a frame. While it is
+    /// false no link carries <c>aria-current</c>: at phone width the menu is the
+    /// grouped list with no page on screen. Wider, the default page still sits
+    /// beside it, so the current link names itself in a screen-reader note the
+    /// phone-width stylesheet takes out of the accessibility tree.</summary>
+    [CascadingParameter(Name = SettingsFrame.PageChosenCascade)]
+    public bool PageChosen { get; set; } = true;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    // Unique per instance, so two groups on one page never label each other's list.
+    private readonly string LabelId = "settings-menu-group-" + Guid.NewGuid().ToString("n")[..8];
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "settings-menu-group" : $"settings-menu-group {CssClass}";
+
+    private static string LinkClass(SettingsMenuItem item) =>
+        item.Current ? "settings-menu-group__link settings-menu-group__link--current" : "settings-menu-group__link";
+}

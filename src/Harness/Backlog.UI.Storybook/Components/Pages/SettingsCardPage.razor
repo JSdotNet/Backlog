@@ -1,0 +1,87 @@
+@page "/settings-card"
+
+<PageTitle>Settings card — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Settings card"
+           Summary="SettingsCard: one card on a settings page — a heading, a sentence saying what the card is for, an optional action in the header's corner, and the controls — and the figure tile a card shows a number in."
+           Guidelines="@Rules">
+
+    <Story Name="Heading, description and controls"
+           Description="The ordinary card. The heading is the page's second level, directly under the frame's one-sentence headline, and it names the card's region, so a screen reader's landmark list reads as the page's list of cards. The description is one or two sentences; the settings search reads it beside the title.
+
+There is no save button. A field commits on blur or Enter, as every settings field does, and the frame's chip says so once for the whole page."
+           Code="@BasicCode">
+        <div class="sb-stack" data-testid="settings-card-basic">
+            <SettingsCard Title="Where the backlog is stored"
+                          Description="The folder the backlog's database lives in. Moving it copies everything across.">
+                <TextField Label="Backlog folder" Value="C:\Users\sam\Backlog" />
+            </SettingsCard>
+        </div>
+    </Story>
+
+    <Story Name="With an action in the header"
+           Description="An action that belongs to the whole card - test a connection, add a row - sits in the header's corner rather than at the bottom of the controls, where it would read as the last field's. On a narrow card it wraps under the heading instead of squeezing it."
+           Code="@ActionCode">
+        <div class="sb-stack" data-testid="settings-card-action">
+            <SettingsCard Title="Claude usage API" Description="An Admin key reads your organization's usage and cost.">
+                <Action>
+                    <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _tested++">Test connection</AppButton>
+                </Action>
+                <ChildContent>
+                    <TextField Label="Admin key" Placeholder="sk-ant-admin..." />
+                    <p class="sb-state" data-testid="settings-card-action-state">Tested @_tested time(s)</p>
+                </ChildContent>
+            </SettingsCard>
+        </div>
+    </Story>
+
+    <Story Name="A figure in a card"
+           Description="Where a card shows a number - the size of a backup, the spend so far this month - it uses the MetricTile the Dashboard chapter introduced, not a figure of its own. A settings figure is a reading, never a control."
+           Code="@FigureCode">
+        <div class="sb-stack" data-testid="settings-card-figure">
+            <SettingsCard Title="Backup" Description="A copy of the backlog, taken on a schedule.">
+                <div class="sb-row">
+                    <MetricTile Label="Last backup" Value="2" Unit="hours ago" />
+                    <MetricTile Label="Backups kept" Value="14" />
+                </div>
+            </SettingsCard>
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private int _tested;
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("settings-pages.md#settings-card", "What a card's title, description and action are, and why a settings page draws its sections only as cards."),
+        new("settings-pages.md#figure-tiles", "Why a page's figures sit in shared tiles above its cards, reading the same store as the headline."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why a card has no save button, and when a field commits."),
+        new("typography-and-layout.md#heading-defaults", "Which face and size the card's heading takes under the page's headline."),
+        new("typography-and-layout.md#border-radius-and-width", "The medium radius and hairline border a card wears inside the large-radius panel.")
+    ];
+
+    private const string BasicCode = """
+        <SettingsCard Title="Where the backlog is stored"
+                      Description="The folder the backlog's database lives in.">
+            <TextField Label="Backlog folder" Value="@folder" />
+        </SettingsCard>
+        """;
+
+    private const string ActionCode = """
+        <SettingsCard Title="Claude usage API" Description="An Admin key reads your organization's usage and cost.">
+            <Action>
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="TestAsync">Test connection</AppButton>
+            </Action>
+            <ChildContent>
+                <TextField Label="Admin key" />
+            </ChildContent>
+        </SettingsCard>
+        """;
+
+    private const string FigureCode = """
+        <SettingsCard Title="Backup" Description="A copy of the backlog, taken on a schedule.">
+            <MetricTile Label="Last backup" Value="2" Unit="hours ago" />
+        </SettingsCard>
+        """;
+}

@@ -31,7 +31,7 @@ public sealed class SettingsRepositoryColourTests
     public void ChoosingAColourStoresItStraightAway()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         settings.Component.Find("[data-testid='repo-colour-3']").Click();
 
@@ -43,7 +43,7 @@ public sealed class SettingsRepositoryColourTests
     public void ResetGivesTheChoiceBackWithoutLeavingTheRepositoryColourless()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
         settings.Component.Find("[data-testid='repo-colour-3']").Click();
 
         settings.Component.Find("[data-testid='repo-colour-reset']").Click();
@@ -58,7 +58,7 @@ public sealed class SettingsRepositoryColourTests
     public void ResetIsOfferedOnlyWhenThereIsAChoiceToGiveBack()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Assert.True(settings.Component.Find("[data-testid='repo-colour-reset']").HasAttribute("disabled"));
 
@@ -72,7 +72,7 @@ public sealed class SettingsRepositoryColourTests
     public void ExactlyTheSanctionedFiveAreOffered()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         for (var colour = 1; colour <= RepositoryColours.Available; colour++)
         {
@@ -88,7 +88,7 @@ public sealed class SettingsRepositoryColourTests
     public void TheChosenColourIsSaidInWordsAndInState()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         // The swatches are the only control on this screen carrying its meaning in
         // colour, so a reader who cannot see which one is ringed still has to be able
@@ -109,7 +109,7 @@ public sealed class SettingsRepositoryColourTests
     public void TheSwatchesStillSayWhatWasChosenWithTheVisualizationOff()
     {
         using var settings = RenderSettings();
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         // Named rather than left implicit, because it is the whole of acceptance
         // criterion 4: the app-wide visualization is off here and the picker behaves
@@ -131,7 +131,7 @@ public sealed class SettingsRepositoryColourTests
     {
         using var settings = RenderSettings();
         Assert.Null(settings.GitHub.SetShowRepositoryColours(true));
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         // The other half of the criterion: turning the visualization on changes what the
         // rest of the app draws and nothing at all about this screen. The summary reads
@@ -145,8 +145,8 @@ public sealed class SettingsRepositoryColourTests
             Assert.Contains("Colour 4", settings.Component.Find("[data-testid='repo-colour-status']").TextContent));
     }
 
-    internal static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
+    internal static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
+        SettingsMenu.OpenRepository(component);
 
     internal static SettingsRenderContext RenderSettings()
     {

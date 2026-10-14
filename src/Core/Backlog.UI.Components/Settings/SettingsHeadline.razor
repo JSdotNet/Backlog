@@ -1,0 +1,29 @@
+@using Microsoft.AspNetCore.Components.Sections
+@*
+    A settings page's headline sentence, written into the frame's h1 through the
+    settings-headline section.
+
+    Only while the page is the one on screen. A host that keeps hidden pages
+    alive - so a half-typed field survives a move to another page - would
+    otherwise have every page it ever opened writing a headline at once, and the
+    one Blazor shows would be whichever was opened last rather than the one in
+    front of the reader. The host says which page is on screen through the
+    SettingsPageActive cascade; a page with no cascade around it, such as a page
+    rendered on its own, writes its headline unconditionally.
+*@
+
+@if (Active is not false)
+{
+    <SectionContent SectionName="@SettingsFrame.HeadlineSection">@ChildContent</SectionContent>
+}
+
+@code {
+    /// <summary>The sentence.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Whether the page this sits in is the one on screen; see
+    /// <see cref="SettingsFrame.ActivePageCascade"/>.</summary>
+    [CascadingParameter(Name = SettingsFrame.ActivePageCascade)]
+    public bool? Active { get; set; }
+}

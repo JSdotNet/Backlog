@@ -1160,10 +1160,15 @@ commit exactly what the repository already holds is skipped rather than recorded
 as a change.
 
 Backups run on a schedule, every day at a set time or every week on a set day
-and time. They also run on demand from Settings → Storage. That screen says when
-the last backup ran, whether it committed anything, and when the next one is
-due. A scheduled backup missed while the app was closed is taken shortly after
-the app next opens.
+and time. They also run on demand from **Back up now** on Settings → Storage &
+backup. The page's headline answers whether the backlog is safe: *Backed up 3 h
+ago — 7 daily copies kept.*, or *Not backed up yet.* It moves when a backup
+completes while the page is open. The Backup card shows the same two figures,
+**Last backup** and **Keeping n daily copies**, over a line that says whether the
+last backup committed anything and when the next one is due. A daily copy is a
+day on which this machine committed a new copy. Every commit stays in the
+repository's history, so the count only grows. A scheduled backup missed while
+the app was closed is taken shortly after the app next opens.
 
 A backup is one-way. Nothing about it ever changes the backlog on the machine:
 getting a backup back is a decision the person makes and carries out by hand,

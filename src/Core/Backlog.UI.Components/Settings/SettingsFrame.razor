@@ -1,0 +1,183 @@
+@using Microsoft.AspNetCore.Components.Sections
+@*
+    The settings screen's frame: the rounded panel the Dashboard sits in, a
+    header with the way back, the group the page belongs to and a one-sentence
+    headline, and under it the menu beside the page.
+
+    The headline is a SectionOutlet named settings-headline. The page on screen
+    supplies its own sentence by rendering a SettingsHeadline; a page that
+    supplies none shows Title, which the frame supplies itself as the outlet's
+    first content. Blazor shows the content added last, so a page's sentence
+    always wins over the title the frame put there before it, and the title comes
+    back the moment that page's sentence goes.
+
+    The chip says the house rule out loud - there is no save button anywhere in
+    settings, a field commits on blur or Enter - because a frame that drew a
+    headline and nothing else would leave somebody looking for one. The search
+    slot beside it holds the host's search - the settings screen's SettingsSearch -
+    and at phone width it takes a row of its own above the grouped list it filters,
+    and is not drawn on a page's address, where there is no list to filter.
+
+    The menu and the page sit in one wrapping flex row, as the Dashboard's columns
+    do: the menu takes a column of its own while the panel has room for both, and
+    wraps above the page once it has not, with no breakpoint naming the width.
+
+    Below the width where the two no longer fit side by side - asked of the
+    frame's own width through a container query, never the window's - the screen
+    shows one of them, and which one is the address's. Where the address names no
+    page (PageChosen false) the menu is the screen: a grouped list, each group's
+    pages in one rounded card, headed IndexTitle with no eyebrow, and no link in
+    it is the current page. Where it names one, the page takes the full width
+    with no menu, and the way back goes to that list rather than to the tasks.
+    Both links are in the markup and the stylesheet shows the one the width
+    calls for: a link cannot change its address by CSS, and display: none takes
+    the hidden one out of the tab order and the accessibility tree alike.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <SectionContent SectionName="@HeadlineSection">@Title</SectionContent>
+
+    <header class="settings-frame__header">
+        <a class="settings-frame__back settings-frame__back--home"
+           href="@BackHref"
+           data-testid="back-link"
+           title="@BackLabel"
+           aria-label="@BackLabel"><span aria-hidden="true">&larr;</span></a>
+        @if (PageChosen)
+        {
+            <a class="settings-frame__back settings-frame__back--menu"
+               href="@MenuHref"
+               data-testid="back-to-menu-link"
+               title="@MenuBackLabel"
+               aria-label="@MenuBackLabel"><span aria-hidden="true">&larr;</span></a>
+        }
+
+        <div class="settings-frame__heading">
+            @if (!string.IsNullOrWhiteSpace(Eyebrow))
+            {
+                <p class="settings-frame__eyebrow" data-testid="settings-eyebrow">@Eyebrow</p>
+            }
+            @* One h1, whichever heading the width shows: every shell's
+               FocusOnNavigate focuses the first h1 in the document after a page
+               change, and a second h1 the stylesheet hid would take that focus
+               nowhere. Where no page is chosen, the wide layout still shows the
+               default page beside the menu, so the h1 reads that page's headline;
+               at phone width the list is the whole screen and no page is on it,
+               so the stylesheet swaps the page's text for IndexTitle and hides
+               the eyebrow. *@
+            <h1 class="settings-frame__headline">
+                <span class="settings-frame__headline-page" data-testid="settings-headline"><SectionOutlet SectionName="@HeadlineSection" /></span>
+                @if (!PageChosen)
+                {
+                    <span class="settings-frame__headline-index" data-testid="settings-index-headline">@IndexTitle</span>
+                }
+            </h1>
+        </div>
+
+        <div class="settings-frame__actions">
+            <span class="settings-frame__saved" data-testid="settings-saved">
+                <CheckIcon CssClass="settings-frame__saved-icon" />
+                Saved as you go
+            </span>
+            <div class="settings-frame__search" data-testid="settings-search-slot">@Search</div>
+        </div>
+    </header>
+
+    <div class="settings-frame__body">
+        <CascadingValue Name="@PageChosenCascade" Value="@PageChosen">
+            <nav class="settings-frame__menu" aria-label="@MenuAriaLabel" data-testid="settings-menu">@Menu</nav>
+        </CascadingValue>
+        <div class="settings-frame__content">@ChildContent</div>
+    </div>
+</div>
+
+@code {
+    /// <summary>The name of the outlet the headline is drawn in. A page supplies
+    /// its sentence through <see cref="SettingsHeadline"/>, which writes here.</summary>
+    public const string HeadlineSection = "settings-headline";
+
+    /// <summary>The name of the cascading <c>bool</c> that says whether the page
+    /// around a <see cref="SettingsHeadline"/> is the one on screen. A host that
+    /// keeps hidden pages alive cascades it per page, so only the page on screen
+    /// writes the headline.</summary>
+    public const string ActivePageCascade = "SettingsPageActive";
+
+    /// <summary>The name of the cascading <c>bool</c> the frame hands its menu:
+    /// <see cref="PageChosen"/>. A <see cref="SettingsMenuGroup"/> under a frame
+    /// with no page chosen marks no link <c>aria-current</c>, since at phone width
+    /// that menu is the grouped list with no page on screen.</summary>
+    public const string PageChosenCascade = "SettingsPageChosen";
+
+    /// <summary>The headline while the page on screen supplies no sentence of
+    /// its own - its title.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>The line above the headline: <c>Settings · AI</c>.</summary>
+    [Parameter]
+    public string? Eyebrow { get; set; }
+
+    /// <summary>Where the back link goes. The app's root - the tasks - by default.</summary>
+    [Parameter]
+    public string BackHref { get; set; } = "";
+
+    /// <summary>The back link's accessible name; it shows only an arrow.</summary>
+    [Parameter]
+    public string BackLabel { get; set; } = "Back to your tasks";
+
+    /// <summary>Whether the address names a page (<c>settings/storage</c>) rather
+    /// than the screen (<c>settings</c>). Below the width that holds the menu and
+    /// the page side by side, it decides which of the two is shown: the page,
+    /// full width, when one is chosen; the menu as a grouped list when none is.
+    /// Above that width it changes nothing.</summary>
+    [Parameter]
+    public bool PageChosen { get; set; }
+
+    /// <summary>The heading of the grouped list at phone width, where no page is
+    /// chosen and none is on screen: the screen's name, with no eyebrow.</summary>
+    [Parameter]
+    public string IndexTitle { get; set; } = "Settings";
+
+    /// <summary>Where the way back goes from a page shown without its menu - the
+    /// grouped list at <c>settings</c>.</summary>
+    [Parameter]
+    public string MenuHref { get; set; } = "settings";
+
+    /// <summary>The accessible name of the way back to the grouped list.</summary>
+    [Parameter]
+    public string MenuBackLabel { get; set; } = "Back to all settings";
+
+    /// <summary>The menu: one <see cref="SettingsMenuGroup"/> per group.</summary>
+    [Parameter]
+    public RenderFragment? Menu { get; set; }
+
+    [Parameter]
+    public string MenuAriaLabel { get; set; } = "Settings pages";
+
+    /// <summary>The slot beside the chip that a search box fills. Drawn, empty,
+    /// when nothing fills it, so the header keeps its shape.</summary>
+    [Parameter]
+    public RenderFragment? Search { get; set; }
+
+    /// <summary>The page.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue
+    {
+        get
+        {
+            var mode = PageChosen ? "settings-frame settings-frame--page" : "settings-frame settings-frame--index";
+            return string.IsNullOrWhiteSpace(CssClass) ? mode : $"{mode} {CssClass}";
+        }
+    }
+}

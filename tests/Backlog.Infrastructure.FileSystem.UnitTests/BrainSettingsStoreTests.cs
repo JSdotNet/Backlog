@@ -165,7 +165,7 @@ public sealed class BrainSettingsStoreTests : IDisposable
         _ = store.TrySetBrainFolder(Path.Combine(_root, "Brain"));
 
         Assert.Equal("Brain", BrainSetup.ChipLabel(store));
-        Assert.Equal("settings?page=storage#brain-folder", BrainSetup.SettingsHref);
+        Assert.Equal("settings/storage#brain-folder", BrainSetup.SettingsHref);
     }
 
     public void Dispose()

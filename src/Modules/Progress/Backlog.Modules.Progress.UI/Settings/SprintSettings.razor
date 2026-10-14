@@ -55,7 +55,7 @@
                               OnShowInChanged="briefs => ChangeAsync(series.Id, ct => Planning.ShowInBriefsAsync(series.Id, briefs.Daily, briefs.Weekly, ct))" />
         }
 
-        <Card Title="Not in a sprint" TestId="sprint-settings-free">
+        <Card Title="@FreeRepositoriesCardTitle" TestId="sprint-settings-free">
             <p class="setting__body">These keep today's In progress view. Each can join one sprint.</p>
             <div class="sprint-settings__chips" data-testid="sprint-settings-free-repositories">
                 @foreach (var alias in Free)
@@ -92,6 +92,10 @@
 </ProgressOnly>
 
 @code {
+    /// <summary>The page's one fixed card - what its
+    /// <c>SettingsSection.CardTitles</c> declares; a series card is titled by its series.</summary>
+    public const string FreeRepositoriesCardTitle = "Not in a sprint";
+
     private readonly Dictionary<Guid, string> _errors = [];
 
     /// <summary>The length and weekday last asked for per series, ahead of the store:

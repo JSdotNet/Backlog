@@ -14,25 +14,41 @@ namespace Backlog.SharedKernel;
 /// see the shared kernel.
 /// </para>
 /// </summary>
-/// <param name="Id">The page's id in the settings tab strip. Stable and
+/// <param name="Id">The page's id: its address, <c>settings/{Id}</c>, and its
+/// key in the settings menu. Stable and
 /// lower-case, and distinct from the shell's own page ids — <c>features</c>,
 /// <c>ai</c>, <c>storage</c>, <c>accounts</c> and <c>repositories</c> — which
 /// win a collision.</param>
-/// <param name="Title">The tab's label and the page's heading.</param>
-/// <param name="Order">Where the page sits among the registered sections, lowest
-/// first. Registered sections always follow the shell's own pages.</param>
+/// <param name="Title">The page's label in the settings menu, and its headline
+/// while the page supplies no sentence of its own.</param>
+/// <param name="Order">Where the page sits among the registered sections of its
+/// <paramref name="Group"/>, lowest first. Within a group, registered sections
+/// always follow the shell's own pages.</param>
 /// <param name="Component">The Razor component the page renders, with no
 /// parameters: it takes what it needs from the container. One instance lives
 /// from the page's first opening until the settings screen closes, so its state
-/// survives a switch to another tab. Switching the section's feature off takes
-/// the page off the strip and disposes it, so switching it back on starts a new
-/// instance.</param>
-/// <param name="FeatureKey">A feature the page is offered behind, or null for a
-/// page that is always offered. Checked by the shell, so a switched-off feature
-/// has no empty page left on the strip.</param>
+/// survives a move to another page. Switching the section's feature off disposes
+/// it, so switching it back on starts a new instance.</param>
+/// <param name="FeatureKey">A feature the page's settings belong to, or null for a
+/// page that is always in use. Checked by the shell: while the feature is off the
+/// page stays in the menu with an <c>Off</c> badge, and opening it shows a note
+/// pointing at the Features page instead of <paramref name="Component"/>.</param>
+/// <param name="Group">The group of the settings menu the page is listed under,
+/// and the second half of its eyebrow — <c>Settings · AI</c>.</param>
+/// <param name="CardTitles">The titles of the cards the page draws, in the order
+/// it draws them, or null for a page that declares none. The settings search
+/// matches page and card titles from these without rendering any page, so a page
+/// that adds, renames or drops a card changes this list in the same change.</param>
+/// <param name="BadgeSource">An <see cref="ISettingsBadgeSource"/> type registered
+/// in the container that supplies the short value the menu draws on the right of
+/// the page's name, or null for a page with none. While the page's feature is off
+/// the menu draws <c>Off</c> instead.</param>
 public sealed record SettingsSection(
     string Id,
     string Title,
     int Order,
     Type Component,
-    string? FeatureKey = null);
+    string? FeatureKey = null,
+    SettingsGroup Group = SettingsGroup.ProductAreas,
+    IReadOnlyList<string>? CardTitles = null,
+    Type? BadgeSource = null);

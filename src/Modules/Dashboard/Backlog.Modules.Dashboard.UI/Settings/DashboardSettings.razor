@@ -14,25 +14,29 @@
 @using System.Globalization
 @using global::Backlog.SharedKernel
 @using global::Backlog.UI.Components.Inputs
+@using global::Backlog.UI.Components.Settings
 @using global::Backlog.Modules.Dashboard.Abstractions.Insights
 @using global::Backlog.Modules.Dashboard.Abstractions.Services
 @inject IUsageResetSettings UsageReset
 @inject ISpendBudgetSettings SpendBudgets
 
+<SettingsHeadline>@Headline</SettingsHeadline>
+
+<div class="setting-columns">
 @* The week the dashboard cuts by. The assistant's allowance resets on a fixed
    weekday and time, and a week of sessions read against calendar Mondays is a week
    nobody spends; this is the person's own reading of the "Resets Mon 2:00 PM" on
    the assistant's usage screen, in their own clock. Detection from the
    assistant's records stands in while nothing is set, and the status says which
    is in force. *@
-<div class="setting__group" data-testid="usage-reset-settings">
+<SettingsCard Title="@UsageResetCardTitle"
+              Description="When your assistant's weekly allowance resets, as its usage screen shows it in your own clock."
+              TestId="usage-reset-settings">
     <p class="setting__note">
-        <strong>Weekly usage reset.</strong> When your assistant's weekly allowance
-        resets, as its usage screen shows it in your own clock. The dashboard's
-        weekly columns and hour grids then run from one reset to the next instead
-        of from a calendar Monday. Leave it unset and the dashboard uses the reset
-        it can detect from the assistant's own records, and calendar weeks when it
-        has seen none.
+        The dashboard's weekly columns and hour grids then run from one reset to the
+        next instead of from a calendar Monday. Leave it unset and the dashboard uses
+        the reset it can detect from the assistant's own records, and calendar weeks
+        when it has seen none.
     </p>
 
     <div class="working-day" data-testid="usage-reset-row">
@@ -83,7 +87,7 @@
         Kept in <code>@UsageReset.SettingsPath</code>, beside the app's other per-user
         choices rather than in the backlog folder - it is yours, not the workspace's.
     </p>
-</div>
+</SettingsCard>
 
 @* The monthly spend budget, one amount per provider. Bare amounts, read in the
    currency each provider reports its spend in: Backlog holds no exchange rate, so a
@@ -92,13 +96,12 @@
    input with a decimal keypad rather than type="number": a number input hands the
    server an empty value for text it cannot parse, and empty means "no budget", so
    "1e" would silently delete the budget in force instead of being refused. *@
-<div class="setting__group" data-testid="spend-budget-settings">
+<SettingsCard Title="@SpendBudgetCardTitle"
+              Description="How much you mean to spend on each assistant in a calendar month, in the currency that provider reports its spend in."
+              TestId="spend-budget-settings">
     <p class="setting__note">
-        <strong>Monthly spend budget.</strong> How much you mean to spend on each
-        assistant in a calendar month, in the currency that provider reports its
-        spend in. The dashboard projects each provider's spend to the end of the
-        month and says when it will pass its budget. Leave a provider empty and it
-        has no budget.
+        The dashboard projects each provider's spend to the end of the month and says
+        when it will pass its budget. Leave a provider empty and it has no budget.
     </p>
 
     @foreach (var provider in BudgetProviders)
@@ -127,9 +130,19 @@
     <p class="setting__note">
         Kept in <code>@SpendBudgets.SettingsPath</code>, on this device only.
     </p>
+</SettingsCard>
 </div>
 
 @code {
+    /// <summary>The sentence the frame shows over this page.</summary>
+    public const string Headline = "Choose what the dashboard counts and how it reads your week.";
+
+    /// <summary>The page's cards, in the order it draws them - what its
+    /// <c>SettingsSection.CardTitles</c> declares.</summary>
+    public const string UsageResetCardTitle = "Weekly usage reset";
+
+    public const string SpendBudgetCardTitle = "Monthly spend budget";
+
     private string _usageResetTimeDraft = string.Empty;
 
     private string? _usageResetError;

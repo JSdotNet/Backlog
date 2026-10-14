@@ -1,0 +1,1339 @@
+﻿@*
+    One page of the Settings screen, in a file of its own so a change to this
+    page is a change to this file. The screen (Settings.razor) keeps the menu,
+    the headline and the panel this is drawn in; what is on the page, and what it
+    writes, is here.
+
+    The namespace is the screen's rather than the folder's, and this folder has
+    no _Imports.razor, for the reason the note at the top of Settings.razor
+    gives.
+*@
+@namespace Backlog.Desktop.UI.Shell
+@inherits SettingsPageBase
+@using Backlog.SharedKernel
+@using Backlog.SharedKernel.Results
+@using Backlog.Modules.Tasks.Abstractions
+@using Backlog.Modules.Tasks.Abstractions.Services
+@using Backlog.Modules.Inbox.Abstractions.Services
+@using Backlog.Modules.Devbook.Abstractions
+@* Said in writing, which is the rule this project's _Imports.razor states for
+   reaching into a context. The devbook-source control is Devbook's, and
+   this page offers the same one its pane does rather than a second copy. *@
+@using Backlog.Desktop.UI.Devbook
+@* SelectField draws the account binding; written here because this folder
+   cannot have an _Imports of its own. *@
+@using Backlog.UI.Components.Selects
+@* The repositories table is the library's DataTable. *@
+@using Backlog.UI.Components.Data
+@inject GitHubIntegration GitHub
+@inject IAppFeatureSettings Features
+@inject ILocalGitRepositoryService LocalGit
+@inject IDevbookFolderSource DevbookFolders
+@inject DevbookSourceSelection DevbookSource
+@* The optional collaborators - the activity caches and the modules a rename
+   is carried into - are read off this rather than injected, so a host that
+   composes none of them can still render the page. *@
+@inject IServiceProvider Services
+@implements IDisposable
+
+@* The page's sentence for the frame's h1: how many repositories there are and
+   how many of them carry a devbook - the two counts the table below answers
+   row by row. *@
+<SettingsHeadline>@Headline</SettingsHeadline>
+
+<SettingsCard Title="Repositories"
+              Description="The repositories whose devbooks, sessions and pull requests Backlog reads."
+              TestId="repositories-card">
+    <Action>
+        <AppButton Variant="ButtonVariant.None"
+                   data-testid="add-repository-button"
+                   OnClick="AddRepositoryDraft">
+            Add repository
+        </AppButton>
+    </Action>
+    <ChildContent>
+<p class="setting__body">
+    Configure zero or more repositories Backlog can work with. GitHub needs an
+    <code>owner/repo</code> connection; local features also
+    need the clone directory on this machine.
+</p>
+
+@* The box carries its own border through `setting__input`, so the
+   library's grow wrapper is emitted without one and auto-grow stays
+   off - the rows count is what sizes this field. *@
+<TextArea Bare="true"
+          AutoGrow="false"
+          GrowCssClass=""
+          LabelCssClass="setting__label"
+          InputCssClass="@($"{SettingsScreenContext.SettingInputClass(_repoError)} setting__input--multiline")"
+          Label="@RepositoryInputLabel"
+          Id="github-repos"
+          data-testid="github-repos-input"
+          Rows="@RepositoryInputRows"
+          spellcheck="false"
+          autocomplete="off"
+          aria-describedby="github-repos-status"
+          Placeholder="@RepositoryInputPlaceholder"
+          Value="@_draftRepos"
+          ValueChanged="value => _draftRepos = value"
+          @onchange="ApplyRepositories" />
+
+<p class="setting__status" id="github-repos-status" data-testid="github-repos-status" role="status">
+    @if (_repoReplacedHint is not null)
+    {
+        @* Said once, on the save that did it, and beside the ordinary
+           summary rather than instead of it. Not an error — the save
+           went through — but the one edit in this box that reads like a
+           rename and is not one deserves a sentence pointing at the
+           control that is. *@
+        <span data-testid="github-repos-replaced-hint">@_repoReplacedHint </span>
+    }
+    @if (_repoError is not null)
+    {
+        <span class="setting__status--error">@_repoError</span>
+    }
+    else if (GitHub.Settings.RegistryError is { } registryError)
+    {
+        @* Said on load rather than only when somebody tries to write.
+           An unreadable registry composes to an empty list, and the
+           empty-list message below would read as "nobody has
+           configured one yet" - which is the opposite of the truth and
+           invites reconfiguring from scratch over a file that is
+           intact and simply unparseable. Naming the file is the
+           actionable half: it is the one thing to go and look at. *@
+        <span class="setting__status--error">@registryError</span>
+        <span>The registry is <code>@GitHub.Settings.RegistryPath</code>. Repositories stay as they are until it can be read.</span>
+    }
+    else if (!VisibleRepositories.Any())
+    {
+        <span>Nothing configured - entries show no repository controls until one is.</span>
+    }
+    else
+    {
+        <span>
+            <code>@VisibleRepositories.First().FullName</code> is configured@(VisibleRepositories.Count > 1 ? $", and {VisibleRepositories.Count - 1} more." : ".")
+            @* Razor drops the line break before a code block, so the space
+               between the two sentences has to be written out. *@
+            @(" ")
+            @if (AdditionalRepositoriesEnabled)
+            {
+                <span>Type <code>@("@" + VisibleRepositories.First().Alias)</code> on an entry to assign it to <code>@VisibleRepositories.First().FullName</code>.</span>
+            }
+            else
+            {
+                <span>The first configured repository is used for the single-repository backlog experience.</span>
+            }
+        </span>
+    }
+</p>
+
+@if (VisibleRepositories.Any())
+{
+    @* One row per repository, and its whole card under it when Edit is
+       pressed. A table rather than one sub-tab per repository: the row
+       says where each repository lives and what it reads without opening
+       it, and the card opens in place under the row it belongs to rather
+       than somewhere else on the page. One row is open at a time. The
+       table scrolls sideways inside its own box at a narrow width - the
+       library's frame does that - so the page never does.
+
+       Rows are keyed by the repository's id rather than its alias: a
+       registry can arrive with two rows sharing an alias, and two rows
+       under one key is a render Blazor refuses. *@
+    <DataTable TItem="GitHubRepositoryRef"
+               Items="@VisibleRepositories"
+               Columns="@RepositoryColumns"
+               RowKey="@(repository => repository.FullName)"
+               RowAttributes="@(repository => new Dictionary<string, object> { ["data-repository"] = repository.Alias })"
+               HasRowDetail="@IsExpanded"
+               AriaLabel="Repositories"
+               RowNoun="repository"
+               CssClass="repo-table"
+               TestId="repo-table">
+        <Row Context="repository">
+            <th scope="row" class="repo-table__alias">
+                <span class="repo-table__mark @($"repo-swatch--{ColourOf(repository)}")" aria-hidden="true"></span>
+                <span>@repository.Alias</span>
+            </th>
+            <td class="data-table__mono" data-testid="repo-table-folder">@(string.IsNullOrWhiteSpace(repository.CloneDirectory) ? "Not set" : repository.CloneDirectory)</td>
+            <td data-testid="repo-table-devbook">
+                @if (DevbookFolderSummary(repository) is { } devbook)
+                {
+                    <span class="data-table__mono">@devbook</span>
+                }
+                else
+                {
+                    <span>None</span>
+                }
+            </td>
+            <td data-testid="repo-table-account">@(repository.Account ?? "Default")</td>
+            <td class="repo-table__edit">
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           TestId="repo-edit"
+                           aria-label="@($"Edit {repository.Alias}")"
+                           aria-expanded="@(IsExpanded(repository) ? "true" : "false")"
+                           OnClick="() => ToggleRepository(repository)">
+                    @(IsExpanded(repository) ? "Done" : "Edit")
+                </AppButton>
+            </td>
+        </Row>
+        <RowDetail Context="activeRepo">
+            <article class="repo-card"
+                     data-testid="github-repo-card"
+                     aria-label="@($"{activeRepo.FullName} repository settings")">
+            <header class="repo-card__header">
+                <div>
+                    <h3 class="repo-card__title">@activeRepo.FullName</h3>
+                    <p class="repo-card__meta">
+                        Area <code>@("@" + activeRepo.Alias)</code>
+                    </p>
+                    @if (_renameNoteAlias == activeRepo.Alias && _renameNote is not null)
+                    {
+                        @* Said once, on the card it concerns, beside the
+                           name it now carries: a rename is a result to
+                           report, not an error to clear. *@
+                        <p class="setting__status" data-testid="repo-rename-note" role="status">@_renameNote</p>
+                    }
+                </div>
+
+                @* Rename before Remove, in the order somebody reaching
+                   for one of them would want to meet them: the one that
+                   keeps everything, then the one that keeps nothing. *@
+                <div class="repo-card__actions">
+                    <AppButton Variant="ButtonVariant.None"
+                               data-testid="rename-repository-button"
+                               OnClick="() => BeginRename(activeRepo)">
+                        Rename
+                    </AppButton>
+                    <AppButton Variant="ButtonVariant.None"
+                               data-testid="remove-repository-button"
+                               OnClick="() => RemoveRepository(activeRepo)">
+                        Remove repository
+                    </AppButton>
+                </div>
+            </header>
+
+            @if (_renamingAlias == activeRepo.Alias)
+            {
+                @* A rename is asked for by name rather than read out of
+                   the repositories box above, because the box cannot tell
+                   a rename from a replacement — and for a line written
+                   without an alias of its own, the two are the same edit.
+                   Asked for here, the repository keeps its clone directory,
+                   colour, account and devbook settings under the new name,
+                   and every entry and inbox item filed against the old
+                   name follows it. *@
+                <div class="repo-card__section" data-testid="repo-rename">
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="@SettingsScreenContext.SettingInputClass(_renameError)"
+                               Label="@($"New name for {activeRepo.FullName}")"
+                               Id="@($"rename-{activeRepo.Alias}")"
+                               data-testid="repo-rename-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               aria-describedby="@($"rename-status-{activeRepo.Alias}")"
+                               Placeholder="owner/repo"
+                               Value="@_renameDraft"
+                               ValueChanged="value => _renameDraft = value"
+                               @onkeydown="e => OnRenameKeyDownAsync(e, activeRepo)" />
+                    <p class="setting__status" id="@($"rename-status-{activeRepo.Alias}")" data-testid="repo-rename-status" role="status">
+                        @if (_renameError is not null)
+                        {
+                            <span class="setting__status--error">@_renameError</span>
+                        }
+                        else
+                        {
+                            <span>The repository keeps its settings under the new name, and every entry and inbox item filed against <code>@activeRepo.FullName</code> follows it.</span>
+                        }
+                    </p>
+                    <div class="setting__actions">
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="repo-rename-apply"
+                                   OnClick="() => ApplyRenameAsync(activeRepo)">
+                            Rename repository
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="repo-rename-cancel"
+                                   OnClick="CancelRename">
+                            Cancel
+                        </AppButton>
+                    </div>
+                </div>
+            }
+
+            @* Which colour this repository wears everywhere it appears —
+               the filter above the backlog, its roadmap band, its entries
+               and the sessions under them. Here rather than on any one of
+               those surfaces, because it is one fact about the repository
+               and a surface that chose its own would be a second answer to
+               the same question.
+
+               A radiogroup: five hues and a default, exactly one of which
+               holds at a time. Reset is a button and not a sixth swatch —
+               it is not one more colour to sit among them, it is the
+               taking back of a choice. *@
+            <div class="repo-card__section" data-testid="repo-colour">
+                <h4 class="devbook-folders__title">Colour</h4>
+                <p class="setting__note">
+                    A quiet marker on this repository's filter, roadmap band and entries. Leave it on default and Backlog picks one that no other repository is using.
+                </p>
+
+                <div class="repo-swatches" role="radiogroup" aria-label="@($"Colour for {activeRepo.FullName}")">
+                    @for (var option = 1; option <= RepositoryColours.Available; option++)
+                    {
+                        var colour = option;
+                        var chosen = activeRepo.Colour == colour;
+
+                        <AppButton BaseClass="@($"repo-swatch repo-swatch--{colour}")"
+                                   Variant="ButtonVariant.None"
+                                   CssClass="@(chosen ? "repo-swatch--chosen" : null)"
+                                   TestId="@($"repo-colour-{colour}")"
+                                   role="radio"
+                                   aria-checked="@(chosen ? "true" : "false")"
+                                   aria-label="@($"Colour {colour}")"
+                                   Title="@($"Colour {colour}")"
+                                   OnClick="() => ApplyRepositoryColour(activeRepo, colour)" />
+                    }
+
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="repo-colour-reset"
+                               Disabled="@(activeRepo.Colour is null)"
+                               OnClick="() => ApplyRepositoryColour(activeRepo, null)">
+                        Reset to default
+                    </AppButton>
+                </div>
+
+                <p class="setting__status" data-testid="repo-colour-status" role="status">
+                    @RepositoryColourSummary(activeRepo)
+                </p>
+            </div>
+
+            @* Which of this machine's accounts calls for this repository go
+               out as. Beside the colour and for the same reason: it is one
+               fact about the repository rather than about any one surface,
+               and it is shared workspace data, so it lives here rather than
+               in the textarea's grammar - which is a thing you type, while
+               an account is a thing you pick.
+
+               A SelectField and not a radiogroup of buttons. A colour has to
+               be seen to be chosen; an account is a name from a list, which
+               is the shape the library already draws - and its empty option
+               carries the unbound state, so nothing has to be reset. *@
+            @if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
+            {
+                <div class="repo-card__section" data-testid="repo-account">
+                    <h4 class="devbook-folders__title">Account</h4>
+                    <p class="setting__note">
+                        Leave it on the default and calls go out as whichever account this
+                        machine is signed in as, which is what Backlog has always done.
+                        Accounts are added on the Accounts tab.
+                    </p>
+
+                    <SelectField Form="true"
+                                 Label="Worked as"
+                                 Id="@($"repo-account-{activeRepo.Alias}")"
+                                 TestId="repo-account-select"
+                                 LabelCssClass="setting__label"
+                                 SelectCssClass="setting__input"
+                                 CurrentValue="@activeRepo.Account"
+                                 Options="@AccountOptions(activeRepo)"
+                                 IncludeEmptyOption="true"
+                                 EmptyLabel="Default (whichever account this machine is signed in as)"
+                                 HelpText="@($"The identity {activeRepo.FullName}'s calls leave as.")"
+                                 OnChanged="login => ApplyRepositoryAccount(activeRepo, login)" />
+
+                    <p class="setting__status" data-testid="repo-account-status" role="status">
+                        @{ var binding = Screen.RepositoryBinding(activeRepo); }
+                        @if (binding.IsUnsatisfied)
+                        {
+                            <span class="setting__status--error">@SettingsScreenContext.BindingProblem(binding)</span>
+                        }
+                        else
+                        {
+                            <span>@BindingSummary(binding)</span>
+                        }
+                    </p>
+                </div>
+            }
+
+            @* Two columns: how this machine reaches the repository,
+               and which of its knowledge folders Backlog reads. *@
+            <div class="setting-columns">
+                <div>
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Local clone directory"
+                               Id="@($"clone-{activeRepo.Alias}")"
+                               data-testid="repo-clone-directory-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="@($"C:\\Repos\\{activeRepo.Name}")"
+                               Value="@CloneDirectoryDraft(activeRepo)"
+                               ValueChanged="value => _draftCloneDirectories[activeRepo.Alias] = value"
+                               @onchange="() => ApplyCloneDirectory(activeRepo.Alias)"
+                               @onkeydown="e => OnClonePathKeyDown(e, activeRepo)" />
+                    <p class="setting__status" data-testid="repo-clone-status" role="status">
+                        @{ var cloneStatus = CloneStatus(activeRepo); }
+                        @if (cloneStatus.IsCloned)
+                        {
+                            <span>Local clone: <code>@cloneStatus.CloneDirectory</code></span>
+                        }
+                        else
+                        {
+                            <span>@cloneStatus.Summary</span>
+                        }
+                    </p>
+                    <div class="setting__actions">
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="repo-clone-button"
+                                   Disabled="@(!CanClone(activeRepo))"
+                                   OnClick="() => CloneRepositoryAsync(activeRepo)">
+                            @CloneButtonText(activeRepo)
+                        </AppButton>
+                    </div>
+
+                    @* The pull requests pane's label filter. Stored on the
+                       repository's registry row, so it travels with the
+                       workspace to a paired device; saved when the field is
+                       left, the way the clone directory is, and only on
+                       change — Enter in a text field raises change, so a
+                       keydown handler beside it would save twice. *@
+                    <div class="repo-card__section" data-testid="repo-pull-request-labels">
+                        <h4 class="devbook-folders__title">Pull requests</h4>
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="@SettingsScreenContext.SettingInputClass(PullRequestLabelsError(activeRepo))"
+                                   Label="Pull request labels"
+                                   Id="@($"pull-request-labels-{activeRepo.Alias}")"
+                                   data-testid="repo-pull-request-labels-input"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Placeholder="frontend, design"
+                                   HelpText="@($"Comma-separated. When set, the pull requests pane lists only {activeRepo.FullName}'s pull requests carrying any of these labels. Pinned pull requests are always listed.")"
+                                   ErrorMessage="@PullRequestLabelsError(activeRepo)"
+                                   Value="@PullRequestLabelsDraft(activeRepo)"
+                                   ValueChanged="value => _draftPullRequestLabels[activeRepo.Alias] = value"
+                                   @onchange="() => ApplyPullRequestLabels(activeRepo.Alias)" />
+                    </div>
+
+                    @* Where this repository's knowledge is read from.
+                       One control for what is stored as two settings:
+                       the branch travels with the workspace, the
+                       decision to read the clone instead is this
+                       machine's, and nobody choosing between them
+                       thinks of that as two questions. *@
+                    <div class="repo-card__section" data-testid="repo-devbook-source">
+                        <h4 class="devbook-folders__title">Devbook source</h4>
+                        @* Keyed for the reason the pane's copy is:
+                           loading the branch list has to rebuild the
+                           control, or the browser keeps the value of
+                           the entry that triggered the load and shows
+                           a branch nobody selected. *@
+                        <SelectField @key="@($"{activeRepo.Alias}:{DevbookSource.HasBranches(activeRepo.Alias)}")"
+                                     LabelCssClass="setting__label"
+                                     SelectCssClass="setting__input"
+                                     Label="Read the devbook from"
+                                     Id="@($"devbook-source-{activeRepo.Alias}")"
+                                     TestId="repo-devbook-source-select"
+                                     CurrentValue="@DevbookSource.CurrentValue(activeRepo.Alias)"
+                                     Options="@DevbookSource.Options(activeRepo.Alias)"
+                                     OnChanged="value => ApplyDevbookSourceAsync(activeRepo, value)" />
+                        <p class="setting__status" data-testid="repo-devbook-source-status" role="status">
+                            @DevbookSource.Summary(activeRepo.Alias)
+                        </p>
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="repo-devbook-branches-button"
+                                       Disabled="@_loadingBranches"
+                                       OnClick="() => LoadBranchesAsync(activeRepo)">
+                                @(_loadingBranches ? "Loading branches..." : "Load branches")
+                            </AppButton>
+                        </div>
+                        <Alert Message="@_branchError" TestId="repo-devbook-branches-error" />
+                    </div>
+
+                    @* The dashboard's pull-request detail is kept on
+                       this machine because a merged pull request's
+                       reviews, churn and size cannot change again.
+                       That is only true while the copy matches the
+                       repository, so there has to be a way back -
+                       and it is per repository, because a rewritten
+                       history is one repository's problem and
+                       re-reading the others would be a long fetch
+                       for nothing. Present only when the app is
+                       actually keeping one, the way the Devices
+                       panel treats its collaborators. *@
+                    @if (_activityCache is not null)
+                    {
+                        <div class="repo-card__section" data-testid="repo-activity-cache">
+                            <h4 class="devbook-folders__title">Dashboard activity</h4>
+                            <p class="setting__note">
+                                Merged pull requests and closed issues are kept on this machine, with each pull request's review, churn and size detail, so opening the dashboard only walks the pages that changed since and fetches the pull requests it has not seen. Nothing about a merged pull request changes, so the saved copy stays right unless <code>@activeRepo.FullName</code> had its history rewritten.
+                            </p>
+                            <p class="setting__status" data-testid="repo-activity-cache-status" role="status">
+                                @ActivityCacheStatus(activeRepo)
+                            </p>
+                            <div class="setting__actions">
+                                <AppButton Variant="ButtonVariant.None"
+                                           data-testid="repo-activity-cache-forget"
+                                           OnClick="() => ForgetActivityCache(activeRepo)">
+                                    Forget this repository's saved pull requests and issues
+                                </AppButton>
+                            </div>
+                        </div>
+                    }
+
+                    @if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
+                    {
+                        <div class="repo-card__section" data-testid="repo-github-access">
+                            <h4 class="devbook-folders__title">GitHub access</h4>
+                            <p class="setting__note">
+                                Signing in with the GitHub CLI is preferred. This repository token is only used as a fallback for <code>@activeRepo.FullName</code> when <code>gh</code> is not signed in.
+                            </p>
+                            <p class="setting__status" data-testid="github-connection-status" role="status">
+                                @(Screen.IsCheckingConnection || Screen.Connection is null ? "Checking how this machine can reach GitHub..." : Screen.Connection.Summary)
+                            </p>
+                            <TextField Bare="true"
+                                       LabelCssClass="setting__label"
+                                       InputCssClass="setting__input"
+                                       Label="Personal access token"
+                                       Id="@($"github-token-{activeRepo.Alias}")"
+                                       data-testid="github-token-input"
+                                       Type="password"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       Placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
+                                       Value="@RepositoryTokenDraft(activeRepo)"
+                                       ValueChanged="value => _draftTokens[activeRepo.Alias] = value"
+                                       @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
+                                       @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
+                            <div class="setting__actions">
+                                <AppButton Variant="ButtonVariant.None"
+                                           data-testid="github-recheck-button"
+                                           OnClick="Screen.CheckConnectionAsync">
+                                    Check the connection
+                                </AppButton>
+                                <AppButton Variant="ButtonVariant.None"
+                                           data-testid="github-clear-token-button"
+                                           Disabled="@(activeRepo.Token is null)"
+                                           OnClick="() => ClearRepositoryTokenAsync(activeRepo)">
+                                    Forget this repository token
+                                </AppButton>
+                            </div>
+                            <p class="setting__note">
+                                Tokens are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately outside the backlog folder, so they are never synced or committed with entries.
+                            </p>
+                        </div>
+                    }
+                </div>
+
+                <div class="devbook-folders" data-testid="devbook-folder-settings">
+                    <h4 class="devbook-folders__title">Devbook sections</h4>
+                    <p class="setting__note">
+                        Repository knowledge folders default to their conventional paths.
+                        Clear an override to return to the default, or turn a section off for this repository.
+                        Instructions are on/off only and use Backlog's standard repository discovery.
+                    </p>
+
+                    <div class="devbook-folder-list">
+                        @foreach (var folder in activeRepo.DevbookFolders)
+                        {
+                            var devbookInputId = $"devbook-{activeRepo.Alias}-{folder.Key.TrimStart('.')}";
+
+                            @* Asked of the module port rather than checked here, so the row
+                               reports what a reader of this folder would actually get - and
+                               says "add a clone directory" or "not a valid path" where those
+                               are the real answer, instead of a flat "missing". Nothing to
+                               resolve for a section that is off or has no folder of its own. *@
+                            var location = folder.Enabled && folder.SupportsPathOverride
+                                ? DevbookFolders.Resolve(folder.Key, activeRepo.Alias)
+                                : null;
+
+                            <div class="devbook-folder" data-testid="devbook-folder-row">
+                                <Checkbox CssClass="devbook-folder__toggle"
+                                          Label="@folder.DisplayName"
+                                          Checked="@folder.Enabled"
+                                          CheckedChanged="enabled => SetDevbookFolderEnabled(activeRepo, folder, enabled)"
+                                          data-testid="devbook-folder-enabled">
+                                    <code>@folder.Key</code>
+                                </Checkbox>
+
+                                @if (folder.SupportsPathOverride)
+                                {
+                                    <TextField Bare="true"
+                                               InputCssClass="setting__input"
+                                               Id="@devbookInputId"
+                                               data-testid="devbook-folder-path-input"
+                                               spellcheck="false"
+                                               autocomplete="off"
+                                               Disabled="@(!folder.Enabled)"
+                                               Placeholder="@folder.DefaultRelativePath"
+                                               AriaLabel="@($"{activeRepo.FullName} {folder.DisplayName} folder path")"
+                                               Value="@DevbookPathDraft(activeRepo, folder)"
+                                               ValueChanged="value => _draftDevbookPaths[DevbookDraftKey(activeRepo.Alias, folder.Key)] = value"
+                                               Suffix="@DevbookFolderMarker(location)"
+                                               @onchange="() => ApplyDevbookFolderPath(activeRepo, folder)"
+                                               @onkeydown="e => OnDevbookPathKeyDown(e, activeRepo, folder)" />
+                                }
+
+                                <p class="devbook-folder__status"
+                                   data-testid="devbook-folder-status"
+                                   data-folder-state="@DevbookFolderState(location)">
+                                    @if (!folder.Enabled)
+                                    {
+                                        <span>Off for this repository.</span>
+                                    }
+                                    else if (!folder.SupportsPathOverride)
+                                    {
+                                        <span>Uses standard repository instruction discovery.</span>
+                                    }
+                                    else
+                                    {
+                                        @if (string.IsNullOrWhiteSpace(folder.Path))
+                                        {
+                                            @* Resolution falls back to the legacy root folder on its own, so
+                                               the row names the one it actually found: a repository still on
+                                               the root layout should not read as if it were using .devbook/. *@
+                                            @if (location!.Available && location.Folder?.ResolvedPath is { } legacy)
+                                            {
+                                                <span>Uses <code>@legacy</code> at the repository root, the layout before <code>@DevbookFolderSetting.DevbookRoot/</code>.</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Uses <code>@folder.DefaultRelativePath</code>.</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span>Uses <code>@folder.EffectivePath</code>.</span>
+                                        }
+
+                                        @* Nothing is added when the folder is there: the marker in the
+                                           field above has already said so, and a sentence repeating it
+                                           was the redundancy. Only the absent case has something left
+                                           to say - which path was looked at, or that no clone directory
+                                           is configured yet - and the reason comes from the port rather
+                                           than being reworded here, because which of the three ways a
+                                           folder can be absent it is decides what to do about it. *@
+                                        @if (!location!.Available)
+                                        {
+                                            @* The space is written out because Razor drops whitespace-only
+                                               text between elements, and these two spans are one sentence
+                                               apiece: without it the line reads "at the repository
+                                               root.Architecture knowledge folder was not found at ...". *@
+                                            @(" ")
+                                            @* A branch being fetched for the first time is news, not a
+                                               fault: nothing here is wrong and nothing needs fixing, so it
+                                               wears the pending modifier and the row re-renders when the
+                                               folder source announces the download landed. *@
+                                            <span class="@(location.Pending ? "devbook-folder__status--pending" : "devbook-folder__status--error")">@location.Message</span>
+                                        }
+                                    }
+                                </p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            </article>
+        </RowDetail>
+    </DataTable>
+}
+    </ChildContent>
+</SettingsCard>
+
+
+@code {
+    private string _draftRepos = string.Empty;
+    private string? _repoError;
+
+    /// <summary>The sentence pointing at Rename after a save of the repositories
+    /// text that both removed a repository and added one — or null when the last
+    /// save did no such thing.</summary>
+    private string? _repoReplacedHint;
+
+    /// <summary>The alias of the repository whose rename form is open, or null
+    /// while none is. One at a time: the form sits on the card, and a card shows
+    /// one repository.</summary>
+    private string? _renamingAlias;
+    private string _renameDraft = string.Empty;
+    private string? _renameError;
+
+    /// <summary>What the last rename did — the new name, and how many entries
+    /// and inbox items followed — and which repository it was, so the sentence
+    /// shows on that card alone.</summary>
+    private string? _renameNote;
+    private string? _renameNoteAlias;
+    private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftPullRequestLabels = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _pullRequestLabelsErrors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftDevbookPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
+    /// <summary>The id (<c>owner/name</c>) of the repository whose row is open, or
+    /// null while every row is closed. An id rather than an alias, because a
+    /// registry can carry two rows under one alias and only one of them is being
+    /// edited; a rename moves it to the new id.</summary>
+    private string? _expandedId;
+
+    /// <summary>The table's headings, in the order the row template draws its
+    /// cells. The last one is the Edit button's, and says so to a screen reader
+    /// even though nothing is printed above it.</summary>
+    private static readonly IReadOnlyList<DataTableColumn> RepositoryColumns =
+    [
+        new("Alias"),
+        new("Local folder"),
+        new("Devbook folder"),
+        new("GitHub account"),
+        new("Actions", "repo-table__edit-heading"),
+    ];
+
+    private bool AdditionalRepositoriesEnabled => Features.IsEnabled(TasksFeatures.AdditionalRepositories);
+
+    private string RepositoryInputLabel => "Repositories";
+
+    private int RepositoryInputRows => Math.Max(4, GitHub.Repositories.Count + 1);
+
+    private string RepositoryInputPlaceholder => "JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs";
+
+    private IReadOnlyList<GitHubRepositoryRef> VisibleRepositories => GitHub.Repositories;
+
+    protected override void OnInitialized()
+    {
+        _activityCache = Services.GetService<IPullRequestDetailCache>();
+        _listingCache = Services.GetService<IActivityListingCache>();
+
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+
+        // The repositories' drafts were refilled when a feature was switched,
+        // as they were when this page and the Features page were one screen.
+        Screen.FeaturesChanged += OnFeaturesChanged;
+    }
+
+    private void OnFeaturesChanged()
+    {
+        _draftRepos = RepositorySettingsText();
+        EnsureExpandedRepository();
+    }
+
+    public void Dispose() => Screen.FeaturesChanged -= OnFeaturesChanged;
+
+    /// <summary>The frame's headline: how many repositories, and how many of them
+    /// carry a devbook a reader would find.</summary>
+    private string Headline
+    {
+        get
+        {
+            var count = VisibleRepositories.Count;
+            var withDevbook = VisibleRepositories.Count(repository => DevbookFolderSummary(repository) is not null);
+
+            return $"{count} {(count == 1 ? "repository" : "repositories")} registered, {withDevbook} with a devbook.";
+        }
+    }
+
+    private bool IsExpanded(GitHubRepositoryRef repository) =>
+        string.Equals(_expandedId, repository.FullName, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Edit opens the row and closes whichever was open; Done closes it.
+    /// One at a time, because the card under a row is as tall as a page and two of
+    /// them open would push the table's other rows out of reach.</summary>
+    private void ToggleRepository(GitHubRepositoryRef repository)
+    {
+        _expandedId = IsExpanded(repository) ? null : repository.FullName;
+
+        // A rename form left open belongs to the card it was opened on, so it
+        // closes with it rather than reappearing the next time that row opens.
+        CancelRename();
+    }
+
+    /// <summary>The colour the repository wears everywhere else: its chosen one,
+    /// or the one the default picked for it.</summary>
+    private int ColourOf(GitHubRepositoryRef repository) =>
+        GitHub.Settings.Current.Colours().GetValueOrDefault(repository.Alias, 1);
+
+    /// <summary>
+    /// Where this repository's devbook is, for its row, or null when no section of
+    /// it is there to read. Asked of the folder source, as each section's row on the
+    /// card is, so the table and the card cannot disagree about whether there is one.
+    /// <para>
+    /// The sections share a parent in either layout's usual shape, so the row names
+    /// that parent - <c>.devbook</c> - rather than five paths; a layout whose found
+    /// sections share none is listed by section instead.
+    /// </para>
+    /// </summary>
+    private string? DevbookFolderSummary(GitHubRepositoryRef repository)
+    {
+        var found = repository.DevbookFolders
+            .Where(folder => folder.Enabled && folder.SupportsPathOverride)
+            .Select(folder => DevbookFolders.Resolve(folder.Key, repository.Alias))
+            .Where(location => location.Available)
+            .Select(location => (location.Folder?.EffectivePath ?? string.Empty).Replace('\\', '/').TrimEnd('/'))
+            .Where(path => path.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (found.Count == 0) return null;
+
+        var parents = found
+            .Select(path => path.LastIndexOf('/') is var slash and > 0 ? path[..slash] : string.Empty)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return parents is [{ Length: > 0 } parent] ? parent : string.Join(", ", found);
+    }
+
+    /// <summary>
+    /// Records the repository's colour, or clears it back to automatic. No save
+    /// button, the way every other choice on this screen works.
+    /// </summary>
+    private void ApplyRepositoryColour(GitHubRepositoryRef repository, int? colour) =>
+        _repoError = GitHub.Settings.SetRepositoryColour(repository.Alias, colour);
+
+    /// <summary>What the reader is actually getting, said in words — because the
+    /// swatches are the only thing on this screen that carries its meaning in colour,
+    /// and a reader who cannot see which one is ringed still has to be able to tell
+    /// whether they have chosen or are on the default.</summary>
+    private string RepositoryColourSummary(GitHubRepositoryRef repository)
+    {
+        var effective = GitHub.Settings.Current.Colours().GetValueOrDefault(repository.Alias);
+
+        return repository.Colour is null
+            ? $"Default — colour {effective}, chosen from the ones no other repository has claimed."
+            : $"Colour {repository.Colour} for {repository.FullName}.";
+    }
+
+    /// <summary>Commits the repository list. Lines that aren't repositories are
+    /// reported and skipped rather than throwing away the ones around them —
+    /// a half-typed line is an ordinary thing to have in a text box.
+    /// <para>
+    /// The box cannot rename: rows are continued by id, so a line whose
+    /// <c>owner/name</c> changed is a removed repository beside a new one. A save
+    /// that did both is the shape a rename typed here would take, so it is the
+    /// one save that earns a sentence pointing at the Rename control — after the
+    /// fact, because refusing the edit would refuse every genuine swap too.
+    /// </para></summary>
+    private void ApplyRepositories()
+    {
+        var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
+        var messages = new List<string>(errors);
+        var before = GitHub.Settings.Current.Repositories.Select(r => r.FullName).ToList();
+
+        var saveError = GitHub.Settings.SetRepositories(repositories);
+        if (saveError is not null) messages.Add(saveError);
+        _repoError = messages.Count > 0 ? string.Join(" ", messages) : null;
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+
+        var after = GitHub.Settings.Current.Repositories.Select(r => r.FullName).ToList();
+        var removed = before.Where(id => !after.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+        var added = after.Where(id => !before.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+
+        _repoReplacedHint = removed.Count > 0 && added.Count > 0
+            ? $"Removed {string.Join(", ", removed)} and added {string.Join(", ", added)}. To rename a repository and keep its settings and entries, use Rename on its card."
+            : null;
+
+        // A repository just added is the one about to be set up, so its row opens
+        // on the save that added it - the last one, when a paste added several.
+        if (added.Count > 0)
+        {
+            _expandedId = added[^1];
+            CancelRename();
+        }
+    }
+
+    private void BeginRename(GitHubRepositoryRef repository)
+    {
+        _renamingAlias = repository.Alias;
+        _renameDraft = repository.FullName;
+        _renameError = null;
+    }
+
+    private void CancelRename()
+    {
+        _renamingAlias = null;
+        _renameDraft = string.Empty;
+        _renameError = null;
+    }
+
+    private async Task OnRenameKeyDownAsync(KeyboardEventArgs e, GitHubRepositoryRef repository)
+    {
+        if (e.Key == "Enter") await ApplyRenameAsync(repository);
+        else if (e.Key == "Escape") CancelRename();
+    }
+
+    /// <summary>
+    /// Applies the rename the form asks for: the store moves its row and records
+    /// the move, and the entries and inbox items filed against the old id are
+    /// carried across here, one call per module. The registry's record means the
+    /// next start would carry them anyway; doing it now is what lets the card say
+    /// how many followed, and what spares the working set a session pointing at
+    /// a coordinate the registry no longer lists.
+    /// <para>
+    /// A refusal from the store is the form's to show and leaves the form open:
+    /// a name that is not a coordinate, or is taken, is a thing to correct, not
+    /// a thing to have tried. Idempotent against the second commit an Enter key
+    /// can raise, because a form that has closed has nothing left to apply.
+    /// </para>
+    /// </summary>
+    private async Task ApplyRenameAsync(GitHubRepositoryRef repository)
+    {
+        if (_renamingAlias != repository.Alias) return;
+
+        var error = GitHub.Settings.RenameRepository(repository.Alias, _renameDraft, out var rename);
+        if (rename is null)
+        {
+            _renameError = error;
+            return;
+        }
+
+        _repoError = error;
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+        CancelRename();
+
+        // The open row follows the repository to its new id. A merge leaves no
+        // row under the renamed one, so the note goes on the repository it was
+        // folded into, and that row is the one left open.
+        var kept = GitHub.Settings.Current.Find(rename.NewId);
+        var merged = kept is not null && kept.Alias != repository.Alias;
+        _expandedId = kept?.FullName;
+
+        _renameNote = await FollowRenameAsync(rename, merged);
+        _renameNoteAlias = kept?.Alias ?? repository.Alias;
+    }
+
+    /// <summary>
+    /// Re-points the entries and inbox items that named the renamed repository
+    /// by its old id, and words what happened for the card.
+    /// <para>
+    /// The two modules are optional here — a host that composes Settings without
+    /// them (the storybook, a unit test) has nothing to carry — so each is
+    /// resolved rather than injected, as the sync services above are. A module
+    /// that refuses is reported in the same breath rather than swallowed: the
+    /// registry has already moved on, and an entry left behind is exactly the
+    /// thing somebody would want to know about — though the next start's pass
+    /// will try it again.
+    /// </para>
+    /// </summary>
+    private async Task<string> FollowRenameAsync(RepositoryRename rename, bool merged)
+    {
+        var tasks = Services.GetService<ITaskItems>();
+        var inbox = Services.GetService<IInboxItems>();
+
+        var entries = tasks is null ? 0 : await CountOrReport(tasks.RenameRepositoryAsync(rename.OldId, rename.NewId), "Entries");
+        var items = inbox is null ? 0 : await CountOrReport(inbox.RenameRepositoryAsync(rename.OldId, rename.NewId), "Inbox items");
+
+        return $"{(merged ? "Merged" : "Renamed")} {rename.OldId} {(merged ? "into" : "to")} {rename.NewId}; {Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.";
+
+        async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
+        {
+            var result = await rewrite;
+            if (result.IsSuccess) return result.Value;
+
+            var message = $"{what} could not follow the rename: {result.Error.Message}";
+            _repoError = _repoError is null ? message : $"{_repoError} {message}";
+            return 0;
+        }
+
+        static string Plural(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";
+    }
+
+
+    private void AddRepositoryDraft()
+    {
+        var separator = string.IsNullOrWhiteSpace(_draftRepos) ? string.Empty : Environment.NewLine;
+        _draftRepos = $"{_draftRepos}{separator}new-repository = owner/repo";
+        _repoError = "Replace the placeholder with the repository owner/repo, then leave the field to save it.";
+    }
+
+    private string CloneDirectoryDraft(GitHubRepositoryRef repo)
+    {
+        if (!_draftCloneDirectories.TryGetValue(repo.Alias, out var draft))
+        {
+            draft = repo.CloneDirectory ?? string.Empty;
+            _draftCloneDirectories[repo.Alias] = draft;
+        }
+
+        return draft;
+    }
+
+    /// <summary>
+    /// The badge inside the path field, or nothing at all for a section that was
+    /// never looked up - off, or with no folder of its own. Returning null rather
+    /// than an empty fragment is what keeps the field's suffix box off those rows
+    /// entirely, so their input keeps the width it always had.
+    /// </summary>
+    /// <remarks>
+    /// The sentence under the field no longer says "Folder found.", so this badge
+    /// is where that fact lives: it carries its own accessible name rather than
+    /// leaving the answer to the colour, and the two states differ by glyph as
+    /// well as by fill for a reader who sees neither.
+    /// </remarks>
+    private static RenderFragment? DevbookFolderMarker(DevbookFolderLocation? location)
+    {
+        if (location is null) return null;
+
+        return location.Available
+            ? @<span class="devbook-folder__marker devbook-folder__marker--found"
+                     data-testid="devbook-folder-marker"
+                     role="img"
+                     aria-label="Folder found.">✓</span>
+            : @<span class="devbook-folder__marker devbook-folder__marker--missing"
+                     data-testid="devbook-folder-marker"
+                     role="img"
+                     aria-label="Folder not found.">✕</span>;
+    }
+
+    /// <summary>Whether the configured folder is there, for anything reading the row
+    /// from outside - a test, or automation. Null for a section that was never looked
+    /// up, so the attribute is left off rather than claiming a state it has not
+    /// got.</summary>
+    private static string? DevbookFolderState(DevbookFolderLocation? location) => location switch
+    {
+        null => null,
+        { Available: true } => "found",
+        { Pending: true } => "pending",
+        _ => "missing"
+    };
+
+    private string DevbookPathDraft(GitHubRepositoryRef repo, DevbookFolderSetting folder)
+    {
+        var key = DevbookDraftKey(repo.Alias, folder.Key);
+        if (!_draftDevbookPaths.TryGetValue(key, out var draft))
+        {
+            draft = folder.Path ?? string.Empty;
+            _draftDevbookPaths[key] = draft;
+        }
+
+        return draft;
+    }
+
+    private void RemoveRepository(GitHubRepositoryRef repository)
+    {
+        _repoError = GitHub.Settings.RemoveRepository(repository.Alias);
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+    }
+
+    private void ApplyCloneDirectory(string alias)
+    {
+        _draftCloneDirectories.TryGetValue(alias, out var value);
+        _repoError = GitHub.Settings.SetCloneDirectory(alias, value);
+        SyncRepositoryDrafts();
+    }
+
+    /// <summary>The label filter as the field shows it: what is being typed, else
+    /// the stored labels joined the way they are typed.</summary>
+    private string PullRequestLabelsDraft(GitHubRepositoryRef repo)
+    {
+        if (!_draftPullRequestLabels.TryGetValue(repo.Alias, out var draft))
+        {
+            draft = string.Join(", ", repo.PullRequestLabels);
+            _draftPullRequestLabels[repo.Alias] = draft;
+        }
+
+        return draft;
+    }
+
+    private string? PullRequestLabelsError(GitHubRepositoryRef repo) =>
+        _pullRequestLabelsErrors.TryGetValue(repo.Alias, out var error) ? error : null;
+
+    /// <summary>Saves the label filter as the field was left. The store trims,
+    /// de-duplicates and drops empty parts, so the field is redrawn from what it
+    /// kept rather than from what was typed.</summary>
+    private void ApplyPullRequestLabels(string alias)
+    {
+        _draftPullRequestLabels.TryGetValue(alias, out var value);
+        var labels = (value ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        var error = GitHub.Settings.SetPullRequestLabels(alias, labels);
+        if (error is null)
+        {
+            _pullRequestLabelsErrors.Remove(alias);
+            _draftPullRequestLabels.Remove(alias);
+        }
+        else
+        {
+            _pullRequestLabelsErrors[alias] = error;
+        }
+    }
+
+    /// <summary>
+    /// The devbook-source control is <see cref="DevbookSourceSelection"/>'s,
+    /// not this screen's. The pane offers the same choice, and two copies of the
+    /// options would drift the first time a case was added to one of them.
+    /// </summary>
+    private async Task ApplyDevbookSourceAsync(GitHubRepositoryRef repository, string? value)
+    {
+        if (DevbookSourceSelection.IsLoadRequest(value))
+        {
+            await LoadBranchesAsync(repository);
+            return;
+        }
+
+        _repoError = DevbookSource.Select(repository.Alias, value);
+        SyncRepositoryDrafts();
+    }
+
+    private async Task LoadBranchesAsync(GitHubRepositoryRef repository)
+    {
+        _branchError = null;
+        _loadingBranches = true;
+
+        try
+        {
+            _branchError = await DevbookSource.LoadBranchesAsync(repository.Alias, CancellationToken.None);
+        }
+        finally
+        {
+            _loadingBranches = false;
+        }
+    }
+
+    private bool _loadingBranches;
+    private string? _branchError;
+
+    // ---- Dashboard activity detail --------------------------------------
+
+    /// <summary>Resolved rather than injected, for the reason the Devices panel's
+    /// collaborators are: it is registered by the two desktop heads and by nothing
+    /// that only wants a settings screen, and a settings screen that failed to open
+    /// because a dashboard cache was absent would be the worse of the two
+    /// answers.</summary>
+    private IPullRequestDetailCache? _activityCache;
+
+    /// <summary>The listing beside the detail: which pull requests and issues there
+    /// were, kept so the next read walks only what changed. Forgotten with the
+    /// detail rather than on its own, because "forget this repository" means both
+    /// to the person pressing it and a listing without its detail would only save
+    /// the cheaper half of the fetch.</summary>
+    private IActivityListingCache? _listingCache;
+
+    /// <summary>Which repositories have been forgotten since this screen opened.
+    /// Keyed on the alias, so the message follows the repository rather than
+    /// whichever card happens to be open.</summary>
+    private readonly HashSet<string> _forgottenActivity = new(StringComparer.Ordinal);
+
+    /// <summary>What the section says. Both halves state the cost plainly, because
+    /// the cost is the whole of the decision: the next dashboard read is a slow
+    /// one.
+    /// <para>
+    /// The resting half states the rule rather than the state. Nothing here reads
+    /// the cache folder, so "saved detail is reused" would be a claim about disk
+    /// that this screen has not checked — and on a first run, before any dashboard
+    /// read, it would be false. A sentence describing what the app does with detail
+    /// once it has it is true whether or not any has been saved yet, which is the
+    /// only version of it worth putting on screen.
+    /// </para></summary>
+    private string ActivityCacheStatus(GitHubRepositoryRef repository) =>
+        _forgottenActivity.Contains(repository.Alias)
+            ? $"Forgotten. The next dashboard read walks every page and fetches every pull request's detail in {repository.FullName} again, which takes noticeably longer than usual."
+            : $"A merged pull request's detail never changes, so it is saved after it is read and only new pull requests cost a call. Forgetting it means the next dashboard read walks every page and fetches every pull request's detail in {repository.FullName} again.";
+
+    /// <summary>Drops one repository's saved listing and pull-request detail.
+    /// Nothing else is touched — the other repositories keep theirs, and this one
+    /// keeps its settings.</summary>
+    private void ForgetActivityCache(GitHubRepositoryRef repository)
+    {
+        _activityCache?.ForgetRepository(repository);
+        _listingCache?.ForgetRepository(repository);
+        _forgottenActivity.Add(repository.Alias);
+    }
+
+    private LocalGitRepositoryStatus CloneStatus(GitHubRepositoryRef repository) =>
+        LocalGit.GetStatus(repository, CloneDirectoryDraft(repository));
+
+    private bool CanClone(GitHubRepositoryRef repository) =>
+        !_cloningRepositories.Contains(repository.Alias) && CloneStatus(repository).CanClone;
+
+    private string CloneButtonText(GitHubRepositoryRef repository)
+    {
+        if (_cloningRepositories.Contains(repository.Alias)) return "Cloning...";
+
+        var status = CloneStatus(repository);
+        return status.IsCloned ? "Already cloned" : "Clone repository";
+    }
+
+    private async Task CloneRepositoryAsync(GitHubRepositoryRef repository)
+    {
+        _cloningRepositories.Add(repository.Alias);
+        _repoError = null;
+
+        try
+        {
+            var result = await LocalGit.CloneAsync(repository, CloneDirectoryDraft(repository));
+            if (result.Success && result.CloneDirectory is not null)
+            {
+                _repoError = GitHub.Settings.SetCloneDirectory(repository.Alias, result.CloneDirectory);
+            }
+            else
+            {
+                _repoError = result.Message;
+            }
+
+            SyncRepositoryDrafts();
+        }
+        finally
+        {
+            _cloningRepositories.Remove(repository.Alias);
+        }
+    }
+
+    private void SetDevbookFolderEnabled(GitHubRepositoryRef repo, DevbookFolderSetting folder, bool enabled)
+    {
+        _repoError = GitHub.Settings.SetDevbookFolder(
+            repo.Alias,
+            folder.Key,
+            enabled,
+            DevbookPathDraft(repo, folder));
+        SyncRepositoryDrafts();
+    }
+
+    private void ApplyDevbookFolderPath(GitHubRepositoryRef repo, DevbookFolderSetting folder)
+    {
+        _repoError = GitHub.Settings.SetDevbookFolder(
+            repo.Alias,
+            folder.Key,
+            folder.Enabled,
+            DevbookPathDraft(repo, folder));
+        SyncRepositoryDrafts();
+    }
+
+    private void OnClonePathKeyDown(KeyboardEventArgs e, GitHubRepositoryRef repo)
+    {
+        if (e.Key == "Enter") ApplyCloneDirectory(repo.Alias);
+        else if (e.Key == "Escape") _draftCloneDirectories[repo.Alias] = repo.CloneDirectory ?? string.Empty;
+    }
+
+    private void OnDevbookPathKeyDown(KeyboardEventArgs e, GitHubRepositoryRef repo, DevbookFolderSetting folder)
+    {
+        if (e.Key == "Enter") ApplyDevbookFolderPath(repo, folder);
+        else if (e.Key == "Escape") _draftDevbookPaths[DevbookDraftKey(repo.Alias, folder.Key)] = folder.Path ?? string.Empty;
+    }
+
+    private void SyncRepositoryDrafts()
+    {
+        _pullRequestLabelsErrors.Clear();
+
+        foreach (var repo in GitHub.Repositories)
+        {
+            _draftCloneDirectories[repo.Alias] = repo.CloneDirectory ?? string.Empty;
+
+            // Reset with the others: an alias can come back naming another
+            // repository, and a draft kept from the old one would be saved onto it.
+            _draftPullRequestLabels[repo.Alias] = string.Join(", ", repo.PullRequestLabels);
+
+            foreach (var folder in repo.DevbookFolders)
+            {
+                _draftDevbookPaths[DevbookDraftKey(repo.Alias, folder.Key)] = folder.Path ?? string.Empty;
+            }
+        }
+
+        EnsureExpandedRepository();
+    }
+
+    /// <summary>Closes the open row when its repository is gone - removed, or
+    /// retyped to another id in the box above - rather than leaving an id behind
+    /// that a repository added later under the same name would open on.</summary>
+    private void EnsureExpandedRepository()
+    {
+        if (_expandedId is not null && !VisibleRepositories.Any(IsExpanded))
+        {
+            _expandedId = null;
+        }
+    }
+
+    private string RepositorySettingsText() => GitHub.Settings.Current.ToText();
+
+    private static string DevbookDraftKey(string alias, string folderKey) => $"{alias}|{folderKey}";
+
+
+    private string RepositoryTokenDraft(GitHubRepositoryRef repo)
+    {
+        if (!_draftTokens.TryGetValue(repo.Alias, out var draft))
+        {
+            draft = string.Empty;
+            _draftTokens[repo.Alias] = draft;
+        }
+
+        return draft;
+    }
+
+    private async Task OnRepositoryTokenKeyDownAsync(KeyboardEventArgs e, GitHubRepositoryRef repo)
+    {
+        if (e.Key == "Enter") await ApplyRepositoryTokenAsync(repo);
+        else if (e.Key == "Escape") _draftTokens[repo.Alias] = string.Empty;
+    }
+
+    private async Task ApplyRepositoryTokenAsync(GitHubRepositoryRef repo)
+    {
+        var draft = RepositoryTokenDraft(repo);
+        if (string.IsNullOrWhiteSpace(draft)) return;
+
+        _repoError = GitHub.Settings.SetRepositoryToken(repo.Alias, draft);
+        _draftTokens[repo.Alias] = string.Empty;
+        SyncRepositoryDrafts();
+        await Screen.CheckConnectionAsync();
+    }
+
+    private async Task ClearRepositoryTokenAsync(GitHubRepositoryRef repo)
+    {
+        _repoError = GitHub.Settings.SetRepositoryToken(repo.Alias, null);
+        _draftTokens[repo.Alias] = string.Empty;
+        SyncRepositoryDrafts();
+        await Screen.CheckConnectionAsync();
+    }
+
+    private static string BindingSummary(GitHubAccountChoice binding)
+    {
+        if (binding.IsBound) return $"Worked as '{binding.Login}'.";
+
+        return binding.Token is null
+            ? "Default - whichever account this machine is signed in as, which is what Backlog has always done."
+            : "Default - falling back to this repository's own personal access token.";
+    }
+
+    /// <summary>
+    /// The accounts a repository can be bound to.
+    /// <para>
+    /// A binding this machine cannot satisfy is carried as an option of its own,
+    /// first, even though there is no account behind it. Without one the select
+    /// would fall back to its first entry - the empty one - and read as "Default",
+    /// which is the opposite of what the registry says and would hide the very
+    /// state this panel exists to report.
+    /// </para>
+    /// <para>
+    /// The reason an account cannot be used goes into the option's own text rather
+    /// than into <c>SelectorOption.Hint</c>: a native <c>select</c> draws one string
+    /// per option, so a hint on this control would be written and never shown.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<SelectorOption> AccountOptions(GitHubRepositoryRef repository)
+    {
+        var options = new List<SelectorOption>();
+
+        if (repository.Account is { } bound && GitHub.Settings.Current.Account(bound) is null)
+        {
+            options.Add(new SelectorOption(bound, $"{bound} - no account on this machine"));
+        }
+
+        options.AddRange(Screen.ConfiguredAccounts.Select(account => new SelectorOption(
+            account.Login,
+            Screen.AccountProblem(account) is null ? account.Label : $"{account.Label} - no credential on this machine")));
+
+        return options;
+    }
+
+    /// <summary>Binds this repository to an account, or clears the binding back to
+    /// the default. No save button, the way every other choice on this screen
+    /// works.</summary>
+    private void ApplyRepositoryAccount(GitHubRepositoryRef repository, string? login) =>
+        _repoError = GitHub.Settings.SetRepositoryAccount(
+            repository.Alias,
+            string.IsNullOrWhiteSpace(login) ? null : login);
+}
