@@ -69,12 +69,121 @@ public sealed record ConnectedTarget(string ConnectorId, string Target, bool Ena
     /// when there is none.</summary>
     public DateTimeOffset? LastSyncFailedAt { get; init; }
 
+    /// <summary>
+    /// The repository this target's tasks are filed under, as its <c>owner/name</c>,
+    /// or null for the connector's default: a target that is itself a repository
+    /// (<see cref="TaskConnectorCapabilities.TargetIsRepository"/>) files under
+    /// itself, and any other under none. Set, it wins for every connector — a
+    /// spec-manager product's tasks filed under the repository the product is built
+    /// in, a GitHub repository's under another one (ADR 0020, §9).
+    /// <para>
+    /// It fills a task filed under no repository and never overwrites one that is.
+    /// Blank reads as null, and the spelling is trimmed.
+    /// </para>
+    /// </summary>
+    public string? RepositoryId
+    {
+        get => _repositoryId;
+        init => _repositoryId = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    /// <summary>
+    /// The task status each of this target's source statuses becomes, keyed by the
+    /// status's name as <see cref="SourceItem.SourceStateName"/> spells it and
+    /// compared without regard to case or the spaces around it. A name the map does
+    /// not have takes the fixed map from its normalised state (ADR 0020, §4 and §9).
+    /// Empty by default, which is the fixed map for every status.
+    /// <para>
+    /// What a product whose statuses normalise badly needs: one with no status
+    /// flagged as work reads every status after the first as Active, so without a
+    /// map each of its tasks lands in In progress.
+    /// </para>
+    /// <para>
+    /// Compared by its entries, so two targets with the same map are equal and a
+    /// store can tell a save that changes nothing.
+    /// </para>
+    /// </summary>
+    public IReadOnlyDictionary<string, EntryStatus> StatusMap
+    {
+        get => _statusMap;
+        init => _statusMap = SourceStatusMap.Of(value);
+    }
+
+    private readonly string? _repositoryId;
+    private readonly SourceStatusMap _statusMap = SourceStatusMap.Empty;
+
+    /// <summary>The status <see cref="StatusMap"/> gives the source status named
+    /// <paramref name="sourceStateName"/>, or null when it gives none.</summary>
+    public EntryStatus? MappedStatusOf(string? sourceStateName) =>
+        _statusMap.Find(sourceStateName);
+
     /// <summary>Whether this is the target named by the pair. Connector ids are
     /// compared exactly; targets without regard to case, because a repository
     /// name is case-preserving but not case-sensitive.</summary>
     public bool Is(string connectorId, string target) =>
         string.Equals(ConnectorId, connectorId, StringComparison.Ordinal)
         && string.Equals(Target, target, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// <see cref="StatusMap"/>'s value: read-only, keyed without regard to case,
+    /// blank names dropped and the rest trimmed, and equal to another holding the
+    /// same entries — a dictionary compares by reference, which would make every
+    /// target read back from a file differ from the one saved.
+    /// </summary>
+    private sealed class SourceStatusMap : IReadOnlyDictionary<string, EntryStatus>, IEquatable<SourceStatusMap>
+    {
+        public static readonly SourceStatusMap Empty = new([]);
+
+        private readonly Dictionary<string, EntryStatus> _entries;
+
+        private SourceStatusMap(Dictionary<string, EntryStatus> entries) => _entries = entries;
+
+        /// <summary>The map <paramref name="entries"/> describe; a later entry for a
+        /// name wins over an earlier one.</summary>
+        public static SourceStatusMap Of(IEnumerable<KeyValuePair<string, EntryStatus>>? entries)
+        {
+            if (entries is SourceStatusMap map) return map;
+
+            var cleaned = new Dictionary<string, EntryStatus>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, status) in entries ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(name)) cleaned[name.Trim()] = status;
+            }
+
+            return cleaned.Count == 0 ? Empty : new(cleaned);
+        }
+
+        public EntryStatus? Find(string? name) =>
+            name is not null && _entries.TryGetValue(name.Trim(), out var status) ? status : null;
+
+        public EntryStatus this[string key] => _entries[key.Trim()];
+
+        public IEnumerable<string> Keys => _entries.Keys;
+
+        public IEnumerable<EntryStatus> Values => _entries.Values;
+
+        public int Count => _entries.Count;
+
+        public bool ContainsKey(string key) => _entries.ContainsKey(key.Trim());
+
+        public bool TryGetValue(string key, out EntryStatus value) => _entries.TryGetValue(key.Trim(), out value);
+
+        public IEnumerator<KeyValuePair<string, EntryStatus>> GetEnumerator() => _entries.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public bool Equals(SourceStatusMap? other) =>
+            other is not null
+            && other.Count == Count
+            && _entries.All(entry => other._entries.TryGetValue(entry.Key, out var status) && status == entry.Value);
+
+        public override bool Equals(object? obj) => Equals(obj as SourceStatusMap);
+
+        /// <summary>Independent of order, and of the case of each name.</summary>
+        public override int GetHashCode() =>
+            _entries.Aggregate(Count, (hash, entry) =>
+                hash ^ HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(entry.Key), entry.Value));
+    }
 }
 
 /// <summary>

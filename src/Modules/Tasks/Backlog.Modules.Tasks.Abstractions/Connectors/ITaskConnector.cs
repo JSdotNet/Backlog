@@ -59,6 +59,20 @@ public interface ITaskConnector
     }
 
     /// <summary>
+    /// The statuses an item of <paramref name="target"/> can be in, each named as
+    /// <see cref="SourceItem.SourceStateName"/> spells it and with the state it
+    /// normalises to, in the source's own order — what the settings page offers a
+    /// row of <see cref="ConnectedTarget.StatusMap"/> for (ADR 0020, §9).
+    /// <para>
+    /// Never throws for a refusal or an absent sign-in: the answer is then none, and
+    /// the page offers no rows. A default body, answering none, so a connector whose
+    /// statuses need no map of their own says nothing more.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<SourceStatus>> ListSourceStatusesAsync(string target, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<SourceStatus>>([]);
+
+    /// <summary>
     /// Every open item of <paramref name="target"/>, plus every item closed since
     /// <paramref name="since"/>, each normalised to a <see cref="SourceItem"/>.
     /// <para>
@@ -101,6 +115,15 @@ public interface ITaskConnector
     Task<string?> CompleteAsync(SourceRef item, CancellationToken cancellationToken) =>
         Task.FromResult<string?>("This source cannot complete items.");
 }
+
+/// <summary>One status a source's items can be in, as the settings page offers it
+/// a row of the target's status map.</summary>
+/// <param name="Name">The status as the source names it — the key of a
+/// <see cref="ConnectedTarget.StatusMap"/> entry, and what
+/// <see cref="SourceItem.SourceStateName"/> says for an item in it.</param>
+/// <param name="State">The state it normalises to, which says what the status
+/// becomes when the map names none.</param>
+public sealed record SourceStatus(string Name, NormalisedSourceState State);
 
 /// <summary>One target a person may pick on the settings page.</summary>
 /// <param name="Target">What is stored and fetched — a repository's
@@ -198,7 +221,8 @@ public enum NormalisedSourceState
 /// <summary>
 /// The spelling a <see cref="NormalisedSourceState"/> is stored and replicated
 /// as: <c>open</c>, <c>active</c>, <c>done</c>, <c>dropped</c>. A word rather than
-/// a number, so a stored value means the same thing if the enum is reordered.
+/// a number, so a stored value means the same thing if the enum is reordered. And
+/// the task status each becomes by default, <see cref="DefaultTaskStatus"/>.
 /// </summary>
 public static class NormalisedSourceStates
 {
@@ -208,6 +232,22 @@ public static class NormalisedSourceStates
         NormalisedSourceState.Active => "active",
         NormalisedSourceState.Done => "done",
         NormalisedSourceState.Dropped => "dropped",
+        _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Not a normalised source state."),
+    };
+
+    /// <summary>
+    /// The task status an item in <paramref name="state"/> becomes when its target's
+    /// <see cref="ConnectedTarget.StatusMap"/> names no status for it: the fixed map,
+    /// the same for every connector (ADR 0020, §4). Open is Ready, Active is In
+    /// progress, Done is Done, Dropped is Archived. What the sync falls back on, and
+    /// what the settings page calls a row's default.
+    /// </summary>
+    public static EntryStatus DefaultTaskStatus(NormalisedSourceState state) => state switch
+    {
+        NormalisedSourceState.Open => EntryStatus.Ready,
+        NormalisedSourceState.Active => EntryStatus.InProgress,
+        NormalisedSourceState.Done => EntryStatus.Done,
+        NormalisedSourceState.Dropped => EntryStatus.Archived,
         _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Not a normalised source state."),
     };
 

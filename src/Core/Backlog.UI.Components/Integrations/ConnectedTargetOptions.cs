@@ -1,3 +1,5 @@
+using Backlog.UI.Components.Selects;
+
 namespace Backlog.UI.Components.Integrations;
 
 /// <summary>
@@ -8,7 +10,8 @@ namespace Backlog.UI.Components.Integrations;
 /// The library's own shape rather than the Tasks module's <c>ConnectedTarget</c>,
 /// because this library references no module. The host maps one onto the other;
 /// every connector's targets have the same options, so the editor needs nothing
-/// connector-specific beyond the descriptor's name, icon and tone.
+/// connector-specific beyond the descriptor's name, icon and tone — and, as data the
+/// host hands in, the statuses the source lists for its status map.
 /// </para>
 /// </summary>
 /// <param name="ConnectorName">The connector descriptor's display name.</param>
@@ -54,6 +57,31 @@ public sealed record ConnectedTargetOptions(
 
     /// <summary>When that sync failed, already formatted by the host, or null.</summary>
     public string? LastSyncFailed { get; init; }
+
+    /// <summary>The repository the target's new tasks are filed under, as the value
+    /// of one of <see cref="RepositoryChoices"/>, or null for the connector's
+    /// default. A stored value the choices no longer hold is still offered, so
+    /// editing another option never rewrites it.</summary>
+    public string? RepositoryId { get; init; }
+
+    /// <summary>The repositories a person may pick, handed in by the host from its
+    /// registry. With none, and nothing stored, the card draws no repository
+    /// picker: there is nothing to pick.</summary>
+    public IReadOnlyList<SelectorOption> RepositoryChoices { get; init; } = [];
+
+    /// <summary>Whether the target is itself a repository, so the picker's empty
+    /// choice reads as filing under it rather than under none. The connector's
+    /// capability, handed in by the host.</summary>
+    public bool TargetIsRepository { get; init; }
+
+    /// <summary>One row per status the source's items can be in, in the source's
+    /// order, each with the task status it is mapped to. Empty draws no Statuses
+    /// group, which is every connector whose statuses need no map.</summary>
+    public IReadOnlyList<SourceStatusRow> StatusRows { get; init; } = [];
+
+    /// <summary>The task statuses a row may be mapped to, handed in by the host:
+    /// this library knows no task status of its own.</summary>
+    public IReadOnlyList<SelectorOption> StatusChoices { get; init; } = [];
 
     /// <summary>The sync intervals the editor offers, in minutes. A stored interval
     /// that is none of these is still offered, so editing another option never

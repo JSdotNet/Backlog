@@ -44,6 +44,10 @@ internal sealed class HarnessTaskConnector : ITaskConnector
     /// <summary>The harness account the fixture items are assigned to.</summary>
     public const string Me = "harness-user";
 
+    /// <summary>The status names its items carry, open and finished.</summary>
+    private const string OpenStatus = "Open";
+    private const string DoneStatus = "Done";
+
     /// <summary>The number of the item every completion of is refused.</summary>
     private const int RefusingItem = 5;
 
@@ -65,6 +69,16 @@ internal sealed class HarnessTaskConnector : ITaskConnector
             new("harness-beta", "Harness beta"),
             new("harness-fail", "Fails every sync"),
         ]));
+
+    /// <summary>The two statuses its items are in, so the Connectors page has status
+    /// rows to show: mapping <c>Open</c> to another status moves every open item's
+    /// task there on its next move — a new task at once.</summary>
+    public Task<IReadOnlyList<SourceStatus>> ListSourceStatusesAsync(string target, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<SourceStatus>>(
+        [
+            new(OpenStatus, NormalisedSourceState.Open),
+            new(DoneStatus, NormalisedSourceState.Done),
+        ]);
 
     public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken)
     {
@@ -90,7 +104,7 @@ internal sealed class HarnessTaskConnector : ITaskConnector
                 $"https://example.com/harness/{slug}/{number}",
                 string.Empty,
                 done ? NormalisedSourceState.Done : NormalisedSourceState.Open,
-                done ? "Done" : "Open",
+                done ? DoneStatus : OpenStatus,
                 assignee,
                 updated,
                 labels ?? [],

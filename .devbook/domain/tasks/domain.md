@@ -1062,7 +1062,9 @@ arrives directly, with no Inbox step, whoever the item is assigned to.
 The source owns three of its fields: the title, the status and the assignee.
 Each sync overwrites them. Backlog owns every other field, and the body is
 copied once, when the task is created. The status follows the item's
-[Source State](#source-state) along the task lifecycle, with one exception: a
+[Source State](#source-state), read through its
+[Connected Target](#connected-target)'s status map, along the task lifecycle.
+There is one exception: a
 task the person finished stays done, and the mismatch is flagged.
 
 Its id is derived from the connector id and the item's external id, so every
@@ -1086,7 +1088,9 @@ One outside system seen through the one contract Tasks knows,
 colour token. It fetches the items of a [Connected Target](#connected-target)
 and names each one by a display key. For each item it reports its
 [Source State](#source-state) and whether it is blocked, and why. It also reports
-what the system can do and who the connected account is.
+what the system can do and who the connected account is. It lists the statuses a
+target uses, each with its Source State, so a person can map them; a connector
+with nothing to map lists none.
 
 GitHub and spec-manager are the first two. This context never names a
 connector, so the source badge and the Source filter are drawn from the
@@ -1098,7 +1102,7 @@ descriptors.
 type: term
 status: proposed
 aliases: [connected repository, connected product, target]
-related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/domain/tasks/domain.md#source-state, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
 One GitHub repository or one spec-manager product a person has connected. It
@@ -1108,7 +1112,12 @@ holds the connector id, whether it is enabled, and these settings:
 - whether "Assigned to me" is on by default;
 - whether the title follows the source;
 - the sync interval;
-- what Promote to plan does with the original task.
+- what Promote to plan does with the original task;
+- whether finishing a task here completes its item at the source;
+- the repository its tasks are filed under, or none to leave it to the
+  connector;
+- its status map, from the source's own status names to task statuses, empty
+  until the person maps a status.
 
 It never holds credentials.
 
@@ -1118,11 +1127,11 @@ It never holds credentials.
 type: term
 status: proposed
 aliases: [normalised state, SourceState]
-related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/flow.md#task-lifecycle, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
 An item's state at its source, normalised by its connector to one of four
-values. One map turns it into a [Task Status](#task-status) for every
+values. A fixed map turns it into a [Task Status](#task-status) for every
 connector:
 
 | Source State | Task Status |
@@ -1134,4 +1143,12 @@ connector:
 
 The sync reaches that status along the lifecycle's own edges, so a closed issue
 walks its task through `in_progress` to `done`. The source's own status name is
-kept beside it for display.
+kept beside it, for display and for the status map.
+
+A [Connected Target](#connected-target)'s status map overrides the fixed map per
+source status name. The map is the person's, and Tasks applies it, so a
+connector only normalises. It exists because normalising can lose a difference
+the person needs: a spec-manager product with no status flagged as work
+normalises every status after its first to `Active`. What the map changes, and
+what it never touches, are the
+[Linked tasks requirements](requirements.md#linked-tasks).

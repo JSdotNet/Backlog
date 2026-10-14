@@ -503,7 +503,7 @@ instantly and offline.
 ```meta
 type: feature
 status: proposed
-related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
 Connect a GitHub repository or a spec-manager product, and every open item in it
@@ -518,6 +518,24 @@ source and by "Assigned to me". A label written `+slug` at the source files the
 task under that plan. It then appears on the roadmap's
 [shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first)
 without a step in Backlog.
+
+Settings → Connectors shows each [Connected Target](domain.md#connected-target)
+with two settings that decide where its tasks land:
+
+- **Repository** picks one of the repositories in the
+  [Repository Registry](../repository-management/domain.md#repository-registry).
+  The target's new tasks, and its tasks not yet filed under a repository, are
+  filed under it. A spec-manager product's tasks can then sit under the
+  repository the product is built in. Left empty, a GitHub repository files its
+  tasks under itself.
+- **Statuses** has one row for each status the source lists, in the source's
+  order, each with a task status to pick. The empty choice keeps the status the
+  fixed map gives and names it, such as "Default (In progress)". A
+  spec-manager product lists its own statuses. A GitHub repository lists none,
+  so it shows no rows.
+
+A changed status applies to new tasks at once, and to an existing task when its
+item next moves at the source.
 
 ### Promote to plan
 
