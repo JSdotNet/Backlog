@@ -6,9 +6,10 @@
 
     The header names the series, its repositories and the sprint's dates, steps to the
     previous and next sprint, and narrows the rows to one repository or groups them by
-    plan. Under it the goal card — the goal, the goal tasks done of total as a bar by
-    status, the rules that counted them, then all the sprint's work — and the done
-    line against the even pace; then what needs the person; then one group per plan,
+    plan. Under it the host's Since yesterday strip (Daily), when it has one; then the
+    goal card — the goal, the goal tasks done of total as a bar by status, the rules
+    that counted them, then all the sprint's work — and the done line against the even
+    pace; then what needs the person; then one group per plan,
     a row per member; and last, folded, the live work running against tasks the
     sprint does not hold.
 
@@ -77,6 +78,7 @@
     }
     else
     {
+    @Daily
     <div class="sprint-board__cards">
         <section class="sprint-board__card sprint-board__card--goal" aria-label="Sprint goal" data-testid="sprint-board-goal">
             <div class="sprint-board__goal-line">
@@ -321,6 +323,11 @@
     /// <summary>The host's own header actions, after the filters — Refresh.</summary>
     [Parameter]
     public RenderFragment? Actions { get; set; }
+
+    /// <summary>The host's Since yesterday strip, drawn under the header and above the
+    /// goal card while a sprint is drawn; null draws nothing there.</summary>
+    [Parameter]
+    public RenderFragment? Daily { get; set; }
 
     [Parameter]
     public EventCallback OnPrevious { get; set; }

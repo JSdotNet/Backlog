@@ -76,7 +76,9 @@ public sealed class SprintTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDir
             [.. entry.Projections
                 .Where(projection => projection.TargetType == EntryProjectionDto.PullRequestTargetType)
                 .Select(projection => new PullRequestRefDto(projection.RepoId, projection.ExternalId))
-                .Distinct()]);
+                .Distinct()],
+            entry.StartedOn,
+            entry.BlockedSince);
 
     private static string Bare(string tag)
     {

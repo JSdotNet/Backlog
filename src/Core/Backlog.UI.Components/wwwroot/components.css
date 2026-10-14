@@ -20383,6 +20383,185 @@ button.sprint-pr:focus-visible {
     font-size: var(--font-size-sm);
 }
 
+/*
+  The sprint view's Since yesterday strip: the stand-up at the top of the sprint
+  view. Its header is the fold's toggle and keeps the label and the headline when
+  folded; the blocked section is the one part dressed as an alert.
+*/
+.sprint-daily {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.sprint-daily__toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sprint-daily__toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.sprint-daily__head {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.sprint-daily__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-daily__headline {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-daily__chevron {
+    flex: none;
+    margin-top: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    transition: transform var(--transition-fast);
+}
+
+.sprint-daily[data-open="false"] .sprint-daily__chevron {
+    transform: rotate(-90deg);
+}
+
+.sprint-daily__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.sprint-daily__body[hidden] {
+    display: none;
+}
+
+.sprint-daily__summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-daily__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.sprint-daily__section--blocked {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-error-text);
+    border-radius: var(--border-radius-md);
+    background: var(--color-error);
+}
+
+.sprint-daily__title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-daily__section--blocked .sprint-daily__title {
+    color: var(--color-error-text);
+}
+
+.sprint-daily__lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sprint-daily__line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-daily__text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.sprint-daily__marker {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+}
+
+.sprint-daily__marker--done {
+    background: var(--color-success-text);
+}
+
+.sprint-daily__marker--added,
+.sprint-daily__marker--quiet {
+    box-sizing: border-box;
+    border: 1.5px solid var(--color-secondary);
+    background: transparent;
+}
+
+.sprint-daily__marker--blocked,
+.sprint-daily__marker--question {
+    display: none;
+}
+
+.sprint-daily__pace {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.sprint-daily__pace--risk {
+    color: var(--color-error-text);
+}
+
+.sprint-daily__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.sprint-daily__copy {
+    min-height: 2.5rem;
+    padding: 0 var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
 @container (max-width: 760px) {
     .sprint-row {
         grid-template-columns: minmax(0, 1fr);

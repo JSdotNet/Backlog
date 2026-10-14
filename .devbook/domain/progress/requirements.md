@@ -256,6 +256,44 @@ The system SHALL keep a sprint item's note and open-question mark in that sprint
 - **Then** the member is in Sprint 5 with no note and no open-question mark
 - **And** Sprint 4 still shows the note and the mark
 
+### Requirement: The daily strip shows only for the open sprint of a series in the daily
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/features.md#the-daily-strip]
+```
+
+The system SHALL draw the Since yesterday strip on the sprint view only while the open sprint is shown and its series shows in the daily brief.
+
+#### Scenario: A series in the daily
+
+- **Given** a series that shows in the daily brief, with Sprint 4 open
+- **When** the person opens the sprint view on Sprint 4
+- **Then** the Since yesterday strip is drawn above the goal card
+
+#### Scenario: A series not in the daily
+
+- **Given** a series that does not show in the daily brief
+- **When** the person opens the sprint view
+- **Then** no Since yesterday strip is drawn
+
+### Requirement: Since yesterday is since the previous working day
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/features.md#the-daily-strip]
+```
+
+The system SHALL count as since yesterday what happened on the previous working day or later, Friday counting as Monday's previous working day.
+
+#### Scenario: Monday reads back to Friday
+
+- **Given** a member done on Friday 16 October and another done on Thursday 15 October
+- **When** the person reads the strip on Monday 19 October
+- **Then** Since yesterday names the member done on Friday and not the one done on Thursday
+
 ## Closing a sprint
 
 ```meta
