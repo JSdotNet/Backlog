@@ -251,6 +251,11 @@ Rules:
 
 - The row MUST say what each thing is without opening it: where it lives, what
   it reads, which account it uses.
+- A row's state MUST be the one its open editor would report. An account row
+  reads `Active`, `Signed in` or `Not signed in` from the same credential check
+  the account's card makes, and the page's headline counts only the accounts
+  whose credential resolves: a login added that this machine cannot sign in as
+  is listed, but not counted.
 - At most one row is open at a time; opening one closes the other.
 - The opening control carries `aria-expanded`, and `aria-controls` naming the
   editor while it is open.

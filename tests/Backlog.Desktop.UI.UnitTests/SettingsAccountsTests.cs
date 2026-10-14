@@ -427,6 +427,96 @@ public sealed class SettingsAccountsTests
         Assert.Equal("Signed in · 1 repository", settings.Component.Find("[data-testid='account-row-meta']").TextContent.Trim());
     }
 
+    /// <summary>
+    /// QA follow-up F5: a login typed into "Add an account by login" that the
+    /// GitHub CLI is not signed in as reads Not signed in on its row and is left
+    /// out of the headline's count - the same answer its own card gives - rather
+    /// than reading Signed in the moment it is added.
+    /// </summary>
+    [Fact]
+    public void An_account_added_by_a_login_the_cli_is_not_signed_in_as_reads_not_signed_in()
+    {
+        using var settings = RenderSettings(
+            cliAccounts: [Signed("JSdotNet", active: true)],
+            seed: store => Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet")])));
+        OpenAccountsTab(settings.Component);
+
+        settings.Component.Find("[data-testid='add-account-login-input']").Input("qa-settings-check");
+        settings.Component.Find("[data-testid='add-account-login-input']").Change("qa-settings-check");
+        Assert.NotNull(settings.GitHub.Current.Account("qa-settings-check"));
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal("1 GitHub account signed in; JSdotNet is active.", Headline(settings.Component));
+            Assert.Equal("Active · 0 repositories", RowMeta(settings.Component, "JSdotNet"));
+            Assert.Equal("Not signed in · 0 repositories", RowMeta(settings.Component, "qa-settings-check"));
+            Assert.Contains(
+                "is not signed in as 'qa-settings-check'",
+                Status(settings.Component, "account-status"),
+                StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>A personal access token account is signed in once a token is
+    /// stored and not before; one with none is not counted.</summary>
+    [Fact]
+    public void A_token_account_is_signed_in_only_once_a_token_is_stored()
+    {
+        using var settings = RenderSettings(seed: store => Assert.Null(store.SetAccounts(
+        [
+            new GitHubAccount("JSdotNet") { Credential = GitHubCredentialKind.PersonalAccessToken, Token = "ghp_example" },
+            new GitHubAccount("octocat") { Credential = GitHubCredentialKind.PersonalAccessToken }
+        ])));
+        OpenAccountsTab(settings.Component);
+
+        Assert.Equal("1 GitHub account signed in.", Headline(settings.Component));
+        Assert.Equal("Signed in · 0 repositories", RowMeta(settings.Component, "JSdotNet"));
+        Assert.Equal("Not signed in · 0 repositories", RowMeta(settings.Component, "octocat"));
+    }
+
+    /// <summary>With accounts configured and none of them able to reach GitHub,
+    /// the headline says none is signed in rather than counting them.</summary>
+    [Fact]
+    public void With_no_account_whose_credential_resolves_the_headline_says_none_is_signed_in()
+    {
+        using var settings = RenderSettings(
+            cliAccounts: [Signed("JSdotNet", active: true)],
+            seed: store => Assert.Null(store.SetAccounts([new GitHubAccount("octocat")])));
+        OpenAccountsTab(settings.Component);
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal("No GitHub account is signed in yet.", Headline(settings.Component));
+            Assert.Equal("Not signed in · 0 repositories", RowMeta(settings.Component, "octocat"));
+        });
+    }
+
+    /// <summary>The login the GitHub CLI is using is not called active when the
+    /// account configured for it cannot reach GitHub - a token account with no
+    /// token is not signed in, whatever gh is doing.</summary>
+    [Fact]
+    public void An_account_that_cannot_reach_github_is_not_called_active()
+    {
+        using var settings = RenderSettings(
+            cliAccounts: [Signed("JSdotNet", active: true)],
+            seed: store => Assert.Null(store.SetAccounts(
+                [new GitHubAccount("JSdotNet") { Credential = GitHubCredentialKind.PersonalAccessToken }])));
+        OpenAccountsTab(settings.Component);
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal("No GitHub account is signed in yet.", Headline(settings.Component));
+            Assert.Equal("Not signed in · 0 repositories", RowMeta(settings.Component, "JSdotNet"));
+        });
+    }
+
+    private static string RowMeta(IRenderedComponent<Settings> component, string login) =>
+        component.FindAll("[data-testid='account-row']")
+            .Single(row => string.Equals(
+                row.QuerySelector(".account-row__login")?.TextContent, login, StringComparison.OrdinalIgnoreCase))
+            .QuerySelector("[data-testid='account-row-meta']")!
+            .TextContent.Trim();
+
     /// <summary>Each row carries a decorative initial and the login in its own
     /// element, and the whole list sits in the "GitHub accounts" card with its
     /// description and the Add account action in the header.</summary>
