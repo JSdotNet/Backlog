@@ -422,7 +422,12 @@ GitHub CLI holds, and that a feature was switched. A `SettingsSection` names
 its menu group and the titles of the cards it draws, which the settings search
 reads without rendering a page. Within a group the app-wide pages come first,
 then the registered sections by their order, and every page opened is kept
-alive, hidden, while another is on screen.
+alive, hidden, while another is on screen. The Features page reads its counts
+from the feature store on every render: a headline of how many features are on
+and how many of those are unfinished (Dev or Beta), three `MetricTile` figures,
+an unpersisted `RadioGroup` filter (All, On, Off, Unfinished), and one
+`SettingsCard` per `AppFeatures.Sections` entry whose titles are the page's
+search list.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the
