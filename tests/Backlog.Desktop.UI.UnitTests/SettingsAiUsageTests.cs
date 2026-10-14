@@ -3,6 +3,8 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Dashboard.Abstractions.Services;
+using Microsoft.Extensions.Time.Testing;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -747,6 +749,219 @@ public sealed class SettingsAiUsageTests
         });
     }
 
+    /// <summary>
+    /// The page opens on a sentence about every provider it offers, and one tile
+    /// per provider says the same thing as a figure. A provider that is not set up
+    /// is a dashed place for one, and Azure Foundry's says what needs it.
+    /// </summary>
+    [Fact]
+    public void The_headline_and_tiles_follow_each_providers_state()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal(
+                "No AI provider is set up yet.",
+                context.Component.Find("[data-testid='settings-headline']").TextContent.Trim()));
+
+        var tiles = context.Component.FindAll("[data-testid='ai-provider-tile']");
+        Assert.Equal(["claude", "github", "azurefoundry"], tiles.Select(tile => tile.GetAttribute("data-provider")).ToArray());
+        Assert.All(tiles, tile =>
+        {
+            Assert.Contains("ai-provider-tile--unset", tile.ClassList);
+            Assert.Contains("Not set up", tile.TextContent, StringComparison.Ordinal);
+        });
+        Assert.Contains("The AI assistant needs it", tiles[2].TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("The AI assistant needs it", tiles[0].TextContent, StringComparison.Ordinal);
+
+        context.Component.Find("[data-testid='add-claude-account-button']").Click();
+        foreach (var (index, key) in new[] { (0, "sk-ant-admin01-personal"), (1, "sk-ant-admin01-work") })
+        {
+            context.Component.FindAll("[data-testid='claude-account-subpage-tab']")[index].Click();
+            var input = context.Component.Find("[data-testid='claude-api-key-input']");
+            input.Input(key);
+            input.Change();
+        }
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                "Two Claude organizations report usage; GitHub and Azure Foundry are not set up.",
+                context.Component.Find("[data-testid='settings-headline']").TextContent.Trim());
+
+            var claude = context.Component.FindAll("[data-testid='ai-provider-tile']")[0];
+            Assert.Equal("true", claude.GetAttribute("data-configured"));
+            Assert.DoesNotContain("ai-provider-tile--unset", claude.ClassList);
+            Assert.Contains("2 organizations", claude.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Github_counts_one_organization_for_this_machines_sign_in_and_foundry_reads_ready()
+    {
+        using var context = RenderSettings(
+            aiAssistantEnabled: true,
+            usageMetricsEnabled: true,
+            connection: new GitHubConnection(true, "Connected through the GitHub CLI as JSdotNet.", "JSdotNet"));
+        Assert.Null(context.AzureFoundryStore.SetConnection("https://ai.example.openai.azure.com", "gpt-5.4", null, AzureFoundrySettingsStore.DefaultApiVersion));
+        Assert.Null(context.AzureFoundryStore.SetApiKey("key"));
+
+        OpenAiTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                "GitHub and Azure Foundry report usage; Claude is not set up.",
+                context.Component.Find("[data-testid='settings-headline']").TextContent.Trim());
+
+            var tiles = context.Component.FindAll("[data-testid='ai-provider-tile']");
+            Assert.Contains("1 organization", tiles[1].TextContent, StringComparison.Ordinal);
+            Assert.Contains("Ready", tiles[2].TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("The AI assistant needs it", tiles[2].TextContent, StringComparison.Ordinal);
+        });
+        Assert.Empty(context.Component.FindAll("[data-testid='azure-foundry-assistant-hidden']"));
+    }
+
+    /// <summary>
+    /// Under each figure, when its usage was last read on this device: a dot and
+    /// how long ago, or the reason the last read failed, or nothing at all when it
+    /// was never read. A read that lands while the page is open shows up on it.
+    /// </summary>
+    [Fact]
+    public void Each_tile_says_when_its_usage_was_last_read()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero));
+        var reads = new StubUsageReadStatus();
+        reads.Set(UsageSource.GitHub, new UsageReadStatus(clock.GetUtcNow().AddMinutes(-6), null, null));
+        using var context = RenderSettings(
+            aiAssistantEnabled: true,
+            usageMetricsEnabled: true,
+            connection: new GitHubConnection(true, "Connected.", "JSdotNet"),
+            reads: reads,
+            clock: clock);
+
+        OpenAiTab(context.Component);
+        var key = context.Component.Find("[data-testid='claude-api-key-input']");
+        key.Input("sk-ant-admin01-personal");
+        key.Change();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var tiles = context.Component.FindAll("[data-testid='ai-provider-tile']");
+            Assert.Empty(tiles[0].QuerySelectorAll("[data-testid='ai-provider-read']"));
+
+            var github = tiles[1].QuerySelector("[data-testid='ai-provider-read']");
+            Assert.NotNull(github);
+            Assert.Equal("Read 6 min ago", github.TextContent.Trim());
+            Assert.Contains("ai-provider-tile__read--ok", github.ClassList);
+            Assert.NotNull(github.QuerySelector(".ai-provider-tile__dot"));
+
+            Assert.Empty(tiles[2].QuerySelectorAll("[data-testid='ai-provider-read']"));
+        });
+
+        var account = context.ClaudeStore.Current.Accounts[0];
+        reads.Set(UsageSource.Claude(account.Id), new UsageReadStatus(null, clock.GetUtcNow(), "401 Unauthorized"));
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var claude = context.Component.FindAll("[data-testid='ai-provider-tile']")[0].QuerySelector("[data-testid='ai-provider-read']");
+            Assert.NotNull(claude);
+            Assert.Equal("Last read failed: 401 Unauthorized", claude.TextContent.Trim());
+            Assert.Contains("ai-provider-tile__read--failed", claude.ClassList);
+            Assert.Null(claude.QuerySelector(".ai-provider-tile__dot"));
+        });
+    }
+
+    /// <summary>
+    /// The assistant's feature is on, and the assistant is still nowhere: the card
+    /// whose fields fix that says why, until they are filled in.
+    /// </summary>
+    [Fact]
+    public void The_foundry_card_warns_that_the_assistant_stays_hidden_until_it_is_set_up()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+        {
+            var warning = context.Component.Find("[data-testid='azure-foundry-settings'] [data-testid='azure-foundry-assistant-hidden']");
+            Assert.Equal(
+                "Until both are filled in, the AI assistant stays hidden even though its feature is on.",
+                warning.TextContent.Trim());
+        });
+
+        var endpoint = context.Component.Find("[data-testid='azure-foundry-endpoint-input']");
+        endpoint.Input("https://ai.example.openai.azure.com");
+        endpoint.Change();
+        var deployment = context.Component.Find("[data-testid='azure-foundry-deployment-input']");
+        deployment.Input("gpt-5.4");
+        deployment.Change();
+        var key = context.Component.Find("[data-testid='azure-foundry-api-key-input']");
+        key.Input("key");
+        key.Change();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Empty(context.Component.FindAll("[data-testid='azure-foundry-assistant-hidden']")));
+    }
+
+    /// <summary>
+    /// The cards sit in two columns: Claude's alone on the left, GitHub's and Azure
+    /// Foundry's stacked on the right. Claude's organizations are pages on the
+    /// shared tab strip, added from the card's header.
+    /// </summary>
+    [Fact]
+    public void Claude_stands_left_with_its_organizations_on_the_shared_tab_strip()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal(2, context.Component.FindAll(".ai-providers__cards > .ai-providers__column").Count));
+
+        var columns = context.Component.FindAll(".ai-providers__cards > .ai-providers__column");
+        Assert.Equal(
+            ["claude-usage-settings"],
+            columns[0].Children.Select(card => card.GetAttribute("data-testid")).ToArray());
+        Assert.Equal(
+            ["github-usage-settings", "azure-foundry-settings"],
+            columns[1].Children.Select(card => card.GetAttribute("data-testid")).ToArray());
+
+        var add = context.Component.Find("[data-testid='claude-usage-settings'] .settings-card__action [data-testid='add-claude-account-button']");
+        Assert.Equal("Add organization", add.TextContent.Trim());
+
+        var tab = Assert.Single(context.Component.FindAll("[data-testid='claude-account-subpage-tab']"));
+        Assert.Contains("tabs__tab--active", tab.ClassList);
+        Assert.Contains("tabs__list", context.Component.Find("[data-testid='claude-account-subpages']").ClassList);
+    }
+
+    [Fact]
+    public void The_page_declares_its_card_titles_for_the_settings_search()
+    {
+        var page = Assert.Single(SettingsPages.BuiltIn, page => page.Id == SettingsPages.Ai);
+
+        Assert.Equal("AI providers", page.Title);
+        Assert.Equal(["Claude usage API", "GitHub usage API", "Azure Foundry AI"], page.CardTitles);
+    }
+
+    /// <summary>A read model the test writes into, raising Changed as a reader would.</summary>
+    private sealed class StubUsageReadStatus : IUsageReadStatus
+    {
+        private readonly Dictionary<UsageSource, UsageReadStatus> _statuses = [];
+
+        public event Action? Changed;
+
+        public IReadOnlyDictionary<UsageSource, UsageReadStatus> All => _statuses;
+
+        public UsageReadStatus? For(UsageSource source) => _statuses.GetValueOrDefault(source);
+
+        public void Set(UsageSource source, UsageReadStatus status)
+        {
+            _statuses[source] = status;
+            Changed?.Invoke();
+        }
+    }
+
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
         SettingsMenu.Pages(component);
 
@@ -760,7 +975,9 @@ public sealed class SettingsAiUsageTests
         IClaudeAccountProbe? claudeProbe = null,
         GitHubConnection? connection = null,
         IGitHubAccountProbe? gitHubAccountProbe = null,
-        IAzureFoundryConnectionProbe? foundryProbe = null)
+        IAzureFoundryConnectionProbe? foundryProbe = null,
+        IUsageReadStatus? reads = null,
+        TimeProvider? clock = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-tests", Guid.NewGuid().ToString("n"));
 
@@ -792,6 +1009,8 @@ public sealed class SettingsAiUsageTests
         testContext.Services.AddSingleton(claude);
         if (claudeProbe is not null) testContext.Services.AddSingleton(claudeProbe);
         if (foundryProbe is not null) testContext.Services.AddSingleton(foundryProbe);
+        if (reads is not null) testContext.Services.AddSingleton(reads);
+        if (clock is not null) testContext.Services.AddSingleton(clock);
         testContext.Services.AddSingleton(github);
         testContext.Services.AddSingleton<FeedbackReporter>();
         testContext.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
