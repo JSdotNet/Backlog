@@ -435,7 +435,11 @@ search list.
 The Repositories page draws the
 working set as the library's `DataTable`, a row per repository, and opens that
 repository's card in place in a detail row under it; `HasRowDetail` keeps the
-detail row to the one repository being edited.
+detail row to the one repository being edited. GitHub accounts is one
+`SettingsCard` of rows, one per configured account, each naming its login, whether
+the GitHub CLI is using it now and how many repositories are worked as it;
+choosing a row opens that account's card under it, across the whole list, one
+at a time.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the

@@ -45,7 +45,7 @@ public static class SettingsPages
             CardTitles: ["Repositories"]),
         new(Accounts, "GitHub accounts", 3, typeof(GitHubAccountsSettingsPage),
             Group: SettingsGroup.Workspace,
-            CardTitles: ["Signed in with the GitHub CLI", "Add an account by login"]),
+            CardTitles: ["GitHub accounts", "Signed in with the GitHub CLI", "Add an account by login"]),
         new(Ai, "AI providers", 0, typeof(AiSettingsPage),
             Group: SettingsGroup.Ai,
             CardTitles: ["Claude usage API", "GitHub usage API", "Azure Foundry AI"]),
