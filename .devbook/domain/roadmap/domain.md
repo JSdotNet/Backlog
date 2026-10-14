@@ -521,7 +521,8 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadma
 The work a [Roadmap Item](#roadmap-item) gathered that is filed in one
 repository. An item's effort is laid out one part per repository, each at the
 reader's pace for that repository and
-[counting the full effort of its tasks](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
+[counting the full effort of its own tasks and of the shared tasks it carries](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
+A part is finished when every task it counts is done.
 When the work hands over to
 another repository and back, that repository has one part per phase of the
 hand-over.
@@ -550,6 +551,37 @@ repositories draws its [part](#part) in each of their bands.
 The last band holds work under no repository, or under a repository nobody
 configured. It takes no colour, shows no name, and carries the default pace. The
 plan's milestones share a band at the top, which takes no colour either.
+
+### Own Task
+
+```meta
+type: term
+status: draft
+aliases: [own task, own work]
+related: [.devbook/domain/roadmap/domain.md#part, .devbook/domain/roadmap/domain.md#shared-task, .devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace]
+```
+
+A [Task](../tasks/domain.md#task) a plan gathered that is filed under one
+repository alone. It always counts in that repository's [part](#part). A band's
+**own work** is its own tasks. Once they are all done, the band's part is
+finished, unless it is where the plan's open [shared tasks](#shared-task) are left.
+
+### Shared Task
+
+```meta
+type: term
+status: draft
+aliases: [shared task]
+related: [.devbook/domain/roadmap/domain.md#part, .devbook/domain/roadmap/domain.md#own-task, .devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/requirements.md#requirement-a-shared-task-counts-where-own-work-is-still-open]
+```
+
+A [Task](../tasks/domain.md#task) a plan gathered that is filed under several
+repositories, such as a sign-off every repository in a rollout takes part in. It
+counts in full in each of its bands that still holds open
+[own tasks](#own-task). When none does, it counts in the bands whose own work
+ended last, or in all of them when none had own tasks. A shared task therefore
+keeps no band open whose own work is done while another of its bands still has
+own work open.
 
 ### Column Head
 

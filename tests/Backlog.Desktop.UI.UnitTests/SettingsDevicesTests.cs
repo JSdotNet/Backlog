@@ -38,11 +38,17 @@ public sealed class SettingsDevicesTests
     private static readonly Guid Device = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     [Fact]
-    public void The_devices_tab_is_not_offered_until_the_feature_is_on()
+    public void With_the_feature_off_the_devices_tab_is_offered_as_Off_and_shows_only_the_note()
     {
         using var context = RenderSettings(syncEnabled: false);
 
-        Assert.DoesNotContain("Devices", SettingsTabs(context.Component));
+        Assert.Contains("Devices", SettingsTabs(context.Component));
+        Assert.Equal("Off", SettingsMenu.Badge(context.Component, "devices"));
+
+        SettingsMenu.Open(context.Component, "Devices");
+
+        Assert.Empty(context.Component.FindComponents<DevicesSettings>());
+        Assert.StartsWith("Sync is turned off.", context.Component.Find("[data-testid='settings-feature-off']").TextContent.Trim());
     }
 
     /// <summary>
@@ -403,6 +409,89 @@ public sealed class SettingsDevicesTests
         context.Component.WaitForAssertion(() =>
             Assert.Contains(context.SyncState.Saved, state => state.PullCursor is null));
     }
+
+    // --- The page's headline and cards ------------------------------------------
+
+    /// <summary>The headline says whether this device is paired, and moves the moment
+    /// registering makes it so.</summary>
+    [Fact]
+    public void The_headline_says_whether_this_device_is_paired()
+    {
+        using var context = RenderSettings(syncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("This device is not paired.", Headline(context.Component)));
+
+        context.Component.Find("[data-testid='devices-name']").Input("Workshop PC");
+        context.Component.Find("[data-testid='devices-register-button']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("This device is paired with the sync service.", Headline(context.Component)));
+    }
+
+    /// <summary>A credential the service no longer recognises opens nothing, so the
+    /// headline reads as the cards under it do: not paired.</summary>
+    [Fact]
+    public void A_device_the_service_no_longer_knows_is_headlined_as_not_paired()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true,
+            paired: true,
+            withTokenPipeline: true,
+            respond: (request, _) => IsTokenRequest(request)
+                ? Problem(HttpStatusCode.Unauthorized, SyncErrorCodes.DeviceCredentialInvalid, "That device id and credential do not match a registered device.")
+                : new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Single(context.Component.FindAll("[data-testid='devices-unregistered']"));
+            Assert.Equal("This device is not paired.", Headline(context.Component));
+        });
+    }
+
+    /// <summary>Each group is a card, and the cards a device draws are the ones the
+    /// section declares, in the declared order: a paired device the sync cards and
+    /// the code to hand out, an unpaired one the two ways in.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_cards_on_the_page_are_the_ones_its_section_declares(bool paired)
+    {
+        var section = new ServiceCollection().AddSyncSettings()
+            .Select(descriptor => descriptor.ImplementationInstance).OfType<SettingsSection>().Single();
+        Assert.Equal(
+            ["Sync service", "This device", "Sync tasks", "Sync sessions", "Register this device", "Pair with another device", "Let another device in"],
+            section.CardTitles!);
+
+        using var context = RenderSettings(syncEnabled: true, paired: paired, registerSessionSync: true);
+        OpenDevicesTab(context.Component);
+
+        string[] expected = paired
+            ? ["This device", "Sync tasks", "Sync sessions", "Let another device in"]
+            : ["This device", "Register this device", "Pair with another device"];
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var page = Assert.Single(context.Component.FindComponents<DevicesSettings>());
+            var drawn = page.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()).ToArray();
+
+            Assert.Equal(section.CardTitles!.Where(drawn.Contains), drawn);
+            Assert.Subset(drawn.ToHashSet(), expected.ToHashSet());
+        });
+
+        foreach (var testId in paired
+            ? new[] { "devices-status", "devices-sync", "devices-session-sync", "devices-generate-code" }
+            : ["devices-status", "devices-register", "devices-pair"])
+        {
+            Assert.Single(context.Component.FindAll($"section.settings-card[data-testid='{testId}']"));
+        }
+    }
+
+    private static string Headline(IRenderedComponent<Settings> component) =>
+        component.Find("[data-testid='settings-headline']").TextContent.Trim();
 
     // --- The session loop's card ----------------------------------------------
 
@@ -778,12 +867,12 @@ public sealed class SettingsDevicesTests
         request.RequestUri?.AbsolutePath.EndsWith("/devices/token", StringComparison.Ordinal) == true;
 
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
+        SettingsMenu.Pages(component);
 
     private static void OpenDevicesTab(IRenderedComponent<Settings> component) => OpenTab(component, "Devices");
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
 
     // --- Leaving the tab and coming back -------------------------------------
 
@@ -836,7 +925,7 @@ public sealed class SettingsDevicesTests
     /// <summary>The page lives as long as the settings screen and no longer: a
     /// screen opened again starts with no code on it.</summary>
     [Fact]
-    public void Opening_settings_again_starts_the_devices_page_afresh()
+    public async Task Opening_settings_again_starts_the_devices_page_afresh()
     {
         using var context = RenderSettings(syncEnabled: true, paired: true);
 
@@ -847,6 +936,9 @@ public sealed class SettingsDevicesTests
         context.Component.WaitForAssertion(() =>
             Assert.Single(context.Component.FindAll("[data-testid='devices-code-display']")));
 
+        // Closed first, as leaving for the tasks closes it: one settings screen is
+        // on screen at a time, and its headline outlet is the one by that name.
+        await context.TestContext.DisposeComponentsAsync();
         var reopened = context.TestContext.Render<Settings>();
         OpenDevicesTab(reopened);
 

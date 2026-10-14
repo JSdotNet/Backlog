@@ -40,6 +40,7 @@
 *@
 @namespace Backlog.Desktop.UI.Tasks
 @using Backlog.Modules.Tasks.Abstractions.Connectors
+@using Backlog.UI.Components.Settings
 @using Microsoft.Extensions.DependencyInjection
 @using Microsoft.Extensions.Logging
 @implements IDisposable
@@ -47,99 +48,112 @@
 @inject IServiceProvider Services
 @inject ILogger<TaskConnectorSettings> Log
 
-@* No heading of its own: the shell titles the section "Connectors" already. *@
-<p class="setting__body">
-    Connect a repository or a product and every open item in it appears on the Tasks list
-    as a linked task, kept in step with the source. Its title, status and assignee follow
-    the source; your priority, My Day, sub-items and notes stay yours.
-</p>
+<SettingsHeadline>@Headline(ConnectedTargets.Count)</SettingsHeadline>
 
-@if (Sources.Descriptors.Count == 0)
-{
-    <EmptyState Title="No connector is installed"
-                Description="This build has no connector to bring tasks in from. Once one is installed, its repositories or products are connected here."
-                TestId="task-connectors-empty" />
-}
-else
-{
-    @if (Sources.SignIns.Count > 0)
-    {
-        <div class="task-connectors__sign-ins" data-testid="task-connectors-sign-ins">
-            @foreach (var (descriptor, signIn) in Sources.SignIns)
-            {
-                var state = SignInStateOf(descriptor.Id);
-                <ConnectorSignIn @key="descriptor.Id"
-                                 ConnectorName="@descriptor.DisplayName"
-                                 Icon="@descriptor.Icon"
-                                 AccountName="@signIn.Account?.DisplayName"
-                                 SigningIn="@state.SigningIn"
-                                 Error="@state.Error"
-                                 OnSignIn="() => SignInAsync(descriptor.Id, signIn)"
-                                 OnSignOut="() => SignOutAsync(descriptor.Id, signIn)"
-                                 TestId="@($"task-connector-sign-in-{descriptor.Id}")" />
-            }
-        </div>
-    }
+@* Every card sits in the grid the settings pages lay their cards out in. The
+   connect form's card holds what it takes to bring a source in: the sign-ins
+   a connector asks for, then the connector and the target. *@
+<div class="setting-columns">
+<SettingsCard Title="@ConnectCardTitle"
+              Description="Connect a repository or a product and every open item in it appears on the Tasks list as a linked task, kept in step with the source."
+              TestId="task-connectors-connect-card">
+    <p class="setting__body">
+        Its title, status and assignee follow the source; your priority, My Day,
+        sub-items and notes stay yours.
+    </p>
 
-    @if (Targets is null)
+    @if (Sources.Descriptors.Count == 0)
     {
-        <Alert Message="This host keeps no connected targets, so nothing can be connected here."
-               Role="status"
-               TestId="task-connectors-unavailable" />
+        <EmptyState Title="No connector is installed"
+                    Description="This build has no connector to bring tasks in from. Once one is installed, its repositories or products are connected here."
+                    TestId="task-connectors-empty" />
     }
     else
     {
-        <div class="task-connectors__connect" data-testid="task-connectors-connect">
-            <SelectField Form="true"
-                         Label="Connector"
-                         Id="task-connector-choice"
-                         TestId="task-connector-choice"
-                         CurrentValue="@_connectorId"
-                         Options="@ConnectorOptions"
-                         OnChanged="ChooseConnectorAsync" />
-            @if (_choices is null)
-            {
-                <SelectField Form="true"
-                             Label="@TargetLabel"
-                             Id="task-connector-target"
-                             TestId="task-connector-target"
-                             Disabled="true"
-                             IncludeEmptyOption="true"
-                             EmptyLabel="Loading…"
-                             Options="@([])" />
-            }
-            else if (_choices.Choices.Count > 0)
-            {
-                <SelectField Form="true"
-                             Label="@TargetLabel"
-                             Id="task-connector-target"
-                             TestId="task-connector-target"
-                             CurrentValue="@_target"
-                             IncludeEmptyOption="true"
-                             EmptyLabel="@(AvailableChoices.Count == 0 ? "Everything here is connected" : "Pick one")"
-                             Options="@AvailableChoices"
-                             OnChanged="value => _target = value ?? string.Empty" />
-                <Alert Message="@_connectError" TestId="task-connector-connect-error" />
-            }
-            else
-            {
-                <TextField Label="@TargetLabel"
-                           Id="task-connector-target"
-                           Placeholder="@SelectedConnector?.TargetPlaceholder"
-                           HelpText="@(_choices.CannotList ?? SelectedConnector?.TargetHelp)"
-                           Value="@_target"
-                           ValueChanged="value => _target = value"
-                           ErrorMessage="@_connectError"
-                           TestId="task-connector-target" />
-            }
-            <AppButton Variant="ButtonVariant.Primary"
-                       Disabled="@(!CanConnect)"
-                       TestId="task-connector-connect"
-                       OnClick="ConnectAsync">
-                Connect
-            </AppButton>
-        </div>
+        @if (Sources.SignIns.Count > 0)
+        {
+            <div class="task-connectors__sign-ins" data-testid="task-connectors-sign-ins">
+                @foreach (var (descriptor, signIn) in Sources.SignIns)
+                {
+                    var state = SignInStateOf(descriptor.Id);
+                    <ConnectorSignIn @key="descriptor.Id"
+                                     ConnectorName="@descriptor.DisplayName"
+                                     Icon="@descriptor.Icon"
+                                     AccountName="@signIn.Account?.DisplayName"
+                                     SigningIn="@state.SigningIn"
+                                     Error="@state.Error"
+                                     OnSignIn="() => SignInAsync(descriptor.Id, signIn)"
+                                     OnSignOut="() => SignOutAsync(descriptor.Id, signIn)"
+                                     TestId="@($"task-connector-sign-in-{descriptor.Id}")" />
+                }
+            </div>
+        }
 
+        @if (Targets is null)
+        {
+            <Alert Message="This host keeps no connected targets, so nothing can be connected here."
+                   Role="status"
+                   TestId="task-connectors-unavailable" />
+        }
+        else
+        {
+            <div class="task-connectors__connect" data-testid="task-connectors-connect">
+                <SelectField Form="true"
+                             Label="Connector"
+                             Id="task-connector-choice"
+                             TestId="task-connector-choice"
+                             CurrentValue="@_connectorId"
+                             Options="@ConnectorOptions"
+                             OnChanged="ChooseConnectorAsync" />
+                @if (_choices is null)
+                {
+                    <SelectField Form="true"
+                                 Label="@TargetLabel"
+                                 Id="task-connector-target"
+                                 TestId="task-connector-target"
+                                 Disabled="true"
+                                 IncludeEmptyOption="true"
+                                 EmptyLabel="Loading…"
+                                 Options="@([])" />
+                }
+                else if (_choices.Choices.Count > 0)
+                {
+                    <SelectField Form="true"
+                                 Label="@TargetLabel"
+                                 Id="task-connector-target"
+                                 TestId="task-connector-target"
+                                 CurrentValue="@_target"
+                                 IncludeEmptyOption="true"
+                                 EmptyLabel="@(AvailableChoices.Count == 0 ? "Everything here is connected" : "Pick one")"
+                                 Options="@AvailableChoices"
+                                 OnChanged="value => _target = value ?? string.Empty" />
+                    <Alert Message="@_connectError" TestId="task-connector-connect-error" />
+                }
+                else
+                {
+                    <TextField Label="@TargetLabel"
+                               Id="task-connector-target"
+                               Placeholder="@SelectedConnector?.TargetPlaceholder"
+                               HelpText="@(_choices.CannotList ?? SelectedConnector?.TargetHelp)"
+                               Value="@_target"
+                               ValueChanged="value => _target = value"
+                               ErrorMessage="@_connectError"
+                               TestId="task-connector-target" />
+                }
+                <AppButton Variant="ButtonVariant.Primary"
+                           Disabled="@(!CanConnect)"
+                           TestId="task-connector-connect"
+                           OnClick="ConnectAsync">
+                    Connect
+                </AppButton>
+            </div>
+        }
+    }
+</SettingsCard>
+
+@if (Sources.Descriptors.Count > 0 && Targets is not null)
+{
+    <SettingsCard Title="@ConnectedCardTitle" TestId="task-connectors-connected-card">
         @if (ConnectedTargets.Count == 0)
         {
             <Alert Message="Nothing is connected yet." Role="status" BaseClass="setting__note" TestId="task-connectors-none" />
@@ -161,13 +175,13 @@ else
                 }
             </div>
         }
+    </SettingsCard>
 
-        @if (_disconnected.Count > 0)
-        {
-            <h3 class="setting__subtitle">Disconnected sources</h3>
-            <p class="setting__body">
-                These are no longer connected, but their tasks are still on the list.
-            </p>
+    @if (_disconnected.Count > 0)
+    {
+        <SettingsCard Title="@DisconnectedCardTitle"
+                      Description="These are no longer connected, but their tasks are still on the list."
+                      TestId="task-connectors-disconnected-card">
             <div class="task-connectors__disconnected" data-testid="task-connectors-disconnected">
                 @foreach (var source in _disconnected)
                 {
@@ -191,30 +205,54 @@ else
                     </Card>
                 }
             </div>
-        }
-
-        @if (_message is not null)
-        {
-            <Alert Message="@_message" Role="status" BaseClass="setting__note" TestId="task-connectors-message" />
-        }
-
-        @* No OpenChanged binding, for the reason ToolsPane gives: it is raised before
-           OnConfirm, and clearing the subject there would clear it before the
-           confirm reads it. Cancel, Escape and the backdrop all arrive on OnCancel. *@
-        <ConfirmDialog Open="@(_deleting is not null)"
-                       Title="Delete these tasks?"
-                       Message="@DeleteMessage"
-                       ConfirmText="Delete tasks"
-                       Destructive="true"
-                       TestId="task-connector-delete-dialog"
-                       ConfirmTestId="task-connector-delete-confirm"
-                       CancelTestId="task-connector-delete-cancel"
-                       OnConfirm="ConfirmDeleteAsync"
-                       OnCancel="() => _deleting = null" />
+        </SettingsCard>
     }
+}
+</div>
+
+@if (Sources.Descriptors.Count > 0 && Targets is not null)
+{
+    @if (_message is not null)
+    {
+        <Alert Message="@_message" Role="status" BaseClass="setting__note" TestId="task-connectors-message" />
+    }
+
+    @* No OpenChanged binding, for the reason ToolsPane gives: it is raised before
+       OnConfirm, and clearing the subject there would clear it before the
+       confirm reads it. Cancel, Escape and the backdrop all arrive on OnCancel. *@
+    <ConfirmDialog Open="@(_deleting is not null)"
+                   Title="Delete these tasks?"
+                   Message="@DeleteMessage"
+                   ConfirmText="Delete tasks"
+                   Destructive="true"
+                   TestId="task-connector-delete-dialog"
+                   ConfirmTestId="task-connector-delete-confirm"
+                   CancelTestId="task-connector-delete-cancel"
+                   OnConfirm="ConfirmDeleteAsync"
+                   OnCancel="() => _deleting = null" />
 }
 
 @code {
+    public const string ConnectCardTitle = "Connect a task source";
+    public const string ConnectedCardTitle = "Connected task sources";
+    public const string DisconnectedCardTitle = "Disconnected sources";
+
+    /// <summary>Every card the page can draw, in the order it draws them - what
+    /// its <c>SettingsSection.CardTitles</c> declares. The connected card needs
+    /// an installed connector and a host that keeps targets, and the
+    /// disconnected one a source that left tasks behind.</summary>
+    public static IReadOnlyList<string> CardTitles { get; } =
+        [ConnectCardTitle, ConnectedCardTitle, DisconnectedCardTitle];
+
+    /// <summary>The sentence the frame shows over this page: how many targets
+    /// are connected, as the store lists them.</summary>
+    public static string Headline(int connected) => connected switch
+    {
+        <= 0 => "No task sources connected.",
+        1 => "1 task source connected.",
+        _ => $"{connected} task sources connected."
+    };
+
     private string _connectorId = string.Empty;
     private string _target = string.Empty;
     private string? _connectError;
@@ -610,7 +648,6 @@ else
             target.Target,
             target.Enabled,
             target.TitleFollowsSource,
-            target.PromoteArchivesOriginal,
             (int)Math.Max(1, Math.Round(target.SyncInterval.TotalMinutes)),
             target.SkipUntouchedOlderThan is { } skip ? (int)Math.Round(skip.TotalDays) : null,
             target.CompleteAtSource)
@@ -706,7 +743,6 @@ else
         {
             Enabled = options.Enabled,
             TitleFollowsSource = options.TitleFollowsSource,
-            PromoteArchivesOriginal = options.PromoteArchivesOriginal,
             CompleteAtSource = options.CompleteAtSource,
             SyncInterval = TimeSpan.FromMinutes(options.SyncIntervalMinutes),
             SkipUntouchedOlderThan = options.SkipUntouchedOlderThanDays is { } days ? TimeSpan.FromDays(days) : null,

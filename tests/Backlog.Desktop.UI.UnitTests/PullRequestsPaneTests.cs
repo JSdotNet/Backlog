@@ -139,12 +139,12 @@ public sealed class PullRequestsPaneTests : IDisposable
     }
 
     /// <summary>
-    /// Every pull request is read from a repository, so the Brain alone holds only those
-    /// linked to a task filed against no repository (local ADR 0027, §2) — the shell
-    /// answers which through <c>PullRequestInBrain</c>.
+    /// Every pull request belongs to a repository, so the list reads the scope without
+    /// the Brain (local ADR 0027, §2): the Brain alone reads as nothing pressed, and
+    /// every repository's pull requests are listed.
     /// </summary>
     [Fact]
-    public void The_brain_keeps_the_pull_requests_of_tasks_filed_against_no_repository()
+    public void The_brain_alone_lists_every_pull_request()
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
@@ -152,68 +152,32 @@ public sealed class PullRequestsPaneTests : IDisposable
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>(parameters => parameters
-            .Add(p => p.RepositoryScope, [BrainScope.Value])
-            .Add(p => p.PullRequestInBrain, (Func<PullRequestTaskSubject, bool>)(pull => pull.Number == 1)));
-
-        pane.WaitForAssertion(() =>
-        {
-            Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane));
-            Assert.Contains("Narrowed to Brain.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
-        });
-    }
-
-    /// <summary>
-    /// A task re-filed into the Brain brings its pull request into the Brain's scope
-    /// without a new listing — and into the stack it belongs to on the same render,
-    /// not at the next listing or scope change.
-    /// </summary>
-    [Fact]
-    public void A_pull_request_re_filed_into_the_brain_joins_its_stack_at_once()
-    {
-        var client = new StubClient().Lists(
-            "JSdotNet/Backlog",
-            Pull("JSdotNet/Backlog", 10, updated: Noon.AddHours(-3)),
-            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10", updated: Noon.AddMinutes(-30)));
-        using var context = Context(client);
-        var inBrain = new HashSet<int> { 10 };
-        Func<PullRequestTaskSubject, bool> filed = pull => inBrain.Contains(pull.Number);
-
-        var pane = context.Render<PullRequestsPane>(parameters => parameters
-            .Add(p => p.RepositoryScope, [BrainScope.Value])
-            .Add(p => p.PullRequestInBrain, filed));
-
-        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#10"], RowKeys(pane)));
-        Assert.Null(pane.Find("[data-testid='pull-request-row']").GetAttribute("data-stack-depth"));
-
-        inBrain.Add(11);
-        pane.Render(parameters => parameters
-            .Add(p => p.RepositoryScope, [BrainScope.Value])
-            .Add(p => p.PullRequestInBrain, filed));
-
-        pane.WaitForAssertion(() =>
-        {
-            Assert.Equal(["JSdotNet/Backlog#10", "JSdotNet/Backlog#11"], RowKeys(pane));
-            Assert.Equal(["0", "1"], pane.FindAll("[data-testid='pull-request-row']").Select(row => row.GetAttribute("data-stack-depth")));
-        });
-    }
-
-    /// <summary>With no pull request linked to a task filed nowhere, the Brain's list is
-    /// empty, and its empty state says why: pull requests belong to repositories.</summary>
-    [Fact]
-    public void The_brain_alone_with_nothing_linked_says_pull_requests_belong_to_repositories()
-    {
-        var client = new StubClient()
-            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1));
-        using var context = Context(client);
-
-        var pane = context.Render<PullRequestsPane>(parameters => parameters
             .Add(p => p.RepositoryScope, [BrainScope.Value]));
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Empty(pane.FindAll("[data-testid='pull-request-row']"));
-            var empty = pane.Find("[data-testid='pull-requests-empty']");
-            Assert.Contains("Pull requests belong to repositories", empty.TextContent, StringComparison.Ordinal);
+            Assert.Equal(["JSdotNet/Archify#2", "JSdotNet/Backlog#1"], RowKeys(pane).Order());
+            Assert.DoesNotContain("Narrowed to", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>Beside a repository the Brain adds nothing: the list holds that
+    /// repository's pull requests, as if the repository were pressed alone.</summary>
+    [Fact]
+    public void The_brain_beside_a_repository_lists_that_repositorys_pull_requests()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, [BrainScope.Value, "archify"]));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Archify#2"], RowKeys(pane));
+            Assert.Contains("Narrowed to archify.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
         });
     }
 

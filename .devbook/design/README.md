@@ -105,6 +105,7 @@ Page map — each file here and the storybook pages that show it:
 | `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
 | `component-libraries.md` | *Diagrams*, *Diagrams in markdown*, *Graph explorer* and *Graph atlas* (Mermaid, the first-party canvas renderer), plus the library itself |
 | `effort-and-mode-chips.md` | `#effort-chips` → *Session list* (the effort ladder, an effort nobody recorded, and the stage strip beside it); `#mode-chips`, `#stage-marks` and `#legend` → *Badges* |
+| `settings-pages.md` | *Settings frame* (panel, headline, Saved as you go, the phone-width grouped list), *Settings menu* (groups, badges, matched cards), *Settings card*. Those pages do not yet link back to it, as its *Materialization* chapter says. |
 
 The storybook's own order is a rule of its own: **nothing is shown before its
 parts.** Its groups run in this order:
@@ -176,6 +177,7 @@ Rules:
 | [`accessibility.md`](accessibility.md) | WCAG AA target, keyboard nav, screen-reader announcements, focus visibility, reduced motion, target sizes. |
 | [`component-libraries.md`](component-libraries.md) | Per-channel component-library research and recommendation. |
 | [`effort-and-mode-chips.md`](effort-and-mode-chips.md) | The effort ladder, the four mode shapes, the not-as-configured and inferred marks, and the legend of a delivery run's stage list. |
+| [`settings-pages.md`](settings-pages.md) | The Settings screen pattern a registered page follows: panel and headline, menu groups, badges and the Off state, declared card titles and search, the settings card and figure tiles, lists that expand in place, phone width, and `settings/{page}` addresses. |
 
 ## Provenance
 

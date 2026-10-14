@@ -51,10 +51,10 @@ The system SHALL render the Brain chip first in the repository scope, behind a d
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_alone_keeps_the_rows_no_repository_claims, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_repo_token_naming_nothing_configured_counts_as_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_brain_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.The_brain_keeps_the_sessions_of_no_configured_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_keeps_the_pull_requests_of_tasks_filed_against_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_alone_with_nothing_linked_says_pull_requests_belong_to_repositories, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests.The_brain_counts_the_tasks_that_name_no_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_brain_keeps_the_rows_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.RepositoryFocusTests.The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_alone_keeps_the_rows_no_repository_claims, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_repo_token_naming_nothing_configured_counts_as_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_brain_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.The_brain_keeps_the_sessions_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests.The_brain_counts_the_tasks_that_name_no_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_brain_keeps_the_rows_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.RepositoryFocusTests.The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
-The system SHALL show only the tasks filed against no repository in Tasks, Board, Calendar, In progress, Dashboard, Sessions and Pull requests while Brain is the only chip pressed.
+The system SHALL show only the tasks filed against no repository in Tasks, Board, Calendar, In progress, Dashboard and Sessions while Brain is the only chip pressed.
 
 #### Scenario: Tasks
 
@@ -62,11 +62,27 @@ The system SHALL show only the tasks filed against no repository in Tasks, Board
 - **When** the reader presses Brain on the Tasks view
 - **Then** only the task with no repository is listed
 
-#### Scenario: Pull requests with nothing to show
+### Requirement: Pull requests read the scope without the Brain
 
-- **Given** no pull request is linked to a task filed against no repository
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_alone_lists_every_pull_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_beside_a_repository_lists_that_repositorys_pull_requests]
+```
+
+The system SHALL list every pull request while Brain is the only chip pressed, and the pressed repositories' pull requests while Brain is pressed beside them.
+
+#### Scenario: Brain alone
+
+- **Given** pull requests in `backlog` and in `tools`
 - **When** the reader presses Brain and opens Pull requests
-- **Then** the list is empty and its empty state says that pull requests belong to repositories
+- **Then** both pull requests are listed
+
+#### Scenario: Brain beside a repository
+
+- **Given** pull requests in `backlog` and in `tools`
+- **When** the reader presses Brain, Ctrl-presses `backlog` and opens Pull requests
+- **Then** only the pull request in `backlog` is listed
 
 ### Requirement: Ctrl adds Brain to the pressed repositories
 

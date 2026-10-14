@@ -2,7 +2,6 @@
 
 ```meta
 date: 2026-10-13
-status: proposed
 related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/color-scheme.md#band-identity-tokens", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/devbook/features.md#bi-directional-linking", ".devbook/arc42/12-glossary.md#terms"]
 ```
 
@@ -17,8 +16,9 @@ scope's anchor is Brain, and when nothing is pressed.
 ```meta
 ```
 
-Proposed, 2026-10-13. Not yet built: the plan `+brain` builds it. It awaits
-acceptance at the Personal Validation gate of the flow-spec run that drafted it.
+Accepted, 2026-10-14. Built by the plan `+brain` (pull requests #1168 and #1197
+into `plan/brain`). Acceptance settled the two questions the proposal left open:
+Pull requests and the Roadmap read Brain alone as nothing pressed (§2 and §7).
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -77,7 +77,8 @@ flowchart LR
         Div["divider"]
         Repos["repo-a | repo-b | ..."]
     end
-    Brain --> Tasks["Task views, Dashboard, Sessions, Pull requests: tasks filed against no repository"]
+    Brain --> Tasks["Task views, Dashboard, Sessions: tasks filed against no repository"]
+    Brain -. "alone, read as nothing pressed" .-> All["Pull requests, Roadmap: everything"]
     Repos --> Tasks2["Task views, Dashboard, Sessions, Pull requests: tasks in those repositories"]
     Brain -->|"anchor, or nothing pressed"| Pane["Devbook pane shows the Brain"]
     Repos -->|"anchor"| Pane2["Devbook pane shows that repository"]
@@ -98,7 +99,9 @@ shell-header row, which today renders the scope only while a repository is
 configured.
 
 When the person has not picked a Brain folder yet (ADR 0026 §1 has no default
-path), the chip still shows and still scopes tasks.
+path), the chip still shows and still scopes tasks. It reads **Set up your
+Brain**, and its tooltip points to Settings › Storage. Pressing it scopes, as any
+chip does; the Devbook pane's first-use prompt is the link into Settings.
 
 ### 2. Brain is the scope of everything filed against no repository
 
@@ -106,18 +109,18 @@ path), the chip still shows and still scopes tasks.
 ```
 
 Picking Brain alone shows only tasks with no repository. That holds in Tasks,
-Board, Calendar, In progress, Dashboard, Sessions and Pull requests.
+Board, Calendar, In progress, Dashboard and Sessions.
 
 - **The "No repo" chip goes.** Brain in the scope replaces the Tasks filter bar's
   chip and its separate `NoRepositoryOnly` boolean.
 - **The Board's column is renamed.** The "No repository" column becomes "Brain".
 - **The repository picker lists Brain first.** In `RepositorySelector`, picking
   Brain clears the task's repository. It replaces the "No repo" empty label.
-- **Pull requests narrow too.** The list narrows to what is filed against no
-  repository. For pull requests that is normally nothing, since every pull
-  request belongs to a repository. The list shows those linked to tasks filed
-  against no repository, if any exist. Otherwise it is empty, and its empty
-  state says why.
+- **Pull requests do not narrow to Brain.** Every pull request belongs to a
+  repository, so narrowing them to no repository would leave the list empty. The
+  Pull requests takeover reads the scope without the Brain: Brain alone reads as
+  nothing pressed and lists every pull request, and Brain beside repositories
+  lists those repositories' pull requests.
 
 ### 3. Ctrl adds Brain as it adds a repository
 
@@ -188,6 +191,15 @@ A repository chapter shows **From your Brain** backlinks to its owner only. The
 backlinks come from the owner's own Brain database in app storage (ADR 0026 §4).
 Nothing is written into the repository.
 
+### 7. An anchor of Brain shows the whole Roadmap
+
+```meta
+```
+
+The Roadmap view reads one value, so the scope collapses to its anchor there
+(ADR 0022). An anchor of Brain reads as nothing pressed: the Roadmap shows what
+it shows with no chip pressed.
+
 ## Consequences
 
 ```meta
@@ -211,8 +223,9 @@ Negative:
 - **Band 2 is shared.** Repository identity marks also cycle through the bands, so
   a repository whose mark is band 2 wears the Brain's teal. The divider and the
   chip's first place set the Brain apart, not the colour alone.
-- **Pull requests under Brain alone are normally empty.** The person sees an empty
-  list and its explanation.
+- **Brain does not narrow everything.** Pull requests and the Roadmap read Brain
+  alone as nothing pressed, so on those two surfaces pressing Brain changes
+  nothing.
 - **The empty string is a magic value.** Code that reads `repositoryScope` must
   know that `""` means Brain.
 - **A repository chapter cannot cite a Brain note.** Links run one way only.
@@ -223,8 +236,6 @@ Neutral:
   no repository.
 - **Backlinks differ per person.** Two people reading one repository chapter see
   their own Brain backlinks, or none.
-- **The Roadmap view is not settled here.** The scope collapses to the anchor
-  there, and what an anchor of Brain shows on the roadmap is left to the plan.
 
 ## Rejected
 
@@ -271,8 +282,11 @@ Look for tests that show these behaviours:
     pane on the Brain shows the first-use folder prompt.
 11. **The scope is remembered.** `""` in `repositoryScope` reopens as Brain in its
     position, the anchor if first. An unknown alias is dropped.
-12. **Pull requests under Brain alone.** The list holds only pull requests linked
-    to tasks with no repository, and shows its empty state when there are none.
+12. **Pull requests read the scope without the Brain.** With Brain alone pressed
+    the list holds every pull request. With Brain and a repository pressed it
+    holds that repository's.
 13. **Links run one way.** A `repo:<alias>/<path>#slug` link in a Brain note
     resolves. A repository chapter shows "From your Brain" backlinks to its owner,
     and no file in the repository changes.
+14. **An anchor of Brain shows the whole Roadmap.** With Brain as the anchor the
+    Roadmap shows what it shows with nothing pressed.

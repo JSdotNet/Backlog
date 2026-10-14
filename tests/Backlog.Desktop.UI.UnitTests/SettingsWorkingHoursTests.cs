@@ -185,6 +185,80 @@ public sealed class SettingsWorkingHoursTests
         Assert.Empty(section.Component.FindAll("[data-testid^='usage-reset']"));
     }
 
+    // --- The headline and the card -----------------------------------------------
+
+    /// <summary>The default week reads as one range and one pair of hours.</summary>
+    [Fact]
+    public void The_headline_says_the_default_week_in_one_sentence()
+    {
+        Assert.Equal("You work Mon–Fri, 09:00–17:30.", WorkingWeekSettings.HeadlineFor(WorkingHours.Default));
+    }
+
+    /// <summary>A run of three days or more is a range, anything shorter a list, so a
+    /// week with a gap in it says where the gap is.</summary>
+    [Fact]
+    public void The_headline_lists_the_days_around_a_gap_and_follows_the_store()
+    {
+        using var section = RenderSection();
+
+        Assert.Null(section.WorkingWeek.SetDay(DayOfWeek.Wednesday, false, new TimeOnly(9, 0), new TimeOnly(17, 30)));
+        Assert.Equal("You work Mon, Tue, Thu, Fri, 09:00–17:30.", WorkingWeekSettings.HeadlineFor(section.WorkingWeek.Current));
+
+        Assert.Null(section.WorkingWeek.SetDay(DayOfWeek.Wednesday, true, new TimeOnly(9, 0), new TimeOnly(17, 30)));
+        Assert.Null(section.WorkingWeek.SetDay(DayOfWeek.Saturday, true, new TimeOnly(9, 0), new TimeOnly(17, 30)));
+        Assert.Equal("You work Mon–Sat, 09:00–17:30.", WorkingWeekSettings.HeadlineFor(section.WorkingWeek.Current));
+    }
+
+    /// <summary>Hours that differ between days are left to the rows; no days at all
+    /// says so rather than naming an empty week.</summary>
+    [Fact]
+    public void The_headline_leaves_differing_hours_to_the_rows_and_names_an_empty_week()
+    {
+        using var section = RenderSection();
+
+        Assert.Null(section.WorkingWeek.SetDay(DayOfWeek.Friday, true, new TimeOnly(9, 0), new TimeOnly(13, 0)));
+        Assert.Equal("You work Mon–Fri, each day at its own hours.", WorkingWeekSettings.HeadlineFor(section.WorkingWeek.Current));
+
+        foreach (var day in WorkingHours.Week)
+        {
+            var working = section.WorkingWeek.Current.On(day);
+            Assert.Null(section.WorkingWeek.SetDay(day, false, working.Start, working.End));
+        }
+
+        Assert.Equal("You have no working days set.", WorkingWeekSettings.HeadlineFor(section.WorkingWeek.Current));
+    }
+
+    /// <summary>On the settings screen the sentence is the frame's headline, and it
+    /// moves as soon as a day is committed.</summary>
+    [Fact]
+    public void The_page_writes_its_headline_and_a_committed_change_moves_it()
+    {
+        using var settings = RenderSettings(dashboard: true);
+
+        OpenTab(settings.Component, "Working week");
+        Assert.Equal("You work Mon–Fri, 09:00–17:30.", Headline(settings.Component));
+
+        settings.Component.Find("[data-testid='working-hours-friday-enabled']").Change(false);
+
+        Assert.Equal("You work Mon–Thu, 09:00–17:30.", Headline(settings.Component));
+    }
+
+    [Fact]
+    public void The_card_on_the_page_is_the_one_its_section_declares()
+    {
+        var section = new ServiceCollection().AddDashboardSettings()
+            .Select(descriptor => descriptor.ImplementationInstance)
+            .OfType<SettingsSection>()
+            .Single(registered => registered.Id == "working-week");
+        using var page = RenderSection();
+
+        Assert.Equal(["Your working week"], section.CardTitles!);
+        Assert.Equal(
+            section.CardTitles!,
+            page.Component.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()));
+        Assert.NotNull(page.Component.Find("section.settings-card[data-testid='working-hours-settings']"));
+    }
+
     // --- On the settings screen ---------------------------------------------------
 
     /// <summary>The week is on the page the Dashboard registers for it, after the
@@ -196,7 +270,7 @@ public sealed class SettingsWorkingHoursTests
 
         var tabs = Tabs(settings.Component);
         Assert.Contains("Working week", tabs);
-        Assert.True(Array.IndexOf(tabs, "Working week") > Array.IndexOf(tabs, "Storage"));
+        Assert.True(Array.IndexOf(tabs, "Working week") > Array.IndexOf(tabs, "Storage & backup"));
 
         OpenTab(settings.Component, "Working week");
         settings.Component.Find("[data-testid='working-hours-friday-end']").Change("13:00");
@@ -205,7 +279,7 @@ public sealed class SettingsWorkingHoursTests
     }
 
     /// <summary>The roadmap counts the week whether or not the dashboard is on
-    /// (ADR 0019), so switching the dashboard off withdraws its usage-reset page
+    /// (ADR 0019), so switching the dashboard off marks its usage-reset page Off
     /// and leaves the working week where it is.</summary>
     [Fact]
     public void With_the_dashboard_off_the_working_week_is_still_offered()
@@ -214,14 +288,16 @@ public sealed class SettingsWorkingHoursTests
 
         var tabs = Tabs(settings.Component);
         Assert.Contains("Working week", tabs);
-        Assert.DoesNotContain("Dashboard", tabs);
+        Assert.Contains("Dashboard", tabs);
+        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "dashboard"));
+        Assert.NotEqual("Off", SettingsMenu.Badge(settings.Component, "working-week"));
     }
 
     [Fact]
     public void The_storage_tab_no_longer_carries_the_working_week()
     {
         using var settings = RenderSettings(dashboard: true);
-        OpenTab(settings.Component, "Storage");
+        OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid='working-hours-settings']"));
         Assert.Empty(settings.Component.FindAll("[data-testid='working-hours-row']"));
@@ -236,17 +312,20 @@ public sealed class SettingsWorkingHoursTests
     public void The_storage_tab_no_longer_carries_the_pace()
     {
         using var settings = RenderSettings(dashboard: true);
-        OpenTab(settings.Component, "Storage");
+        OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid='planning-velocity-settings']"));
         Assert.Empty(settings.Component.FindAll("[data-testid='planning-velocity']"));
     }
 
     private static string[] Tabs(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
+        SettingsMenu.Pages(component);
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
+
+    private static string Headline(IRenderedComponent<Settings> component) =>
+        component.Find("[data-testid='settings-headline']").TextContent.Trim();
 
     private static SectionRenderContext RenderSection()
     {

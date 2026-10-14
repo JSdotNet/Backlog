@@ -438,6 +438,55 @@ public sealed class RoadmapTimelineTests
     }
 
     [Fact]
+    public async Task A_drop_is_not_a_click_while_the_host_is_still_applying_it()
+    {
+        using var context = new BunitContext();
+
+        var opened = new List<string>();
+        var applying = new TaskCompletionSource();
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.OnBarSelected, id => opened.Add(id))
+            .Add(timeline => timeline.OnBarChanged, _ => applying.Task));
+
+        // A real host saves the move and reloads before its change returns, and the
+        // browser's click follows the pointerup straight away: it arrives while the
+        // drop is still waiting on the host, not after.
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "move"));
+        await view.InvokeAsync(() => view.Instance.DragPreview(2, 0));
+        var commit = view.InvokeAsync(view.Instance.DragCommit);
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Empty(opened);
+
+        applying.SetResult();
+        await commit;
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Equal(["alpha"], opened);
+    }
+
+    [Fact]
+    public async Task A_drop_the_host_failed_to_take_does_not_swallow_the_next_click()
+    {
+        using var context = new BunitContext();
+
+        var opened = new List<string>();
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.OnBarSelected, id => opened.Add(id))
+            .Add(timeline => timeline.OnBarChanged, _ => Task.FromException(new InvalidOperationException("save failed"))));
+
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "move"));
+        await view.InvokeAsync(() => view.Instance.DragPreview(2, 0));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => view.InvokeAsync(view.Instance.DragCommit));
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Equal(["alpha"], opened);
+    }
+
+    [Fact]
     public async Task A_press_and_release_that_went_nowhere_still_opens()
     {
         using var context = new BunitContext();

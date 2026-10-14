@@ -2,7 +2,6 @@
 
 ```meta
 date: 2026-10-13
-status: proposed
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/12-glossary.md#terms", ".devbook/domain/inbox/features.md#route-to-brain", ".devbook/domain/devbook/domain.md#knowledge-note", ".devbook/domain/devbook/domain.md#para-category"]
 ```
 
@@ -16,8 +15,8 @@ the derived database into its own storage, as it does for a repository.
 ```meta
 ```
 
-Proposed, 2026-10-13. Not yet built: the plan `+brain` builds it. It awaits
-acceptance at the Personal Validation gate of the flow-spec run that drafted it.
+Accepted, 2026-10-14. Built by the plan `+brain` (pull requests #1168 and #1197
+into `plan/brain`).
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.

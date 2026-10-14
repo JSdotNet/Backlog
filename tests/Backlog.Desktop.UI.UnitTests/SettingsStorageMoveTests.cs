@@ -113,6 +113,43 @@ public sealed class SettingsStorageMoveTests
         Assert.False(File.Exists(Path.Combine(target, "backlog.db")));
     }
 
+    /// <summary>
+    /// Browse puts the picked folder in the field and nothing more, for the
+    /// reason leaving the field moves nothing: which of Move and Switch applies
+    /// it is still the reader's choice.
+    /// </summary>
+    [Fact]
+    public async Task Browsing_fills_the_field_and_moves_nothing()
+    {
+        var picker = new FixedPicker();
+        using var settings = RenderSettings(picker);
+        var previous = settings.Store.RootDirectory;
+        await new SqliteTaskRepository(previous).SaveAsync(new TaskItem("Stays put", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        OpenStorageTab(settings.Component);
+        picker.Folder = Path.Combine(settings.Root, "picked");
+
+        settings.Component.Find("[data-testid='storage-path-browse']").Click();
+
+        Assert.Equal(picker.Folder, settings.Component.Find(StoragePathInput).GetAttribute("value"));
+        Assert.Equal(previous, settings.Store.RootDirectory);
+        Assert.False(settings.Component.Find(MoveButton).HasAttribute("disabled"));
+
+        settings.Component.Find(MoveButton).Click();
+
+        Assert.Equal(picker.Folder, settings.Store.RootDirectory);
+    }
+
+    /// <summary>A host with no folder picker draws no Browse, rather than a
+    /// button that can do nothing.</summary>
+    [Fact]
+    public void Without_a_folder_picker_there_is_no_browse()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        Assert.Empty(settings.Component.FindAll("[data-testid='storage-path-browse']"));
+    }
+
     /// <summary>The move has a button of its own, live once the field names
     /// a folder other than the one the app is in. "Move to the default
     /// folder" used to be the only move with a button, and the folder
@@ -201,7 +238,7 @@ public sealed class SettingsStorageMoveTests
         // Collapsed, because the note wraps in the markup wherever it wraps
         // and a phrase must not fail for landing on a line break.
         var tab = System.Text.RegularExpressions.Regex.Replace(
-            settings.Component.Find("#tabpanel-storage").TextContent, @"\s+", " ");
+            settings.Component.Find("section[aria-label='Storage settings']").TextContent, @"\s+", " ");
 
         Assert.DoesNotContain("does not copy anything", tab, StringComparison.Ordinal);
         Assert.Contains("copied there", tab, StringComparison.Ordinal);
@@ -229,11 +266,11 @@ public sealed class SettingsStorageMoveTests
     }
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
+        SettingsMenu.Open(component, "Storage & backup");
 
     /// <summary>Renders the screen over a throwaway workspace with a sync probe
     /// that finds nothing, for the reason SettingsStorageCopyTests gives.</summary>
-    private static SettingsRenderContext RenderSettings()
+    private static SettingsRenderContext RenderSettings(IBrainFolderPicker? picker = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-storage-move-tests", Guid.NewGuid().ToString("n"));
 
@@ -265,8 +302,17 @@ public sealed class SettingsStorageMoveTests
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        if (picker is not null) context.Services.AddSingleton(picker);
 
         return new SettingsRenderContext(root, store, context, context.Render<Settings>());
+    }
+
+    private sealed class FixedPicker : IBrainFolderPicker
+    {
+        public string? Folder { get; set; }
+
+        public Task<string?> PickFolderAsync(string? startFolder, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Folder);
     }
 
     private sealed class NoGitHub : IGitHubClient

@@ -1,5 +1,6 @@
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Desktop.UI.Tasks;
 
@@ -11,15 +12,26 @@ namespace Backlog.Desktop.UI.Tasks;
 /// </summary>
 public static class TaskConnectorSettingsRegistration
 {
-    /// <summary>The Connectors page's place among the sections modules register:
-    /// ahead of the Inbox's, because it decides what reaches the Tasks list.</summary>
-    public const int Order = 50;
+    /// <summary>The Connectors page's place among the Product areas pages: after
+    /// the Inbox's.</summary>
+    public const int Order = 40;
 
     public static IServiceCollection AddTaskConnectorSettings(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("connectors", "Connectors", Order, typeof(TaskConnectorSettings)));
+        services.AddSingleton(new SettingsSection(
+            "connectors",
+            "Connectors",
+            Order,
+            typeof(TaskConnectorSettings),
+            Group: SettingsGroup.ProductAreas,
+            CardTitles: TaskConnectorSettings.CardTitles,
+            BadgeSource: typeof(ConnectedTaskSourcesBadgeSource)));
+
+        // The value the menu draws beside the page's name, a singleton as
+        // ISettingsBadgeSource asks: the shell holds it while the screen is open.
+        services.TryAddSingleton<ConnectedTaskSourcesBadgeSource>();
 
         return services;
     }

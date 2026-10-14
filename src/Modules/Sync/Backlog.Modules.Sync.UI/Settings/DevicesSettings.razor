@@ -23,6 +23,7 @@
 @using global::Backlog.Infrastructure.Sync.Sessions
 @using global::Backlog.SharedKernel
 @using global::Backlog.SharedKernel.Results
+@using global::Backlog.UI.Components.Settings
 @using Microsoft.Extensions.DependencyInjection
 @* For the optional logger the page writes an unexpected failure to, rather
    than putting the exception's own words on screen. *@
@@ -31,21 +32,19 @@
 @inject IServiceProvider Services
 @implements IDisposable
 
+<SettingsHeadline>@Headline(IsPaired)</SettingsHeadline>
+
 @* Where the cards below send their traffic. First, because when it is
    wrong nothing under it works and the only other sign is a DNS error
    naming a host called "sync". Under the AppHost the field stays blank
    and the line says so; the installed app has no AppHost and needs
    the URL from here or from the environment. *@
+<div class="setting-columns">
 @if (_syncService is not null && _syncServiceEndpoint is not null)
 {
-    <section class="setting" data-testid="sync-service-settings" aria-label="Sync service">
-        <h2 class="setting__title">Sync service</h2>
-        <p class="setting__body">
-            The service this device pairs through and replicates to. Leave it
-            blank when the app is started from the Aspire AppHost, which finds
-            that run's own service by itself.
-        </p>
-
+    <SettingsCard Title="@SyncServiceCardTitle"
+                  Description="The service this device pairs through and replicates to. Leave it blank when the app is started from the Aspire AppHost, which finds that run's own service by itself."
+                  TestId="sync-service-settings">
         <TextField Bare="true"
                    LabelCssClass="setting__label"
                    InputCssClass="setting__input"
@@ -78,16 +77,13 @@
             Kept in <code>@_syncService.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
             <code>@SyncServiceEndpoint.EnvironmentVariable</code> in the environment is used when this is blank.
         </p>
-    </section>
+    </SettingsCard>
 }
 
 @* A device is in one of two states and each has exactly one thing to do
    next, so the cards come in pairs: unpaired offers register and redeem,
    paired offers the code that lets the next device in. *@
-<div class="setting-columns">
-    <section class="setting" data-testid="devices-status" aria-label="This device">
-        <h2 class="setting__title">This device</h2>
-
+    <SettingsCard Title="@ThisDeviceCardTitle" TestId="devices-status">
         @if (_devicesBusy)
         {
             <Spinner Label="Talking to the sync service" TestId="devices-busy" />
@@ -148,7 +144,7 @@
         <p class="setting__note">
             The registration credential is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.
         </p>
-    </section>
+    </SettingsCard>
 
     @* Only for a device that is already one: an unpaired device has no
        owner to replicate under, and nothing to sync. And only where a
@@ -163,10 +159,11 @@
        The panel offers the way back instead. *@
     @if (SyncEnabled && _taskSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
     {
-        <section class="setting" data-testid="devices-sync" aria-label="Sync tasks">
-            <h2 class="setting__title">Sync tasks</h2>
+        <SettingsCard Title="@SyncTasksCardTitle"
+                      Description="Runs on its own every few minutes. Sends what changed on this machine and brings back what changed on the others."
+                      TestId="devices-sync">
             <p class="setting__body">
-                Runs on its own every few minutes. Sends what changed on this machine and brings back what changed on the others - whole tasks, latest edit wins, so a task edited on both machines keeps one of the two versions rather than a blend of them.
+                Whole tasks, latest edit wins, so a task edited on both machines keeps one of the two versions rather than a blend of them.
             </p>
 
             <div class="setting__actions">
@@ -214,7 +211,7 @@
                     <text>A cycle that failed for a reason the sentence above does not give is written out in full under <code>@_logs.Directory</code>.</text>
                 }
             </p>
-        </section>
+        </SettingsCard>
     }
 
     @* The session loop's card, shown on the same terms as the task
@@ -227,10 +224,11 @@
        is for the person whose second machine still shows nothing. *@
     @if (SyncEnabled && _sessionSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
     {
-        <section class="setting" data-testid="devices-session-sync" aria-label="Sync sessions">
-            <h2 class="setting__title">Sync sessions</h2>
+        <SettingsCard Title="@SyncSessionsCardTitle"
+                      Description="Runs on its own every few minutes. Sends this machine's Claude and Copilot session records and brings back what the other devices reported."
+                      TestId="devices-session-sync">
             <p class="setting__body">
-                Runs on its own every few minutes. Sends this machine's Claude and Copilot session records and brings back what the other devices reported. Only the metadata: never a prompt, a transcript, a working folder, or a session's title.
+                Only the metadata: never a prompt, a transcript, a working folder, or a session's title.
             </p>
 
             <div class="setting__actions">
@@ -258,17 +256,14 @@
             <p class="setting__note" data-testid="devices-session-sync-state-path">
                 How far this device has got is kept in <code>@_sessionSync.StorePath</code>.
             </p>
-        </section>
+        </SettingsCard>
     }
 
     @if (StoredDevice is null || DeviceNoLongerRegistered)
     {
-        <section class="setting" data-testid="devices-register" aria-label="Register this device">
-            <h2 class="setting__title">Register this device</h2>
-            <p class="setting__body">
-                Claims an owner of its own. Do this on the first device only - every device after it pairs instead, or it ends up with an owner nobody else can see.
-            </p>
-
+        <SettingsCard Title="@RegisterCardTitle"
+                      Description="Claims an owner of its own. Do this on the first device only - every device after it pairs instead, or it ends up with an owner nobody else can see."
+                      TestId="devices-register">
             <TextField Bare="true"
                        LabelCssClass="setting__label"
                        InputCssClass="setting__input"
@@ -288,14 +283,11 @@
                     Register
                 </AppButton>
             </div>
-        </section>
+        </SettingsCard>
 
-        <section class="setting" data-testid="devices-pair" aria-label="Pair with another device">
-            <h2 class="setting__title">Pair with another device</h2>
-            <p class="setting__body">
-                Type the code the other device is showing. It is single-use and expires in minutes, so it is permission to make a credential rather than a credential.
-            </p>
-
+        <SettingsCard Title="@PairCardTitle"
+                      Description="Type the code the other device is showing. It is single-use and expires in minutes, so it is permission to make a credential rather than a credential."
+                      TestId="devices-pair">
             <TextField Bare="true"
                        LabelCssClass="setting__label"
                        InputCssClass="setting__input"
@@ -316,16 +308,13 @@
                     Pair
                 </AppButton>
             </div>
-        </section>
+        </SettingsCard>
     }
     else
     {
-        <section class="setting" data-testid="devices-generate-code" aria-label="Let another device in">
-            <h2 class="setting__title">Let another device in</h2>
-            <p class="setting__body">
-                Generate a code and read it out on the other device. Nothing travels between the two - carrying the code is what pairs them.
-            </p>
-
+        <SettingsCard Title="@LetInCardTitle"
+                      Description="Generate a code and read it out on the other device. Nothing travels between the two - carrying the code is what pairs them."
+                      TestId="devices-generate-code">
             <div class="setting__actions">
                 <AppButton TestId="devices-generate"
                            Busy="@_devicesBusy"
@@ -345,7 +334,7 @@
                    somebody is still typing the code out. *@
                 <p class="setting__note" data-testid="devices-code-expiry">@PairingCodeExpiry(issued)</p>
             }
-        </section>
+        </SettingsCard>
     }
 </div>
 
@@ -397,6 +386,40 @@
     /// path, a header, the shape of the service. The detail goes to
     /// <see cref="_deviceLog"/>; the sentence goes here.</summary>
     private const string DeviceUnexpectedFailure = "The sync service could not be reached. Try again in a moment.";
+
+    public const string SyncServiceCardTitle = "Sync service";
+    public const string ThisDeviceCardTitle = "This device";
+    public const string SyncTasksCardTitle = "Sync tasks";
+    public const string SyncSessionsCardTitle = "Sync sessions";
+    public const string RegisterCardTitle = "Register this device";
+    public const string PairCardTitle = "Pair with another device";
+    public const string LetInCardTitle = "Let another device in";
+
+    /// <summary>
+    /// Every card the page can draw, in the order it draws them - what its
+    /// <c>SettingsSection.CardTitles</c> declares. No device shows them all at
+    /// once: an unpaired device has Register and Pair where a paired one has the
+    /// two sync cards and Let another device in, and the settings search finds a
+    /// card by either state's name.
+    /// </summary>
+    public static IReadOnlyList<string> CardTitles { get; } =
+    [
+        SyncServiceCardTitle,
+        ThisDeviceCardTitle,
+        SyncTasksCardTitle,
+        SyncSessionsCardTitle,
+        RegisterCardTitle,
+        PairCardTitle,
+        LetInCardTitle
+    ];
+
+    /// <summary>The sentence the frame shows over this page. A credential the
+    /// service no longer recognises is not a pairing, so it reads as not paired,
+    /// as the cards under it do.</summary>
+    public static string Headline(bool paired) =>
+        paired ? "This device is paired with the sync service." : "This device is not paired.";
+
+    private bool IsPaired => StoredDevice is not null && !DeviceNoLongerRegistered;
 
     private DevicePairingClient? _devicePairing;
     private SyncServiceSettingsStore? _syncService;

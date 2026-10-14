@@ -1,6 +1,7 @@
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Sessions.UI.Extensions;
 
@@ -15,7 +16,7 @@ namespace Backlog.Modules.Sessions.UI.Extensions;
 /// </remarks>
 public static class SessionsSettingsRegistration
 {
-    /// <summary>The page's place among the sections modules register.</summary>
+    /// <summary>The page's place among the AI pages, after the shell's AI providers.</summary>
     public const int Order = 150;
 
     public static IServiceCollection AddSessionsSettings(this IServiceCollection services)
@@ -27,7 +28,9 @@ public static class SessionsSettingsRegistration
             "Claude Code",
             Order,
             typeof(ClaudeCodeTelemetrySettings),
-            SessionFeatures.Sessions));
+            SessionFeatures.Sessions,
+            SettingsGroup.Ai,
+            CardTitles: [ClaudeCodeTelemetrySettings.CardTitle]));
 
         // The rates that price a run Claude Code reported no cost for, beside the page
         // that says how to have it report one.
@@ -36,7 +39,14 @@ public static class SessionsSettingsRegistration
             "Model prices",
             Order + 1,
             typeof(ModelPriceSettings),
-            SessionFeatures.Sessions));
+            SessionFeatures.Sessions,
+            SettingsGroup.Ai,
+            CardTitles: [ModelPriceSettings.CardTitle],
+            BadgeSource: typeof(ModelPriceBadgeSource)));
+
+        // The value the menu draws beside the page's name, a singleton as
+        // ISettingsBadgeSource asks: the shell holds it while the screen is open.
+        services.TryAddSingleton<ModelPriceBadgeSource>();
 
         return services;
     }

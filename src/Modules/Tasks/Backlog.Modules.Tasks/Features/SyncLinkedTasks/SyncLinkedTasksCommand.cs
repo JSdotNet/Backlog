@@ -45,6 +45,8 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 
 /// <summary>What one sync did, counted per task.</summary>
+/// <param name="Fetched">Items the source answered, whatever the sync then did
+/// with each.</param>
 /// <param name="Created">Items that became a task.</param>
 /// <param name="Updated">Tasks a source field, the status, the blocked mark, a
 /// devbook reference, a dependency, the plan, the repository or a flag changed
@@ -56,6 +58,7 @@ public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 /// with no task yet.</param>
 /// <param name="Vanished">Tasks archived because their item was gone.</param>
 public sealed record LinkedTaskSyncSummary(
+    int Fetched,
     int Created,
     int Updated,
     int Unchanged,
@@ -221,7 +224,7 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         RecordSync(target, fetchStartedAt, cutoff);
 
-        return new LinkedTaskSyncSummary(created, updated, unchanged, tombstoned, untouched, vanished);
+        return new LinkedTaskSyncSummary(items.Count, created, updated, unchanged, tombstoned, untouched, vanished);
     }
 
     // --- The status map -----------------------------------------------------

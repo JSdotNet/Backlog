@@ -26,8 +26,14 @@ namespace Backlog.Infrastructure.AzureFoundry.Dashboard;
 /// month is short its last settled day or two, which the parts already say about
 /// the last bucket.
 /// </para>
+/// <para>
+/// When a host composes <paramref name="reads"/>, the read is recorded there as the
+/// one Azure Foundry source: Azure answering, with cost lines or without, is a
+/// successful read, and Azure refusing is a failed one with Azure's own reason. A
+/// cancelled read records nothing.
+/// </para>
 /// </remarks>
-internal sealed class AzureFoundrySpendSource(IAzureFoundryCostClient cost) : IAzureFoundrySpendSource
+internal sealed class AzureFoundrySpendSource(IAzureFoundryCostClient cost, IUsageReadRecorder? reads = null) : IAzureFoundrySpendSource
 {
     public async Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default)
     {
@@ -43,7 +49,19 @@ internal sealed class AzureFoundrySpendSource(IAzureFoundryCostClient cost) : IA
         DateOnly to,
         CancellationToken cancellationToken = default)
     {
-        var report = await cost.GetDailyCostAsync(from, to, cancellationToken).ConfigureAwait(false);
+        AzureFoundryCostReport report;
+
+        try
+        {
+            report = await cost.GetDailyCostAsync(from, to, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            reads?.Failed(UsageSource.AzureFoundry, exception.Message);
+            throw;
+        }
+
+        reads?.Succeeded(UsageSource.AzureFoundry);
 
         return new SpendReport(
             [.. report.Lines.Select(line => new SpendEntry(

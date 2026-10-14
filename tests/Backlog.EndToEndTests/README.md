@@ -50,6 +50,16 @@ requirement group, each listed under its requirement's `tests:` in
 | `A_repo_link_opens_the_repository_chapter_and_the_brain_chip_brings_the_brain_back` | A gold `repo:backlog/…` chip opens ADR 0027 in `backlog`'s devbook with the scope still Brain; the Brain chip brings the Brain back. |
 | `The_scope_survives_a_restart_with_the_brain_as_its_anchor` | Brain then Ctrl-`backlog` reopens after `desktop-web-harness` restarts with both pressed and Brain the anchor. |
 
+`SettingsTests` — the Settings screen on the desktop harness, one test listed under the
+`tests` of *Menu Groups*, *Card Titles and Search*, *Phone Width* and *Addresses* in
+`.devbook/design/settings-pages.md`. At 1440 × 900 Repositories opens by its address,
+Storage & backup by the menu, and Back returns to Repositories; Find a setting with
+*backup* lists the Backup card as a link to `settings/storage#card-backup`, and following
+it opens the page with the card in view and lit. At 390 × 844 `settings` is the grouped
+list with the search above it (52 px rows, chevrons), a row opens its page alone with
+*Back to all settings*, and that link returns to the list. It writes nothing, and runs in
+the Brain tests' collection so their harness restart cannot cut it off.
+
 ## Running
 
 Start this worktree's AppHost and wait for it to be healthy. The Cosmos emulator takes about
@@ -90,8 +100,9 @@ dotnet test --project tests\Backlog.EndToEndTests -- --filter-class Backlog.EndT
 
 ## Evidence
 
-Each run writes `.qa-workspace/e2e/conference-day/<yyyyMMdd-HHmmss>/`, and each Brain test
-`.qa-workspace/e2e/brain-<scenario>/<yyyyMMdd-HHmmss>/` with its screenshots; git ignores both.
+Each run writes `.qa-workspace/e2e/conference-day/<yyyyMMdd-HHmmss>/`, each Brain test
+`.qa-workspace/e2e/brain-<scenario>/<yyyyMMdd-HHmmss>/` and the Settings test
+`.qa-workspace/e2e/settings/<yyyyMMdd-HHmmss>/` with its screenshots; git ignores them.
 It holds:
 
 - one **viewport** screenshot per checkpoint, numbered in order. There is no full-page

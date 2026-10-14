@@ -397,16 +397,6 @@
     [Parameter]
     public Func<PullRequestTaskSubject, bool, DeliveryRunReference?>? PullRequestTask { get; set; }
 
-    /// <summary>
-    /// Whether a pull request belongs to a task filed against no repository — what puts
-    /// it in the Brain's scope (local ADR 0027, §2). Every pull request is read from a
-    /// repository, so under the Brain alone the list holds only these, and is normally
-    /// empty. Asked of the shell for the reason <see cref="PullRequestTask"/> is; without
-    /// it no pull request is the Brain's.
-    /// </summary>
-    [Parameter]
-    public Func<PullRequestTaskSubject, bool>? PullRequestInBrain { get; set; }
-
     /// <summary>How the shell opens that entry. Without it the task renders as inert
     /// text rather than as a control that would have to refuse the click.</summary>
     [Parameter]
@@ -911,16 +901,14 @@
 
     // --- What is read, narrowed ------------------------------------------------
 
-    private bool Scoped => RepositoryScope.Count > 0;
+    /// <summary>The scope's repositories, the Brain left out. Every pull request
+    /// belongs to a repository, so the list reads the scope without the Brain, and the
+    /// Brain alone reads as nothing pressed (local ADR 0027, §2).</summary>
+    private IReadOnlyList<string> ScopedRepositories => BrainScope.Repositories(RepositoryScope);
 
-    private string ScopeLabel => BrainScope.Label(RepositoryScope);
+    private bool Scoped => ScopedRepositories.Count > 0;
 
-    /// <summary>Whether the Brain is in the header's scope.</summary>
-    private bool BrainScoped => BrainScope.In(RepositoryScope);
-
-    /// <summary>Whether the scope holds the Brain and nothing else, which is when the
-    /// empty list has its own explanation.</summary>
-    private bool BrainAlone => RepositoryScope is [var only] && BrainScope.Is(only);
+    private string ScopeLabel => BrainScope.Label(ScopedRepositories);
 
     /// <summary>The alias a repository goes by here: the shell's answer, else the
     /// adapter's registry, else nothing.</summary>
@@ -934,21 +922,14 @@
                 || string.Equals(candidate.Alias, repository, StringComparison.OrdinalIgnoreCase))?.Alias;
     }
 
-    /// <summary>Whether a repository is in the scope — the Brain names none, so it
-    /// adds no repository here.</summary>
+    /// <summary>Whether a repository is in the scope.</summary>
     private bool InScope(string repositoryFullName) =>
         !Scoped
-        || (AliasOf(repositoryFullName) is { } alias && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
+        || (AliasOf(repositoryFullName) is { } alias && ScopedRepositories.Contains(alias, StringComparer.OrdinalIgnoreCase));
 
-    /// <summary>Whether a pull request is in the scope: its repository is, or the Brain
-    /// is scoped and the pull request belongs to a task filed against no repository.</summary>
-    private bool InScope(GitHubOpenPullRequest pull) =>
-        InScope(pull.RepositoryFullName)
-        || (BrainScoped && PullRequestInBrain?.Invoke(TaskSubject(pull)) is true);
+    private bool InScope(GitHubOpenPullRequest pull) => InScope(pull.RepositoryFullName);
 
-    private bool InScope(GitHubMergedPullRequest pull) =>
-        InScope(pull.RepositoryFullName)
-        || (BrainScoped && PullRequestInBrain?.Invoke(TaskSubject(pull)) is true);
+    private bool InScope(GitHubMergedPullRequest pull) => InScope(pull.RepositoryFullName);
 
     /// <summary>A repository's label filter, empty for none — read from the registry on
     /// every render, so a filter changed in Settings narrows the rows already read.</summary>
@@ -1017,22 +998,16 @@
                 && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
 
     private PullRequestStacks? _stacks;
-    private (GitHubPullRequestListing Listing, GitHubPullRequestListing Pinned, string Scope, int Pins, string Brain) _stacksOf;
+    private (GitHubPullRequestListing Listing, GitHubPullRequestListing Pinned, string Scope, int Pins) _stacksOf;
 
     /// <summary>The stacks among the open rows of every author in scope, and the pinned
-    /// open ones, derived once per read, scope, pin and Brain membership rather than
-    /// once per row that asks. A merged or closed pinned pull request is in no stack.
-    /// <para>
-    /// Which pull requests the Brain holds is the shell's answer, and moves without a
-    /// new listing when a task is re-filed into or out of the Brain — so while the
-    /// Brain is scoped that answer is part of the key, and a re-filed task's pull
-    /// request joins or leaves its stack on the next render.
-    /// </para></summary>
+    /// open ones, derived once per read, scope and pin rather than once per row that
+    /// asks. A merged or closed pinned pull request is in no stack.</summary>
     private PullRequestStacks Stacks
     {
         get
         {
-            var of = (_listing, _pinned, ScopeLabel, _pinsVersion, BrainMembership());
+            var of = (_listing, _pinned, ScopeLabel, _pinsVersion);
             if (_stacks is null || _stacksOf != of)
             {
                 _stacks = PullRequestStacks.Of(OpenRows.Where(pull => pull.IsOpen && (IsPinned(pull) || InScope(pull))));
@@ -1042,13 +1017,6 @@
             return _stacks;
         }
     }
-
-    /// <summary>The open pull requests the Brain holds by its task alone, as one key;
-    /// empty while the Brain is not scoped or the shell answers nothing.</summary>
-    private string BrainMembership() =>
-        BrainScoped && PullRequestInBrain is { } inBrain
-            ? string.Join('\n', OpenRows.Where(pull => pull.IsOpen && inBrain(TaskSubject(pull))).Select(Key))
-            : string.Empty;
 
     /// <summary>The pinned rows first, newest update first; then the rest, with each
     /// stack gathered into one tree, bottom first, placed where the latest update
@@ -1191,9 +1159,7 @@
                     ? "Nothing was merged in the repositories that could be read."
                     : "Nothing is open in the repositories that could be read."
                 : Scoped && inScope == 0
-                    ? BrainAlone
-                        ? "Pull requests belong to repositories, so the Brain holds only those linked to a task filed against no repository. Clear the repository scope in the header to see every repository's."
-                        : "Clear the repository scope in the header to see every repository's."
+                    ? "Clear the repository scope in the header to see every repository's."
                     : labelled == 0
                         ? $"{LabelFilterSentence} Change it on the repository's card in Settings."
                         : Merged

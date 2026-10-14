@@ -1,0 +1,76 @@
+@*
+    The settings screen's search: a field in the frame's search slot that narrows
+    the menu to the pages whose title, or one of whose cards' titles, holds what
+    is typed. The field only reports the text; what it matches is the host's.
+
+    Its own component rather than SearchBox, for three reasons. The label is a
+    real <label> the eye does not see, so the words a screen reader announces are
+    the ones the placeholder shows. A search icon sits inside the field, which
+    SearchBox has no room for. And it filters a menu already in memory, so it
+    answers on every keystroke rather than after a debounce.
+
+    Escape clears it - the field's own cancel button is hidden, so Escape is the
+    keyboard's way to the full menu again.
+*@
+
+<div class="@ClassValue" role="search" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <label class="sr-only" for="@FieldId">@Label</label>
+    <SearchIcon CssClass="settings-search__icon" />
+    <input id="@FieldId"
+           class="settings-search__input"
+           type="search"
+           value="@Value"
+           placeholder="@Placeholder"
+           autocomplete="off"
+           spellcheck="false"
+           data-testid="settings-search-input"
+           @oninput="OnInputAsync"
+           @onkeydown="OnKeyDownAsync" />
+</div>
+
+@code {
+    private readonly string _generatedId = "settings-search-" + Guid.NewGuid().ToString("n")[..8];
+
+    /// <summary>What is typed.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>The words in the empty field.</summary>
+    [Parameter]
+    public string Placeholder { get; set; } = "Find a setting";
+
+    /// <summary>The field's label, read to a screen reader and hidden from view.
+    /// The same words as the placeholder by default.</summary>
+    [Parameter]
+    public string Label { get; set; } = "Find a setting";
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string FieldId => string.IsNullOrWhiteSpace(Id) ? _generatedId : Id;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "settings-search" : $"settings-search {CssClass}";
+
+    private Task OnInputAsync(ChangeEventArgs e) => SetAsync(e.Value?.ToString() ?? string.Empty);
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) =>
+        e.Key == "Escape" && !string.IsNullOrEmpty(Value) ? SetAsync(string.Empty) : Task.CompletedTask;
+
+    private async Task SetAsync(string value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+}
