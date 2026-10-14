@@ -224,31 +224,29 @@
                                 </ButtonGroup>
                             </Card>
 
-                            <div @onkeydown:stopPropagation="true">
-                                <Modal Open="@_compareOpen"
-                                       OpenChanged="value => _compareOpen = value"
-                                       Title="Compare"
-                                       CssClass="inbox-pane__dialog"
-                                       TestId="inbox-triage-compare-dialog">
-                                    <ChildContent>
-                                        <div class="inbox-triage__compare">
-                                            <section class="inbox-triage__compare-side" aria-label="This item" data-testid="inbox-triage-compare-this">
-                                                <h4 class="inbox-triage__side-label">This item</h4>
-                                                <p class="inbox-triage__side-title">@TitleOf(item.Title)</p>
-                                                @Notes(item)
-                                            </section>
-                                            <section class="inbox-triage__compare-side" aria-label="The duplicate" data-testid="inbox-triage-compare-target">
-                                                <h4 class="inbox-triage__side-label">@TargetLabel(duplicate, twin)</h4>
-                                                <p class="inbox-triage__side-title">@TitleOf(duplicate.TargetTitle)</p>
-                                                @if (twin is not null)
-                                                {
-                                                    @Notes(twin)
-                                                }
-                                            </section>
-                                        </div>
-                                    </ChildContent>
-                                </Modal>
-                            </div>
+                            <Modal Open="@_compareOpen"
+                                   OpenChanged="value => _compareOpen = value"
+                                   Title="Compare"
+                                   CssClass="inbox-pane__dialog"
+                                   TestId="inbox-triage-compare-dialog">
+                                <ChildContent>
+                                    <div class="inbox-triage__compare">
+                                        <section class="inbox-triage__compare-side" aria-label="This item" data-testid="inbox-triage-compare-this">
+                                            <h4 class="inbox-triage__side-label">This item</h4>
+                                            <p class="inbox-triage__side-title">@TitleOf(item.Title)</p>
+                                            @Notes(item)
+                                        </section>
+                                        <section class="inbox-triage__compare-side" aria-label="The duplicate" data-testid="inbox-triage-compare-target">
+                                            <h4 class="inbox-triage__side-label">@TargetLabel(duplicate, twin)</h4>
+                                            <p class="inbox-triage__side-title">@TitleOf(duplicate.TargetTitle)</p>
+                                            @if (twin is not null)
+                                            {
+                                                @Notes(twin)
+                                            }
+                                        </section>
+                                    </div>
+                                </ChildContent>
+                            </Modal>
                         }
 
                         @if (advice.Plan is { } plan)
@@ -484,36 +482,34 @@
         </div>
 
         @* The dialogs a decision opens, and the batch panel the plan card opens.
-           Keys pressed in them are theirs, never a card's number. *@
-        <div class="inbox-triage__dialogs" @onkeydown:stopPropagation="true">
-            <Modal Open="@_moveOpen"
-                   OpenChanged="value => _moveOpen = value"
-                   Title="Move to list"
-                   CssClass="inbox-pane__dialog"
-                   TestId="inbox-move-list-dialog">
-                <ChildContent>
-                    <MenuList Items="@InboxDecisionMenus.MoveTargets(State, item)"
-                              AriaLabel="Lists"
-                              TestId="inbox-move-list"
-                              OnItemSelected="OnMoveTargetAsync" />
-                </ChildContent>
-            </Modal>
+           Each is a Modal, which keeps the keys pressed in it from a card's number. *@
+        <Modal Open="@_moveOpen"
+               OpenChanged="value => _moveOpen = value"
+               Title="Move to list"
+               CssClass="inbox-pane__dialog"
+               TestId="inbox-move-list-dialog">
+            <ChildContent>
+                <MenuList Items="@InboxDecisionMenus.MoveTargets(State, item)"
+                          AriaLabel="Lists"
+                          TestId="inbox-move-list"
+                          OnItemSelected="OnMoveTargetAsync" />
+            </ChildContent>
+        </Modal>
 
-            <Modal Open="@_deferOpen"
-                   OpenChanged="value => _deferOpen = value"
-                   Title="Defer until"
-                   CssClass="inbox-pane__dialog"
-                   TestId="inbox-defer-dialog">
-                <ChildContent>
-                    <MenuList Items="@InboxDecisionMenus.DeferChoices(State.Today)"
-                              AriaLabel="Review dates"
-                              TestId="inbox-defer-choices"
-                              OnItemSelected="OnDeferChoiceAsync" />
-                </ChildContent>
-            </Modal>
+        <Modal Open="@_deferOpen"
+               OpenChanged="value => _deferOpen = value"
+               Title="Defer until"
+               CssClass="inbox-pane__dialog"
+               TestId="inbox-defer-dialog">
+            <ChildContent>
+                <MenuList Items="@InboxDecisionMenus.DeferChoices(State.Today)"
+                          AriaLabel="Review dates"
+                          TestId="inbox-defer-choices"
+                          OnItemSelected="OnDeferChoiceAsync" />
+            </ChildContent>
+        </Modal>
 
-            <InboxRoutePanel State="State" />
-        </div>
+        <InboxRoutePanel State="State" />
     </article>
 }
 
