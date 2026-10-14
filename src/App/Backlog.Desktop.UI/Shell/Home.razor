@@ -679,7 +679,6 @@
                               RepositoryAlias="@RepositoryAliasFor"
                               RepositoryColour="@RepositoryColourFor"
                               PullRequestTask="PullRequestTaskFor"
-                              PullRequestInBrain="PullRequestInBrain"
                               OnOpenTask="OpenPlanEntryAsync"
                               OnOpenSession="OpenSessionAsync"
                               FocusPullRequest="@_focusPullRequest" />
@@ -1903,18 +1902,6 @@
     /// pane's "Mine" adds to the pull requests I opened myself.
     /// </para>
     /// </summary>
-    /// <summary>Whether a pull request belongs to a task filed against no repository —
-    /// what puts it in the Brain's scope on the pull requests list (local ADR 0027, §2).
-    /// The same relation <see cref="PullRequestTaskFor"/> answers, asked of the task's
-    /// repository.</summary>
-    private bool PullRequestInBrain(PullRequestTaskSubject pull)
-    {
-        var (matcher, rows) = PullRequestMatcher;
-        return matcher.Match(pull, false) is { } match
-            && rows.TryGetValue(match.Candidate.EntryId, out var row)
-            && State.RepositoryFor(row) is null;
-    }
-
     private DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
     {
         var (matcher, rows) = PullRequestMatcher;
