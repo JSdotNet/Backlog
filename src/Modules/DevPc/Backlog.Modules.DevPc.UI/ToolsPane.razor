@@ -666,6 +666,19 @@
                                TestId="tools-add-claude-args" />
                 }
             }
+
+            @if (_draftKind is DevToolKind.Application or DevToolKind.McpServer)
+            {
+                @* The two kinds a row can be installed by hand for. The Overview's
+                   Needs you card links to this page for such a row, and falls
+                   back to the page it can derive from the id when there is none. *@
+                <TextField Label="Download page"
+                           Value="@_draftDownload"
+                           ValueChanged="value => _draftDownload = value"
+                           HelpText="Optional. Where somebody installing it by hand gets it — an http or https address."
+                           ErrorMessage="@_draftDownloadError"
+                           TestId="tools-add-download" />
+            }
         </div>
     </ChildContent>
     <Footer>
@@ -1522,6 +1535,8 @@
     private string _draftDetectExpect = string.Empty;
     private string _draftInstallCommand = string.Empty;
     private string _draftInstallArgs = string.Empty;
+    private string _draftDownload = string.Empty;
+    private string? _draftDownloadError;
     private string? _draftIdError;
     private string? _draftSourceError;
     private string? _draftDetectError;
@@ -2315,6 +2330,7 @@
         _draftSourceError = null;
         _draftDetectError = null;
         _draftCommandError = null;
+        _draftDownloadError = null;
     }
 
     /// <summary>Which kind of MCP server is being added. Spelled out like the
@@ -2375,6 +2391,7 @@
         _draftSourceError = null;
         _draftDetectError = null;
         _draftCommandError = null;
+        _draftDownloadError = null;
 
         var plugin = _draftKind is DevToolKind.Plugin;
         var marketplace = _draftKind is DevToolKind.Marketplace;
@@ -2446,7 +2463,16 @@
             _draftCommandError = "An MCP server reached over HTTP needs the URL that serves it.";
         }
 
-        if (_draftIdError is not null || _draftSourceError is not null || _draftDetectError is not null || _draftCommandError is not null)
+        // A page the Overview would refuse to link, refused under its own field
+        // in the port's own words.
+        var takesDownload = application || _draftKind is DevToolKind.McpServer;
+        if (takesDownload && !string.IsNullOrWhiteSpace(_draftDownload) && !DevToolConfiguration.IsLinkableDownload(_draftDownload))
+        {
+            _draftDownloadError = DevToolConfiguration.DownloadNotLinkableMessage;
+        }
+
+        if (_draftIdError is not null || _draftSourceError is not null || _draftDetectError is not null || _draftCommandError is not null
+            || _draftDownloadError is not null)
         {
             return;
         }
@@ -2491,7 +2517,8 @@
             DetectArgs = command ? SplitArgs(_draftDetectArgs) : [],
             DetectExpect = command ? NullIfBlank(_draftDetectExpect) : null,
             InstallCommand = command ? NullIfBlank(_draftInstallCommand) : null,
-            InstallArgs = command ? SplitArgs(_draftInstallArgs) : []
+            InstallArgs = command ? SplitArgs(_draftInstallArgs) : [],
+            Download = takesDownload ? NullIfBlank(_draftDownload) : null
         };
 
         if (await RunCatalogEditAsync(AddKey, () => DevTools.AddAsync(draft)))
@@ -2654,6 +2681,8 @@
         _draftDetectExpect = string.Empty;
         _draftInstallCommand = string.Empty;
         _draftInstallArgs = string.Empty;
+        _draftDownload = string.Empty;
+        _draftDownloadError = null;
         _draftIdError = null;
         _draftSourceError = null;
         _draftDetectError = null;
@@ -2859,7 +2888,7 @@
             tool.Hosts,
             Detail(null, "not installed", KindLabel(tool), NoteOf(tool)),
             NeedControl.DownloadLink,
-            DownloadPage(tool));
+            DownloadPageOf(tool));
     }
 
     private static NeedItem ConfirmNeed(DevToolInfo tool) => new(
@@ -2880,17 +2909,28 @@
         Array.Find(KindTabs, tab => tab.Holds(tool)) is { } tab ? Capitalised(tab.NounOne) : tool.Kind.ToString();
 
     /// <summary>
-    /// Where somebody installing a row by hand gets it.
+    /// Where somebody installing a row by hand gets it: the catalog's own
+    /// <c>download</c> page when the entry names one the screen may link, and the
+    /// derived page below otherwise.
     ///
-    /// <para>The catalog names no download page, so the address is derived from
-    /// the mechanism the row already declares: a winget id has a package page on
-    /// winstall.app, which links the publisher's own download, and a VS Code
-    /// extension has its Marketplace page. A row declared any other way — a
-    /// command, a server registered by one — has no address to derive, and its
-    /// card links to its kind tab instead, where the note under the row says what
-    /// to do.</para>
+    /// <para>Only an http or https address is linked. The catalog is a
+    /// hand-edited file, and a <c>javascript:</c> or <c>file:</c> value in it is
+    /// treated as though the entry named nothing.</para>
     /// </summary>
-    private static string? DownloadPage(DevToolInfo tool)
+    private static string? DownloadPageOf(DevToolInfo tool) =>
+        DevToolConfiguration.IsLinkableDownload(tool.Download) ? tool.Download!.Trim() : DerivedDownloadPage(tool);
+
+    /// <summary>
+    /// The download page a row's own mechanism implies, for an entry whose
+    /// catalog names none.
+    ///
+    /// <para>A winget id has a package page on winstall.app, which links the
+    /// publisher's own download, and a VS Code extension has its Marketplace
+    /// page. A row declared any other way — a command, a server registered by
+    /// one — has no address to derive, and its card links to its kind tab
+    /// instead, where the note under the row says what to do.</para>
+    /// </summary>
+    private static string? DerivedDownloadPage(DevToolInfo tool)
     {
         if (tool.Kind is not DevToolKind.Application || !tool.Key.StartsWith("app:", StringComparison.Ordinal)) return null;
 

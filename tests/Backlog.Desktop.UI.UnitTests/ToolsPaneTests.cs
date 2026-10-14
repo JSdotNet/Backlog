@@ -1121,6 +1121,77 @@ public sealed class ToolsPaneTests
             StringComparison.Ordinal);
     }
 
+    /// <summary>An install-by-hand row's download page is typed into the dialog
+    /// and sent with the draft, for an application and for an MCP server.</summary>
+    [Theory]
+    [InlineData(nameof(DevToolKind.Application))]
+    [InlineData(nameof(DevToolKind.McpServer))]
+    public void Adding_a_tool_sends_the_download_page_it_was_given(string kind)
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(kind);
+
+        if (kind == nameof(DevToolKind.Application))
+        {
+            pane.Find("[data-testid='tools-add-provider'] select").Change(nameof(DevToolProvider.Manual));
+            pane.Find("[data-testid='tools-add-app-id'] input").Input("Dev.Drive");
+        }
+        else
+        {
+            pane.Find("[data-testid='tools-add-mcp-mechanism'] select").Change(nameof(DevToolMcpMechanism.Command));
+            pane.Find("[data-testid='tools-add-server-name'] input").Input("aspire");
+            pane.Find("[data-testid='tools-add-server-command'] input").Input("aspire");
+        }
+
+        pane.Find("[data-testid='tools-add-download'] input").Input("https://example.com/install");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        Assert.Equal("https://example.com/install", Assert.Single(service.Added).Download);
+    }
+
+    /// <summary>A download page the Overview would refuse to link is refused under
+    /// its own field, and nothing is sent.</summary>
+    [Fact]
+    public void A_download_page_that_is_not_http_is_refused_under_its_field()
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+        pane.Find("[data-testid='tools-add-app-id'] input").Input("Git.Git");
+        pane.Find("[data-testid='tools-add-download'] input").Input("javascript:alert(1)");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        Assert.Empty(service.Added);
+        Assert.Contains(
+            DevToolConfiguration.DownloadNotLinkableMessage,
+            pane.Find("[data-testid='tools-add-download']").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>A plugin and a marketplace are installed from here whenever they
+    /// are missing, so the dialog offers neither a download page.</summary>
+    [Fact]
+    public void The_download_page_is_offered_only_for_kinds_installed_by_hand()
+    {
+        using var context = Context(FakeDevToolService.With());
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-download']"));
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Marketplace));
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-download']"));
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+        Assert.Single(pane.FindAll("[data-testid='tools-add-download']"));
+    }
+
     /// <summary>The catalog stopped being six rows of AI tooling and became this
     /// machine's whole software inventory, so the kind is the first thing a row
     /// has to be filed under: "a plugin is missing" and "an application is

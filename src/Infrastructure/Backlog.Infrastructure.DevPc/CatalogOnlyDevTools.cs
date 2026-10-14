@@ -558,6 +558,7 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             installable: !manual && !application.DetectOnly && (application.Provider is not DevToolProvider.Command || application.Install is not null),
             acknowledged: application.Acknowledged,
             note: application.Note,
+            download: application.Download,
             status: manual
                 ? "Nothing can check this — confirm it by hand"
                 : "Read from the catalog; this harness starts no processes");
@@ -671,7 +672,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
         {
             Hosts = hosts,
             HostStates = states,
-            Installable = server.Installable
+            Installable = server.Installable,
+            Download = server.Download
         };
     }
 
@@ -689,7 +691,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
         bool installable = true,
         bool acknowledged = false,
         string? note = null,
-        string status = "")
+        string status = "",
+        string? download = null)
     {
         var key = DevToolConfiguration.KeyFor(DevToolKind.Application, id);
 
@@ -738,7 +741,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             Group = string.IsNullOrWhiteSpace(group) ? null : group,
             Installable = installable,
             Acknowledged = confirmed,
-            ConfirmedByHand = provider is DevToolProvider.Manual
+            ConfirmedByHand = provider is DevToolProvider.Manual,
+            Download = download
         };
     }
 

@@ -206,6 +206,63 @@ public sealed class ToolsPaneOverviewTests
         Assert.Equal("true", pane.Find("[data-testid='tools-tab-applications']").GetAttribute("aria-selected"));
     }
 
+    /// <summary>A catalog that names a download page is linked to it, for a row
+    /// that had no page to derive and for one whose derived page it replaces.</summary>
+    [Fact]
+    public void An_install_by_hand_links_to_the_catalogs_download_page_when_it_names_one()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Application("dev-drive", "Dev Drive configured", installed: false, installable: false, installedVersion: "not installed") with
+            {
+                Source = "command",
+                Download = "https://learn.microsoft.com/windows/dev-drive/"
+            },
+            Application("Docker.DockerDesktop", "Docker Desktop", installed: false, installable: false, installedVersion: "not installed") with
+            {
+                Download = "https://docs.docker.com/desktop/setup/install/windows-install/"
+            },
+            Tool("mcp:aspire", "aspire") with
+            {
+                Installed = false,
+                InstalledVersion = "not installed",
+                Installable = false,
+                Download = "https://aspire.dev/get-started/install-cli/"
+            }));
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal("https://learn.microsoft.com/windows/dev-drive/", DownloadHref(pane, "app:dev-drive"));
+        Assert.Equal("https://docs.docker.com/desktop/setup/install/windows-install/", DownloadHref(pane, "app:Docker.DockerDesktop"));
+        Assert.Equal("https://aspire.dev/get-started/install-cli/", DownloadHref(pane, "mcp:aspire"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-overview-need-open-tab']"));
+    }
+
+    /// <summary>Without a catalog page the card keeps the link it derives; with
+    /// one that is not http or https it does the same, and never links the value.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("file:///C:/Windows/System32")]
+    public void An_install_by_hand_without_a_linkable_download_page_falls_back_to_the_derived_link(string? download)
+    {
+        using var context = Context(FakeDevToolService.With(
+            Application("Docker.DockerDesktop", "Docker Desktop", installed: false, installable: false, installedVersion: "not installed") with { Download = download },
+            Application("dev-drive", "Dev Drive configured", installed: false, installable: false, installedVersion: "not installed") with
+            {
+                Source = "command",
+                Download = download
+            }));
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal("https://winstall.app/apps/Docker.DockerDesktop", DownloadHref(pane, "app:Docker.DockerDesktop"));
+        var devDrive = Card(pane, "app:dev-drive");
+        Assert.Null(devDrive.QuerySelector("[data-testid='tools-overview-need-download']"));
+        Assert.NotNull(devDrive.QuerySelector("[data-testid='tools-overview-need-open-tab']"));
+        if (download is not null)
+        {
+            Assert.DoesNotContain(download, pane.Markup, StringComparison.Ordinal);
+        }
+    }
+
     /// <summary>Nothing needing action shows the one sentence instead of a list.</summary>
     [Fact]
     public void Nothing_needing_action_says_everything_matches_the_catalog()
@@ -372,6 +429,9 @@ public sealed class ToolsPaneOverviewTests
 
     private static AngleSharp.Dom.IElement Card(IRenderedComponent<ToolsPane> pane, string key) =>
         pane.Find($"[data-testid='tools-overview-need'][data-need-key='{key}']");
+
+    private static string? DownloadHref(IRenderedComponent<ToolsPane> pane, string key) =>
+        Card(pane, key).QuerySelector("[data-testid='tools-overview-need-download']")?.GetAttribute("href");
 
     private static string Text(IRenderedComponent<ToolsPane> pane, string testId) =>
         Squash(pane.Find($"[data-testid='{testId}']").TextContent);
