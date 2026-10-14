@@ -71,6 +71,15 @@
 
         <span class="roadmap-bar__title">@Placement.Title</span>
 
+        @* The warning marker, straight after the title so it is the first thing read
+           off a late bar however much of the title is clipped. aria-hidden: the caller
+           says it in words in the detail, which the tooltip and the accessible name
+           already carry, and a glyph read out as "exclamation mark" adds nothing. *@
+        @if (Bar.Overdue)
+        {
+            <span class="roadmap-bar__overdue" aria-hidden="true" data-testid="@Suffix("overdue")">!</span>
+        }
+
         @* Beside the fill rather than folded into it: a fill that silently dropped
            the unsized work would read as further along than the plan is. *@
         @if (Bar.UnestimatedCount > 0)
@@ -285,7 +294,8 @@
         Invalid ? "roadmap-bar--invalid" : null,
         Bar.Locked ? "roadmap-bar--locked" : null,
         EndOnlyResizable ? "roadmap-bar--end-resizable" : null,
-        Bar.Tentative ? "roadmap-bar--tentative" : null
+        Bar.Tentative ? "roadmap-bar--tentative" : null,
+        Bar.Overdue ? "roadmap-bar--overdue" : null
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private string? FixedNote => !Bar.Locked
@@ -296,11 +306,30 @@
 
     /// <summary>What the tooltip says, as a short report with one fact to a line.
     /// The title is on the bar already, but a narrow bar clips it, and the dates are
-    /// nowhere else on screen at all.</summary>
-    private string Tooltip => RoadmapDetail.Report(
-        new[] { Placement.Title, Dates, Progress }
-            .Concat(RoadmapDetail.Lines(Bar.Detail))
-            .Append(FixedNote));
+    /// nowhere else on screen at all.
+    /// <para>
+    /// On an overdue bar the caller's first detail line is its warning
+    /// (<see cref="RoadmapBar.Overdue"/>), and it leads the progress line: it is the one
+    /// fact that asks the reader to act. Elsewhere the progress comes first, as it does
+    /// on every bar that is not late.
+    /// </para></summary>
+    private string Tooltip
+    {
+        get
+        {
+            var lines = RoadmapDetail.Lines(Bar.Detail).ToList();
+            var leading = Bar.Overdue ? 1 : 0;
+            IEnumerable<string?> lead = lines.Take(leading);
+            IEnumerable<string?> rest = lines.Skip(leading);
+
+            return RoadmapDetail.Report(
+                new string?[] { Placement.Title, Dates }
+                    .Concat(lead)
+                    .Append(Progress)
+                    .Concat(rest)
+                    .Append(FixedNote));
+        }
+    }
 
     /// <summary>
     /// Everything the bar is that its label does not say. Read after the title,

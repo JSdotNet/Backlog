@@ -153,7 +153,8 @@ public static class RoadmapPlanView
                 stacked.RowOf[part.BarId],
                 contradicting,
                 configured,
-                HasNoTask(part.Item, rollups)))
+                HasNoTask(part.Item, rollups),
+                IsOverdue(part, forecast)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
 
@@ -198,6 +199,35 @@ public static class RoadmapPlanView
         var node = separator < 0 ? barId : barId[..separator];
 
         return Guid.TryParse(node, out var id) ? id : null;
+    }
+
+    /// <summary>
+    /// The configured repositories behind the bar <paramref name="barId"/> of
+    /// <paramref name="item"/>, in order: for one repository's part — <c>item@band</c>,
+    /// with or without its <c>#phase</c> — that band's repository alone; for a bar that
+    /// is the whole item, every configured repository the item names, by alias or by full
+    /// name. None for the no-repository band, or for an item naming no configured
+    /// repository.
+    /// </summary>
+    public static IReadOnlyList<string> RepositoriesBehind(
+        string? barId,
+        RoadmapItemDto item,
+        IReadOnlyList<PlannedRepository>? repositories)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        var configured = Configured(repositories);
+
+        var separator = barId?.IndexOf(PartSeparator) ?? -1;
+        if (separator < 0) return FiledUnder(item.RepositoryAliases, configured);
+
+        var band = barId![(separator + 1)..];
+        var segment = band.IndexOf(SegmentSeparator);
+        if (segment >= 0) band = band[..segment];
+
+        if (band == NoRepositoryGroupId) return [];
+
+        return BandOfRepository(band, configured) is { } alias ? [alias] : [];
     }
 
     /// <summary>
@@ -616,7 +646,8 @@ public static class RoadmapPlanView
         string rowId,
         HashSet<Guid> contradicting,
         List<PlannedRepository> configured,
-        bool noTask) =>
+        bool noTask,
+        bool overdue) =>
         new(
             part.BarId,
             rowId,
@@ -625,7 +656,7 @@ public static class RoadmapPlanView
             part.End,
             Shade(part.Item.Priority),
             Facets(part.Item, part.Aliases, configured),
-            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, part.DrawnFrom, noTask),
+            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, part.DrawnFrom, noTask, overdue ? part.End : null),
             Locked: part.DrawnFrom is not null,
             Steps: part.Steps,
             // Work in flight has a start that is a fact and an end that is a forecast, so
@@ -633,7 +664,33 @@ public static class RoadmapPlanView
             // earlier part too, whose end moves the item's by as much (PinnedEndFor). A part
             // drawn where its work ran is history, and stays put.
             EndResizable: part.DrawnFrom is { Finished: false, Ran: false },
-            Tentative: noTask);
+            Tentative: noTask,
+            Overdue: overdue);
+
+    /// <summary>
+    /// Whether a part's drawn window has passed with its work still open: it ended before
+    /// today, its item is not finished, and its own tasks have not all run. The idea is the
+    /// dashboard's Overdue (<c>productivity/features.md#whether-each-plan-will-land-in-its-window</c>),
+    /// but the window it is judged against is not: the dashboard reads the item's stored
+    /// window, and this reads the window the bar is drawn in.
+    /// <para>
+    /// The two part ways for work in flight. A part drawn from work in flight runs to a
+    /// forecast that ends on or after today, so it is never flagged here — even where its
+    /// item's stored window has already ended and the dashboard calls it Behind. Work laid
+    /// out from today by effort ends on or after today too, so in practice it is the
+    /// hand-placed and due-dated windows that qualify.
+    /// </para>
+    /// <para>
+    /// The plain rule, even for work with no task or no estimate yet: the dashboard calls
+    /// that "Not sized", but on a timeline the bar that ends left of the today line is late
+    /// whatever its size. Without a forecast there is no today to read against, and nothing
+    /// is claimed.
+    /// </para>
+    /// </summary>
+    private static bool IsOverdue(ItemPart part, RoadmapForecast? forecast) =>
+        forecast is not null
+        && part.End < forecast.Today
+        && part.DrawnFrom is not ({ Finished: true } or { Ran: true });
 
     /// <summary>
     /// Whether nothing in the backlog carries an item out yet: no task linked to it
@@ -798,9 +855,19 @@ public static class RoadmapPlanView
         int partCount,
         bool segment = false,
         DrawnFrom? drawnFrom = null,
-        bool noTask = false)
+        bool noTask = false,
+        DateOnly? overdueSince = null)
     {
-        var parts = new List<string> { $"{Word(item.Priority)} priority" };
+        var parts = new List<string>();
+
+        // First, because it is the one line that asks the reader to act — and said in
+        // words, because the warning drawn on the bar is hidden from a screen reader.
+        if (overdueSince is { } ended)
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Overdue: ended {ended:d MMM yyyy}"));
+        }
+
+        parts.Add($"{Word(item.Priority)} priority");
 
         // Said, because the outline a task-less bar is drawn with is not heard.
         if (noTask) parts.Add("no task yet");

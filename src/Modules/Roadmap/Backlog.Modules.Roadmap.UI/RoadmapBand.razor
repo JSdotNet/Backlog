@@ -155,13 +155,15 @@
                        Placement="@_placement"
                        Rollup="@_rollup"
                        CanUseForecast="@UseForecastOffered"
+                       CanOpenTasks="@OnOpenTasks.HasDelegate"
                        Repositories="@Configured()"
                        DependencyOptions="@DependencyOptions()"
                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                        OnSave="SaveAsync"
                        OnDelete="DeleteAsync"
                        OnDependencyChanged="ChangeDependencyAsync"
-                       OnUseForecast="UseForecastAsync" />
+                       OnUseForecast="UseForecastAsync"
+                       OnOpenTasks="OpenTasksAsync" />
 
     <RoadmapMilestoneEditor @ref="_dateEditor"
                             Open="@_editingDate"
@@ -348,6 +350,15 @@
     /// be.</summary>
     [Parameter]
     public DateOnly? Today { get; set; }
+
+    /// <summary>
+    /// Asks the host to show an item's plan in the task list — its plan tag, scoped to
+    /// the repositories of the bar it was opened from. The host owns the task list and
+    /// the view switch, so the band only says what to show; with nothing answering,
+    /// the editor does not offer it.
+    /// </summary>
+    [Parameter]
+    public EventCallback<RoadmapTasksRequest> OnOpenTasks { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -1006,6 +1017,32 @@
         _edited = null;
         await Load();
         KeepUpHeldForTheEditor();
+    }
+
+    /// <summary>
+    /// Answers "Open in Tasks" in the editor: closes the editor and asks the host to show
+    /// the item's plan in the task list, scoped by the bar the editor was opened from —
+    /// one band's part to that repository, a whole-item bar to every configured
+    /// repository the item names (<see cref="RoadmapTasksRequest.For"/>).
+    /// <para>
+    /// Nothing is saved on the way: the editor enables the button only while its fields
+    /// hold no unsaved change, so closing it here discards nothing.
+    /// </para>
+    /// </summary>
+    private async Task OpenTasksAsync(Guid itemId)
+    {
+        var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == itemId) ?? _edited;
+        if (item is null || string.IsNullOrEmpty(item.Tag)) return;
+
+        var barId = RoadmapPlanView.NodeIdOf(_selectedId) == itemId ? _selectedId : null;
+        var request = RoadmapTasksRequest.For(item, barId, Configured());
+
+        _editing = false;
+        _edited = null;
+        _placement = null;
+        KeepUpHeldForTheEditor();
+
+        await OnOpenTasks.InvokeAsync(request);
     }
 
     /// <summary>

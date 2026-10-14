@@ -1345,4 +1345,108 @@ public class RoadmapPlanViewTests
 
         Assert.False(Assert.Single(view.Bars).Tentative);
     }
+
+    // --- Overdue: the window has ended and the work is still open ---------------
+    //
+    // Today is Saturday 10 January 2026 (Forecast). The dashboard's own definition
+    // (productivity/features.md#whether-each-plan-will-land-in-its-window), read per bar.
+
+    [Fact]
+    public void AHandPlacedItemWithNoTaskWhoseWindowEndedYesterday_IsOverdue_AndSaysWhenItEnded()
+    {
+        var bar = Forecasted(Item("e2e", startDay: 5, endDay: 9, repositories: ["fincent"]));
+
+        Assert.True(bar.Overdue);
+        Assert.True(bar.Tentative);
+        Assert.Equal("Overdue: ended 9 Jan 2026", bar.Detail!.Split('\n')[0]);
+    }
+
+    [Fact]
+    public void AWindowEndingToday_IsNotOverdue()
+    {
+        var bar = Forecasted(Item("Plan", startDay: 5, endDay: 10, repositories: ["backlog"]));
+
+        Assert.False(bar.Overdue);
+        Assert.DoesNotContain("Overdue", bar.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AFinishedItemDrawnWhereItRan_IsNeverOverdue()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"]),
+            Sized("a", 2, RoadmapProgress.Done, started: new DateOnly(2025, 12, 1), completed: new DateOnly(2025, 12, 20)));
+
+        Assert.Equal(new DateOnly(2025, 12, 20), bar.End);
+        Assert.False(bar.Overdue);
+    }
+
+    /// <summary>A part whose own tasks are all done is history even while the item's
+    /// other part is open; the open part is forecast from today, so neither is late.</summary>
+    [Fact]
+    public void APartThatRan_IsNotOverdue_WhileTheItemsOtherPartIsStillOpen()
+    {
+        var item = Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog", "fincent"]);
+        var view = RoadmapPlanView.From(
+            Plan([item]),
+            Configured,
+            new Dictionary<Guid, RoadmapItemRollupDto>
+            {
+                [item.Id] = new(
+                [
+                    new RoadmapGatheredLink("a", "A", 2, RollupOrigin.Tag, RoadmapProgress.Done, null, ["backlog"],
+                        StartedOn: new DateOnly(2025, 12, 1), CompletedOn: new DateOnly(2025, 12, 20)),
+                    new RoadmapGatheredLink("b", "B", 2, RollupOrigin.Tag, RoadmapProgress.Planned, null, ["fincent"])
+                ], [])
+            },
+            Forecast);
+
+        var ran = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("backlog::", StringComparison.Ordinal));
+        var open = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
+        Assert.True(ran.End < Forecast.Today);
+        Assert.False(ran.Overdue);
+        Assert.False(open.Overdue);
+    }
+
+    /// <summary>Two parts over one hand-placed window nobody started: each band's part is
+    /// late, so each says so where its band is read.</summary>
+    [Fact]
+    public void EachOpenPartOfAnItemWhoseWindowEnded_IsOverdue()
+    {
+        var item = Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog", "fincent"]);
+        var view = RoadmapPlanView.From(
+            Plan([item]),
+            Configured,
+            new Dictionary<Guid, RoadmapItemRollupDto>
+            {
+                [item.Id] = new(
+                [
+                    new RoadmapGatheredLink("a", "A", 2, RollupOrigin.Tag, RoadmapProgress.Ready, null, ["backlog"]),
+                    new RoadmapGatheredLink("b", "B", 2, RollupOrigin.Tag, RoadmapProgress.Planned, null, ["fincent"])
+                ], [])
+            },
+            Forecast);
+
+        Assert.Equal(2, view.Bars.Count);
+        Assert.All(view.Bars, bar => Assert.True(bar.Overdue));
+    }
+
+    [Fact]
+    public void AnEffortPlacedItem_IsLaidOutFromToday_SoItIsNeverOverdue()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
+            Sized("a", 3, RoadmapProgress.Ready));
+
+        Assert.False(bar.Overdue);
+    }
+
+    [Fact]
+    public void WithoutAForecast_NothingIsOverdue()
+    {
+        var bar = Drawn(Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"]), RoadmapItemRollupDto.Empty);
+
+        Assert.False(bar.Overdue);
+        Assert.DoesNotContain("Overdue", bar.Detail, StringComparison.Ordinal);
+    }
 }

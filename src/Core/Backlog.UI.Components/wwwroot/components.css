@@ -14577,6 +14577,40 @@ select.field__input {
 }
 
 /*
+  Late: the window has passed and the work is still open — the dashboard's Behind, a
+  warning rather than a fault. Drawn as a strong end cap and a warning marker after
+  the title, never as the fill: the fill is the band's, and the tentative hatching
+  under it still says the bar is only intent. The cap is the neutral strong border,
+  not a warning tone: --color-warning is a surface and invisible as a boundary
+  (1.31:1). Only the marker carries the warning, as a chip in the alert tone of
+  .devbook/design/color-scheme.md#badge-and-chip-tones, as the outlook badge is.
+  Colour is never the only carrier: the marker is a shape, and the caller says
+  "Overdue" in words in the bar's detail.
+*/
+.roadmap-bar--overdue .roadmap-bar__body {
+    border-right: var(--border-width-4) solid var(--color-border-strong);
+}
+
+.roadmap-bar__overdue {
+    position: relative;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    padding: 0 var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: var(--color-warning);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-style: normal;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+}
+
+/*
   Where a double-click or a drag adds something, the pointer says so. Only on the empty
   row: a bar keeps its own grab cursor.
 */

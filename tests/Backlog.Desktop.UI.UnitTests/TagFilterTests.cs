@@ -934,6 +934,213 @@ public sealed class TagFilterTests
             host.State.SelectedTags.Order());
     }
 
+    // --- Opened from the roadmap ------------------------------------------------
+    //
+    // "Open in Tasks" on a roadmap item shows its plan: one press that sets the plan
+    // chip and the scope together (roadmap/features.md#reading-and-rescheduling-on-a-timeline).
+
+    /// <summary>The plan pressed before is let go, as a press on another plan chip
+    /// lets it go: one plan at a time.</summary>
+    [Fact]
+    public async Task Showing_a_plan_lets_go_of_the_plan_pressed_before()
+    {
+        var (host, _, import, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ToggleTagFilter("+release-q4");
+        host.State.ShowPlan("+roadmap-import", []);
+
+        Assert.Equal(["+roadmap-import"], host.State.SelectedTags);
+        Assert.Equal("+roadmap-import", host.State.SelectedPlan);
+        Assert.Equal([import], host.State.FilteredRows);
+    }
+
+    [Fact]
+    public async Task Showing_a_plan_keeps_the_people_and_general_tags_pressed()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Ship it @bob +release-q4\n`task` `!ready` `@platform` `#sync`\n");
+        await host.WriteEntryAsync("# Import it @bob +roadmap-import\n`task` `!ready` `@platform` `#sync`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.ToggleTagFilter("@bob");
+        host.State.ToggleTagFilter("sync");
+        host.State.ToggleTagFilter("+release-q4");
+
+        host.State.ShowPlan("+roadmap-import", []);
+
+        Assert.Equal(
+            new[] { "+roadmap-import", "@bob", "sync" }.Order(),
+            host.State.SelectedTags.Order());
+    }
+
+    /// <summary>Unlike a chip, it never toggles: asking for the plan already shown
+    /// leaves it shown.</summary>
+    [Fact]
+    public async Task Showing_the_plan_already_shown_leaves_it_pressed()
+    {
+        var (host, release, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ShowPlan("+release-q4", []);
+        host.State.ShowPlan("+release-q4", []);
+
+        Assert.Equal(["+release-q4"], host.State.SelectedTags);
+        Assert.Equal([release], host.State.FilteredRows);
+    }
+
+    /// <summary>The plan and the scope are one decision, so the list is filtered and
+    /// the change announced once.</summary>
+    [Fact]
+    public async Task Showing_a_plan_is_announced_once()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+        var changes = 0;
+        host.State.Changed += () => changes++;
+
+        host.State.ShowPlan("+release-q4", []);
+
+        Assert.Equal(1, changes);
+    }
+
+    /// <summary>A plan no open task carries yet still shows: its chip stays on the bar,
+    /// pressed with nothing to count, and the list under it is empty — which says
+    /// honestly that nothing is filed under the plan yet.</summary>
+    [Fact]
+    public async Task A_plan_shown_before_any_task_carries_it_stays_pressed_with_nothing_under_it()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ShowPlan("+e2e", []);
+        host.State.SetStatusFilter(null);
+
+        Assert.Equal(["+e2e"], host.State.SelectedTags);
+        Assert.Empty(host.State.FilteredRows);
+        var chip = Assert.Single(host.State.TagFilters, option => option.Value == "+e2e");
+        Assert.Equal((0, 0), (chip.OpenCount, chip.CompletedCount));
+    }
+
+    /// <summary>A plan whose tasks are all ticked off — what a finished roadmap item
+    /// shipped — is held with its finished count, as every other chip counts them, so
+    /// the chip does not read "0" over a list of finished work.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_shown_plan_whose_tasks_are_all_finished_counts_them(bool somethingElseIsTagged)
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync(somethingElseIsTagged
+            ? "# Provision the box\n`task` `!ready` `@platform` `#sync`\n"
+            : "# Provision the box\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Wire it +plan-done\n`task` `!done` `completed:2026-09-22` `@platform`\n");
+        await host.WriteEntryAsync("# Ship it +plan-done\n`task` `!done` `completed:2026-09-23` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.ShowPlan("+plan-done", []);
+
+        var chip = Assert.Single(host.State.TagFilters, option => option.Value == "+plan-done");
+        Assert.Equal((0, 2), (chip.OpenCount, chip.CompletedCount));
+        Assert.Equal(["+plan-done"], host.State.SelectedTags.Where(tag => tag.StartsWith('+')));
+    }
+
+    /// <summary>The strip is one row and clips whole chips off its end, so the plan
+    /// asked for leads the plans — right after "No plan", where the held chip of a plan
+    /// nothing open carries already sits — rather than wherever its name sorts. A plan
+    /// with open tasks is otherwise where the reader cannot see the filter that
+    /// narrowed the list, nor press it to let go.</summary>
+    [Fact]
+    public async Task A_shown_plan_with_open_tasks_leads_the_plans_on_the_bar()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Start it +alpha\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Finish it +zeta\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Ask about it @bob\n`task` `!ready` `@platform` `#sync`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.ShowPlan("+zeta", []);
+
+        Assert.Equal(
+            [TasksDesktopState.NoPlanTag, "+zeta", "+alpha", "@bob", "sync"],
+            host.State.TagFilters.Select(option => option.Value));
+        var chip = host.State.TagFilters[1];
+        Assert.Equal((1, 0), (chip.OpenCount, chip.CompletedCount));
+        Assert.True(host.State.IsTagSelected("+zeta"));
+    }
+
+    /// <summary>Only the plan asked for leads: once the reader takes the plan back
+    /// with a press, the bar is in its own order again.</summary>
+    [Fact]
+    public async Task A_plan_the_reader_pressed_keeps_its_place_on_the_bar()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Start it +alpha\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Finish it +zeta\n`task` `!ready` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.ShowPlan("+zeta", []);
+        host.State.ToggleTagFilter("+alpha");
+        host.State.ToggleTagFilter("+zeta");
+
+        Assert.Equal(["+alpha", "+zeta"], host.State.TagFilters.Select(option => option.Value));
+    }
+
+    /// <summary>The same in a backlog where nothing carries any tag at all, which is
+    /// where the bar would otherwise have no group to put the chip in.</summary>
+    [Fact]
+    public async Task A_plan_shown_in_a_backlog_with_no_tags_stays_pressed()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.ShowPlan("+e2e", []);
+
+        Assert.Equal(["+e2e"], host.State.SelectedTags);
+        Assert.Empty(host.State.FilteredRows);
+        Assert.Contains(host.State.TagFilters, option => option.Value == "+e2e");
+    }
+
+    /// <summary>Held until the reader lets go of it — by pressing it, or by picking
+    /// another plan — and then it leaves the bar like any chip with nothing under it.</summary>
+    [Fact]
+    public async Task A_shown_plan_nothing_carries_leaves_the_bar_once_the_reader_lets_go()
+    {
+        var (host, release, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ShowPlan("+e2e", []);
+        host.State.ToggleTagFilter("+e2e");
+
+        Assert.Empty(host.State.SelectedTags);
+        Assert.DoesNotContain(host.State.TagFilters, option => option.Value == "+e2e");
+
+        host.State.ShowPlan("+e2e", []);
+        host.State.ToggleTagFilter("+release-q4");
+
+        Assert.Equal(["+release-q4"], host.State.SelectedTags);
+        Assert.Equal([release], host.State.FilteredRows);
+        Assert.DoesNotContain(host.State.TagFilters, option => option.Value == "+e2e");
+    }
+
+    /// <summary>Only a plan asked for is held. A plan chip the reader pressed is let go
+    /// when its last entry drops it, as before — even after another plan was shown.</summary>
+    [Fact]
+    public async Task A_pressed_plan_whose_last_entry_drops_it_is_still_let_go()
+    {
+        var (host, release, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ShowPlan("+e2e", []);
+        host.State.ToggleTagFilter("+release-q4");
+
+        await Retag(host, release, "# Ship it\n`task` `!ready` `@platform` `#sync`\n");
+
+        Assert.Empty(host.State.SelectedTags);
+        Assert.DoesNotContain(host.State.TagFilters, option => option.Value == "+release-q4");
+    }
+
     /// <summary>Nothing to exclude while nobody plans, and nothing to show while
     /// everything is planned — the chip earns its place the way "Untagged" does.</summary>
     [Fact]

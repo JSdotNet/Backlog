@@ -714,7 +714,7 @@
                        Planning heading row and no Tasks filter bar; the filter bar is
                        the Tasks view's. *@
                     <div class="roadmap-view" id="roadmap-view" data-testid="roadmap-view">
-                        <RoadmapBand />
+                        <RoadmapBand OnOpenTasks="OpenPlanTasks" />
                     </div>
                 }
                 else if (InProgressViewVisible)
@@ -1511,6 +1511,26 @@
         // widened to it, as a press on the row would be.
         State.Reveal(row);
         await State.SelectAsync(row);
+    }
+
+    /// <summary>
+    /// A roadmap item's "Open in Tasks": the Tasks view on screen, filtered to the
+    /// item's plan and scoped to the repositories the roadmap named.
+    /// <para>
+    /// The view first, then the filter. Switching the view narrows a scope of several to
+    /// its anchor wherever only one fits, and the scope set after it is the one the
+    /// reader asked for — several repositories while the list is on screen. Narrowed
+    /// again after, in case the list is not what the Tasks view shows: the same rule
+    /// every path that changes what is on screen follows. The scope is remembered through
+    /// the state's change, as a press on a chip is.
+    /// </para>
+    /// </summary>
+    private void OpenPlanTasks(RoadmapTasksRequest request)
+    {
+        ShowView(ShellView.Tasks);
+
+        State.ShowPlan(request.PlanTag, request.RepositoryAliases);
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
 
     /// <summary>The Tasks detail panel's "Sessions and pull requests", for the

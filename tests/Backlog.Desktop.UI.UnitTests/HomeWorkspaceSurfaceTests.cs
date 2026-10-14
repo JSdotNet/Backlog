@@ -2652,6 +2652,46 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
     }
 
+    /// <summary>
+    /// A roadmap item's "Open in Tasks" puts the Tasks view on screen with the item's
+    /// plan chip pressed and the list scoped to its repository — remembered, as a press
+    /// on a scope chip is. The roadmap raises the request and the shell answers it.
+    /// </summary>
+    [Fact]
+    public async Task Open_in_tasks_from_a_roadmap_item_shows_its_plan_in_the_task_list()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
+        var navigation = new ShellNavigationStore(Path.Combine(root, "shell-navigation.json"));
+        using var harness = CreateHarness(
+            shellNavigation: navigation,
+            seed: "# Wire the importer +plan-a\n`task` `!ready` `repo:backlog`\n");
+        var planning = harness.Context.Services.GetRequiredService<IRoadmapPlanning>();
+        var added = await planning.AddItemAsync(
+            "Plan A",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"],
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(added.IsSuccess);
+
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        OpenTheRoadmap(component);
+
+        component.WaitForElement(".roadmap-bar__body").Click();
+        component.WaitForElement("[data-testid='roadmap-editor-open-tasks']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("+plan-a", state.SelectedPlan);
+            Assert.StartsWith("Wire the importer", Assert.Single(state.FilteredRows).PreviewTitle, StringComparison.Ordinal);
+            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+            Assert.Equal(["backlog"], navigation.RepositoryScope);
+        });
+    }
+
     /// <summary>Presses the roadmap's option in the view switch and waits for it to
     /// show — through the same affordance the reader has, rather than by reaching
     /// into shell state.</summary>

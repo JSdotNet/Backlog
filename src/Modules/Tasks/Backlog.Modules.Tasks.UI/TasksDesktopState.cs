@@ -1245,6 +1245,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         if (string.IsNullOrEmpty(tag)) return;
 
+        // Any press in the plan group is the reader taking the plan back, so a plan
+        // ShowPlan held on the bar is held no longer.
+        if (IsPlanFilter(tag)) _shownPlan = null;
+
         if (!_selectedTags.Remove(tag))
         {
             if (IsPlanFilter(tag)) _selectedTags.RemoveWhere(IsPlanFilter);
@@ -1257,6 +1261,60 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private static bool IsPlanFilter(string tag) =>
         tag == NoPlanTag || TagText.Kind(tag) is TagKind.Plan;
+
+    /// <summary>
+    /// Shows one plan's work: <paramref name="planTag"/> becomes the one plan chip
+    /// pressed, and the scope becomes <paramref name="repositoryAliases"/> — what a
+    /// roadmap item's "Open in Tasks" asks for.
+    /// <para>
+    /// Not a <see cref="ToggleTagFilter"/>: asking for the plan already shown leaves it
+    /// shown rather than letting go of it. Any other plan pressed before is let go, and
+    /// people and general tags stay, as a plan chip's press leaves them. The scope is
+    /// replaced in the order handed, so the first is the anchor; an alias nothing is
+    /// configured under is dropped, and nothing left means every repository — never the
+    /// Brain, which would hide the plan's filed work. Search, status, My Day and Ready
+    /// in a plan are left as they are.
+    /// </para>
+    /// <para>
+    /// One decision, so the list is filtered once and the change announced once.
+    /// </para>
+    /// <para>
+    /// The plan is held on the bar until the reader lets go of it — pressing it, or
+    /// another plan — even while no open task carries it: its chip stays, pressed with
+    /// a count of 0, so the empty list under it says why it is empty
+    /// (<see cref="RebuildTagFilters"/>). Held or counted, the chip leads the plans on
+    /// the one-row strip, so it is never the chip the strip clips. A plan chip the
+    /// reader pressed is not held, and keeps its place.
+    /// </para>
+    /// </summary>
+    /// <param name="planTag">The plan tag with its <c>+</c>, as a chip's value.</param>
+    /// <param name="repositoryAliases">The repositories to scope to; empty for all.</param>
+    public void ShowPlan(string planTag, IReadOnlyList<string> repositoryAliases)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(planTag);
+        ArgumentNullException.ThrowIfNull(repositoryAliases);
+
+        if (TagText.Kind(planTag) is not TagKind.Plan)
+        {
+            throw new ArgumentException($"'{planTag}' is not a plan tag.", nameof(planTag));
+        }
+
+        _shownPlan = planTag.ToLowerInvariant();
+        _selectedTags.RemoveWhere(IsPlanFilter);
+        _selectedTags.Add(_shownPlan);
+
+        var scope = repositoryAliases
+            .Select(ResolveAliasOrNull)
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        _selectedRepositoryAliases.Clear();
+        _selectedRepositoryAliases.AddRange(scope);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
 
     /// <summary>Turns the My Day scope on for a date, or off when handed null. The
     /// caller supplies the date because the caller is what has the clock; see
@@ -5378,8 +5436,27 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             .ToHashSet(StringComparer.Ordinal);
     }
 
+    /// <summary>The plan <see cref="ShowPlan"/> asked for, held on the bar while it is
+    /// still pressed; null once the reader lets go of it or presses another plan.</summary>
+    private string? _shownPlan;
+
+    /// <summary>The chip for the plan <see cref="ShowPlan"/> holds, when nothing open
+    /// carries it: nothing open to count, and its finished work counted as every
+    /// other chip counts it — a finished plan's chip is not "0" over a list of its
+    /// finished tasks.</summary>
+    private static TagFilterOption ShownPlanChip(string plan, IReadOnlyList<EntryRow> scopedRows) =>
+        new(
+            TagText.Display(plan),
+            plan,
+            0,
+            scopedRows.Count(row => IsFinished(row) && row.PreviewTags.Contains(plan, StringComparer.OrdinalIgnoreCase)));
+
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
     {
+        // Held only while it is still pressed: a widening that cleared the selection
+        // let go of it as surely as a press would.
+        if (_shownPlan is not null && !_selectedTags.Contains(_shownPlan)) _shownPlan = null;
+
         var live = scopedRows.Where(row => !IsFinished(row)).ToList();
 
         // What the bar is allowed to name. Built from the live rows, then used to
@@ -5392,6 +5469,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         if (offered.Count == 0)
         {
+            if (_shownPlan is { } held)
+            {
+                TagFilters = [ShownPlanChip(held, scopedRows)];
+                _selectedTags.RemoveWhere(tag => !string.Equals(tag, held, StringComparison.OrdinalIgnoreCase));
+                return;
+            }
+
             TagFilters = [];
             _selectedTags.Clear();
             return;
@@ -5452,6 +5536,24 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 UntaggedTag,
                 untagged.Count(row => !IsFinished(row)),
                 untagged.Count(IsFinished)));
+        }
+
+        // A plan the reader asked to see leads the plans, after "No plan", for the
+        // reason "No plan" leads the group: the strip is one row and clips whole chips
+        // off its end, and this chip is the one that says why the list is short and the
+        // one press that lets go of it. Wherever its name sorts, it is moved up — and
+        // while nothing open carries it, it is held there, pressed at 0, rather than
+        // being let go below with no chip to say why the list it asked for is not the
+        // list on screen. A plan the reader pressed keeps its place: a chip does not
+        // jump out from under the pointer that pressed it.
+        if (_shownPlan is { } shown)
+        {
+            var at = options.FindIndex(option => string.Equals(option.Value, shown, StringComparison.OrdinalIgnoreCase));
+            var chip = at < 0 ? ShownPlanChip(shown, scopedRows) : options[at];
+
+            if (at >= 0) options.RemoveAt(at);
+
+            options.Insert(options is [{ Value: NoPlanTag }, ..] ? 1 : 0, chip);
         }
 
         TagFilters = options;
