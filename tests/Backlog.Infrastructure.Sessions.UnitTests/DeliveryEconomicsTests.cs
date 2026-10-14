@@ -337,12 +337,13 @@ public sealed class DeliveryEconomicsTests
 
         var only = Assert.Single(DeliveryEconomics.Compare(phase));
 
-        Assert.Null(only.Quality);
+        Assert.Null(only.Quality.Value);
         Assert.Equal(0, only.QualityRuns);
+        Assert.Equal("not reported", only.Quality.Label);
     }
 
     [Fact]
-    public void A_reported_quality_is_the_median_over_the_runs_that_reported_it()
+    public void A_reported_quality_is_the_mean_over_the_runs_that_reported_it()
     {
         var phase = DeliveryEconomics.Of([Priced("s1", 1, Sonnet, 1m, 1m), Priced("s2", 2, Sonnet, 1m, 1m), Priced("s3", 3, Sonnet, 1m, 1m)]).Phases[0];
         var reported = phase with
@@ -352,7 +353,7 @@ public sealed class DeliveryEconomicsTests
 
         var only = Assert.Single(DeliveryEconomics.Compare(reported));
 
-        Assert.Equal(0.7, only.Quality!.Value, 3);
+        Assert.Equal(0.7, only.Quality.Value!.Value, 3);
         Assert.Equal(2, only.QualityRuns);
     }
 
@@ -557,5 +558,243 @@ public sealed class DeliveryEconomicsTests
 
         Assert.Equal(new DeliveryConfiguration("opus", null, null, null), Assert.Single(scope.Samples).Configuration);
         Assert.Equal("opus", scope.Now!.Family);
+    }
+
+    // Seam 7 — the quality measure per phase, from what the delivery phases reported.
+
+    [Theory]
+    [InlineData("Scope", DeliveryQualityMeasure.ScopedAgain)]
+    [InlineData("Implement", DeliveryQualityMeasure.ReviewRounds)]
+    [InlineData("review", DeliveryQualityMeasure.BlockersPerRound)]
+    [InlineData("Build & Test", DeliveryQualityMeasure.GreenFirstTime)]
+    [InlineData("Build and Test", DeliveryQualityMeasure.GreenFirstTime)]
+    [InlineData("Verify", DeliveryQualityMeasure.DefectFound)]
+    [InlineData("Spec Check", DeliveryQualityMeasure.None)]
+    [InlineData("Personal Validation", DeliveryQualityMeasure.None)]
+    public void Each_phase_is_read_on_its_own_quality_measure_and_every_other_phase_on_none(string phase, DeliveryQualityMeasure measure) =>
+        Assert.Equal(measure, DeliveryEconomics.MeasureOf(phase));
+
+    private static DeliveryRunStage Reported(string name, int doneCount = 1, int? round = null, int? blockers = null, int? defects = null, string status = "done") =>
+        new(name, status, 60_000, doneCount) { Round = round, Blockers = blockers, DefectsFound = defects };
+
+    /// <summary>A run of the given stages, each priced at <paramref name="dollars"/>.</summary>
+    private static PricedDeliveryRun Flow(string id, int daysAgo, DeliveryRunStage[] stages, decimal dollars = 1m) =>
+        new(Run(id, Now.AddDays(-daysAgo), stages: stages), Costs([.. stages.Select(_ => (decimal?)dollars)]));
+
+    /// <summary>Scope, Implement, Review, Build &amp; Test and Verify, with what each
+    /// reported.</summary>
+    private static DeliveryRunStage[] FiveStages(
+        int scopePasses = 1,
+        int? rounds = null,
+        int? blockers = null,
+        int buildPasses = 1,
+        int? defects = null,
+        string implementStatus = "done") =>
+    [
+        Reported("Scope", scopePasses),
+        Reported("Implement", implementStatus == "pending" ? 0 : 1, rounds, status: implementStatus),
+        Reported("Review", 1, rounds, blockers),
+        Reported("Build & Test", buildPasses),
+        Reported("Verify", 1, defects: defects)
+    ];
+
+    [Fact]
+    public void Implement_is_read_on_the_mean_review_rounds_its_runs_reported()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("a", 1, FiveStages(rounds: 1)),
+            Flow("b", 2, FiveStages(rounds: 3)),
+            Flow("c", 3, FiveStages())
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Implement").Quality;
+
+        Assert.Equal(DeliveryQualityMeasure.ReviewRounds, quality.Measure);
+        Assert.Equal(2.0, quality.Value!.Value, 6);
+        Assert.Equal(2, quality.Runs);
+        Assert.Equal("2 rounds", quality.Label);
+    }
+
+    [Fact]
+    public void A_run_takes_the_highest_round_its_Implement_or_Review_reported()
+    {
+        var run = Run("r", Now, stages: [Reported("Implement", round: 2), Reported("Review", round: 3), Reported("Verify")]);
+
+        Assert.Equal(3, DeliveryEconomics.RoundsOf(run));
+        Assert.Null(DeliveryEconomics.RoundsOf(Run("old", Now, stages: [Stage("Implement"), Stage("Review")])));
+    }
+
+    [Fact]
+    public void Review_is_read_on_blockers_per_round_and_the_defects_that_escaped_to_Verify()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("a", 1, FiveStages(rounds: 1, blockers: 0, defects: 2)),
+            Flow("b", 2, FiveStages(rounds: 2, blockers: 1, defects: 0)),
+            Flow("c", 3, FiveStages())
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Review").Quality;
+
+        Assert.Equal(0.5, quality.Value!.Value, 6);
+        Assert.Equal(2, quality.Runs);
+        Assert.Equal(2, quality.Escaped);
+        Assert.Equal(2, quality.EscapedRuns);
+        Assert.Equal("0.5 blockers per round · 2 escaped to Verify", quality.Label);
+    }
+
+    [Fact]
+    public void Scope_is_read_on_the_share_scoped_again_once_Implement_had_started()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("again", 1, FiveStages(scopePasses: 2)),
+            Flow("once", 2, FiveStages()),
+            Flow("once2", 3, FiveStages()),
+            Flow("before-implement", 4, FiveStages(scopePasses: 2, implementStatus: "pending"))
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Scope").Quality;
+
+        // The run that never started Implement could not go back to Scope from it.
+        Assert.Equal(3, quality.Runs);
+        Assert.Equal(1.0 / 3, quality.Value!.Value, 6);
+        Assert.Equal("33% scoped again", quality.Label);
+    }
+
+    [Fact]
+    public void Build_and_Test_is_read_on_the_share_green_first_time()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("green", 1, FiveStages()),
+            Flow("green2", 2, FiveStages()),
+            Flow("green3", 3, FiveStages()),
+            Flow("red", 4, FiveStages(buildPasses: 3))
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Build & Test").Quality;
+
+        Assert.Equal(0.75, quality.Value!.Value, 6);
+        Assert.Equal(4, quality.Runs);
+        Assert.Equal("75% green first time", quality.Label);
+    }
+
+    [Fact]
+    public void Verify_is_read_on_the_share_of_runs_with_a_defect_found_over_those_that_reported_a_count()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("found", 1, FiveStages(defects: 2)),
+            Flow("clean", 2, FiveStages(defects: 0)),
+            Flow("silent", 3, FiveStages())
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Verify").Quality;
+
+        Assert.Equal(0.5, quality.Value!.Value, 6);
+        Assert.Equal(2, quality.Runs);
+        Assert.Equal("50% found a defect", quality.Label);
+    }
+
+    [Fact]
+    public void A_phase_without_a_measure_says_so_and_one_nobody_reported_says_not_reported()
+    {
+        var report = DeliveryEconomics.Of([Flow("a", 1, [Reported("Spec Check"), Reported("Verify")])]);
+
+        Assert.Equal("no measure", report.Phases[0].Quality.Label);
+        Assert.False(report.Phases[0].Quality.Reported);
+        Assert.Equal("not reported", report.Phases[1].Quality.Label);
+    }
+
+    [Fact]
+    public void Each_configuration_carries_the_phase_quality_over_its_own_runs_and_the_agent_as_recorded()
+    {
+        static PricedDeliveryRun Ran(string id, int daysAgo, string implement, int rounds) =>
+            new(Run(id, Now.AddDays(-daysAgo), stages: [Stage("Implement", implement) with { Round = rounds }, Stage("Review") with { Round = rounds }]), Costs(1m, 1m));
+
+        var phase = DeliveryEconomics.Of([Ran("s1", 1, Sonnet, 1), Ran("s2", 2, Sonnet, 1), Ran("o1", 3, Opus, 3)]).Phases[0];
+
+        var cards = DeliveryEconomics.Compare(phase);
+        var sonnet = cards.Single(card => card.Configuration.Family == "sonnet");
+        var opus = cards.Single(card => card.Configuration.Family == "opus");
+
+        Assert.Equal(1.0, sonnet.Quality.Value!.Value, 6);
+        Assert.Equal(2, sonnet.QualityRuns);
+        Assert.Equal(3.0, opus.Quality.Value!.Value, 6);
+
+        // Every run shared the agent, so it is not part of the key; the card still says it.
+        Assert.Null(sonnet.Configuration.Agent);
+        Assert.Equal("csharp-coding:coding", sonnet.Agent);
+    }
+
+    // Seam 8 — the flow's quality and spend figures at a glance.
+
+    [Fact]
+    public void Implement_and_Review_share_is_their_cost_over_all_the_spend()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            new PricedDeliveryRun(Run("a", Now.AddDays(-1), stages: [Stage("Scope"), Stage("Implement"), Stage("Review"), Stage("Verify")]), Costs(1m, 4m, 2m, 1m)),
+            new PricedDeliveryRun(Run("b", Now.AddDays(-2), stages: [Stage("Scope"), Stage("Implement"), Stage("Review"), Stage("Verify")]), Costs(1m, 2m, null, 1m))
+        ]);
+
+        // (4 + 2 + 2) over (8 + 4).
+        Assert.Equal(8.0 / 12, report.ImplementReviewShare!.Value, 6);
+        Assert.Null(DeliveryEconomics.Of([Priced("n", 1, Sonnet, null, null)]).ImplementReviewShare);
+    }
+
+    [Fact]
+    public void Runs_with_two_or_more_review_rounds_are_counted_and_their_cost_set_against_the_rest()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("one-a", 1, FiveStages(rounds: 1), 1m),
+            Flow("one-b", 2, FiveStages(rounds: 1), 1m),
+            Flow("two", 3, FiveStages(rounds: 2), 2m),
+            Flow("three", 4, FiveStages(rounds: 3), 4m),
+            Flow("unreported", 5, FiveStages(), 9m)
+        ]);
+
+        Assert.Equal(4, report.RoundRuns);
+        Assert.Equal(2, report.MultiRoundRuns);
+
+        // Median $15 (of $10 and $20) over the one-round median of $5.
+        Assert.Equal(3.0, report.MultiRoundCostRatio!.Value, 6);
+    }
+
+    [Fact]
+    public void The_round_cost_ratio_leaves_out_partly_priced_runs_and_needs_both_sides()
+    {
+        var partial = new PricedDeliveryRun(
+            Run("partial", Now.AddDays(-3), stages: [Reported("Implement", round: 1), Reported("Review", round: 1)]),
+            Costs(0.1m, null));
+
+        var onlyMulti = DeliveryEconomics.Of([Flow("two", 1, FiveStages(rounds: 2)), partial]);
+
+        Assert.Equal(2, onlyMulti.RoundRuns);
+        Assert.Equal(1, onlyMulti.MultiRoundRuns);
+        Assert.Null(onlyMulti.MultiRoundCostRatio);
+    }
+
+    [Fact]
+    public void Defects_that_escaped_review_are_summed_over_the_runs_whose_Verify_reported_a_count()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("a", 1, FiveStages(defects: 2)),
+            Flow("b", 2, FiveStages(defects: 1)),
+            Flow("c", 3, FiveStages(defects: 0)),
+            Flow("d", 4, FiveStages())
+        ]);
+
+        Assert.Equal(3, report.EscapedDefects);
+        Assert.Equal(3, report.EscapedRuns);
+
+        var silent = DeliveryEconomics.Of([Flow("d", 1, FiveStages())]);
+        Assert.Null(silent.EscapedDefects);
+        Assert.Equal(0, silent.EscapedRuns);
+        Assert.Equal(0, silent.RoundRuns);
     }
 }

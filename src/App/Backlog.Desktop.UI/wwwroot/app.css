@@ -8033,7 +8033,7 @@ a.pull-request-detail-checks__name:hover {
 .delivery-economics__phases {
     --delivery-economics-columns:
         minmax(7rem, 1.1fr) minmax(9rem, 1.3fr) 4rem 6rem
-        minmax(8rem, 1.4fr) minmax(6rem, 0.9fr) 6.5rem;
+        minmax(8rem, 1.2fr) minmax(9rem, 1.5fr);
     flex: 1.6 1 40rem;
     min-width: 0;
     padding: var(--spacing-xs);

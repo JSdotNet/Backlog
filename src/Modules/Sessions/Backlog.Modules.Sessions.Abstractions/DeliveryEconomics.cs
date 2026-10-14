@@ -54,6 +54,112 @@ public sealed record DeliveryConfiguration(string? Family, string? Effort, strin
 }
 
 /// <summary>
+/// What a phase's quality is read as, by the phase's name. Only the phases that review or
+/// check the work, or that the work goes back to, have one; every other phase has none.
+/// </summary>
+public enum DeliveryQualityMeasure
+{
+    /// <summary>The phase has no quality measure.</summary>
+    None,
+
+    /// <summary>Scope: the share of runs scoped again after Implement started.</summary>
+    ScopedAgain,
+
+    /// <summary>Implement: the mean implement ⇄ review rounds a run took.</summary>
+    ReviewRounds,
+
+    /// <summary>Review: the mean blockers a reported round left open, beside the defects
+    /// that escaped to Verify.</summary>
+    BlockersPerRound,
+
+    /// <summary>Build &amp; Test: the share of runs whose build and tests passed on the
+    /// first pass.</summary>
+    GreenFirstTime,
+
+    /// <summary>Verify: the share of runs in which Verify found a defect review had
+    /// passed.</summary>
+    DefectFound
+}
+
+/// <summary>
+/// A phase's quality measure over a set of runs — a phase row's, or one configuration's.
+/// </summary>
+/// <param name="Measure">What the value is.</param>
+/// <param name="Value">The mean over the runs that reported it: a share from 0 to 1 for
+/// <see cref="DeliveryQualityMeasure.ScopedAgain"/>, <see cref="DeliveryQualityMeasure.GreenFirstTime"/>
+/// and <see cref="DeliveryQualityMeasure.DefectFound"/>, a count otherwise. Null where no
+/// run reported it, or the phase has no measure — never a zero nobody reported.</param>
+/// <param name="Runs">How many runs <paramref name="Value"/> stands on.</param>
+public sealed record DeliveryQuality(DeliveryQualityMeasure Measure, double? Value, int Runs)
+{
+    /// <summary>A phase with no measure.</summary>
+    public static DeliveryQuality None { get; } = new(DeliveryQualityMeasure.None, null, 0);
+
+    /// <summary>Review only: the defects Verify found that review had passed, summed over
+    /// the runs whose Verify reported a count, or null where none did.</summary>
+    public int? Escaped { get; init; }
+
+    /// <summary>How many runs <see cref="Escaped"/> stands on.</summary>
+    public int EscapedRuns { get; init; }
+
+    /// <summary>Whether anything was reported for the measure.</summary>
+    public bool Reported => Value is not null || Escaped is not null;
+
+    /// <summary>The measure in words, such as "1.4 rounds", "83% green first time" or
+    /// "0.5 blockers per round · 2 escaped to Verify"; "no measure" for a phase without
+    /// one, and "not reported" where no run reported it.</summary>
+    public string Label
+    {
+        get
+        {
+            if (Measure is DeliveryQualityMeasure.None) return "no measure";
+
+            var value = Value switch
+            {
+                null => null,
+                { } share when Measure is DeliveryQualityMeasure.ScopedAgain => $"{Percent(share)} scoped again",
+                { } share when Measure is DeliveryQualityMeasure.GreenFirstTime => $"{Percent(share)} green first time",
+                { } share when Measure is DeliveryQualityMeasure.DefectFound => $"{Percent(share)} found a defect",
+                { } rounds when Measure is DeliveryQualityMeasure.ReviewRounds => $"{Number(rounds)} {(Number(rounds) == "1" ? "round" : "rounds")}",
+                { } blockers => $"{Number(blockers)} blockers per round"
+            };
+
+            var escaped = Measure is DeliveryQualityMeasure.BlockersPerRound && Escaped is { } count
+                ? $"{count} escaped to Verify"
+                : null;
+
+            return (value, escaped) switch
+            {
+                (null, null) => "not reported",
+                (null, { } only) => $"not reported · {only}",
+                ({ } only, null) => only,
+                var (both, also) => $"{both} · {also}"
+            };
+        }
+    }
+
+    /// <summary>What the measure is and how many runs it stands on, for a tooltip.</summary>
+    public string Title => Measure switch
+    {
+        DeliveryQualityMeasure.None => "This phase has no quality measure",
+        _ when !Reported => "No run in the window reported it",
+        DeliveryQualityMeasure.ScopedAgain => $"Share of runs scoped again after Implement started, over {RunsWord(Runs)}",
+        DeliveryQualityMeasure.ReviewRounds => $"Mean implement-review rounds, over {RunsWord(Runs)}",
+        DeliveryQualityMeasure.BlockersPerRound => $"Mean blockers a reported round left open, over {RunsWord(Runs)}; defects Verify found that review had passed, over {RunsWord(EscapedRuns)}",
+        DeliveryQualityMeasure.GreenFirstTime => $"Share of runs whose Build & Test passed on its first pass, over {RunsWord(Runs)}",
+        _ => $"Share of runs in which Verify found a defect review had passed, over {RunsWord(Runs)}"
+    };
+
+    internal static string Percent(double share) =>
+        $"{Math.Round(share * 100, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%";
+
+    private static string Number(double value) =>
+        Math.Round(value, 1, MidpointRounding.AwayFromZero).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string RunsWord(int count) => count == 1 ? "1 run" : $"{count} runs";
+}
+
+/// <summary>
 /// One run's part in a phase: the configuration it ran the phase under and what that
 /// cost.
 /// </summary>
@@ -70,10 +176,14 @@ public sealed record DeliveryPhaseSample(DeliveryRun Run, DeliveryConfiguration 
     /// rather than dropping the run.</summary>
     public bool RunTotalPartial { get; init; }
 
-    /// <summary>The quality measure of the phase's work in this run, or null where the
-    /// run reported none. No delivery engine reports the facts it is built from yet, so
-    /// nothing sets it: it waits for an engine release that does.</summary>
+    /// <summary>The phase's quality measure in this run (<see cref="DeliveryQualityMeasure"/>):
+    /// 1 or 0 for a share's yes or no, a count otherwise — or null where the run reported
+    /// nothing it could be read from, or the phase has no measure.</summary>
     public double? Quality { get; init; }
+
+    /// <summary>Review only: the defects this run's Verify found that review had passed,
+    /// or null where its Verify reported no count.</summary>
+    public int? EscapedDefects { get; init; }
 }
 
 /// <summary>
@@ -115,6 +225,17 @@ public sealed record DeliveryPhase(
 
     /// <summary>Whether the phase's configurations keep the mode — they differ on it.</summary>
     public bool ModeKept { get; init; }
+
+    /// <summary>The agent every run of the phase shared, where <see cref="AgentKept"/> is
+    /// false and they shared one — so a card can still say which agent ran it, as
+    /// recorded — else null.</summary>
+    public string? SharedAgent { get; init; }
+
+    /// <summary>What the phase's quality is read as.</summary>
+    public DeliveryQualityMeasure Measure { get; init; }
+
+    /// <summary>The phase's quality measure over every run that finished it.</summary>
+    public DeliveryQuality Quality => DeliveryEconomics.QualityOf(Measure, Samples);
 }
 
 /// <summary>
@@ -129,19 +250,25 @@ public sealed record DeliveryPhase(
 /// finished that were priced, or null where none priced any.</param>
 /// <param name="TotalRuns">How many runs <paramref name="MedianRun"/> stands on; of those,
 /// <see cref="PartialRuns"/> left a finished stage unpriced.</param>
-/// <param name="Quality">The median quality its runs reported, or null where none did —
-/// which, until the delivery engine reports quality, is always.</param>
-/// <param name="QualityRuns">How many runs <paramref name="Quality"/> stands on.</param>
 public sealed record DeliveryConfigurationCost(
     DeliveryConfiguration Configuration,
     int Runs,
     int PricedRuns,
     CostFigure? MedianPhase,
     CostFigure? MedianRun,
-    int TotalRuns,
-    double? Quality,
-    int QualityRuns)
+    int TotalRuns)
 {
+    /// <summary>The phase's quality measure over this configuration's runs.</summary>
+    public DeliveryQuality Quality { get; init; } = DeliveryQuality.None;
+
+    /// <summary>How many runs <see cref="Quality"/> stands on.</summary>
+    public int QualityRuns => Quality.Runs;
+
+    /// <summary>The agent that ran the phase under it, as recorded: the configuration's
+    /// own where the phase's cards tell agents apart, else the one every run shared —
+    /// null where it ran in the owner session.</summary>
+    public string? Agent { get; init; }
+
     /// <summary>How many of the <see cref="TotalRuns"/> left a stage they finished
     /// unpriced, so their whole-run figure stands on part of the run.</summary>
     public int PartialRuns { get; init; }
@@ -281,6 +408,30 @@ public sealed record DeliveryEconomicsReport(
     /// unpriced, so their figure stands on part of the run — said beside the median
     /// rather than dropping the run.</summary>
     public int PartialRuns { get; init; }
+
+    /// <summary>Implement and Review's part of all the spend: what those two phases cost
+    /// over every run, over what every stage the runs finished cost — 0 to 1 — or null
+    /// where nothing was priced.</summary>
+    public double? ImplementReviewShare { get; init; }
+
+    /// <summary>How many runs reported their implement ⇄ review rounds — what
+    /// <see cref="MultiRoundRuns"/> is counted among.</summary>
+    public int RoundRuns { get; init; }
+
+    /// <summary>How many of the <see cref="RoundRuns"/> took two rounds or more.</summary>
+    public int MultiRoundRuns { get; init; }
+
+    /// <summary>The median whole-run cost of the runs that took two rounds or more over
+    /// that of the runs that took one, each over runs priced in every stage they
+    /// finished — or null where either side has none, or the one-round median is zero.</summary>
+    public double? MultiRoundCostRatio { get; init; }
+
+    /// <summary>The defects that escaped review: what Verify found that review had passed,
+    /// summed over the runs whose Verify reported a count, or null where none did.</summary>
+    public int? EscapedDefects { get; init; }
+
+    /// <summary>How many runs <see cref="EscapedDefects"/> stands on.</summary>
+    public int EscapedRuns { get; init; }
 
     /// <summary>How many runs the quality measure stands on: those with a quality
     /// figure for any phase.</summary>
@@ -427,11 +578,146 @@ public static class DeliveryEconomics
             })
         ];
 
+        // Implement and Review over all spend: summed across the runs, so a dear run
+        // weighs as much as it cost, over the same finished stages the totals add up.
+        var spend = totals.Sum(total => total.Figure?.UsdMicros ?? 0);
+        var implementReview = ordered.Sum(priced => FinishedCosts(priced)
+            .Where(stage => MeasureOf(stage.Name) is DeliveryQualityMeasure.ReviewRounds or DeliveryQualityMeasure.BlockersPerRound)
+            .Sum(stage => stage.Cost.UsdMicros));
+
+        // Two rounds or more against one, on the runs that reported their rounds and were
+        // priced in every stage they finished: a total over part of a run reads cheap.
+        var rounds = ordered.Select(priced => RoundsOf(priced.Run)).ToList();
+        var multi = new List<CostFigure>();
+        var single = new List<CostFigure>();
+
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            if (rounds[index] is not { } count || totals[index] is not { Figure: { } figure, Partial: false }) continue;
+
+            (count >= 2 ? multi : single).Add(figure);
+        }
+
+        double? ratio = MedianOf(multi) is { } multiMedian && MedianOf(single) is { UsdMicros: > 0 } singleMedian
+            ? (double)multiMedian.UsdMicros / singleMedian.UsdMicros
+            : null;
+
+        var escapes = ordered.Select(priced => VerifyDefectsOf(priced.Run)).OfType<int>().ToList();
+
         return new DeliveryEconomicsReport(ordered.Count, reported, estimated, medianRun, PercentileOf(whole, 0.9), phases)
         {
             TotalRuns = whole.Count,
-            PartialRuns = totals.Count(total => total is { Figure: not null, Partial: true })
+            PartialRuns = totals.Count(total => total is { Figure: not null, Partial: true }),
+            ImplementReviewShare = spend > 0 ? (double)implementReview / spend : null,
+            RoundRuns = rounds.Count(count => count is not null),
+            MultiRoundRuns = rounds.Count(count => count >= 2),
+            MultiRoundCostRatio = ratio,
+            EscapedDefects = escapes.Count == 0 ? null : escapes.Sum(),
+            EscapedRuns = escapes.Count
         };
+    }
+
+    /// <summary>
+    /// What a phase's quality is read as, by its name: Scope, Implement, Review,
+    /// Build &amp; Test and Verify have a measure, in any casing and with "and" for the
+    /// ampersand; every other phase has none.
+    /// </summary>
+    public static DeliveryQualityMeasure MeasureOf(string phase)
+    {
+        ArgumentNullException.ThrowIfNull(phase);
+
+        var key = new string([.. phase.Where(char.IsLetter).Select(char.ToLowerInvariant)]);
+
+        return key switch
+        {
+            "scope" => DeliveryQualityMeasure.ScopedAgain,
+            "implement" => DeliveryQualityMeasure.ReviewRounds,
+            "review" => DeliveryQualityMeasure.BlockersPerRound,
+            "buildtest" or "buildandtest" => DeliveryQualityMeasure.GreenFirstTime,
+            "verify" => DeliveryQualityMeasure.DefectFound,
+            _ => DeliveryQualityMeasure.None
+        };
+    }
+
+    /// <summary>
+    /// A measure over a set of a phase's samples: the mean of what they reported, how
+    /// many did, and for Review the defects their Verify found.
+    /// </summary>
+    public static DeliveryQuality QualityOf(DeliveryQualityMeasure measure, IEnumerable<DeliveryPhaseSample> samples)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+
+        if (measure is DeliveryQualityMeasure.None) return DeliveryQuality.None;
+
+        var list = samples as IReadOnlyCollection<DeliveryPhaseSample> ?? [.. samples];
+        var values = list.Select(sample => sample.Quality).OfType<double>().ToList();
+        var escaped = list.Select(sample => sample.EscapedDefects).OfType<int>().ToList();
+
+        return new DeliveryQuality(measure, values.Count == 0 ? null : values.Average(), values.Count)
+        {
+            Escaped = measure is DeliveryQualityMeasure.BlockersPerRound && escaped.Count > 0 ? escaped.Sum() : null,
+            EscapedRuns = measure is DeliveryQualityMeasure.BlockersPerRound ? escaped.Count : 0
+        };
+    }
+
+    /// <summary>
+    /// The implement ⇄ review rounds a run took: the highest round its Implement or
+    /// Review reported, or null where neither reported one. Never counted from the
+    /// stages' passes: the delivery phases report it, and this product works out none of
+    /// it itself.
+    /// </summary>
+    public static int? RoundsOf(DeliveryRun run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+
+        var reported = run.Stages
+            .Where(stage => MeasureOf(stage.Name) is DeliveryQualityMeasure.ReviewRounds or DeliveryQualityMeasure.BlockersPerRound)
+            .Select(stage => stage.Round)
+            .OfType<int>()
+            .ToList();
+
+        return reported.Count == 0 ? null : reported.Max();
+    }
+
+    /// <summary>The defects a run's Verify found that review had passed, or null where its
+    /// Verify reported no count.</summary>
+    private static int? VerifyDefectsOf(DeliveryRun run) =>
+        run.Stages.FirstOrDefault(stage => MeasureOf(stage.Name) is DeliveryQualityMeasure.DefectFound && stage.DefectsFound is not null)?.DefectsFound;
+
+    /// <summary>
+    /// One run's quality figure for a phase, from the stage's own pass and the run around
+    /// it, or null where nothing it is read from was reported.
+    /// </summary>
+    private static double? SampleQuality(DeliveryQualityMeasure measure, DeliveryRun run, DeliveryRunStage stage) => measure switch
+    {
+        // Scoped again only counts once Implement has started: a run that never reached
+        // it could not have gone back. Scope finished more than once is the second pass.
+        DeliveryQualityMeasure.ScopedAgain => run.Stages.FirstOrDefault(other => MeasureOf(other.Name) is DeliveryQualityMeasure.ReviewRounds) is { } implement
+                                               && Started(implement)
+            ? stage.DoneCount > 1 ? 1 : 0
+            : null,
+        DeliveryQualityMeasure.ReviewRounds => RoundsOf(run),
+        DeliveryQualityMeasure.BlockersPerRound => stage.Blockers,
+        DeliveryQualityMeasure.GreenFirstTime => stage.DoneCount == 1 ? 1 : 0,
+        DeliveryQualityMeasure.DefectFound => stage.DefectsFound is { } found ? found > 0 ? 1 : 0 : null,
+        _ => null
+    };
+
+    /// <summary>Whether a stage got past pending: it is under way, finished, or was
+    /// marked done at least once.</summary>
+    private static bool Started(DeliveryRunStage stage) =>
+        stage.DoneCount > 0 || stage.StartedAt is not null
+        || !string.Equals(stage.Status, "pending", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The run's finished, priced stages with what each cost.</summary>
+    private static IEnumerable<(string Name, CostFigure Cost)> FinishedCosts(PricedDeliveryRun priced)
+    {
+        for (var index = 0; index < priced.Run.Stages.Count && index < priced.Costs.Count; index++)
+        {
+            var stage = priced.Run.Stages[index];
+
+            if (DeliveryRunBaselines.Finished(stage.Status) && priced.Costs[index].Stage is { } cost) yield return (stage.Name, cost);
+        }
     }
 
     /// <summary>
@@ -451,21 +737,19 @@ public static class DeliveryEconomics
                     var samples = group.ToList();
                     var totals = samples.Select(sample => sample.RunTotal).OfType<CostFigure>().ToList();
                     var complete = samples.Where(sample => !sample.RunTotalPartial).Select(sample => sample.RunTotal).OfType<CostFigure>().ToList();
-                    var quality = samples.Select(sample => sample.Quality).OfType<double>().Order().ToList();
-
                     return new DeliveryConfigurationCost(
                         group.Key,
                         samples.Count,
                         samples.Count(sample => sample.Cost is not null),
                         MedianOf([.. samples.Select(sample => sample.Cost).OfType<CostFigure>()]),
                         MedianOf(totals),
-                        totals.Count,
-                        quality.Count == 0 ? null : quality.Count % 2 == 1 ? quality[quality.Count / 2] : (quality[(quality.Count / 2) - 1] + quality[quality.Count / 2]) / 2,
-                        quality.Count)
+                        totals.Count)
                     {
                         PartialRuns = samples.Count(sample => sample.RunTotal is not null && sample.RunTotalPartial),
                         MedianCompleteRun = MedianOf(complete),
-                        CompleteRuns = complete.Count
+                        CompleteRuns = complete.Count,
+                        Quality = QualityOf(phase.Measure, samples),
+                        Agent = group.Key.Agent ?? (phase.AgentKept ? null : phase.SharedAgent)
                     };
                 })
                 .OrderByDescending(cost => cost.PricedRuns)
@@ -544,7 +828,8 @@ public static class DeliveryEconomics
     {
         var spelling = name;
         DeliveryConfiguration? now = null;
-        var found = new List<(DeliveryRun Run, DeliveryConfiguration Configuration, CostFigure? Cost, (CostFigure? Figure, bool Partial) Total)>();
+        var measure = MeasureOf(name);
+        var found = new List<(DeliveryRun Run, DeliveryRunStage Stage, DeliveryConfiguration Configuration, CostFigure? Cost, (CostFigure? Figure, bool Partial) Total)>();
 
         for (var index = 0; index < runs.Count; index++)
         {
@@ -570,7 +855,7 @@ public static class DeliveryEconomics
 
                 first = false;
                 var cost = at < priced.Costs.Count ? priced.Costs[at].Stage : null;
-                found.Add((priced.Run, ConfigurationOf(stages[at], priced.OwnerModel), cost, totals[index]));
+                found.Add((priced.Run, stage, ConfigurationOf(stages[at], priced.OwnerModel), cost, totals[index]));
             }
         }
 
@@ -590,7 +875,9 @@ public static class DeliveryEconomics
                 sample.Cost,
                 sample.Total.Figure)
             {
-                RunTotalPartial = sample.Total.Partial
+                RunTotalPartial = sample.Total.Partial,
+                Quality = SampleQuality(measure, sample.Run, sample.Stage),
+                EscapedDefects = measure is DeliveryQualityMeasure.BlockersPerRound ? VerifyDefectsOf(sample.Run) : null
             })
             .ToList();
 
@@ -600,7 +887,9 @@ public static class DeliveryEconomics
         return new DeliveryPhase(spelling, now, median, null, samples)
         {
             AgentKept = agents,
-            ModeKept = modes
+            ModeKept = modes,
+            SharedAgent = agents ? null : found.Select(sample => sample.Configuration.Agent).FirstOrDefault(),
+            Measure = measure
         };
     }
 
