@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Progress module's UI (.devbook/domain/progress/features.md). Today it holds
-    the one rule every Progress screen draws under: ProgressOnly renders its content
-    only while the progress switch is on, so with it off nothing of Progress is drawn.
-    The sprint view, the Sprints settings page and the sprint lines in the briefs are
-    later slices of the same plan and land here.
+    The Progress module's UI (.devbook/domain/progress/features.md): the one rule every
+    Progress screen draws under — ProgressOnly renders its content only while the
+    progress switch is on, so with it off nothing of Progress is drawn — and Settings ›
+    Sprints, registered on the settings screen by AddProgressSettings. The sprint view
+    and the sprint lines in the briefs are later slices of the same plan and land here.
 
     It references the shared control library rather than growing its own controls,
     which is the rule every module UI project follows, and the module's published
@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- AddProgressSettings registers the Sprints page's SettingsSection. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

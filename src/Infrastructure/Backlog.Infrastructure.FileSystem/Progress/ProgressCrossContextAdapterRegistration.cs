@@ -7,7 +7,9 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// <summary>
 /// What Progress asks of the world outside it, answered by adapters that may see both
 /// sides: the tasks a sprint names, read through Tasks' published
-/// <see cref="ITaskItems"/> (<see cref="ISprintTaskSource"/>).
+/// <see cref="ITaskItems"/> (<see cref="ISprintTaskSource"/>), and the repositories a
+/// series may be given, read from Tasks' <see cref="IRepositoryDirectory"/>
+/// (<see cref="ISprintRepositories"/>).
 /// <para>
 /// Scoped, because <see cref="ITaskItems"/> is: a singleton over a scoped port is a
 /// captive dependency a validating provider refuses. Call after <c>AddTasksModule</c>
@@ -24,6 +26,8 @@ public static class ProgressCrossContextAdapterRegistration
             new SprintTaskSource(
                 () => sp.GetRequiredService<ITaskItems>(),
                 () => sp.GetService<IRepositoryDirectory>()));
+        services.AddScoped<ISprintRepositories>(sp =>
+            new SprintRepositories(() => sp.GetService<IRepositoryDirectory>()));
 
         return services;
     }

@@ -19664,3 +19664,158 @@ select.field__input {
     align-items: center;
     gap: var(--spacing-xs);
 }
+
+/* --- Sprint series card (Settings › Sprints) ----------------------------- */
+
+/* One series per card: a heading row with its switch, then label-and-value rows
+   in two columns that fold to one at a narrow width. A series switched off keeps
+   every row editable and drawn in the secondary ink, so it reads as resting
+   rather than as disabled. */
+.sprint-card {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+
+.sprint-card__head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.sprint-card__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-card__running,
+.sprint-card__hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-card--off .sprint-card__title {
+    color: var(--color-text-secondary);
+}
+
+.sprint-card__section {
+    margin: var(--spacing-xs) 0 0;
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-card__field {
+    display: grid;
+    grid-template-columns: 12rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--spacing-xs) var(--spacing-md);
+    min-width: 0;
+}
+
+/* Goal is met when: the select and, for a share, its field and the reason on
+   one line, each dropping under the one before where the row is too narrow. */
+.sprint-card__inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.sprint-card__met {
+    display: inline-flex;
+    max-width: 100%;
+}
+
+.sprint-card__inline > .field__control {
+    flex: 0 0 8rem;
+}
+
+.sprint-card__key {
+    padding-top: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-card__value {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.sprint-card__statement {
+    margin: 0;
+    padding-top: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-card__select,
+.sprint-card__input {
+    max-width: 14rem;
+}
+
+.sprint-card__next {
+    grid-column: 2;
+}
+
+.sprint-card__share {
+    max-width: 8rem;
+}
+
+.sprint-card__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.sprint-card__nest {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding-left: var(--spacing-lg);
+}
+
+.sprint-card__chip-input {
+    max-width: 12rem;
+}
+
+/* Add repository is a select drawn as the dashed pill a suggested chip wears:
+   it adds a chip to the row it sits at the end of. */
+.sprint-card__add {
+    display: inline-flex;
+}
+
+.sprint-card__add-select {
+    min-height: 32px;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+}
+
+.sprint-card__add-select:disabled {
+    color: var(--color-text-secondary);
+}
+
+@media (max-width: 640px) {
+    .sprint-card__field {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sprint-card__next {
+        grid-column: 1;
+    }
+}

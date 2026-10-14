@@ -27,6 +27,7 @@ using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Progress.Extensions;
+using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -281,6 +282,9 @@ public static class DesktopCompositionRegistration
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();
+        // The Sprints page: a card per sprint series and the repositories in none.
+        // Offered behind the progress switch, like every Progress screen.
+        services.AddProgressSettings();
         // The band under every route reads the backlog's save state through the
         // library's interface, and the toast tray in MainLayout reads the channel a
         // screen puts a message in; concrete type and interface resolve the same one.

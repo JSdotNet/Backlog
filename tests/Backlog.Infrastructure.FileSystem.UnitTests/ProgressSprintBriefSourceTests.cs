@@ -63,6 +63,18 @@ public class ProgressSprintBriefSourceTests
     }
 
     [Fact]
+    public async Task Leaves_out_a_series_that_is_switched_off()
+    {
+        var off = Series("Resting", weekly: true, Sprint(1, From, To)) with { IsOn = false };
+        var progress = new FakeProgress([off]);
+
+        var source = new ProgressSprintBriefSource(progress, progress, new Features(on: true));
+
+        Assert.Empty(await source.ReadAsync(From, To, TestContext.Current.CancellationToken));
+        Assert.Empty(progress.Asked);
+    }
+
+    [Fact]
     public async Task Reads_nothing_while_progress_is_off()
     {
         var series = Series("Team", weekly: true, Sprint(1, From, To));
@@ -157,6 +169,8 @@ public class ProgressSprintBriefSourceTests
         public Task<Result<SprintSeriesDto>> RenameAsync(Guid seriesId, string name, string namePattern, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<Result<SprintSeriesDto>> ShowInBriefsAsync(Guid seriesId, bool daily, bool weekly, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Result<SprintSeriesDto>> SwitchAsync(Guid seriesId, bool on, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<Result<SprintSeriesDto>> SetGoalRulesAsync(Guid seriesId, IReadOnlyList<GoalRuleDto> rules, int goalShare, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 

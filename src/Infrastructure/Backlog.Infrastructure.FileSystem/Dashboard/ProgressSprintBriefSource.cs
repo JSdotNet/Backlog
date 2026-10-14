@@ -11,8 +11,9 @@ namespace Backlog.Infrastructure.FileSystem.Dashboard;
 /// context's published surface: its series (<see cref="ISprintSeriesPlanning"/>) and each
 /// sprint read against its members' current state (<see cref="ISprintProgress"/>).
 /// <para>
-/// Only the series marked "Show it in the weekly brief" are read, and of those only the
-/// sprints that overlap the window. Each member crosses as a
+/// Only the series switched on and marked "Show it in the weekly brief" are read, and of
+/// those only the sprints that overlap the window: a series switched off keeps its choice
+/// for when it is switched back on, and draws no Sprint block meanwhile. Each member crosses as a
 /// <see cref="SprintBriefMember"/>, because the dashboard may not name a Progress type
 /// (guideline ADR 0005).
 /// </para>
@@ -40,7 +41,7 @@ public sealed class ProgressSprintBriefSource(
 
         var sprints = new List<SprintBriefSprint>();
 
-        foreach (var series in listed.Value.Where(series => series.ShowInWeeklyBrief))
+        foreach (var series in listed.Value.Where(series => series.IsOn && series.ShowInWeeklyBrief))
         {
             foreach (var sprint in series.Sprints.Where(sprint => sprint.Start <= to && sprint.End >= from))
             {

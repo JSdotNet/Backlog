@@ -9,6 +9,10 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <param name="GoalShare">The whole percentage of goal tasks that must be done for
 /// a sprint's goal to be met; 100 is every goal task.</param>
 /// <param name="Sprints">Every sprint of the series, by number.</param>
+/// <param name="IsOn">Whether the series is switched on. A series switched off keeps
+/// everything it holds, and its repositories read as in no series
+/// (<c>.devbook/domain/progress/domain.md#series-switch</c>). Last and defaulted, so a
+/// caller written before the switch still constructs one.</param>
 public sealed record SprintSeriesDto(
     Guid Id,
     string Name,
@@ -20,7 +24,8 @@ public sealed record SprintSeriesDto(
     bool ShowInWeeklyBrief,
     IReadOnlyList<GoalRuleDto> GoalRules,
     int GoalShare,
-    IReadOnlyList<SprintDto> Sprints)
+    IReadOnlyList<SprintDto> Sprints,
+    bool IsOn = true)
 {
     /// <summary>The open sprint, or null before the first one starts.</summary>
     public SprintDto? OpenSprint => Sprints.LastOrDefault(sprint => sprint.IsOpen);

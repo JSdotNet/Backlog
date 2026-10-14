@@ -211,6 +211,69 @@ public sealed class SprintSeriesPlanningTests : IDisposable
     }
 
     [Fact]
+    public async Task A_new_series_is_on()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var created = (await Planning.CreateSeriesAsync(new CreateSprintSeries(["backlog"]), ct)).Value;
+
+        Assert.True(created.IsOn);
+    }
+
+    [Fact]
+    public async Task A_switched_off_series_keeps_its_repositories_and_sprints_and_its_repositories_read_as_in_no_series()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+
+        var off = (await Planning.SwitchAsync(series.Id, on: false, ct)).Value;
+
+        Assert.False(off.IsOn);
+        Assert.Equal(["backlog", "docs"], off.Repositories);
+        Assert.NotNull(off.OpenSprint);
+        Assert.Null((await Planning.FindSeriesOfAsync("backlog", ct)).Value);
+        Assert.False((await Planning.GetSeriesAsync(series.Id, ct)).Value.IsOn);
+    }
+
+    [Fact]
+    public async Task A_switched_off_series_still_holds_its_repositories_against_another_series()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var core = (await Planning.CreateSeriesAsync(new CreateSprintSeries(["backlog"], "Core"), ct)).Value;
+        var docs = (await Planning.CreateSeriesAsync(new CreateSprintSeries(["docs"], "Docs"), ct)).Value;
+        await Planning.SwitchAsync(core.Id, on: false, ct);
+
+        var added = await Planning.AddRepositoryAsync(docs.Id, "backlog", ct);
+
+        Assert.Equal("progress.repository_in_other_series", added.Error.Code);
+    }
+
+    [Fact]
+    public async Task Switching_a_series_back_on_brings_its_repositories_back()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        await Planning.SwitchAsync(series.Id, on: false, ct);
+
+        var on = (await Planning.SwitchAsync(series.Id, on: true, ct)).Value;
+
+        Assert.True(on.IsOn);
+        Assert.Equal(series.Id, (await Planning.FindSeriesOfAsync("docs", ct)).Value!.Id);
+    }
+
+    [Fact]
+    public async Task Switching_answers_off_while_progress_is_off()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        _features.ProgressOn = false;
+
+        var switched = await Planning.SwitchAsync(series.Id, on: false, ct);
+
+        Assert.Equal("progress.off", switched.Error.Code);
+    }
+
+    [Fact]
     public async Task A_closed_sprint_refuses_a_change_through_the_port()
     {
         var ct = TestContext.Current.CancellationToken;

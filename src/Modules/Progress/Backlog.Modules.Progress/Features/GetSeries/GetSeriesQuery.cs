@@ -12,7 +12,8 @@ public sealed record ListSeriesQuery;
 /// <summary>One sprint series by its id.</summary>
 public sealed record GetSeriesQuery(Guid SeriesId);
 
-/// <summary>The series a repository belongs to, or none.</summary>
+/// <summary>The series a repository belongs to, or none — none, too, while that
+/// series is switched off.</summary>
 public sealed record FindSeriesOfQuery(string RepositoryAlias);
 
 public sealed class GetSeriesQueryHandler(ISprintSeriesRepository repository)
@@ -39,6 +40,6 @@ public sealed class GetSeriesQueryHandler(ISprintSeriesRepository repository)
         ArgumentNullException.ThrowIfNull(query);
 
         var all = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
-        return SeriesAssignment.HolderOf(all, query.RepositoryAlias)?.ToDto();
+        return SeriesAssignment.HolderOf(all, query.RepositoryAlias) is { IsOn: true } holder ? holder.ToDto() : null;
     }
 }

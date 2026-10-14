@@ -22,6 +22,9 @@ public sealed record RenameSeriesCommand(Guid SeriesId, string Name, string Name
 /// <summary>Chooses which briefs show the series' open sprint.</summary>
 public sealed record ShowInBriefsCommand(Guid SeriesId, bool Daily, bool Weekly);
 
+/// <summary>Switches a series on or off; nothing it holds changes.</summary>
+public sealed record SwitchSeriesCommand(Guid SeriesId, bool On);
+
 /// <summary>Chooses the goal rules and the share of goal tasks that meets the goal.</summary>
 public sealed record SetGoalRulesCommand(Guid SeriesId, IReadOnlyList<GoalRuleDto> Rules, int GoalShare);
 
@@ -31,6 +34,7 @@ public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
       ICommandHandler<ChangeCadenceCommand, Result<SprintSeriesDto>>,
       ICommandHandler<RenameSeriesCommand, Result<SprintSeriesDto>>,
       ICommandHandler<ShowInBriefsCommand, Result<SprintSeriesDto>>,
+      ICommandHandler<SwitchSeriesCommand, Result<SprintSeriesDto>>,
       ICommandHandler<SetGoalRulesCommand, Result<SprintSeriesDto>>
 {
     public Task<Result<SprintSeriesDto>> Handle(AddRepositoryCommand command, CancellationToken cancellationToken = default)
@@ -71,6 +75,19 @@ public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
             series =>
             {
                 series.ShowInBriefs(command.Daily, command.Weekly);
+                return Result.Success();
+            },
+            cancellationToken);
+    }
+
+    public Task<Result<SprintSeriesDto>> Handle(SwitchSeriesCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return changes.ChangeAsync(
+            command.SeriesId,
+            series =>
+            {
+                series.Switch(command.On);
                 return Result.Success();
             },
             cancellationToken);

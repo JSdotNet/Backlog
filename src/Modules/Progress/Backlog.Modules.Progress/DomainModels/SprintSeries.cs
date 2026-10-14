@@ -30,7 +30,8 @@ public sealed class SprintSeries
         BriefVisibility briefs,
         List<GoalRule> goalRules,
         GoalThreshold threshold,
-        List<Sprint> sprints)
+        List<Sprint> sprints,
+        bool isOn)
     {
         Id = id;
         Name = name;
@@ -42,6 +43,7 @@ public sealed class SprintSeries
         _goalRules = goalRules;
         Threshold = threshold;
         _sprints = sprints;
+        IsOn = isOn;
     }
 
     public Guid Id { get; }
@@ -66,6 +68,13 @@ public sealed class SprintSeries
     public IReadOnlyList<Sprint> Sprints => _sprints;
 
     public Sprint? OpenSprint => _sprints.LastOrDefault(sprint => sprint.IsOpen);
+
+    /// <summary>Whether the series is switched on
+    /// (<c>.devbook/domain/progress/domain.md#series-switch</c>). A new series is. A
+    /// series switched off keeps its repositories, its settings and its sprints, and
+    /// still holds its repositories against every other series; only the reading that
+    /// asks which series a repository works to passes it by.</summary>
+    public bool IsOn { get; private set; }
 
     /// <summary>A new series over <paramref name="repositories"/>, with no sprint yet.
     /// Refused without a repository (<c>progress.series_without_repository</c>).</summary>
@@ -103,7 +112,8 @@ public sealed class SprintSeries
             briefs ?? BriefVisibility.Neither,
             rules,
             threshold.Value,
-            []);
+            [],
+            isOn: true);
     }
 
     /// <summary>Rehydration from storage. Trusted, as every stored aggregate is: the
@@ -118,7 +128,8 @@ public sealed class SprintSeries
         BriefVisibility briefs,
         IEnumerable<(GoalRuleKind Kind, IReadOnlyList<string> Choices)> goalRules,
         int goalShare,
-        IEnumerable<Sprint> sprints) =>
+        IEnumerable<Sprint> sprints,
+        bool isOn = true) =>
         new(
             id,
             name,
@@ -129,7 +140,8 @@ public sealed class SprintSeries
             briefs,
             [.. goalRules.Select(rule => GoalRule.Restore(rule.Kind, rule.Choices))],
             GoalThreshold.Create(goalShare).TryGetValue(out var threshold) ? threshold : GoalThreshold.EveryGoalTask,
-            [.. sprints.OrderBy(sprint => sprint.Number)]);
+            [.. sprints.OrderBy(sprint => sprint.Number)],
+            isOn);
 
     public bool HasRepository(string alias) =>
         _repositories.Contains(alias.Trim(), StringComparer.OrdinalIgnoreCase);
@@ -185,6 +197,10 @@ public sealed class SprintSeries
     }
 
     public void ShowInBriefs(bool daily, bool weekly) => Briefs = new BriefVisibility(daily, weekly);
+
+    /// <summary>Switches the series on or off. Nothing it holds changes either way, so
+    /// switching it back on finds it as it was.</summary>
+    public void Switch(bool on) => IsOn = on;
 
     public Result SetGoalRules(IEnumerable<GoalRule> rules, int goalShare)
     {

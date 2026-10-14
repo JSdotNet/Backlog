@@ -59,6 +59,36 @@ related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/p
 Choose whether the series' open sprint shows in the daily brief, and whether it
 shows in the weekly brief.
 
+### Switching a series off
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#series-switch, .devbook/domain/progress/requirements.md#requirement-a-switched-off-series-repositories-keep-the-in-progress-view]
+```
+
+Switch one series off without losing it. Its repositories show the In progress
+view again, and it keeps everything it holds until it is switched back on. A
+repository of a switched-off series still cannot join another series.
+
+### The Sprints settings page
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/context.md#progress-area]
+```
+
+Settings › Sprints is where a series is set up, offered while the Progress area is
+on. It draws one card per series: its switch, its repositories, its length, start
+weekday and name pattern with the next sprint's name, its goal rules and when the
+goal is met, and which briefs show it. "Add repository" offers only the
+repositories in no series. A "Not in a sprint" card lists those repositories, and
+"Add another sprint" starts a series over the one picked. Every change is saved as
+it is made, and a refused change is said on its card in the module's words. Done
+is shown as the rule it is, not a choice: a task's status Done, or every linked pull
+request merged.
+
 ## Filling a sprint
 
 ```meta
@@ -242,8 +272,8 @@ Read the open sprint of a series in the daily and the weekly brief, for a series
 that chose to show there. The daily brief names the sprint, its goal, how many goal
 tasks are done, and whether the goal is met.
 
-The weekly brief opens with a Sprint block for each series that shows there and has a
-sprint overlapping the reported week; paging back a week reads that week's sprint.
+The weekly brief opens with a Sprint block for each series that is switched on, shows
+there, and has a sprint overlapping the reported week; paging back a week reads that week's sprint.
 The block holds:
 
 - the sprint's name, then the series, its repositories, "week n of m" and the sprint's

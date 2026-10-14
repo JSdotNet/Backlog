@@ -34,6 +34,7 @@ every sprint in it. A series holds:
 - its [Sprint Length](#sprint-length) and the weekday its sprints start on;
 - its [Name Pattern](#name-pattern);
 - its [Brief Visibility](#brief-visibility);
+- its [Series Switch](#series-switch);
 - its [Goal Rules](#goal-rule) and its [Goal Threshold](#goal-threshold);
 - its [Sprints](#sprint), numbered from 1.
 
@@ -174,6 +175,21 @@ related: [.devbook/domain/progress/features.md#sprints-in-the-briefs]
 
 Two choices a series makes: whether its open sprint shows in the daily brief,
 and whether it shows in the weekly brief. Each is on or off on its own.
+
+### Series Switch
+
+```meta
+type: value-object
+status: draft
+aliases: [IsOn, switched off, series switch]
+related: [.devbook/domain/progress/features.md#switching-a-series-off]
+```
+
+Whether a series is on. A new series is on. A series switched off keeps its
+repositories, its settings and its sprints, and still holds its repositories
+against every other series. Its repositories read as in no series: they show the
+In progress view until it is switched back on, and nothing it holds changed in
+between.
 
 ### Goal Rule
 

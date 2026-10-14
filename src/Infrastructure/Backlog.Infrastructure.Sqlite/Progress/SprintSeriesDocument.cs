@@ -50,6 +50,11 @@ internal sealed record SprintSeriesDocument
 
     public List<SprintDocument> Sprints { get; init; } = [];
 
+    /// <summary>Whether the series is switched on. A document written before the
+    /// switch existed has no such field and reads as on, which is what every series
+    /// was then — so the shape is still <see cref="CurrentVersion"/>.</summary>
+    public bool IsOn { get; init; } = true;
+
     public static SprintSeriesDocument From(SprintSeries series) =>
         new()
         {
@@ -63,7 +68,8 @@ internal sealed record SprintSeriesDocument
             ShowInWeeklyBrief = series.Briefs.Weekly,
             GoalRules = [.. series.GoalRules.Select(rule => new GoalRuleDocument(rule.Kind, [.. rule.Choices]))],
             GoalShare = series.Threshold.Share,
-            Sprints = [.. series.Sprints.Select(SprintDocument.From)]
+            Sprints = [.. series.Sprints.Select(SprintDocument.From)],
+            IsOn = series.IsOn
         };
 
     public SprintSeries ToSeries() =>
@@ -77,7 +83,8 @@ internal sealed record SprintSeriesDocument
             new BriefVisibility(ShowInDailyBrief, ShowInWeeklyBrief),
             (GoalRules ?? []).Select(rule => (rule.Kind, (IReadOnlyList<string>)(rule.Choices ?? []))),
             GoalShare,
-            (Sprints ?? []).Select(sprint => sprint.ToSprint()));
+            (Sprints ?? []).Select(sprint => sprint.ToSprint()),
+            IsOn);
 }
 
 internal sealed record GoalRuleDocument(GoalRuleKind Kind, List<string>? Choices);
