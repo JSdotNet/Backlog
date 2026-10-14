@@ -74,18 +74,20 @@ type: sub-feature
 status: draft
 feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
 related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import]
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageReadLogStoreTests, unit:dotnet:Backlog.Infrastructure.Claude.UnitTests.ClaudeSpendSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.CopilotSpendSourceReadTests]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageReadLogStoreTests, unit:dotnet:Backlog.Infrastructure.Claude.UnitTests.ClaudeSpendSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.CopilotSpendSourceReadTests, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundrySpendSourceReadTests]
 ```
 
 Backlog records when each usage source was last read, so the AI providers
 settings can say how fresh each figure is. Each Claude organization is one
-source, and the GitHub AI-credit report is one more.
+source, the GitHub AI-credit report is one more, and Azure Foundry's Cost
+Management scope is a third.
 
 Each source keeps the time of its last successful read. When its most recent
 read failed, it also keeps that time and a one-line reason. A later success
 clears the failure. A Claude organization counts as read when Anthropic answered
 any day in the window, because a day still being aggregated is refused as a
-matter of course. GitHub counts as read when any month answered. A window
+matter of course. GitHub counts as read when any month answered, and Azure
+Foundry when Cost Management answered, with cost lines or without. A window
 answered wholly from the settled-day cache asks the provider nothing and records
 nothing, and a cancelled read records nothing either.
 

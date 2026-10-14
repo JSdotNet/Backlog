@@ -127,6 +127,23 @@ public sealed class UsageReadLogStoreTests : IDisposable
         Assert.Equal("Rate limited.", reopened.For(UsageSource.GitHub)!.FailureReason);
     }
 
+    /// <summary>Azure Foundry's one source is kept under its own provider and read
+    /// back after a restart.</summary>
+    [Fact]
+    public void The_azure_foundry_source_survives_a_restart_beside_the_others()
+    {
+        var store = Store();
+        store.Succeeded(UsageSource.GitHub);
+        store.Failed(UsageSource.AzureFoundry, "Azure Cost Management answered 403 Forbidden.");
+
+        var reopened = Store().For(UsageSource.AzureFoundry);
+
+        Assert.NotNull(reopened);
+        Assert.True(reopened.LastReadFailed);
+        Assert.Equal("Azure Cost Management answered 403 Forbidden.", reopened.FailureReason);
+        Assert.False(Store().For(UsageSource.GitHub)!.LastReadFailed);
+    }
+
     [Fact]
     public void Every_recorded_read_raises_changed()
     {
@@ -192,12 +209,15 @@ public sealed class UsageReadLogStoreTests : IDisposable
         var recorder = provider.GetRequiredService<IUsageReadRecorder>();
         recorder.Succeeded(UsageSource.Claude("personal"));
         recorder.Failed(UsageSource.GitHub, "Refused.");
+        recorder.Failed(UsageSource.AzureFoundry, "Azure Cost Management answered 403 Forbidden.");
+        recorder.Succeeded(UsageSource.AzureFoundry);
 
         Assert.Equal(before, Snapshot(syncedRoot, Path.Combine(appData, "settings.json"), Path.Combine(appData, "github.json")));
         Assert.Equal(Path.Combine(appData, UsageReadLogStore.FileName), workspace.UsageReadsPath);
         Assert.True(File.Exists(workspace.UsageReadsPath));
         Assert.Same(recorder, provider.GetRequiredService<IUsageReadStatus>());
         Assert.NotNull(provider.GetRequiredService<IUsageReadStatus>().For(UsageSource.GitHub));
+        Assert.NotNull(provider.GetRequiredService<IUsageReadStatus>().For(UsageSource.AzureFoundry));
     }
 
     private static string Snapshot(string folder, params string[] files) =>

@@ -7,7 +7,9 @@ namespace Backlog.Modules.Dashboard.Abstractions.Services;
 /// <para>
 /// Claude is read per organization, so <see cref="Account"/> is the Settings card's
 /// account id. GitHub's AI-credit report is read as one source across every login
-/// this machine holds, so it has the single <see cref="GitHub"/> value.
+/// this machine holds, so it has the single <see cref="GitHub"/> value. Azure
+/// Foundry's spend is read from the one Cost Management scope Settings names, so
+/// it has the single <see cref="AzureFoundry"/> value.
 /// </para>
 /// </summary>
 public readonly record struct UsageSource(SpendProvider Provider, string Account)
@@ -17,6 +19,12 @@ public readonly record struct UsageSource(SpendProvider Provider, string Account
 
     /// <summary>The GitHub usage source.</summary>
     public static UsageSource GitHub { get; } = new(SpendProvider.Copilot, GitHubAccount);
+
+    /// <summary>The account name Azure Foundry's one source carries.</summary>
+    public const string AzureFoundryAccount = "azure-foundry";
+
+    /// <summary>The Azure Foundry usage source.</summary>
+    public static UsageSource AzureFoundry { get; } = new(SpendProvider.AzureFoundry, AzureFoundryAccount);
 
     /// <summary>One Claude organization, by its account id.</summary>
     public static UsageSource Claude(string accountId)
