@@ -177,6 +177,7 @@
         }
 
         _savedCount = table.Prices.Count;
+        Services.GetService<ModelPriceBadgeSource>()?.Report(_savedCount);
 
         foreach (var price in table.Prices)
         {
@@ -241,6 +242,7 @@
         _error = null;
         _saved = true;
         _savedCount = table.Prices.Count;
+        Services.GetService<ModelPriceBadgeSource>()?.Report(_savedCount);
     }
 
     /// <summary>

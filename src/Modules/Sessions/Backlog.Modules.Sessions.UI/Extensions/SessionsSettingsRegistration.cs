@@ -1,6 +1,7 @@
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Sessions.UI.Extensions;
 
@@ -40,7 +41,12 @@ public static class SessionsSettingsRegistration
             typeof(ModelPriceSettings),
             SessionFeatures.Sessions,
             SettingsGroup.Ai,
-            CardTitles: [ModelPriceSettings.CardTitle]));
+            CardTitles: [ModelPriceSettings.CardTitle],
+            BadgeSource: typeof(ModelPriceBadgeSource)));
+
+        // The value the menu draws beside the page's name, a singleton as
+        // ISettingsBadgeSource asks: the shell holds it while the screen is open.
+        services.TryAddSingleton<ModelPriceBadgeSource>();
 
         return services;
     }

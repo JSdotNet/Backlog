@@ -140,13 +140,17 @@ It is text, not a pill.
 | AI providers | Providers set up over the providers the page offers, `2/3`; `1/1` or `0/1` with usage metrics off | `SettingsBadges.AiProviders` |
 | Repositories, GitHub accounts | The count, zero included | `SettingsBadges.Count` |
 | Storage & backup | None | — |
+| Inbox | Routing rules, zero included | `InboxRoutingRulesBadgeSource` |
+| Connectors | Connected task sources, zero included | `ConnectedTaskSourcesBadgeSource` |
+| Model prices | Models with a price, zero included; none until the table is read | `ModelPriceBadgeSource` |
+| Devices | `Paired` or `Not paired`; a credential the service refused reads as `Not paired` | `DevicePairingBadgeSource` |
 | A registered page whose feature is off | `Off` | `SettingsBadges.Off`, drawn by the shell |
 | Any other registered page | Its `ISettingsBadgeSource.Badge`, or none | The type `SettingsSection.BadgeSource` names, resolved from the container |
 
 Rules:
 
-- A badge MUST be a count, a fraction, or `Off`. It MUST NOT be a sentence; the
-  headline is where a sentence goes.
+- A badge MUST be a count, a fraction, a state of one or two words, or `Off`.
+  It MUST NOT be a sentence; the headline is where a sentence goes.
 - A count of zero is drawn as `0`: an empty list says so.
 - A badge MUST count only what its page shows: the AI providers badge counts the
   providers the page draws a tile for under the features as they stand, and it
@@ -351,7 +355,8 @@ The checklist a module's page meets, each item from a chapter above:
 4. Cards as `SettingsCard` in `setting-columns`; figures as `MetricTile`; a
    list of things as rows that expand in place.
 5. No save button; fields commit on blur or Enter.
-6. A `BadgeSource` registered as a singleton when the menu should show a count.
+6. A `BadgeSource` registered as a singleton when the menu should show a count
+   or a state, beside the section in the same registration extension.
 
 ## Materialization
 
@@ -364,6 +369,7 @@ The checklist a module's page meets, each item from a chapter above:
 | Menu groups, links, badges, matched cards | `SettingsMenuGroup.razor`, `SettingsMenuItem.cs`, `SettingsPages.Menu` |
 | Search over declared titles, card fragments | `SettingsSearch.razor`, `SettingsPages.Find`, `SettingsPages.CardFragment`, `backlogRevealSettingsCard` in `components.js` |
 | Off state, badge values | `Settings.razor`, `SettingsBadges.cs` |
+| Module badge sources | `InboxRoutingRulesBadgeSource.cs`, `ConnectedTaskSourcesBadgeSource.cs`, `ModelPriceBadgeSource.cs`, `DevicePairingBadgeSource.cs`, each registered by its module's `Add…Settings` |
 | Card | `SettingsCard.razor`; `setting-columns` in the desktop `app.css` |
 | Expand in place | `RepositoriesSettingsPage.razor`, `GitHubAccountsSettingsPage.razor` |
 
