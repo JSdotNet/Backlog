@@ -263,10 +263,13 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                     return Failed(result.Error, target);
                 }
 
-                _log.LogDebug(
-                    "Linked task sync for {Connector} {Target}: {Summary}",
-                    connectorId, target, result.Value);
-                return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(result.Value)}.");
+                // Information, not Debug: the dashboard shows nothing below it, and a
+                // sync that worked should still leave a line saying what it did.
+                var summary = result.Value;
+                _log.LogInformation(
+                    "Linked task sync for {Connector} {Target}: {Fetched} fetched, {Created} created, {Updated} updated, {Archived} archived.",
+                    connectorId, target, summary.Fetched, summary.Created, summary.Updated, summary.Vanished);
+                return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(summary)}.");
             }
         }
         catch (OperationCanceledException) when (_stopping.IsCancellationRequested)

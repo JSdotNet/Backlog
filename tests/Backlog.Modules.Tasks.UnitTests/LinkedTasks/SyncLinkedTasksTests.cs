@@ -1023,6 +1023,7 @@ public sealed class SyncLinkedTasksTests
 
         var summary = await SyncAsync();
 
+        Assert.Equal(2, summary.Fetched);
         Assert.Equal(1, summary.Created);
         Assert.Equal(1, summary.SkippedUntouched);
         Assert.Equal(["Item I_recent"], _tasks.Entries.Values.Select(task => task.Title));

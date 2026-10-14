@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Modules.Tasks.UnitTests.LinkedTasks;
 
@@ -95,6 +96,23 @@ public sealed class LinkedTaskSyncWorkerTests
         Assert.True(outcome.Succeeded);
         Assert.Null(outcome.ErrorCode);
         Assert.StartsWith("Synced b", outcome.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A sync that worked leaves a line the dashboard shows — Information,
+    /// not Debug — saying which target and what moved.</summary>
+    [Fact]
+    public async Task A_sync_that_worked_logs_its_counts_at_information()
+    {
+        var targets = new InMemoryConnectedTargets(new ConnectedTarget("stub", "a"));
+        _handler.Summary = new LinkedTaskSyncSummary(Created: 2, Updated: 3, Unchanged: 4, SkippedTombstoned: 0, SkippedUntouched: 1, Vanished: 1, Fetched: 10);
+        var log = new RecordingLogger();
+        using var worker = new LinkedTaskSyncWorker(new HandlerScopeFactory(_handler), targets, [new StubTaskConnector()], _time, log);
+
+        await worker.RequestSync("stub", "a");
+
+        var (level, message) = Assert.Single(log.Entries);
+        Assert.Equal(LogLevel.Information, level);
+        Assert.Equal("Linked task sync for stub a: 10 fetched, 2 created, 3 updated, 1 archived.", message);
     }
 
     /// <summary>The defect this answers: the page said "Synced." over a sync that
@@ -245,6 +263,18 @@ public sealed class LinkedTaskSyncWorkerTests
     private sealed class OnlyTheWorker(LinkedTaskSyncWorker worker) : IServiceProvider
     {
         public object? GetService(Type serviceType) => serviceType == typeof(LinkedTaskSyncWorker) ? worker : null;
+    }
+
+    private sealed class RecordingLogger : ILogger<LinkedTaskSyncWorker>
+    {
+        internal List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception)));
     }
 
     private LinkedTaskSyncWorker Worker(InMemoryConnectedTargets targets) =>

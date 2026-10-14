@@ -62,11 +62,6 @@
                 Checked="@Options.TitleFollowsSource"
                 CheckedChanged="value => ChangeAsync(Options with { TitleFollowsSource = value })"
                 TestId="@Suffix("title-follows")" />
-        <Toggle Label="Promoting archives the original"
-                Description="Promoting a linked task to a plan archives the task it came from."
-                Checked="@Options.PromoteArchivesOriginal"
-                CheckedChanged="value => ChangeAsync(Options with { PromoteArchivesOriginal = value })"
-                TestId="@Suffix("promote-archives")" />
         @if (Options.CanCompleteAtSource)
         {
             <Toggle Label="Complete at the source"

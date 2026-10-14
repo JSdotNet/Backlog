@@ -38,7 +38,6 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
             SkipUntouchedOlderThan = TimeSpan.FromDays(90),
             TitleFollowsSource = false,
             SyncInterval = TimeSpan.FromMinutes(30),
-            PromoteArchivesOriginal = false,
             CompleteAtSource = true,
             LastSyncedAt = Synced,
             IgnoreUntouchedBefore = Synced.AddDays(-90),
@@ -156,6 +155,27 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
             """);
 
         Assert.False(Assert.Single(Store().List()).CompleteAtSource);
+    }
+
+    /// <summary>A file written while Promote to plan still had a setting carries its
+    /// key. It opens with every other setting intact, and the next save drops the
+    /// key.</summary>
+    [Fact]
+    public void A_file_carrying_the_dropped_promote_setting_still_opens_and_loses_it_on_save()
+    {
+        File.WriteAllText(SettingsFile, """
+            { "targets": [
+                { "connectorId": "github", "target": "JSdotNet/Backlog", "titleFollowsSource": false, "promoteArchivesOriginal": false }
+            ] }
+            """);
+
+        var store = Store();
+        var target = Assert.Single(store.List());
+        Assert.False(target.TitleFollowsSource);
+
+        Assert.Null(store.Save(target with { Enabled = false }));
+
+        Assert.DoesNotContain("promoteArchivesOriginal", File.ReadAllText(SettingsFile), StringComparison.Ordinal);
     }
 
     /// <summary>Why the last sync failed survives a restart, so the card still says

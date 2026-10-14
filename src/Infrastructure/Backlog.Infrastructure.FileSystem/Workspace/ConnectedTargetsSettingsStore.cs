@@ -217,7 +217,9 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
 
     /// <summary>The file's shape: every setting spelled out, so the file is the
     /// documentation of what can be set. Intervals are written as
-    /// <see cref="TimeSpan"/> strings (<c>00:15:00</c>).</summary>
+    /// <see cref="TimeSpan"/> strings (<c>00:15:00</c>). A key this shape no longer
+    /// has — <c>promoteArchivesOriginal</c>, from before Promote to plan was dropped —
+    /// is ignored on read and gone from the next write.</summary>
     private sealed class ConnectedTargetDto
     {
         public string ConnectorId { get; init; } = string.Empty;
@@ -231,8 +233,6 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
         public bool TitleFollowsSource { get; init; } = true;
 
         public TimeSpan? SyncInterval { get; init; }
-
-        public bool PromoteArchivesOriginal { get; init; } = true;
 
         /// <summary>False when the key is missing, so a file written before the
         /// setting existed completes nothing at the source.</summary>
@@ -266,7 +266,6 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
             SkipUntouchedOlderThan = target.SkipUntouchedOlderThan,
             TitleFollowsSource = target.TitleFollowsSource,
             SyncInterval = target.SyncInterval,
-            PromoteArchivesOriginal = target.PromoteArchivesOriginal,
             CompleteAtSource = target.CompleteAtSource,
             LastSyncedAt = target.LastSyncedAt,
             IgnoreUntouchedBefore = target.IgnoreUntouchedBefore,
@@ -288,7 +287,6 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
                     SkipUntouchedOlderThan = SkipUntouchedOlderThan is { Ticks: > 0 } age ? age : null,
                     TitleFollowsSource = TitleFollowsSource,
                     SyncInterval = SyncInterval is { Ticks: > 0 } interval ? interval : ConnectedTarget.DefaultSyncInterval,
-                    PromoteArchivesOriginal = PromoteArchivesOriginal,
                     CompleteAtSource = CompleteAtSource,
                     LastSyncedAt = LastSyncedAt,
                     IgnoreUntouchedBefore = IgnoreUntouchedBefore,

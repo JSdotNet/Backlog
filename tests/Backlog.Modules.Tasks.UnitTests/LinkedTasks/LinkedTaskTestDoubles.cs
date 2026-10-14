@@ -192,6 +192,9 @@ internal sealed class RecordingSyncHandler : ICommandHandler<SyncLinkedTasksComm
     /// for a test that needs a run to be in flight.</summary>
     public Dictionary<string, Task> Holding { get; } = [];
 
+    /// <summary>What a sync that succeeds answers.</summary>
+    public LinkedTaskSyncSummary Summary { get; set; } = new(0, 0, 0, 0, 0, 0, 0);
+
     public async Task<Result<LinkedTaskSyncSummary>> Handle(SyncLinkedTasksCommand command, CancellationToken cancellationToken = default)
     {
         Commands.Add(command);
@@ -199,7 +202,7 @@ internal sealed class RecordingSyncHandler : ICommandHandler<SyncLinkedTasksComm
         if (Refusing.TryGetValue(command.Target, out var refusal)) return refusal;
         return Failing.Contains(command.Target)
             ? Error.Unexpected("linked_tasks.fetch_failed", "down")
-            : new LinkedTaskSyncSummary(0, 0, 0, 0, 0, 0);
+            : Summary;
     }
 }
 

@@ -55,13 +55,15 @@ public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 /// <param name="SkippedUntouched">Items older than the target's first-sync cut-off,
 /// with no task yet.</param>
 /// <param name="Vanished">Tasks archived because their item was gone.</param>
+/// <param name="Fetched">Items the connector answered, before any was skipped.</param>
 public sealed record LinkedTaskSyncSummary(
     int Created,
     int Updated,
     int Unchanged,
     int SkippedTombstoned,
     int SkippedUntouched,
-    int Vanished);
+    int Vanished,
+    int Fetched);
 
 public sealed class SyncLinkedTasksCommandHandler(
     IEnumerable<ITaskConnector> connectors,
@@ -221,7 +223,7 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         RecordSync(target, fetchStartedAt, cutoff);
 
-        return new LinkedTaskSyncSummary(created, updated, unchanged, tombstoned, untouched, vanished);
+        return new LinkedTaskSyncSummary(created, updated, unchanged, tombstoned, untouched, vanished, items.Count);
     }
 
     // --- The status map -----------------------------------------------------
