@@ -162,8 +162,8 @@ classDiagram
   Partnership (see `dependencies.md`).
 - `RoadmapTag` is a **value object held by the item, not a shared registry**.
   There is no `Tag` table the items point into, because two items may carry the
-  same slug. The diagram draws no line from `Title` to `Tag`, because a title
-  rename never touches it ([Roadmap Tag](domain.md#roadmap-tag)).
+  same slug. The diagram draws no line from `Title` to `Tag`, because
+  [renaming keeps the tag](domain.invariants.md#invariant-renaming-keeps-the-tag).
 - `KnowledgeRef` is **an id-shaped reference, not an association**, for the same
   reason as `TaskLink`. The chapter it names lives in
   [Devbook](../devbook/model.md), so there is no line to it and no

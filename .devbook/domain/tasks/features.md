@@ -77,6 +77,7 @@ roadmap matches it.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/tasks/requirements.md#sub-items-and-steps]
 ```
 
 Break a task into ordered sub-items with a title, a status (pending or done),
@@ -291,7 +292,7 @@ was closed therefore surfaces rather than being silently missed.
 ```meta
 type: sub-feature
 status: proposed
-related: [.devbook/domain/tasks/domain.md#occurrence-spawning, .devbook/domain/tasks/features.md#archive-and-lifecycle]
+related: [.devbook/domain/tasks/domain.md#occurrence-spawning, .devbook/domain/tasks/features.md#archive-and-lifecycle, .devbook/domain/tasks/requirements.md#recurring-tasks]
 ```
 
 Repeat a task on a schedule: every day, every week, every month, every year,
@@ -450,8 +451,9 @@ those are the same task. When finishing one step unblocks three, they are not. A
 view that answered only the first would leave the other two to be noticed by
 their waiting lines disappearing.
 
-A dependency naming a task that cannot be found still blocks, and dependency
-loops are named rather than broken; [Dependency](domain.md#dependency) says why.
+[A dependency naming a task that cannot be found still blocks](domain.invariants.md#invariant-a-dependency-naming-no-task-still-blocks),
+and [dependency loops are named rather than broken](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked);
+[Dependency](domain.md#dependency) says why.
 
 ## Multi-repo targeting
 
@@ -503,14 +505,15 @@ instantly and offline.
 ```meta
 type: feature
 status: proposed
-related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/tasks/requirements.md#linked-tasks]
 ```
 
 Connect a GitHub repository or a spec-manager product, and every open item in it
 appears on the Tasks list as a [Linked Task](domain.md#linked-task). The item
 needs no triage and no copying. Each sync keeps the title, status and assignee
-in step with the source, and leaves the person's own priority, My Day, area,
-sub-items and notes alone.
+in step with the source on the terms
+[its requirements](requirements.md#linked-tasks) set, and leaves the person's
+own priority, My Day, area, sub-items and notes alone.
 
 Every linked task shows a source badge on its row, in the editor header and in
 My Day, and the badge opens the item at the source. The Tasks pane filters by
@@ -594,11 +597,12 @@ beside any of them.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/tasks/requirements.md#manual-ordering]
 ```
 
 Hand-sequence tasks within the backlog by dragging them into a preferred
-order, independent of recency or priority. A task that has never been
-manually ranked falls back to recency.
+order, independent of recency or priority. Where a task nobody ranked lands is
+[a requirement](requirements.md#requirement-unranked-tasks-fall-back-to-recency).
 
 ### Board view
 
@@ -799,7 +803,7 @@ AI was put to work on it.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/tasks/features.md#task-dependencies, .devbook/domain/tasks/features.md#multi-repo-targeting]
-related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/inbox/domain.md#triage]
+related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/inbox/domain.md#triage, .devbook/domain/tasks/requirements.md#import]
 ```
 
 Bring in a plan that lists a sequence of work across one or more repositories,
@@ -997,7 +1001,7 @@ capability and the product remains fully usable with it switched off.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/tasks/flow.md]
+related: [.devbook/domain/tasks/flow.md, .devbook/domain/tasks/requirements.md#archive-and-lifecycle]
 ```
 
 Move tasks between active and archived states; archived tasks are excluded
@@ -1010,10 +1014,9 @@ again rather than restoring where it stood before. `flow.md` holds the
 lifecycle this follows.
 
 Ticking a task off records that it is [Completed](domain.md#completed), a
-separate fact from either status; that term says how the two differ. The
-checkbox also moves a task not yet in an end state to `done` in the same save,
-as the [Task](domain.md#task) chapter describes. Reaching `done` through the
-status picker does not tick.
+separate fact from either status; that term says how the two differ. What the
+checkbox and the status picker do to the tick and the status is in
+[this feature's requirements](requirements.md#archive-and-lifecycle).
 
 A task that moves to in progress is [Started](domain.md#started), shown as
 `started:` on its metadata line beside `completed:`. The roadmap reads the two
@@ -1052,7 +1055,7 @@ app; the sync itself does that now.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/requirements.md#multi-device-sync]
 depends-on: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
@@ -1068,8 +1071,9 @@ arrived without the app being reopened. The one exception is an entry being
 edited: there the change waits until the editing is done rather than replacing
 the text under the caret.
 
-When the same task was edited in two places, the later edit wins whole. This is
-deliberate, and it does lose the other edit. Merging field by field would need a
+When the same task was edited in two places,
+[the later edit wins whole](requirements.md#requirement-the-later-edit-wins-whole).
+This is deliberate, and it does lose the other edit. Merging field by field would need a
 domain rule for reconciling two different priorities or two different statuses,
 and the domain has none. What the person sees is one task with one status.
 
@@ -1085,7 +1089,7 @@ How the feed moves is
 
 ```meta
 type: sub-feature
-related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/domain.md#device, .devbook/domain/tasks/requirements.md#pairing-a-device]
 depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
 ```
 
@@ -1118,8 +1122,8 @@ ever holds the other's credential.
 
 A paired device can therefore reach exactly one owner's tasks and no one else's.
 The sync service enforces that boundary by reading the owner out of the presented
-token and scoping every query to it. The cloud store does not enforce it on its
-own.
+token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
+The cloud store does not enforce it on its own.
 
 ## Backup to a repository
 

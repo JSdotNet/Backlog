@@ -28,15 +28,16 @@ stateDiagram-v2
   would emit `TaskCompleted`. Both are documented, not yet emitted; see
   [Projection](domain.md#projection) for the policy and
   [its requirements](requirements.md#projection) for what it will do on each.
-- The first entry into `InProgress`, by any route, stamps
-  [Started](domain.md#started). Pausing or reopening leaves the stamp where it
-  is.
+- [The first move into `InProgress` stamps Started](domain.invariants.md#invariant-the-first-move-into-progress-stamps-the-start),
+  and pausing or reopening leaves the stamp where it is. A linked task's sync
+  that only passes through `InProgress` on the way to `Done`
+  [stamps no start](requirements.md#requirement-the-sync-walks-the-status-along-the-lifecycle).
 - `Done` and `Archived` say the work is over. The tick that says the person has
   dealt with the task is [Completed](domain.md#completed), a separate fact and
-  not a state in this diagram. The list's checkbox also moves a task not yet in
-  an end state to `done` in the same save, as [Task](domain.md#task) describes.
-  A finished task that still read "in progress" would be the list contradicting
-  itself.
+  not a state in this diagram.
+  [The list's checkbox also moves an open task to `done`](requirements.md#requirement-ticking-an-open-task-off-moves-it-to-done)
+  in the same save. A finished task that still read "in progress" would be the
+  list contradicting itself.
 - Scheduling attributes do not appear in this diagram, and that is deliberate.
   A due date, a reminder, a repeat and a My Day stamp are facts about when work
   is wanted, not lifecycle states. An overdue task is still `ready`, and nothing
@@ -56,9 +57,9 @@ flowchart TD
 ```
 
 - Completion is the [tick](domain.md#completed), the save that sets
-  `completed_on` from unset, and not the status reaching `done`. The next
-  occurrence is owed when the person ticks the task, whatever its status is by
-  then.
+  `completed_on` from unset, and not the status reaching `done`:
+  [the tick spawns the next occurrence](requirements.md#requirement-the-tick-spawns-the-next-occurrence),
+  whatever the task's status is by then.
 - Completion does not roll one task forward. It leaves the finished occurrence
   in place and creates the next as a separate aggregate with its own lifecycle.
   The link between them, `recurrence_source_id`, is provenance, not ownership.
@@ -69,8 +70,8 @@ flowchart TD
   than by subscribing.
 - A tick made on the phone reaches the desktop through the replica merge, which
   runs the same spawn when the pulled copy ticks off a task it held unticked.
-  Each occurrence gets one successor, because the successor's id is derived
-  from the occurrence's.
+  [An occurrence has at most one successor](requirements.md#requirement-an-occurrence-has-at-most-one-successor),
+  because the successor's id is derived from the occurrence's.
 - The next due date is calculated from the completed occurrence's `due_on`, not
   from the date it was actually finished, so lateness does not drift a schedule.
 - [Occurrence Spawning](domain.md#occurrence-spawning) lists what the new
@@ -92,6 +93,6 @@ flowchart TD
 - The first question is the [tick](domain.md#completed), not `Task Status`; see
   [Readiness](domain.md#readiness) and
   [A ticked task reads done](domain.invariants.md#invariant-a-ticked-task-reads-done).
-- An id that resolves to no visible task leaves the task blocked, and a
-  dependency loop leaves every member blocked. [Dependency](domain.md#dependency)
-  says why.
+- [An id that resolves to no visible task leaves the task blocked](domain.invariants.md#invariant-a-dependency-naming-no-task-still-blocks),
+  and [a dependency loop leaves every member blocked](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked).
+  [Dependency](domain.md#dependency) says why.

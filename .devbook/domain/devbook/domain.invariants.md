@@ -15,7 +15,8 @@ type: invariants
 related: [.devbook/domain/devbook/domain.md#knowledge-note]
 ```
 
-> The rules a Knowledge Note holds its area and its links to.
+> The rules a Knowledge Note holds its area and its links to, the areas its Brain
+> declares, and the planning fields any knowledge chapter carries.
 
 ### Invariant: A note sits in one area
 
@@ -79,6 +80,44 @@ A [Roadmap Contribution](domain.md#roadmap-contribution) is kept on the chapter'
 It names a roadmap item rather than addressing a chapter, so there is no node for it to point at.
 
 Enforced at: `DevbookGraphBuilder.ApplyMeta()`, which keeps `roadmap` as a node attribute and leaves it out of `ReferenceFields`
+
+### Invariant: An area is one plain folder, declared once
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_folder_that_is_not_one_plain_segment_is_skipped, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_folder_declared_twice_counts_once]
+```
+
+Every area `CONVENTIONS.md` declares is a distinct folder of one plain segment: a path, `..`, a dot-folder, or a second spelling of a folder already declared is skipped.
+An area is one top folder of the Brain, so a declaration that leaves the Brain or names a folder twice cannot be one.
+
+Enforced at: `BrainConventions.Declared()`, through `IsAreaFolder()` and a case-insensitive set of the folders already kept
+
+### Invariant: Declared areas keep the order written
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_table_declares_the_areas_in_its_order, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_table_s_order_column_wins_over_the_row_order]
+```
+
+The declared areas keep the order `CONVENTIONS.md` writes them in, unless a table's `Order` column numbers them, in which case the numbered rows come first by number and the rest follow in the order written.
+
+Enforced at: `BrainConventions.Declared()`
+
+### Invariant: An unreadable effort is no estimate
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.KnowledgeGraphTests.AMissingOrUnreadableEffortIsNull_NotZero
+```
+
+A chapter's `effort` that is not a whole number of zero or more, a negative one included, reads as no estimate rather than as zero.
+A chapter is a file nothing checks on save, so the reader is where a value it cannot use stops.
+
+Enforced at: `DevbookGraphBuilder.ApplyMeta()`, which reads only an all-digit value; on the Roadmap side, `KnowledgeGraph.Effort()`, which reads only a value of zero or more
 
 ## Remark
 

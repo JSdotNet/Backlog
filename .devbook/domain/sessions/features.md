@@ -332,6 +332,7 @@ arrived as the whole picture.
 
 ```meta
 type: sub-feature
+related: [.devbook/domain/sessions/requirements.md#name-the-source-that-could-not-be-read]
 ```
 
 When one agent's records are there but cannot be read, the other agent's sessions are
@@ -553,7 +554,7 @@ open.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/features.md#name-the-source-that-could-not-be-read]
+related: [.devbook/domain/sessions/features.md#name-the-source-that-could-not-be-read, .devbook/domain/sessions/requirements.md#only-what-the-dashboard-recorded]
 ```
 
 The list shows only what a run file recorded:
@@ -644,7 +645,7 @@ it never says proved. A run that reported no evidence shows nothing for it.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/features.md#only-what-the-dashboard-recorded, .devbook/domain/sessions/features.md#the-cost-of-a-run-and-its-stages]
+related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/features.md#only-what-the-dashboard-recorded, .devbook/domain/sessions/features.md#the-cost-of-a-run-and-its-stages, .devbook/domain/sessions/requirements.md#what-a-run-cost-reported-by-the-session-itself]
 ```
 
 A run recorded here shows what it cost the way a dashboard's run does:
@@ -1014,7 +1015,7 @@ run's flow.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#weekly-usage, .devbook/domain/sessions/domain.md#cost-attribution]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#weekly-usage, .devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/requirements.md#share-of-the-week-and-the-weekly-limit]
 ```
 
 Each run and each session shows its share of the week's usage. The share is the cost

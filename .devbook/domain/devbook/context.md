@@ -67,7 +67,7 @@ type: setting
 key: brain.settings.json
 scope: user
 default: none
-related: [".devbook/domain/devbook/features.md#brain-folder-setup", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md"]
+related: [".devbook/domain/devbook/features.md#brain-folder-setup", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/domain/devbook/requirements.md#requirement-a-folder-that-cannot-hold-the-brain-is-refused"]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderWatchTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSourceTests, unit:dotnet:Backlog.HostComposition.UnitTests.MauiDesktopCompositionTests.The_maui_head_composes_the_brain_beside_the_repository_devbook]
 ```
 
@@ -80,15 +80,14 @@ pane on the Brain asks for a folder.
 | --- | --- |
 | A folder outside every repository (a OneDrive folder is the expected one) | Kept as the Brain folder |
 | A folder that does not exist yet | Created, then kept |
-| A folder inside a repository's working tree | Refused in words |
-| A relative path | Refused in words |
-| A file | Refused in words |
+| A folder inside a repository's working tree, a relative path, or a file | Refused ([A folder that cannot hold the Brain is refused](requirements.md#requirement-a-folder-that-cannot-hold-the-brain-is-refused)) |
 | Nothing (the field blanked) | The setting is cleared |
 
 **Storage.** The path is kept in `brain.settings.json`, a file of its own beside
-the workspace's `settings.json` in the app's per-user folder. It is never written
-into the Brain folder, because the app has to know the path before it can read the
-folder. It is not a key in `settings.json` either. That file is one decision, where
+the workspace's `settings.json` in the app's per-user folder. The app has to know
+the path before it can read the folder, which is why
+[the path stays out of the folder](requirements.md#requirement-the-path-stays-out-of-the-folder).
+It is not a key in `settings.json` either. That file is one decision, where
 the backlog lives and where it is backed up, and moving the backlog never moves
 the Brain. `BrainSettingsStore` is the file.
 

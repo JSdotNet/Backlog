@@ -37,11 +37,12 @@ chapter like any other. It keeps the devbook `meta` block and `annotation` fence
 | `repos` | The repositories a project note concerns. Project notes only. | [Project Ref](#project-ref) |
 | `tasks` | The tasks the note links to. | [Task Link](#task-link) |
 
-The file is the note. Nothing derived about it is written into the Brain folder,
-and the folder's own sync carries it between machines. A Knowledge Note never
-rides the task feed, which tells it apart from an Inbox
-[Note](../inbox/domain.md#note) (local ADR 0025). An Inbox Note waits for triage,
-and triaging it **To Brain** makes a Knowledge Note of it.
+The file is the note. What the app derives from it is kept out of the folder
+([Nothing derived lands in the folder](requirements.md#requirement-nothing-derived-lands-in-the-folder)).
+The folder's own sync carries the note between machines rather than the task
+feed, which tells it apart from an Inbox [Note](../inbox/domain.md#note) (local
+ADR 0025). An Inbox Note waits for triage, and triaging it **To Brain** makes a
+Knowledge Note of it.
 
 Any knowledge chapter, a Brain note or a repository chapter, may carry two
 planning fields in its `meta` block. The first is an optional [Effort](#effort).
@@ -74,13 +75,15 @@ status: draft
 aliases: [TaskLink, task_id]
 ```
 
-A typed link to a Task: `task_id`, `link_type`
-(reference or embed), and `linked_at`. Immutable; equality is by value.
+A link from a note to one Task, by the task's stored id. A note writes it as one
+value of its `tasks` field, and the id is a GUID. How a value is read is
+[A task link is the task's id](requirements.md#requirement-a-task-link-is-the-tasks-id).
+A value that is no GUID links no task, and the note lists it as written.
 
-A note writes it as one value of its `tasks` field: the task's stored id, a GUID,
-compared case-insensitively and with or without braces. Only `task_id` is written
-today; a link is a reference. A value that is no GUID links no task, and the note
-lists it as written.
+A Task Link is not an address and not an edge. The Brain's database keeps a
+note's `tasks` values on the note's own node as they are written, and the app
+reads them from there both ways: the tasks a note names, and the notes that name
+a task. A task's record carries no note.
 
 ### Tag
 
@@ -105,14 +108,15 @@ aliases: [roadmap contribution, contributes to]
 ```
 
 A [Roadmap Item](../roadmap/domain.md#roadmap-item) tag this chapter declares it
-contributes to: a lowercase kebab-case slug, held in the chapter's `roadmap` list.
-A note may declare several, or none. Equality is by value.
+contributes to, held as a slug in the chapter's `roadmap` list. A note may
+declare several, or none. Equality is by value.
 
 It **names** a roadmap item rather than **addressing** a chapter, and that
 distinction is the one most easily misread. A knowledge cross-reference is a
 `<path>#<slug>` address that resolves to a specific node and draws an edge in the
-knowledge graph, and a `Task Link` resolves to one task by its id. A `Roadmap Contribution` is a bare tag
-slug that resolves to nothing here. It is the same vocabulary a
+knowledge graph. A `Task Link` names one task by its id and stays a value on the
+note's node. A `Roadmap Contribution` is a bare tag slug that resolves to nothing
+here. It is the same vocabulary a
 [Roadmap Tag](../roadmap/domain.md#roadmap-tag) holds and a Task files under, and
 Roadmap Planning reads a chapter's contributions when it gathers work by tag.
 
@@ -144,11 +148,15 @@ folder name.
 
 `CONVENTIONS.md` declares the areas under a heading named `Areas`, at any level.
 It uses either a table with a `Folder` column, plus optional `Area` (or `Name`), `Holds`
-and `Order` columns, or a list whose items name the folder in backticks. A
-folder that is not one plain segment, or a folder declared twice, is skipped. The
-order is the order written, unless the `Order` column numbers the rows.
+and `Order` columns, or a list whose items name the folder in backticks. Which
+declarations count is
+[An area is one plain folder, declared once](domain.invariants.md#invariant-an-area-is-one-plain-folder-declared-once),
+and their order is
+[Declared areas keep the order written](domain.invariants.md#invariant-declared-areas-keep-the-order-written).
 
-When `CONVENTIONS.md` declares no areas, the PARA set applies, in this order:
+When `CONVENTIONS.md` declares no areas, the PARA set applies
+([The areas are the declared ones](requirements.md#requirement-the-areas-are-the-declared-ones)).
+In its order, it is:
 
 - `_inbox` — notes not yet filed; where a capture lands.
 - `projects` — active work with a goal and a deadline.
@@ -231,6 +239,10 @@ related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook
 Reviews the agent-facing instruction documents a repository carries, the
 working-instructions knowledge area for each tool. It produces findings about what
 they cost, where they disagree, and which wording is not doing its job.
+
+None of the review is built yet. Its switch is reserved
+([Instruction optimization](context.md#instruction-optimization)), so this chapter
+records the intended design and no rule below has a type that enforces it.
 
 It is a service rather than an aggregate because the documents belong to the
 repository. They are read through the knowledge-folder settings
@@ -338,9 +350,10 @@ related: [.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.m
 
 A link from a Brain note into a repository devbook, written
 `repo:<alias>/<devbook path>[#slug]` in the note's `related` or in its body. It
-runs one way: a repository devbook never links into a Brain. Its reverse is read,
-never written: a repository chapter lists **From your Brain** the Brain notes that
-link to it, for the Brain's owner only, from the Brain's own database.
+runs one way: a repository devbook never links into a Brain. Its reverse is the
+**From your Brain** list, the Brain notes a repository chapter shows as linking to
+it. Who sees that list, and what reading it writes, is
+[Backlinks reach only the owner and write nothing](requirements.md#requirement-backlinks-reach-only-the-owner-and-write-nothing).
 
 ### Effort
 
@@ -352,9 +365,12 @@ related: [.devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/task
 ```
 
 The size of a knowledge chapter in **story points**, carried in its `meta` block.
-It is an optional non-negative integer with the same three-valued edges as a
-Task's effort: absent means "not estimated", `0` is a real estimate, and a
-negative value is rejected. It sizes the knowledge work rather than timing it.
+It is an optional whole number of zero or more. As with a Task's effort, absent
+means "not estimated" and `0` is a real estimate. Unlike a Task's, a negative
+value is not refused: a chapter is a file nothing checks on save, so the reader
+treats it as unreadable
+([An unreadable effort is no estimate](domain.invariants.md#invariant-an-unreadable-effort-is-no-estimate)).
+It sizes the knowledge work rather than timing it.
 Devbook registers and owns it. Roadmap Planning reads and totals it across the
 chapters an item gathers, but never sets it.
 
@@ -454,9 +470,11 @@ pull request or [drift issue](../../ai/05-unattended-runs.md#scheduled-devbook-u
 it produced.
 
 A verdict is filed by repository, by the chapter's file as `DevbookChapterKey`
-spells it, and by the heading's anchor. The latest replaces the one before it for
-that chapter alone. The words are the sweep's, carried verbatim, because the sweep
-owns the report's shape. A verdict arrives on the sweep's `Delivery Run` in the
+spells it, and by the heading's anchor. The sweep owns the report's shape, so the
+app keeps its words rather than mapping them onto its own. Which verdict a chapter
+shows, and in what words, is in
+[the requirements of Sync verdicts beside a chapter](requirements.md#sync-verdicts-beside-a-chapter).
+A verdict arrives on the sweep's `Delivery Run` in the
 Sessions context, which keeps the run's verdicts as sent. This context keeps them
 per chapter, because a reader of a chapter asks whether the code still agrees
 with it.
@@ -491,5 +509,6 @@ A note the repository keeps in a chapter file itself, as an `annotation` fence
 beside the passage it is about. It has a kind (comment, question, suggestion or
 flag), a status (open or resolved), an author, a date, an optional quote, and its
 replies. It is the repository's shared review state: the convention's own tooling
-writes it, and Devbook only reads it. A review note is never chapter content, and
-it is never a [Remark](#remark).
+writes it, and Devbook only reads it. A review note is not chapter content
+([A review note never travels as the chapter's content](requirements.md#requirement-a-review-note-never-travels-as-the-chapters-content)),
+and it is never a [Remark](#remark).
