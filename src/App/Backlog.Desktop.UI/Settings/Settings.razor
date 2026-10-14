@@ -256,9 +256,10 @@
         ];
     }
 
-    /// <summary>Every page the menu offers, in menu order.</summary>
+    /// <summary>Every page the menu offers, in menu order, each declaring only the
+    /// cards it draws while the features stand as they do.</summary>
     private IReadOnlyList<SettingsSection> OfferedPages =>
-        SettingsPages.InMenuOrder(SettingsPages.BuiltIn.Where(page => IsBuiltInPageAvailable(page.Id)), OfferedSections);
+        SettingsPages.InMenuOrder(SettingsPages.BuiltInAsDrawn(Features.IsEnabled).Where(page => IsBuiltInPageAvailable(page.Id)), OfferedSections);
 
     /// <summary>The registered sections the menu offers, lowest order first: every
     /// one, its feature on or off, but never one that would take an app-wide page's

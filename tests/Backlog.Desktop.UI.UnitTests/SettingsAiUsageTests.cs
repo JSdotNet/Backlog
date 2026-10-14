@@ -988,6 +988,54 @@ public sealed class SettingsAiUsageTests
         Assert.Equal(["Claude usage API", "GitHub usage API", "Azure Foundry AI"], page.CardTitles);
     }
 
+    /// <summary>
+    /// The page declares, for the search and for a card's address, only the cards
+    /// it draws under the features as they stand - so a switched-off feature's
+    /// cards are never offered as a link to nothing.
+    /// </summary>
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void The_cards_the_page_declares_are_the_cards_it_draws(bool aiAssistantEnabled, bool usageMetricsEnabled)
+    {
+        using var context = RenderSettings(aiAssistantEnabled, usageMetricsEnabled);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.NotEmpty(context.Component.FindAll(".ai-providers__cards .settings-card__title")));
+
+        Assert.Equal(
+            SettingsPages.AiCardTitles(usageMetricsEnabled, aiAssistantEnabled),
+            context.Component.FindAll(".ai-providers__cards .settings-card__title").Select(title => title.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void With_usage_metrics_off_finding_usage_lists_no_ai_card()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false);
+
+        context.Component.Find("[data-testid='settings-search-input']").Input("usage");
+
+        Assert.DoesNotContain(
+            context.Component.FindAll("[data-testid='settings-menu-card']"),
+            card => card.GetAttribute("href")!.StartsWith("settings/ai#", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void With_usage_metrics_on_finding_usage_lists_both_usage_cards_as_links()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        context.Component.Find("[data-testid='settings-search-input']").Input("usage");
+
+        Assert.Equal(
+            ["settings/ai#card-claude-usage-api", "settings/ai#card-github-usage-api"],
+            context.Component.FindAll("[data-testid='settings-menu-card']")
+                .Select(card => card.GetAttribute("href"))
+                .Where(href => href!.StartsWith("settings/ai#", StringComparison.Ordinal)));
+    }
+
     /// <summary>A read model the test writes into, raising Changed as a reader would.</summary>
     private sealed class StubUsageReadStatus : IUsageReadStatus
     {

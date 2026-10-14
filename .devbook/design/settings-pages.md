@@ -169,6 +169,12 @@ without rendering a page.
   MUST change that list in the same change, and a test MUST assert the declared
   list equals the rendered `.settings-card__title`s, as the Dashboard, Model
   prices and Claude Code page tests do.
+- A page MUST declare only the cards it currently draws. A card a feature
+  leaves undrawn is not declared while that feature is off, so the search never
+  lists it and its `#card-<slug>` address names nothing: with usage metrics off
+  the AI providers page declares neither *Claude usage API* nor *GitHub usage
+  API*, and with the AI assistant off it does not declare *Azure Foundry AI*
+  (`SettingsPages.BuiltInAsDrawn`).
 - A switched-off page is matched on its title alone: it draws only the note, so
   none of its cards is there to reveal.
 - While the search has text, a matched page lists the matched cards under its

@@ -14,7 +14,9 @@ namespace Backlog.Desktop.UI.Shell;
 /// records so the menu, the addresses and the settings search see one list of pages
 /// rather than five built-in ones and the rest. Each declares the titles of the
 /// cards it draws, which is what the search matches without rendering a page; a
-/// change to a page's cards changes its list here in the same change.
+/// change to a page's cards changes its list here in the same change. A page
+/// whose cards depend on a feature declares them through
+/// <see cref="BuiltInAsDrawn"/>, so the screen offers only the cards it currently draws.
 /// </para>
 /// </summary>
 public static class SettingsPages
@@ -48,7 +50,30 @@ public static class SettingsPages
             CardTitles: ["GitHub accounts", "Signed in with the GitHub CLI", "Add an account by login"]),
         new(Ai, "AI providers", 0, typeof(AiSettingsPage),
             Group: SettingsGroup.Ai,
-            CardTitles: ["Claude usage API", "GitHub usage API", "Azure Foundry AI"]),
+            CardTitles: AiCardTitles(usageMetrics: true, aiAssistant: true)),
+    ];
+
+    /// <summary>
+    /// The app-wide pages as the screen offers them while <paramref name="isEnabled"/>
+    /// says which features are on: <see cref="BuiltIn"/>, with each page declaring
+    /// only the cards it draws under those features. The search and a card's address
+    /// read these, so a card a switched-off feature leaves undrawn is never offered
+    /// as a link to nothing. Only the AI page's cards depend on a feature.
+    /// </summary>
+    public static IReadOnlyList<SettingsSection> BuiltInAsDrawn(Func<string, bool> isEnabled) =>
+    [
+        .. BuiltIn.Select(page => page.Id == Ai
+            ? page with { CardTitles = AiCardTitles(isEnabled(AppFeatures.UsageMetrics), isEnabled(AppFeatures.AiAssistant)) }
+            : page)
+    ];
+
+    /// <summary>The cards the AI page draws, in its order: the two usage APIs while
+    /// usage metrics are on, Azure Foundry while the AI assistant is. <see cref="BuiltIn"/>
+    /// lists all three - every card the page can draw.</summary>
+    public static IReadOnlyList<string> AiCardTitles(bool usageMetrics, bool aiAssistant) =>
+    [
+        .. usageMetrics ? (string[])["Claude usage API", "GitHub usage API"] : [],
+        .. aiAssistant ? (string[])["Azure Foundry AI"] : [],
     ];
 
     /// <summary>Whether <paramref name="id"/> names one of the app-wide pages, which
