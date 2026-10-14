@@ -7,7 +7,9 @@
     linked to from anywhere in the app, and the browser's own affordances - open
     in a new window, copy the address - work. The current page is marked with
     aria-current="page", which is what a screen reader announces for it, and
-    with the raised surface, which is what everyone else sees.
+    with the raised surface, which is what everyone else sees - except under a
+    frame with no page chosen, where at phone width the menu is the whole screen
+    and nothing on it is current (see PageChosen).
 
     The label is a paragraph the list points at with aria-labelledby, not a
     heading. The menu sits beside the page, and headings there would interleave
@@ -35,8 +37,12 @@
                 <a class="@LinkClass(item)"
                    href="@item.Href"
                    data-page="@item.Id"
-                   aria-current="@(item.Current ? "page" : null)">
+                   aria-current="@(item.Current && PageChosen ? "page" : null)">
                     <span class="settings-menu-group__name">@item.Label</span>
+                    @if (item.Current && !PageChosen)
+                    {
+                        <span class="sr-only settings-menu-group__current-note"> (current page)</span>
+                    }
                     @if (!string.IsNullOrWhiteSpace(item.Badge))
                     {
                         <span class="settings-menu-group__badge" data-testid="settings-menu-badge">@item.Badge</span>
@@ -70,6 +76,15 @@
     /// <summary>The pages in the group, in the order they are listed.</summary>
     [Parameter, EditorRequired]
     public IReadOnlyList<SettingsMenuItem> Items { get; set; } = [];
+
+    /// <summary>Whether the frame around the menu has a page chosen - see
+    /// <see cref="SettingsFrame.PageChosen"/>. True outside a frame. While it is
+    /// false no link carries <c>aria-current</c>: at phone width the menu is the
+    /// grouped list with no page on screen. Wider, the default page still sits
+    /// beside it, so the current link names itself in a screen-reader note the
+    /// phone-width stylesheet takes out of the accessibility tree.</summary>
+    [CascadingParameter(Name = SettingsFrame.PageChosenCascade)]
+    public bool PageChosen { get; set; } = true;
 
     [Parameter]
     public string? CssClass { get; set; }

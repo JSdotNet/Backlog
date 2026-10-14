@@ -24,9 +24,11 @@ internal static class SettingsMenu
     public static string[] Pages(IRenderedComponent<Settings> component) =>
         [.. component.FindAll(Links).Select(Label)];
 
-    /// <summary>The page the menu marks as the one on screen.</summary>
+    /// <summary>The page the menu marks as the one on screen beside it, by the
+    /// raised surface. On <c>settings</c>, where no page is chosen, that mark is
+    /// the wide layout's alone and no link carries <c>aria-current</c>.</summary>
     public static string Current(IRenderedComponent<Settings> component) =>
-        Label(component.Find(Links + "[aria-current='page']"));
+        Label(component.Find(Links + ".settings-menu-group__link--current"));
 
     /// <summary>The badge the menu draws beside the page with id
     /// <paramref name="pageId"/>, or null when it draws none.</summary>

@@ -26,7 +26,8 @@
     frame's own width through a container query, never the window's - the screen
     shows one of them, and which one is the address's. Where the address names no
     page (PageChosen false) the menu is the screen: a grouped list, each group's
-    pages in one rounded card. Where it names one, the page takes the full width
+    pages in one rounded card, headed IndexTitle with no eyebrow, and no link in
+    it is the current page. Where it names one, the page takes the full width
     with no menu, and the way back goes to that list rather than to the tasks.
     Both links are in the markup and the stylesheet shows the one the width
     calls for: a link cannot change its address by CSS, and display: none takes
@@ -56,8 +57,20 @@
             {
                 <p class="settings-frame__eyebrow" data-testid="settings-eyebrow">@Eyebrow</p>
             }
-            <h1 class="settings-frame__headline" data-testid="settings-headline">
-                <SectionOutlet SectionName="@HeadlineSection" />
+            @* One h1, whichever heading the width shows: every shell's
+               FocusOnNavigate focuses the first h1 in the document after a page
+               change, and a second h1 the stylesheet hid would take that focus
+               nowhere. Where no page is chosen, the wide layout still shows the
+               default page beside the menu, so the h1 reads that page's headline;
+               at phone width the list is the whole screen and no page is on it,
+               so the stylesheet swaps the page's text for IndexTitle and hides
+               the eyebrow. *@
+            <h1 class="settings-frame__headline">
+                <span class="settings-frame__headline-page" data-testid="settings-headline"><SectionOutlet SectionName="@HeadlineSection" /></span>
+                @if (!PageChosen)
+                {
+                    <span class="settings-frame__headline-index" data-testid="settings-index-headline">@IndexTitle</span>
+                }
             </h1>
         </div>
 
@@ -71,7 +84,9 @@
     </header>
 
     <div class="settings-frame__body">
-        <nav class="settings-frame__menu" aria-label="@MenuAriaLabel" data-testid="settings-menu">@Menu</nav>
+        <CascadingValue Name="@PageChosenCascade" Value="@PageChosen">
+            <nav class="settings-frame__menu" aria-label="@MenuAriaLabel" data-testid="settings-menu">@Menu</nav>
+        </CascadingValue>
         <div class="settings-frame__content">@ChildContent</div>
     </div>
 </div>
@@ -86,6 +101,12 @@
     /// keeps hidden pages alive cascades it per page, so only the page on screen
     /// writes the headline.</summary>
     public const string ActivePageCascade = "SettingsPageActive";
+
+    /// <summary>The name of the cascading <c>bool</c> the frame hands its menu:
+    /// <see cref="PageChosen"/>. A <see cref="SettingsMenuGroup"/> under a frame
+    /// with no page chosen marks no link <c>aria-current</c>, since at phone width
+    /// that menu is the grouped list with no page on screen.</summary>
+    public const string PageChosenCascade = "SettingsPageChosen";
 
     /// <summary>The headline while the page on screen supplies no sentence of
     /// its own - its title.</summary>
@@ -111,6 +132,11 @@
     /// Above that width it changes nothing.</summary>
     [Parameter]
     public bool PageChosen { get; set; }
+
+    /// <summary>The heading of the grouped list at phone width, where no page is
+    /// chosen and none is on screen: the screen's name, with no eyebrow.</summary>
+    [Parameter]
+    public string IndexTitle { get; set; } = "Settings";
 
     /// <summary>Where the way back goes from a page shown without its menu - the
     /// grouped list at <c>settings</c>.</summary>

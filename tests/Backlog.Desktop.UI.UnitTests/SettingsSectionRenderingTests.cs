@@ -378,6 +378,27 @@ public sealed class SettingsSectionRenderingTests
     }
 
     [Fact]
+    public void Settings_with_no_page_in_its_address_is_the_list_headed_Settings_with_no_page_current()
+    {
+        using var settings = RenderSettings();
+
+        // At phone width the address with no page is the grouped list alone: no
+        // link is the current page, and the heading the stylesheet shows there is
+        // the screen's name, with no group above it.
+        Assert.Empty(settings.Component.FindAll("nav[aria-label='Settings pages'] a[aria-current]"));
+        // It is the one h1's own text, so navigation focus lands on a heading
+        // that is shown at every width.
+        var headline = Assert.Single(settings.Component.FindAll("h1"));
+        Assert.Equal("Settings", headline.QuerySelector("[data-testid='settings-index-headline']")!.TextContent.Trim());
+
+        // Choosing a page puts the mark back, and the list's heading goes.
+        SettingsMenu.Open(settings.Component, "Features");
+
+        Assert.Equal("page", settings.Component.Find("a[data-page='features']").GetAttribute("aria-current"));
+        Assert.Empty(settings.Component.FindAll("[data-testid='settings-index-headline']"));
+    }
+
+    [Fact]
     public void An_address_naming_no_page_opens_Features()
     {
         using var settings = RenderSettings();
@@ -555,7 +576,7 @@ public sealed class SettingsSectionRenderingTests
     }
 
     private static string Headline(IRenderedComponent<Settings> component) =>
-        component.Find("h1").TextContent.Trim();
+        component.Find("[data-testid='settings-headline']").TextContent.Trim();
 
     public sealed class WordedSection : ComponentBase
     {

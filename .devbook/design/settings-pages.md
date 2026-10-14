@@ -120,7 +120,8 @@ Rules:
   own without reading the screen.
 - A group with no page on offer is not drawn.
 - Every menu item is a link to the page's address, never a button. The page on
-  screen carries `aria-current="page"` and the raised surface.
+  screen carries `aria-current="page"` and the raised surface; on `settings`,
+  where no page is chosen, see *Phone Width*.
 - The group label is a paragraph the list names through `aria-labelledby`, not
   a heading, so the menu does not interleave with the page's outline.
 
@@ -298,7 +299,7 @@ phone.
 
 | Address | Below `50.25rem` the screen shows |
 |---|---|
-| `settings` | The grouped list: each group's pages in one rounded card on `color-background-alt`, rows divided by a hairline, 52 px rows with the badge and a chevron, and the search on a row of its own above the groups. No row is marked current. |
+| `settings` | The grouped list: each group's pages in one rounded card on `color-background-alt`, rows divided by a hairline, 52 px rows with the badge and a chevron, and the search on a row of its own above the groups. The header reads `Settings` in the `h1` with no eyebrow, in place of the default page's headline and group, and no row is marked current, by surface or by `aria-current`. |
 | `settings/<page>` | The page alone at full width, no menu and no search. The way back goes to `settings`, named `Back to all settings`, in place of the way back to the tasks. |
 
 Rules:
@@ -308,6 +309,13 @@ Rules:
 - The switch is CSS only: both ways back are in the markup and the stylesheet
   shows one, so a hidden link is out of the tab order too.
 - A matched card under a row is a 44 px target of its own.
+- On `settings` no menu link carries `aria-current`, at any width: the list
+  heading's swap is CSS, an attribute is not. Wider, where Features sits beside
+  the menu, its link keeps the raised surface and names itself current in a
+  `sr-only` note the phone-width rule hides.
+- The list's `Settings` is the text of the one `h1`, swapped for the default
+  page's headline by the same rule, never a second `h1`: navigation focuses the
+  first `h1` in the document, and a hidden one would take that focus nowhere.
 - Below 720 px an open editor's `repo-card__header` stacks its title over its
   actions, each as tall as its content and aligned to the start: no fixed
   height, and no flex basis on the title side, which a column reads as one.

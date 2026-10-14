@@ -20022,6 +20022,12 @@ select.field__input {
     display: none;
 }
 
+/* The grouped list's own headline text, inside the one h1; shown only at
+   phone width, below. */
+.settings-frame__headline-index {
+    display: none;
+}
+
 /* Phone width: the menu and the page no longer fit side by side - the menu's
    13.75rem basis, the --spacing-lg gap and the page's 35rem basis add up to
    50.25rem, which is where the row above would start to wrap. Rather than wrap
@@ -20037,6 +20043,20 @@ select.field__input {
 
     .settings-frame--page .settings-frame__back--menu {
         display: inline-flex;
+    }
+
+    /* No page is on screen beside the list, so the heading is the screen's
+       name with no group above it, and the menu names no link current - the
+       note that does so wider is taken out of the accessibility tree. The h1
+       stays the one navigation focuses; only its text swaps. */
+    .settings-frame--index .settings-frame__eyebrow,
+    .settings-frame--index .settings-frame__headline-page,
+    .settings-frame--index .settings-menu-group__current-note {
+        display: none;
+    }
+
+    .settings-frame--index .settings-frame__headline-index {
+        display: inline;
     }
 
     .settings-frame--page .settings-frame__content {
