@@ -941,8 +941,9 @@ never a zero.
 A session sends these events only when its Claude Code settings say to. The person
 merges that page's block into the `env` of their user-level `~/.claude/settings.json`.
 The block turns telemetry on and sets the OTLP logs exporter, the logs protocol, the
-endpoint, and the bearer token as a header. They add `OTEL_LOG_TOOL_DETAILS=1` so each
-request names the sub-agent and the skill it ran under. They never turn on the prompt or
+endpoint, the bearer token as a header, and `OTEL_LOG_TOOL_DETAILS=1` so each request
+names the sub-agent and the skill it ran under. Without that key a stage whose
+sub-agents ran is estimated, because its requests cannot be told to its workers. They never turn on the prompt or
 response events, which would only send what the session said. A new session, started
 after the change, is the first to report. The exact keys, and the check that the rows
 arrived, are in `.claude/skills/run-backlog/SKILL.md`, under Claude Code telemetry.

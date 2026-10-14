@@ -717,6 +717,21 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
     /// The most recently updated run that recorded one wins.
     /// </summary>
     public string? Effort => Runs.Select(DeliveryRunExecutions.OwnerEffort).FirstOrDefault(effort => effort is not null);
+
+    /// <summary>
+    /// The session the row stands for: its own, else the first one its runs name — the
+    /// session whose requests answer for the row's effort and cost.
+    /// </summary>
+    public string? OwnerSessionId =>
+        Session?.Id is { Length: > 0 } id ? id : Runs.SelectMany(run => run.SessionIds).FirstOrDefault(session => !string.IsNullOrWhiteSpace(session));
+
+    /// <summary>
+    /// The reasoning effort the owner session ran at, preferring what its own main-loop
+    /// requests reported — see <see cref="DeliveryRunExecutions.TelemetryEffort"/> — over
+    /// the run files' <see cref="Effort"/>; null where neither recorded one.
+    /// </summary>
+    public string? EffortFrom(IEnumerable<ClaudeApiRequest> requests) =>
+        DeliveryRunExecutions.TelemetryEffort(OwnerSessionId, requests, Model) ?? Effort;
 }
 
 /// <summary>

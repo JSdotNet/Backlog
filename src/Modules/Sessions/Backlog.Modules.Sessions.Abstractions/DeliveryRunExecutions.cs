@@ -15,13 +15,56 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// it two ways.
 /// </para>
 /// <para>
-/// Telemetry, once it lands, is the better source — Claude Code reports the effort on
-/// every request. Until then this is the only record there is, and with neither a
-/// surface says "not recorded" rather than assuming a default.
+/// Telemetry is the better source — Claude Code reports the effort on every request —
+/// so <see cref="TelemetryEffort"/> is read first wherever a session's requests are
+/// in, and the run file is the fallback. With neither, a surface says "not recorded"
+/// rather than assuming a default.
 /// </para>
 /// </summary>
 public static class DeliveryRunExecutions
 {
+    /// <summary>
+    /// The effort the owner session ran at, as its own requests reported it: the most
+    /// recent main-loop request of <paramref name="sessionId"/> that carried an effort,
+    /// or null where none did.
+    /// <para>
+    /// Main loop only, because a sub-agent's request carries the sub-agent's effort and
+    /// says nothing about the session — the same reason <see cref="OwnerEffort"/> reads
+    /// only inline stages. Most recent, because the effort can be changed while the
+    /// session runs.
+    /// </para>
+    /// <para>
+    /// The main loop is a request whose <c>query_source</c> is the interactive loop's
+    /// (<c>repl_main_thread</c>) or the SDK's (<c>sdk</c>); a side query Claude Code makes
+    /// for itself — a title, a compaction, a classifier — is not the session's effort.
+    /// Where <paramref name="model"/> is given, only requests on that model count, since
+    /// such a side query can also run on a small model under the <c>sdk</c> source.
+    /// </para>
+    /// </summary>
+    public static string? TelemetryEffort(string? sessionId, IEnumerable<ClaudeApiRequest> requests, string? model = null)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+
+        if (string.IsNullOrWhiteSpace(sessionId)) return null;
+
+        var label = string.IsNullOrWhiteSpace(model) ? null : AgentModels.Label(model);
+
+        return requests
+            .Where(request => string.Equals(request.SessionId, sessionId, StringComparison.Ordinal)
+                && IsMainLoop(request)
+                && (label is null || (request.Model is { } used && string.Equals(AgentModels.Label(used), label, StringComparison.OrdinalIgnoreCase)))
+                && !string.IsNullOrWhiteSpace(request.Effort))
+            .OrderByDescending(request => request.Timestamp)
+            .Select(request => request.Effort!.Trim())
+            .FirstOrDefault();
+    }
+
+    private static bool IsMainLoop(ClaudeApiRequest request) =>
+        DeliveryRunCosts.SubAgentOf(request) is null
+        && request.QuerySource?.Trim() is { } source
+        && (source.StartsWith("repl_main_thread", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(source, "sdk", StringComparison.OrdinalIgnoreCase));
+
     /// <summary>
     /// The effort the owner session ran at, as the latest inline stage that recorded
     /// one says, or null where none did.

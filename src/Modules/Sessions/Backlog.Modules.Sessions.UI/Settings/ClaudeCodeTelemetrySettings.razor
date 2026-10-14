@@ -34,6 +34,8 @@
 <p class="setting__body">
     Paste this into <code>~/.claude/settings.json</code>, or a project's
     <code>.claude/settings.json</code>, and start a new Claude Code session.
+    Keep <code>OTEL_LOG_TOOL_DETAILS</code> in it: without that key Claude Code hides which
+    sub-agent made each request, and a stage's cost can then only be estimated.
 </p>
 @* The block on screen hides the token and the copy carries it: the token is a
    secret, and a page that drew it would put it in every screenshot of Settings. *@
