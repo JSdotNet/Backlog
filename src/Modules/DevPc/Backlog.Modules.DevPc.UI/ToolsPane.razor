@@ -1,4 +1,5 @@
 @inject IDevToolService DevTools
+@inject IServiceProvider Services
 @implements IDisposable
 
 @*
@@ -8,11 +9,30 @@
     host is behind that port, and whether that host can do anything but read, is
     not something the pane knows.
 
-    Grouped, because the subject grew. Six rows of AI tooling is a list; the
-    machine's whole software inventory is a document, and the kind heading and
-    the catalog's own group headings are the structure it arrives with. Groups
-    with nothing outstanding fold themselves away: a correctly set-up machine
-    should open this pane to headings and no rows.
+    The Dashboard's shape (plan +system-tools-redesign, step 2): a header that names
+    the tab and says in one sentence what is outstanding on it, the controls that
+    scope the whole surface beside it, then one tab per kind of row. The kind used
+    to be a heading in one long scroll; fifty-odd rows of four kinds read as a
+    document nobody finishes, and "a plugin is behind" and "an application is
+    missing" are two different afternoons. Applications split in two, because the
+    rows confirmed by hand are a checklist somebody walks, not software anything
+    can install. Overview (step 3) is the landing: the tab a machine with no
+    remembered tab opens on, and the one place every kind is read at once.
+
+    Every panel is Eager — rendered while another tab is shown — for the reason the
+    Dashboard gives: switching back brings back what was there, and the strip's
+    counts are the counts of rows that already exist rather than of rows a tab has
+    not drawn yet. The kind toolbar is drawn in the active panel only, so its
+    controls exist once.
+
+    The host filter scopes every tab and every count: Claude means Claude Code or
+    Claude Desktop, Copilot means Copilot, and the rows with no host at all —
+    applications and the checklist — show only under All hosts. The tab and the
+    filter are remembered per machine through IToolsViewPreferences, resolved
+    optionally so a host that composes none still renders the pane.
+
+    Groups with nothing outstanding fold themselves away: a correctly set-up machine
+    should open a tab to cards and no rows.
 
     Three shapes of row rather than one. Most rows report a version and offer an
     Update or an Install. A checklist row has no version anywhere and reports
@@ -30,7 +50,16 @@
     used to render the same sentence and the same nothing-to-do, which made a
     fresh machine a dead end: the one act that would have helped — write the
     catalog — was not on the screen. CatalogExists is what tells them apart, and
-    each gets the affordance that actually moves it on.
+    each gets the affordance that actually moves it on — two option cards, the
+    same arrangement for both (plan +system-tools-redesign, step 4).
+
+    And a fourth while an Update all runs (step 4 again): the header says
+    "Updating" and counts the steps, a progress bar sits under it, a "This run"
+    queue sits over the rows, and the rail is the live transcript. The port
+    reports where the run stands through IProgress; a port that does not leaves
+    the queue the pane read off its own rows, every step queued. A step that
+    fails goes back to its row with the port's reason under it, and the record
+    of the run stays open beside it.
 
     Every editing affordance is behind CanEditCatalog. A host that answers this
     port read-only says so once, and the create, add, import and remove controls
@@ -38,451 +67,328 @@
 *@
 
 <section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
-    @* The same library section header the kind sub-headings below already
-       render, here wearing this pane's own class names. *@
+    @* The library's section header wearing this pane's class names, in the
+       Dashboard's arrangement: eyebrow and headline on the left, the controls that
+       scope the whole surface on the right, wrapping under the sentence when the
+       pane is narrow. *@
     <SectionHeader BaseClass="tools-panel__header"
                    TextCssClass=""
                    EyebrowCssClass="tools-panel__eyebrow"
                    TitleCssClass="tools-panel__title"
                    DescriptionCssClass="tools-panel__subtitle"
+                   DescriptionTestId="tools-checked"
                    ActionsCssClass="tools-panel__header-actions"
-                   Eyebrow="System tools"
+                   Eyebrow="@Eyebrow"
                    TitleId="installed-tools-title"
-                   Title="System tools"
-                   Description="What this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.">
+                   Title="@Headline"
+                   Description="@CheckedLine"
+                   TestId="tools-header">
         <Actions>
-            @* A re-check over rows that are already on screen does not blank them
-               — the versions below stay readable while the newer ones are being
-               looked up — so the only place left to say that something is running
-               is here, beside the count it is about to change. *@
+            @* A re-check over rows that are already on screen does not blank them,
+               so the only place left to say that something is running is here. *@
             @if (_toolsLoading && _tools.Count > 0)
             {
                 <Spinner Size="SpinnerSize.Small" Label="Checking tools" TestId="tools-refreshing" />
             }
-            @* The library's badge wearing this pane's count class. *@
-            <Badge BaseClass="tools-panel__count" Kind="">@CountLabel</Badge>
+            @* One choice of three, so a radio group: one stop in the tab order and
+               the arrows move and select, as the Dashboard's window does. *@
+            <ButtonGroup Radio="true" AriaLabel="Hosts to show" CssClass="tools-panel__hosts" TestId="tools-host-filter">
+                @foreach (var host in HostFilters)
+                {
+                    <ToggleButton Pressed="@(_hostFilter == host.Id)"
+                                  PressedChanged="_ => ChooseHostFilter(host.Id)"
+                                  TestId="@($"tools-host-{host.Id}")">
+                        @host.Label
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+            @* Checking and updating both read the catalog, so neither is offered
+               while there is no catalog to read. *@
+            @* While an Update all is going both say so: the check would re-read rows
+               the run is still changing, and a second run cannot start over the
+               first. *@
+            <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
+                @(Updating ? UpdatingLabel : _toolsLoading ? "Checking..." : "Check for updates")
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync" TestId="tools-update-all">
+                @(Updating ? UpdatingLabel : UpdateAllLabel)
+            </AppButton>
             <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
 
-    <div class="tools-panel__content" id="installed-tools-content">
-        @* Two columns rather than one stack, at the widths that have room
-           for them. The transcript used to be the last thing in the pane,
-           which on a fifty-row inventory put it a scroll and a half below
-           the button that produced it — so the one thing a failed install
-           left behind was the one thing nobody saw. The list keeps the
-           column it always had and the transcript takes a rail beside it;
-           below the width where both fit, the rail simply falls back under
-           the list and this is the stack it was. *@
-        <div class="tools-panel__main">
-            <div class="tools-panel__toolbar">
-                @* The library's alert wearing this pane's message class. The fallback
-                   behind ToolMessage keeps it non-empty, so it never takes the alert's
-                   hidden shape: a toolbar that loses its status line collapses. *@
-                <Alert Message="@ToolMessage" BaseClass="tools-panel__message" Role="status" />
-                <div class="tools-panel__toolbar-actions">
-                    @* Checking and updating both read the catalog, so neither is offered
-                       while there is no catalog to read. *@
-                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
-                        @(_toolsLoading ? "Checking..." : "Check for updates")
-                    </AppButton>
-                    <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
-                        @(_toolActionKey == UpdateAllKey ? "Updating..." : "Update all")
-                    </AppButton>
-                    @if (StaleCacheCount > 0)
-                    {
-                        @* Only while some row reports a folder nothing loads. A
-                           button that is always there reads as a chore to do every
-                           time; one that appears is the pane saying there is
-                           something to clear, and the count is how much. *@
-                        <AppButton Variant="ButtonVariant.Secondary"
-                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                   OnClick="AskToClearStaleCache"
-                                   TestId="tools-cache-clear">
-                            @(_toolActionKey == ClearCacheKey ? "Clearing..." : $"Clear stale cache ({StaleCacheCount})")
-                        </AppButton>
-                    }
-                    @if (CanEdit && _catalogExists && _tools.Count > 0)
-                    {
-                        @* Only alongside a populated table. The two empty states carry
-                           their own copies of these, where they are the point of the
-                           screen rather than one more button on a toolbar. *@
-                        <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
-                            Add tool
-                        </AppButton>
-                        <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
-                            Import
-                        </AppButton>
-                    }
-                </div>
-            </div>
+    @if (_run is { } progress)
+    {
+        @* Under the header rather than in it: the header's sentence already says
+           the counts, and the bar is the same fact for a reader who glances. A
+           real progressbar — min, max and now in steps rather than a percentage,
+           because steps are what the sentence counts. *@
+        <div class="tools-run__progress"
+             role="progressbar"
+             aria-label="Update all progress"
+             aria-valuemin="0"
+             aria-valuemax="@progress.Total"
+             aria-valuenow="@progress.Finished"
+             aria-valuetext="@($"{progress.Finished} of {progress.Total} finished")"
+             data-testid="tools-run-progress">
+            <span class="tools-run__progress-fill" style="@($"width: {ProgressPercent(progress)}%")"></span>
+        </div>
+    }
 
+    @* The library's alert wearing this pane's message class. The fallback behind
+       ToolMessage keeps it non-empty, so it never takes the alert's hidden shape. *@
+    <Alert Message="@ToolMessage" BaseClass="tools-panel__message" Role="status" />
+
+    <div class="tools-panel__content" id="installed-tools-content">
+        @* Two columns rather than one stack, at the widths that have room for them:
+           the inventory, and the transcript of the last run in a rail beside it.
+           Below the width where both fit, the rail falls back under the list. *@
+        <div class="tools-panel__main">
             @if (_toolsLoading && _tools.Count == 0)
             {
                 @* The first read walks the machine — plugin manifests, marketplaces,
                    a version probe per application — and on a cold cache that is
-                   several seconds of a pane with nothing in it. One grey sentence
-                   there was indistinguishable from a pane that had failed to draw,
-                   so what stands in for the inventory is the inventory's own shape:
-                   the same kind sections, the same four columns, the same frame, with
-                   bars where the rows will be.
-
-                   It is the same table rather than a placeholder laid out like one,
-                   which is what keeps it honest: it restacks with the real rows when
-                   the pane is narrow, because it is the same component answering the
-                   same container query. The heading row is the real one too — those
-                   four words are true before any row is, and a bar standing in for a
-                   word nobody was waiting for was noise.
-
-                   Hidden from assistive technology in one piece. A reader who cannot
-                   see the bars gains nothing from forty of them; the toolbar's status
-                   line above already says the catalog is being checked, and it says
-                   it once. *@
+                   several seconds of a pane with nothing in it. What stands in for
+                   the inventory is the inventory's own shape: the tab strip, the
+                   toolbar, and the same group card and table, with bars where the
+                   rows will be. Hidden from assistive technology in one piece: the
+                   status line above already says the catalog is being checked,
+                   once. *@
                 <div class="tools-panel__skeleton" data-testid="tools-loading" aria-hidden="true">
+                    <div class="tools-panel__skeleton-tabs" data-testid="tools-loading-tabs">
+                        @foreach (var width in SkeletonTabs)
+                        {
+                            <Skeleton Width="@width" />
+                        }
+                    </div>
+                    <div class="tools-panel__skeleton-toolbar">
+                        <Skeleton Shape="SkeletonShape.Block" Width="11rem" />
+                        <Skeleton Shape="SkeletonShape.Block" Width="12rem" />
+                    </div>
                     @foreach (var section in SkeletonSections)
                     {
                         <section class="tools-kind">
-                            <Skeleton Shape="SkeletonShape.Heading" Width="8rem" />
-                            <DataTable TItem="string"
-                                       Columns="Columns"
-                                       Items="section"
-                                       RowNoun="tool"
-                                       CssClass="tools-inventory">
-                                <Row Context="name">
-                                    <td class="tools-inventory__tool">
-                                        <Skeleton Width="@name" />
-                                        <Skeleton Width="55%" />
-                                    </td>
-                                    <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
-                                    <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
-                                    <td class="tools-inventory__actions-cell"><Skeleton Shape="SkeletonShape.Block" Width="5rem" /></td>
-                                </Row>
-                            </DataTable>
+                            <Card CssClass="tools-group">
+                                <Skeleton Shape="SkeletonShape.Heading" Width="8rem" />
+                                <DataTable TItem="string"
+                                           Columns="Columns"
+                                           Items="section"
+                                           RowNoun="tool"
+                                           CssClass="tools-inventory">
+                                    <Row Context="name">
+                                        <td class="tools-inventory__tool">
+                                            <Skeleton Width="@name" />
+                                            <Skeleton Width="55%" />
+                                        </td>
+                                        <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
+                                        <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
+                                        <td class="tools-inventory__status"><Skeleton Width="4rem" /></td>
+                                        <td class="tools-inventory__actions-cell"><Skeleton Shape="SkeletonShape.Block" Width="5rem" /></td>
+                                    </Row>
+                                </DataTable>
+                            </Card>
                         </section>
                     }
                 </div>
             }
             else if (!_catalogExists)
             {
-                <EmptyState Title="No tool catalog yet"
-                            Description="@NoCatalogDescription"
-                            Action="@NoCatalogActions"
-                            TestId="tools-empty-no-catalog" />
+                @* The two ways a machine with no catalog moves on, as two cards side
+                   by side rather than two buttons under a sentence: they are two
+                   different afternoons — start this machine's own list, or take the
+                   team's — and each card says which. The header carries the
+                   headline; this carries where the file goes and the choice. *@
+                <section class="tools-start" data-testid="tools-empty-no-catalog" aria-label="Start a tool catalog">
+                    <p class="tools-start__lead">@NoCatalogDescription</p>
+                    @if (CanEdit)
+                    {
+                        <div class="tools-start__options">
+                            <Card CssClass="tools-start__option tools-start__option--recommended" TestId="tools-start-create">
+                                <div class="tools-start__option-head">
+                                    <h3 class="tools-start__option-title">Create from this machine</h3>
+                                    <Badge Kind="tone" Slug="settled" CssClass="tools-start__badge">Recommended</Badge>
+                                </div>
+                                <p class="tools-start__option-body">Write this machine's catalog at the path above, then add what it should have.</p>
+                                <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="CreateCatalogAsync" TestId="tools-create-catalog">
+                                    @(_toolActionKey == CreateKey ? "Creating..." : "Create catalog")
+                                </AppButton>
+                            </Card>
+                            <Card CssClass="tools-start__option" TestId="tools-start-import">
+                                <div class="tools-start__option-head">
+                                    <h3 class="tools-start__option-title">Import a team catalog</h3>
+                                </div>
+                                <p class="tools-start__option-body">Use an ai-tools.json somebody already keeps, from a file or pasted in.</p>
+                                <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                                    Import JSON…
+                                </AppButton>
+                            </Card>
+                        </div>
+                        <p class="tools-start__aside">
+                            Or
+                            <AppButton Variant="ButtonVariant.Ghost" CssClass="tools-start__link" Disabled="@ToolActionBusy" OnClick="StartOneAtATimeAsync" TestId="tools-start-one-at-a-time">
+                                add tools one at a time
+                            </AppButton>
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="tools-start__aside" data-testid="tools-start-read-only">This host can read a catalog but not write one.</p>
+                    }
+                </section>
             }
             else if (_tools.Count == 0)
             {
-                <EmptyState Title="No tools in the catalog yet"
-                            Description="@EmptyCatalogDescription"
-                            Action="@EmptyCatalogActions"
-                            TestId="tools-empty-no-entries" />
+                @* The catalog is there with nothing in it: the same arrangement as
+                   the no-catalog state, with the two acts that fill one. *@
+                <section class="tools-start" data-testid="tools-empty-no-entries" aria-label="Fill the tool catalog">
+                    <p class="tools-start__lead">@EmptyCatalogDescription</p>
+                    @if (CanEdit)
+                    {
+                        <div class="tools-start__options">
+                            <Card CssClass="tools-start__option tools-start__option--recommended" TestId="tools-start-add">
+                                <div class="tools-start__option-head">
+                                    <h3 class="tools-start__option-title">Add a tool</h3>
+                                </div>
+                                <p class="tools-start__option-body">A plugin, a marketplace, an MCP server or an application, one at a time.</p>
+                                <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
+                                    Add tool
+                                </AppButton>
+                            </Card>
+                            <Card CssClass="tools-start__option" TestId="tools-start-import">
+                                <div class="tools-start__option-head">
+                                    <h3 class="tools-start__option-title">Import a team catalog</h3>
+                                </div>
+                                <p class="tools-start__option-body">Replace this empty one with an ai-tools.json somebody already keeps.</p>
+                                <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                                    Import JSON…
+                                </AppButton>
+                            </Card>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="tools-start__aside" data-testid="tools-start-read-only">This host can read the catalog but not add to it.</p>
+                    }
+                </section>
             }
             else
             {
-                @* Grouped rather than one list, because the catalog stopped being six
-                   rows of AI tooling and became this machine's whole software
-                   inventory. Fifty-odd ungrouped rows lose the structure the setup
-                   guide they come from is made of — and the kind heading is the first
-                   thing a reader needs, because "a plugin is missing" and "an
-                   application is missing" are two different afternoons. *@
-                @foreach (var kind in ToolKinds)
+                @if (_run is { } queue)
                 {
-                    <section class="tools-kind" data-tool-kind="@kind.Kind" data-testid="tools-kind">
-                        <SectionHeader Level="3"
-                                       Title="@kind.Title"
-                                       Description="@KindCount(kind)"
-                                       CssClass="tools-kind__header" />
-
-                        @foreach (var group in kind.Groups)
-                        {
-                            <div class="tools-group" data-tool-group="@group.Key">
-                                @if (group.Title is { Length: > 0 } groupTitle)
-                                {
-                                    @* Only the sub-groups fold. A kind with one
-                                       unnamed group is the three plugins and the
-                                       three MCP servers this pane started as, and a
-                                       disclosure over three rows is a control that
-                                       costs more than it saves. *@
-                                    <FoldControl CssClass="tools-group__fold"
-                                                 Expanded="@IsExpanded(group)"
-                                                 ExpandedChanged="expanded => SetExpanded(group, expanded)"
-                                                 Controls="@group.RegionId"
-                                                 Label="@GroupLabel(group, groupTitle)"
-                                                 TestId="tools-group-toggle" />
-                                }
-
-                                <DataTable TItem="DevToolInfo"
-                                           Columns="Columns"
-                                           Items="@group.Tools"
-                                           RowKey="ToolKey"
-                                           RowCssClass="RowClass"
-                                           RowAttributes="RowIdentity"
-                                           RowNoun="tool"
-                                           CssClass="tools-inventory"
-                                           AriaLabel="@group.AriaLabel(kind.Title)"
-                                           id="@group.RegionId"
-                                           hidden="@(!IsExpanded(group))">
-                                    @* The cells are this pane's and the frame is the
-                                       library's, which is the split DataTable is built
-                                       around. The two things the row element itself has
-                                       to carry — the catalog key a driver scopes the
-                                       shared per-row test ids by, and the quieting a
-                                       switched-off row is drawn with — arrive through
-                                       the component rather than through a tr this pane
-                                       writes, because it does not write one. *@
-                                    <Row Context="tool">
-                                        <td class="tools-inventory__tool">
-                                            <strong>@tool.Name</strong>
-                                            @* The library's badge wearing this table's host class.
-                                               Which hosts an entry is for decides what its Update
-                                               actually does, and a catalog that drives two of them
-                                               with one row is unreadable without it being said.
-
-                                               An application has no host at all — it is machine
-                                               software, not a registration with an AI tool — so it
-                                               gets no badge rather than a badge reading "No host",
-                                               which answered a question the row never asked. *@
-                                            @if (tool.Hosts is not DevToolHosts.None)
-                                            {
-                                                <Badge BaseClass="tools-inventory__hosts"
-                                                       Kind=""
-                                                       Title="@HostTitle(tool)"
-                                                       TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
-                                            }
-                                            <span class="tools-inventory__meta">@Humanize(tool.Kind.ToString()) · @StatusOf(tool)</span>
-                                            @if (NoteOf(tool) is { Length: > 0 } note)
-                                            {
-                                                @* The catalog's own warning, on a line of its own
-                                                   rather than run together with the status. Several
-                                                   of these are the only reason a row reads the way it
-                                                   does — a version that legitimately reads backwards,
-                                                   a probe that is a heuristic, a package that does not
-                                                   exist — and appended to the status they were a
-                                                   sentence nobody finished reading. *@
-                                                <span class="tools-inventory__note" data-testid="tools-row-note">@note</span>
-                                            }
-                                            @if (tool.CachedVersions.Count > 0)
-                                            {
-                                                @* What Claude has kept of this plugin, under the row
-                                                   rather than in a column: it is a list, and a fourth
-                                                   column would be one more thing the narrow pane has
-                                                   to stack. Each version says whether an install still
-                                                   loads it, because that is the only fact that decides
-                                                   whether it may go — and the one a person clearing
-                                                   "old versions" by hand gets wrong: a project scope
-                                                   registered months ago still points at the folder it
-                                                   was made against, and deleting that one does not move
-                                                   the project on, it breaks it. Those get no button. *@
-                                                <span class="tools-inventory__cache" data-testid="tools-row-cache">
-                                                    <span class="tools-inventory__cache-label">Cached in Claude</span>
-                                                    @foreach (var cached in tool.CachedVersions)
-                                                    {
-                                                        <span class="tools-inventory__cache-version @(cached.InUse ? "tools-inventory__cache-version--in-use" : "tools-inventory__cache-version--stale")"
-                                                              data-testid="tools-row-cache-version"
-                                                              data-version="@cached.Version"
-                                                              data-in-use="@(cached.InUse ? "true" : "false")"
-                                                              title="@cached.Path">
-                                                            @cached.Version
-                                                            <span class="tools-inventory__cache-use">@CacheUseLabel(cached)</span>
-                                                            @if (!cached.InUse)
-                                                            {
-                                                                <AppButton Variant="ButtonVariant.Ghost"
-                                                                           Size="ButtonSize.Small"
-                                                                           CssClass="tools-inventory__cache-remove"
-                                                                           aria-label="@($"Remove cached {cached.Version} of {tool.Name}")"
-                                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                           TestId="tools-row-cache-remove"
-                                                                           OnClick="() => AskToRemoveCachedVersion(tool, cached)">
-                                                                    Remove
-                                                                </AppButton>
-                                                            }
-                                                        </span>
-                                                    }
-                                                </span>
-                                            }
-                                        </td>
-                                        @* Each version cell names itself. The row's four columns only
-                                           fit while the pane is wide enough for them — it is a surface
-                                           beside a workspace, so it often is not — and below that the
-                                           row stacks and the heading row goes. Two bare version strings
-                                           in a column say nothing about which is which, so the label is
-                                           in the markup at every width and the stylesheet decides when
-                                           it shows. *@
-                                        <td class="tools-inventory__version" data-testid="tools-row-installed">
-                                            <span class="tools-inventory__cell-label">Installed</span>@InstalledLabel(tool)
-                                        </td>
-                                        <td class="tools-inventory__version @(tool.CanUpdate ? "tools-inventory__version--new" : string.Empty)">
-                                            <span class="tools-inventory__cell-label">Available</span>@tool.AvailableVersion
-                                        </td>
-                                        <td class="tools-inventory__actions-cell">
-                                            @* The grid the three slots sit in is an element inside
-                                               the cell rather than the cell itself: a `td` carrying
-                                               `display: grid` is no longer a table-cell box, so it
-                                               loses the row's vertical alignment and has the
-                                               library's bottom rule drawn around the grid instead of
-                                               at the row's edge. The same reasoning the library
-                                               records on `.data-table__group-heading`. *@
-                                            <div class="tools-inventory__actions">
-                                                @* One slot per thing the row lets you do: the action
-                                                   or the status, the toggle, and Remove. Each names
-                                                   its own column in the stylesheet rather than taking
-                                                   the one its order would give it, because a
-                                                   marketplace has no toggle and a read-only host no
-                                                   Remove — and under auto-placement the survivors
-                                                   would slide into the empty track, misaligning
-                                                   exactly the rows that differ from the ones around
-                                                   them. Why the tracks are the widths they are is in
-                                                   `.tools-inventory__actions`. *@
-                                                <span class="tools-inventory__action">
-                                                    @if (tool.Kind is DevToolKind.Marketplace)
-                                                    {
-                                                        @* A marketplace has no version to be behind, so it
-                                                           never earns an Update through CanUpdate the way a
-                                                           tool does. What it has is two states — Claude
-                                                           knows it or does not — and one verb for each. *@
-                                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                            @(tool.Installed ? "Update" : "Add")
-                                                        </AppButton>
-                                                    }
-                                                    else if (tool.ConfirmedByHand && tool.ConfiguredEnabled)
-                                                    {
-                                                        @* The one row whose control is not a verb. Nothing
-                                                           can check it, so the only honest answer on it is
-                                                           somebody's word — and a box, unlike a button, can
-                                                           be taken back. It went through Update once, and
-                                                           that was the defect: ticking it removed the only
-                                                           control the row had, so a mis-click was permanent
-                                                           short of hand-editing the per-PC file.
-
-                                                           Only while the machine wants the row at all. A
-                                                           switched-off row has nothing to confirm, and a
-                                                           tick on one would be a statement about something
-                                                           this machine has said it is not doing. *@
-                                                        <Checkbox Checked="@tool.Acknowledged"
-                                                                  CheckedChanged="acknowledged => AcknowledgeAsync(tool, acknowledged)"
-                                                                  Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                  Label="Done here"
-                                                                  CssClass="tools-inventory__ack"
-                                                                  TestId="tools-row-acknowledge" />
-                                                    }
-                                                    else if (tool.CanUpdate)
-                                                    {
-                                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                            Update
-                                                        </AppButton>
-                                                    }
-                                                    else if (tool.CanInstall)
-                                                    {
-                                                        @* The same action as an update. The port has one
-                                                           verb for "make this machine match the config",
-                                                           and behind it the host already runs
-                                                           "plugin install" or "tool install" for a tool
-                                                           that is enabled and absent — what changes here
-                                                           is only that the row now offers it.
-
-                                                           CanInstall is false for a row with no mechanism
-                                                           behind it, which is what keeps the checklist rows
-                                                           and the install-by-hand packages from being given
-                                                           a button with nothing to run. *@
-                                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                            Install
-                                                        </AppButton>
-                                                    }
-                                                    else if (tool.CanReRegister)
-                                                    {
-                                                        @* A registration that exists and points at the wrong
-                                                           thing, which neither of the two branches above can
-                                                           repair: both are gated on there being something to
-                                                           install, and a server reached over HTTP or started
-                                                           by a command has nothing.
-
-                                                           The same verb, again. Update is the port's one word
-                                                           for "make this machine match the config", and behind
-                                                           it the host already removes and re-adds a
-                                                           registration whose target differs — what changes
-                                                           here is only that the row now offers it, and says
-                                                           what pressing it does in terms of a registration
-                                                           rather than of a version. *@
-                                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)"
-                                                                   TestId="tools-row-reregister">
-                                                            Re-register
-                                                        </AppButton>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="tools-inventory__action-note">@ActionNote(tool)</span>
-                                                    }
-                                                </span>
-                                                @if (tool.Kind is not DevToolKind.Marketplace)
-                                                {
-                                                    <span class="tools-inventory__toggle">
-                                                        @* Not for a marketplace. It is not a tool this
-                                                           machine opts into — it is where the Claude
-                                                           plugins that do come from — so the only way to
-                                                           stop wanting one is to remove it. *@
-                                                        <AppButton Variant="ButtonVariant.Ghost"
-                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                   OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? DevToolAction.Disable : DevToolAction.Enable)">
-                                                            @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                                                        </AppButton>
-                                                    </span>
-                                                }
-                                                @if (CanEdit)
-                                                {
-                                                    <span class="tools-inventory__remove">
-                                                        @* The row's test id is shared by every row, so a driver
-                                                           scopes it through the row's data-tool-key. One id per
-                                                           row would be an id nobody could write a selector for
-                                                           without knowing the catalog first. *@
-                                                        <DeleteButton Label="Remove"
-                                                                      AriaLabel="@($"Remove {tool.Name} from the catalog")"
-                                                                      Size="ButtonSize.Small"
-                                                                      ShowIcon="false"
-                                                                      Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                                      TestId="tools-row-remove"
-                                                                      OnClick="() => AskToRemove(tool)" />
-                                                    </span>
-                                                }
-                                            </div>
-                                        </td>
-                                    </Row>
-                                </DataTable>
-                            </div>
-
-                        }
-                    </section>
+                    @RunQueue(queue)
                 }
 
+                @* The library's tab strip: role="tablist", a roving tabindex, and the
+                   arrow, Home and End keys. One row that scrolls sideways when the
+                   pane is narrow, never a wrapped stack. *@
+                <Tabs ActiveId="@_activeTab"
+                      ActiveIdChanged="ChooseTab"
+                      AriaLabel="Kinds of tool"
+                      CssClass="tools-tabs"
+                      StripCssClass="tools-tabs__strip"
+                      PanelCssClass="tools-tabs__panels"
+                      TestId="tools-tabs"
+                      ListTestId="tools-tablist">
+                    <ListTrailing>
+                        @if (_commands.Count > 0)
+                        {
+                            @* A button rather than an anchor: it opens the transcript
+                               fold in the rail rather than navigating anywhere. *@
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       CssClass="tools-tabs__transcript"
+                                       OnClick="ShowTranscript"
+                                       TestId="tools-transcript-link">
+                                Last run transcript <span aria-hidden="true">→</span>
+                            </AppButton>
+                        }
+                    </ListTrailing>
+                    <ChildContent>
+                        <TabPanel Id="@OverviewTab" Title="Overview" Eager="true"
+                                  BaseClass="tools-tab" TabTestId="tools-tab-overview" TestId="tools-overview">
+                            @* The catalog's acts stay reachable from here: Overview is
+                               the tab a machine opens on. *@
+                            @if (_activeTab == OverviewTab)
+                            {
+                                @KindToolbar(OverviewTab)
+                            }
+                            @OverviewBody
+                        </TabPanel>
+
+                        @foreach (var tab in KindTabs)
+                        {
+                            var tabId = tab.Id;
+                            <TabPanel @key="tabId" Id="@tabId" Title="@tab.Title" Eager="true"
+                                      BaseClass="tools-tab" TabTestId="@($"tools-tab-{tab.Slug}")" TestId="@($"tools-{tab.Slug}")">
+                                <TitleContent>
+                                    @* Read from the pane's state when the strip draws it,
+                                       not from the tab record it was built with, so the
+                                       count is the current one even though the strip
+                                       draws before this panel takes its parameters. *@
+                                    @TabTitle(tabId)
+                                    @if (TabAttention(tabId) is { Count: > 0 } attention)
+                                    {
+                                        <Badge Kind="tone"
+                                               Slug="@attention.Tone"
+                                               CssClass="tools-tabs__count"
+                                               TestId="@($"tools-tab-{TabSlug(tabId)}-count")"
+                                               aria-hidden="true">@attention.Count</Badge>
+                                        <span class="sr-only">, @NeedActionSpoken(attention.Count)</span>
+                                    }
+                                </TitleContent>
+                                <ChildContent>
+                                    @if (_activeTab == tabId)
+                                    {
+                                        @KindToolbar(tabId)
+                                    }
+                                    @KindBody(tabId)
+                                </ChildContent>
+                            </TabPanel>
+                        }
+                    </ChildContent>
+                </Tabs>
             }
         </div>
 
-        @if (_commands.Count > 0)
+        @if (_run is { } live)
         {
-            @* Checking tools runs about a dozen processes, and until this was
-               here the only trace of any of them was the sentence in the status
-               line above. The output was already captured and then dropped, so a
-               refused install or a search that could not reach nuget.org had
-               nowhere left to be read.
-
-               Folded, because it is diagnostics and not the pane's subject: it
-               matters exactly when the one-line summary is not enough — and a
-               rail is what lets it be both: closed it is a line of text beside
-               the list, open it is a column the list is read against rather than
-               a block the list has been pushed off the screen by.
-
-               A plain element and not a landmark: an aside with a name of its own
-               would file a complementary region inside the app's main one and
-               announce it as a word nothing on screen says. FoldControl already
-               gives the transcript a labelled region and its trigger already names
-               it, so a third wrapper here would be structure without content. *@
-            <div class="tools-panel__side">
+            @* While a run is going the rail is its transcript, open and live,
+               rather than the folded record of the last one: the queue says which
+               step is on, and this is what that step is printing. Polite, so a
+               screen reader hears the run move without being interrupted by
+               every line of it. *@
+            <div class="tools-panel__side" id="tools-transcript">
+                <section class="tools-run__transcript" aria-labelledby="tools-run-transcript-title" data-testid="tools-run-transcript">
+                    <div class="tools-run__transcript-head">
+                        <h3 class="tools-run__transcript-title" id="tools-run-transcript-title">Live transcript</h3>
+                        <div class="tools-run__transcript-actions">
+                            <CopyButton Text="@LiveLog(live)" Label="Copy transcript" TestId="tools-run-transcript-copy">Copy</CopyButton>
+                            <ToggleButton Pressed="@_transcriptWrap"
+                                          PressedChanged="pressed => _transcriptWrap = pressed"
+                                          TestId="tools-run-transcript-wrap">Wrap lines</ToggleButton>
+                        </div>
+                    </div>
+                    <div class="tools-run__transcript-log" aria-live="polite" data-testid="tools-run-transcript-log">
+                        @if (live.Commands.Count == 0)
+                        {
+                            <Alert Message="Waiting for the first command…" BaseClass="tools-run__transcript-empty" Role="status" />
+                        }
+                        else
+                        {
+                            <CodeView Source="@LiveLog(live)" Language="console" Wrap="@_transcriptWrap" AllowCopy="false" TestId="tools-run-transcript-output" />
+                        }
+                    </div>
+                </section>
+            </div>
+        }
+        else if (_commands.Count > 0)
+        {
+            @* Checking tools runs about a dozen processes, and this is the only
+               trace of their output: a refused install or a search that could not
+               reach nuget.org has nowhere else to be read. Folded, because it is
+               diagnostics and not the pane's subject; the strip's "Last run
+               transcript" opens it. A plain element and not a landmark: FoldControl
+               already gives the transcript a labelled region. *@
+            <div class="tools-panel__side" id="tools-transcript">
                 <FoldControl CssClass="tools-panel__log"
                              Expanded="_commandsShown"
                              ExpandedChanged="shown => _commandsShown = shown"
@@ -837,7 +743,738 @@
                OnConfirm="ConfirmCacheRemovalAsync"
                OnCancel="CancelCacheRemoval" />
 
+@* The last run's whole transcript, which the Overview's Last run card shows the
+   tail of. A dialog rather than the rail's fold: the fold is the transcript of
+   whatever this pane last ran or checked, and after a restart that is a check,
+   not the run the card is about. *@
+<Modal Open="@_lastRunTranscriptOpen"
+       OpenChanged="open => _lastRunTranscriptOpen = open"
+       Title="Last run transcript"
+       CssClass="tools-dialog"
+       TestId="tools-last-run-transcript-dialog">
+    <ChildContent>
+        <CodeView Source="@(_lastRun?.Transcript ?? string.Empty)" Language="console" TestId="tools-last-run-transcript" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _lastRunTranscriptOpen = false">Close</AppButton>
+    </Footer>
+</Modal>
+
 @code {
+    // ------------------------------------------------------------ tabs and filters
+
+    /// <summary>The Overview tab's panel id.</summary>
+    private const string OverviewTab = "tools-overview";
+
+    /// <summary>The tab a machine opens on before it has been on any: the
+    /// Overview, which reads every kind at once.</summary>
+    private const string DefaultTab = OverviewTab;
+
+    private const string AllHosts = "all";
+    private const string ClaudeHosts = "claude";
+    private const string CopilotHosts = "copilot";
+
+    /// <summary>The panel on show, by its id.</summary>
+    private string _activeTab = DefaultTab;
+
+    /// <summary>The host filter, by its id.</summary>
+    private string _hostFilter = AllHosts;
+
+    /// <summary>When the last listing came back, for the header's muted line. Null
+    /// until one has.</summary>
+    private DateTimeOffset? _checkedAt;
+
+    /// <summary>Per tab, whether its toolbar narrows it to the rows that need
+    /// action. All by default; never remembered — a filter on what is outstanding
+    /// today is not a preference.</summary>
+    private readonly Dictionary<string, bool> _needsActionOnly = new(StringComparer.Ordinal);
+
+    /// <summary>Per tab, the text its name filter holds.</summary>
+    private readonly Dictionary<string, string> _nameFilters = new(StringComparer.Ordinal);
+
+    /// <summary>Where the tab and the host filter are remembered, when the host
+    /// composed anywhere. Resolved optionally, the way the Dashboard resolves its
+    /// clock: a host that registers none still renders the pane, and the choices
+    /// then last as long as it.</summary>
+    private IToolsViewPreferences? Preferences => Services.GetService(typeof(IToolsViewPreferences)) as IToolsViewPreferences;
+
+    private TimeProvider Time => Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
+
+    /// <summary>One kind tab: its panel id, the slug its test ids and the
+    /// remembered value use, its title, the kind attribute its section carries, and
+    /// which rows it holds.</summary>
+    private sealed record KindTab(string Id, string Slug, string Title, string KindKey, string Noun, string NounOne, Func<DevToolInfo, bool> Holds);
+
+    /// <summary>The kind tabs in the order the strip draws them. Applications are
+    /// two tabs: the rows confirmed by hand are a checklist somebody walks, and
+    /// filed with the software they read as rows that failed to install.</summary>
+    private static readonly KindTab[] KindTabs =
+    [
+        new("tools-plugins", "plugins", "Plugins", nameof(DevToolKind.Plugin), "plugins", "plugin",
+            tool => tool.Kind is DevToolKind.Plugin),
+        new("tools-marketplaces", "marketplaces", "Marketplaces", nameof(DevToolKind.Marketplace), "marketplaces", "marketplace",
+            tool => tool.Kind is DevToolKind.Marketplace),
+        new("tools-mcp-servers", "mcp-servers", "MCP servers", nameof(DevToolKind.McpServer), "MCP servers", "MCP server",
+            tool => tool.Kind is DevToolKind.McpServer),
+        new("tools-applications", "applications", "Applications", nameof(DevToolKind.Application), "applications", "application",
+            tool => tool.Kind is DevToolKind.Application && !tool.ConfirmedByHand),
+        new("tools-checklist", "checklist", "Checklist", "Checklist", "checklist items", "checklist item",
+            tool => tool.Kind is DevToolKind.Application && tool.ConfirmedByHand)
+    ];
+
+    private static readonly (string Id, string Label)[] HostFilters =
+    [
+        (AllHosts, "All hosts"),
+        (ClaudeHosts, "Claude"),
+        (CopilotHosts, "Copilot")
+    ];
+
+    private static KindTab? KindTabOf(string tabId) => Array.Find(KindTabs, tab => tab.Id == tabId);
+
+    private static string TabSlug(string tabId) => KindTabOf(tabId)?.Slug ?? "overview";
+
+    private static string TabTitle(string tabId) => KindTabOf(tabId)?.Title ?? "Overview";
+
+    private static bool IsKnownTab(string tabId) => tabId == OverviewTab || KindTabOf(tabId) is not null;
+
+    /// <summary>Reads back the tab and the filter this machine last had. A value
+    /// this build does not know — a tab a later build added, a hand edit — falls
+    /// back to the default rather than to a tab with nothing behind it.</summary>
+    private void RestoreView()
+    {
+        if (Preferences is not { } preferences) return;
+
+        if (preferences.Tab is { Length: > 0 } tab && IsKnownTab("tools-" + tab))
+        {
+            _activeTab = "tools-" + tab;
+        }
+
+        if (preferences.HostFilter is AllHosts or ClaudeHosts or CopilotHosts)
+        {
+            _hostFilter = preferences.HostFilter;
+        }
+    }
+
+    private void ChooseTab(string tabId)
+    {
+        _activeTab = tabId;
+        Preferences?.SetTab(TabSlug(tabId));
+    }
+
+    private void ChooseHostFilter(string hostFilter)
+    {
+        _hostFilter = hostFilter;
+        Preferences?.SetHostFilter(hostFilter);
+    }
+
+    /// <summary>Opens the transcript the strip's link names.</summary>
+    private void ShowTranscript() => _commandsShown = true;
+
+    /// <summary>Whether a row is for the hosts the filter shows. Claude is Claude
+    /// Code or Claude Desktop; a row with no host — an application, a checklist
+    /// item — is machine software rather than a registration with either, so it
+    /// shows only under All hosts.</summary>
+    private bool MatchesHost(DevToolInfo tool) => _hostFilter switch
+    {
+        ClaudeHosts => (tool.Hosts & (DevToolHosts.Claude | DevToolHosts.ClaudeDesktop)) != DevToolHosts.None,
+        CopilotHosts => (tool.Hosts & DevToolHosts.Copilot) != DevToolHosts.None,
+        _ => true
+    };
+
+    /// <summary>Every row the host filter lets through, in catalog order.</summary>
+    private IEnumerable<DevToolInfo> HostRows => _tools.Where(MatchesHost);
+
+    /// <summary>The rows a tab holds under the host filter, before its own
+    /// toolbar narrows them. What its counts are counted over.</summary>
+    private IReadOnlyList<DevToolInfo> RowsOn(string tabId) => KindTabOf(tabId) is { } tab
+        ? HostRows.Where(tab.Holds).ToArray()
+        : HostRows.ToArray();
+
+    private bool NeedsActionOnly(string tabId) => _needsActionOnly.TryGetValue(tabId, out var only) && only;
+
+    private void SetNeedsActionOnly(string tabId, bool only) => _needsActionOnly[tabId] = only;
+
+    private string NameFilter(string tabId) => _nameFilters.TryGetValue(tabId, out var text) ? text : string.Empty;
+
+    private void SetNameFilter(string tabId, string? text) => _nameFilters[tabId] = text ?? string.Empty;
+
+    /// <summary>The rows a tab draws: its rows, narrowed by its toolbar.</summary>
+    private IEnumerable<DevToolInfo> VisibleRowsOn(string tabId)
+    {
+        var rows = RowsOn(tabId).AsEnumerable();
+
+        if (NeedsActionOnly(tabId))
+        {
+            rows = rows.Where(NeedsAttention);
+        }
+
+        var text = NameFilter(tabId).Trim();
+        if (text.Length > 0)
+        {
+            rows = rows.Where(tool => tool.Name.Contains(text, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return rows;
+    }
+
+    /// <summary>How many rows on a tab need action.</summary>
+    private int AttentionCount(string tabId) => RowsOn(tabId).Count(NeedsAttention);
+
+    /// <summary>What a tab's badge says and in which tone: the count of rows that
+    /// need action, toned by the worst of them — error for a missing row, warning
+    /// for one that is behind, neutral for one nobody has confirmed. Null while
+    /// nothing on the tab needs action, which draws no badge rather than a zero.</summary>
+    private (int Count, string Tone)? TabAttention(string tabId)
+    {
+        var states = RowsOn(tabId).Select(StateOf).Where(IsOutstanding).ToArray();
+
+        if (states.Length == 0) return null;
+
+        var tone = states.Contains(ToolState.Missing) ? "fault"
+            : states.Contains(ToolState.Update) ? "alert"
+            : "quiet";
+
+        return (states.Length, tone);
+    }
+
+    private static string NeedActionSpoken(int count) =>
+        count == 1 ? "1 needs action" : $"{count} need action";
+
+    /// <summary>The cards a tab draws: one per catalog group, in the order the
+    /// groups first appear, over the rows its toolbar leaves.</summary>
+    private IReadOnlyList<ToolGroup> GroupsOn(string tabId)
+    {
+        var tab = KindTabOf(tabId);
+        if (tab is null) return [];
+
+        var rows = VisibleRowsOn(tabId).ToArray();
+        var named = rows.Any(tool => !string.IsNullOrWhiteSpace(tool.Group));
+
+        return rows
+            .GroupBy(tool => string.IsNullOrWhiteSpace(tool.Group) ? null : tool.Group.Trim())
+            .Select(group => new ToolGroup(
+                // The ungrouped bucket's key ends at the colon: a catalog group is
+                // never blank, so no group name can produce it.
+                $"{tab.KindKey}:{group.Key}",
+                group.Key ?? (named ? "Other" : tab.Title),
+                group.ToArray()))
+            .ToArray();
+    }
+
+    private string EmptyTabTitle(string tabId) => RowsOn(tabId).Count == 0
+        ? $"No {KindTabOf(tabId)?.Noun ?? "rows"} here"
+        : "Nothing matches";
+
+    private string EmptyTabDescription(string tabId) => RowsOn(tabId).Count == 0
+        ? _hostFilter == AllHosts
+            ? "The catalog has none of these for this machine."
+            : "None of these are for the hosts the filter shows."
+        : "No row on this tab matches the toolbar's filters.";
+
+    // ------------------------------------------------------------ the header
+
+    private string Eyebrow => Updating ? "System tools · Updating" : "System tools · " + TabTitle(_activeTab);
+
+    /// <summary>
+    /// The header's sentence: what is outstanding on the tab on show, filled from a
+    /// fixed template — "Two of eighteen plugins are behind", or "Everything matches
+    /// the catalog" when nothing is. A header is never a loading state, so until
+    /// the first listing lands it names the pane's state instead.
+    /// </summary>
+    private string Headline
+    {
+        get
+        {
+            if (_run is { } run) return RunHeadline(run);
+            if (_toolsLoading && _tools.Count == 0) return "Checking this machine";
+            if (!_catalogExists) return "No tool catalog on this machine yet";
+            if (_tools.Count == 0) return "The catalog is empty";
+
+            var rows = RowsOn(_activeTab);
+            var tab = KindTabOf(_activeTab);
+            var states = rows.Select(StateOf).Where(IsOutstanding).ToArray();
+
+            // A tab the filter has emptied says so, rather than claiming that rows
+            // it hides match the catalog.
+            if (rows.Count == 0)
+            {
+                var none = tab?.Noun ?? "entries";
+                return _hostFilter == AllHosts ? $"No {none} in the catalog" : $"No {none} for these hosts";
+            }
+
+            if (states.Length == 0) return "Everything matches the catalog";
+
+            var noun = tab is null ? (rows.Count == 1 ? "entry" : "entries") : rows.Count == 1 ? tab.NounOne : tab.Noun;
+            var one = states.Length == 1;
+            var finding = states.Distinct().ToArray() switch
+            {
+                [ToolState.Update] => one ? "is behind" : "are behind",
+                [ToolState.Missing] => one ? "is missing" : "are missing",
+                [ToolState.NotConfirmed] => one ? "is not confirmed" : "are not confirmed",
+                _ => one ? "needs action" : "need action"
+            };
+
+            // Both numbers in words or both in digits: "Fourteen of 22" reads as two
+            // registers in one sentence.
+            var words = rows.Count < SmallNumbers.Length;
+            return Capitalised($"{NumberWord(states.Length, words)} of {NumberWord(rows.Count, words)} {noun} {finding}");
+        }
+    }
+
+    /// <summary>The muted line under the sentence: when the catalog was last
+    /// checked, and how many entries the tab on show holds.</summary>
+    private string CheckedLine
+    {
+        get
+        {
+            if (_run is { } run) return RunCheckedLine(run);
+            if (_toolsLoading && _tools.Count == 0) return "Checking the catalog";
+            if (!_catalogExists) return "No catalog on this machine";
+
+            var count = RowsOn(_activeTab).Count;
+            var entries = count == 1 ? "1 entry" : $"{count} entries";
+
+            return _checkedAt is { } at
+                ? $"Checked {TimeZoneInfo.ConvertTime(at, Time.LocalTimeZone):HH:mm} · {entries}"
+                : entries;
+        }
+    }
+
+    private static readonly string[] SmallNumbers =
+    [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"
+    ];
+
+    /// <summary>A count as the headline says it: in words up to twenty, the way
+    /// a sentence would, and in digits past it.</summary>
+    private static string NumberWord(int count, bool words) =>
+        words && count >= 0 && count < SmallNumbers.Length ? SmallNumbers[count] : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Capitalised(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    /// <summary>How many rows Update all would act on. Not narrowed by the host
+    /// filter: the port's Update all updates every row, and a count that left
+    /// some of them out would promise less than the button does.</summary>
+    private int UpdatableCount =>
+        _tools.Count(DevToolRunQueueItem.InUpdateAll);
+
+    private string UpdateAllLabel => UpdatableCount > 0 ? $"Update all ({UpdatableCount})" : "Update all";
+
+    // ------------------------------------------------------------ row state
+
+    /// <summary>What a row's status chip says: one word for where the row stands,
+    /// which is also what decides whether it needs action.</summary>
+    private enum ToolState
+    {
+        Current,
+        Update,
+        Missing,
+        Off,
+        Confirmed,
+        NotConfirmed,
+        Unknown
+    }
+
+    /// <summary>
+    /// Where a row stands.
+    ///
+    /// <para>Switched off comes first: a row this machine has said it does not
+    /// want wants nothing, whatever it reports. Then the two shapes with no version
+    /// to compare — a row confirmed by hand, a marketplace — and then the version
+    /// rows, where a drifted registration is an update like a newer version is:
+    /// both are a press of the row's one verb away from matching the catalog.</para>
+    ///
+    /// <para>Wider than the rule before the tabs, which counted only a row with an
+    /// Update or an Install to press. A row that is missing is missing whether or not
+    /// anything here can install it — an install by hand, a server registered by a
+    /// command, a checklist probe that found nothing — and a Needs action that hid it
+    /// would hide the one row somebody has to go and do.</para>
+    /// </summary>
+    private static ToolState StateOf(DevToolInfo tool) => tool switch
+    {
+        { ConfiguredEnabled: false } => ToolState.Off,
+        { ConfirmedByHand: true } => tool.Acknowledged ? ToolState.Confirmed : ToolState.NotConfirmed,
+        { Kind: DevToolKind.Marketplace } => tool.Installed ? ToolState.Current : ToolState.Missing,
+        _ when tool.CanUpdate || tool.CanReRegister => ToolState.Update,
+        _ when tool.CanInstall => ToolState.Missing,
+        _ when ReportsDetection(tool) => tool.Installed ? ToolState.Current : ToolState.Missing,
+        { Installed: false } => ToolState.Missing,
+        { AvailableVersionKnown: false } => ToolState.Unknown,
+        _ => ToolState.Current
+    };
+
+    private static bool IsOutstanding(ToolState state) =>
+        state is ToolState.Update or ToolState.Missing or ToolState.NotConfirmed;
+
+    /// <summary>
+    /// Whether a row still wants something done about it — what the tab badges
+    /// count, what Needs action narrows to, and what decides which groups open by
+    /// themselves. A machine that is set up correctly should open a tab to folded
+    /// cards and no rows.
+    /// </summary>
+    private static bool NeedsAttention(DevToolInfo tool) => IsOutstanding(StateOf(tool));
+
+    private static string StateLabel(ToolState state) => state switch
+    {
+        ToolState.Current => "Up to date",
+        ToolState.Update => "Update",
+        ToolState.Missing => "Missing",
+        ToolState.Off => "Off here",
+        ToolState.Confirmed => "Confirmed by hand",
+        ToolState.NotConfirmed => "Not confirmed",
+        ToolState.Unknown => "Unknown"
+    };
+
+    /// <summary>The chip's tone, from the library's tone family
+    /// (color-scheme.md#badge-and-chip-tones).</summary>
+    private static string StateTone(ToolState state) => state switch
+    {
+        ToolState.Current or ToolState.Confirmed => "settled",
+        ToolState.Update => "alert",
+        ToolState.Missing => "fault",
+        ToolState.Off => "archived",
+        ToolState.NotConfirmed or ToolState.Unknown => "quiet"
+    };
+
+    /// <summary>The hosts a row names, one chip each, in a fixed order.</summary>
+    private static IEnumerable<DevToolHosts> HostsOf(DevToolHosts hosts) =>
+        new[] { DevToolHosts.Copilot, DevToolHosts.Claude, DevToolHosts.ClaudeDesktop }.Where(host => hosts.HasFlag(host));
+
+    // ------------------------------------------------------------ the kind tab body
+
+    /// <summary>The toolbar over a tab: the Needs action toggle and the name
+    /// filter on a kind tab, and the acts that edit the catalog on every tab. Drawn
+    /// in the active panel only, so each control exists once.</summary>
+    private RenderFragment KindToolbar(string tabId) =>
+        @<div class="tools-panel__toolbar" data-testid="tools-kind-toolbar">
+            @if (KindTabOf(tabId) is not null)
+            {
+                <ButtonGroup Radio="true" AriaLabel="Rows to show" CssClass="tools-panel__scope" TestId="tools-needs-filter">
+                    <ToggleButton Pressed="@NeedsActionOnly(tabId)"
+                                  PressedChanged="_ => SetNeedsActionOnly(tabId, true)"
+                                  TestId="tools-needs-action">@($"Needs action ({AttentionCount(tabId)})")</ToggleButton>
+                    <ToggleButton Pressed="@(!NeedsActionOnly(tabId))"
+                                  PressedChanged="_ => SetNeedsActionOnly(tabId, false)"
+                                  TestId="tools-needs-all">@($"All ({RowsOn(tabId).Count})")</ToggleButton>
+                </ButtonGroup>
+                <TextField AriaLabel="Filter by name"
+                           Compact="true"
+                           Placeholder="Filter by name"
+                           Value="@NameFilter(tabId)"
+                           ValueChanged="value => SetNameFilter(tabId, value)"
+                           CssClass="tools-panel__filter"
+                           TestId="tools-name-filter" />
+            }
+            <div class="tools-panel__toolbar-actions">
+                @* Not on the Overview, where the stale cache is a Needs you card
+                   with a Clear of its own. *@
+                @if (StaleCacheCount > 0 && tabId != OverviewTab)
+                {
+                    @* Only while some row reports a folder nothing loads: a button
+                       that appears is the pane saying there is something to clear. *@
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               Disabled="@(_toolsLoading || ToolActionBusy)"
+                               OnClick="AskToClearStaleCache"
+                               TestId="tools-cache-clear">
+                        @(_toolActionKey == ClearCacheKey ? "Clearing..." : $"Clear stale cache ({StaleCacheCount})")
+                    </AppButton>
+                }
+                @if (CanEdit)
+                {
+                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
+                        Add tool
+                    </AppButton>
+                    <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                        Import
+                    </AppButton>
+                }
+            </div>
+        </div>;
+
+    /// <summary>A kind tab's cards: one per catalog group, each with a fold.</summary>
+    private RenderFragment KindBody(string tabId) =>
+        @<section class="tools-kind" data-tool-kind="@KindTabOf(tabId)?.KindKey" data-testid="tools-kind" aria-label="@TabTitle(tabId)">
+            @if (GroupsOn(tabId).Count == 0)
+            {
+                <EmptyState Title="@EmptyTabTitle(tabId)"
+                            Description="@EmptyTabDescription(tabId)"
+                            TestId="tools-kind-empty" />
+            }
+            @foreach (var group in GroupsOn(tabId))
+            {
+                <Card @key="group.Key" CssClass="tools-group" data-tool-group="@group.Key">
+                    <div class="tools-group__fold-row">
+                        <FoldControl CssClass="tools-group__fold"
+                                     Expanded="@IsExpanded(group)"
+                                     ExpandedChanged="expanded => SetExpanded(group, expanded)"
+                                     Controls="@group.RegionId"
+                                     HeadingLevel="3"
+                                     Label="@GroupLabel(group)"
+                                     TestId="tools-group-toggle" />
+                        @if (group.Outstanding == 0)
+                        {
+                            <Badge Kind="tone" Slug="settled" CssClass="tools-group__status" TestId="tools-group-current">All up to date</Badge>
+                        }
+                    </div>
+                    <DataTable TItem="DevToolInfo"
+                               Columns="Columns"
+                               Items="@group.Tools"
+                               RowKey="ToolKey"
+                               RowCssClass="RowClass"
+                               RowAttributes="RowIdentity"
+                               RowNoun="tool"
+                               CssClass="tools-inventory"
+                               AriaLabel="@group.AriaLabel(TabTitle(tabId))"
+                               id="@group.RegionId"
+                               hidden="@(!IsExpanded(group))">
+                        <Row Context="tool">@ToolRow(tool)</Row>
+                    </DataTable>
+                </Card>
+            }
+        </section>;
+
+    /// <summary>One row's cells. The cells are this pane's and the frame is the
+    /// library's, which is the split DataTable is built around: the catalog key a
+    /// driver scopes the shared per-row test ids by, and the quieting a switched-off
+    /// row is drawn with, arrive through the component rather than through a tr
+    /// this pane writes.</summary>
+    private RenderFragment ToolRow(DevToolInfo tool) =>
+        @<text>
+            <td class="tools-inventory__tool">
+                @* The name, and beside it one chip per host the row is for: which
+                   hosts an entry is for decides what its Update actually does. An
+                   application has no host at all — it is machine software, not a
+                   registration with an AI tool — so it gets no chip rather than
+                   one reading "No host". *@
+                <span class="tools-inventory__name-line">
+                    <strong>@tool.Name</strong>
+                    @if (tool.Hosts is not DevToolHosts.None)
+                    {
+                        <span class="tools-inventory__host-chips" title="@HostTitle(tool)" data-testid="tools-row-hosts">
+                            @foreach (var host in HostsOf(tool.Hosts))
+                            {
+                                <Badge BaseClass="tools-inventory__hosts" Kind="">@HostLabel(host)</Badge>
+                            }
+                        </span>
+                    }
+                </span>
+                <span class="tools-inventory__meta">@StatusOf(tool)</span>
+                @if (NoteOf(tool) is { Length: > 0 } note)
+                {
+                    @* The catalog's own warning, on a line of its own
+                       rather than run together with the status. Several
+                       of these are the only reason a row reads the way it
+                       does — a version that legitimately reads backwards,
+                       a probe that is a heuristic, a package that does not
+                       exist — and appended to the status they were a
+                       sentence nobody finished reading. *@
+                    <span class="tools-inventory__note" data-testid="tools-row-note">@note</span>
+                }
+                @if (_runErrors.TryGetValue(tool.Key, out var runError))
+                {
+                    @* A step of the last Update all that did not get there, back
+                       on the row it belongs to: the row is outstanding again, and
+                       this is why — the transcript beside it says the rest. *@
+                    <Alert Message="@($"Update all failed here: {runError}")" BaseClass="tools-inventory__run-error" Inline="true" Role="status" TestId="tools-row-run-error" />
+                }
+                @if (tool.CachedVersions.Count > 0)
+                {
+                    @* What Claude has kept of this plugin, under the row
+                       rather than in a column: it is a list, and a fourth
+                       column would be one more thing the narrow pane has
+                       to stack. Each version says whether an install still
+                       loads it, because that is the only fact that decides
+                       whether it may go — and the one a person clearing
+                       "old versions" by hand gets wrong: a project scope
+                       registered months ago still points at the folder it
+                       was made against, and deleting that one does not move
+                       the project on, it breaks it. Those get no button. *@
+                    <span class="tools-inventory__cache" data-testid="tools-row-cache">
+                        <span class="tools-inventory__cache-label">Cached in Claude</span>
+                        @foreach (var cached in tool.CachedVersions)
+                        {
+                            <span class="tools-inventory__cache-version @(cached.InUse ? "tools-inventory__cache-version--in-use" : "tools-inventory__cache-version--stale")"
+                                  data-testid="tools-row-cache-version"
+                                  data-version="@cached.Version"
+                                  data-in-use="@(cached.InUse ? "true" : "false")"
+                                  title="@cached.Path">
+                                @cached.Version
+                                <span class="tools-inventory__cache-use">@CacheUseLabel(cached)</span>
+                                @if (!cached.InUse)
+                                {
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Size="ButtonSize.Small"
+                                               CssClass="tools-inventory__cache-remove"
+                                               aria-label="@($"Remove cached {cached.Version} of {tool.Name}")"
+                                               Disabled="@(_toolsLoading || ToolActionBusy)"
+                                               TestId="tools-row-cache-remove"
+                                               OnClick="() => AskToRemoveCachedVersion(tool, cached)">
+                                        Remove
+                                    </AppButton>
+                                }
+                            </span>
+                        }
+                    </span>
+                }
+            </td>
+            @* Each version cell names itself. The row's four columns only
+               fit while the pane is wide enough for them — it is a surface
+               beside a workspace, so it often is not — and below that the
+               row stacks and the heading row goes. Two bare version strings
+               in a column say nothing about which is which, so the label is
+               in the markup at every width and the stylesheet decides when
+               it shows. *@
+            <td class="tools-inventory__version" data-testid="tools-row-installed">
+                <span class="tools-inventory__cell-label">Installed</span>@InstalledLabel(tool)
+            </td>
+            <td class="tools-inventory__version @(tool.CanUpdate ? "tools-inventory__version--new" : string.Empty)">
+                <span class="tools-inventory__cell-label">Available</span>@tool.AvailableVersion
+            </td>
+            <td class="tools-inventory__status" data-testid="tools-row-status" data-state="@StateOf(tool)">
+                <span class="tools-inventory__cell-label">Status</span><Badge Kind="tone" Slug="@StateTone(StateOf(tool))" CssClass="tools-inventory__status-chip">@StateLabel(StateOf(tool))</Badge>
+            </td>
+            <td class="tools-inventory__actions-cell">
+                @* The grid the three slots sit in is an element inside
+                   the cell rather than the cell itself: a `td` carrying
+                   `display: grid` is no longer a table-cell box, so it
+                   loses the row's vertical alignment and has the
+                   library's bottom rule drawn around the grid instead of
+                   at the row's edge. The same reasoning the library
+                   records on `.data-table__group-heading`. *@
+                <div class="tools-inventory__actions">
+                    @* One slot per thing the row lets you do: the action
+                       or the status, the toggle, and Remove. Each names
+                       its own column in the stylesheet rather than taking
+                       the one its order would give it, because a
+                       marketplace has no toggle and a read-only host no
+                       Remove — and under auto-placement the survivors
+                       would slide into the empty track, misaligning
+                       exactly the rows that differ from the ones around
+                       them. Why the tracks are the widths they are is in
+                       `.tools-inventory__actions`. *@
+                    <span class="tools-inventory__action">
+                        @if (tool.Kind is DevToolKind.Marketplace)
+                        {
+                            @* A marketplace has no version to be behind, so it
+                               never earns an Update through CanUpdate the way a
+                               tool does. What it has is two states — Claude
+                               knows it or does not — and one verb for each. *@
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                @(tool.Installed ? "Update" : "Add")
+                            </AppButton>
+                        }
+                        else if (tool.ConfirmedByHand && tool.ConfiguredEnabled)
+                        {
+                            @* The one row whose control is not a verb. Nothing
+                               can check it, so the only honest answer on it is
+                               somebody's word — and a box, unlike a button, can
+                               be taken back. It went through Update once, and
+                               that was the defect: ticking it removed the only
+                               control the row had, so a mis-click was permanent
+                               short of hand-editing the per-PC file.
+
+                               Only while the machine wants the row at all. A
+                               switched-off row has nothing to confirm, and a
+                               tick on one would be a statement about something
+                               this machine has said it is not doing. *@
+                            <Checkbox Checked="@tool.Acknowledged"
+                                      CheckedChanged="acknowledged => AcknowledgeAsync(tool, acknowledged)"
+                                      Disabled="@(_toolsLoading || ToolActionBusy)"
+                                      Label="Done here"
+                                      CssClass="tools-inventory__ack"
+                                      TestId="tools-row-acknowledge" />
+                        }
+                        else if (tool.CanUpdate)
+                        {
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                Update
+                            </AppButton>
+                        }
+                        else if (tool.CanInstall)
+                        {
+                            @* The same action as an update. The port has one
+                               verb for "make this machine match the config",
+                               and behind it the host already runs
+                               "plugin install" or "tool install" for a tool
+                               that is enabled and absent — what changes here
+                               is only that the row now offers it.
+
+                               CanInstall is false for a row with no mechanism
+                               behind it, which is what keeps the checklist rows
+                               and the install-by-hand packages from being given
+                               a button with nothing to run. *@
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                Install
+                            </AppButton>
+                        }
+                        else if (tool.CanReRegister)
+                        {
+                            @* A registration that exists and points at the wrong
+                               thing, which neither of the two branches above can
+                               repair: both are gated on there being something to
+                               install, and a server reached over HTTP or started
+                               by a command has nothing.
+
+                               The same verb, again. Update is the port's one word
+                               for "make this machine match the config", and behind
+                               it the host already removes and re-adds a
+                               registration whose target differs — what changes
+                               here is only that the row now offers it, and says
+                               what pressing it does in terms of a registration
+                               rather than of a version. *@
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)"
+                                       TestId="tools-row-reregister">
+                                Re-register
+                            </AppButton>
+                        }
+                        else
+                        {
+                            <span class="tools-inventory__action-note">@ActionNote(tool)</span>
+                        }
+                    </span>
+                    @if (tool.Kind is not DevToolKind.Marketplace)
+                    {
+                        <span class="tools-inventory__toggle">
+                            @* Not for a marketplace. It is not a tool this
+                               machine opts into — it is where the Claude
+                               plugins that do come from — so the only way to
+                               stop wanting one is to remove it. *@
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? DevToolAction.Disable : DevToolAction.Enable)">
+                                @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                            </AppButton>
+                        </span>
+                    }
+                    @if (CanEdit)
+                    {
+                        <span class="tools-inventory__remove">
+                            @* The row's test id is shared by every row, so a driver
+                               scopes it through the row's data-tool-key. One id per
+                               row would be an id nobody could write a selector for
+                               without knowing the catalog first. *@
+                            <DeleteButton Label="Remove"
+                                          AriaLabel="@($"Remove {tool.Name} from the catalog")"
+                                          Size="ButtonSize.Small"
+                                          ShowIcon="false"
+                                          Disabled="@(_toolsLoading || ToolActionBusy)"
+                                          TestId="tools-row-remove"
+                                          OnClick="() => AskToRemove(tool)" />
+                        </span>
+                    }
+                </div>
+            </td>
+        </text>;
+
     /// <summary>The keys the busy state is held under for acts that are not one
     /// tool's. A tool's own key is its catalog key, and none of those can collide
     /// with these: a key is <c>plugin:</c> or <c>mcp:</c> prefixed.</summary>
@@ -911,7 +1548,18 @@
         // on its own.
         DevTools.Changed += OnToolsChanged;
 
-        return RefreshToolsAsync();
+        RestoreView();
+
+        return LoadAsync();
+    }
+
+    /// <summary>The listing and the last-run record, read side by side: the
+    /// record is one small file, and the listing is not held up waiting on it.</summary>
+    private async Task LoadAsync()
+    {
+        var lastRun = ReadLastRunAsync();
+        await RefreshToolsAsync();
+        await lastRun;
     }
 
     /// <summary>Lets go of the port's event. The shell renders this pane only
@@ -967,6 +1615,7 @@
         new("Tool", "tools-inventory__col-tool"),
         new("Installed", "tools-inventory__col-version"),
         new("Available", "tools-inventory__col-version"),
+        new("Status", "tools-inventory__col-status"),
         new("Actions", "tools-inventory__col-actions")
     ];
 
@@ -995,24 +1644,15 @@
     /// point of standing in for the content rather than announcing its absence.
     /// Two sections rather than the real four: enough to show the pane arrives
     /// grouped, without a screenful of grey where a short catalog is coming.</para></summary>
+    /// <summary>The placeholder tab strip: one bar per tab the strip will draw,
+    /// Overview and the five kinds, each about as wide as its title.</summary>
+    private static readonly string[] SkeletonTabs = ["4.5rem", "4rem", "6rem", "6rem", "6.5rem", "5rem"];
+
     private static readonly string[][] SkeletonSections =
     [
         ["62%", "78%", "45%"],
         ["70%", "52%"]
     ];
-
-    /// <summary>"No catalog" is a different fact from "no tools", and the badge is
-    /// where it is said in one glance.
-    ///
-    /// <para>Three facts, not two: until the first read comes back, neither of the
-    /// others is known. <c>_catalogExists</c> starts false, so the badge used to
-    /// open on "No catalog" and correct itself — a claim the pane had not checked,
-    /// beside a placeholder promising rows were coming.</para></summary>
-    private string CountLabel => _toolsLoading && _tools.Count == 0
-        ? "Checking"
-        : !_catalogExists
-            ? "No catalog"
-            : _tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools";
 
     private string NoCatalogDescription => _catalogPath.Length == 0
         ? "This machine has no tool catalog. Create one, or import a catalog you already have."
@@ -1033,9 +1673,11 @@
     /// <summary>Whether "Update all" has anything to do. A marketplace Claude has
     /// never been told about counts, even though it has no version to be behind:
     /// every Claude plugin id resolves against one, so a missing marketplace is a
-    /// whole block of rows failing for a single reason.</summary>
+    /// whole block of rows failing for a single reason. By the port's own rule,
+    /// so a missing application it can install counts too, and the button's
+    /// count is the number of steps the run then takes.</summary>
     private bool CanUpdateAnyTool =>
-        _tools.Any(tool => tool.CanUpdate || (tool.Kind is DevToolKind.Marketplace && !tool.Installed));
+        _tools.Any(DevToolRunQueueItem.InUpdateAll);
 
     /// <summary>How many cached folders across every row nothing loads any more
     /// — what "Clear stale cache" would delete, and whether it is offered at
@@ -1089,7 +1731,7 @@
         }
         else
         {
-            await RunCatalogEditAsync(ClearCacheKey, () => DevTools.RemoveStaleCacheAsync());
+            await RunCatalogEditAsync(ClearCacheKey, () => RecordRunAsync(DevToolRunKind.ClearStaleCache, () => DevTools.RemoveStaleCacheAsync()));
         }
     }
 
@@ -1182,68 +1824,14 @@
             : (status[..index], status[(index + NoteSeparator.Length)..]);
     }
 
-    /// <summary>
-    /// The rows, filed under a heading per kind and — for applications — a
-    /// sub-heading per group.
-    ///
-    /// <para>Grouped in the order the rows arrive rather than in an order this
-    /// pane decides: <see cref="Enumerable.GroupBy{TSource, TKey}(IEnumerable{TSource}, Func{TSource, TKey})"/>
-    /// yields groups by first appearance, and the sequence the port answers in is
-    /// the sequence the catalog is written in — which for a setup guide is the
-    /// order somebody is meant to do the steps in.</para>
-    /// </summary>
-    private IReadOnlyList<ToolKindGroup> ToolKinds =>
-        _tools
-            .GroupBy(tool => tool.Kind)
-            .Select(kind => new ToolKindGroup(
-                kind.Key,
-                KindTitle(kind.Key),
-                kind
-                    .GroupBy(tool => string.IsNullOrWhiteSpace(tool.Group) ? null : tool.Group.Trim())
-                    .Select(group => new ToolGroup($"{kind.Key}:{group.Key ?? "all"}", group.Key, group.ToArray()))
-                    .ToArray()))
-            .ToArray();
-
-    /// <summary>The heading a kind files under, spelled out with no catch-all for
-    /// the reason the port's own key mint has none: a kind added to the enum and
-    /// not named here should fail to compile rather than inherit a heading that
-    /// is about something else.</summary>
-    private static string KindTitle(DevToolKind kind) => kind switch
-    {
-        DevToolKind.Plugin => "Plugins",
-        DevToolKind.McpServer => "MCP servers",
-        DevToolKind.Marketplace => "Claude marketplaces",
-        DevToolKind.Application => "Applications"
-    };
-
-    /// <summary>How much is under a heading, and how much of it still wants
-    /// something. The second number is the one worth reading: a closed group has
-    /// to be able to say it is closed because there is nothing in it to do.</summary>
-    private static string KindCount(ToolKindGroup kind) => Counted(kind.Count, kind.Outstanding);
-
-    private static string GroupLabel(ToolGroup group, string title) =>
-        $"{title} — {Counted(group.Tools.Count, group.Outstanding)}";
+    /// <summary>What a group's fold says: its title, how many rows, and how many of
+    /// them are outstanding — so a folded group can be read without opening it.</summary>
+    private static string GroupLabel(ToolGroup group) =>
+        $"{group.Title} — {Counted(group.Tools.Count, group.Outstanding)}";
 
     private static string Counted(int count, int outstanding) => outstanding == 0
         ? $"{count} row(s), nothing outstanding"
         : $"{count} row(s), {outstanding} outstanding";
-
-    /// <summary>
-    /// Whether a row still wants something done about it.
-    ///
-    /// <para>What decides which groups open by themselves. A machine that is set
-    /// up correctly should open this pane to headings and no rows; the fifty-odd
-    /// rows behind them are worth having and are not worth scrolling past every
-    /// time. A row this machine has switched off wants nothing by definition —
-    /// that is what switching it off said.</para>
-    /// </summary>
-    private static bool NeedsAttention(DevToolInfo tool) => tool switch
-    {
-        { ConfiguredEnabled: false } => false,
-        { ConfirmedByHand: true } => !tool.Acknowledged,
-        { Kind: DevToolKind.Marketplace } => !tool.Installed,
-        _ => tool.CanUpdate || tool.CanInstall
-    };
 
     /// <summary>Whichever groups somebody has opened or closed by hand. Held per
     /// group key so it survives a refresh: checking for updates re-reads every row
@@ -1251,18 +1839,17 @@
     private readonly Dictionary<string, bool> _expanded = new(StringComparer.Ordinal);
 
     /// <summary>A hand toggle wins; otherwise a group opens when it has something
-    /// outstanding, and an ungrouped kind is always open — it is the three-row
-    /// list this pane started as, and there is nothing there to fold away.</summary>
+    /// outstanding and starts folded when it has nothing — a correctly set-up
+    /// machine opens a tab to cards and no rows.</summary>
     private bool IsExpanded(ToolGroup group) => _expanded.TryGetValue(group.Key, out var expanded)
         ? expanded
-        : group.Title is null || group.Outstanding > 0;
+        : group.Outstanding > 0;
 
     private void SetExpanded(ToolGroup group, bool expanded) => _expanded[group.Key] = expanded;
 
-    /// <summary>One heading's worth of rows: a kind's whole list when the entries
-    /// file themselves under nothing, and one of a kind's sub-groups when they
-    /// do.</summary>
-    private sealed record ToolGroup(string Key, string? Title, IReadOnlyList<DevToolInfo> Tools)
+    /// <summary>One card's worth of rows: one of the catalog's groups on a tab,
+    /// or the tab's ungrouped rows.</summary>
+    private sealed record ToolGroup(string Key, string Title, IReadOnlyList<DevToolInfo> Tools)
     {
         public int Outstanding => Tools.Count(NeedsAttention);
 
@@ -1272,17 +1859,8 @@
         public string RegionId => "tools-group-" + new string(Key.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
 
         /// <summary>The table's own label. A screen reader landing in one of a
-        /// dozen tables needs to know which, and "Configured tools" said twelve
-        /// times is the same as saying nothing.</summary>
-        public string AriaLabel(string kindTitle) => Title is { Length: > 0 } title ? $"{kindTitle}: {title}" : kindTitle;
-    }
-
-    /// <summary>Every group under one kind's heading.</summary>
-    private sealed record ToolKindGroup(DevToolKind Kind, string Title, IReadOnlyList<ToolGroup> Groups)
-    {
-        public int Count => Groups.Sum(group => group.Tools.Count);
-
-        public int Outstanding => Groups.Sum(group => group.Outstanding);
+        /// dozen tables needs to know which.</summary>
+        public string AriaLabel(string tabTitle) => Title == tabTitle ? tabTitle : $"{tabTitle}: {Title}";
     }
 
     private const string ImportPlaceholder = """{ "plugins": [], "mcpServers": [] }""";
@@ -1410,6 +1988,7 @@
             _catalogPath = catalog.CatalogPath;
             _canEditCatalog = catalog.CanEditCatalog;
             _commands = catalog.Commands;
+            _checkedAt = Time.GetUtcNow();
         }
         catch (Exception ex)
         {
@@ -1421,25 +2000,92 @@
         }
     }
 
+    /// <summary>
+    /// Runs one of the pane's runs and, once it has finished, keeps it as this
+    /// machine's last run so the Last run card survives a restart.
+    ///
+    /// <para>Written after the port answers and never before: a run still going
+    /// is not a last run, and an app closed mid-run leaves the previous record
+    /// standing rather than half of this one.</para>
+    /// </summary>
+    /// <param name="tool">The row a single Update or Install acted on — its one
+    /// step is read off the row as it stood before the run. Null for an Update all,
+    /// whose steps the port reports, and for a Clear stale cache, which touches no
+    /// tool.</param>
+    private async Task<DevToolActionResult> RecordRunAsync(
+        DevToolRunKind kind,
+        Func<Task<DevToolActionResult>> run,
+        DevToolInfo? tool = null)
+    {
+        var startedAt = DateTimeOffset.Now;
+        var result = await run();
+        var finishedAt = DateTimeOffset.Now;
+
+        IReadOnlyList<DevToolRunStep> steps = tool is null
+            ? result.Steps
+            : [DevToolRunStep.For(tool, result.Succeeded, finishedAt - startedAt)];
+
+        var record = DevToolLastRun.From(kind, startedAt, finishedAt, result, steps);
+        await DevTools.SaveLastRunAsync(record);
+
+        // The Overview's Last run card is this record, so it is the one in hand
+        // rather than one read back from the file just written.
+        _lastRun = record;
+
+        return result;
+    }
+
     private async Task UpdateAllToolsAsync()
     {
         _toolActionKey = UpdateAllKey;
+        _runErrors.Clear();
+
+        // The queue as this pane reads it, by the port's own rule, so the running
+        // state has something to draw before the port's first report — and for a
+        // host whose port reports nothing at all.
+        _run = new DevToolRunProgress(_tools.Where(DevToolRunQueueItem.InUpdateAll).Select(DevToolRunQueueItem.Queue).ToArray(), []);
         try
         {
-            var result = await DevTools.UpdateAllAsync();
-            _toolMessage = result.Message;
-            if (result.Succeeded)
+            var result = await RecordRunAsync(
+                DevToolRunKind.UpdateAll,
+                () => DevTools.UpdateAllWithProgressAsync(new RunProgress(this, OnRunProgress)));
+            var finished = _run;
+
+            // Re-read when any step got there, not only when every one did: a run
+            // that partly failed has rows that moved, and leaving them on their old
+            // versions would show updates still to do that are done.
+            if (result.Succeeded || finished?.Done > 0)
             {
                 await RefreshToolsAsync();
             }
 
+            // Every failed step back on its row, with what the port said about it.
+            foreach (var step in finished?.Items ?? [])
+            {
+                if (step.State is DevToolRunStepState.Failed)
+                {
+                    _runErrors[step.Key] = step.Error ?? "the step did not finish.";
+                }
+            }
+
             // After the refresh rather than before it. The refresh runs a dozen
-            // commands of its own, and letting those land last would replace the
-            // update the reader just asked about with the check that followed it.
+            // commands of its own and a status line of its own, and letting those
+            // land last would replace the update the reader just asked about with
+            // the check that followed it.
+            _toolMessage = result.Message;
             _commands = result.Commands;
+
+            // A failed step keeps its transcript in view: the rail falls back to
+            // the record of the run, opened, rather than folding away the one thing
+            // that says why.
+            if (!result.Succeeded)
+            {
+                _commandsShown = true;
+            }
         }
         finally
         {
+            _run = null;
             _toolActionKey = null;
         }
     }
@@ -1451,7 +2097,7 @@
         {
             var result = action switch
             {
-                DevToolAction.Update => await DevTools.UpdateAsync(tool.Key),
+                DevToolAction.Update => await RecordRunAsync(DevToolLastRun.KindFor(tool), () => DevTools.UpdateAsync(tool.Key), tool),
                 DevToolAction.Enable => await DevTools.EnableAsync(tool.Key),
                 DevToolAction.Disable => await DevTools.DisableAsync(tool.Key),
                 _ => DevToolActionResult.Failed("Unknown tool action.")
@@ -1503,6 +2149,140 @@
     }
 
     private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogAsync());
+
+    /// <summary>"Add tools one at a time": the catalog the add form writes into
+    /// has to exist first, so this writes it and then opens the form — the port's
+    /// add refuses a machine with no catalog.</summary>
+    private async Task StartOneAtATimeAsync()
+    {
+        if (await RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogAsync()))
+        {
+            OpenAddDialog();
+        }
+    }
+
+    // ------------------------------------------------------------ the running state
+
+    /// <summary>The run on screen while an Update all is going: every step and
+    /// where it stands, and the transcript so far. Null when no run is.</summary>
+    private DevToolRunProgress? _run;
+
+    /// <summary>Per row, what the last Update all said about a step that did not
+    /// get there. Cleared when the next one starts.</summary>
+    private readonly Dictionary<string, string> _runErrors = new(StringComparer.Ordinal);
+
+    /// <summary>Whether the live transcript wraps its long lines. On by default:
+    /// a console line wider than the rail is read by wrapping, not by scrolling
+    /// a narrow column sideways.</summary>
+    private bool _transcriptWrap = true;
+
+    private const string UpdatingLabel = "Updating…";
+
+    private bool Updating => _run is not null;
+
+    /// <summary>"Updating 4 tools — 1 done, 1 running", and the failures once
+    /// there are any, so a step that did not get there is never only in the
+    /// queue.</summary>
+    private static string RunHeadline(DevToolRunProgress run)
+    {
+        var tools = run.Total == 1 ? "1 tool" : $"{run.Total} tools";
+        var failed = run.Failed > 0 ? $", {run.Failed} failed" : string.Empty;
+
+        return $"Updating {tools} — {run.Done} done, {run.Running} running{failed}";
+    }
+
+    private static string RunCheckedLine(DevToolRunProgress run)
+    {
+        var queued = run.Items.Count(item => item.State is DevToolRunStepState.Queued);
+        return $"{run.Finished} of {run.Total} finished · {queued} queued";
+    }
+
+    private static int ProgressPercent(DevToolRunProgress run) =>
+        run.Total == 0 ? 0 : (int)Math.Round(100d * run.Finished / run.Total);
+
+    private static string LiveLog(DevToolRunProgress run) =>
+        string.Join(Environment.NewLine + Environment.NewLine, run.Commands.Select(Transcribe));
+
+    /// <summary>The "This run" card: one line per step, in the order the run
+    /// takes them, each with its versions, where it stands and — once finished —
+    /// how long it took. A failed step says why on a line under it.</summary>
+    private RenderFragment RunQueue(DevToolRunProgress run) =>
+        @<Card CssClass="tools-run" TestId="tools-run-queue" AriaLabel="This run">
+            <div class="tools-run__head">
+                <h3 class="tools-run__title">This run</h3>
+                <Badge BaseClass="tools-run__count" Kind="" TestId="tools-run-count">@($"{run.Finished} of {run.Total}")</Badge>
+            </div>
+            <ol class="tools-run__steps">
+                @foreach (var step in run.Items)
+                {
+                    <li @key="step.Key" class="tools-run__step tools-run__step--@step.State.ToString().ToLowerInvariant()"
+                        data-testid="tools-run-step" data-step-key="@step.Key" data-state="@step.State">
+                        <span class="tools-run__name">@step.Name</span>
+                        <span class="tools-run__versions" data-testid="tools-run-step-versions">@StepVersions(step)</span>
+                        <Badge Kind="tone" Slug="@StepTone(step.State)" CssClass="tools-run__state" TestId="tools-run-step-state">@StepLabel(step.State)</Badge>
+                        <span class="tools-run__duration" data-testid="tools-run-step-duration">@(step.Duration is { } took ? FormatDuration(took) : string.Empty)</span>
+                        @if (step.State is DevToolRunStepState.Failed && step.Error is { Length: > 0 } error)
+                        {
+                            <Alert Message="@error" BaseClass="tools-run__error" Inline="true" Role="status" TestId="tools-run-step-error" />
+                        }
+                    </li>
+                }
+            </ol>
+        </Card>;
+
+    private static string StepVersions(DevToolRunQueueItem step) => (step.FromVersion, step.ToVersion) switch
+    {
+        (null, null) => string.Empty,
+        (null, { } to) => $"install {to}",
+        ({ } from, null) => from,
+        ({ } from, { } to) when from == to => to,
+        ({ } from, { } to) => $"{from} → {to}"
+    };
+
+    private static string StepLabel(DevToolRunStepState state) => state switch
+    {
+        DevToolRunStepState.Queued => "Queued",
+        DevToolRunStepState.Running => "Running",
+        DevToolRunStepState.Done => "Done",
+        DevToolRunStepState.Failed => "Failed"
+    };
+
+    private static string StepTone(DevToolRunStepState state) => state switch
+    {
+        DevToolRunStepState.Queued => "quiet",
+        DevToolRunStepState.Running => "live",
+        DevToolRunStepState.Done => "settled",
+        DevToolRunStepState.Failed => "fault"
+    };
+
+    /// <summary>A step's time the way the queue reads it: seconds under a
+    /// minute, minutes and seconds past it.</summary>
+    private static string FormatDuration(TimeSpan took) => took.TotalSeconds switch
+    {
+        < 1 => "<1s",
+        < 60 => $"{(int)took.TotalSeconds}s",
+        _ => $"{(int)took.TotalMinutes}m {took.Seconds}s"
+    };
+
+    /// <summary>A report from the port, on whatever thread its step finished on.
+    /// Dropped once the run is over: a report that lands after the result would
+    /// put a finished run back on screen.</summary>
+    private void OnRunProgress(DevToolRunProgress progress)
+    {
+        if (_toolActionKey != UpdateAllKey) return;
+
+        _run = progress;
+        StateHasChanged();
+    }
+
+    /// <summary>The port's reports, marshalled onto the renderer. Not
+    /// <see cref="Progress{T}"/>: that posts to whatever context was current
+    /// when it was made, and this has to land on the component's own
+    /// dispatcher.</summary>
+    private sealed class RunProgress(ToolsPane pane, Action<DevToolRunProgress> report) : IProgress<DevToolRunProgress>
+    {
+        public void Report(DevToolRunProgress value) => _ = pane.InvokeAsync(() => report(value));
+    }
 
     private void OpenAddDialog()
     {
@@ -1880,14 +2660,559 @@
         _draftCommandError = null;
     }
 
-    /// <summary>Which hosts a row is for, short enough to sit beside the name.
-    /// Both hosts is spelled out rather than left blank: a row that says nothing about
-    /// hosts is indistinguishable from one whose badge failed to render, and the
-    /// whole point of the badge is that the answer is never assumed.</summary>
+    // ------------------------------------------------------------ the overview
+
+    /// <summary>This machine's last finished run, read once when the pane opens
+    /// and replaced by every run the pane finishes. Null when there has been none,
+    /// which hides the Last run card.</summary>
+    private DevToolLastRun? _lastRun;
+
+    private bool _lastRunTranscriptOpen;
+
+    /// <summary>How many of the transcript's last lines the card shows.</summary>
+    private const int LastRunTailLines = 4;
+
+    /// <summary>Reads the record back. A record that cannot be read is no record:
+    /// the card is a convenience, and a broken file must not stop the inventory
+    /// from loading.</summary>
+    private async Task ReadLastRunAsync()
+    {
+        try
+        {
+            _lastRun = await DevTools.ReadLastRunAsync();
+        }
+        catch (Exception)
+        {
+            _lastRun = null;
+        }
+    }
+
+    private void OpenLastRunTranscript() => _lastRunTranscriptOpen = true;
+
+    /// <summary>The headline figures, over the rows the host filter lets through.
+    /// Two kinds of row are not counted at all, so the four parts always add up to
+    /// the total: one this machine has switched off, which wants nothing, and one
+    /// whose version lookup did not answer, which cannot be said to match — nothing
+    /// was found to match against — and is not outstanding either.</summary>
+    private sealed record OverviewFigures(int Total, int Matches, int Updates, int Missing, int Unconfirmed, int StaleCache);
+
+    private OverviewFigures Figures
+    {
+        get
+        {
+            var states = HostRows.Select(StateOf).Where(IsCounted).ToArray();
+            var updates = states.Count(state => state is ToolState.Update);
+            var missing = states.Count(state => state is ToolState.Missing);
+            var unconfirmed = states.Count(state => state is ToolState.NotConfirmed);
+
+            return new OverviewFigures(
+                states.Length,
+                states.Length - updates - missing - unconfirmed,
+                updates,
+                missing,
+                unconfirmed,
+                HostRows.Sum(tool => tool.StaleCachedVersions.Count));
+        }
+    }
+
+    /// <summary>Whether a row's state is one the Overview's figures count.</summary>
+    private static bool IsCounted(ToolState state) => state is not (ToolState.Off or ToolState.Unknown);
+
+    /// <summary>A missing row this pane can install — a press of Install, or Add
+    /// for a marketplace — rather than one somebody installs by hand.</summary>
+    private static bool InstallsFromHere(DevToolInfo tool) =>
+        tool.CanInstall || (tool.Kind is DevToolKind.Marketplace && !tool.Installed);
+
+    /// <summary>The Updates tile's split: one line per host the filter shows, and
+    /// one for machine software, which has no host. A row for both hosts that is
+    /// behind on one counts under that one; a row whose hosts do not say which
+    /// counts under every host it is for.</summary>
+    private IReadOnlyList<(string Label, int Count)> UpdatesByHost
+    {
+        get
+        {
+            var behind = HostRows.Where(tool => StateOf(tool) is ToolState.Update).ToArray();
+            var lines = new List<(string Label, int Count)>();
+
+            if (_hostFilter is AllHosts or CopilotHosts)
+            {
+                lines.Add(("Copilot", behind.Count(tool => UpdatesOn(tool, DevToolHosts.Copilot))));
+            }
+
+            if (_hostFilter is AllHosts or ClaudeHosts)
+            {
+                lines.Add(("Claude", behind.Count(tool => UpdatesOn(tool, DevToolHosts.Claude | DevToolHosts.ClaudeDesktop))));
+            }
+
+            if (_hostFilter is AllHosts)
+            {
+                lines.Add(("Machine", behind.Count(tool => tool.Hosts is DevToolHosts.None)));
+            }
+
+            return lines;
+        }
+    }
+
+    private static bool UpdatesOn(DevToolInfo tool, DevToolHosts hosts)
+    {
+        if ((tool.Hosts & hosts) == DevToolHosts.None) return false;
+
+        var reporting = tool.HostStates.Where(state => state.ReportsUpdate || state.RegistrationDrifted).ToArray();
+
+        return reporting.Length == 0 || reporting.Any(state => (state.Host & hosts) != DevToolHosts.None);
+    }
+
+    /// <summary>What a Needs you card offers: the one control it carries.</summary>
+    private enum NeedControl
+    {
+        Update,
+        Install,
+        DownloadLink,
+        DoneHere,
+        ClearCache
+    }
+
+    /// <summary>One card on Needs you: the row it is about (none for the stale
+    /// cache, which is the machine's), its tone, the action phrase, the hosts it
+    /// is for, the muted detail line, and the one control.</summary>
+    private sealed record NeedItem(
+        string Key,
+        DevToolInfo? Tool,
+        string Tone,
+        string Title,
+        DevToolHosts Hosts,
+        string Detail,
+        NeedControl Control,
+        string? Href = null);
+
+    /// <summary>
+    /// Every row needing action across all kinds, in the order the board reads:
+    /// updates, then missing, then unconfirmed, then the stale cache. Within each,
+    /// catalog order. A row this machine has switched off needs nothing.
+    /// </summary>
+    private IReadOnlyList<NeedItem> NeedsYou
+    {
+        get
+        {
+            var rows = HostRows.Select(tool => (Tool: tool, State: StateOf(tool))).ToArray();
+            var items = new List<NeedItem>();
+
+            items.AddRange(rows.Where(row => row.State is ToolState.Update).Select(row => UpdateNeed(row.Tool)));
+            items.AddRange(rows.Where(row => row.State is ToolState.Missing).Select(row => MissingNeed(row.Tool)));
+            items.AddRange(rows.Where(row => row.State is ToolState.NotConfirmed).Select(row => ConfirmNeed(row.Tool)));
+
+            var stale = Figures.StaleCache;
+            if (stale > 0)
+            {
+                items.Add(new NeedItem(
+                    ClearCacheKey,
+                    null,
+                    "quiet",
+                    "Clear the stale cache",
+                    DevToolHosts.Claude,
+                    stale == 1 ? "1 cached version nothing loads · Claude's plugin cache" : $"{stale} cached versions nothing loads · Claude's plugin cache",
+                    NeedControl.ClearCache));
+            }
+
+            return items;
+        }
+    }
+
+    private static NeedItem UpdateNeed(DevToolInfo tool)
+    {
+        // A drifted registration is behind in where it points, not in a version,
+        // so it says so and shows no version pair.
+        var reRegister = tool.CanReRegister && !tool.CanUpdate;
+        var versions = reRegister || !tool.AvailableVersionKnown
+            ? null
+            : $"{tool.InstalledVersion.Trim()} → {tool.AvailableVersion.Trim()}";
+
+        return new NeedItem(
+            tool.Key,
+            tool,
+            "alert",
+            reRegister ? $"Re-register {tool.Name}" : $"Update {tool.Name}",
+            tool.Hosts,
+            Detail(versions, reRegister ? "registration points elsewhere" : null, KindLabel(tool), NoteOf(tool)),
+            NeedControl.Update);
+    }
+
+    private static NeedItem MissingNeed(DevToolInfo tool)
+    {
+        if (InstallsFromHere(tool))
+        {
+            return new NeedItem(
+                tool.Key,
+                tool,
+                "fault",
+                $"Install {tool.Name}",
+                tool.Hosts,
+                Detail(tool.AvailableVersionKnown ? $"available {tool.AvailableVersion.Trim()}" : null, null, KindLabel(tool), NoteOf(tool)),
+                NeedControl.Install);
+        }
+
+        return new NeedItem(
+            tool.Key,
+            tool,
+            "fault",
+            $"Install {tool.Name} by hand",
+            tool.Hosts,
+            Detail(null, "not installed", KindLabel(tool), NoteOf(tool)),
+            NeedControl.DownloadLink,
+            DownloadPage(tool));
+    }
+
+    private static NeedItem ConfirmNeed(DevToolInfo tool) => new(
+        tool.Key,
+        tool,
+        "quiet",
+        $"Confirm {tool.Name}",
+        tool.Hosts,
+        Detail(null, "not confirmed on this machine", KindLabel(tool), NoteOf(tool)),
+        NeedControl.DoneHere);
+
+    private static string Detail(params string?[] parts) =>
+        string.Join(NoteSeparator, parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>The kind a row is, as one word on its detail line — the kind tab's
+    /// own name for one of it.</summary>
+    private static string KindLabel(DevToolInfo tool) =>
+        Array.Find(KindTabs, tab => tab.Holds(tool)) is { } tab ? Capitalised(tab.NounOne) : tool.Kind.ToString();
+
+    /// <summary>
+    /// Where somebody installing a row by hand gets it.
+    ///
+    /// <para>The catalog names no download page, so the address is derived from
+    /// the mechanism the row already declares: a winget id has a package page on
+    /// winstall.app, which links the publisher's own download, and a VS Code
+    /// extension has its Marketplace page. A row declared any other way — a
+    /// command, a server registered by one — has no address to derive, and its
+    /// card links to its kind tab instead, where the note under the row says what
+    /// to do.</para>
+    /// </summary>
+    private static string? DownloadPage(DevToolInfo tool)
+    {
+        if (tool.Kind is not DevToolKind.Application || !tool.Key.StartsWith("app:", StringComparison.Ordinal)) return null;
+
+        var id = Uri.EscapeDataString(tool.Key["app:".Length..]);
+
+        return tool.Source switch
+        {
+            "winget" => $"https://winstall.app/apps/{id}",
+            "vscode-extension" => $"https://marketplace.visualstudio.com/items?itemName={id}",
+            _ => null
+        };
+    }
+
+    private static string TabIdOf(DevToolInfo tool) =>
+        Array.Find(KindTabs, tab => tab.Holds(tool))?.Id ?? OverviewTab;
+
+    /// <summary>One bar per kind tab: how many of its rows match against how many
+    /// it counts, under the host filter, with the outstanding rest in the parts
+    /// the headline bar uses — so one legend reads both. The rows the headline
+    /// figures leave out are left out here too.</summary>
+    private sealed record KindBar(string TabId, string Slug, string Title, int Matches, int Updates, int Missing, int Unconfirmed)
+    {
+        public int Total => Matches + Updates + Missing + Unconfirmed;
+    }
+
+    private IReadOnlyList<KindBar> KindBars => KindTabs
+        .Select(tab =>
+        {
+            var states = HostRows.Where(tab.Holds).Select(StateOf).Where(IsCounted).ToArray();
+            var updates = states.Count(state => state is ToolState.Update);
+            var missing = states.Count(state => state is ToolState.Missing);
+            var unconfirmed = states.Count(state => state is ToolState.NotConfirmed);
+            return new KindBar(tab.Id, tab.Slug, tab.Title, states.Length - updates - missing - unconfirmed, updates, missing, unconfirmed);
+        })
+        .ToArray();
+
+    /// <summary>A part's width in a bar, written invariant so a comma decimal
+    /// separator never makes the declaration invalid.</summary>
+    private static string Share(int part, int whole) => whole <= 0
+        ? "0"
+        : (part * 100m / whole).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The headline bar's text alternative: every part, named.</summary>
+    private static string MatchesSpoken(OverviewFigures figures) =>
+        $"{figures.Matches} match, {figures.Updates} {(figures.Updates == 1 ? "update" : "updates")}, {figures.Missing} missing, {figures.Unconfirmed} unconfirmed";
+
+    private static string RunKindLabel(DevToolRunKind kind) => kind switch
+    {
+        DevToolRunKind.UpdateAll => "Update all",
+        DevToolRunKind.Update => "Update",
+        DevToolRunKind.Install => "Install",
+        DevToolRunKind.ClearStaleCache => "Clear stale cache",
+        _ => kind.ToString()
+    };
+
+    private static (string Label, string Tone) OutcomeChip(DevToolRunOutcome outcome) => outcome switch
+    {
+        DevToolRunOutcome.Succeeded => ("Succeeded", "settled"),
+        DevToolRunOutcome.PartlyFailed => ("Partly failed", "alert"),
+        _ => ("Failed", "fault")
+    };
+
+    /// <summary>When the run finished, in this machine's time: the time alone
+    /// today, the date and time otherwise.</summary>
+    private string RunWhen(DevToolLastRun run)
+    {
+        var zone = Time.LocalTimeZone;
+        var finished = TimeZoneInfo.ConvertTime(run.FinishedAt, zone);
+        var today = TimeZoneInfo.ConvertTime(Time.GetUtcNow(), zone).Date;
+
+        return finished.Date == today
+            ? $"Today {finished:HH:mm}"
+            : finished.ToString("d MMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>"3 of 4 steps succeeded", or "No tool steps" for a run that touched no
+    /// tool — a Clear stale cache.</summary>
+    private static string RunSteps(DevToolLastRun run)
+    {
+        if (run.Steps.Count == 0) return "No tool steps";
+
+        var succeeded = run.Steps.Count(step => step.Outcome is DevToolRunOutcome.Succeeded);
+        return $"{succeeded} of {run.Steps.Count} {(run.Steps.Count == 1 ? "step" : "steps")} succeeded";
+    }
+
+    private static string RunDuration(TimeSpan duration) => duration switch
+    {
+        { TotalSeconds: < 1 } => "under a second",
+        { TotalMinutes: < 1 } => $"{(int)duration.TotalSeconds} s",
+        { TotalHours: < 1 } => $"{(int)duration.TotalMinutes} min {duration.Seconds} s",
+        _ => $"{(int)duration.TotalHours} h {duration.Minutes} min"
+    };
+
+    /// <summary>The transcript's last few non-blank lines, oldest first.</summary>
+    private static string RunTail(DevToolLastRun run) => string.Join(
+        "\n",
+        run.Transcript
+            .Split('\n')
+            .Select(line => line.TrimEnd('\r'))
+            .Where(line => line.Trim().Length > 0)
+            .TakeLast(LastRunTailLines));
+
+    /// <summary>
+    /// The Overview: four headline tiles across the top, then Needs you in the
+    /// main column and By kind and Last run in the side one — the Dashboard
+    /// Overview's arrangement. Every figure is over the rows the host filter lets
+    /// through; the Last run card is a record of what ran, which no filter changes.
+    /// </summary>
+    private RenderFragment OverviewBody =>
+        @<div class="tools-overview" data-testid="tools-overview-board">
+            @{ var figures = Figures; }
+            <div class="tools-overview__tiles">
+                <article class="dashboard-overview-tile" data-testid="tools-overview-tile-matches" aria-labelledby="tools-overview-tile-matches-label">
+                    <p class="dashboard-overview-tile__label" id="tools-overview-tile-matches-label">Matches the catalog</p>
+                    <p class="dashboard-overview-tile__value" data-testid="tools-overview-tile-matches-value">
+                        @figures.Matches <span class="dashboard-overview-tile__unit">of @figures.Total</span>
+                    </p>
+                    <div class="tools-overview__stack" aria-hidden="true" data-testid="tools-overview-stack">
+                        <span class="tools-overview__part tools-overview__part--match" style="@($"width: {Share(figures.Matches, figures.Total)}%")"></span>
+                        <span class="tools-overview__part tools-overview__part--update" style="@($"width: {Share(figures.Updates, figures.Total)}%")"></span>
+                        <span class="tools-overview__part tools-overview__part--missing" style="@($"width: {Share(figures.Missing, figures.Total)}%")"></span>
+                        <span class="tools-overview__part tools-overview__part--unconfirmed" style="@($"width: {Share(figures.Unconfirmed, figures.Total)}%")"></span>
+                    </div>
+                    <p class="tools-overview__tile-note" data-testid="tools-overview-stack-text">@MatchesSpoken(figures)</p>
+                </article>
+
+                <article class="dashboard-overview-tile" data-testid="tools-overview-tile-updates" aria-labelledby="tools-overview-tile-updates-label">
+                    <p class="dashboard-overview-tile__label" id="tools-overview-tile-updates-label">Updates</p>
+                    <p class="dashboard-overview-tile__value" data-testid="tools-overview-tile-updates-value">@figures.Updates</p>
+                    <ul class="dashboard-overview-tile__lines" data-testid="tools-overview-updates-split">
+                        @foreach (var line in UpdatesByHost)
+                        {
+                            <li class="dashboard-overview-tile__line" data-host="@line.Label">
+                                <span class="dashboard-overview-tile__line-name">@line.Label</span>
+                                <span class="tools-overview__line-figure">@line.Count</span>
+                            </li>
+                        }
+                    </ul>
+                </article>
+
+                <article class="dashboard-overview-tile" data-testid="tools-overview-tile-missing" aria-labelledby="tools-overview-tile-missing-label">
+                    <p class="dashboard-overview-tile__label" id="tools-overview-tile-missing-label">Missing</p>
+                    <p class="dashboard-overview-tile__value" data-testid="tools-overview-tile-missing-value">@figures.Missing</p>
+                    @{
+                        var missingRows = HostRows.Where(tool => StateOf(tool) is ToolState.Missing).ToArray();
+                        var fromHere = missingRows.Count(InstallsFromHere);
+                    }
+                    <p class="tools-overview__tile-note" data-testid="tools-overview-missing-split">@fromHere install from here · @(missingRows.Length - fromHere) by hand</p>
+                </article>
+
+                <article class="dashboard-overview-tile" data-testid="tools-overview-tile-stale" aria-labelledby="tools-overview-tile-stale-label">
+                    <p class="dashboard-overview-tile__label" id="tools-overview-tile-stale-label">Stale cache</p>
+                    <p class="dashboard-overview-tile__value" data-testid="tools-overview-tile-stale-value">@figures.StaleCache</p>
+                    <p class="tools-overview__tile-note">@(figures.StaleCache == 1 ? "cached version nothing loads" : "cached versions nothing loads")</p>
+                </article>
+            </div>
+
+            <div class="tools-overview__columns">
+                <section class="tools-overview__main tools-overview__part dashboard-part" aria-labelledby="tools-overview-needs-title" data-testid="tools-overview-needs">
+                    <h3 class="tools-overview__heading" id="tools-overview-needs-title">Needs you</h3>
+                    @{ var needs = NeedsYou; }
+                    @if (needs.Count == 0)
+                    {
+                        <EmptyState Title="Everything matches the catalog"
+                                    Description="Nothing on this machine needs action for the hosts the filter shows."
+                                    TestId="tools-overview-needs-empty" />
+                    }
+                    else
+                    {
+                        <ul class="dashboard-overview-needs__list">
+                            @foreach (var need in needs)
+                            {
+                                <li @key="need.Key" class="@($"dashboard-overview-needs__item tools-overview-need tools-overview-need--{need.Tone}")"
+                                    data-testid="tools-overview-need" data-need-key="@need.Key" data-control="@need.Control">
+                                    <span class="dashboard-overview-needs__dot tools-overview-need__dot" aria-hidden="true"></span>
+                                    <div class="dashboard-overview-needs__body tools-overview-need__body">
+                                        <span class="tools-overview-need__title-line">
+                                            <strong data-testid="tools-overview-need-title">@need.Title</strong>
+                                            @if (need.Hosts is not DevToolHosts.None)
+                                            {
+                                                <span class="tools-inventory__host-chips" data-testid="tools-overview-need-hosts">
+                                                    @foreach (var host in HostsOf(need.Hosts))
+                                                    {
+                                                        <Badge BaseClass="tools-inventory__hosts" Kind="">@HostLabel(host)</Badge>
+                                                    }
+                                                </span>
+                                            }
+                                        </span>
+                                        @if (need.Detail.Length > 0)
+                                        {
+                                            <span class="dashboard-overview-needs__detail" data-testid="tools-overview-need-detail">@need.Detail</span>
+                                        }
+                                    </div>
+                                    <div class="tools-overview-need__control">
+                                        @NeedControlFor(need)
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+
+                <div class="tools-overview__side">
+                    <section class="tools-overview__part dashboard-part" aria-labelledby="tools-overview-kinds-title" data-testid="tools-overview-kinds">
+                        <h3 class="tools-overview__heading" id="tools-overview-kinds-title">By kind</h3>
+                        <ul class="tools-overview-kinds">
+                            @foreach (var bar in KindBars)
+                            {
+                                var tabId = bar.TabId;
+                                <li @key="tabId" class="tools-overview-kinds__row">
+                                    <a href="@($"#{tabId}")"
+                                       class="tools-overview-kinds__link"
+                                       data-testid="@($"tools-overview-kind-{bar.Slug}")"
+                                       aria-label="@($"{bar.Title}: {bar.Matches} of {bar.Total} match, open the {bar.Title} tab")"
+                                       @onclick="() => ChooseTab(tabId)"
+                                       @onclick:preventDefault="true">
+                                        <span class="tools-overview-kinds__name">@bar.Title</span>
+                                        <span class="tools-overview-kinds__ratio" data-testid="@($"tools-overview-kind-{bar.Slug}-count")">@bar.Matches/@bar.Total</span>
+                                        <span class="tools-overview__stack tools-overview-kinds__bar" aria-hidden="true">
+                                            <span class="tools-overview__part tools-overview__part--match" style="@($"width: {Share(bar.Matches, bar.Total)}%")"></span>
+                                            <span class="tools-overview__part tools-overview__part--update" style="@($"width: {Share(bar.Updates, bar.Total)}%")"></span>
+                                            <span class="tools-overview__part tools-overview__part--missing" style="@($"width: {Share(bar.Missing, bar.Total)}%")"></span>
+                                            <span class="tools-overview__part tools-overview__part--unconfirmed" style="@($"width: {Share(bar.Unconfirmed, bar.Total)}%")"></span>
+                                        </span>
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                        <ul class="tools-overview-legend" data-testid="tools-overview-legend">
+                            <li><span class="tools-overview-legend__swatch tools-overview__part--match" aria-hidden="true"></span>Matches</li>
+                            <li><span class="tools-overview-legend__swatch tools-overview__part--update" aria-hidden="true"></span>Update</li>
+                            <li><span class="tools-overview-legend__swatch tools-overview__part--missing" aria-hidden="true"></span>Missing</li>
+                            <li><span class="tools-overview-legend__swatch tools-overview__part--unconfirmed" aria-hidden="true"></span>Unconfirmed</li>
+                        </ul>
+                    </section>
+
+                    @if (_lastRun is { } run)
+                    {
+                        var chip = OutcomeChip(run.Outcome);
+                        <section class="tools-overview__part dashboard-part" aria-labelledby="tools-overview-run-title" data-testid="tools-overview-last-run">
+                            <div class="tools-overview-run__head">
+                                <h3 class="tools-overview__heading" id="tools-overview-run-title">Last run</h3>
+                                <Badge Kind="tone" Slug="@chip.Tone" TestId="tools-overview-run-outcome">@chip.Label</Badge>
+                            </div>
+                            <p class="tools-overview-run__summary" data-testid="tools-overview-run-summary">
+                                <strong>@RunKindLabel(run.Kind)</strong> · @RunWhen(run)
+                            </p>
+                            <p class="tools-overview-run__figures" data-testid="tools-overview-run-figures">@RunSteps(run) · @RunDuration(run.Duration)</p>
+                            @if (RunTail(run) is { Length: > 0 } tail)
+                            {
+                                <pre class="tools-overview-run__tail" data-testid="tools-overview-run-tail">@tail</pre>
+                            }
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       CssClass="tools-overview-run__open"
+                                       OnClick="OpenLastRunTranscript"
+                                       TestId="tools-overview-run-open">
+                                Open full transcript <span aria-hidden="true">→</span>
+                            </AppButton>
+                        </section>
+                    }
+                </div>
+            </div>
+        </div>;
+
+    /// <summary>The one control a Needs you card carries.</summary>
+    private RenderFragment NeedControlFor(NeedItem need) => need.Control switch
+    {
+        NeedControl.Update =>
+            @<AppButton Variant="ButtonVariant.Secondary"
+                        Disabled="@(_toolsLoading || ToolActionBusy)"
+                        aria-label="@need.Title"
+                        OnClick="() => ApplyToolActionAsync(need.Tool!, DevToolAction.Update)"
+                        TestId="tools-overview-need-update">
+                @(need.Tool!.CanReRegister && !need.Tool.CanUpdate ? "Re-register" : "Update")
+            </AppButton>,
+        NeedControl.Install =>
+            @<AppButton Variant="ButtonVariant.Secondary"
+                        Disabled="@(_toolsLoading || ToolActionBusy)"
+                        aria-label="@need.Title"
+                        OnClick="() => ApplyToolActionAsync(need.Tool!, DevToolAction.Update)"
+                        TestId="tools-overview-need-install">
+                Install
+            </AppButton>,
+        NeedControl.DownloadLink when need.Href is { } href =>
+            @<AppButton Variant="ButtonVariant.Ghost"
+                        Href="@href"
+                        aria-label="@($"Download page for {need.Tool!.Name}, opens in a new window")"
+                        TestId="tools-overview-need-download">
+                Download page
+            </AppButton>,
+        NeedControl.DownloadLink =>
+            @<a href="@($"#{TabIdOf(need.Tool!)}")"
+                class="tools-overview-need__tab-link"
+                data-testid="tools-overview-need-open-tab"
+                @onclick="() => ChooseTab(TabIdOf(need.Tool!))"
+                @onclick:preventDefault="true">
+                See how on @TabTitle(TabIdOf(need.Tool!))
+            </a>,
+        NeedControl.DoneHere =>
+            @<Checkbox Checked="@need.Tool!.Acknowledged"
+                       CheckedChanged="acknowledged => AcknowledgeAsync(need.Tool!, acknowledged)"
+                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                       Label="Done here"
+                       aria-label="@($"Done here: {need.Tool!.Name}")"
+                       CssClass="tools-inventory__ack"
+                       TestId="tools-overview-need-done" />,
+        _ =>
+            @<AppButton Variant="ButtonVariant.Secondary"
+                        Disabled="@(_toolsLoading || ToolActionBusy)"
+                        aria-label="Clear the stale cache"
+                        OnClick="AskToClearStaleCache"
+                        TestId="tools-overview-need-clear">
+                @(_toolActionKey == ClearCacheKey ? "Clearing..." : "Clear")
+            </AppButton>
+    };
+
+    /// <summary>A host's name, short enough to sit beside a row's name as a chip.</summary>
     private static string HostLabel(DevToolHosts hosts) => hosts switch
     {
         DevToolHosts.Copilot => "Copilot",
         DevToolHosts.Claude => "Claude",
+        DevToolHosts.ClaudeDesktop => "Claude Desktop",
         DevToolHosts.Default => "Copilot + Claude",
         _ => "No host"
     };
@@ -1901,9 +3226,4 @@
 
     private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string Humanize(string enumName)
-    {
-        var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
-        return text.ToLowerInvariant();
-    }
 }

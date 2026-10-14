@@ -1028,6 +1028,43 @@ public sealed class ShellNavigationStoreTests
         }
     }
 
+    /// <summary>
+    /// The tools pane's tab and host filter survive a restart, and neither key is
+    /// written until the pane has been on a tab or a filter, so an older file keeps
+    /// its shape.
+    /// </summary>
+    [Fact]
+    public void The_tools_tab_and_host_filter_survive_a_restart_and_write_no_key_until_chosen()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.Null(store.ToolsTab);
+            Assert.Null(store.ToolsHostFilter);
+
+            store.SetLastSurface("Tools");
+            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("toolsTab", out _));
+                Assert.False(none.RootElement.TryGetProperty("toolsHostFilter", out _));
+            }
+
+            store.SetToolsTab("checklist");
+            store.SetToolsHostFilter("claude");
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.Equal("checklist", restarted.ToolsTab);
+            Assert.Equal("claude", restarted.ToolsHostFilter);
+            Assert.Equal("Tools", restarted.LastSurface);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
     private static string NewSettingsPath() =>
         Path.Combine(Path.GetTempPath(), "backlog-shell-navigation-tests", Guid.NewGuid().ToString("n"), "shell-navigation.json");
 

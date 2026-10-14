@@ -356,3 +356,47 @@ The sync SHALL leave a linked task the person finished here Done, and flag that 
 - **Given** a linked task whose target's status map gives "Verfijnd" the status Ready, its item is in "Verfijnd", and the person marks the task Done
 - **When** the sync runs
 - **Then** the task is still Done and is flagged as done here and open at the source
+
+## Projection
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/tasks/features.md#projection]
+```
+
+> The requirements of the automatic Projection policy, which is not built yet.
+> The feature chapter says what Projection is and why; this says what the policy
+> will promise.
+
+### Requirement: Starting work opens one artifact per target repository
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/tasks/domain.md#projection]
+```
+
+When a task moves from `ready` to `in_progress`, the Projection policy SHALL open one downstream artifact, a GitHub issue or a Copilot CLI task, for each `repo_id` the task targets, and record each as a Projection Ref on the task.
+
+#### Scenario: A task that targets two repositories
+
+- **Given** a `ready` task that targets the repositories `backlog` and `fincent` and holds no Projection Ref
+- **When** the task moves to `in_progress`
+- **Then** one GitHub issue is open in `backlog` and one in `fincent`, and the task holds a Projection Ref to each of them
+
+### Requirement: Completing a task closes its artifacts
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/tasks/domain.md#projection]
+```
+
+When a task is completed, the Projection policy SHALL close every downstream artifact the task's Projection Refs name.
+
+#### Scenario: A task projected into two repositories is ticked off
+
+- **Given** an `in_progress` task holding Projection Refs to an open GitHub issue in `backlog` and one in `fincent`
+- **When** the person ticks the task off
+- **Then** both issues are closed

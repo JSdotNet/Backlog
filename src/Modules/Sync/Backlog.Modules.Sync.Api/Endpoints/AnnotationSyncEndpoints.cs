@@ -96,63 +96,23 @@ internal static class AnnotationSyncEndpoints
 
     /// <summary>
     /// The first change that is not something this service will store, or null
-    /// if every one of them is. The whole batch is refused rather than the
-    /// offending changes dropped, for the reason the session push gives: a
-    /// watermark past a remark nobody stored is not recoverable, a refusal is.
-    /// <para>
-    /// A remark with no repository alias or no chapter path could not be placed
-    /// on any device, and a negative block index anchors to nothing. The body
-    /// may be empty — a resolved remark can have had its text cleared — and the
-    /// bounds are what stop a caller posting a megabyte into durable,
-    /// per-request-billed storage.
-    /// </para>
+    /// if every one of them is, by <see cref="AnnotationRecordLimits.WhyRefused"/>
+    /// — the rule the desktop runs before it pushes. The whole batch is refused
+    /// rather than the offending changes dropped, so the service never answers
+    /// 200 for a remark it did not store: a device's watermark moves past only
+    /// what was stored, or what the device itself left out — and logged —
+    /// because this rule would never let it be stored.
     /// </summary>
     private static Error? OutOfBounds(IReadOnlyList<AnnotationChange> changes)
     {
         foreach (var change in changes)
         {
-            if (change.Annotation is null)
+            if (AnnotationRecordLimits.WhyRefused(change) is { } reason)
             {
-                return Invalid("An annotation change needs the annotation it changes.");
-            }
-
-            var annotation = change.Annotation;
-
-            if (string.IsNullOrWhiteSpace(annotation.RepositoryAlias))
-            {
-                return Invalid("An annotation needs the alias of the repository its chapter is in.");
-            }
-
-            if (string.IsNullOrWhiteSpace(annotation.ChapterPath))
-            {
-                return Invalid("An annotation needs the path of the chapter it is on.");
-            }
-
-            if (annotation.BlockIndex < 0)
-            {
-                return Invalid("An annotation's block index cannot be negative.");
-            }
-
-            var refusal =
-                TooLong("repository alias", annotation.RepositoryAlias, SyncRequestLimits.MaximumRepositoryAlias)
-                ?? TooLong("chapter path", annotation.ChapterPath, SyncRequestLimits.MaximumChapterPath)
-                ?? TooLong("author", annotation.Author, SyncRequestLimits.MaximumAnnotationAuthor)
-                ?? TooLong("body", annotation.Body, SyncRequestLimits.MaximumAnnotationBody)
-                ?? TooLong("block hash", annotation.BlockHash, SyncRequestLimits.MaximumAnnotationBlockHash);
-
-            if (refusal is not null)
-            {
-                return refusal;
+                return Error.Validation(SyncErrorCodes.AnnotationInvalid, reason);
             }
         }
 
         return null;
     }
-
-    private static Error? TooLong(string field, string? value, int limit) =>
-        value is not null && value.Length > limit
-            ? Invalid($"An annotation's {field} may be at most {limit} characters; this one was {value.Length}.")
-            : null;
-
-    private static Error Invalid(string message) => Error.Validation(SyncErrorCodes.AnnotationInvalid, message);
 }

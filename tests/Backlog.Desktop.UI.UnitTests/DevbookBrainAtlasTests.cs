@@ -360,6 +360,8 @@ public sealed class DevbookBrainAtlasTests : IDisposable
     {
         public string? BrainRoot => root;
 
+        public bool BrainFolderPresent() => root is not null;
+
         public event Action? Changed { add { } remove { } }
 
         public void NotifyContentChanged()

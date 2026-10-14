@@ -23,11 +23,20 @@ public sealed record SuggestManyQuery(IReadOnlyList<Guid> Ids);
 /// them to <see cref="InboxClassifier"/>. Both ports are optional, like the plan
 /// drafter: a host that registers neither still gets the suggestions the item's
 /// own text supports.
+/// <para>
+/// A suggestion to keep the item as knowledge is still offered while the Brain
+/// cannot take a note — no Brain folder set, one missing, a host without a Brain —
+/// but carries <see cref="InboxSuggestionDto.UnavailableReason"/> in the words the
+/// route would refuse in (<see cref="IInboxBrainTarget.UnavailableReason"/>), so the
+/// chip says why it cannot be taken rather than offering a route that is then
+/// refused. With no target, as the route itself, there is no Brain here.
+/// </para>
 /// </summary>
 public sealed class SuggestQueryHandler(
     IInboxItemRepository items,
     IBacklogTagSource? backlogTags = null,
-    IInboxRoutingRules? routingRules = null)
+    IInboxRoutingRules? routingRules = null,
+    IInboxBrainTarget? brainTarget = null)
     : IQueryHandler<SuggestQuery, Result<IReadOnlyList<InboxSuggestionDto>>>,
       IQueryHandler<SuggestManyQuery, Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>>
 {
@@ -46,25 +55,54 @@ public sealed class SuggestQueryHandler(
             : await backlogTags.TagsInUseAsync(cancellationToken).ConfigureAwait(false);
         var rules = routingRules?.Current ?? [];
 
-        return Result.Success(InboxClassifier.Suggest(item, tags, rules));
+        return Result.Success(WithBrainAvailability(InboxClassifier.Suggest(item, tags, rules), BrainUnavailableReason()));
+    }
+
+    /// <summary>Why the Brain cannot take a note now, or null when it can.</summary>
+    private string? BrainUnavailableReason() =>
+        brainTarget is null ? InboxErrors.NoBrainHere : brainTarget.UnavailableReason;
+
+    /// <summary><paramref name="suggestions"/>, the Brain's destination marked with
+    /// <paramref name="unavailable"/> when the Brain cannot take a note.</summary>
+    private static IReadOnlyList<InboxSuggestionDto> WithBrainAvailability(
+        IReadOnlyList<InboxSuggestionDto> suggestions,
+        string? unavailable)
+    {
+        if (unavailable is null) return suggestions;
+
+        var brain = InboxEnumMap.ToWire(RoutingDomain.Devbook);
+        return
+        [
+            .. suggestions.Select(suggestion =>
+                suggestion.Kind == InboxSuggestionKind.Destination && suggestion.Value == brain && suggestion.Available
+                    ? suggestion with { UnavailableReason = unavailable }
+                    : suggestion)
+        ];
     }
 
     /// <summary>Each id that names an item, with what it would be offered —
     /// nothing for a decided one. An id with no item is left out rather than
     /// failing the rest: a row can vanish between the list's read and this one.
-    /// The tags and the rules are read once for the whole batch.</summary>
+    /// The items are loaded in one read, and the tags and the rules are read —
+    /// and the tags prepared for matching — once for the whole batch.</summary>
     public async Task<Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>> Handle(SuggestManyQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        var answers = new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
-        IReadOnlyList<string>? tags = null;
-        var rules = routingRules?.Current ?? [];
+        var ids = query.Ids.Distinct().ToList();
+        var loaded = await items.GetManyAsync(ids, cancellationToken).ConfigureAwait(false);
+        var byId = loaded.ToDictionary(item => item.Id);
 
-        foreach (var id in query.Ids.Distinct())
+        var answers = new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
+        InboxTagVocabulary? vocabulary = null;
+        var rules = routingRules?.Current ?? [];
+        string? brainUnavailable = null;
+        var brainAsked = false;
+
+        // In the order asked, so the answers keep the order they always had.
+        foreach (var id in ids)
         {
-            var item = await items.GetAsync(id, cancellationToken).ConfigureAwait(false);
-            if (item is null) continue;
+            if (!byId.TryGetValue(id, out var item)) continue;
 
             if (!item.IsOpen || item.IsRouted)
             {
@@ -72,10 +110,20 @@ public sealed class SuggestQueryHandler(
                 continue;
             }
 
-            tags ??= backlogTags is null
+            // Only once an open item needs them: a batch of decided items reads
+            // no tags at all.
+            vocabulary ??= InboxTagVocabulary.From(backlogTags is null
                 ? []
-                : await backlogTags.TagsInUseAsync(cancellationToken).ConfigureAwait(false);
-            answers[id] = InboxClassifier.Suggest(item, tags, rules);
+                : await backlogTags.TagsInUseAsync(cancellationToken).ConfigureAwait(false));
+
+            // Asked once for the batch, as the tags are: it looks at the disk.
+            if (!brainAsked)
+            {
+                brainUnavailable = BrainUnavailableReason();
+                brainAsked = true;
+            }
+
+            answers[id] = WithBrainAvailability(InboxClassifier.Suggest(item, vocabulary, rules), brainUnavailable);
         }
 
         return Result.Success<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>(answers);

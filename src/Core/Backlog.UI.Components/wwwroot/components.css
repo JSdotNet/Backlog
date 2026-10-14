@@ -2831,6 +2831,72 @@ button.devbook-chip__label:focus-visible {
     white-space: nowrap;
 }
 
+/* A task row's Brain notes (local ADR 0026 §3): a teal "◆ n note" badge in the
+   Brain's band painting, the list of notes under it when there are several.
+   See color-scheme.md#the-brains-accent. */
+.brain-notes-badge {
+    position: relative;
+    display: inline-flex;
+}
+
+.brain-notes-badge__button {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 0 var(--spacing-xs);
+    border: 0;
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.brain-notes-badge__button:focus-visible,
+.brain-notes-badge__note:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.brain-notes-badge__list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    min-width: 12rem;
+    max-width: 20rem;
+    margin: var(--spacing-2xs) 0 0;
+    padding: var(--spacing-2xs) 0;
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    list-style: none;
+}
+
+.brain-notes-badge__note {
+    appearance: none;
+    display: block;
+    width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: 0;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.brain-notes-badge__note:hover {
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+}
+
 /* A plain string field — an alias, a kind, a version, an issue shorthand. It
    names something with no chapter to point at, so it borrows neither the pill
    nor the link: it is simply the value, set in the same mono face as the
@@ -6939,7 +7005,7 @@ button.task-panel__check:focus-visible {
 
    The height here is only the opening bid. What an artifact is actually worth is
    a function of how wide this frame turns out to be — one drawing is 1440x700 and
-   another is 1200x2458 — so the document measures itself and components.js writes
+   another is 1392x3496 — so the document measures itself and components.js writes
    the answer back as an inline height. This is what it looks like until that
    arrives, and what it stays at if the frame never reports: `height` rather than
    `min-height` precisely so the measured value can go under it as well as over,

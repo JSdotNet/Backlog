@@ -164,9 +164,9 @@ classDiagram
   than navigated. The association is not guaranteed to have a target; see
   [Dependency](domain.md#dependency).
 - `Readiness` is attached with a dashed dependency, not an association, because
-  it is derived and never persisted. It is computed on every read from
-  `depends_on` and the tasks those ids resolve to. How it relates to `TaskStatus`
-  is in [Readiness](domain.md#readiness).
+  it is derived; see
+  [its invariant](domain.invariants.md#invariant-readiness-is-derived-and-never-stored).
+  How it relates to `TaskStatus` is in [Readiness](domain.md#readiness).
 - `recurrence_source_id` is a plain id in the same spirit as `source_inbox_id`:
   provenance pointing back at the task an occurrence was spawned from, not
   ownership. A spawned occurrence is a separate aggregate with its own lifecycle,

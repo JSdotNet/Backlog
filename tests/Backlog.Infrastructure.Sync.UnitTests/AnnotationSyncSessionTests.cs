@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -110,6 +111,191 @@ public sealed class AnnotationSyncSessionTests
 
         Assert.True(result.IsSuccess);
         Assert.Empty(fixture.Handler.Requests);
+    }
+
+    /// <summary>A remark the service will never store — here one filed under no
+    /// repository — used to take the whole batch down with it, on every cycle:
+    /// the service refuses a batch whole, and the watermark never moved.</summary>
+    [Fact]
+    public async Task A_remark_the_service_would_refuse_does_not_hold_back_the_rest()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        var valid = store.Seed(Annotations.Local("Placed on a repository", Noon.AddHours(1)));
+        store.Seed(Annotations.Local("Filed under no repository", Noon.AddHours(2)) with { RepositoryAlias = string.Empty });
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)), AsTheServiceAnswers);
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
+        Assert.Equal(1, result.Value.Pushed);
+
+        Assert.Single(fixture.Handler.Requests);
+        var change = Assert.Single(Pushed(fixture.Bodies[0]));
+        Assert.Equal(valid.Id, change.Id);
+
+        // Past both: the one left out cannot become pushable without an edit,
+        // and an edit stamps it past this watermark again.
+        Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
+    }
+
+    /// <summary>A body past the service's bound is refused the same way, so it
+    /// is left out the same way.</summary>
+    [Fact]
+    public async Task A_remark_longer_than_the_service_stores_does_not_hold_back_the_rest()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        var valid = store.Seed(Annotations.Local("Short enough", Noon.AddHours(1)));
+        store.Seed(Annotations.Local(new string('x', AnnotationRecordLimits.BodyLength + 1), Noon.AddHours(2)));
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)), AsTheServiceAnswers);
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(valid.Id, Assert.Single(Pushed(fixture.Bodies[0])).Id);
+        Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
+    }
+
+    /// <summary>Every rule the push endpoint refuses a remark by, with the
+    /// service's own numbers: a batch of nothing else is not sent at all, and
+    /// the watermark still moves past it, so it is not offered again until an
+    /// edit restamps it.</summary>
+    [Theory]
+    [InlineData("blank repository alias")]
+    [InlineData("blank chapter path")]
+    [InlineData("negative block index")]
+    [InlineData("repository alias over 200")]
+    [InlineData("chapter path over 1024")]
+    [InlineData("author over 255")]
+    [InlineData("body over 8000")]
+    [InlineData("block hash over 128")]
+    public async Task A_batch_of_nothing_the_service_would_store_is_not_sent(string shape)
+    {
+        var local = Annotations.Local("Kept here", Noon.AddHours(1));
+        var unpushable = shape switch
+        {
+            "blank repository alias" => local with { RepositoryAlias = "  " },
+            "blank chapter path" => local with { ChapterPath = string.Empty },
+            "negative block index" => local with { BlockIndex = -1 },
+            "repository alias over 200" => local with { RepositoryAlias = new string('a', 201) },
+            "chapter path over 1024" => local with { ChapterPath = new string('c', 1_025) },
+            "author over 255" => local with { Author = new string('w', 256) },
+            "body over 8000" => local with { Body = new string('b', 8_001) },
+            "block hash over 128" => local with { BlockHash = new string('h', 129) },
+            _ => throw new ArgumentOutOfRangeException(nameof(shape), shape, "No such shape."),
+        };
+
+        var store = new InMemoryDevbookAnnotationStore();
+        store.Seed(unpushable);
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
+            (_, _) => StubHttpMessageHandler.Problem(HttpStatusCode.BadRequest, SyncErrorCodes.AnnotationInvalid, "Refused."));
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
+        Assert.Empty(fixture.Handler.Requests);
+        Assert.Equal(0, result.Value.Pushed);
+        Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
+    }
+
+    /// <summary>A deletion must always reach the other devices, whatever the
+    /// remark said: a remark edited past the body bound and then deleted would
+    /// otherwise stay on every other device for good. A tombstone says nothing,
+    /// so it carries no body.</summary>
+    [Fact]
+    public async Task A_deleted_remark_is_sent_as_a_tombstone_however_long_it_was()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        var deleted = store.Seed(Annotations.Local(new string('x', 8_001), Noon.AddHours(1), deletedAt: Noon.AddHours(1)));
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)), AsTheServiceAnswers);
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(0, result.Value.Skipped);
+
+        var tombstone = Assert.Single(Pushed(Assert.Single(fixture.Bodies)));
+        Assert.Equal(deleted.Id, tombstone.Id);
+        Assert.Equal(Noon.AddHours(1), tombstone.DeletedAt);
+        Assert.Equal(string.Empty, tombstone.Annotation.Body);
+        Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
+    }
+
+    /// <summary>The exchange's summary is the one the worker keeps, so a
+    /// refusal the push counted has to survive into it.</summary>
+    [Fact]
+    public async Task Syncing_keeps_the_count_of_what_the_replica_refused()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        store.Seed(Annotations.Local("Older than the replica's copy", Noon.AddHours(1)));
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)), (request, _) =>
+            request.Method == HttpMethod.Post
+                ? StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}""")
+                : StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"annotations":[],"since":"cursor-1","hasMore":false}"""));
+
+        var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value.Refused);
+    }
+
+    /// <summary>A remark left out is said, once, at Warning — by id, chapter and
+    /// reason, and never by what it says: the body is the person's own
+    /// text.</summary>
+    [Fact]
+    public async Task A_remark_left_out_is_counted_and_named_in_a_warning_that_leaves_out_its_body()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        store.Seed(Annotations.Local("Placed on a repository", Noon.AddHours(1)));
+        var unscoped = store.Seed(Annotations.Local("A private thought", Noon.AddHours(2)) with { RepositoryAlias = string.Empty });
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
+        var log = new CapturingLogger<AnnotationSyncSession>();
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)), AsTheServiceAnswers, log);
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.Value.Skipped);
+
+        var line = Assert.Single(log.Lines);
+        Assert.Equal(LogLevel.Warning, line.Level);
+        Assert.Contains(unscoped.Id.ToString(), line.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(Annotations.Chapter, line.Message, StringComparison.Ordinal);
+        Assert.Contains("alias of the repository", line.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("A private thought", line.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(line.Properties.Values, value => value?.ToString()?.Contains("A private thought", StringComparison.Ordinal) == true);
+    }
+
+    /// <summary>The refusal used to end the exchange before the pull, so a
+    /// device with one such remark never heard from the others either.</summary>
+    [Fact]
+    public async Task A_remark_left_out_does_not_stop_the_pull()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        store.Seed(Annotations.Local("Placed on a repository", Noon.AddHours(1)));
+        store.Seed(Annotations.Local("Filed under no repository", Noon.AddHours(2)) with { RepositoryAlias = string.Empty });
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)), AsTheServiceAnswers);
+
+        var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
+        Assert.Equal([HttpMethod.Post, HttpMethod.Get], fixture.Handler.Requests.Select(request => request.Method).ToArray());
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Value.Skipped);
+        Assert.Equal("cursor-1", state.Current.PullCursor);
     }
 
     [Fact]
@@ -247,6 +433,34 @@ public sealed class AnnotationSyncSessionTests
             body,
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Annotations;
 
+    /// <summary>
+    /// The service as it answers today: a push is refused whole, with
+    /// <see cref="SyncErrorCodes.AnnotationInvalid"/>, when any one change in it
+    /// names no repository or carries a body over the service's 8,000-character
+    /// bound, and is otherwise taken in full. A pull reads an empty feed.
+    /// </summary>
+    private static HttpResponseMessage AsTheServiceAnswers(HttpRequestMessage request, int index)
+    {
+        if (request.Method != HttpMethod.Post)
+        {
+            return StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"annotations":[],"since":"cursor-1","hasMore":false}""");
+        }
+
+        var changes = Pushed(request.Content!.ReadAsStringAsync(TestContext.Current.CancellationToken).GetAwaiter().GetResult());
+
+        if (changes.Any(change =>
+                string.IsNullOrWhiteSpace(change.Annotation.RepositoryAlias)
+                || change.Annotation.Body.Length > 8_000))
+        {
+            return StubHttpMessageHandler.Problem(
+                HttpStatusCode.BadRequest,
+                SyncErrorCodes.AnnotationInvalid,
+                "An annotation needs the alias of the repository its chapter is in.");
+        }
+
+        return StubHttpMessageHandler.Json(HttpStatusCode.OK, $$"""{"accepted":{{changes.Count}}}""");
+    }
+
     /// <summary>The same rule as the task and session feeds: progress recorded
     /// under another owner - or under none - is started over and stamped.</summary>
     [Fact]
@@ -292,7 +506,8 @@ public sealed class AnnotationSyncSessionTests
             InMemoryDevbookAnnotationStore store,
             IAnnotationSyncStateStore state,
             TimeProvider time,
-            Func<HttpRequestMessage, int, HttpResponseMessage> respond)
+            Func<HttpRequestMessage, int, HttpResponseMessage> respond,
+            ILogger<AnnotationSyncSession>? log = null)
         {
             var bodies = new List<string>();
             var queries = new List<string>();
@@ -316,7 +531,8 @@ public sealed class AnnotationSyncSessionTests
                 store,
                 state,
                 new InMemoryDeviceCredentialStore(Paired),
-                time);
+                time,
+                log);
 
             return new Fixture(http, handler, session, bodies, queries);
         }

@@ -17,7 +17,11 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </para>
 /// <para>
 /// The file is created new, never opened over an existing one: a name already
-/// taken gets <c>-2</c>, <c>-3</c> and on. After a write the source is told its
+/// taken gets <c>-2</c>, <c>-3</c> and on — except by a note routed from the
+/// Inbox that finds one already holding exactly the text it would write: that is
+/// the note an earlier route of the same item wrote, untouched since, so the route
+/// answers it rather than writing a copy beside it
+/// (<c>.devbook/domain/inbox/features.md#route-to-brain</c>). After a write the source is told its
 /// content changed, so an open Devbook pane lists the note at once rather than
 /// when the folder watch next rebuilds the database.
 /// </para>
@@ -65,6 +69,11 @@ public sealed class BrainNoteWriter : IBrainNoteWriter
             {
                 var name = (attempt == 1 ? stem : $"{stem}-{attempt}") + ".md";
                 var path = Path.Combine(folder, name);
+
+                // An item routed To Brain, undone and routed again finds the note
+                // its first route wrote. Still exactly that text, nobody has touched
+                // it since, and it is that note again rather than a -2 beside it.
+                if (draft.Source == BrainNoteSource.Inbox && IsUnchanged(path, text)) return BrainNoteWrite.To(area.Folder + "/" + name);
                 if (File.Exists(path) || Directory.Exists(path)) continue;
 
                 FileStream stream;
@@ -104,6 +113,24 @@ public sealed class BrainNoteWriter : IBrainNoteWriter
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             return BrainNoteWrite.Refused($"Could not write the note into {area.Folder}: {exception.Message}");
+        }
+    }
+
+    /// <summary>Whether a note is already at <paramref name="path"/> holding exactly
+    /// <paramref name="text"/>, line endings aside — a sync client may have rewritten
+    /// those and nothing else. A file that cannot be read is not that note.</summary>
+    private static bool IsUnchanged(string path, string text)
+    {
+        try
+        {
+            if (!File.Exists(path)) return false;
+
+            var existing = File.ReadAllText(path, Utf8NoBom).Replace("\r\n", "\n", StringComparison.Ordinal);
+            return string.Equals(existing, text, StringComparison.Ordinal);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 

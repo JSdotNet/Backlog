@@ -304,6 +304,101 @@ public sealed class FileReplicatedSessionStoreTests
     }
 
     /// <summary>
+    /// A save that fails leaves the file as it was and the held set as it was. The
+    /// file is written to a sibling and moved over the original, so a write cut short
+    /// costs the sibling and never the file a next launch reads — which, read as
+    /// empty, would lose every record the cursor has already passed. Failed here by
+    /// putting a folder where the sibling goes.
+    /// </summary>
+    [Fact]
+    public void A_failed_save_leaves_the_previous_file_and_the_held_set_as_they_were()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+
+        try
+        {
+            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+            store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
+
+            Directory.CreateDirectory(path + ".tmp");
+
+            var failure = Record.Exception(() => store.Save([SessionRecords.Entry(Laptop, sessionId: "two")]));
+
+            Assert.True(failure is IOException or UnauthorizedAccessException, $"Expected an I/O failure, got {failure?.GetType().Name ?? "none"}.");
+            Assert.Equal(["one"], store.Current.Entries.Select(entry => entry.Record.SessionId));
+            Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
+        }
+        finally
+        {
+            var folder = Path.GetDirectoryName(path);
+            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A sibling left behind by a run that died mid-write is not in the way of the
+    /// next save, and is not left behind by it either.
+    /// </summary>
+    [Fact]
+    public void A_sibling_left_by_an_interrupted_save_does_not_stop_the_next()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path + ".tmp", "{ \"entries\": [ cut off");
+
+            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+            store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
+
+            Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
+            Assert.False(File.Exists(path + ".tmp"));
+        }
+        finally
+        {
+            var folder = Path.GetDirectoryName(path);
+            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A file that cannot be replaced — read-only here — survives the save that could
+    /// not replace it, the held set stays what the file says, and no sibling is left
+    /// beside it. Windows only, because that is where a read-only file refuses to be
+    /// moved over.
+    /// </summary>
+    [Fact]
+    public void A_file_that_cannot_be_replaced_survives_the_save()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+
+        try
+        {
+            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+            store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
+
+            File.SetAttributes(path, FileAttributes.ReadOnly);
+
+            var failure = Record.Exception(() => store.Save([SessionRecords.Entry(Laptop, sessionId: "two")]));
+
+            Assert.True(failure is IOException or UnauthorizedAccessException, $"Expected an I/O failure, got {failure?.GetType().Name ?? "none"}.");
+            Assert.Equal(["one"], store.Current.Entries.Select(entry => entry.Record.SessionId));
+            Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
+            Assert.False(File.Exists(path + ".tmp"));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.SetAttributes(path, FileAttributes.Normal);
+
+            var folder = Path.GetDirectoryName(path);
+            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// A file that cannot be read reads as empty rather than throwing. It loses
     /// records the cursor has moved past, which is a real loss — and one this class
     /// cannot repair, because refusing to start would leave the person unable to ask

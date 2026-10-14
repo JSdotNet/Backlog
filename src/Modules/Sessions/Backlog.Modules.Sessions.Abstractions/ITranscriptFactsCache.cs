@@ -72,7 +72,9 @@ public interface ITranscriptFactsCache
     /// it.</summary>
     void Write(string path, long length, DateTimeOffset writtenAt, TranscriptFacts facts);
 
-    /// <summary>Drops every stored entry, so the next read opens every transcript
-    /// again.</summary>
+    /// <summary>Drops every stored entry, which is what survives a restart, so the next
+    /// run of the app opens every transcript again. Not the next read: a reader may keep
+    /// its own memory in front of this cache, and that memory is the reader's and ends
+    /// with the process — forgetting here does not clear it.</summary>
     void Forget();
 }

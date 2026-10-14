@@ -15,7 +15,7 @@ type: domain
 
 ```meta
 type: aggregate
-related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/sessions/dependencies.md, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/sessions/dependencies.md, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/sessions/domain.invariants.md#session-log]
 ```
 
 Everything one environment can say about the agent sessions it has a record of.
@@ -26,52 +26,32 @@ would assert facts nobody had gathered. A view over many environments is a
 composition of several Session Logs. That is why grouping by environment is a
 derivation rather than a structural relationship.
 
-Invariants:
+The rules the log holds every reading to are in
+[its invariants](domain.invariants.md#session-log).
 
-- A session appears **once**, however many records the environment holds for it.
-  An agent may leave one record per process and another per transcript. It may also
-  file the same transcript under two working folders when a session moved between
-  them: the session went somewhere, it did not become two. All of that is evidence
-  of one session. The most recent record describes it, because it is the one the
-  agent went on writing. The collapse happens before anything counts or truncates,
-  so the number an environment reports is a number of sessions, never of files.
-- A session's `Session State` is **derived from the evidence available**, never
-  asserted. Running and Stalled both require liveness evidence; with none, a session
-  is Finished. A state no evidence supports is not reported at all. There is no
-  Failed, because a record that stops says nothing about why.
-- The log **never fills a gap the agent left**. A fact an agent did not record is
-  absent, not inferred. A repository guessed from a folder path looks exactly like a
-  recorded one, and is wrong.
-- The log **says how complete it is**. It may describe fewer sessions than exist,
-  and then how many exist is part of the answer. That completeness belongs to the
-  reading alone. The reader's chosen `Session View` removes rows after the log has
-  answered, and is accounted for separately. One number for both subtractions would
-  have the log confess to a shortfall the reader asked for.
-
-**Records replicate, and none of the above changes when they do.** Local ADR 0005
+**Records replicate, and none of those rules changes when they do.** Local ADR 0005
 puts session records in the same cloud replica as tasks. So a record gathered on one
 machine can be read on another. The path is built. It is off until switched on, and
 it has not yet run against provisioned infrastructure. Replication decides whether
 another machine's sessions are in front of a reader. It decides nothing about what
-one of them means. Every invariant survives, because the thing that replicates is a
-record, not an authority:
+one of them means. Every [rule of the log](domain.invariants.md#session-log)
+survives, because the thing that replicates is a record, not an authority:
 
 - **Still single-writer.** A session ran on one environment, and only that
-  environment holds the evidence for it, so only that environment writes its
-  records. There is nothing to reconcile: no second version, no last-write-wins, and
-  no lost edit. A session that moves gets a later record rather than an edit to an
-  earlier one. None of that rests on good behaviour. A record is addressed first by
-  the environment that gathered it, so an environment can only ever write records of
-  its own. On the reading side, a reading knows how it came by each record: read
-  here, or arrived from elsewhere. It offers back only what it gathered itself. An
-  environment that re-published another's records would attach somebody else's work
-  to itself, which is how a single-writer rule fails without anyone editing anything.
+  environment holds the evidence for it. So there is nothing to reconcile between
+  environments: no second version of another's record and no lost edit. None of
+  that rests on good behaviour, and
+  [the single-writer invariant](domain.invariants.md#invariant-only-the-gathering-environment-writes-a-session-record)
+  says where it is enforced. A reading knows how it came by each record: read here,
+  or arrived from elsewhere. Re-publishing another environment's records is how a
+  single-writer rule fails without anyone editing anything.
 - **Still one environment per log.** A reading that spans machines is a composition
   of several Session Logs, as grouping by environment already is. A replicated record
   names the environment that gathered it, so nothing asserts a fact nobody gathered.
-- **Still derived, never asserted.** `Session State` is worked out on every reading,
-  from the evidence that reached the reader, and never travels on the record. A state
-  on the wire would freeze the gathering machine's reading of its own clock. It would
+- **Still derived, never asserted.** `Session State`
+  [never travels on the record](domain.invariants.md#invariant-state-is-derived-never-carried).
+  It is worked out from the evidence that reached the reader. A state on the wire
+  would freeze the gathering machine's reading of its own clock. It would
   go on saying `running` about a session that ended before the last exchange. A
   record from another machine is stale rather than wrong, and the derivation says so
   from the timestamps it has. A record carries no liveness marker: the same record
@@ -80,34 +60,31 @@ record, not an authority:
   context already applies locally to an agent that leaves no marker. `stalled` claims
   that something is still there and quiet, and nothing in a record can tell that
   apart from something that is gone.
-- **Only a whitelist travels.** Local ADR 0005 fixes it, in the table below. No
-  prompt, tool output or file content ever travels, which is the whole reason a
-  record can leave the machine at all.
+- **Only a whitelist travels.** Local ADR 0005 fixes it, in the table below, and
+  [an invariant](domain.invariants.md#invariant-only-the-published-fields-travel)
+  holds every record to it.
 - **The list carries this context's identity in full.** Local ADR 0005 settled that
-  in the whitelist rather than in the pushing code. `Session Identity` is `agent`
-  plus `session_id`, never `session_id` alone, because two agents may issue the same
-  string. A record without its agent would let the receiving log merge two unrelated
-  sessions, which is the failure the identity rule exists to prevent. The replica
-  keys a record on the environment, the agent and the session id together. So two
-  unrelated sessions have no one key under which they could arrive.
+  in the whitelist rather than in the pushing code. A record without its agent
+  would let the receiving log merge two unrelated sessions, which is the failure
+  [the identity invariant](domain.invariants.md#invariant-a-session-is-identified-by-agent-and-session-id-together)
+  exists to prevent.
 - **Retention is the store's, not this context's.** A replicated record expires
   after twelve months by container TTL. Nothing here reaps or deletes a record.
 - **An environment keeps a [Session Record](#session-record) of each of its own
   sessions.** The record answers once the transcript is gone. The assistant
   cleans its transcripts away; Claude does so after a month by default. A session
   read from nothing is a session the log no longer holds. So every reading amends the
-  local record, whether sync is on or not. A record is added to and never taken
-  from:
-  - a value the reading lacks keeps what the record held;
-  - earlier runs and waits are kept;
-  - limit hits are a union.
+  local record, whether sync is on or not, and
+  [what an amendment may change](domain.invariants.md#invariant-a-session-record-is-added-to-and-never-taken-from)
+  is an invariant.
 
   The answer for one session comes from the files as read now, then from this
   environment's record, then from what sync carried. With sync on, the records an
-  environment pushed also come back down the feed, and are kept as a second copy. A
-  record read back is never pushed again, so this does not make the log
-  multi-writer. Those copies show under the environment's own identity rather than
-  the machine id the sync service issued.
+  environment pushed also come back down the feed, and are kept as a second copy.
+  That does not make the log multi-writer, because
+  [such a copy is never pushed again](domain.invariants.md#invariant-only-the-gathering-environment-writes-a-session-record).
+  Those copies show under the environment's own identity rather than the machine
+  id the sync service issued.
 
 | Field on the wire | Why it travels, and on what terms |
 | --- | --- |
@@ -129,8 +106,8 @@ record, not an authority:
 | pull requests the session linked | Repository, number and address. |
 | tokens per model | Counts, never content. |
 
-A field not in the table does not travel. So `working_folder` does not: it describes
-one machine's disk and means nothing on the other.
+`working_folder` is not in the table: it describes one machine's disk and means
+nothing on the other.
 
 Runs, waits and human turns are instants, the same kind of fact as the activity
 window. A record keeps three cases apart, and a reader never reads an absence as a
@@ -178,9 +155,9 @@ type: value-object
 aliases: [SessionIdentity]
 ```
 
-What makes a session that session: `agent` plus `session_id`. Equality by both.
-Never by `session_id` alone: two agents may issue the same string, and an
-environment reading both would silently merge two unrelated sessions.
+What makes a session that session: `agent` plus `session_id`. Why the agent is
+part of it is
+[an invariant of the log](domain.invariants.md#invariant-a-session-is-identified-by-agent-and-session-id-together).
 
 ### Working Location
 
@@ -311,7 +288,8 @@ It holds what the file states:
 - the `Delivery Run Reference`s it names;
 - when it started and when it was last updated;
 - its stages, each with its status, duration, how many times it was marked done, and
-  its own record of how it ran;
+  its own record of how it ran, with the round, blockers and defects that record
+  reported (below);
 - per stage, every sub-agent call its `insights` saw, with that call's time, tokens
   and tool calls where recorded, and how many tool calls the stage made;
 - its token usage in total, for delegated agents, and per stage, with the models seen;
@@ -337,6 +315,14 @@ it. Where a run names a session the list holds, it joins that session by identit
 Only a run that names none is attached by worktree key and overlapping activity:
 every dashboard file written before the field existed, and any writer that does not
 send one.
+
+**A stage can say what its pass found.** The delivery phases report three counts on a
+stage's record of how it ran: Implement and Review the implement ⇄ review `round`,
+counting from 1; Review the `blockers` it left open in that round; Verify the
+`defectsFound` that review had passed. They describe the stage's latest pass, because
+each record replaces the one before. A count reads only as a whole number from zero
+up. A run file from before the phases sent them, or a stage that did not run the work,
+reads them as absent, never as zero: zero is a clean round, and nobody reported one.
 
 **A run can say what started it, and a sweep what it found.** Where the writer said,
 a run carries its trigger, `attended` or `scheduled`. It also carries the schedule
@@ -511,6 +497,7 @@ Each value is taken from the first source in its row that has one:
 | Model and effort | What the stage recorded running, then the runner's, then the configuration's. |
 | Configured | The phase map's entry for the stage under the qualifier it ran under, then under any name its title goes by. Its origin is the entry's own origin, or else the team default with the overlays the run context lists merged over it. |
 | Sub-agent calls | Each call the run's `insights` saw, with its own time, tokens, tool calls and outcome. Where they saw none, each call the stage's record lists, except the slices the owner session worked itself. Then each agent the stage declared that neither shows running. |
+| A call's round | The round the stage's record lists against that call. Calls the `insights` saw take the listed rounds per agent, in order, only where the record lists as many calls of that agent as were seen. Otherwise the stage's own round, when the call is the only one the stage made. A round several calls shared stays the stage's. |
 
 **Configured against ran.** A stage is compared on its agent, its model's family and
 its effort. It is compared only once it is past pending, and the gate never is. An
@@ -741,7 +728,8 @@ answering about, and two controls to one place is one too many.
 
 No state rides on a reference. Whether the issue is open or the pull request merged is
 a reading of the tracker, and this context has not performed one. A `Session Log` that
-reported one would be filling a gap nobody looked into, which its invariants already
+reported one would be filling a gap nobody looked into, which
+[its invariants](domain.invariants.md#invariant-the-log-never-fills-a-gap) already
 forbid for a session's own fields.
 
 ### Session Row
@@ -961,8 +949,9 @@ decide what Live's tally counts: the live rows among what the other narrowings k
 No narrowing reorders. Ordering is the grouping's answer to give, and a narrowing that
 sorted would be a second answer to what "most recently active first" means.
 
-The view decides nothing about liveness. The `Session Log`'s invariant on derived
-`Session State` has already settled that, and this service only reads the answer. That
+The view decides nothing about liveness. The `Session Log`'s
+[invariant on derived `Session State`](domain.invariants.md#invariant-state-is-derived-never-carried)
+has already settled that, and this service only reads the answer. That
 is why "live" here can only mean running or stalled. A second place that worked out
 for itself whether a session was still going would be a second definition of live,
 free to drift from the first. The two would disagree first on exactly the sessions a

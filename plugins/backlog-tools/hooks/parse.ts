@@ -62,6 +62,43 @@ export const parseRunId = (text: string | undefined): string => {
   return m?.[1] ?? ''
 }
 
+const stageName = (v: unknown): string => {
+  const raw = typeof v === 'string' ? v : v && typeof v === 'object' ? ((v as { name?: unknown; title?: unknown }).name ?? (v as { title?: unknown }).title) : undefined
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
+/**
+ * The stages a start_run declared, however the worker spelled them: an array of names or of
+ * `{ name }` / `{ title }` objects, that array JSON-encoded as a string, or a comma-separated
+ * string. Anything else declares none.
+ */
+export const parseStages = (v: unknown): string[] => {
+  if (typeof v === 'string') {
+    const text = v.trim()
+    if (text.startsWith('[')) {
+      try {
+        return parseStages(JSON.parse(text))
+      } catch {
+        return []
+      }
+    }
+    if (text.startsWith('{')) return []
+    return text.split(',').map(s => s.trim()).filter(s => s !== '')
+  }
+  if (!Array.isArray(v)) return []
+  return v.map(stageName).filter(s => s !== '')
+}
+
+/** A stage index sent as a number or a numeric string; anything else is NaN, out of every range. */
+export const asIndex = (v: unknown): number => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v.trim()) : NaN
+  return Number.isInteger(n) ? n : NaN
+}
+
+/** A run id sent as a string or a number, as the string a surface answered; else ''. */
+export const asId = (v: unknown): string =>
+  typeof v === 'string' ? v.trim() : typeof v === 'number' && Number.isFinite(v) ? String(v) : ''
+
 /** The brief's opening line: You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`). */
 export const parseBrief = (prompt: string) => {
   const m = /entry of the Backlog plan `([^`]+)`: `(\d+)\s*-\s*([^`]+)` \(id `([^`]+)`\)/.exec(prompt)
@@ -89,7 +126,7 @@ export const newWorker = (agentId: string, b: NonNullable<ReturnType<typeof pars
   state: 'running',
   note: '',
   flow: '',
-  runId: '',
+  runIds: [],
   stages: [],
   stageStatus: [],
   runStatus: '',

@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Backlog.Infrastructure.Sessions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sessions.UnitTests;
 
@@ -447,6 +448,55 @@ public sealed class DeliveryRunReaderTests : IDisposable
         Assert.Null(runs["run-strings"].RunContext);
     }
 
+    /// <summary>
+    /// The quality signals a pass reports on its execution — the implement ⇄ review
+    /// round, Review's open blockers, Verify's defects — are read onto the stage. A run
+    /// file written before the delivery phases sent them reads them as absent, never as
+    /// zero: zero is a clean round, which nobody reported.
+    /// </summary>
+    [Fact]
+    public async Task A_stage_carries_the_round_blockers_and_defects_its_execution_reported()
+    {
+        GivenRun("backlog", "Backlog-43b9057e", "run-quality.json", """
+            {
+              "id": "run-quality",
+              "skillId": "flow-code",
+              "status": "in_progress",
+              "stages": [
+                { "name": "Implement", "status": "done", "execution": { "mode": "inline", "round": 2 } },
+                { "name": "Review", "status": "done", "execution": { "mode": "delegate", "round": 2, "blockers": 0 } },
+                { "name": "Verify", "status": "done", "execution": { "mode": "inline", "defectsFound": 3 } }
+              ]
+            }
+            """);
+        GivenRun("backlog", "Backlog-43b9057e", "run-older.json", """
+            {
+              "id": "run-older",
+              "skillId": "flow-code",
+              "status": "done",
+              "stages": [
+                { "name": "Implement", "status": "done", "execution": { "mode": "inline" } },
+                { "name": "Review", "status": "done" },
+                { "name": "Verify", "status": "done", "execution": { "round": null, "blockers": "two", "defectsFound": -1 } }
+              ]
+            }
+            """);
+
+        var runs = (await ReadAsync()).Runs.ToDictionary(run => run.Id);
+        var quality = runs["run-quality"].Stages;
+
+        Assert.Equal((2, (int?)null, (int?)null), (quality[0].Round!.Value, quality[0].Blockers, quality[0].DefectsFound));
+        Assert.Equal((2, 0, (int?)null), (quality[1].Round!.Value, quality[1].Blockers!.Value, quality[1].DefectsFound));
+        Assert.Equal(((int?)null, (int?)null, 3), (quality[2].Round, quality[2].Blockers, quality[2].DefectsFound!.Value));
+
+        Assert.All(runs["run-older"].Stages, stage =>
+        {
+            Assert.Null(stage.Round);
+            Assert.Null(stage.Blockers);
+            Assert.Null(stage.DefectsFound);
+        });
+    }
+
     /// <summary>A stage's scenario evidence is read per part; an entry that is not
     /// an object, or names neither a page nor a part, is skipped rather than drawn
     /// as an empty row.</summary>
@@ -655,14 +705,171 @@ public sealed class DeliveryRunReaderTests : IDisposable
         Assert.Equal(DateTimeOffset.Parse("2026-09-03T22:44:37.233Z", CultureInfo.InvariantCulture), call.EndedAt);
     }
 
+    // --- What a second read reads ----------------------------------------------
+
+    /// <summary>
+    /// A run file whose length and write time have not moved is not read again: the
+    /// pane refreshes far more often than a dashboard writes, and a run is a function
+    /// of the file. Proved by changing the content behind the reader's back at the
+    /// same length and putting the write time back — the run it read first comes
+    /// back — and then by touching the file, which is what any real write does.
+    /// </summary>
+    [Fact]
+    public async Task An_unchanged_run_file_is_not_read_again()
+    {
+        var path = GivenRun("orch-dashboard", "tasks-bulk-select-daa039-9e68802b", "run.json", OrchFeatureRun);
+        var written = File.GetLastWriteTimeUtc(path);
+        var source = Source(SettledAfter(written));
+
+        Assert.Equal("Tasks bulk-selection mode", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Title);
+
+        File.WriteAllText(path, OrchFeatureRun.Replace("Tasks bulk-selection mode", "Tasks bulk-selection MODE", StringComparison.Ordinal));
+        File.SetLastWriteTimeUtc(path, written);
+
+        Assert.Equal("Tasks bulk-selection mode", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Title);
+
+        File.SetLastWriteTimeUtc(path, written.AddSeconds(1));
+
+        Assert.Equal("Tasks bulk-selection MODE", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Title);
+    }
+
+    /// <summary>A file that appeared since the last read is read, and one that has
+    /// gone is gone from the answer rather than remembered.</summary>
+    [Fact]
+    public async Task A_new_run_file_is_read_and_a_deleted_one_drops_out()
+    {
+        var first = GivenRun("orch-dashboard", "tasks-bulk-select-daa039-9e68802b", "run-mtlea9im-xxayjs.json", OrchFeatureRun);
+        var source = Source();
+
+        Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs);
+
+        GivenRun("delivery-surface-dashboard", "delivery-run-reader-0a50e5-1c2d3e4f", "run-flow.json", DeliverySurfaceRun);
+
+        Assert.Equal(2, (await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs.Count);
+
+        File.Delete(first);
+
+        Assert.Equal("delivery-surface-dashboard", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Dashboard);
+    }
+
+    /// <summary>
+    /// A file that is not a run is remembered as none until it changes: its content
+    /// is what decided that, so reading the same content again would decide it again.
+    /// Proved the way the unchanged file is — the fixed content put back at the same
+    /// length and write time is still no run — and then the touch that a real write
+    /// makes has it read.
+    /// </summary>
+    [Fact]
+    public async Task A_corrupt_file_is_remembered_as_no_run_until_it_changes()
+    {
+        var corrupt = "[" + OrchFeatureRun[1..];
+        var path = GivenRun("orch-dashboard", "tasks-bulk-select-daa039-9e68802b", "run.json", corrupt);
+        var written = File.GetLastWriteTimeUtc(path);
+        var source = Source(SettledAfter(written));
+
+        Assert.Empty((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs);
+
+        File.WriteAllText(path, OrchFeatureRun);
+        File.SetLastWriteTimeUtc(path, written);
+
+        Assert.Empty((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs);
+
+        File.SetLastWriteTimeUtc(path, written.AddSeconds(1));
+
+        Assert.Equal("run-mtlea9im-xxayjs", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Id);
+    }
+
+    /// <summary>
+    /// A run file written in the instant of the walk is parsed again rather than
+    /// trusted on its stamp. A write time is only as fine as the file system's tick,
+    /// so a second write in that tick at the same length — <c>pending</c> becoming
+    /// <c>running</c> — matches on both, and if it was the run's last write the first
+    /// answer would stand for good. Proved by the same-length swap with the write time
+    /// put back, with the clock half a second past the write: the new content comes
+    /// back. Once the file has settled it is remembered, and the next swap is not.
+    /// </summary>
+    [Fact]
+    public async Task A_run_file_written_in_the_instant_of_the_walk_is_parsed_again_rather_than_trusted()
+    {
+        var path = GivenRun("orch-dashboard", "tasks-bulk-select-daa039-9e68802b", "run.json", OrchFeatureRun);
+        var written = File.GetLastWriteTimeUtc(path);
+        var clock = new FakeTimeProvider(new DateTimeOffset(written, TimeSpan.Zero).AddMilliseconds(500));
+        var source = Source(clock);
+
+        Assert.Equal("Tasks bulk-selection mode", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Title);
+
+        File.WriteAllText(path, OrchFeatureRun.Replace("Tasks bulk-selection mode", "Tasks bulk-selection MODE", StringComparison.Ordinal));
+        File.SetLastWriteTimeUtc(path, written);
+
+        Assert.Equal("Tasks bulk-selection MODE", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Title);
+
+        clock.Advance(TimeSpan.FromSeconds(3));
+
+        Assert.Equal("Tasks bulk-selection MODE", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Title);
+
+        File.WriteAllText(path, OrchFeatureRun);
+        File.SetLastWriteTimeUtc(path, written);
+
+        Assert.Equal("Tasks bulk-selection MODE", Assert.Single((await source.GetRunsAsync(TestContext.Current.CancellationToken)).Runs).Title);
+    }
+
+    /// <summary>
+    /// One reader answers the pane, and the pane can ask again before the last answer
+    /// is in. Reads that overlap answer what one read alone answers — a fresh reader
+    /// over the same folders — however the remembered files interleave.
+    /// </summary>
+    [Fact]
+    public async Task Reads_that_overlap_answer_what_one_read_answers()
+    {
+        GivenRun("orch-dashboard", "tasks-bulk-select-daa039-9e68802b", "run-mtlea9im-xxayjs.json", OrchFeatureRun);
+        GivenRun("delivery-surface-dashboard", "delivery-run-reader-0a50e5-1c2d3e4f", "run-flow.json", DeliverySurfaceRun);
+        GivenRun("backlog", "version-number-display-9fdeac-20b24a3e", "run-mujubkak-7fq49u.json", BacklogHalf);
+        GivenRun("delivery-surface-dashboard", "version-number-display-9fdeac-20b24a3e", "run-mujubkgt-mny0y2.json", DashboardHalf);
+
+        var expected = Shape(await ReadAsync());
+
+        // An hour on, so every file is settled and the reads share remembered runs
+        // rather than each parsing its own.
+        var source = Source(new FakeTimeProvider(DateTimeOffset.UtcNow.AddHours(1)));
+
+        var catalogs = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(
+            () => source.GetRunsAsync(TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken)));
+
+        Assert.All(catalogs, catalog => Assert.Equal(expected, Shape(catalog)));
+        Assert.Equal(expected, Shape(await source.GetRunsAsync(TestContext.Current.CancellationToken)));
+    }
+
+    /// <summary>What a catalog says, in a form two catalogs can be compared by:
+    /// each run's identity and the fields a merge decides, in catalog order.</summary>
+    private static List<string> Shape(DeliveryRunCatalog catalog) =>
+    [
+        .. catalog.Runs.Select(run =>
+            $"{run.Id}|{run.Dashboard}|{run.Worktree}|{run.Title}|{run.Status}|{run.ChangeKind}|{run.UpdatedAt:O}|{string.Join(',', run.Surfaces)}|{string.Join(',', run.References.Select(reference => reference.Label))}"),
+        .. catalog.Unreadable
+    ];
+
+    private LocalDeliveryRunSource Source(TimeProvider? clock = null) => new(_home, MachineId, Machine, clock);
+
+    /// <summary>A clock a minute past a write time: long enough that the file counts
+    /// as settled, short enough that a test's own touch of a second stays settled
+    /// too.</summary>
+    private static FakeTimeProvider SettledAfter(DateTime writtenUtc) =>
+        new(new DateTimeOffset(writtenUtc, TimeSpan.Zero).AddMinutes(1));
+
     private Task<DeliveryRunCatalog> ReadAsync() => new LocalDeliveryRunSource(_home, MachineId, Machine).GetRunsAsync();
 
-    private void GivenRun(string dashboard, string worktree, string file, string json)
+    /// <summary>Writes one run file where the dashboard would, and answers its path
+    /// for the tests that change it afterwards.</summary>
+    private string GivenRun(string dashboard, string worktree, string file, string json)
     {
         var folder = Path.Combine(_home, dashboard, worktree, "runs");
+        var path = Path.Combine(folder, file);
 
         Directory.CreateDirectory(folder);
-        File.WriteAllText(Path.Combine(folder, file), json);
+        File.WriteAllText(path, json);
+
+        return path;
     }
 
     [SupportedOSPlatform("windows")]

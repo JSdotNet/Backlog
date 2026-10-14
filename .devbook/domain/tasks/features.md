@@ -472,14 +472,14 @@ in one view across all contexts.
 type: feature
 status: draft
 depends-on: [.devbook/domain/tasks/features.md#multi-repo-targeting]
-related: [.devbook/domain/monitoring/features.md#tasks-and-github-progress]
+related: [.devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/domain/tasks/requirements.md#projection]
 ```
 
-Spawn and close downstream artifacts from a task, without duplicating the task:
-one GitHub issue or Copilot CLI task per target repo, created when work starts
-and closed on completion. What ships is the issue push below, made when the
-person asks; the automatic create-and-close is the intended
-[Projection](domain.md#projection) policy.
+Spawn and close downstream artifacts from a task, without duplicating the task.
+What ships is the issue push below, made when the person asks. The
+automatic create-and-close is the intended [Projection](domain.md#projection)
+policy, and what it will promise is in
+[its requirements](requirements.md#projection).
 
 ### Issue projection and state read-back
 

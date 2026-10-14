@@ -29,6 +29,10 @@
     This page. It owns the header and the AI panel, and decides which surface sits
     below them.
 
+    It draws itself again for its own events, and for a Tasks or Inbox change only
+    when that change moved something it draws — see HandleStateChanged. Every
+    surface below it that reads a state listens to that state itself.
+
     It used to be called the shell, and it owned the update and feedback windows
     too. Those were never about this page — MainLayout mounts them below every
     route now, in AppFooter — and what is left here is genuinely this screen's:
@@ -61,6 +65,10 @@
     that crosses between them here is the repository scope handed to the knowledge
     pane and the dashboard, and the triaged item handed back from the inbox.
 *@
+
+@* Read as this render begins, so a change that lands after it is compared with
+   what this render drew — see HandleStateChanged. *@
+@{ _drawnShellInputs = ReadShellInputs(); }
 
 <div class="shell shell--wide">
     @* The header is four regions rather than one row of controls: who you are and
@@ -473,7 +481,7 @@
 
                Only while the task list is on screen — the list is what a check
                refreshes, and the dashboard fetches from GitHub on its own. *@
-            @if (TasksListOnScreen && IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
+            @if (GitHubSyncOffered)
             {
                 <IconButton BaseClass="icon-link"
                             id="github-sync-button"
@@ -582,27 +590,13 @@
             <p class="ai-panel__body">
                 @AiPanelBody
             </p>
-            @* The box keeps its own class and its own border, so the library's
-               grow wrapper is emitted without one. *@
-            <TextArea Bare="true"
-                      AutoGrow="false"
-                      GrowCssClass=""
-                      InputCssClass="ai-panel__question"
-                      AriaLabel="Ask about this content"
-                      data-testid="ai-question-input"
-                      Rows="3"
-                      Placeholder="What should I focus on next?"
-                      Value="@_aiQuestion"
-                      ValueChanged="value => _aiQuestion = value"
-                      @onkeydown="OnAiQuestionKeyDownAsync" />
-            <div class="ai-panel__actions">
-                <AppButton Variant="ButtonVariant.Secondary"
-                           data-testid="ai-ask-button"
-                           Disabled="@_aiBusy"
-                           OnClick="AskAiAsync">
-                    @(_aiBusy ? "Asking..." : "Ask")
-                </AppButton>
-            </div>
+            @* The question box and the Ask button, in a component of their own so a
+               keystroke draws the box and not this page. The question is still kept
+               here, so it outlives the panel closing. *@
+            <AskAiQuestion Question="@_aiQuestion"
+                           KeepQuestion="KeepAiQuestion"
+                           Busy="@_aiBusy"
+                           OnAsk="AskAiAsync" />
             @* The failure used to be a line under this box. It is a toast now: the
                panel is a takeover the reader opens over their work, and a refusal
                that stayed pinned inside it was still there next time they opened it.
@@ -742,7 +736,7 @@
                 }
                 else
                 {
-                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
+                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" BrainNotesFor="@BrainNotesForTask" OnOpenBrainNote="OpenBrainNoteAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
                 }
 
                 @if (DevbookPaneVisible)
@@ -776,7 +770,9 @@
                                      OpenSearchResultElsewhere="OpenDevbookSearchResult"
                                      OpenReference="@_devbookOpenRequest"
                                      OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
-                                     OnOpenRepositoryChapter="OpenBrainRepoLinkAsync" />
+                                     OnOpenRepositoryChapter="OpenBrainRepoLinkAsync"
+                                     TaskTitleFor="TaskTitleFor"
+                                     OnOpenTask="OpenTaskFromBrainAsync" />
                     </aside>
                 }
             </div>
@@ -827,6 +823,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _linkedWork = BuildLinkedWork();
+
         // Reopen on the surface the reader was last looking at rather than
         // always defaulting to the workspace panes. An unrecognised or absent
         // value — first launch included — leaves the field defaults in place.
@@ -892,6 +890,16 @@
         // The Brain the Devbook pane reads. Optional for the same reason: a host
         // that composes none offers the pane for repositories only.
         _brainFolders = Services.GetService<IBrainFolderSource>();
+
+        // The notes of the owner's Brain that name tasks, for the rows' Brain
+        // badges (local ADR 0026 §3). Read again whenever the Brain announces a
+        // change, which is also how a rebuilt database is announced.
+        _brainTaskLinks = Services.GetService<IBrainTaskLinks>();
+        if (_brainFolders is not null && _brainTaskLinks is not null)
+        {
+            _brainFolders.Changed += HandleBrainFoldersChanged;
+            _ = ReadBrainNotesByTaskAsync();
+        }
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
@@ -1104,6 +1112,11 @@
     /// the workspace, not merely chosen underneath a takeover. The GitHub check acts
     /// on the list and is offered on this answer; so is the Tasks area of Ask AI.</summary>
     private bool TasksListOnScreen => WorkspaceVisible && EffectiveView is ShellView.Tasks or ShellView.Board or ShellView.Calendar;
+
+    /// <summary>Whether the header offers the GitHub check: the list is on screen,
+    /// the integration is on and configured, and a row links to GitHub. Read by the
+    /// markup and by <see cref="ReadShellInputs"/>, so the two cannot drift.</summary>
+    private bool GitHubSyncOffered => TasksListOnScreen && IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows;
 
     /// <summary>How the Tasks pane lays out its filtered rows: columns of cards on
     /// the Board view, the month calendar on the Calendar view, the list otherwise.</summary>
@@ -1501,8 +1514,17 @@
 
     /// <summary>The Tasks detail panel's "Sessions and pull requests", for the
     /// selected entry. Offered while the In progress view is: the section is that
-    /// view's cards for one entry, and its "Open in In progress" leads there.</summary>
-    private RenderFragment<EntryRow>? LinkedWorkFor => InProgressViewOffered
+    /// view's cards for one entry, and its "Open in In progress" leads there. Built
+    /// once, and again on every feature change, rather than as a new fragment on
+    /// every render — see <see cref="BuildLinkedWork"/>.</summary>
+    private RenderFragment<EntryRow>? LinkedWorkFor => _linkedWork;
+
+    private RenderFragment<EntryRow>? _linkedWork;
+
+    /// <summary>The fragment behind <see cref="LinkedWorkFor"/>. It reads the flags
+    /// and the reader as it draws, so only whether it is offered at all is decided
+    /// here, and that is a feature's to change.</summary>
+    private RenderFragment<EntryRow>? BuildLinkedWork() => InProgressViewOffered
         ? row => @<LinkedWorkSection @key="row.Key"
                                      Row="row"
                                      Reader="_work"
@@ -1940,8 +1962,16 @@
         return Task.CompletedTask;
     }
 
-    private async Task AskAiAsync()
+    /// <summary>The question box's text, kept so the panel reopens with it. Not a
+    /// render: see <see cref="AskAiQuestion"/>.</summary>
+    private void KeepAiQuestion(string question) => _aiQuestion = question;
+
+    /// <summary>An ask, from the box's button or its Ctrl+Enter. The question is
+    /// the one the box already kept here; the text it was asked with is taken
+    /// again so the two cannot differ.</summary>
+    private async Task AskAiAsync(string question)
     {
+        _aiQuestion = question;
         if (EffectiveAiScope is not { } scope || !_aiSources.TryGetValue(scope, out var source)) return;
 
         // One token per ask, and a new ask ends the one before it: an answer to
@@ -2035,9 +2065,6 @@
         ask.Dispose();
     }
 
-    private Task OnAiQuestionKeyDownAsync(KeyboardEventArgs e) =>
-        e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? AskAiAsync() : Task.CompletedTask;
-
     private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatures.InboxPane);
 
     private bool InboxPaneOptionVisible => InboxFeatureEnabled;
@@ -2098,6 +2125,27 @@
     private string? FeatureStatusTitle(string featureKey) =>
         AppFeatureStatusBadge.TitleFor(AppFeatures.All, Features, featureKey);
 
+    /// <summary>
+    /// A Tasks or Inbox change: the shell keeps its own state in step with it, and
+    /// draws itself again only when the change moved something it draws.
+    /// <para>
+    /// The Tasks state announces every keystroke in an entry's body and every move
+    /// of the selection, and the shell drew the whole page for each — the header, and
+    /// every pane under it that takes a parameter Blazor cannot compare, the Tasks
+    /// pane among them, which then drew a second time for its own subscription. The
+    /// header draws none of what those change. So the side effects below run for
+    /// every change, and the redraw only when <see cref="ShellInputs"/> differ from
+    /// what the last render drew.
+    /// </para>
+    /// <para>
+    /// Compared after the side effects, because they can move an input themselves:
+    /// narrowing the scope to its anchor raises another change, and a pane trimmed
+    /// for want of room is the shell's own state. And always drawn while the session
+    /// or pull request list is on screen: those read their tasks through this page's
+    /// delegates and listen to nothing, so a row whose link or status moved in place
+    /// reaches their cells only through this render.
+    /// </para>
+    /// </summary>
     private void HandleStateChanged() => _ = InvokeAsync(() =>
     {
         // A row's links, status or assignee can change in place, which the list's
@@ -2107,8 +2155,63 @@
         ForgetDevbookRepositoryRequestLeftBehind();
 
         RememberRepositoryScope();
-        StateHasChanged();
+
+        if (SessionsVisible || PullRequestsVisible || !ReadShellInputs().Matches(_drawnShellInputs)) StateHasChanged();
     });
+
+    /// <summary>What the last render drew of <see cref="ShellInputs"/>, read as it
+    /// began; null before the first.</summary>
+    private ShellInputs? _drawnShellInputs;
+
+    private ShellInputs ReadShellInputs() => new(
+        Scope: [.. State.SelectedRepositoryAliases],
+        Repositories: [.. State.Repositories.Select(repository => (repository.Alias, repository.FullName))],
+        Colours: [.. State.RepositoryColours.OrderBy(colour => colour.Key, StringComparer.Ordinal).Select(colour => (colour.Key, colour.Value))],
+        ColoursVisible: State.RepositoryColoursVisible,
+        GitHubSyncOffered: GitHubSyncOffered,
+        GitHubSyncing: State.GitHubSyncing,
+        DevbookOptionVisible: DevbookPaneOptionVisible,
+        DevbookPaneVisible: DevbookPaneVisible,
+        DevbookRepositoryAlias: DevbookRepositoryAlias,
+        DevbookSwitchRepositoryAlias: DevbookSwitchRepositoryAlias);
+
+    /// <summary>
+    /// Everything the shell draws that a Tasks or Inbox change can move without one
+    /// of the shell's own events firing: the scope chips and the Brain chip, the
+    /// Colors switch and the identity marks, the GitHub check, the Devbook option and
+    /// pane and what the pane reads — and through the scope, what the Dashboard and
+    /// the two lists are handed. The rest of the page moves only by the shell's own
+    /// handlers, which draw it anyway.
+    /// <para>
+    /// Copies, never the live lists: the scope the state holds is narrowed in place,
+    /// and a snapshot that shared it would always match.
+    /// </para>
+    /// </summary>
+    private sealed record ShellInputs(
+        string[] Scope,
+        (string Alias, string FullName)[] Repositories,
+        (string Alias, int Colour)[] Colours,
+        bool ColoursVisible,
+        bool GitHubSyncOffered,
+        bool GitHubSyncing,
+        bool DevbookOptionVisible,
+        bool DevbookPaneVisible,
+        string DevbookRepositoryAlias,
+        string? DevbookSwitchRepositoryAlias)
+    {
+        public bool Matches(ShellInputs? drawn) =>
+            drawn is not null
+            && Scope.SequenceEqual(drawn.Scope, StringComparer.Ordinal)
+            && Repositories.SequenceEqual(drawn.Repositories)
+            && Colours.SequenceEqual(drawn.Colours)
+            && ColoursVisible == drawn.ColoursVisible
+            && GitHubSyncOffered == drawn.GitHubSyncOffered
+            && GitHubSyncing == drawn.GitHubSyncing
+            && DevbookOptionVisible == drawn.DevbookOptionVisible
+            && DevbookPaneVisible == drawn.DevbookPaneVisible
+            && string.Equals(DevbookRepositoryAlias, drawn.DevbookRepositoryAlias, StringComparison.Ordinal)
+            && string.Equals(DevbookSwitchRepositoryAlias, drawn.DevbookSwitchRepositoryAlias, StringComparison.Ordinal);
+    }
 
     /// <summary>Whether the remembered repository scope is still to be handed to the
     /// state: true until a pass finds the repository registry readable.</summary>
@@ -2143,6 +2246,7 @@
 
     private void HandleFeaturesChanged() => _ = InvokeAsync(() =>
     {
+        _linkedWork = BuildLinkedWork();
         SynchronizePaneAvailability();
 
         // Switched on after the list loaded: check now rather than at a reload
@@ -2195,13 +2299,19 @@
     }
 
     /// <summary>A pull may have delivered a capture or another device's edits.
-    /// Reloading either pane is a database read, so the Inbox is re-read only
-    /// once it has loaded at all — before that the first load will read
-    /// whatever arrived — and the Tasks pane only when a cycle actually
-    /// applied something it had not applied before. The worker raises this at
-    /// both ends of a cycle and for cycles that changed nothing, and a list
-    /// that started over on every one of those would replace its rows every
-    /// five minutes for no reader's benefit.
+    /// Reloading either pane is a database read, so both are re-read only for a
+    /// cycle that has finished and applied something it had not applied before —
+    /// the Inbox, besides, only once it has loaded at all, since before that the
+    /// first load will read whatever arrived. The worker raises this at both ends
+    /// of a cycle and for cycles that changed nothing, and a list that started over
+    /// on every one of those would replace its rows every five minutes for no
+    /// reader's benefit.
+    /// <para>
+    /// The Inbox is re-read after a cycle that failed as well. A failure leaves the
+    /// last summary as it was, so it cannot say whether pages merged before the
+    /// failure — a pull that failed part-way has written them — and a capture that
+    /// arrived in them is what the Inbox is for.
+    /// </para>
     /// <para>
     /// The Tasks reload is what the timestamp poll used to do — a pull writes
     /// the same database the poll watched — and the state keeps that poll's
@@ -2217,9 +2327,16 @@
     /// </para></summary>
     private void HandleTaskSyncChanged() => _ = InvokeAsync(async () =>
     {
-        if (_taskSync is { IsSyncing: false, LastSummary: { Applied: > 0 } summary } && summary.At != _lastAppliedSyncAt)
+        if (_taskSync is not { IsSyncing: false } sync) return;
+
+        // Read once: the worker writes it from its own thread.
+        var summary = sync.LastSummary;
+        var applied = summary is { Applied: > 0 } && summary.At != _lastAppliedSyncAt;
+        var failed = sync.LastError is not null;
+
+        if (applied)
         {
-            _lastAppliedSyncAt = summary.At;
+            _lastAppliedSyncAt = summary!.At;
 
             try
             {
@@ -2232,7 +2349,7 @@
             }
         }
 
-        if (!_inboxInitialized) return;
+        if (!_inboxInitialized || !(applied || failed)) return;
 
         try
         {
@@ -2244,9 +2361,9 @@
         }
     });
 
-    /// <summary>The cycle whose applied changes the Tasks pane last reloaded
-    /// for, so the raise at the end of that same cycle — and every raise for
-    /// a cycle that applied nothing since — reloads it no second time.</summary>
+    /// <summary>The cycle whose applied changes the Tasks pane and the Inbox last
+    /// reloaded for, so the other raise of that same cycle — and every raise for a
+    /// cycle that applied nothing since — reloads neither a second time.</summary>
     private DateTimeOffset? _lastAppliedSyncAt;
 
     /// <summary>
@@ -2627,6 +2744,98 @@
     /// <summary>The Brain the Devbook pane reads, or null in a host that composes none.</summary>
     private IBrainFolderSource? _brainFolders;
 
+    /// <summary>Where the Brain's task links are read, or null in a host that
+    /// composes none — which then draws no Brain badge on any row.</summary>
+    private IBrainTaskLinks? _brainTaskLinks;
+
+    /// <summary>The owner's Brain notes by the task id they name, as last read.</summary>
+    private IReadOnlyDictionary<string, IReadOnlyList<BrainTaskNote>> _brainNotesByTask =
+        new Dictionary<string, IReadOnlyList<BrainTaskNote>>();
+
+    /// <summary>Only the latest read lands.</summary>
+    private int _brainNotesRead;
+
+    /// <summary>
+    /// Reads which Brain notes name which tasks. A Brain that cannot be read leaves
+    /// the badges as they were: they are a convenience, and the next change reads
+    /// again.
+    /// </summary>
+    private async Task ReadBrainNotesByTaskAsync()
+    {
+        if (_brainTaskLinks is null) return;
+
+        var read = ++_brainNotesRead;
+        IReadOnlyDictionary<string, IReadOnlyList<BrainTaskNote>> notes;
+        try
+        {
+            notes = await _brainTaskLinks.NotesByTaskAsync();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException)
+        {
+            return;
+        }
+
+        if (read != _brainNotesRead) return;
+        _brainNotesByTask = notes;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void HandleBrainFoldersChanged()
+    {
+        try
+        {
+            await InvokeAsync(ReadBrainNotesByTaskAsync);
+        }
+        catch (Exception)
+        {
+            // An async void handler: a badge is not worth the process.
+        }
+    }
+
+    /// <summary>A task row's Brain notes, by the row's stored id.</summary>
+    private IReadOnlyList<Backlog.UI.Components.Brain.BrainNoteLink> BrainNotesForTask(string taskId) =>
+        _brainNotesByTask.TryGetValue(taskId, out var notes)
+            ? [.. notes.Select(note => new Backlog.UI.Components.Brain.BrainNoteLink(note.NotePath, note.Title))]
+            : [];
+
+    /// <summary>
+    /// A Brain note opened from a task row's badge: the Devbook pane on screen, on
+    /// the Brain side, at the note. The road a Brain search result takes, plus the
+    /// pane opened — the reader pressed it from the list.
+    /// </summary>
+    private Task OpenBrainNoteAsync(Backlog.UI.Components.Brain.BrainNoteLink note)
+    {
+        _devbookSwitch = null;
+        _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
+            ? null
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
+        _devbookOpenRequest = new DevbookOpenRequest(note.Path, ++_devbookOpenSequence);
+
+        SynchronizePaneAvailability();
+        _globalPanes.TryOpen(GlobalPane.Devbook);
+        RememberAiScope(AiScopeFor(GlobalPane.Devbook));
+        PersistPaneSelection();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The title of the task with this id in this backlog, or null — a
+    /// Brain note's Tasks section draws that one as "not in this backlog".</summary>
+    private string? TaskTitleFor(string taskId) =>
+        Guid.TryParse(taskId, out var id) && State.Rows.FirstOrDefault(row => row.Id == id) is { } row
+            ? row.PreviewTitle
+            : null;
+
+    /// <summary>A task followed out of a Brain note: the task list on screen, that
+    /// task selected — as a session's entry is opened.</summary>
+    private async Task OpenTaskFromBrainAsync(string taskId)
+    {
+        if (!Guid.TryParse(taskId, out var id) || State.Rows.FirstOrDefault(row => row.Id == id) is not { } row) return;
+
+        ShowView(ShellView.Tasks);
+        await State.SelectAsync(row);
+    }
+
     private void HandleBrainSettingsChanged() => _ = InvokeAsync(StateHasChanged);
 
     /// <summary>The Brain chip's word: "Brain", or "Set up your Brain" while no folder
@@ -2769,6 +2978,7 @@
         CancelAsk();
         State.Changed -= HandleStateChanged;
         if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
+        if (_brainFolders is not null && _brainTaskLinks is not null) _brainFolders.Changed -= HandleBrainFoldersChanged;
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;

@@ -359,7 +359,7 @@ use one:
 | A repository box in the Inbox triage picker, "Move to backlog in" | the identity edge below, along the box's leading edge |
 | The colour picker in Settings → Repositories | a solid swatch of the hue itself |
 | The **Brain** chip leading the repository scope in the app header | the identity edge below, in `color-band-2`; see [The Brain's accent](#the-brains-accent) |
-| The header's Devbook toggle while it reads **Brain**, the **Brain** badge after the Devbook pane's title, the **From your Brain** box under a repository chapter, and a Brain note's edges in the Brain's atlas | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
+| The header's Devbook toggle while it reads **Brain**, the **Brain** badge after the Devbook pane's title, the **From your Brain** box under a repository chapter, a Brain note's Tasks section, the **◆ n note** badge on a task row, and a Brain note's edges in the Brain's atlas | `color-band-2`, as [The Brain's accent](#the-brains-accent) paints it |
 
 The roadmap's bars, the dashboard's repository bands and the Settings picker
 paint a hue as a fill; every other consumer takes the identity edge. The
@@ -541,6 +541,8 @@ repository's devbook*.
 | The edge from a Brain note in the Brain's atlas | `color-band-2` stroke, solid when the link resolves and dashed when it does not |
 | A resolved `repo:` link chip in a Brain note | gold: the `live` tone of [Badge and chip tones](#badge-and-chip-tones), the followable-badge rule, since following it opens a repository devbook |
 | An unresolved `repo:` link chip | the `quiet` tone inside a dashed `color-border-strong` edge, with *not on this machine* in words |
+| The **Tasks** section of a Brain note, and the **◆ n note** badge on a task row naming the Brain notes that link to it | the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
+| A task chip in a note's Tasks section | gold, the `live` tone, when this backlog holds the task, since following it opens the task; the `quiet` tone inside a dashed `color-border-strong` edge, with *not in this backlog* in words, when it does not |
 
 Rules:
 

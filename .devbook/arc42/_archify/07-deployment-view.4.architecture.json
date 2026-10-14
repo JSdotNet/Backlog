@@ -69,14 +69,14 @@
       "id": "cosmos",
       "type": "database",
       "label": "Azure Cosmos DB (serverless)",
-      "sublabel": "tasks + sessions containers, change feed per container, webhook events, machine registry",
+      "sublabel": "tasks, sessions, annotations, devices, pairingCodes containers, change feed per replica container",
       "tag": "Data",
       "pos": [
-        750,
+        710,
         110
       ],
       "size": [
-        440,
+        480,
         80
       ]
     },
@@ -192,7 +192,11 @@
       "id": "appservice-cosmos",
       "from": "appservice",
       "to": "cosmos",
-      "label": "Managed identity — data-plane role"
+      "label": "Managed identity — data-plane role",
+      "labelAt": [
+        635,
+        204
+      ]
     },
     {
       "id": "appservice-keyvault",

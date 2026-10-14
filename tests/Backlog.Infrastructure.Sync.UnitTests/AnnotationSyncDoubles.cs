@@ -2,6 +2,8 @@ using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
+using Microsoft.Extensions.Logging;
+
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>The annotation-sync state port with no file behind it, recording
@@ -86,6 +88,27 @@ internal sealed class InMemoryDevbookAnnotationStore : IDevbookAnnotationStore
     {
         _annotations[annotation.Id] = annotation;
         return annotation;
+    }
+}
+
+/// <summary>A logger that keeps every line, with its level, its rendered
+/// message and its structured properties, so a test can say what was logged
+/// and what was not.</summary>
+internal sealed class CapturingLogger<T> : ILogger<T>
+{
+    public List<(LogLevel Level, string Message, Dictionary<string, object?> Properties)> Lines { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        var properties = state is IReadOnlyList<KeyValuePair<string, object?>> pairs
+            ? pairs.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
+            : [];
+
+        Lines.Add((logLevel, formatter(state, exception), properties));
     }
 }
 
