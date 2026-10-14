@@ -3313,6 +3313,20 @@ h1, h2, h3 {
         align-items: stretch;
     }
 
+    /* A settings card's header stacks its title over its actions, each as tall
+       as its content. The title side's `flex: 1 1 12rem` lets the text give way
+       in a row; in this column that basis is a height, and it stood 192 px tall
+       under one or two lines of text. The actions keep their width rather than
+       stretching across the card. */
+    .repo-card__header {
+        align-items: flex-start;
+    }
+
+    .repo-card__header > div {
+        flex: 0 0 auto;
+        max-width: 100%;
+    }
+
     .instructions-layout {
         display: flex;
         flex-direction: column;
