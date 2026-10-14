@@ -208,8 +208,33 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/progress/context.md#progress-area
 related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/productivity/features.md#the-weekly-brief, .devbook/domain/progress/requirements.md#sprints-in-the-briefs]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintWeekBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.ProgressSprintBriefSourceTests]
 ```
 
 Read the open sprint of a series in the daily and the weekly brief, for a series
-that chose to show there. The brief names the sprint, its goal, how many goal
+that chose to show there. The daily brief names the sprint, its goal, how many goal
 tasks are done, and whether the goal is met.
+
+The weekly brief opens with a Sprint block for each series that shows there and has a
+sprint overlapping the reported week; paging back a week reads that week's sprint.
+The block holds:
+
+- the sprint's name, then the series, its repositories, "week n of m" and the sprint's
+  window;
+- one sentence from a fixed template: the goal tasks and the items done by the week's
+  end against an even pace, what was added after the start and removed, and what is
+  blocked;
+- five figures: goal tasks done, done this week, items in the sprint with those added
+  after the start, pull requests merged that week, and blocked;
+- "Shipped, by plan": the members done that week, under their plan, each with the
+  pull requests it merged, linked to GitHub;
+- "Into week n", or "Into next week" in the sprint's last week: the items still open,
+  the blocked among them, and the pull requests waiting on review.
+
+The even pace is the share of the sprint's items that would be done by the week's end
+at the same rate every working day, Monday to Friday. Blocked, added and removed are
+the members' current marks, because a sprint keeps no history of them; a task taken
+out of an open sprint leaves no member, so only a close's Back to the backlog and Drop
+count as removed. The Dashboard reads all of this through its own port, answered from
+the Progress context's published surface. With Progress off, or no series showing in
+the weekly brief, there is no Sprint block and the brief is unchanged.

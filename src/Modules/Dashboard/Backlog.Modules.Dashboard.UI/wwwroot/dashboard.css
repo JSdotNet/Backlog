@@ -255,6 +255,121 @@
     font-weight: 400;
 }
 
+/* The Sprint block, first in the brief: one framed card per sprint, outlined in the
+   primary ink so it reads as the week's lead. Its figures wrap at narrow widths, and a
+   plan's shipped items wrap beside the plan's name, under it where the pane is narrow. */
+.dashboard-brief-sprint {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-primary);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.dashboard-brief-sprint__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.dashboard-brief-sprint__head > .dashboard-brief-block__tag {
+    flex-basis: 100%;
+}
+
+.dashboard-brief-sprint__name {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.dashboard-brief-sprint__meta,
+.dashboard-brief-sprint__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-brief-sprint__summary {
+    margin: 0;
+    max-width: 72ch;
+}
+
+.dashboard-brief-sprint__figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md) var(--spacing-xl);
+    margin: 0;
+}
+
+.dashboard-brief-sprint__figure {
+    display: flex;
+    flex-direction: column-reverse;
+    min-width: 7rem;
+}
+
+.dashboard-brief-sprint__figure-value {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-brief-sprint__figure-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.dashboard-brief-sprint__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.dashboard-brief-sprint__plans {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-brief-sprint__plan {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-brief-sprint__plan-name {
+    flex: 0 0 12rem;
+    max-width: 100%;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-brief-sprint__items {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    flex: 1 1 20rem;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-brief-sprint__item {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 .dashboard-brief-carry {
     display: flex;
     flex-direction: column;

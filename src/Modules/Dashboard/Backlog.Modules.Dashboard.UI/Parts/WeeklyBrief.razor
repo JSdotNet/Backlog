@@ -2,7 +2,11 @@
     The weekly brief: the last completed Monday-to-Sunday week read as a few sentences
     rather than as charts — the dashboard's "Read as brief".
 
-    Four blocks, in the board's order — Shipping, Plan, Sessions, Cost — each a part of
+    First, a Sprint block for each sprint series shown in the weekly brief whose sprint
+    overlaps the week (BriefSprintPart); with Progress off or no such series it draws
+    nothing and the brief is unchanged.
+
+    Then four blocks, in the board's order — Shipping, Plan, Sessions, Cost — each a part of
     its own reading through the insight its tab reads, so a block shares that tab's
     cached read and a source that cannot answer leaves the other three standing. Every
     sentence is a template filled from those figures (WeeklyBriefSentences), never
@@ -60,6 +64,7 @@
         </nav>
     </header>
 
+    <BriefSprintPart Scope="Scope" Week="_week" />
     <BriefShippingPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
     <BriefPlanPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
     <BriefSessionsPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
