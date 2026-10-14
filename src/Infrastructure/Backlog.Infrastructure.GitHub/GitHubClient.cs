@@ -110,6 +110,18 @@ public interface IGitHubClient
         Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException("This GitHub client cannot read pinned pull requests."));
 
     /// <summary>
+    /// The named pull requests of one repository, whatever state each is in, with only
+    /// what a task's link records: the title, the state, the author and when it merged.
+    /// A number GitHub cannot find is left out. A default body for the reason
+    /// <see cref="ListOpenPullRequestsAsync"/> has one.
+    /// </summary>
+    Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<IReadOnlyList<GitHubLinkedPullRequest>>(new GitHubException("This GitHub client cannot read linked pull requests."));
+
+    /// <summary>
     /// The repository's pull requests merged at or after <paramref name="mergedSince"/>,
     /// with when and by whom each was merged, in the order GitHub lists them — most
     /// recently updated first, because GitHub cannot order by merge time. Paged until the
@@ -783,6 +795,127 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         return await WithBehindCountsAsync(repository, ReadPinnedPullRequests(data, repository.FullName, wanted), cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>How many pull requests one linked read asks for in a single query. A
+    /// task list carries hundreds of links in a busy repository, and one query aliasing
+    /// all of them would be the kind GitHub refuses for its size — taking every link in
+    /// the repository down with it.</summary>
+    internal const int LinkedBatchSize = 50;
+
+    /// <summary>
+    /// The linked read: one aliased <c>pullRequest(number:)</c> per number, asking only
+    /// for the facts a link records, in batches of <see cref="LinkedBatchSize"/> sent one
+    /// after another through the repository's own GraphQL path. A number GitHub cannot
+    /// find is left out; a batch GitHub refuses fails the read, as the pinned read does.
+    /// </summary>
+    public async Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(numbers);
+
+        int[] wanted = [.. numbers.Where(number => number > 0).Distinct()];
+        var pulls = new List<GitHubLinkedPullRequest>(wanted.Length);
+
+        foreach (var batch in wanted.Chunk(LinkedBatchSize))
+        {
+            var data = await GitHubGraphQl.SendAsync(
+                transport,
+                repository,
+                LinkedPullRequestsQuery(batch),
+                new Dictionary<string, object?>
+                {
+                    ["owner"] = repository.Owner,
+                    ["name"] = repository.Name
+                },
+                cancellationToken,
+                tolerate: (errors, answer) => OnlyMissingPinsWereRefused(errors, answer, batch)).ConfigureAwait(false);
+
+            pulls.AddRange(ReadLinkedPullRequests(data, repository.FullName, batch));
+        }
+
+        return pulls;
+    }
+
+    /// <summary>
+    /// The linked read's query for <paramref name="numbers"/>: the pinned read's aliases,
+    /// each asking for the number, title, url, state, draft flag, merge time, the time it
+    /// was opened and author, and nothing else. The numbers are integers the caller holds, so writing them into
+    /// the text cannot inject anything.
+    /// </summary>
+    internal static string LinkedPullRequestsQuery(IEnumerable<int> numbers)
+    {
+        var fields = string.Join(
+            Environment.NewLine,
+            numbers.Select(number => $$"""
+                    {{PinnedAlias(number)}}: pullRequest(number: {{number.ToString(System.Globalization.CultureInfo.InvariantCulture)}}) {
+                      number
+                      title
+                      url
+                      state
+                      isDraft
+                      mergedAt
+                      createdAt
+                      author { login }
+                    }
+                """));
+
+        return $$"""
+            query($owner: String!, $name: String!) {
+              repository(owner: $owner, name: $name) {
+            {{fields}}
+              }
+            }
+            """;
+    }
+
+    /// <summary>The linked read's <c>data</c>, in the order asked. An alias that came
+    /// back null — a number GitHub cannot find — is left out; a missing repository is a
+    /// not-found, as for the pinned read.</summary>
+    internal static IReadOnlyList<GitHubLinkedPullRequest> ReadLinkedPullRequests(
+        JsonElement data,
+        string repositoryFullName,
+        IEnumerable<int> numbers)
+    {
+        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object)
+        {
+            throw new GitHubException($"GitHub couldn't find {repositoryFullName}.")
+            {
+                Status = System.Net.HttpStatusCode.NotFound
+            };
+        }
+
+        var pulls = new List<GitHubLinkedPullRequest>();
+
+        foreach (var asked in numbers)
+        {
+            if (!repository.TryGetProperty(PinnedAlias(asked), out var pull) || pull.ValueKind != JsonValueKind.Object) continue;
+
+            var number = pull.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : asked;
+            var state = String(pull, "state") switch
+            {
+                "MERGED" => GitHubItemState.Merged,
+                "CLOSED" => GitHubItemState.Closed,
+                _ => pull.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True
+                    ? GitHubItemState.Draft
+                    : GitHubItemState.Open
+            };
+
+            pulls.Add(new GitHubLinkedPullRequest(
+                number,
+                String(pull, "url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
+                String(pull, "title") ?? string.Empty,
+                repositoryFullName,
+                state,
+                Login(pull, "author"),
+                state is GitHubItemState.Merged ? Timestamp(pull, "mergedAt") : null,
+                Timestamp(pull, "createdAt")));
+        }
+
+        return pulls;
+    }
+
     /// <summary>
     /// Every page sent the way the open list is, through the repository's own GraphQL
     /// path, so the account bound to the repository is the one that answers. The walk
@@ -1079,6 +1212,13 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// pin lost.</summary>
     private static bool OnlyPinnedFactsOrMissingPinsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data, IReadOnlyCollection<int> asked) =>
         errors.All(error => IsARefusedExtraFact(error) || IsAMissingPin(error, asked))
+        && data.TryGetProperty("repository", out var repository)
+        && repository.ValueKind == JsonValueKind.Object;
+
+    /// <summary>The linked read asks for no extra fact a server may lack, so the only
+    /// error it tolerates is a number GitHub cannot find.</summary>
+    private static bool OnlyMissingPinsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data, IReadOnlyCollection<int> asked) =>
+        errors.All(error => IsAMissingPin(error, asked))
         && data.TryGetProperty("repository", out var repository)
         && repository.ValueKind == JsonValueKind.Object;
 

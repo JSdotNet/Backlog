@@ -1,0 +1,45 @@
+@* Draws its content only while the progress switch is on
+   (.devbook/domain/progress/context.md#progress-area). Every Progress screen sits
+   under it, so turning the switch off withdraws all of them at once and turning it
+   back on brings them back without a restart. A host that composed no feature
+   settings draws nothing: Progress ships off. *@
+@implements IDisposable
+
+@if (_on)
+{
+    @ChildContent
+}
+
+@code {
+    [Inject] private IServiceProvider Services { get; set; } = default!;
+
+    /// <summary>What to draw while Progress is on.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private IAppFeatureSettings? _features;
+    private bool _on;
+
+    protected override void OnInitialized()
+    {
+        _features = Services.GetService(typeof(IAppFeatureSettings)) as IAppFeatureSettings;
+        _on = IsOn();
+
+        if (_features is not null) _features.Changed += OnFeaturesChanged;
+    }
+
+    private bool IsOn() => _features?.IsEnabled(ProgressFeatures.Progress) ?? false;
+
+    private void OnFeaturesChanged()
+    {
+        var on = IsOn();
+        if (on == _on) return;
+
+        _on = on;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (_features is not null) _features.Changed -= OnFeaturesChanged;
+    }
+}

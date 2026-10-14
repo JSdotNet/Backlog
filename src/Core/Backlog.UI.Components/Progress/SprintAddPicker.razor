@@ -1,0 +1,156 @@
+@*
+    "Add to sprint…" (.devbook/domain/progress/features.md#filling-a-sprint): the dialog
+    the sprint view opens to put a task, or a whole plan, into the open sprint.
+
+    The host lists what can be added, over the series' repositories; the dialog narrows
+    it to one repository and to a search, and hands back the id of what was chosen. A
+    plan comes first, because linking one brings in every task filed under it — later
+    ones too — and that is usually what a person filling a sprint means. What the sprint
+    already holds is listed but not offered again, so a search for it says it is there
+    rather than coming up empty.
+
+    Choosing does not close the dialog: filling a sprint is usually several choices in a
+    row. The host says how each went through Status, and a refusal through Error, in the
+    module's words.
+*@
+<Modal Open="Open"
+       OpenChanged="OpenChanged"
+       Title="@($"Add to {SprintName}")"
+       CssClass="sprint-add-picker"
+       TestId="@TestId">
+    <p class="sprint-add-picker__description">Tasks and plans in the series' repositories. Adding one changes nothing on the task.</p>
+
+    <div class="sprint-add-picker__filters">
+        <SearchBox Value="@_search"
+                   ValueChanged="value => _search = value"
+                   Placeholder="Search tasks and plans"
+                   AriaLabel="Search tasks and plans"
+                   TestId="sprint-add-search" />
+        @if (Repositories.Count > 1)
+        {
+            <SelectField Label="Repository"
+                         Options="@RepositoryOptions"
+                         CurrentValue="@(_repository ?? AllRepositories)"
+                         Form="true"
+                         TestId="sprint-add-repository"
+                         OnChanged="value => _repository = string.IsNullOrWhiteSpace(value) || value == AllRepositories ? null : value" />
+        }
+    </div>
+
+    <Alert Message="@Error" TestId="sprint-add-error" />
+    @if (!string.IsNullOrWhiteSpace(Status))
+    {
+        <p class="sprint-add-picker__status" role="status" data-testid="sprint-add-status">@Status</p>
+    }
+
+    @{
+        var plans = SprintAddRules.Filter(Choices, SprintAddKind.Plan, _repository, _search);
+        var tasks = SprintAddRules.Filter(Choices, SprintAddKind.Task, _repository, _search);
+    }
+
+    @if (plans.Count == 0 && tasks.Count == 0)
+    {
+        <EmptyState Title="Nothing to add"
+                    Description="@(string.IsNullOrWhiteSpace(_search) ? "No task or plan in these repositories." : "No task or plan matches the search.")"
+                    TestId="sprint-add-empty" />
+    }
+    else
+    {
+        <div class="sprint-add-picker__lists">
+            @if (plans.Count > 0)
+            {
+                @Section("Plans", "sprint-add-plans", plans)
+            }
+            @if (tasks.Count > 0)
+            {
+                @Section("Tasks", "sprint-add-tasks", tasks)
+            }
+        </div>
+    }
+</Modal>
+
+@code {
+    private const string AllRepositories = "*";
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The sprint things are added to, "Sprint 42": the dialog's title.</summary>
+    [Parameter]
+    public string SprintName { get; set; } = "the sprint";
+
+    /// <summary>The series' repositories, by alias, in order: the filter's choices.
+    /// With one, there is no filter.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
+    /// <summary>Everything that could be added, plans and tasks together.</summary>
+    [Parameter]
+    public IReadOnlyList<SprintAddChoice> Choices { get; set; } = [];
+
+    /// <summary>A choice was pressed.</summary>
+    [Parameter]
+    public EventCallback<SprintAddChoice> OnChosen { get; set; }
+
+    /// <summary>What the last choice did, in the host's words — "Added “Overzicht”."</summary>
+    [Parameter]
+    public string? Status { get; set; }
+
+    /// <summary>Why the last choice was refused, in the module's words.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>A choice is being written: every choice waits for it.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "sprint-add-picker";
+
+    private string? _search;
+    private string? _repository;
+    private bool _wasOpen;
+
+    protected override void OnParametersSet()
+    {
+        // Each opening starts unfiltered, so a search left from the last one cannot
+        // hide what the person came back for.
+        if (Open && !_wasOpen)
+        {
+            _search = null;
+            _repository = null;
+        }
+
+        _wasOpen = Open;
+    }
+
+    private IReadOnlyList<SelectorOption> RepositoryOptions =>
+        [new(AllRepositories, "All repositories"), .. Repositories.Select(alias => new SelectorOption(alias, alias))];
+
+    private RenderFragment Section(string title, string testId, IReadOnlyList<SprintAddChoice> choices) =>
+        @<section class="sprint-add-picker__section" aria-label="@title" data-testid="@testId">
+            <h3 class="sprint-board__section-title">@title</h3>
+            <ul class="sprint-add-picker__options" role="list">
+                @foreach (var choice in choices)
+                {
+                    <li @key="(choice.Kind, choice.Id)">
+                        <AppButton Variant="ButtonVariant.None"
+                                   BaseClass="sprint-add-picker__option"
+                                   TestId="sprint-add-option"
+                                   Disabled="@(choice.InSprint || Busy)"
+                                   data-option-id="@choice.Id"
+                                   data-kind="@(choice.Kind == SprintAddKind.Plan ? "plan" : "task")"
+                                   OnClick="() => OnChosen.InvokeAsync(choice)">
+                            <span class="sprint-add-picker__label">@choice.Label</span>
+                            <span class="sprint-add-picker__detail">@(choice.InSprint ? Join(choice.Detail, "In the sprint") : choice.Detail)</span>
+                        </AppButton>
+                    </li>
+                }
+            </ul>
+        </section>;
+
+    private static string Join(string? detail, string tail) => string.IsNullOrWhiteSpace(detail) ? tail : $"{detail} · {tail}";
+}

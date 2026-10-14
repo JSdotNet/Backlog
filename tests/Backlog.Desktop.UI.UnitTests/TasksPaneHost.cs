@@ -224,6 +224,32 @@ internal sealed class TasksPaneHost : IDisposable
             Task.FromResult<IReadOnlyList<GitHubOpenPullRequest>>(
                 [.. OpenPullRequests.Where(pull => string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))]);
 
+        /// <summary>What a read by number answers, whatever state each is in — the
+        /// pull requests tasks link, merged and closed among them.</summary>
+        public List<GitHubLinkedPullRequest> PullRequestsByNumber { get; } = [];
+
+        /// <summary>Every read by number asked, as <c>owner/name 1,2</c>.</summary>
+        public List<string> ReadByNumber { get; } = [];
+
+        public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
+            GitHubRepositoryRef repository,
+            IReadOnlyCollection<int> numbers,
+            CancellationToken cancellationToken = default)
+        {
+            ReadByNumber.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
+
+            IReadOnlyList<GitHubLinkedPullRequest> answer =
+                [.. PullRequestsByNumber.Where(pull =>
+                    numbers.Contains(pull.Number)
+                    && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))];
+
+            return ByNumberGate is { } gate ? gate.Task.ContinueWith(_ => answer, TaskScheduler.Default) : Task.FromResult(answer);
+        }
+
+        /// <summary>Set, a read by number answers only once it completes — how a test
+        /// holds that read back while the rest lands.</summary>
+        public TaskCompletionSource? ByNumberGate { get; set; }
+
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
         public string? CreatedRepository { get; private set; }

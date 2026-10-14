@@ -158,6 +158,45 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
+    /// The sync merge the head composes hands a <c>sprint-series</c> document to
+    /// Progress's replication port, which writes it into this device's own series rows:
+    /// the series another desktop synced lands here rather than as a draft task.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_takes_a_synced_sprint_series_into_its_own_series()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var id = Guid.NewGuid();
+        var document = $$"""{"version":1,"id":"{{id:D}}","name":"Platform","repositories":["backlog"]}""";
+        var change = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChange(
+            id,
+            new DateTimeOffset(2026, 10, 14, 9, 0, 0, TimeSpan.Zero),
+            DeletedAt: null,
+            new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskPayload(
+                "Platform", document, "sprint-series", "draft", "medium", 0, null,
+                new DateTimeOffset(2026, 10, 14, 9, 0, 0, TimeSpan.Zero),
+                null, null, null, null, null, null, null, null, null, null, null,
+                [], [], [], [], [], []));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        var held = Assert.Single(await provider
+            .GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.ISprintSeriesReplication>()
+            .ReadAllAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(id, held.Id);
+        Assert.Equal(document, held.Content);
+    }
+
+    /// <summary>
     /// The roadmap's actual hours are answered by the adapter over the agent activity,
     /// and one instance serves every window, as the activity source it reads does.
     /// </summary>

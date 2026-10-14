@@ -1,0 +1,178 @@
+@page "/sprint-settings"
+
+<PageTitle>Sprint settings — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Sprint settings"
+           Summary="SprintSeriesCard: one sprint series on Settings › Sprints, the page the Progress area adds while its switch is on. Every value is handed in and every act is a callback, so the series below are stubs with no store behind them; each change commits as it is made, with no save button."
+           Guidelines="@Rules">
+
+    <Story Name="A series"
+           Description="The design's own state: a two-week series over two repositories, sprint 42 running. Remove a repository with its chip's ×, or add one from the picker at the end of the row, which offers only the repositories in no series. The last repository cannot be removed: a series exists only while it has one.
+
+Change the name pattern and leave the field: the line beside it names the next sprint. A pattern without {n}, or with it twice, stays in the field with the reason instead.
+
+Tick Tasks in these plans and the rule waits for a plan before it counts, because a rule naming no plan is not one the series can hold."
+           Code="@LiveCode">
+        <div class="sb-menu-wide">
+            <SprintSeriesCard Model="@_live"
+                              FreeRepositories="@_free"
+                              Error="@_error"
+                              OnSwitch="on => Change(_live with { IsOn = on })"
+                              OnAddRepository="AddRepository"
+                              OnRemoveRepository="RemoveRepository"
+                              OnLengthChanged="weeks => Change(_live with { Weeks = weeks })"
+                              OnStartWeekdayChanged="day => Change(_live with { StartWeekday = day })"
+                              OnNamePatternChanged="pattern => Change(_live with { NamePattern = pattern })"
+                              OnGoalChanged="goal => Change(_live with { Goal = goal })"
+                              OnShowInChanged="briefs => Change(_live with { ShowInDaily = briefs.Daily, ShowInWeekly = briefs.Weekly })" />
+        </div>
+    </Story>
+
+    <Story Name="Switched off"
+           Description="A series switched off keeps its repositories, its settings and its sprints, and still holds its repositories against every other series — they read as in no sprint until it is switched back on. Its title drops to the secondary ink; every row stays editable."
+           Code="@OffCode">
+        <div class="sb-menu-wide">
+            <SprintSeriesCard Model="@(Fincent with { IsOn = false, Running = null })" TestId="sprint-off" />
+        </div>
+    </Story>
+
+    <Story Name="A goal counted by plans and tags, met at a share"
+           Description="Two plans and a tag pick the goal tasks, and the goal is met once 80% of them are done. A task picked by more than one rule counts once."
+           Code="@ShareCode">
+        <div class="sb-menu-wide">
+            <SprintSeriesCard Model="@PlannedGoal" TestId="sprint-share" />
+        </div>
+    </Story>
+
+    <Story Name="A refused change"
+           Description="The host's own sentence for the last change it refused, as an alert under the heading — here, a repository another series took in the meantime."
+           Code="@RefusedCode">
+        <div class="sb-menu-wide">
+            <SprintSeriesCard Model="@Fincent"
+                              TestId="sprint-refused"
+                              Error="JSdotNet/Backlog already belongs to another sprint series." />
+        </div>
+    </Story>
+
+    <Story Name="The page"
+           Description="A sketch of what Settings › Sprints draws around the cards, in the library's parts alone: a card per series, then the repositories in no series on a Card of their own — they keep the In progress view they have today, and each can join one series — and Add another sprint, which starts a series over the repository it is given. The page itself lives in the Progress module and lays these out with its own classes."
+           Code="@PageCode">
+        <div class="sb-menu-wide sb-stack">
+            <SprintSeriesCard Model="@Fincent" TestId="sprint-page" FreeRepositories="@(["JSdotNet/Backlog"])" />
+            <Card Title="Not in a sprint" TestId="sprint-page-free">
+                <p>These keep today's In progress view. Each can join one sprint.</p>
+                <TagChip Text="JSdotNet/Backlog" />
+            </Card>
+            <div>
+                <AppButton>Add another sprint</AppButton>
+            </div>
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why every row commits as it is changed and the card has no save button."),
+        new("interaction-guidelines.md#error-states", "Where a refused change shows, and in whose words."),
+        new("color-scheme.md#badge-and-chip-tones", "The tone a repository chip and a plan chip wear.")
+    ];
+
+    private static readonly SprintSeriesCardModel Fincent = new(
+        "fincent",
+        "Fincent team",
+        IsOn: true,
+        "Sprint 42 runs Mon 5 Oct to Fri 16 Oct",
+        ["innovadis-dev/Fincent", "JSdotNet/devbook-marketplace"],
+        Weeks: 2,
+        DayOfWeek.Monday,
+        "Sprint {n}",
+        NextNumber: 43,
+        SprintGoalSettings.Default with { MarkedAsGoal = true },
+        ShowInDaily: true,
+        ShowInWeekly: true);
+
+    private static readonly SprintSeriesCardModel PlannedGoal = Fincent with
+    {
+        Id = "planned",
+        Goal = new SprintGoalSettings(
+            InPlans: true,
+            ["rekeningen", "verplaatsen-specs"],
+            MarkedAsGoal: true,
+            Tagged: true,
+            ["release"],
+            Everything: false,
+            Share: 80)
+    };
+
+    private SprintSeriesCardModel _live = Fincent with { Id = "live" };
+    private List<string> _free = ["JSdotNet/Backlog", "JSdotNet/Backlog-docs"];
+    private string? _error;
+
+    private void Change(SprintSeriesCardModel next)
+    {
+        _error = null;
+        _live = next;
+    }
+
+    private void AddRepository(string alias)
+    {
+        _free.Remove(alias);
+        Change(_live with { Repositories = [.. _live.Repositories, alias] });
+    }
+
+    private void RemoveRepository(string alias)
+    {
+        if (_live.Repositories.Count == 1)
+        {
+            _error = "A sprint series needs at least one repository.";
+            return;
+        }
+
+        _free.Add(alias);
+        Change(_live with { Repositories = [.. _live.Repositories.Where(repository => repository != alias)] });
+    }
+
+    private const string LiveCode = """
+        <SprintSeriesCard Model="@series"
+                          FreeRepositories="@free"
+                          Error="@error"
+                          OnSwitch="SwitchAsync"
+                          OnAddRepository="AddRepositoryAsync"
+                          OnRemoveRepository="RemoveRepositoryAsync"
+                          OnLengthChanged="ChangeLengthAsync"
+                          OnStartWeekdayChanged="ChangeStartAsync"
+                          OnNamePatternChanged="RenameAsync"
+                          OnGoalChanged="SetGoalAsync"
+                          OnShowInChanged="ShowInAsync" />
+        """;
+
+    private const string OffCode = """
+        <SprintSeriesCard Model="@(series with { IsOn = false })" />
+        """;
+
+    private const string ShareCode = """
+        <SprintSeriesCard Model="@(series with { Goal = new SprintGoalSettings(
+            InPlans: true, ["rekeningen", "verplaatsen-specs"],
+            MarkedAsGoal: true,
+            Tagged: true, ["release"],
+            Everything: false,
+            Share: 80) })" />
+        """;
+
+    private const string RefusedCode = """
+        <SprintSeriesCard Model="@series" Error="@error" />
+        """;
+
+    private const string PageCode = """
+        @foreach (var series in allSeries)
+        {
+            <SprintSeriesCard Model="@series" FreeRepositories="@free" ... />
+        }
+        <Card Title="Not in a sprint">
+            <p>These keep today's In progress view. Each can join one sprint.</p>
+            @foreach (var alias in free) { <TagChip Text="@alias" /> }
+        </Card>
+        <AppButton OnClick="AddSeriesAsync">Add another sprint</AppButton>
+        """;
+}

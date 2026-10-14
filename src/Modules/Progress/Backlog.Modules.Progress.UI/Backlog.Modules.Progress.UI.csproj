@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Progress module's UI (.devbook/domain/progress/features.md): the one rule every
+    Progress screen draws under — ProgressOnly renders its content only while the
+    progress switch is on, so with it off nothing of Progress is drawn — and Settings ›
+    Sprints, registered on the settings screen by AddProgressSettings — and the In
+    progress tab's sprint view (InProgress/InProgressSprints), which the desktop shell
+    composes around its view by task. The board it draws is the shared library's
+    SprintBoard, so the storybook shows it with no series behind it.
+
+    It references the shared control library rather than growing its own controls,
+    which is the rule every module UI project follows, and the module's published
+    surface only — never the series, its repository or the handlers.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Progress.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- AddProgressSettings registers the Sprints page's SettingsSection. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- IAppFeatureSettings: the switch every Progress screen is drawn under. -->
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

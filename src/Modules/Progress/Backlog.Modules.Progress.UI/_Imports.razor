@@ -1,0 +1,7 @@
+@* Progress UI. Every Backlog.* import is written as @@using global::Backlog.Something,
+   for the reason the Roadmap UI's imports give: this project's root namespace is
+   Backlog.Modules.Progress.UI, and a bare "Backlog" inside it would bind to
+   Backlog.Modules. *@
+@using global::Backlog.Modules.Progress.Abstractions
+@using global::Backlog.SharedKernel
+@using Microsoft.AspNetCore.Components

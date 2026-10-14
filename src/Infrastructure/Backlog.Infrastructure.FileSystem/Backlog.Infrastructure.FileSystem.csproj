@@ -35,6 +35,10 @@
          implementation is the normal direction; the module never sees this
          project. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <!-- The cross-context join under Progress/ - the tasks a sprint names, read
+         through Tasks' published ITaskItems to answer Progress's ISprintTaskSource.
+         The published surface only on the Progress side (local ADR 0028). -->
+    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
     <!-- The cross-context join under Inbox/ - an inbox item routed to the backlog
          becomes entries, composed in Tasks' grammar from the Inbox's published
          request shape. The published surface only: the adapter answers the Inbox's

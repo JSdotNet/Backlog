@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Progress module — the Progress bounded context (.devbook/domain/progress, local
+    ADR 0028). Clean architecture, inside out:
+      DomainModels/  the Sprint Series aggregate, its sprints and items, value objects
+      Features/      one vertical slice per use case (command/query + handler)
+      Services/      SeriesAssignment and SprintProgress (the domain services), and
+                     the published ports over the handlers
+      Extensions/    AddProgressModule() composition root for hosts
+    Ports such as ISprintSeriesRepository live here; adapters live in
+    src/Infrastructure. Tasks are read through ISprintTaskSource, answered by an
+    adapter over Tasks' published surface: this project may reference the shared
+    kernel and its own Abstractions, and nothing else in the solution.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Progress</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddProgressModule(); the domain and the handlers know nothing
+         about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Progress.UnitTests" />
+  </ItemGroup>
+
+</Project>

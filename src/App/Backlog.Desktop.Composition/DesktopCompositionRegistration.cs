@@ -10,6 +10,7 @@ using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
@@ -25,6 +26,8 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
+using Backlog.Modules.Progress.Extensions;
+using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -130,6 +133,11 @@ public static class DesktopCompositionRegistration
         // planning port it holds exists.
         services.AddRoadmapAiContentSource();
 
+        // Progress (local ADR 0028): the sprint series and the progress service. Its
+        // ports ask the progress switch at every call and its screens draw under it,
+        // so composing it offers nothing while the switch is off.
+        services.AddProgressModule();
+
         // Capture: the module brings the run, and the head decides where the
         // monitored sources and what past runs said are kept. The source adapters
         // and the delivery come further down, after the Inbox they deliver into.
@@ -142,6 +150,9 @@ public static class DesktopCompositionRegistration
         // because only an adapter may see both contexts. Scoped, like the module
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
+
+        // The tasks a sprint names, read through Tasks' published ITaskItems.
+        services.AddProgressCrossContextAdapters();
 
         // The backlog's work badges ask what state a linked agent session is in; the
         // answer comes from the Sessions record through an adapter, for the same reason.
@@ -275,6 +286,9 @@ public static class DesktopCompositionRegistration
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();
+        // The Sprints page: a card per sprint series and the repositories in none.
+        // Offered behind the progress switch, like every Progress screen.
+        services.AddProgressSettings();
         // The band under every route reads the backlog's save state through the
         // library's interface, and the toast tray in MainLayout reads the channel a
         // screen puts a message in; concrete type and interface resolve the same one.
