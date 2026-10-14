@@ -1282,8 +1282,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// The plan is held on the bar until the reader lets go of it — pressing it, or
     /// another plan — even while no open task carries it: its chip stays, pressed with
     /// a count of 0, so the empty list under it says why it is empty
-    /// (<see cref="RebuildTagFilters"/>). Held or counted, the chip leads the plans on
-    /// the one-row strip, so it is never the chip the strip clips. A plan chip the
+    /// (<see cref="RebuildTagFilters"/>). Held or counted, the chip leads the whole
+    /// one-row strip, so it is never the chip the strip clips. A plan chip the
     /// reader pressed is not held, and keeps its place.
     /// </para>
     /// </summary>
@@ -5511,7 +5511,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         // "No plan" leads the group, so however many plans follow it the one-row
-        // strip never clips it. It earns its place off both halves: a live entry in
+        // strip never clips it — unless a plan opened from the roadmap is shown, which
+        // takes the lead below. It earns its place off both halves: a live entry in
         // some plan, or there is nothing to exclude, and a live entry in none, or
         // pressing it would empty the list.
         var unplanned = scopedRows.Where(row => !HasPlan(row)).ToList();
@@ -5538,13 +5539,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 untagged.Count(IsFinished)));
         }
 
-        // A plan the reader asked to see leads the plans, after "No plan", for the
-        // reason "No plan" leads the group: the strip is one row and clips whole chips
-        // off its end, and this chip is the one that says why the list is short and the
-        // one press that lets go of it. Wherever its name sorts, it is moved up — and
-        // while nothing open carries it, it is held there, pressed at 0, rather than
-        // being let go below with no chip to say why the list it asked for is not the
-        // list on screen. A plan the reader pressed keeps its place: a chip does not
+        // A plan the reader asked to see leads the strip, ahead of "No plan" too: the
+        // strip is one row and clips whole chips off its end, and with every repository
+        // in scope it has room for one chip. This is the one that says why the list is
+        // short and the one press that lets go of it, so it takes that room; "No plan"
+        // is a filter not in use and waits behind More. Wherever its name sorts, it is
+        // moved up — and while nothing open carries it, it is held there, pressed at 0,
+        // rather than being let go below with no chip to say why the list it asked for
+        // is not the list on screen. A plan the reader pressed keeps its place: a chip does not
         // jump out from under the pointer that pressed it.
         if (_shownPlan is { } shown)
         {
@@ -5553,7 +5555,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
             if (at >= 0) options.RemoveAt(at);
 
-            options.Insert(options is [{ Value: NoPlanTag }, ..] ? 1 : 0, chip);
+            options.Insert(0, chip);
         }
 
         TagFilters = options;
