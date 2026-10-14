@@ -271,7 +271,7 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         IReadOnlyList<ScenarioInput>? scenarios = null,
         [Description("Optional. What a runtime monitor observed while the stage ran.")]
         MonitoringInput? monitoring = null,
-        [Description("Optional. A JSON object: how the stage ran — mode, agent, runner, skill, model, effort, mcp, fallback, qualifier, and runs of { agent, model, effort, slice }. Kept verbatim; anything but an object is refused.")]
+        [Description("Optional. A JSON object: how the stage ran — mode, agent, runner, skill, model, effort, mcp, fallback, qualifier, runs of { agent, model, effort, slice, round }, and the pass's counts: round (the implement-review round, from 1), blockers (Review's open blockers) and defectsFound (Verify's defects review had passed). Kept verbatim; anything but an object is refused.")]
         JsonElement? execution = null,
         [Description("Optional. The scenario page parts a verify stage ran, one per part, read from <scenario folder>/<stem>/run.json: the page's stem, the part's anchor, its outcome (passed, failed or not-run) and the run's ranAt. Shown per part against the stage.")]
         IReadOnlyList<EvidenceInput>? evidence = null,

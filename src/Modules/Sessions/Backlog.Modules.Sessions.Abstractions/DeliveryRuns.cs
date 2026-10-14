@@ -292,6 +292,27 @@ public sealed record DeliveryRunStage(string Name, string Status, long? Duration
     /// where the stage reported none.
     /// </summary>
     public IReadOnlyList<DeliveryScenarioEvidence> Evidence { get; init; } = [];
+
+    /// <summary>
+    /// The implement ⇄ review round the stage's latest pass worked, counting from 1, as
+    /// its <see cref="Execution"/> reported it — Implement and Review send it. Null where
+    /// the execution carries none: a run file from before the delivery phases sent it,
+    /// or a stage that did not run the work. Never zero in place of absent.
+    /// </summary>
+    public int? Round { get; init; }
+
+    /// <summary>
+    /// The blockers Review left open in that round, as its execution reported them;
+    /// <c>0</c> is a clean round. Null where the execution carries none.
+    /// </summary>
+    public int? Blockers { get; init; }
+
+    /// <summary>
+    /// The defects Verify's pass found that review had passed, as its execution reported
+    /// them; <c>0</c> is a pass where everything held. Null where the execution carries
+    /// none.
+    /// </summary>
+    public int? DefectsFound { get; init; }
 }
 
 /// <summary>

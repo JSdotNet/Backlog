@@ -8632,7 +8632,7 @@ a.pull-request-detail-checks__name:hover {
 .delivery-economics__phases {
     --delivery-economics-columns:
         minmax(7rem, 1.1fr) minmax(9rem, 1.3fr) 4rem 6rem
-        minmax(8rem, 1.4fr) minmax(6rem, 0.9fr) 6.5rem;
+        minmax(8rem, 1.2fr) minmax(9rem, 1.5fr) minmax(7.5rem, 0.9fr);
     flex: 1.6 1 40rem;
     min-width: 0;
     padding: var(--spacing-xs);
@@ -8646,7 +8646,7 @@ a.pull-request-detail-checks__name:hover {
     grid-template-columns: var(--delivery-economics-columns);
     gap: var(--spacing-sm);
     align-items: center;
-    min-width: 50rem;
+    min-width: 58rem;
     padding: var(--spacing-xs) var(--spacing-md);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
@@ -8673,7 +8673,7 @@ a.pull-request-detail-checks__name:hover {
     grid-template-columns: var(--delivery-economics-columns);
     gap: var(--spacing-sm);
     align-items: center;
-    min-width: 50rem;
+    min-width: 58rem;
     width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
     border: 0;
@@ -8753,6 +8753,15 @@ a.pull-request-detail-checks__name:hover {
 .delivery-economics__quality {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+.delivery-economics__verdict {
+    display: inline-flex;
+    align-items: center;
+}
+
+.delivery-economics__confidence {
+    font-weight: 500;
 }
 
 .delivery-economics__panel {
