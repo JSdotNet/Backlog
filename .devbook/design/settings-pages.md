@@ -304,6 +304,9 @@ Rules:
 - The switch is CSS only: both ways back are in the markup and the stylesheet
   shows one, so a hidden link is out of the tab order too.
 - A matched card under a row is a 44 px target of its own.
+- Below 720 px an open editor's `repo-card__header` stacks its title over its
+  actions, each as tall as its content and aligned to the start: no fixed
+  height, and no flex basis on the title side, which a column reads as one.
 
 ## Addresses
 
