@@ -665,7 +665,9 @@ measurements.
 weekly refusal carried. With none, it ends at the latest Fable refusal's reset time. A
 reset that has passed rolls forward a whole week at a time, because the allowance
 renews on the same beat each week. The reset instant belongs to the next week. With no
-refusal carrying a reset time, the week is the seven days up to now. The total is every
+refusal carrying a reset time, the week is the seven days up to now. Only refusals of
+the last 28 days are read: an older one is forgotten, and places the week and sizes a
+limit no more than a refusal never recorded. The total is every
 request reported inside the week up to the moment it was read. A share counts nothing
 later, so a session still running cannot outgrow the total it is divided by.
 
@@ -1239,9 +1241,9 @@ the depth changes what each session carries, never which sessions are answered.
 
 ```meta
 type: term
-status: draft
 aliases: [AgentSessionDetail, AgentSessionQuery.Detail, AgentSessionQuery.TimestampsOnly]
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-limit, .devbook/domain/sessions/domain.md#session-history, .devbook/domain/sessions/domain.md#session-identity, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/domain.md#activity-window, .devbook/domain/sessions/dependencies.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.The_timestamps_depth_keeps_the_shape_it_was_asked_of, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionRecordsTests.The_keeper_reads_its_sessions_at_full_depth, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncReadingDepthTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.LinkedSessionStatesTests.The_states_are_read_from_the_inventory_at_the_timestamps_depth]
 ```
 
 How much of each session a reading carries: **full**, which is what a reading is
@@ -1272,9 +1274,9 @@ what state: a task's linked-session badge, or a roadmap entry dated by its sessi
 
 ```meta
 type: term
-status: draft
 aliases: [human turn, HumanTurn]
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_prompt_the_person_made_is_a_human_turn_and_its_prompt_source_is_not_what_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_task_notification_or_a_hand_back_is_not_a_human_turn, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_scheduled_tasks_opening_prompt_is_not_a_human_turn, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.An_answer_to_the_agents_question_is_a_human_turn_and_no_other_tool_result_is, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.Human_turns_are_kept_with_the_record]
 ```
 
 A turn the person made in a session: starting the session, or a follow-up prompt.
