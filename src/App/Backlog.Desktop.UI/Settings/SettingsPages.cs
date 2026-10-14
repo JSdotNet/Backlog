@@ -97,11 +97,13 @@ public static class SettingsPages
     }
 
     /// <summary>The menu's groups over <paramref name="pages"/>, already in menu
-    /// order, with <paramref name="currentId"/> marked as the page on screen. A
+    /// order, with <paramref name="currentId"/> marked as the page on screen and
+    /// each page carrying the value <paramref name="badge"/> gives it, if any. A
     /// group with no page offered is left out.</summary>
     public static IReadOnlyList<(SettingsGroup Group, IReadOnlyList<SettingsMenuItem> Items)> Menu(
         IReadOnlyList<SettingsSection> pages,
-        string currentId) =>
+        string currentId,
+        Func<SettingsSection, string?>? badge = null) =>
         [
             .. pages
                 .GroupBy(page => page.Group)
@@ -110,7 +112,8 @@ public static class SettingsPages
                         page.Id,
                         page.Title,
                         Href(page.Id),
-                        string.Equals(page.Id, currentId, StringComparison.Ordinal)))]))
+                        string.Equals(page.Id, currentId, StringComparison.Ordinal),
+                        badge?.Invoke(page)))]))
         ];
 
     /// <summary>
@@ -119,9 +122,13 @@ public static class SettingsPages
     /// ignoring case, each with the card titles that hold it. Only titles are
     /// searched - never a field's label or what a page draws - so the search
     /// answers without rendering a page. Blank text keeps every page, with no
-    /// cards.
+    /// cards. A page <paramref name="switchedOff"/> names is matched on its title
+    /// alone: its feature is off, so it draws a note in place of its cards.
     /// </summary>
-    public static IReadOnlyList<SettingsSearchMatch> Find(IReadOnlyList<SettingsSection> pages, string? text)
+    public static IReadOnlyList<SettingsSearchMatch> Find(
+        IReadOnlyList<SettingsSection> pages,
+        string? text,
+        Func<SettingsSection, bool>? switchedOff = null)
     {
         var query = text?.Trim();
         if (string.IsNullOrEmpty(query)) return [.. pages.Select(page => new SettingsSearchMatch(page, []))];
@@ -131,7 +138,7 @@ public static class SettingsPages
         return
         [
             .. pages
-                .Select(page => new SettingsSearchMatch(page, [.. (page.CardTitles ?? []).Where(Holds)]))
+                .Select(page => new SettingsSearchMatch(page, switchedOff?.Invoke(page) == true ? [] : [.. (page.CardTitles ?? []).Where(Holds)]))
                 .Where(match => match.Cards.Count > 0 || Holds(match.Page.Title))
         ];
     }

@@ -55,31 +55,212 @@ public sealed class SettingsSectionRenderingTests
     }
 
     [Fact]
-    public void A_section_behind_a_feature_that_is_off_is_not_offered()
+    public void A_section_behind_a_feature_that_is_off_is_offered_as_Off()
     {
         using var settings = RenderSettings(
             new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection), FeatureKey: AppFeatures.InboxPane));
 
-        Assert.Equal(AppWidePages, Tabs(settings.Component));
+        Assert.Equal([.. AppWidePages, "Sooner"], Tabs(settings.Component));
+        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "sooner"));
     }
 
     [Fact]
-    public void Switching_a_sections_feature_off_withdraws_its_page()
+    public void Opening_a_switched_off_section_shows_a_note_pointing_at_the_Features_page_instead_of_its_component()
+    {
+        using var settings = RenderSettings(
+            new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection), FeatureKey: AppFeatures.InboxPane));
+
+        OpenTab(settings.Component, "Sooner");
+
+        var panel = settings.Component.Find("section[aria-label='Sooner settings']");
+        Assert.Null(panel.QuerySelector("[data-testid='sooner-section']"));
+        var note = panel.QuerySelector("[data-testid='settings-feature-off']")!;
+        Assert.Equal(
+            "Inbox pane is turned off. Turn it on on the Features page to use these settings.",
+            Normalize(note.TextContent));
+        var link = note.QuerySelector("a")!;
+        Assert.Equal("Features page", link.TextContent.Trim());
+        Assert.Equal("settings/features", link.GetAttribute("href"));
+    }
+
+    [Fact]
+    public void Switching_a_sections_feature_off_keeps_its_page_and_swaps_it_for_the_note()
     {
         using var settings = RenderSettings(
             new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection), FeatureKey: AppFeatures.InboxPane),
             inboxPane: true);
         OpenTab(settings.Component, "Sooner");
+        Assert.Null(SettingsMenu.Badge(settings.Component, "sooner"));
 
-        OpenTab(settings.Component, "Features");
-        settings.Component.FindAll(".feature-flag")
-            .Single(row => row.QuerySelector(".feature-flag__title")?.TextContent == "Inbox pane")
-            .QuerySelector("input")!
-            .Change(false);
+        SwitchFeature(settings.Component, "Inbox pane", on: false);
 
-        Assert.Equal(AppWidePages, Tabs(settings.Component));
+        Assert.Equal([.. AppWidePages, "Sooner"], Tabs(settings.Component));
         Assert.Equal("Features", SettingsMenu.Current(settings.Component));
+        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "sooner"));
+        var panel = settings.Component.Find("section[aria-label='Sooner settings']");
+        Assert.Null(panel.QuerySelector("[data-testid='sooner-section']"));
+        Assert.NotNull(panel.QuerySelector("[data-testid='settings-feature-off']"));
+
+        SwitchFeature(settings.Component, "Inbox pane", on: true);
+
+        Assert.Null(SettingsMenu.Badge(settings.Component, "sooner"));
+        panel = settings.Component.Find("section[aria-label='Sooner settings']");
+        Assert.NotNull(panel.QuerySelector("[data-testid='sooner-section']"));
+        Assert.Null(panel.QuerySelector("[data-testid='settings-feature-off']"));
     }
+
+    [Fact]
+    public void The_Features_page_counts_the_features_that_are_on_and_follows_a_switch()
+    {
+        using var settings = RenderSettings();
+        var features = settings.TestContext.Services.GetRequiredService<IAppFeatureSettings>();
+        var on = AppFeatures.All.Count(feature => features.IsEnabled(feature.Key));
+
+        Assert.Equal($"{on}/{AppFeatures.All.Count}", SettingsMenu.Badge(settings.Component, "features"));
+
+        SwitchFeature(settings.Component, "Inbox pane", on: true);
+
+        Assert.Equal($"{on + 1}/{AppFeatures.All.Count}", SettingsMenu.Badge(settings.Component, "features"));
+    }
+
+    [Fact]
+    public void The_Repositories_page_counts_the_registered_repositories_and_follows_a_change()
+    {
+        using var settings = RenderSettings();
+        Assert.Equal("0", SettingsMenu.Badge(settings.Component, "repositories"));
+
+        var github = settings.TestContext.Services.GetRequiredService<GitHubIntegration>();
+        Assert.Null(github.Settings.SetRepositories(
+        [
+            new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
+            new GitHubRepositoryRef("other", "JSdotNet", "Other"),
+        ]));
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("2", SettingsMenu.Badge(settings.Component, "repositories")));
+    }
+
+    [Fact]
+    public void A_feature_switched_off_elsewhere_moves_the_screen_off_an_app_wide_page_it_withdraws()
+    {
+        using var settings = RenderSettings([], inboxPane: false, usageMetrics: true);
+        SettingsMenu.Open(settings.Component, "AI providers");
+
+        var features = settings.TestContext.Services.GetRequiredService<IAppFeatureSettings>();
+        Assert.Null(features.SetEnabled(AppFeatures.UsageMetrics, false));
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal("Features", SettingsMenu.Current(settings.Component));
+            Assert.False(settings.Component.Find("section[aria-label='Feature settings']").HasAttribute("hidden"));
+        });
+    }
+
+    [Fact]
+    public void The_Storage_page_draws_no_badge()
+    {
+        using var settings = RenderSettings();
+
+        Assert.Null(SettingsMenu.Badge(settings.Component, "storage"));
+    }
+
+    [Fact]
+    public void The_GitHub_accounts_page_counts_the_accounts_and_follows_a_change()
+    {
+        using var settings = RenderSettings([], inboxPane: false, usageMetrics: true);
+        Assert.Equal("0", SettingsMenu.Badge(settings.Component, "accounts"));
+
+        var github = settings.TestContext.Services.GetRequiredService<GitHubIntegration>();
+        Assert.Null(github.Settings.SetAccounts([new GitHubAccount("octocat")]));
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("1", SettingsMenu.Badge(settings.Component, "accounts")));
+    }
+
+    [Fact]
+    public void The_AI_providers_page_counts_the_providers_set_up_out_of_three_and_follows_each()
+    {
+        using var settings = RenderSettings([], inboxPane: false, usageMetrics: true);
+        Assert.Equal("0/3", SettingsMenu.Badge(settings.Component, "ai"));
+
+        var claude = settings.TestContext.Services.GetRequiredService<ClaudeSettingsStore>();
+        Assert.Null(claude.SetAdminApiKey(claude.Current.Accounts[0].Id, "sk-ant-admin01-key"));
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("1/3", SettingsMenu.Badge(settings.Component, "ai")));
+
+        var github = settings.TestContext.Services.GetRequiredService<GitHubIntegration>();
+        Assert.Null(github.Settings.SetAccounts([new GitHubAccount("octocat")]));
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("2/3", SettingsMenu.Badge(settings.Component, "ai")));
+
+        var foundry = settings.TestContext.Services.GetRequiredService<AzureFoundrySettingsStore>();
+        Assert.Null(foundry.SetConnection("https://example.openai.azure.com", "gpt", "key", null));
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("3/3", SettingsMenu.Badge(settings.Component, "ai")));
+    }
+
+    [Fact]
+    public void A_section_draws_the_badge_its_source_supplies_and_follows_it()
+    {
+        var source = new CountingBadgeSource { Badge = "4" };
+        using var settings = RenderSettings(
+            [new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection), BadgeSource: typeof(CountingBadgeSource))],
+            inboxPane: false,
+            services: services => services.AddSingleton(source));
+
+        Assert.Equal("4", SettingsMenu.Badge(settings.Component, "sooner"));
+
+        source.Set("5");
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("5", SettingsMenu.Badge(settings.Component, "sooner")));
+    }
+
+    [Fact]
+    public void A_switched_off_section_reads_Off_over_the_badge_its_source_supplies()
+    {
+        var source = new CountingBadgeSource { Badge = "4" };
+        using var settings = RenderSettings(
+            [new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection), FeatureKey: AppFeatures.InboxPane, BadgeSource: typeof(CountingBadgeSource))],
+            inboxPane: false,
+            services: services => services.AddSingleton(source));
+
+        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "sooner"));
+    }
+
+    [Fact]
+    public void A_section_whose_badge_source_is_not_registered_draws_no_badge()
+    {
+        using var settings = RenderSettings(
+            new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection), BadgeSource: typeof(CountingBadgeSource)));
+
+        Assert.Null(SettingsMenu.Badge(settings.Component, "sooner"));
+    }
+
+    public sealed class CountingBadgeSource : ISettingsBadgeSource
+    {
+        public string? Badge { get; set; }
+
+        public event Action? Changed;
+
+        public void Set(string badge)
+        {
+            Badge = badge;
+            Changed?.Invoke();
+        }
+    }
+
+    private static void SwitchFeature(IRenderedComponent<Settings> component, string name, bool on)
+    {
+        SettingsMenu.Open(component, "Features");
+        component.FindAll(".feature-flag")
+            .Single(row => row.QuerySelector(".feature-flag__title")?.TextContent == name)
+            .QuerySelector("input")!
+            .Change(on);
+    }
+
+    private static string Normalize(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     [Fact]
     public void Settings_with_no_page_in_its_address_opens_Features()
@@ -315,7 +496,12 @@ public sealed class SettingsSectionRenderingTests
     private static SettingsRenderContext RenderSettings(SettingsSection section, bool inboxPane) =>
         RenderSettings([section], inboxPane);
 
-    private static SettingsRenderContext RenderSettings(SettingsSection[] sections, bool inboxPane, string? navigateTo = null)
+    private static SettingsRenderContext RenderSettings(
+        SettingsSection[] sections,
+        bool inboxPane,
+        string? navigateTo = null,
+        bool usageMetrics = false,
+        Action<IServiceCollection>? services = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-section-tests", Guid.NewGuid().ToString("n"));
 
@@ -323,7 +509,7 @@ public sealed class SettingsSectionRenderingTests
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
-        _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
+        _ = features.SetEnabled(AppFeatures.UsageMetrics, usageMetrics);
         _ = features.SetEnabled(AppFeatures.InboxPane, inboxPane);
 
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"), () => Path.Combine(root, "workspace"));
@@ -345,6 +531,7 @@ public sealed class SettingsSectionRenderingTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         foreach (var section in sections) context.Services.AddSingleton(section);
+        services?.Invoke(context.Services);
 
         if (navigateTo is not null) context.Services.GetRequiredService<NavigationManager>().NavigateTo(navigateTo);
 

@@ -76,6 +76,18 @@ public sealed class SettingsSearchMatchingTests
     }
 
     [Fact]
+    public void A_switched_off_page_is_found_by_its_title_but_not_by_its_cards()
+    {
+        bool SwitchedOff(SettingsSection page) => page.Id == "storage";
+
+        var byTitle = Assert.Single(SettingsPages.Find(Pages, "storage", SwitchedOff));
+        Assert.Equal("storage", byTitle.Page.Id);
+        Assert.Empty(byTitle.Cards);
+
+        Assert.Empty(SettingsPages.Find(Pages, "brain", SwitchedOff));
+    }
+
+    [Fact]
     public void Surrounding_spaces_are_not_part_of_the_text()
     {
         Assert.Equal(["storage"], SettingsPages.Find(Pages, "  brain ").Select(match => match.Page.Id));

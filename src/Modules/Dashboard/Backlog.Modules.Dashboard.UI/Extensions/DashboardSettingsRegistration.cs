@@ -17,8 +17,9 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 /// </para>
 /// <para>
 /// The usage-reset page is offered behind <see cref="DashboardFeatures.Dashboard"/>,
-/// the switch the pane that reads it is opened under, so the page is not on the
-/// menu while nothing would read it. The working week is offered with no switch:
+/// the switch the pane that reads it is opened under, so while nothing would read
+/// it the menu marks the page Off and it shows only a note pointing at the
+/// Features page. The working week is offered with no switch:
 /// the roadmap counts it as well as the dashboard (ADR 0019), so it is read
 /// whether or not the dashboard is on.
 /// </para>

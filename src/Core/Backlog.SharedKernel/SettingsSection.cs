@@ -27,18 +27,22 @@ namespace Backlog.SharedKernel;
 /// <param name="Component">The Razor component the page renders, with no
 /// parameters: it takes what it needs from the container. One instance lives
 /// from the page's first opening until the settings screen closes, so its state
-/// survives a move to another page. Switching the section's feature off takes
-/// the page off the menu and disposes it, so switching it back on starts a new
-/// instance.</param>
-/// <param name="FeatureKey">A feature the page is offered behind, or null for a
-/// page that is always offered. Checked by the shell, so a switched-off feature
-/// has no empty page left in the menu.</param>
+/// survives a move to another page. Switching the section's feature off disposes
+/// it, so switching it back on starts a new instance.</param>
+/// <param name="FeatureKey">A feature the page's settings belong to, or null for a
+/// page that is always in use. Checked by the shell: while the feature is off the
+/// page stays in the menu with an <c>Off</c> badge, and opening it shows a note
+/// pointing at the Features page instead of <paramref name="Component"/>.</param>
 /// <param name="Group">The group of the settings menu the page is listed under,
 /// and the second half of its eyebrow — <c>Settings · AI</c>.</param>
 /// <param name="CardTitles">The titles of the cards the page draws, in the order
 /// it draws them, or null for a page that declares none. The settings search
 /// matches page and card titles from these without rendering any page, so a page
 /// that adds, renames or drops a card changes this list in the same change.</param>
+/// <param name="BadgeSource">An <see cref="ISettingsBadgeSource"/> type registered
+/// in the container that supplies the short value the menu draws on the right of
+/// the page's name, or null for a page with none. While the page's feature is off
+/// the menu draws <c>Off</c> instead.</param>
 public sealed record SettingsSection(
     string Id,
     string Title,
@@ -46,4 +50,5 @@ public sealed record SettingsSection(
     Type Component,
     string? FeatureKey = null,
     SettingsGroup Group = SettingsGroup.ProductAreas,
-    IReadOnlyList<string>? CardTitles = null);
+    IReadOnlyList<string>? CardTitles = null,
+    Type? BadgeSource = null);

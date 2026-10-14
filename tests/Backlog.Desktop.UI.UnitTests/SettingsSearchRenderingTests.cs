@@ -57,6 +57,35 @@ public sealed class SettingsSearchRenderingTests
     }
 
     [Fact]
+    public void A_page_the_search_keeps_still_shows_its_badge()
+    {
+        using var settings = RenderSettings();
+
+        Search(settings.Component, "repo");
+
+        Assert.Equal(["Repositories"], SettingsMenu.Pages(settings.Component));
+        Assert.Equal("0", SettingsMenu.Badge(settings.Component, "repositories"));
+    }
+
+    [Fact]
+    public void A_switched_off_page_is_found_by_its_title_and_reads_Off_but_not_by_its_cards()
+    {
+        using var settings = RenderSettings(
+            new SettingsSection("sooner", "Sooner", 10, typeof(SoonerSection), FeatureKey: AppFeatures.InboxPane,
+                CardTitles: ["Snooze presets"]));
+
+        Search(settings.Component, "sooner");
+
+        Assert.Equal(["Sooner"], SettingsMenu.Pages(settings.Component));
+        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "sooner"));
+
+        Search(settings.Component, "snooze");
+
+        Assert.Empty(SettingsMenu.Pages(settings.Component));
+        Assert.Empty(settings.Component.FindAll("[data-testid='settings-menu-card']"));
+    }
+
+    [Fact]
     public void Nothing_matching_says_so_in_the_menus_place()
     {
         using var settings = RenderSettings();

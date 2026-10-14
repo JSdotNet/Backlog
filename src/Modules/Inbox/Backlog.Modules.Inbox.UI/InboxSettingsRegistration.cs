@@ -15,7 +15,8 @@ namespace Backlog.Desktop.UI.Inbox;
 /// </para>
 /// <para>
 /// Offered behind <see cref="InboxFeatures.Pane"/>, the switch the rules on it are
-/// read under, so the page is not in the menu while nothing would read them.
+/// read under, so while nothing would read them the menu marks the page Off and it
+/// shows only a note pointing at the Features page.
 /// </para>
 /// </remarks>
 public static class InboxSettingsRegistration
