@@ -6,8 +6,8 @@ namespace Backlog.Modules.Tasks.Abstractions.Connectors;
 /// <para>
 /// Each question the design left open is a setting here, so two targets may answer
 /// it differently (ADR 0020, §9). The defaults are the record's: nothing skipped,
-/// the title following the source, a fifteen-minute interval, Promote to plan
-/// archiving the original, and nothing completed at the source.
+/// the title following the source, a fifteen-minute interval, and nothing completed
+/// at the source.
 /// </para>
 /// <para>
 /// <b>No credentials.</b> A target names what to fetch, never how to sign in: the
@@ -36,10 +36,6 @@ public sealed record ConnectedTarget(string ConnectorId, string Target, bool Ena
 
     /// <summary>How long after a sync the desktop's timer runs the next one.</summary>
     public TimeSpan SyncInterval { get; init; } = DefaultSyncInterval;
-
-    /// <summary>Whether Promote to plan archives the task it promoted, rather than
-    /// keeping it as an umbrella step.</summary>
-    public bool PromoteArchivesOriginal { get; init; } = true;
 
     /// <summary>
     /// Whether finishing one of this target's tasks here finishes its item at the

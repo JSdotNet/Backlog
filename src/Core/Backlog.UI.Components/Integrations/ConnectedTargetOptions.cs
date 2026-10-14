@@ -19,8 +19,6 @@ namespace Backlog.UI.Components.Integrations;
 /// <param name="Enabled">Whether the target is synced at all.</param>
 /// <param name="TitleFollowsSource">Whether a linked task's title follows the
 /// source until a person renames it.</param>
-/// <param name="PromoteArchivesOriginal">Whether promoting a linked task to a plan
-/// archives the original.</param>
 /// <param name="SyncIntervalMinutes">How often the target is synced.</param>
 /// <param name="SkipUntouchedOlderThanDays">Items untouched for longer than this
 /// many days are not brought in; null brings every open item.</param>
@@ -32,7 +30,6 @@ public sealed record ConnectedTargetOptions(
     string Target,
     bool Enabled = true,
     bool TitleFollowsSource = true,
-    bool PromoteArchivesOriginal = true,
     int SyncIntervalMinutes = 15,
     int? SkipUntouchedOlderThanDays = null,
     bool CompleteAtSource = false)

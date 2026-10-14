@@ -84,6 +84,19 @@ public sealed class ConnectedTargetEditorTests
         Assert.Equal(Target with { TitleFollowsSource = false }, changed);
     }
 
+    /// <summary>Promote to plan was dropped unbuilt, so no switch says what it would
+    /// do: a setting for something the app cannot do would do nothing.</summary>
+    [Fact]
+    public void No_switch_offers_a_setting_for_promoting_to_a_plan()
+    {
+        using var context = new BunitContext();
+
+        var card = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target).Add(c => c.TestId, "t"));
+
+        Assert.Empty(card.FindAll("[data-testid='t-promote-archives']"));
+        Assert.DoesNotContain("Promot", card.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>The switch is offered only where the connector can complete an item
     /// at its source; elsewhere it would do nothing.</summary>
     [Fact]

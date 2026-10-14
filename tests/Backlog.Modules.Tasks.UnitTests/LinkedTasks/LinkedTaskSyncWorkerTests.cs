@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Modules.Tasks.UnitTests.LinkedTasks;
 
@@ -95,6 +96,27 @@ public sealed class LinkedTaskSyncWorkerTests
         Assert.True(outcome.Succeeded);
         Assert.Null(outcome.ErrorCode);
         Assert.StartsWith("Synced b", outcome.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A sync that worked leaves a trace where the Aspire dashboard shows
+    /// one: Information, naming the target and what the sync fetched and did.</summary>
+    [Fact]
+    public async Task A_target_that_synced_logs_what_it_did_at_information()
+    {
+        var log = new CapturingLogger<LinkedTaskSyncWorker>();
+        _handler.Summary = new LinkedTaskSyncSummary(Fetched: 5, Created: 2, Updated: 1, Unchanged: 1, SkippedTombstoned: 1, SkippedUntouched: 0, Vanished: 3);
+        using var worker = new LinkedTaskSyncWorker(
+            new HandlerScopeFactory(_handler), new InMemoryConnectedTargets(new ConnectedTarget("stub", "a")), [new StubTaskConnector()], _time, log);
+
+        await worker.RequestSync("stub", "a");
+
+        var line = Assert.Single(log.Lines, line => line.Level == LogLevel.Information);
+        Assert.Equal("stub", line.Properties["Connector"]);
+        Assert.Equal("a", line.Properties["Target"]);
+        Assert.Equal<object?>(5, line.Properties["Fetched"]);
+        Assert.Equal<object?>(2, line.Properties["Created"]);
+        Assert.Equal<object?>(1, line.Properties["Updated"]);
+        Assert.Equal<object?>(3, line.Properties["Archived"]);
     }
 
     /// <summary>The defect this answers: the page said "Synced." over a sync that
