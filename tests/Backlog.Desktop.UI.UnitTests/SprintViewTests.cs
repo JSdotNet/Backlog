@@ -92,6 +92,34 @@ public sealed class SprintViewTests : IDisposable
         rendered.WaitForAssertion(() => Assert.Equal("now:switch", rendered.Find("[data-testid=now]").TextContent));
     }
 
+    /// <summary>Copy as table (<c>.devbook/domain/progress/features.md#copying-a-sprint-as-a-table</c>)
+    /// hands the clipboard the whole sprint as HTML and as plain text together.</summary>
+    [Fact]
+    public async Task Copy_as_table_puts_the_sprint_on_the_clipboard_as_html_and_text()
+    {
+        var copy = _context.JSInterop.Setup<bool>("backlogClipboard.copyRich", _ => true);
+        copy.SetResult(true);
+        Compose(on: true, Series("Fincent", ["fincent"]));
+
+        var rendered = RenderTab(["fincent"]);
+        rendered.WaitForAssertion(() => rendered.Find("[data-testid=in-progress-view-switch-sprint]"));
+        await rendered.Find("[data-testid=in-progress-view-switch-sprint]").ClickAsync(new());
+        rendered.WaitForAssertion(() => Assert.Equal(3, rendered.FindAll("[data-testid=sprint-row]").Count));
+
+        var button = rendered.Find("[data-testid=in-progress-sprint-copy-table-button]");
+        Assert.Equal("Copy as table", button.TextContent.Trim());
+        Assert.False(button.HasAttribute("disabled"));
+
+        await button.ClickAsync(new());
+
+        var invocation = Assert.Single(copy.Invocations);
+        var html = Assert.IsType<string>(invocation.Arguments[0]);
+        var text = Assert.IsType<string>(invocation.Arguments[1]);
+        Assert.StartsWith("<table style=", html, StringComparison.Ordinal);
+        Assert.Equal(4, text.Split("\r\n").Length);
+        rendered.WaitForAssertion(() => Assert.Equal("Copied", rendered.Find("[data-testid=in-progress-sprint-copy-table-status]").TextContent));
+    }
+
     [Fact]
     public async Task The_outside_line_counts_live_work_on_tasks_the_sprint_does_not_hold()
     {

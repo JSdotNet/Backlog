@@ -230,13 +230,43 @@ shows:
 
 The sprint is read when the side opens, on a step and on Refresh.
 
+### Copying a sprint as a table
+
+```meta
+type: sub-feature
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.SprintTableClipboardTests]
+```
+
+**Copy as table** in the sprint view's header puts the sprint on the clipboard as a
+table that pastes formatted into PowerPoint and Outlook. It has one row per item,
+grouped by plan in the board's order: goal plans first, then the other plans by name,
+then the items in no plan under "No plan". The plan is named on its group's first row.
+
+| Column | Holds |
+|---|---|
+| Plan | The plan tag, on the group's first row |
+| Item | The task's title |
+| Status | Done, In progress, In review, Blocked or Not started, in its colour |
+| Pull requests | Each linked pull request's number, linked to GitHub, with "open", "draft" or "closed" when it is not merged |
+| Owner | The authors of the linked pull requests |
+| Note | The sprint's note on the item, "Open question:" in front when it is one |
+
+The table holds every item, whatever the repository filter shows. The clipboard
+carries it twice: as HTML with every style inline, which PowerPoint and Outlook keep,
+and as tab-separated plain text for anything that takes no HTML. The status colours
+are fixed values for a white page, because a pasted table never sees the app's theme.
+The button is unavailable while the sprint is being read.
+
+The daily strip's **Copy for the stand-up** copies the same table.
+
 ### The daily strip
 
 ```meta
 type: sub-feature
 status: draft
 related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/progress/domain.md#sprint-progress, .devbook/domain/progress/requirements.md#requirement-the-daily-strip-shows-only-for-the-open-sprint-of-a-series-in-the-daily]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintDailyTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_series_shown_in_the_daily_draws_the_since_yesterday_strip_above_the_goal_card_and_it_folds, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Copy_for_the_stand_up_puts_the_strip_on_the_clipboard_as_plain_text, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_series_not_shown_in_the_daily_has_no_strip]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintDailyTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_series_shown_in_the_daily_draws_the_since_yesterday_strip_above_the_goal_card_and_it_folds, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Copy_for_the_stand_up_puts_the_strip_and_the_sprint_table_on_the_clipboard, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_series_not_shown_in_the_daily_has_no_strip]
 ```
 
 A collapsible **Since yesterday** strip sits at the top of the sprint view, under the
@@ -262,7 +292,8 @@ The goal is at risk while it is not met and a goal task is blocked, the last wor
 day has come, or the goal tasks still needed outnumber what the pace so far lands in
 the working days left. Every sentence is a fixed template filled from the sprint
 reading; none is written by a model. **Copy for the stand-up** puts the strip on the
-clipboard as plain text.
+clipboard followed by the sprint's table from [Copying a sprint as a table](#copying-a-sprint-as-a-table):
+as HTML, which pastes formatted, and as plain text beside it.
 
 ### Keeping a note on an item
 
