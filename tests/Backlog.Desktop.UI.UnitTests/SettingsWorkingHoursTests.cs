@@ -196,7 +196,7 @@ public sealed class SettingsWorkingHoursTests
 
         var tabs = Tabs(settings.Component);
         Assert.Contains("Working week", tabs);
-        Assert.True(Array.IndexOf(tabs, "Working week") > Array.IndexOf(tabs, "Storage"));
+        Assert.True(Array.IndexOf(tabs, "Working week") > Array.IndexOf(tabs, "Storage & backup"));
 
         OpenTab(settings.Component, "Working week");
         settings.Component.Find("[data-testid='working-hours-friday-end']").Change("13:00");
@@ -221,7 +221,7 @@ public sealed class SettingsWorkingHoursTests
     public void The_storage_tab_no_longer_carries_the_working_week()
     {
         using var settings = RenderSettings(dashboard: true);
-        OpenTab(settings.Component, "Storage");
+        OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid='working-hours-settings']"));
         Assert.Empty(settings.Component.FindAll("[data-testid='working-hours-row']"));
@@ -236,17 +236,17 @@ public sealed class SettingsWorkingHoursTests
     public void The_storage_tab_no_longer_carries_the_pace()
     {
         using var settings = RenderSettings(dashboard: true);
-        OpenTab(settings.Component, "Storage");
+        OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid='planning-velocity-settings']"));
         Assert.Empty(settings.Component.FindAll("[data-testid='planning-velocity']"));
     }
 
     private static string[] Tabs(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
+        SettingsMenu.Pages(component);
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
 
     private static SectionRenderContext RenderSection()
     {

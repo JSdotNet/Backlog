@@ -2434,7 +2434,7 @@ h1, h2, h3 {
    for it, which on a 1600px window spent more than half the screen on margin
    and pushed tabs that had room to spare into a scrollbar. The cap is now the
    design system's default container - 1280px, `.devbook/design/typography-and-layout.md`
-   - and the blocks inside a tab spread into columns rather than stacking into
+   - and the blocks inside a page spread into columns rather than stacking into
    one long ribbon, so a tab whose content fits shows no scrollbar at all.
    `auto` still gives one to the tabs that genuinely overflow, and the stable
    gutter keeps the columns from shifting sideways as you move between a tab
@@ -2503,49 +2503,6 @@ h1, h2, h3 {
 }
 
 
-.settings-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs);
-    background: var(--color-background-alt);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-}
-
-/* The pills share the strip evenly and wrap when they run out of room, but
-   they stop growing at 14rem: four tabs stretched across a 1280px container
-   read as a toolbar rather than as a set of pages. */
-.settings-tab {
-    flex: 1 1 9rem;
-    max-width: 14rem;
-    font: inherit;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    padding: var(--spacing-sm) var(--spacing-md);
-    color: var(--color-text-secondary);
-    background: transparent;
-    border: var(--border-width) solid transparent;
-    border-radius: var(--border-radius-sm);
-    cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.settings-tab:hover {
-    color: var(--color-text-primary);
-    border-color: var(--color-border);
-}
-
-.settings-tab:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.settings-tab--active {
-    color: var(--color-text-inverse);
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-}
 .setting__title {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);

@@ -37,7 +37,7 @@ public sealed class DashboardUiRegistrationTests
     }
 
     [Fact]
-    public void The_pane_registers_its_settings_page_after_the_inbox_behind_the_dashboard_switch()
+    public void The_pane_registers_its_settings_page_first_among_the_product_areas_behind_the_dashboard_switch()
     {
         var services = new ServiceCollection();
         services.AddDashboardUi();
@@ -47,7 +47,8 @@ public sealed class DashboardUiRegistrationTests
         Assert.Equal(typeof(DashboardSettings), section.Component);
         Assert.Equal("Dashboard", section.Title);
         Assert.DoesNotContain(section.Id, TakenPageIds);
-        Assert.True(section.Order > InboxSettingsRegistration.Order);
+        Assert.Equal(SettingsGroup.ProductAreas, section.Group);
+        Assert.True(section.Order < InboxSettingsRegistration.Order);
         Assert.Equal(DashboardFeatures.Dashboard, section.FeatureKey);
     }
 
@@ -65,7 +66,9 @@ public sealed class DashboardUiRegistrationTests
         Assert.Equal(typeof(WorkingWeekSettings), section.Component);
         Assert.Equal("Working week", section.Title);
         Assert.DoesNotContain(section.Id, TakenPageIds);
+        Assert.Equal(SettingsGroup.ProductAreas, section.Group);
         Assert.True(section.Order > DashboardSettingsRegistration.Order);
+        Assert.True(section.Order < InboxSettingsRegistration.Order);
         Assert.Null(section.FeatureKey);
     }
 }

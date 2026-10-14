@@ -15,19 +15,20 @@ namespace Backlog.Desktop.UI.Inbox;
 /// </para>
 /// <para>
 /// Offered behind <see cref="InboxFeatures.Pane"/>, the switch the rules on it are
-/// read under, so the page is not on the strip while nothing would read them.
+/// read under, so the page is not in the menu while nothing would read them.
 /// </para>
 /// </remarks>
 public static class InboxSettingsRegistration
 {
-    /// <summary>The Inbox page's place among the sections modules register.</summary>
-    public const int Order = 100;
+    /// <summary>The Inbox page's place among the Product areas pages: after the
+    /// Dashboard's two.</summary>
+    public const int Order = 30;
 
     public static IServiceCollection AddInboxSettings(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("inbox", "Inbox", Order, typeof(InboxSettings), InboxFeatures.Pane));
+        services.AddSingleton(new SettingsSection("inbox", "Inbox", Order, typeof(InboxSettings), InboxFeatures.Pane, SettingsGroup.ProductAreas));
 
         return services;
     }

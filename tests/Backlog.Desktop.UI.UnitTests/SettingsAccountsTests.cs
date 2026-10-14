@@ -338,7 +338,7 @@ public sealed class SettingsAccountsTests
     {
         using var settings = RenderSettings(gitHubIntegrationEnabled: false);
 
-        Assert.DoesNotContain("Accounts", SettingsTabs(settings.Component));
+        Assert.DoesNotContain("GitHub accounts", SettingsTabs(settings.Component));
         Assert.Empty(settings.Component.FindAll("[data-testid='repo-account-select']"));
     }
 
@@ -384,13 +384,13 @@ public sealed class SettingsAccountsTests
         component.Find($"[data-testid='{testId}']").TextContent;
 
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
+        SettingsMenu.Pages(component);
 
     private static void OpenAccountsTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Accounts").Click();
+        SettingsMenu.Open(component, "GitHub accounts");
 
     private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
+        SettingsMenu.Open(component, "Repositories");
 
     private static void ShowRepositorySubpage(IRenderedComponent<Settings> component, string alias) =>
         component.FindAll("[data-testid='repo-subpage-tab']")

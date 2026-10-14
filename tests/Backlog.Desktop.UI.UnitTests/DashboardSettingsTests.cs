@@ -93,12 +93,12 @@ public sealed class DashboardSettingsTests
     // --- On the settings screen ---------------------------------------------------
 
     [Fact]
-    public void With_the_dashboard_on_the_settings_screen_offers_its_page_after_the_inbox()
+    public void With_the_dashboard_on_the_settings_screen_offers_its_page_first_among_the_product_areas()
     {
         using var settings = RenderSettings(dashboard: true);
 
         var tabs = Tabs(settings.Component);
-        Assert.Equal(["Inbox", "Dashboard", "Working week"], tabs[^3..]);
+        Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
 
         OpenTab(settings.Component, "Dashboard");
         settings.Component.Find("[data-testid='usage-reset-day'] select").Change("Monday");
@@ -113,7 +113,7 @@ public sealed class DashboardSettingsTests
 
         var tabs = Tabs(settings.Component);
         Assert.DoesNotContain("Dashboard", tabs);
-        Assert.Equal(["Inbox", "Working week"], tabs[^2..]);
+        Assert.Equal(["Working week", "Inbox"], tabs[^2..]);
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public sealed class DashboardSettingsTests
     {
         using var settings = RenderSettings(dashboard: true);
 
-        OpenTab(settings.Component, "Storage");
+        OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid^='usage-reset']"));
     }
@@ -213,10 +213,10 @@ public sealed class DashboardSettingsTests
     }
 
     private static string[] Tabs(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
+        SettingsMenu.Pages(component);
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
 
     private static SectionRenderContext RenderSection()
     {

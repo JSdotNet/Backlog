@@ -150,7 +150,7 @@ public sealed class SettingsBrainFolderTests
     {
         using var settings = RenderSettings(navigateTo: BrainSetup.SettingsHref);
 
-        Assert.NotEmpty(settings.Component.FindAll("#tabpanel-storage " + Card));
+        Assert.NotEmpty(settings.Component.FindAll("section[aria-label='Storage settings']:not([hidden]) " + Card));
         Assert.Equal("brain-folder", settings.Component.Find(Card).Id);
     }
 
@@ -164,7 +164,7 @@ public sealed class SettingsBrainFolderTests
     }
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
+        SettingsMenu.Open(component, "Storage & backup");
 
     private static SettingsRenderContext RenderSettings(
         Func<string, SyncedFolderMatch?>? detectSyncedFolder = null,
@@ -220,7 +220,10 @@ public sealed class SettingsBrainFolderTests
             context.Services.GetRequiredService<NavigationManager>().NavigateTo(navigateTo);
         }
 
-        return new SettingsRenderContext(root, brain, context, context.Render<Settings>());
+        // The router hands the page in the address to the screen as its PageId;
+        // a test renderer routes nothing, so the address is handed over here.
+        var pageId = navigateTo is null ? null : new Uri(new Uri("http://localhost/"), navigateTo).AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
+        return new SettingsRenderContext(root, brain, context, context.Render<Settings>(parameters => parameters.Add(settings => settings.PageId, pageId)));
     }
 
     private sealed class FixedPicker : IBrainFolderPicker

@@ -19664,3 +19664,249 @@ select.field__input {
     align-items: center;
     gap: var(--spacing-xs);
 }
+
+/* --- Settings frame ------------------------------------------------------ */
+
+/* The settings screen's panel: the Dashboard's (.dashboard-panel in the app's
+   stylesheet) - the large radius, the alt surface mixed into the page background,
+   and the medium shadow - so the two full-page surfaces read as one family. */
+.settings-frame {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+}
+
+/* The way back, the eyebrow and headline, and the chip and search slot on the
+   right. The right-hand cluster wraps under the headline where the panel is
+   narrow rather than squeezing the sentence. */
+.settings-frame__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+/* A 44px target around an arrow: the size a pointer and a finger can both hit. */
+.settings-frame__back {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-lg);
+    text-decoration: none;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-frame__back:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.settings-frame__back:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.settings-frame__heading {
+    display: grid;
+    flex: 1 1 16rem;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+/* The Dashboard panel's eyebrow, letter for letter. */
+.settings-frame__eyebrow {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* One sentence, so it scales with the room it has between the large and the
+   2xl step rather than sitting at one size that is cramped on a phone or
+   timid on a wide window. */
+.settings-frame__headline {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: clamp(var(--font-size-lg), 2.4vw, var(--font-size-2xl));
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+}
+
+.settings-frame__actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The house rule said out loud: a soft success surface with primary text, the
+   tick in the success text colour - the words carry the meaning, the tone only
+   draws the eye. */
+.settings-frame__saved {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.settings-frame__saved-icon {
+    flex: none;
+    color: var(--color-success-text);
+}
+
+/* Reserved for a search box; takes no room while it is empty. */
+.settings-frame__search:empty {
+    display: none;
+}
+
+/* The menu and the page side by side while the panel has room for both, the
+   menu wrapping above the page once it has not - the Dashboard's columns, with
+   the same 999 weight that hands every spare pixel to the content. */
+.settings-frame__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.settings-frame__menu {
+    display: grid;
+    flex: 1 1 220px;
+    gap: var(--spacing-md);
+    max-width: 260px;
+    min-width: 0;
+}
+
+.settings-frame__content {
+    flex: 999 1 560px;
+    min-width: 0;
+}
+
+/* --- Settings menu group ------------------------------------------------- */
+
+.settings-menu-group {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.settings-menu-group__label {
+    margin: 0;
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-menu-group__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.settings-menu-group__link {
+    display: block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-menu-group__link:hover {
+    color: var(--color-text-primary);
+}
+
+.settings-menu-group__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.settings-menu-group__link--current {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* --- Settings card ------------------------------------------------------- */
+
+/* The Dashboard's panel tile (.dashboard-overview-tile in the app's stylesheet):
+   the alt surface, the medium radius and a hairline border. */
+.settings-card {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.settings-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+.settings-card__heading {
+    display: grid;
+    flex: 1 1 16rem;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.settings-card__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.settings-card__description {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.settings-card__action {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.settings-card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}

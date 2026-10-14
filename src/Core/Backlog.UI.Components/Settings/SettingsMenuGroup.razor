@@ -1,0 +1,57 @@
+@*
+    One group of the settings menu: a small uppercase label and the pages under
+    it, each a link to the page's own address.
+
+    Links rather than buttons, on purpose. A settings page has an address, so
+    choosing one is navigation: Back returns to the page before, a page can be
+    linked to from anywhere in the app, and the browser's own affordances - open
+    in a new window, copy the address - work. The current page is marked with
+    aria-current="page", which is what a screen reader announces for it, and
+    with the raised surface, which is what everyone else sees.
+
+    The label is a paragraph the list points at with aria-labelledby, not a
+    heading. The menu sits beside the page, and headings there would interleave
+    with the page's own outline under its h1.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <p class="settings-menu-group__label" id="@LabelId">@Label</p>
+    <ul class="settings-menu-group__list" aria-labelledby="@LabelId">
+        @foreach (var item in Items)
+        {
+            <li @key="item.Id" class="settings-menu-group__item">
+                <a class="@LinkClass(item)"
+                   href="@item.Href"
+                   data-page="@item.Id"
+                   aria-current="@(item.Current ? "page" : null)">@item.Label</a>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    /// <summary>The group's label: Workspace, AI, Product areas.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>The pages in the group, in the order they are listed.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SettingsMenuItem> Items { get; set; } = [];
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    // Unique per instance, so two groups on one page never label each other's list.
+    private readonly string LabelId = "settings-menu-group-" + Guid.NewGuid().ToString("n")[..8];
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "settings-menu-group" : $"settings-menu-group {CssClass}";
+
+    private static string LinkClass(SettingsMenuItem item) =>
+        item.Current ? "settings-menu-group__link settings-menu-group__link--current" : "settings-menu-group__link";
+}

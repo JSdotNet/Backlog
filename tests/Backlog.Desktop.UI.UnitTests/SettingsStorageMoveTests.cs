@@ -201,7 +201,7 @@ public sealed class SettingsStorageMoveTests
         // Collapsed, because the note wraps in the markup wherever it wraps
         // and a phrase must not fail for landing on a line break.
         var tab = System.Text.RegularExpressions.Regex.Replace(
-            settings.Component.Find("#tabpanel-storage").TextContent, @"\s+", " ");
+            settings.Component.Find("section[aria-label='Storage settings']").TextContent, @"\s+", " ");
 
         Assert.DoesNotContain("does not copy anything", tab, StringComparison.Ordinal);
         Assert.Contains("copied there", tab, StringComparison.Ordinal);
@@ -229,7 +229,7 @@ public sealed class SettingsStorageMoveTests
     }
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
+        SettingsMenu.Open(component, "Storage & backup");
 
     /// <summary>Renders the screen over a throwaway workspace with a sync probe
     /// that finds nothing, for the reason SettingsStorageCopyTests gives.</summary>

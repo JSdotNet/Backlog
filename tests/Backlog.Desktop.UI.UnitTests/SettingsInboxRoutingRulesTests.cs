@@ -122,10 +122,10 @@ public sealed class SettingsInboxRoutingRulesTests
     }
 
     private static string[] Tabs(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
+        SettingsMenu.Pages(component);
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
 
     private static SectionRenderContext RenderSection(bool inboxPane = true, bool withRules = true, string? existing = null)
     {

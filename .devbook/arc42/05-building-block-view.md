@@ -407,13 +407,22 @@ press of Capture free, with no seen-store of its own. See
 `.devbook/domain/context-map.md#strategic-rules`.
 
 **The Settings screen** is the shell's, `Settings.razor` in
-`Backlog.Desktop.UI/Settings`, and it is a tab host. Its five app-wide pages —
-Features, AI, Storage, Accounts and Repositories — are one component each
-beside it, so a change to one page is a change to one file. What more than one
-page reads is a `SettingsScreenContext` the screen owns and hands to every
-page: how this machine reaches GitHub, which logins the GitHub CLI holds, and
-that a feature was switched. The modules' pages follow the app-wide ones as
-registered sections, and every page is kept alive across tab switches.
+`Backlog.Desktop.UI/Settings`, drawn in the component library's `SettingsFrame`:
+a back link, a `Settings · <group>` eyebrow, a one-sentence headline a page
+writes through `SettingsHeadline` (its title when it writes none), and a menu
+of three groups — Workspace, AI and Product areas — beside the page. Every page
+has its own address, `settings/<page>`; the menu items are links to them, so
+choosing one navigates and Back returns. Its five app-wide pages — Features,
+AI providers, Storage & backup, GitHub accounts and Repositories — are one
+component each beside it, so a change to one page is a change to one file, and
+`SettingsPages` describes them as `SettingsSection` records like the modules'
+pages. What more than one page reads is a `SettingsScreenContext` the screen
+owns and hands to every page: how this machine reaches GitHub, which logins the
+GitHub CLI holds, and that a feature was switched. A `SettingsSection` names
+its menu group and the titles of the cards it draws, which the settings search
+reads without rendering a page. Within a group the app-wide pages come first,
+then the registered sections by their order, and every page opened is kept
+alive, hidden, while another is on screen.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the
@@ -422,7 +431,8 @@ drives the task and session sync loops through the Sync Client.
 `SyncSettingsRegistration.AddSyncSettings` registers the page as a
 `SettingsSection` from `Backlog.SharedKernel`, and the desktop composition
 calls it. The shell knows a section only as a title and a component. It offers
-the page while the Sync feature is on and keeps it alive across tab switches.
+the page under Product areas while the Sync feature is on and keeps it alive
+across moves to other pages.
 
 ## Mobile App
 

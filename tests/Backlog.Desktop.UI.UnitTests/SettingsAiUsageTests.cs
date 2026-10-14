@@ -15,7 +15,7 @@ public sealed class SettingsAiUsageTests
     {
         using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
 
-        Assert.Contains("AI", SettingsTabs(context.Component));
+        Assert.Contains("AI providers", SettingsTabs(context.Component));
         Assert.Empty(context.Component.FindAll("[data-testid='claude-usage-settings']"));
 
         OpenAiTab(context.Component);
@@ -695,7 +695,7 @@ public sealed class SettingsAiUsageTests
     {
         using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false);
 
-        Assert.Contains("AI", SettingsTabs(context.Component));
+        Assert.Contains("AI providers", SettingsTabs(context.Component));
 
         OpenAiTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -710,7 +710,7 @@ public sealed class SettingsAiUsageTests
     {
         using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: true);
 
-        Assert.Contains("AI", SettingsTabs(context.Component));
+        Assert.Contains("AI providers", SettingsTabs(context.Component));
 
         OpenAiTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -748,10 +748,10 @@ public sealed class SettingsAiUsageTests
     }
 
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
+        SettingsMenu.Pages(component);
 
     private static void OpenAiTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "AI").Click();
+        SettingsMenu.Open(component, "AI providers");
 
     private static SettingsRenderContext RenderSettings(
         bool aiAssistantEnabled,

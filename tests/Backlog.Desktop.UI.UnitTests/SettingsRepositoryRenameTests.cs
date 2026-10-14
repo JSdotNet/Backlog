@@ -267,7 +267,7 @@ public sealed class SettingsRepositoryRenameTests
     }
 
     private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
+        SettingsMenu.Open(component, "Repositories");
 
     private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null)
     {

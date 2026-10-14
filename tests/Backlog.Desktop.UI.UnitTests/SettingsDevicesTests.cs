@@ -778,12 +778,12 @@ public sealed class SettingsDevicesTests
         request.RequestUri?.AbsolutePath.EndsWith("/devices/token", StringComparison.Ordinal) == true;
 
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
+        SettingsMenu.Pages(component);
 
     private static void OpenDevicesTab(IRenderedComponent<Settings> component) => OpenTab(component, "Devices");
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
 
     // --- Leaving the tab and coming back -------------------------------------
 
@@ -836,7 +836,7 @@ public sealed class SettingsDevicesTests
     /// <summary>The page lives as long as the settings screen and no longer: a
     /// screen opened again starts with no code on it.</summary>
     [Fact]
-    public void Opening_settings_again_starts_the_devices_page_afresh()
+    public async Task Opening_settings_again_starts_the_devices_page_afresh()
     {
         using var context = RenderSettings(syncEnabled: true, paired: true);
 
@@ -847,6 +847,9 @@ public sealed class SettingsDevicesTests
         context.Component.WaitForAssertion(() =>
             Assert.Single(context.Component.FindAll("[data-testid='devices-code-display']")));
 
+        // Closed first, as leaving for the tasks closes it: one settings screen is
+        // on screen at a time, and its headline outlet is the one by that name.
+        await context.TestContext.DisposeComponentsAsync();
         var reopened = context.TestContext.Render<Settings>();
         OpenDevicesTab(reopened);
 
