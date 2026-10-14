@@ -20,6 +20,8 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// once the sprint is over, both inclusive.</param>
 /// <param name="DonePerWorkingDay">Members done inside the window so far, divided by
 /// <paramref name="WorkingDaysElapsed"/>; zero before the first working day.</param>
+/// <param name="ReadOn">The day the reading was made — the "today" every count above is
+/// as of. Last and defaulted, so a caller written before it still constructs one.</param>
 public sealed record SprintProgressDto(
     Guid SeriesId,
     string SeriesName,
@@ -38,7 +40,8 @@ public sealed record SprintProgressDto(
     bool GoalMet,
     int WorkingDays,
     int WorkingDaysElapsed,
-    double DonePerWorkingDay);
+    double DonePerWorkingDay,
+    DateOnly? ReadOn = null);
 
 /// <summary>
 /// One member task of a sprint, with what Tasks says about it and what the sprint
@@ -54,6 +57,13 @@ public sealed record SprintProgressDto(
 /// day.</param>
 /// <param name="Owners">The authors of the linked pull requests; empty when none is
 /// known. There is no owner field.</param>
+/// <param name="StartedOn">The day work on the task first moved to in progress, when
+/// Tasks knows it.</param>
+/// <param name="BlockedSince">The day the task was marked blocked, while it is.</param>
+/// <param name="JoinedOn">The day the member joined the sprint: the day it was added
+/// directly or a plan brought it in, or the sprint's first day.</param>
+/// <remarks>The last three are defaulted, so a caller written before them still
+/// constructs one.</remarks>
 public sealed record SprintMemberDto(
     Guid TaskId,
     string Title,
@@ -69,7 +79,10 @@ public sealed record SprintMemberDto(
     bool AddedAfterStart,
     string? Note,
     bool OpenQuestion,
-    CloseOutcome? Outcome);
+    CloseOutcome? Outcome,
+    DateOnly? StartedOn = null,
+    DateOnly? BlockedSince = null,
+    DateOnly? JoinedOn = null);
 
 /// <summary>How many members are in each state, and how many joined after the
 /// start. <see cref="Total"/> is the sum of the four states.</summary>

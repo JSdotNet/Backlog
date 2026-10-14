@@ -1,0 +1,107 @@
+@using Backlog.UI.Components.Buttons
+@*
+    The sprint view's Since yesterday strip (.devbook/domain/progress/features.md
+    #the-daily-strip): the stand-up in one place, at the top of the sprint view.
+
+    The header is a toggle that folds the strip to its label and headline; open, it shows
+    what moved since the previous working day, what is on today, what is blocked or open,
+    and the pace, then Copy for the stand-up. Every sentence is the host's, written from
+    fixed templates (SprintDailyModel): the strip lays them out and never words anything.
+
+    The copy goes through SprintDailyCopy alone, so the copy-as-table step's clipboard
+    helper replaces one call when it lands.
+*@
+
+<section class="@ClassValue" aria-label="Since yesterday" data-testid="@TestId" data-open="@(_open ? "true" : "false")">
+    <AppButton Variant="ButtonVariant.None"
+               BaseClass="sprint-daily__toggle"
+               TestId="sprint-daily-toggle"
+               aria-expanded="@(_open ? "true" : "false")"
+               aria-controls="@_bodyId"
+               OnClick="() => _open = !_open">
+        <span class="sprint-daily__head">
+            <span class="sprint-daily__label" data-testid="sprint-daily-label">@Model.Label</span>
+            <span class="sprint-daily__headline" data-testid="sprint-daily-headline">@Model.Headline</span>
+        </span>
+        <svg class="sprint-daily__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </AppButton>
+
+    <div class="sprint-daily__body" id="@_bodyId" hidden="@(!_open)" data-testid="sprint-daily-body">
+        <span class="sprint-daily__summary" data-testid="sprint-daily-summary">@Model.Summary</span>
+
+        @Section("Since yesterday", "since", Model.SinceYesterday, null)
+        @Section("On today", "today", Model.OnToday, null)
+        @if (Model.Blocked.Count > 0)
+        {
+            @Section("Blocked and open questions", "blocked", Model.Blocked, "sprint-daily__section--blocked")
+        }
+
+        <div class="sprint-daily__section" data-testid="sprint-daily-pace">
+            <h3 class="sprint-daily__title">Pace</h3>
+            <p class="@(Model.GoalAtRisk ? "sprint-daily__pace sprint-daily__pace--risk" : "sprint-daily__pace")" data-testid="sprint-daily-pace-text">@Model.Pace</p>
+        </div>
+
+        <div class="sprint-daily__actions">
+            <CopyButton Text="@SprintDailyCopy.PlainText(Model)"
+                        Label="Copy for the stand-up"
+                        ButtonCssClass="btn--secondary sprint-daily__copy"
+                        StatusCssClass="sprint-daily__copy-status"
+                        TestId="sprint-daily-copy"
+                        ButtonTestId="sprint-daily-copy-button"
+                        StatusTestId="sprint-daily-copy-status">Copy for the stand-up</CopyButton>
+        </div>
+    </div>
+</section>
+
+@code {
+    private bool _open = true;
+    private readonly string _bodyId = "sprint-daily-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The strip, every sentence written.</summary>
+    [Parameter, EditorRequired]
+    public SprintDailyModel Model { get; set; } = default!;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "sprint-daily";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "sprint-daily" : $"sprint-daily {CssClass}";
+
+    private RenderFragment Section(string title, string slug, IReadOnlyList<SprintDailyLine> lines, string? modifier) =>
+        @<section class="@(modifier is null ? "sprint-daily__section" : $"sprint-daily__section {modifier}")" aria-label="@title" data-testid="@($"sprint-daily-{slug}")">
+            <h3 class="sprint-daily__title">@title</h3>
+            <ul class="sprint-daily__lines">
+                @foreach (var line in lines)
+                {
+                    <li class="sprint-daily__line" data-testid="sprint-daily-line" data-kind="@Kind(line.Kind)">
+                        <span class="@($"sprint-daily__marker sprint-daily__marker--{Kind(line.Kind)}")" aria-hidden="true"></span>
+                        <span class="sprint-daily__text">@line.Text</span>
+                        @foreach (var pull in line.PullRequests)
+                        {
+                            <Badge @key="pull.Key"
+                                   BaseClass="sprint-pr"
+                                   Kind=""
+                                   Slug="@pull.State.ToString().ToLowerInvariant()"
+                                   TestId="sprint-daily-pull"
+                                   data-state="@pull.State.ToString().ToLowerInvariant()">@pull.Label</Badge>
+                        }
+                    </li>
+                }
+            </ul>
+        </section>;
+
+    private static string Kind(SprintDailyLineKind kind) => kind switch
+    {
+        SprintDailyLineKind.Done => "done",
+        SprintDailyLineKind.OpenedForReview => "review",
+        SprintDailyLineKind.Started => "started",
+        SprintDailyLineKind.Added => "added",
+        SprintDailyLineKind.InProgress => "progress",
+        SprintDailyLineKind.WaitingOnReview => "review",
+        SprintDailyLineKind.Blocked => "blocked",
+        SprintDailyLineKind.OpenQuestion => "question",
+        _ => "quiet"
+    };
+}
