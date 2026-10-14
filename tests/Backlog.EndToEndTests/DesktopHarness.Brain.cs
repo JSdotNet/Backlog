@@ -38,7 +38,7 @@ internal sealed partial class DesktopHarness
     /// <summary>Opens Settings › Storage on the Brain card.</summary>
     public async Task OpenBrainCardAsync()
     {
-        await OpenSettingsAsync("Storage");
+        await OpenSettingsAsync("storage");
         await Page.GetByTestId("brain-folder-card").WaitForAsync();
     }
 
@@ -208,7 +208,7 @@ internal sealed partial class DesktopHarness
     /// worktree.</summary>
     public async Task EnableInboxAsync()
     {
-        await OpenSettingsAsync("Features");
+        await OpenSettingsAsync("features");
         var checkbox = Page.GetByRole(AriaRole.Checkbox, new PageGetByRoleOptions { NameRegex = InboxPaneFeature() });
         await Interactive.RepeatAsync(
             async () =>

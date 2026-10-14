@@ -37,22 +37,28 @@ internal sealed partial class DesktopHarness
 
     // ---- Settings ----
 
-    private async Task OpenSettingsAsync(string tab)
+    /// <summary>Opens one Settings page by its address, <c>settings/&lt;page&gt;</c>,
+    /// and waits for the menu to mark that page's link current. The link is found
+    /// by the page id it carries rather than by its name, which also holds the
+    /// page's badge (<c>Features 12/19</c>). An address naming a page that is not
+    /// on offer shows Features instead, so the wait times out naming the page that
+    /// never came.</summary>
+    private async Task OpenSettingsAsync(string page)
     {
-        await Page.GotoAsync(new Uri(_baseUrl, "settings").ToString());
-        var pill = Page.GetByRole(AriaRole.Tab, new PageGetByRoleOptions { Name = tab, Exact = true });
-        await Interactive.RepeatAsync(
-            () => pill.ClickAsync(),
-            async () => await pill.GetAttributeAsync("aria-selected") == "true",
-            $"the {tab} settings tab");
+        await Page.GotoAsync(new Uri(_baseUrl, $"settings/{page}").ToString());
+        var current = Page.Locator($"a[data-page='{page}'][aria-current='page']");
+        await Interactive.EventuallyAsync(
+            async () => await current.CountAsync() > 0,
+            TimeSpan.FromSeconds(30),
+            $"the {page} settings page to be the current one");
     }
 
     /// <summary>Turns on the two features the scenario needs: <c>sync</c>, without
-    /// which there is no Devices tab, and the Inbox pane, which is off by
+    /// which there is no Devices page, and the Inbox pane, which is off by
     /// default. Both are kept per worktree, so this changes nothing elsewhere.</summary>
     public async Task EnableSyncAndInboxAsync()
     {
-        await OpenSettingsAsync("Features");
+        await OpenSettingsAsync("features");
         foreach (var feature in new[] { SyncFeature(), InboxPaneFeature() })
         {
             var checkbox = Page.GetByRole(AriaRole.Checkbox, new PageGetByRoleOptions { NameRegex = feature });
@@ -70,16 +76,16 @@ internal sealed partial class DesktopHarness
     /// then issues a single-use pairing code for the phone.</summary>
     public async Task<string> IssuePairingCodeAsync()
     {
-        await OpenSettingsAsync("Devices");
+        await OpenSettingsAsync("devices");
 
-        // The tab first shows the credential it holds, then asks the service
+        // The page first shows the credential it holds, then asks the service
         // about it. Only the answer says whether registering is needed: an
         // emulator restarted without its data no longer knows the device, and
         // the page then offers "Register" beside an alert.
         //
         // A desktop whose token the service no longer accepts — sync restarted
         // under a new development signing key — may never get its device count
-        // back on this tab. After a grace period a held credential with "Generate
+        // back on this page. After a grace period a held credential with "Generate
         // a code" offered is taken as registered; generating the code is then
         // the real question, and a refusal fails the run with its message.
         var identity = Page.GetByTestId("devices-identity");
@@ -90,7 +96,7 @@ internal sealed partial class DesktopHarness
                         || (await identity.IsVisibleAsync() && (await identity.InnerTextAsync()).Contains("paired", StringComparison.OrdinalIgnoreCase))
                         || (DateTime.UtcNow > grace && await identity.IsVisibleAsync() && await Page.GetByTestId("devices-generate").IsVisibleAsync()),
             TimeSpan.FromSeconds(60),
-            "the Devices tab to hear from the sync service");
+            "the Devices page to hear from the sync service");
 
         var register = Page.GetByTestId("devices-register-button");
         if (await register.IsVisibleAsync())
@@ -124,7 +130,7 @@ internal sealed partial class DesktopHarness
     /// </summary>
     public async Task<string> SyncNowAsync()
     {
-        await OpenSettingsAsync("Devices");
+        await OpenSettingsAsync("devices");
         var sync = Page.GetByTestId("devices-sync-now");
         var message = Page.GetByTestId("devices-message");
         var started = DateTime.UtcNow;
