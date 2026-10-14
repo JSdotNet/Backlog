@@ -637,9 +637,12 @@ each part as the page's name, the part, the part's outcome and when the run ran,
 read from the run the page committed. The stage keeps what it was last sent, and a
 later report about the same stage without evidence leaves it in place.
 
-The run shows this evidence under the stage that reported it, one row per part with
-the part's dot, and a count of how many passed. A run is evidence and not a task, so
-it never says proved. A run that reported no evidence shows nothing for it.
+The run shows this evidence inside the stage that reported it. Folded, the stage's
+row says how many of its parts passed, as "1 of 2 passing". Opened, the stage's panel
+lists them under "Scenario evidence", one row per part with the part's dot. A part
+there opens nothing: the run only says what the stage ran. A run is evidence and not
+a task, so it never says proved. A stage that reported no evidence shows nothing for
+it, and neither does a run.
 
 ### What a run cost, reported by the session itself
 
