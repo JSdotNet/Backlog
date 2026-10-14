@@ -180,7 +180,7 @@ public sealed class SettingsSectionRenderingTests
     [Fact]
     public void The_AI_providers_page_counts_the_providers_set_up_out_of_three_and_follows_each()
     {
-        using var settings = RenderSettings([], inboxPane: false, usageMetrics: true);
+        using var settings = RenderSettings([], inboxPane: false, usageMetrics: true, aiAssistant: true);
         Assert.Equal("0/3", SettingsMenu.Badge(settings.Component, "ai"));
 
         var claude = settings.TestContext.Services.GetRequiredService<ClaudeSettingsStore>();
@@ -197,6 +197,80 @@ public sealed class SettingsSectionRenderingTests
         Assert.Null(foundry.SetConnection("https://example.openai.azure.com", "gpt", "key", null));
         settings.Component.WaitForAssertion(() =>
             Assert.Equal("3/3", SettingsMenu.Badge(settings.Component, "ai")));
+    }
+
+    /// <summary>
+    /// With usage metrics off the page offers Azure Foundry alone, so the badge
+    /// counts it out of one, and a Claude key or a GitHub account set up meanwhile
+    /// does not count: the badge and the headline name the same providers.
+    /// </summary>
+    [Fact]
+    public void With_usage_metrics_off_the_AI_badge_counts_Azure_Foundry_alone_and_agrees_with_the_headline()
+    {
+        using var settings = RenderSettings([], inboxPane: false, aiAssistant: true);
+
+        var claude = settings.TestContext.Services.GetRequiredService<ClaudeSettingsStore>();
+        Assert.Null(claude.SetAdminApiKey(claude.Current.Accounts[0].Id, "sk-ant-admin01-key"));
+        var github = settings.TestContext.Services.GetRequiredService<GitHubIntegration>();
+        Assert.Null(github.Settings.SetAccounts([new GitHubAccount("octocat")]));
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("0/1", SettingsMenu.Badge(settings.Component, "ai")));
+        SettingsMenu.Open(settings.Component, "AI providers");
+        Assert.Equal("No AI provider is set up yet.", Headline(settings.Component));
+
+        var foundry = settings.TestContext.Services.GetRequiredService<AzureFoundrySettingsStore>();
+        Assert.Null(foundry.SetConnection("https://example.openai.azure.com", "gpt", "key", null));
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal("1/1", SettingsMenu.Badge(settings.Component, "ai"));
+            Assert.Equal("Azure Foundry reports usage.", Headline(settings.Component));
+        });
+    }
+
+    /// <summary>With the AI assistant off the page offers the two usage providers,
+    /// so a configured Azure Foundry is not counted.</summary>
+    [Fact]
+    public void With_the_AI_assistant_off_the_AI_badge_counts_the_two_usage_providers_and_agrees_with_the_headline()
+    {
+        using var settings = RenderSettings([], inboxPane: false, usageMetrics: true);
+
+        var foundry = settings.TestContext.Services.GetRequiredService<AzureFoundrySettingsStore>();
+        Assert.Null(foundry.SetConnection("https://example.openai.azure.com", "gpt", "key", null));
+        var claude = settings.TestContext.Services.GetRequiredService<ClaudeSettingsStore>();
+        Assert.Null(claude.SetAdminApiKey(claude.Current.Accounts[0].Id, "sk-ant-admin01-key"));
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("1/2", SettingsMenu.Badge(settings.Component, "ai")));
+        SettingsMenu.Open(settings.Component, "AI providers");
+        Assert.Equal("One Claude organization reports usage; GitHub is not set up.", Headline(settings.Component));
+    }
+
+    /// <summary>
+    /// A re-check of how this machine reaches GitHub keeps the previous answer
+    /// until the new one arrives, so a badge counting GitHub through this machine's
+    /// own sign-in does not dip by one while the check runs.
+    /// </summary>
+    [Fact]
+    public void The_AI_badge_holds_through_a_GitHub_connection_re_check()
+    {
+        var probe = new GatedProbe();
+        using var settings = RenderSettings([], inboxPane: false, usageMetrics: true, probe: probe);
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("1/2", SettingsMenu.Badge(settings.Component, "ai")));
+
+        var recheck = probe.Hold();
+        SettingsMenu.Open(settings.Component, "GitHub accounts");
+        _ = settings.Component.Find("[data-testid='gh-cli-accounts-refresh-button']").ClickAsync(new());
+
+        settings.Component.WaitForAssertion(() => Assert.Equal(2, probe.Calls));
+        Assert.Equal("1/2", SettingsMenu.Badge(settings.Component, "ai"));
+
+        recheck.SetResult(new GitHubConnection(false, "Not connected."));
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("0/2", SettingsMenu.Badge(settings.Component, "ai")));
     }
 
     [Fact]
@@ -501,14 +575,16 @@ public sealed class SettingsSectionRenderingTests
         bool inboxPane,
         string? navigateTo = null,
         bool usageMetrics = false,
-        Action<IServiceCollection>? services = null)
+        Action<IServiceCollection>? services = null,
+        bool aiAssistant = false,
+        IGitHubConnectionProbe? probe = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-section-tests", Guid.NewGuid().ToString("n"));
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
-        _ = features.SetEnabled(AppFeatures.AiAssistant, false);
+        _ = features.SetEnabled(AppFeatures.AiAssistant, aiAssistant);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, usageMetrics);
         _ = features.SetEnabled(AppFeatures.InboxPane, inboxPane);
 
@@ -525,7 +601,7 @@ public sealed class SettingsSectionRenderingTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), probe ?? new NoProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
@@ -557,6 +633,28 @@ public sealed class SettingsSectionRenderingTests
     {
         public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new GitHubConnection(false, "Not connected."));
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    /// <summary>Answers "connected" until <see cref="Hold"/> is called, then holds
+    /// every later answer until the test gives it.</summary>
+    private sealed class GatedProbe : IGitHubConnectionProbe
+    {
+        private TaskCompletionSource<GitHubConnection>? _held;
+
+        public int Calls { get; private set; }
+
+        public TaskCompletionSource<GitHubConnection> Hold() =>
+            _held = new TaskCompletionSource<GitHubConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return _held?.Task ?? Task.FromResult(new GitHubConnection(true, "Signed in with the GitHub CLI."));
+        }
 
         public void Invalidate()
         {

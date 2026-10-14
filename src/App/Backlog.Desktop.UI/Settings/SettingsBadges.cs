@@ -16,9 +16,6 @@ public static class SettingsBadges
     /// <summary>The badge on a module's page while the feature it sits behind is off.</summary>
     public const string Off = "Off";
 
-    /// <summary>How many AI providers the AI providers page counts.</summary>
-    public const int AiProviderCount = 3;
-
     /// <summary>The Features page's badge: how many features of
     /// <paramref name="catalog"/> are on, over how many there are - <c>9/19</c>.</summary>
     public static string Features(IReadOnlyCollection<AppFeatureDefinition> catalog, Func<string, bool> isEnabled)
@@ -30,12 +27,20 @@ public static class SettingsBadges
         return Fraction(on, catalog.Count);
     }
 
-    /// <summary>The AI providers page's badge: how many of Claude usage, GitHub usage
-    /// and Azure Foundry are set up, over three - <c>2/3</c>.</summary>
-    public static string AiProviders(bool claude, bool gitHub, bool azureFoundry)
+    /// <summary>
+    /// The AI providers page's badge: how many of the providers the page offers are
+    /// set up, over how many it offers - <c>2/3</c>. Claude and GitHub come with
+    /// <paramref name="usageMetrics"/>, Azure Foundry with <paramref name="aiAssistant"/>:
+    /// the rule the page draws its tiles and cards by, so the badge never counts a
+    /// provider the page does not show. A provider not offered is not counted set up
+    /// either, whatever its store holds.
+    /// </summary>
+    public static string AiProviders(bool usageMetrics, bool aiAssistant, bool claude, bool gitHub, bool azureFoundry)
     {
-        var configured = (claude ? 1 : 0) + (gitHub ? 1 : 0) + (azureFoundry ? 1 : 0);
-        return Fraction(configured, AiProviderCount);
+        var offered = (usageMetrics ? 2 : 0) + (aiAssistant ? 1 : 0);
+        var configured = usageMetrics ? (claude ? 1 : 0) + (gitHub ? 1 : 0) : 0;
+        configured += aiAssistant && azureFoundry ? 1 : 0;
+        return Fraction(configured, offered);
     }
 
     /// <summary>A count as its figure, zero included: an empty list says so.</summary>

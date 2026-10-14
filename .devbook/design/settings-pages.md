@@ -131,7 +131,7 @@ It is text, not a pill.
 | Page | Badge | Source |
 |---|---|---|
 | Features | On over total, `9/19` | `SettingsBadges.Features` |
-| AI providers | Providers set up over three, `2/3` | `SettingsBadges.AiProviders` |
+| AI providers | Providers set up over the providers the page offers, `2/3`; `1/1` or `0/1` with usage metrics off | `SettingsBadges.AiProviders` |
 | Repositories, GitHub accounts | The count, zero included | `SettingsBadges.Count` |
 | Storage & backup | None | — |
 | A registered page whose feature is off | `Off` | `SettingsBadges.Off`, drawn by the shell |
@@ -142,6 +142,9 @@ Rules:
 - A badge MUST be a count, a fraction, or `Off`. It MUST NOT be a sentence; the
   headline is where a sentence goes.
 - A count of zero is drawn as `0`: an empty list says so.
+- A badge MUST count only what its page shows: the AI providers badge counts the
+  providers the page draws a tile for under the features as they stand, and it
+  keeps the previous GitHub connection answer while a re-check runs.
 - A null or blank badge draws nothing, not an empty pill.
 - A badge source MUST be registered as a singleton and MUST raise `Changed`
   whenever its value may have moved, from any thread. The menu follows a
