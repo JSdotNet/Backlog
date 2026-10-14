@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 using Backlog.Desktop.UI.Shell;
 
 using Bunit;
@@ -29,6 +31,21 @@ public sealed class SettingsRepositoriesTableTests
         settings.Component.WaitForAssertion(() => Assert.Equal(
             "2 repositories registered, 0 with a devbook.",
             settings.Component.Find("[data-testid='settings-headline']").TextContent.Trim()));
+    }
+
+    [Fact]
+    public void The_summary_puts_a_space_between_its_two_sentences()
+    {
+        using var settings = SettingsRepositoryColourTests.RenderSettings();
+        SettingsMenu.Open(settings.Component, "Repositories");
+        Retype(settings.Component, "backlog = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
+
+        // Whitespace runs collapse to one space in the browser, so collapse them here
+        // too: what must not happen is no whitespace at all between "more." and "Type".
+        settings.Component.WaitForAssertion(() => Assert.StartsWith(
+            "JSdotNet/Backlog is configured, and 1 more. Type @backlog on an entry",
+            Regex.Replace(settings.Component.Find("[data-testid='github-repos-status']").TextContent, @"\s+", " ").Trim(),
+            StringComparison.Ordinal));
     }
 
     [Fact]
