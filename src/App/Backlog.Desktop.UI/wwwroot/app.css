@@ -2458,6 +2458,18 @@ h1, h2, h3 {
     overflow: visible;
 }
 
+/* A Settings page is a region, not a panel: SettingsFrame already draws the one
+   panel, so a page's cards sit directly on it. Framing the region as well put a
+   second border between the panel and its cards - three deep on Features and AI
+   providers, four on a phone, where the account and repository editors were left
+   about 200px. `.devbook/design/settings-pages.md#panel-and-header`. */
+.settings-frame__content > .setting {
+    background: none;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+}
+
 /* Blocks that sit side by side inside a settings tab. `auto-fit` is what lets
    one rule serve every width: the tracks collapse back to a single column once
    the content box drops under roughly 46rem, which is the stacked layout this
