@@ -1,6 +1,7 @@
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Sync.UI;
 
@@ -35,7 +36,12 @@ public static class SyncSettingsRegistration
             typeof(DevicesSettings),
             SyncFeatures.Sync,
             SettingsGroup.ProductAreas,
-            CardTitles: DevicesSettings.CardTitles));
+            CardTitles: DevicesSettings.CardTitles,
+            BadgeSource: typeof(DevicePairingBadgeSource)));
+
+        // The value the menu draws beside the page's name, a singleton as
+        // ISettingsBadgeSource asks: the shell holds it while the screen is open.
+        services.TryAddSingleton<DevicePairingBadgeSource>();
 
         return services;
     }

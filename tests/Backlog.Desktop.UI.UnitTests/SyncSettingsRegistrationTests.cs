@@ -28,7 +28,8 @@ public sealed class SyncSettingsRegistrationTests
         Assert.Equal(typeof(DevicesSettings), section.Component);
         Assert.Equal(SyncFeatures.Sync, section.FeatureKey);
         Assert.DoesNotContain(section.Id, ShellPageIds);
-        Assert.Single(services);
+        // The section and the badge source it names (ModuleSettingsBadgeSourceTests).
+        Assert.Equal(2, services.Count);
 
         // Last of the Product areas pages, after Connectors.
         Assert.Equal(SettingsGroup.ProductAreas, section.Group);

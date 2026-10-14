@@ -1,6 +1,7 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Desktop.UI.Inbox;
 
@@ -36,7 +37,12 @@ public static class InboxSettingsRegistration
             typeof(InboxSettings),
             InboxFeatures.Pane,
             SettingsGroup.ProductAreas,
-            CardTitles: [InboxSettings.CardTitle]));
+            CardTitles: [InboxSettings.CardTitle],
+            BadgeSource: typeof(InboxRoutingRulesBadgeSource)));
+
+        // The value the menu draws beside the page's name, a singleton as
+        // ISettingsBadgeSource asks: the shell holds it while the screen is open.
+        services.TryAddSingleton<InboxRoutingRulesBadgeSource>();
 
         return services;
     }

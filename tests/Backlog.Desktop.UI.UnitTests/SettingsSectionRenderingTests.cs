@@ -237,6 +237,37 @@ public sealed class SettingsSectionRenderingTests
         Assert.Null(SettingsMenu.Badge(settings.Component, "sooner"));
     }
 
+    /// <summary>A module page's own badge source, registered by the call that
+    /// registers the page: the Inbox's rule count, in the one menu the wide layout
+    /// and the phone list both draw, moving when a rule is written and giving way
+    /// to Off while the pane is switched off.</summary>
+    [Fact]
+    public void The_inbox_page_draws_its_rule_count_and_follows_it()
+    {
+        InboxRoutingRulesStore? rules = null;
+        using var settings = RenderSettings(
+            [],
+            inboxPane: true,
+            services: services =>
+            {
+                var root = Path.Combine(Path.GetTempPath(), "backlog-settings-badge-tests", Guid.NewGuid().ToString("n"));
+                rules = new(Path.Combine(root, "inbox-routing-rules.json"));
+                Assert.Null(rules.SetRules("#bug => JSdotNet/Bugs"));
+                services.AddSingleton<Backlog.Modules.Inbox.Abstractions.Services.IInboxRoutingRules>(rules);
+                services.AddInboxSettings();
+            });
+
+        Assert.Equal("1", SettingsMenu.Badge(settings.Component, "inbox"));
+
+        Assert.Null(rules!.SetRules("#bug => JSdotNet/Bugs\n#docs => JSdotNet/Docs"));
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("2", SettingsMenu.Badge(settings.Component, "inbox")));
+
+        SwitchFeature(settings.Component, "Inbox pane", on: false);
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "inbox")));
+    }
+
     public sealed class CountingBadgeSource : ISettingsBadgeSource
     {
         public string? Badge { get; set; }

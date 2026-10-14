@@ -1,5 +1,6 @@
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Desktop.UI.Tasks;
 
@@ -25,7 +26,12 @@ public static class TaskConnectorSettingsRegistration
             Order,
             typeof(TaskConnectorSettings),
             Group: SettingsGroup.ProductAreas,
-            CardTitles: TaskConnectorSettings.CardTitles));
+            CardTitles: TaskConnectorSettings.CardTitles,
+            BadgeSource: typeof(ConnectedTaskSourcesBadgeSource)));
+
+        // The value the menu draws beside the page's name, a singleton as
+        // ISettingsBadgeSource asks: the shell holds it while the screen is open.
+        services.TryAddSingleton<ConnectedTaskSourcesBadgeSource>();
 
         return services;
     }
