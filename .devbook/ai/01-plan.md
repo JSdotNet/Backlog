@@ -21,8 +21,7 @@ date: 2026-09-26
 A change to an arc42 chapter, a decision record, a bounded context, the technology graph,
 a design guideline, or this record runs through the delivery engine's `flow-spec`. It loads
 the folder's own rule, drafts through the agent its `phase-drafting` entry binds for the
-folder, runs the devbook check,
-and stops at Personal Validation before a pull request.
+folder, runs the devbook check, and stops at Personal Validation before a pull request.
 
 - **Used for** — decision records, domain model changes, technology ratings, and the
   adoption record itself.
@@ -44,10 +43,10 @@ related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-i
 date: 2026-09-25
 ```
 
-An agreed specification becomes a Backlog import plan through `import-plan`: one
-`plan` entry that Import turns into a Roadmap Item, and under it the step entries — a
-`prompt` an agent session runs, or a `task` or `test` only a person does — ordered by
-`after:`.
+`import-plan` turns an agreed specification into a Backlog import plan. The plan has one
+`plan` entry, which Import turns into a Roadmap Item, and the step entries under it. An agent
+session runs a `prompt` step, and only a person does a `task` or `test` step. Each step's
+`after:` field orders it behind the steps it waits for.
 
 - **Used for** — breaking a multi-session feature into roadmap items and the prompts that
   deliver them, with a review page beside the raw plan.
@@ -78,7 +77,7 @@ reference each estimate was compared with.
 - **Limits** — points size work, never time; turning them into a date is a measured pace's
   job, not the estimate's.
 
-## Answer reading notes
+## Answer remarks
 
 ```meta
 status: trial
@@ -89,9 +88,10 @@ related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-a
 date: 2026-09-26
 ```
 
-The private notes a person leaves on devbook chapters while reading them in the app are read
-over the Backlog MCP server by `handle-remarks`, answered in the chapter as a devbook
-`annotation` fence, and only then resolved in the app.
+A [remark](../domain/devbook/domain.md#remark) is the note a person leaves on
+a devbook chapter while reading it in the app. `handle-remarks` reads the open remarks over the
+Backlog MCP server and answers each one in the chapter as an `annotation` fence. Only then does
+it resolve the remark in the app.
 
 - **Used for** — turning a reader's questions into written answers next to the passage they
   were asked about.
@@ -99,5 +99,5 @@ over the Backlog MCP server by `handle-remarks`, answered in the chapter as a de
   form of it after an item rewrites a chapter.
 - **Evidence** — the answer loop shipped in PRs #580 and #581; no sweep of a full inbox is
   on record yet.
-- **Limits** — the app is never the fence's writer, and a note is resolved only after its
-  fence is written.
+- **Limits** — the app never writes the fence, and a remark is resolved only after its answer
+  is written.

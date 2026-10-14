@@ -2211,7 +2211,23 @@
         }
     };
 
-    window.addEventListener('resize', backlogReportPaneBounds);
+    // A window drag fires resize many times a frame, and each report costs two
+    // interop calls and a style read per layout. Reporting once per frame is as
+    // current as anything on screen can be. Only the listener waits for the
+    // frame: initialize and refresh above report at once, because their callers
+    // act on the answer in the same render.
+    let backlogPaneBoundsFrame = 0;
+
+    function backlogSchedulePaneBounds() {
+        if (backlogPaneBoundsFrame) return;
+
+        backlogPaneBoundsFrame = requestAnimationFrame(() => {
+            backlogPaneBoundsFrame = 0;
+            backlogReportPaneBounds();
+        });
+    }
+
+    window.addEventListener('resize', backlogSchedulePaneBounds);
 
     document.addEventListener('pointerdown', (event) => {
         if (event.button !== 0) return;
@@ -2260,16 +2276,27 @@
     const backlogDiagramInstances = new Map();
 
     // The drawing libraries are large and are not needed until a diagram is on
-    // screen, so they load from a CDN on demand rather than shipping with the
-    // library. A host that must work offline sets window.backlogDiagramLibrarySources
-    // before components.js runs, pointing each name at a local copy it serves
-    // itself; the entries below are the fallback, tried in order.
+    // screen, so they load on demand. Mermaid ships with the library, pinned, under
+    // wwwroot/lib/mermaid/ (its README says which version and how to move it), so a
+    // diagram draws with no network. It used to come from a CDN at a floating
+    // major version, which drew nothing offline and changed under releases nobody
+    // made. A host that serves its own copy still sets
+    // window.backlogDiagramLibrarySources before components.js runs; the entries
+    // there replace the ones below and are tried in order.
     //
     // Earlier versions listed a '/vendor/...' path first. No host has ever served
-    // that path, so every diagram cost a guaranteed 404 before reaching the CDN.
-    // The hook is now opt-in and silent when unused.
+    // that path, so every diagram cost a guaranteed 404 before the real source.
+    // There is one default now, and it is a file the library ships.
+    //
+    // Resolved against this script's own URL rather than the page's: a host with
+    // a non-root <base href> would otherwise send the import somewhere else.
+    // currentScript is only set while this file is first evaluated, so it is read
+    // here and not when a diagram asks for the library.
+    const backlogComponentsScriptUrl = document.currentScript?.src
+        || new URL('_content/Backlog.UI.Components/components.js', document.baseURI).href;
+
     const backlogDiagramLibrarySources = {
-        mermaid: ['https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'],
+        mermaid: [new URL('lib/mermaid/mermaid.esm.min.mjs', backlogComponentsScriptUrl).href],
         ...(window.backlogDiagramLibrarySources ?? {})
     };
 
@@ -2363,13 +2390,35 @@
         };
     }
 
+    // How many times the library has been asked for. Only a failure asks again.
+    let backlogMermaidAttempts = 0;
+
+    // The URL to import a source from on a given attempt. The browser's module
+    // map records a module URL whose fetch failed and answers every later import
+    // of that URL with the same failure, without fetching it again, so a retry
+    // under the same URL could never succeed before a reload. A retry therefore
+    // imports the entry under a query of its own. The first attempt keeps the
+    // plain URL, so a page that never fails loads one module. Only the query
+    // changes, so a retry still reads the same file under lib/mermaid/. The
+    // chunks the entry imports resolve against its path and carry no query: a
+    // retry fetches the entry and every chunk not yet fetched, and a chunk whose
+    // own fetch failed stays failed until a reload.
+    function backlogMermaidAttemptUrl(source, attempt) {
+        if (!attempt) return source;
+
+        const url = new URL(source, document.baseURI);
+        url.searchParams.set('retry', String(attempt));
+        return url.href;
+    }
+
     async function backlogLoadMermaid() {
         if (window.mermaid) return window.mermaid;
         if (!backlogMermaidPromise) {
-            backlogMermaidPromise = (async () => {
+            const attempt = backlogMermaidAttempts++;
+            const loading = (async () => {
                 for (const source of backlogDiagramLibrarySources.mermaid) {
                     try {
-                        const module = await import(source);
+                        const module = await import(backlogMermaidAttemptUrl(source, attempt));
                         const mermaid = module.default ?? module.mermaid ?? window.mermaid;
                         if (mermaid) {
                             mermaid.initialize({
@@ -2397,6 +2446,15 @@
 
                 throw new Error('Mermaid renderer unavailable.');
             })();
+
+            // A load that failed is forgotten, so the next diagram tries again.
+            // Cached, the rejection lasted the rest of the session: one failed
+            // import and no diagram drew again, whatever changed after it. The
+            // callers still see this attempt fail and show the source instead.
+            backlogMermaidPromise = loading;
+            loading.catch(() => {
+                if (backlogMermaidPromise === loading) backlogMermaidPromise = undefined;
+            });
         }
 
         return backlogMermaidPromise;
@@ -3259,9 +3317,11 @@
                 drawNode(point);
             }
 
+            // Node labels first, so an edge's label can step around them rather
+            // than sit over one; both read the boxes already drawn.
+            const taken = drawLabels();
             drawLinkLabels((getComputedStyle(document.documentElement).getPropertyValue('--font-family-base') || '').trim()
-                || 'system-ui, sans-serif');
-            drawLabels();
+                || 'system-ui, sans-serif', taken);
 
             if (moving) schedule();
         }
@@ -3306,11 +3366,39 @@
         /*
             The words a host put on an edge, at the middle of its curve: the point
             at t = 0.5 of the quadratic, which is where the eye looks for a label.
-            Drawn after the nodes so no node paints over one, and only for an edge
-            that is not dimmed by a selection elsewhere — a label on a line the
-            reader is told to ignore is noise.
+            Drawn after the nodes and their labels, and only for an edge that is
+            not dimmed by a selection elsewhere — a label on a line the reader is
+            told to ignore is noise.
+
+            In a dense or flat layout the middle of a curve can fall on a node's
+            own label, or on another edge's, and two words drawn over each other
+            say neither. So the middle is only the first seat tried: further along
+            the curve each way, then just above and below it. An edge whose every
+            seat is taken goes unlabelled — the node labels are what the reader
+            navigates by, so they win.
         */
-        function drawLinkLabels(font) {
+        const BACKLOG_ATLAS_LINK_LABEL_SEATS = [
+            { t: 0.5, dy: 0 },
+            { t: 0.35, dy: 0 },
+            { t: 0.65, dy: 0 },
+            { t: 0.5, dy: -16 },
+            { t: 0.5, dy: 16 },
+            { t: 0.25, dy: 0 },
+            { t: 0.75, dy: 0 }
+        ];
+
+        function backlogAtlasBoxesMeet(left, right) {
+            return left.x < right.x + right.width
+                && right.x < left.x + left.width
+                && left.y < right.y + right.height
+                && right.y < left.y + left.height;
+        }
+
+        function drawLinkLabels(font, taken) {
+            context.font = '400 11px ' + font;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+
             for (const link of layout.links) {
                 if (!link.label) continue;
 
@@ -3325,23 +3413,33 @@
                     && (link.from.node.id === selectedId || link.to.node.id === selectedId);
                 if (selectedId && !lit) continue;
 
-                const x = 0.25 * from.x + 0.5 * control.x + 0.25 * to.x;
-                const y = 0.25 * from.y + 0.5 * control.y + 0.25 * to.y;
-
-                context.font = '400 11px ' + font;
-                context.textAlign = 'center';
-                context.textBaseline = 'middle';
-
                 const width = context.measureText(link.label).width;
+                let seat = null;
+
+                for (const candidate of BACKLOG_ATLAS_LINK_LABEL_SEATS) {
+                    const u = 1 - candidate.t;
+                    const x = u * u * from.x + 2 * u * candidate.t * control.x + candidate.t * candidate.t * to.x;
+                    const y = u * u * from.y + 2 * u * candidate.t * control.y + candidate.t * candidate.t * to.y + candidate.dy;
+                    const box = { x: x - width / 2 - 4, y: y - 8, width: width + 8, height: 16 };
+
+                    if (!taken.some((other) => backlogAtlasBoxesMeet(box, other))) {
+                        seat = { x, y, box };
+                        break;
+                    }
+                }
+
+                if (!seat) continue;
+                taken.push(seat.box);
+
                 context.fillStyle = palette.surface;
                 context.globalAlpha = 0.8;
                 context.beginPath();
-                context.roundRect(x - width / 2 - 4, y - 8, width + 8, 16, 3);
+                context.roundRect(seat.box.x, seat.box.y, seat.box.width, seat.box.height, 3);
                 context.fill();
 
                 context.globalAlpha = lit ? 1 : 0.85;
                 context.fillStyle = lit ? palette.ink : palette.inkMuted;
-                context.fillText(link.label, x, y);
+                context.fillText(link.label, seat.x, seat.y);
             }
 
             context.globalAlpha = 1;
@@ -3421,6 +3519,13 @@
                 || 'system-ui, sans-serif';
             const drawn = [];
 
+            // Every label pill drawn, and every node dot, as the boxes an edge's
+            // label must stay clear of (drawLinkLabels).
+            const boxes = painted.map((point) => {
+                const size = nodeSize(point);
+                return { x: point.projected.x - size, y: point.projected.y - size, width: size * 2, height: size * 2 };
+            });
+
             for (let index = painted.length - 1; index >= 0; index--) {
                 const point = painted[index];
                 const projected = point.projected;
@@ -3461,9 +3566,11 @@
                 context.globalAlpha = 1;
                 context.fillStyle = selected ? palette.ink : palette.inkMuted;
                 context.fillText(point.node.label, projected.x, y);
+                boxes.push({ x: projected.x - width / 2 - 6, y: y - 15, width: width + 12, height: 18 });
             }
 
             context.globalAlpha = 1;
+            return boxes;
         }
 
         function pick(clientX, clientY) {
@@ -3664,7 +3771,7 @@
         The frame cannot work this out for itself and neither can its stylesheet:
         an Archify document is a single `width: 100%` SVG over its own viewBox, so
         its height is a function of the frame's width, and it differs per diagram -
-        1440x700 for one runtime view, 1200x2458 for a building block view. A fixed
+        1440x700 for one runtime view, 1392x3496 for the technology graph. A fixed
         height fits neither, and whatever did not fit used to be simply gone.
 
         So the measurement is made where the answer is known and sent out. This is
@@ -3812,7 +3919,7 @@
             `backlogWatchArtifactHeight` writes it onto the frame. Without that the
             frame kept the fixed height its stylesheet gives it and everything past
             that was cut off, which for a portrait diagram like
-            `05-building-block-view.2` (1200x2458) is most of the picture.
+            `technology-graph.1` (1392x3496) is most of the picture.
         */
         renderArtifact(element, id, html, compact, hideNodeDetails) {
             /*
@@ -4746,25 +4853,33 @@
     /*
         The C4 explorer's viewer.
 
-        Everything here is about a diagram somebody else drew. Mermaid renders a C4
-        view into a static SVG and hands it over; this adds the exploration layer over
-        the top — pan and zoom, a minimap, presentation mode, a click target on every
-        element, and a dimming pass for the Highlighter.
+        Everything here is about a diagram somebody else drew. C4DiagramView renders a
+        C4 view through C4SvgWriter into a static SVG and hands it over; this adds the
+        exploration layer over the top — pan and zoom, a minimap, presentation mode, a
+        click target on every element, and a dimming pass for the Highlighter.
 
         It works on the SVG's own `viewBox` rather than on a CSS transform. The viewBox
-        is what mermaid already sizes the picture with, so zoom-to-fit is a copy of the
-        original numbers, panning is arithmetic on them, and the minimap only has to
-        draw the same SVG at its full extent with a rectangle where the viewBox now
+        is what C4SvgWriter already sizes the picture with, so zoom-to-fit is a copy of
+        the original numbers, panning is arithmetic on them, and the minimap only has
+        to draw the same SVG at its full extent with a rectangle where the viewBox now
         sits. A CSS transform would have needed all of that translated back out of a
         matrix, and would have blurred the text on the way.
 
-        The bridge back to the model is the node id. Mermaid writes each element as
-        `<g class="node ..." id="<svg id>-<alias>">`, and the alias is the one this
-        repository's own writer produced — so stripping the svg id off the front is the
-        whole of the lookup, and no text matching is involved anywhere.
+        The bridge back to the model is the node id. C4SvgWriter writes each element
+        as `<g class="node ..." id="<svg id>-<alias>">`, and the alias is the one this
+        repository's own writer produced — so stripping the svg id off the front is
+        the whole of the lookup, and no text matching is involved anywhere.
     */
 
     const explorers = new Map();
+
+    // Per drawn SVG element: the extent it was drawn at, and the box the reader
+    // last left it showing. Keyed on the element, because the element is what
+    // says whether the picture changed: Blazor leaves unchanged markup in place
+    // and replaces the element when the markup changes. Reading the home back
+    // off an element this viewer had already zoomed made Fit return to the last
+    // zoom and measured the zoom limits from a home that moved with every step.
+    const viewports = new WeakMap();
 
     const MIN_SCALE = 0.2;
     const MAX_SCALE = 8;
@@ -4778,7 +4893,7 @@
     function readViewBox(svg) {
         const raw = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
         if (raw.length !== 4 || raw.some(Number.isNaN)) {
-            // A mermaid SVG always carries one; this is the honest fallback rather
+            // C4SvgWriter always writes one; this is the honest fallback rather
             // than NaN arithmetic that silently blanks the picture.
             const box = svg.getBBox ? svg.getBBox() : { x: 0, y: 0, width: 100, height: 100 };
             return { x: box.x, y: box.y, w: box.width || 100, h: box.height || 100 };
@@ -4794,8 +4909,9 @@
     window.backlogC4Explorer = {
         /**
          * Takes over a rendered diagram. Safe to call again for the same id — the
-         * previous attachment is torn down first, which is what makes it correct to
-         * call on every re-render rather than having to track whether one is live.
+         * previous attachment is torn down first — and for the same SVG element,
+         * which keeps the home it was first attached with and the box it was left
+         * at, rather than reading its zoomed viewBox back as the whole picture.
          */
         attach(id, frameSelector, reference, viewKey, drillable) {
             this.dispose(id);
@@ -4804,8 +4920,9 @@
             const svg = frame?.querySelector('svg');
             if (!frame || !svg) return false;
 
-            // Mermaid caps its own width so the picture never fills a tall frame.
-            // The explorer owns the box now.
+            // The explorer owns the box. C4SvgWriter already sizes the svg to its
+            // frame; this is repeated so a picture whose writer capped its own
+            // width still fills a tall frame.
             svg.removeAttribute('style');
             svg.setAttribute('width', '100%');
             svg.setAttribute('height', '100%');
@@ -4822,8 +4939,18 @@
                 group.classList.toggle('c4-drillable', drills.has(nodeAlias(svg, group)));
             });
 
-            const home = readViewBox(svg);
-            let box = { ...home };
+            let viewport = viewports.get(svg);
+            if (!viewport) {
+                viewport = { home: readViewBox(svg), box: null };
+                viewports.set(svg, viewport);
+            }
+
+            const home = viewport.home;
+            let box = viewport.box ? { ...viewport.box } : { ...home };
+
+            // The last percent .NET was told, so a pan, which leaves the zoom where
+            // it was, costs no interop call per pointer move.
+            let reportedPercent = null;
 
             const minimap = frame.closest('.c4-explorer__stage')?.querySelector('[data-c4-minimap]') ?? null;
             let lens = null;
@@ -4857,8 +4984,14 @@
 
             function apply() {
                 writeViewBox(svg, box);
+                viewport.box = box;
                 drawLens();
-                reference?.invokeMethodAsync('ZoomChanged', Math.round((home.w / box.w) * 100));
+
+                const percent = Math.round((home.w / box.w) * 100);
+                if (percent === reportedPercent) return;
+
+                reportedPercent = percent;
+                reference?.invokeMethodAsync('ZoomChanged', percent);
             }
 
             function clampScale(next) {
@@ -5016,8 +5149,8 @@
             return true;
         },
 
-        /** Back to the whole picture. Mermaid's own viewBox is the definition of
-         *  "fits", so this is a copy rather than a measurement. */
+        /** Back to the whole picture. The viewBox C4SvgWriter drew is the
+         *  definition of "fits", so this is a copy rather than a measurement. */
         fit(id) {
             const state = explorers.get(id);
             if (!state) return;

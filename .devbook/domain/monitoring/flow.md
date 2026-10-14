@@ -35,5 +35,5 @@ sequenceDiagram
     Dashboard->>Inbox: FollowUpCaptured (title, source: monitoring)
 ```
 
-- The only write Monitoring makes into another context is `FollowUpCaptured` to
-  the Inbox, closing the observe → act loop.
+The last arrow closes the observe-and-act loop; see
+[FollowUpCaptured](domain.md#followupcaptured).

@@ -107,6 +107,50 @@ The dashboard uses it so every part fetches as the pane opens, the way it did un
         </Tabs>
     </Story>
 
+    <Story Name="Tabs carrying a count and a trailing link"
+           Description="A tab's label is a fragment, so it can carry a count of what needs attention behind it — a Badge from the tone family, toned by the worst of what it counts — beside a screen-reader sentence that says the same thing in words, since the number alone is hidden from assistive technology. A tab with nothing to count carries no badge rather than a zero. ListTrailing puts a link at the strip's end, for an act that belongs to the whole strip rather than to one panel.
+
+The system tools pane draws its kind tabs this way: a count of rows needing action per tab, in the error tone when one is missing, the warning tone when one is behind and the quiet tone when one is only unconfirmed, and a link to the last run's transcript at the end of the strip."
+           Code="@CountTabsCode">
+        <Tabs ActiveId="@_activeCount"
+              ActiveIdChanged="id => _activeCount = id"
+              AriaLabel="Kinds of tool"
+              TestId="count-tabs">
+            <ListTrailing>
+                <AppButton Variant="ButtonVariant.Ghost" TestId="count-tabs-link">Last run transcript <span aria-hidden="true">→</span></AppButton>
+            </ListTrailing>
+            <ChildContent>
+                <TabPanel Id="plugins" TestId="count-panel-plugins">
+                    <TitleContent>
+                        Plugins
+                        <Badge Kind="tone" Slug="alert" aria-hidden="true" TestId="count-tab-plugins">2</Badge>
+                        <span class="sr-only">, 2 need action</span>
+                    </TitleContent>
+                    <ChildContent><p>Two plugins are behind.</p></ChildContent>
+                </TabPanel>
+                <TabPanel Id="servers" TestId="count-panel-servers">
+                    <TitleContent>
+                        MCP servers
+                        <Badge Kind="tone" Slug="fault" aria-hidden="true" TestId="count-tab-servers">1</Badge>
+                        <span class="sr-only">, 1 needs action</span>
+                    </TitleContent>
+                    <ChildContent><p>One server is missing.</p></ChildContent>
+                </TabPanel>
+                <TabPanel Id="checklist" TestId="count-panel-checklist">
+                    <TitleContent>
+                        Checklist
+                        <Badge Kind="tone" Slug="quiet" aria-hidden="true" TestId="count-tab-checklist">3</Badge>
+                        <span class="sr-only">, 3 need action</span>
+                    </TitleContent>
+                    <ChildContent><p>Three items nobody has confirmed yet.</p></ChildContent>
+                </TabPanel>
+                <TabPanel Id="applications" Title="Applications" TestId="count-panel-applications">
+                    <p>Nothing outstanding, so no badge.</p>
+                </TabPanel>
+            </ChildContent>
+        </Tabs>
+    </Story>
+
     <Story Name="Focus moved to a tab by the host"
            Description="FocusTab moves focus to a tab once it next renders. A host that changes the active tab from a control inside the panel it hides calls it, because the focused control disappears with that panel and focus would otherwise fall to the document. Press the button in the first panel: the second tab opens and takes focus, so the next arrow key walks the strip from there."
            Code="@FocusTabCode">
@@ -334,6 +378,7 @@ Left and Right still describe the separator rather than the number, so here Left
     private string _activeKept = "kept";
     private string _activeEager = "first";
     private string _activeFocus = "overview";
+    private string _activeCount = "plugins";
     private Tabs? _focusTabs;
     private string _body = "The editor and the read view are two tabs over the same text.";
     private bool _foldOpen = true;
@@ -382,6 +427,27 @@ Left and Right still describe the separator rather than the number, so here Left
             <TabPanel Id="eager" Title="Eager" Eager="true">
                 <TextField Label="Already rendered, hidden until opened" />
             </TabPanel>
+        </Tabs>
+        """;
+
+    private const string CountTabsCode = """
+        <Tabs ActiveId="@_active" ActiveIdChanged="id => _active = id" AriaLabel="Kinds of tool">
+            <ListTrailing>
+                <AppButton Variant="ButtonVariant.Ghost" OnClick="ShowTranscript">Last run transcript</AppButton>
+            </ListTrailing>
+            <ChildContent>
+                <TabPanel Id="plugins">
+                    <TitleContent>
+                        Plugins
+                        @if (count > 0)
+                        {
+                            <Badge Kind="tone" Slug="alert" aria-hidden="true">@count</Badge>
+                            <span class="sr-only">, @count need action</span>
+                        }
+                    </TitleContent>
+                    <ChildContent>...</ChildContent>
+                </TabPanel>
+            </ChildContent>
         </Tabs>
         """;
 

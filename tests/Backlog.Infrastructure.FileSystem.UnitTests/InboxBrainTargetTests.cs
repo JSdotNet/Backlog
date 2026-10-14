@@ -94,6 +94,28 @@ public sealed class InboxBrainTargetTests : IDisposable
         Assert.Equal(BrainFolderSource.NoBrainFolder, written.Error.Message);
     }
 
+    /// <summary>Triage asks before anybody presses To Brain, and is told the same
+    /// words the route would refuse in; once a folder is there, nothing.</summary>
+    [Fact]
+    public void The_target_says_up_front_why_it_cannot_take_a_note()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        var target = new InboxBrainTarget(new BrainNoteWriter(brain), brain);
+
+        Assert.Equal(BrainFolderSource.NoBrainFolder, target.UnavailableReason);
+
+        _setting = Brain;
+        Assert.Contains("was not found", target.UnavailableReason, StringComparison.Ordinal);
+
+        Directory.CreateDirectory(Brain);
+        Assert.Null(target.UnavailableReason);
+    }
+
+    /// <summary>A host composed without a Brain says so up front too.</summary>
+    [Fact]
+    public void A_host_without_a_brain_says_there_is_none_up_front() =>
+        Assert.Equal(InboxErrors.NoBrainHere, new NoBrainTarget().UnavailableReason);
+
     public void Dispose()
     {
         try

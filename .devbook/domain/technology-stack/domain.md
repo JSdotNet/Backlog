@@ -17,16 +17,14 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/technology-stack/domain.invariants.md#technology-registry]
 aliases: [TechnologyRegistry]
 ```
 
 The global singleton that owns all technology definitions, baseline profiles,
-deprecation notices, and portfolio adoption analytics. Invariants: every version
-referenced in a baseline must match a `Technology` in the registry and be
-`>= technology.min_version`; an `unsupported` technology must not appear in any
-active baseline; adoption analytics are populated from daily snapshots. All
-changes to technologies, baselines, and deprecations go through the root.
+deprecation notices, and portfolio adoption analytics. Adoption analytics are
+populated from daily snapshots. The rules the registry holds are in
+[its invariants](domain.invariants.md#technology-registry).
 
 ### Technology
 
@@ -34,15 +32,17 @@ changes to technologies, baselines, and deprecations go through the root.
 type: entity
 status: draft
 aliases: [technology_id]
+related: [.devbook/domain/technology-stack/domain.invariants.md#technology-registry]
 ```
 
 A single tool, framework, language, or runtime, identified by `technology_id`
-(e.g. "dotnet", "nodejs", "react"). Holds `category`, `status`, `min_version`,
-`recommended_version`, `latest_available_version`, optional `eol_date` and
-`migration_guidance`, owned breaking changes, daily adoption snapshots, ADR
-links, and tags. Invariant:
-`min_version <= recommended_version <= latest_available_version`; if
-`status = deprecated`, `eol_date` and `migration_guidance` are required.
+(e.g. "dotnet", "nodejs", "react"). It holds:
+
+- `category` and `status`.
+- `min_version`, `recommended_version`, and `latest_available_version`.
+- An optional `eol_date` and `migration_guidance`.
+- Its owned breaking changes and daily adoption snapshots.
+- ADR links and tags.
 
 ### Breaking Change
 
@@ -87,8 +87,9 @@ aliases: [TechnologyBaseline, TeamToolsBaseline, TechBaselines]
 
 An approved set of versions for a context (Default, Frontend, Backend,
 Microservices, dev-pc, repositories): `baseline_name`, `technologies`
-(id → version), `last_updated`, `updated_by`, `description`. Invariant: every
-version must exist in the registry and be `>= technology.min_version`.
+(id → version), `last_updated`, `updated_by`, `description`. Its versions
+[name a known technology](domain.invariants.md#invariant-baseline-versions-name-a-known-technology)
+and [meet its minimum](domain.invariants.md#invariant-baseline-versions-meet-the-minimum).
 
 ### Version Constraint
 
@@ -190,11 +191,17 @@ status: draft
 related: [.devbook/domain/monitoring/domain.md#progress-signal]
 ```
 
-Collects daily adoption from Dev PC tool reports and Repository tech-stack scans,
-computes portfolio coverage, version distribution, adoption velocity, and
-sprawl, and flags deprecated tech still in use. It is a service because it
-aggregates data reported by other contexts into portfolio analytics that no
-single `Technology` owns. Invocation semantics: scheduled/event-triggered analytics service.
+Collects daily adoption from Dev PC Management tool-version reports and
+Repository Management tech-stack scans. From them it:
+
+- computes portfolio coverage, version distribution, and adoption velocity;
+- measures [Technology Sprawl](#technology-sprawl);
+- flags deprecated technology still in use.
+
+It is a service because it aggregates data reported by other contexts into
+portfolio analytics that no single `Technology` owns. Invocation semantics:
+scheduled/event-triggered analytics service. The
+[adoption tracking flow](flow.md#adoption-tracking) shows its inputs and outputs.
 
 ## Deprecation Management
 
@@ -203,11 +210,17 @@ type: domain-service
 status: draft
 ```
 
-Drives the deprecation lifecycle: issues `Deprecation Notice`s with EOL dates and
-migration guidance, enforces minimum versions, tracks approved exceptions, and on
-EOL flags remaining machines/repos for forced migration. It is a service because
-it coordinates policy across many technologies, baselines, and external
-consumers. Invocation semantics: policy service triggered by baseline changes, EOL thresholds, and approval decisions.
+Drives the deprecation lifecycle. It:
+
+- issues `Deprecation Notice`s with end-of-life (EOL) dates and migration guidance;
+- enforces minimum versions;
+- tracks approved exceptions as `Migration Approval`s;
+- at EOL, flags every machine and repository still on the technology as one that
+  must migrate.
+
+It is a service because it coordinates policy across many technologies,
+baselines, and external consumers. Invocation semantics: policy service
+triggered by baseline changes, EOL thresholds, and approval decisions.
 
 ## Shared Enums
 
@@ -220,3 +233,27 @@ status: draft
 
 Technology Stack has a single aggregate; `Tech Status` and `Tech Category` are
 documented under it. This chapter is reserved for future cross-aggregate enums.
+
+## Ubiquitous Language
+
+```meta
+status: draft
+type: ubiquitous-language
+```
+
+> The terms this context owns that are not chapters above.
+
+### Technology Sprawl
+
+```meta
+status: draft
+type: term
+aliases: [sprawl]
+related: [.devbook/domain/technology-stack/domain.md#adoption-tracking, .devbook/domain/technology-stack/domain.md#technology-baseline]
+```
+
+The spread of technologies and versions in use across the portfolio beyond what
+the baselines approve. It counts overlapping technologies used for the same
+purpose and several versions of one technology in use at once.
+[Adoption Tracking](#adoption-tracking) measures it from the same reports it
+uses for coverage.

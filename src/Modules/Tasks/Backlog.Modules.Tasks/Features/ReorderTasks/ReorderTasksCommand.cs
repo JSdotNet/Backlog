@@ -1,3 +1,4 @@
+using Backlog.Modules.Tasks.DomainModels;
 using Backlog.SharedKernel.Handlers;
 
 namespace Backlog.Modules.Tasks.Features.ReorderTasks;
@@ -13,22 +14,25 @@ public sealed class ReorderTasksCommandHandler(ITaskRepository entries)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        // The index already knows every entry's current rank, so a drag reads one
-        // small JSON file and then loads only the entries that actually moved —
-        // rather than the whole backlog every time somebody nudges a row.
-        var current = (await entries.ListAsync(cancellationToken))
-            .ToDictionary(summary => summary.Id, summary => summary.Order);
+        // The list is whole aggregates, so it is all a drag needs to read: the
+        // entries that moved are re-ranked from it and written back together, as
+        // one write, rather than fetched again one by one. An id the list does
+        // not have — gone, or tombstoned — is skipped. Each position is compared
+        // with the rank as it was read, not as this loop has left it, so an id
+        // sent twice ends where it did before the list was read whole.
+        var current = (await entries.ListAsync(cancellationToken)).ToDictionary(entry => entry.Id);
+        var rankAsRead = current.ToDictionary(pair => pair.Key, pair => pair.Value.Order);
+        var moved = new List<TaskItem>();
 
         for (var index = 0; index < command.IdsInOrder.Count; index++)
         {
             var id = command.IdsInOrder[index];
-            if (current.TryGetValue(id, out var order) && order == index) continue;
-
-            var entry = await entries.GetAsync(id, cancellationToken);
-            if (entry is null) continue;
+            if (!current.TryGetValue(id, out var entry) || rankAsRead[id] == index) continue;
 
             entry.SetOrder(index);
-            await entries.SaveAsync(entry, cancellationToken);
+            if (!moved.Contains(entry)) moved.Add(entry);
         }
+
+        if (moved.Count > 0) await entries.SaveManyAsync(moved, cancellationToken);
     }
 }

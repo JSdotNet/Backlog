@@ -224,9 +224,11 @@ public static class MauiProgram
         _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
         // And the MCP listener, on the same terms again - its constructor is
-        // what binds the port, so a singleton nobody resolves is a server no
-        // session can reach. There is no switch in front of it: the MCP server
-        // is always on while the app runs.
+        // what queues the bind, so a singleton nobody resolves is a server no
+        // session can reach. Queues, not performs: building the ASP.NET host
+        // happens on the thread pool, never here ahead of the first window.
+        // There is no switch in front of it: the MCP server is always on while
+        // the app runs.
         _ = app.Services.GetRequiredService<McpServerWorker>();
 
         // And the devbook database refresher, which is nothing until something

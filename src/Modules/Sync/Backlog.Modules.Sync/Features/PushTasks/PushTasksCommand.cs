@@ -7,6 +7,7 @@ using Backlog.Modules.Sync.Ports;
 using Backlog.Modules.Sync.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Modules.Sync.Features.PushTasks;
 
@@ -48,7 +49,10 @@ public sealed record PushTasksCommand(OwnerScope Scope, IReadOnlyList<TaskChange
 /// and its tombstone is what the desktop pushes when it archives or deletes one.
 /// </para>
 /// </summary>
-public sealed class PushTasksCommandHandler(ITaskReplica replica, CaptureAttachmentRelease release)
+public sealed partial class PushTasksCommandHandler(
+    ITaskReplica replica,
+    CaptureAttachmentRelease release,
+    ILogger<PushTasksCommandHandler> logger)
     : ICommandHandler<PushTasksCommand, Result<PushTasksResponse>>
 {
     /// <summary>The kind token a note document carries. A literal, for the reason
@@ -69,18 +73,63 @@ public sealed class PushTasksCommandHandler(ITaskReplica replica, CaptureAttachm
 
         var withdrawn = await CapturesWithFiles(command, cancellationToken);
 
-        var accepted = await replica.Upsert(command.Scope, command.Changes, cancellationToken);
-
-        foreach (var capture in withdrawn)
+        int accepted;
+        try
         {
-            if (await replica.Find(command.Scope.OwnerId, capture.Id, cancellationToken) is { Change.DeletedAt: not null })
-            {
-                await release.Release(command.Scope.OwnerId, capture, cancellationToken);
-            }
+            accepted = await replica.Upsert(command.Scope, command.Changes, cancellationToken);
         }
+        catch (Exception) when (withdrawn.Count > 0 && !cancellationToken.IsCancellationRequested)
+        {
+            // The replica writes a batch several documents at once, so a push
+            // that failed on one document may already have written a tombstone
+            // beside it. Release now or never: the retry reads that capture as
+            // a tombstone already and would not count it as withdrawn. The read
+            // back below confirms which tombstones landed, and the push's own
+            // failure is what the device hears whatever the release does.
+            await ReleaseAfterFailedPush(command.Scope.OwnerId, withdrawn, cancellationToken);
+            throw;
+        }
+
+        await ReleaseLanded(command.Scope.OwnerId, withdrawn, cancellationToken);
 
         return new PushTasksResponse(accepted);
     }
+
+    /// <summary>Releases the files of every withdrawn capture whose tombstone the
+    /// replica now holds.</summary>
+    private async Task ReleaseLanded(OwnerId owner, List<TaskChange> withdrawn, CancellationToken cancellationToken)
+    {
+        foreach (var capture in withdrawn)
+        {
+            if (await replica.Find(owner, capture.Id, cancellationToken) is { Change.DeletedAt: not null })
+            {
+                await release.Release(owner, capture, cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>
+    /// <see cref="ReleaseLanded"/> on the way out of a failed push. Best effort,
+    /// as every release is: a replica that cannot be read back, or a push
+    /// cancelled meanwhile, is logged and leaves the files to the 30-day
+    /// lifecycle rule rather than replacing the failure the device must hear.
+    /// </summary>
+    private async Task ReleaseAfterFailedPush(OwnerId owner, List<TaskChange> withdrawn, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ReleaseLanded(owner, withdrawn, cancellationToken);
+        }
+        catch (Exception failure)
+        {
+            LogReleaseAfterFailedPushFailed(logger, failure, withdrawn.Count);
+        }
+    }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Could not release the files of {Count} withdrawn captures after a push failed; the storage lifecycle rule will remove any that were tombstoned.")]
+    private static partial void LogReleaseAfterFailedPushFailed(ILogger logger, Exception exception, int count);
 
     /// <summary>The live captures with files that this push tombstones, as the
     /// replica holds them now. One read per tombstone in the batch and none for

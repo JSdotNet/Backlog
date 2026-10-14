@@ -55,15 +55,18 @@ public sealed class SessionSyncClient
     /// <summary>
     /// Appends a batch of this machine's session records to the owner's replica.
     /// <para>
-    /// Safe to retry, and safe under the standard resilience handler's retries,
-    /// with no idempotency key — for a different reason than the task push has
-    /// none. A task push is idempotent because the replica upserts whole
+    /// Safe to send twice with no idempotency key — for a different reason than
+    /// the task push has none. A task push is idempotent because the replica upserts whole
     /// documents under last-write-wins; a session push is idempotent because the
     /// document key is derived from the machine id, the agent and the session id,
     /// so the same record sent twice lands on the same document rather than
     /// beside it. Session records are single-writer and have no lost-edit failure
     /// mode at all (.devbook/arc42/adr/0005 §Session records), so there is nothing a
     /// second send could discard.
+    /// </para>
+    /// <para>
+    /// The pipeline still does not send it twice: the registration gives every
+    /// replication push one long attempt and no retry, on the task push's terms.
     /// </para>
     /// </summary>
     public async Task<Result<PushSessionsResponse>> PushAsync(

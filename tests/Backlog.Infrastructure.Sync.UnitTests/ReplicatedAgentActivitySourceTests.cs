@@ -302,6 +302,90 @@ public sealed class ReplicatedAgentActivitySourceTests
         Assert.Equal(Laptop.ToString(), sessions.Single(session => session.Id == "theirs").EnvironmentId);
     }
 
+    /// <summary>
+    /// A record's activity time is not where its activity ends. For a live session it
+    /// is the liveness file's write time, and the runs come off the transcript, which
+    /// was measured written hours after it. A record whose activity time is before the
+    /// horizon but whose run ends after it is answered — the record is skipped only
+    /// when nothing on it ends inside the window.
+    /// </summary>
+    [Fact]
+    public async Task A_record_active_before_the_horizon_with_a_run_ending_after_it_is_answered()
+    {
+        var since = Noon.AddHours(-1);
+
+        var source = Source(SessionRecords.Entry(
+            Laptop,
+            sessionId: "late-transcript",
+            lastActivityAt: Noon.AddHours(-3),
+            runs: [new(Noon.AddHours(-2), Noon.AddMinutes(-30))],
+            waits: []));
+
+        var activity = Assert.Single((await source.GetActivityAsync(since, TestContext.Current.CancellationToken)).Sessions);
+
+        Assert.Equal("late-transcript", activity.Id);
+        Assert.Equal([new AgentActivityRun(since, Noon.AddMinutes(-30))], activity.Runs);
+    }
+
+    /// <summary>
+    /// A held set as the store keeps it — most records long finished, a few inside the
+    /// window — answers exactly the records with something ending inside it: by a run,
+    /// by a wait alone, or by an interval that is not the last of an unsorted list. One
+    /// ending on the horizon has no part inside, and one with no lists was never
+    /// measured; neither is answered.
+    /// </summary>
+    [Fact]
+    public async Task Only_the_records_with_an_interval_ending_inside_the_horizon_are_answered()
+    {
+        var since = Noon.AddHours(-1);
+
+        var source = Source(
+            SessionRecords.Entry(Laptop, sessionId: "running", runs: [new(Noon.AddMinutes(-10), Noon)], waits: []),
+            SessionRecords.Entry(Laptop, sessionId: "waiting", runs: [new(Noon.AddHours(-3), Noon.AddHours(-2))], waits: [new(Noon.AddMinutes(-90), Noon.AddMinutes(-40))]),
+            SessionRecords.Entry(Laptop, sessionId: "unsorted", runs: [new(Noon.AddMinutes(-20), Noon.AddMinutes(-5)), new(Noon.AddHours(-4), Noon.AddHours(-3))], waits: []),
+            SessionRecords.Entry(Laptop, sessionId: "on-the-horizon", runs: [new(Noon.AddHours(-2), since)], waits: [new(Noon.AddHours(-3), Noon.AddHours(-2))]),
+            SessionRecords.Entry(Laptop, sessionId: "finished", runs: [new(Noon.AddDays(-30), Noon.AddDays(-30).AddHours(1))], waits: []),
+            SessionRecords.Entry(Laptop, sessionId: "unmeasured", runs: null, waits: null));
+
+        var sessions = (await source.GetActivityAsync(since, TestContext.Current.CancellationToken)).Sessions;
+
+        Assert.Equal(["running", "waiting", "unsorted"], sessions.Select(session => session.Id));
+        Assert.Empty(sessions.Single(session => session.Id == "waiting").Runs);
+        Assert.Equal([new AgentActivityWait(since, Noon.AddMinutes(-40))], sessions.Single(session => session.Id == "waiting").Waits);
+        Assert.Equal([new AgentActivityRun(Noon.AddMinutes(-20), Noon.AddMinutes(-5))], sessions.Single(session => session.Id == "unsorted").Runs);
+    }
+
+    /// <summary>
+    /// The prefilter and the mapping ask one question: a record has activity after the
+    /// horizon exactly when the mapping answers it. Held over the same mixed set the
+    /// test above reads, one record at a time, so a change to either side that made
+    /// them disagree fails here by name.
+    /// </summary>
+    [Fact]
+    public void A_record_has_activity_after_the_horizon_exactly_when_the_mapping_answers_it()
+    {
+        var since = Noon.AddHours(-1);
+
+        SessionRecordEntry[] entries =
+        [
+            SessionRecords.Entry(Laptop, sessionId: "running", runs: [new(Noon.AddMinutes(-10), Noon)], waits: []),
+            SessionRecords.Entry(Laptop, sessionId: "waiting", runs: [new(Noon.AddHours(-3), Noon.AddHours(-2))], waits: [new(Noon.AddMinutes(-90), Noon.AddMinutes(-40))]),
+            SessionRecords.Entry(Laptop, sessionId: "unsorted", runs: [new(Noon.AddMinutes(-20), Noon.AddMinutes(-5)), new(Noon.AddHours(-4), Noon.AddHours(-3))], waits: []),
+            SessionRecords.Entry(Laptop, sessionId: "on-the-horizon", runs: [new(Noon.AddHours(-2), since)], waits: [new(Noon.AddHours(-3), Noon.AddHours(-2))]),
+            SessionRecords.Entry(Laptop, sessionId: "finished", runs: [new(Noon.AddDays(-30), Noon.AddDays(-30).AddHours(1))], waits: []),
+            SessionRecords.Entry(Laptop, sessionId: "waits-only", runs: null, waits: [new(Noon.AddMinutes(-30), Noon.AddMinutes(-20))]),
+            SessionRecords.Entry(Laptop, sessionId: "empty", runs: [], waits: []),
+            SessionRecords.Entry(Laptop, sessionId: "unmeasured", runs: null, waits: null)
+        ];
+
+        Assert.All(entries, entry => Assert.Equal(
+            SessionRecordMapping.ToActivity(entry, since) is not null,
+            SessionRecordMapping.HasActivityAfter(entry.Record, since)));
+        Assert.Equal(
+            ["running", "waiting", "unsorted", "waits-only"],
+            entries.Where(entry => SessionRecordMapping.HasActivityAfter(entry.Record, since)).Select(entry => entry.Record.SessionId));
+    }
+
     private sealed class FixedDeviceIdentity(DeviceIdentity current) : IDeviceIdentitySource
     {
         public DeviceIdentity Current { get; } = current;

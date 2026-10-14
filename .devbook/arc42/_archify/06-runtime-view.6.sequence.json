@@ -10,7 +10,7 @@
   },
   "participants": [
     { "id": "me", "type": "external", "label": "ME" },
-    { "id": "tasks", "type": "frontend", "label": "Phone Tasks tab" },
+    { "id": "tasks", "type": "frontend", "label": "Phone Today tab" },
     { "id": "view", "type": "database", "label": "task_view (SQLite)" },
     { "id": "outbox", "type": "database", "label": "SQLite Outbox" },
     { "id": "sync", "type": "cloud", "label": "Sync Service" }

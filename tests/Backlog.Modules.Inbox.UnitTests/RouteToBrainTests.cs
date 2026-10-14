@@ -202,6 +202,8 @@ public sealed class RouteToBrainTests
 
         public string? RefuseWith { get; init; }
 
+        public string? UnavailableReason => RefuseWith;
+
         public Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);

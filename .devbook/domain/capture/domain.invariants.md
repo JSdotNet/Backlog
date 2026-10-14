@@ -59,6 +59,6 @@ type: invariant
 tests: unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.An_acknowledgement_succeeds_and_logs_when_the_release_fails
 ```
 
-Acknowledging a capture releases the attachments the held capture named — never ones the tombstone names — and a failed release never fails the acknowledgement.
+Acknowledging a capture releases the attachments the held capture named, never ones its [tombstone](../tasks/domain.md#tombstone) names. A failed release never fails the acknowledgement.
 
 Enforced at: `CaptureAttachmentRelease`, from `AcknowledgeInboxItemCommandHandler` and `PushTasksCommandHandler`

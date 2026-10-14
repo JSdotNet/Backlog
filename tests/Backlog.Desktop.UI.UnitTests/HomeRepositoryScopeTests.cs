@@ -1064,6 +1064,88 @@ public sealed class HomeRepositoryScopeTests
         });
     }
 
+    // --- The Devbook option names what the pane shows ---------------------------------
+    //
+    // The header option reads Brain, wears the Brain's accent, and says Brain in its
+    // title whenever the pane shows (or would open on) the Brain; Devbook otherwise.
+
+    /// <summary>Nothing pressed is the Brain to the pane, so the option names the
+    /// Brain before the pane is open and after.</summary>
+    [Fact]
+    public void With_nothing_pressed_the_devbook_option_names_the_brain()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+
+        Chips(component);
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open Brain beside Tasks", brain: true));
+
+        DevbookOption(component).Click();
+
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Close Brain", brain: true));
+    }
+
+    [Fact]
+    public void With_the_brain_as_the_anchor_the_devbook_option_names_the_brain()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+
+        BrainChip(component).Click();
+
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open Brain beside Tasks", brain: true));
+    }
+
+    [Fact]
+    public void With_a_repository_as_the_anchor_the_devbook_option_names_the_devbook()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+
+        Chips(component)[0].Click();
+
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Devbook", "Open Devbook beside Tasks", brain: false));
+    }
+
+    /// <summary>With the Brain and a repository both pressed, the option follows the
+    /// pane's <c>Brain | repo</c> switch: the anchor's side first, then whichever
+    /// side the reader presses.</summary>
+    [Fact]
+    public void In_a_mixed_scope_the_devbook_option_follows_the_switch()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+
+        BrainChip(component).Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open Brain beside Tasks", brain: true));
+
+        DevbookOption(component).Click();
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Close Brain", brain: true));
+
+        component.WaitForElement("[data-testid='devbook-brain-switch-repository']").Click();
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Devbook", "Close Devbook", brain: false));
+
+        component.Find("[data-testid='devbook-brain-switch-brain']").Click();
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Close Brain", brain: true));
+    }
+
+    private static IElement DevbookOption(IRenderedComponent<Home> component) =>
+        component.WaitForElement("[data-testid='devbook-pane-option']");
+
+    /// <summary>The option's own word, its title, and whether it wears the Brain's
+    /// accent. The word is the option's text nodes alone, so a feature status badge
+    /// beside it does not count.</summary>
+    private static void AssertDevbookOption(IRenderedComponent<Home> component, string word, string title, bool brain)
+    {
+        var option = component.Find("[data-testid='devbook-pane-option']");
+
+        Assert.Equal(word, string.Concat(option.ChildNodes.OfType<IText>().Select(text => text.Data)).Trim());
+        Assert.Equal(title, option.GetAttribute("title"));
+        Assert.Equal(brain, option.ClassList.Contains("header-group__option--brain"));
+        Assert.Equal("repository-devbook-pane", option.GetAttribute("aria-controls"));
+    }
+
     [Fact]
     public void A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered()
     {
@@ -1322,6 +1404,64 @@ public sealed class HomeRepositoryScopeTests
         // Hiding the layer does not unmake the choice underneath it — Settings' swatches
         // still have something to show.
         Assert.Equal(1, harness.GitHubSettings.Current.ColourFor("backlog"));
+    }
+
+    // --- Changes made somewhere other than the header ---------------------------------
+    //
+    // The shell draws itself again for a Tasks change only when the change moved
+    // something the header shows. These are changes to exactly that, made through
+    // the state rather than through a press on the header — an MCP write, Settings,
+    // a restore — so nothing but the state's own Changed reaches the shell.
+
+    [Fact]
+    public async Task A_scope_set_outside_the_header_presses_its_chip()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        Assert.All(Chips(component), chip => Assert.Equal("false", chip.GetAttribute("aria-pressed")));
+
+        await component.InvokeAsync(() => state.SetRepositoryFilter("docs"));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("false", Chips(component)[0].GetAttribute("aria-pressed"));
+            Assert.Equal("true", Chips(component)[1].GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public async Task Colours_turned_on_outside_the_header_mark_the_chips_and_check_the_switch()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        Assert.Equal("false", ColourSwitch(component).GetAttribute("aria-checked"));
+
+        await component.InvokeAsync(() => state.SetRepositoryColoursVisible(true));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains("repo-mark--1", Chips(component)[0].ClassName);
+            Assert.Equal("true", ColourSwitch(component).GetAttribute("aria-checked"));
+        });
+    }
+
+    /// <summary>And a Tasks change that moves nothing the header shows does not draw
+    /// the shell again.</summary>
+    [Fact]
+    public async Task A_tasks_change_the_header_does_not_show_leaves_the_shell_alone()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        Chips(component);
+        var before = ShellRenderCount.Shell(component);
+
+        await component.InvokeAsync(() => state.SetSelectionMode(true));
+        await component.InvokeAsync(() => state.SetSelectionMode(false));
+
+        Assert.Equal(before, ShellRenderCount.Shell(component));
     }
 
     [Fact]

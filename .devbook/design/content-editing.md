@@ -5,10 +5,10 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/de
 ```
 
 > Rules for the product's core editing surface: **direct Markdown editing through
-> a rich text (WYSIWYG-style) editor where Markdown is a task's canonical
-> content**, stored as text in SQLite
-> (`.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`); the editor
-> is a view over that Markdown and MUST never corrupt it.
+> a rich text (WYSIWYG-style) editor**. Markdown is a task's canonical content,
+> stored as text in SQLite
+> (`.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`). The
+> editor is a view over that Markdown and MUST never corrupt it.
 > Rendering (headings, code, etc.) uses the tokens in
 > `typography-and-layout.md`; editor persistence follows the auto-save rules in
 > `interaction-guidelines.md#auto-save-no-save-buttons`.
@@ -114,7 +114,7 @@ related: [".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.
 | First line | The entry title. Whatever is typed on the first line — with or without a leading `#` — becomes the `#` title on save; an entry is never left without one. |
 | `##` heading | A **Sub-Item**: a distinct unit rendered indented one level below the entry title, with its own heading and notes. It is a heading, not a checkbox. |
 | `- [ ]` / `- [x]` | A checklist step, rendered as a real checkbox affordance (`#supported-constructs`). Checkbox syntax is reserved exclusively for task-list lines. |
-| Metadata line | Backtick-quoted tokens carrying type/priority/status/area/tags — see `#structured-metadata-sigils`. |
+| Metadata line | Backtick-quoted tokens carrying type/priority/status/area/tags — see `#structured-metadata-sigils`. This is the source line; how its facts are drawn is `typography-and-layout.md#metadata-lines`. |
 
 | Rule | Requirement |
 |---|---|
@@ -187,8 +187,8 @@ A full metadata line mixes both forms, sigils first:
 `task` `*high` `!ready` `@repos` `#deploy` `due:2026-08-21` `remind:2026-08-21T09:00` `after:a1b2c3` `repo:specmanager`
 ```
 
-Two entries pasted together — neither saved yet, so neither has a real
-`task_id` — still order themselves with `id:` and `after:`:
+Two entries pasted together still order themselves with `id:` and `after:`,
+although neither is saved yet and so neither has a real `task_id`:
 
 ```markdown
 # Add the export command
@@ -355,8 +355,8 @@ related: [".devbook/design/README.md#status-vocabulary", ".devbook/design/typogr
 | Opt-in | Reading a `meta` fence as a record is something a surface asks for. Everywhere else — an entry body somebody typed, a snippet quoted in a chat — a fence that happens to say `meta` stays the fenced block it has always been. |
 | Bounded chrome | A header identifies; it is not a second document. What the file-level record may add to one is bounded by `design-principles.md#low-chrome-content-first` — where the fields would crowd the name, a surface shows the status and leaves the rest to the body. |
 
-Review surface: storybook → *File view* → **The file's own block, in the header**,
-and → *Metadata* → **A chapter is a heading, a record, and prose**.
+Review surface: storybook → *File view* → **The file's own block goes to the header**,
+and *Metadata* → **A chapter is a heading, a record, and prose**.
 
 ## Materialization
 
@@ -366,65 +366,62 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 
 | Piece | Where | Review surface |
 |---|---|---|
-| Parser | `MarkdownPreview` (`src/Core/Backlog.UI.Components/Markdown`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
+| Parser | `MarkdownPreview` (`src/Core/Backlog.SharedKernel/Markdown/MarkdownPreview.cs`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
 | Read view | `MarkdownView` | Storybook → *Markdown* for every block and inline; *Markdown document* for a section with copy, remarks and a way into the editor |
-| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare) and the file's own `meta` record — the status beside the name, where it stays while the body moves (`#knowledge-metadata-blocks`). A Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view* → **A knowledge chapter, whole** |
-| What a file says it is for | A file opening with YAML frontmatter can state it above the body instead of through it: the description as prose, `applyTo` and `tools` as badges, and every other key the file wrote as a label and a value in that order. Asked for, never assumed, and the block leaves the read view when it is shown — `---` parses as a divider, so frontmatter otherwise reads as two rules around a run-together paragraph. Keys it does not draw are still drawn, because a view must not hide what it does not show; a buffer being edited keeps the block verbatim, since a save without those lines would drop them | Storybook → *File view* → **What the file says it is for** |
-| Comparison surface | `MarkdownCompare` (a pure function over two texts) and `MarkdownCompareView`, aligned by heading and never by line. `Bare` gives up its frame so `FileView` can show it without a second header or a second scroll region | Storybook → *Section comparison*, and *File view* → **Compared against two versions of itself** |
+| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare) and the file's own `meta` record — the status beside the name, where it stays while the body moves (`#knowledge-metadata-blocks`). A Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view*; *Markdown document* → **Reading a knowledge chapter** for a chapter's records in the body |
+| What a file says it is for | A file opening with YAML frontmatter can state it above the body instead of through it: the description as prose, `applyTo` and `tools` as badges, and every other key the file wrote as a label and a value in that order. Asked for, never assumed, and the block leaves the read view when it is shown — `---` parses as a divider, so frontmatter otherwise reads as two rules around a run-together paragraph. Keys it does not draw are still drawn, because a view must not hide what it does not show; a buffer being edited keeps the block verbatim, since a save without those lines would drop them | Storybook → *File content* → **What the file says it is for** |
+| Comparison surface | `MarkdownCompare` (a pure function over two texts) and `MarkdownCompareView`, aligned by heading and never by line. `Bare` gives up its frame so `FileView` can show it without a second header or a second scroll region | Storybook → *Section comparison*, and *File view* → **Two versions, aligned by the pane** |
 | Chapter remarks | `MarkdownView` comments, anchored to a block index rather than a character range, drawn inline or in a margin column | Storybook → *Markdown document* → **The same comments, in the margin** |
 | Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Entry edit* → **A checkbox writes back to the source** |
 | Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes, over the date, time and repeat fields beside it | Storybook → *Inputs* → **A date, a time and a repeat**, **TaskAction — set it, see it, clear it** |
-| Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either a `TaskListView` of steps or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **Split pane**, **Split pane, anchored to the end** |
+| Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either a `TaskListView` of steps or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **SplitPane**, **SplitPane, anchored to the end** |
 | The body's two readings | One region, switched by `view:` and remembered on the entry; the steps reading says so when the body holds prose it is not showing | Backlog pane → the **Steps** / **Markdown** tabs |
 | Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → Ctrl+Shift+M |
 
 What is true today, and where it differs from the model above:
 
-- **The editing model is no longer inverted, and is not yet WYSIWYG either.** The
-  backlog's detail pane edits an entry a field at a time — a title, a note, a
-  step, a date, a dependency — and the canonical Markdown is a keyboard
-  shortcut away, which is the escape hatch
-  `#raw-markdown-escape-hatch` asks for rather than the primary surface
-  `#editing-model` rules out. What is still missing from `#editing-model` is the
-  rich-text part: the note is a Markdown editor with a formatting toolbar, not a
-  WYSIWYG view, and there is no slash menu (`#slash-and-inline-commands`) and no
-  inline autoformat. Markdown being canonical is therefore still trivially
-  satisfied, and `#round-trip-fidelity` is only under pressure where a field
-  rewrite touches text it was not asked about — which is why each of those
-  rewrites is scoped to one chapter and leaves the rest byte-for-byte.
+- **The editing model edits fields, and is not yet WYSIWYG.** The backlog's
+  detail pane edits an entry a field at a time: a title, a note, a step, a date,
+  a dependency. The canonical Markdown is a keyboard shortcut away. That is the
+  escape hatch `#raw-markdown-escape-hatch` asks for, not the primary surface
+  `#editing-model` rules out. What `#editing-model` still lacks is the rich-text
+  part. The note is a Markdown editor with a formatting toolbar, not a WYSIWYG
+  view, and there is no slash menu (`#slash-and-inline-commands`) and no inline
+  autoformat. Markdown being canonical is therefore trivially satisfied.
+  `#round-trip-fidelity` is under pressure only where a field rewrite touches
+  text it was not asked about, so each of those rewrites is scoped to one chapter
+  and leaves the rest byte-for-byte.
 - **The escape hatch has a shortcut but not yet a command.**
   `#raw-markdown-escape-hatch` asks for the raw view to be reachable "via a
-  command and keyboard shortcut". Ctrl+Shift+M opens and Escape closes it, but
-  the pane no longer carries a control that reveals it and there is no command
-  palette to list it in, so the hatch is currently discoverable only to a reader
-  who already knows the shortcut. The half of the rule that is unmet is the
-  command, and it stays unmet until there is a palette to put it in.
-  Since the task fields began containing their own keydown
-  (`interaction-guidelines.md#task-rows`, "Escape belongs to the innermost
-  draft"), the surviving half has two dead spots: the shortcut does not reach the
-  pane from inside a step's title, the step composer, or the entry's heading
-  rename, because the boundary those fields draw stops the whole keydown and not
-  Escape alone. From anywhere else in the pane it still opens and closes the
-  hatch, and from those three the way to it is to leave the field first. Whether
-  that is an acceptable price for the boundary, or whether the shortcut should be
-  lifted out of the pane's own handler so it is heard everywhere, is open — it is
-  the one question `#366` did not settle.
-- **The metadata line now carries two syntaxes.** Sigil tokens for type, priority,
-  status, area and tags, and named `name:value` tokens for the scheduling and
-  dependency fields — see `#scheduling-and-dependency-tokens` for why the second
-  form exists rather than five more sigils. A reader sees one line either way; the
-  split is about which characters were still available, not about two kinds of
-  fact.
-- **Task toggling is already correct.** Ticking a checkbox writes back into the
-  source and saves immediately with no debounce, and a `- [ ]` inside a code
-  fence is left alone — it is a code sample, not a task.
+  command and keyboard shortcut". Ctrl+Shift+M opens it and Escape closes it.
+  The pane carries no control that reveals it, and there is no command palette to
+  list it in. Only a reader who already knows the shortcut can find the hatch.
+  The unmet half of the rule is the command, and it stays unmet until there is a
+  palette to put it in.
+- **The shortcut does not reach the pane from three fields.** The task fields
+  contain their own keydown (`interaction-guidelines.md#task-rows`, "Escape
+  belongs to the innermost draft"). The boundary they draw stops the whole
+  keydown, not Escape alone, so Ctrl+Shift+M does not reach the pane from inside:
+  - a step's title,
+  - the step composer,
+  - the entry's heading rename.
+
+  From anywhere else in the pane the shortcut opens and closes the hatch, and
+  from those three fields the way to it is to leave the field first. It is open
+  whether that price is acceptable, or whether the shortcut should be lifted out
+  of the pane's own handler so it is heard everywhere.
+  [Issue #366](https://github.com/JSdotNet/Backlog/issues/366) decided that the
+  task fields contain Escape, and left this one question unsettled.
+- **Task toggling is correct.** Ticking a checkbox writes back into the source and
+  saves immediately with no debounce. A `- [ ]` inside a code fence is left alone,
+  because it is a code sample, not a task.
 - **Headings render on the compact ramp**, not the display ramp; see
   `typography-and-layout.md#heading-defaults` for which surface gets which.
 - **Body text renders in `color-text-secondary`.** `design-principles.md#low-chrome-content-first`
   reserves `color-text-primary` for content and `color-text-secondary` for
-  chrome, and the read view currently has that the other way round for
-  paragraphs, list items and code blocks. It reads as intended inside a dense
-  card and reads as washed-out in a document; a document surface SHOULD move to
-  `color-text-primary`. `[TODO: clarify]`
+  chrome. The read view has that the other way round for paragraphs, list items
+  and code blocks. It reads as intended inside a dense card and washed-out in a
+  document; a document surface SHOULD move to `color-text-primary`.
+  `[TODO: clarify]`

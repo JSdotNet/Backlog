@@ -122,6 +122,11 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     /// entry needing a date was filed before that — a session linked to an entry does
     /// not end before the entry exists.
     /// </para>
+    /// <para>
+    /// At the timestamps depth: a date needs a session's start and last activity, and
+    /// the full reading of 26 weeks would parse every transcript in them to answer
+    /// fields this never reads.
+    /// </para>
     /// </summary>
     private async Task<IReadOnlyDictionary<string, RoadmapSessionActivity>?> ReadSessionsAsync(
         IEnumerable<TaskItemDto> gathered,
@@ -140,7 +145,7 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
             if (entry.CreatedAt is { } created && created < horizon) horizon = created;
         }
 
-        var catalog = await _sessions.GetSessionsAsync(AgentSessionQuery.Since(horizon), cancellationToken).ConfigureAwait(false);
+        var catalog = await _sessions.GetSessionsAsync(AgentSessionQuery.Since(horizon).TimestampsOnly(), cancellationToken).ConfigureAwait(false);
 
         var found = new Dictionary<string, RoadmapSessionActivity>(StringComparer.OrdinalIgnoreCase);
         foreach (var session in catalog.Sessions)

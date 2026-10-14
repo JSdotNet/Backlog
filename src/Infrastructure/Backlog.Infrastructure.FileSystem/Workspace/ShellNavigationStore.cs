@@ -38,8 +38,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </para>
 /// <para>
 /// So do the Calendar's Month | Week range, the In progress view's two toggles and the
-/// header's repository scope: each is how the reader last had a screen, kept on this
-/// device only. Every key is additive and left out while at its default, so a file
+/// header's repository scope, and the system tools pane's tab and host filter: each is
+/// how the reader last had a screen, kept on this device only. Every key is additive and left out while at its default — the tools
+/// pane's two until it has been on a tab or a filter here — so a file
 /// written before it keeps its shape and an older build reads a newer file.
 /// </para>
 /// </summary>
@@ -112,6 +113,8 @@ public sealed class ShellNavigationStore
         InProgressNeedsYouFirst = dto?.InProgressNeedsYouFirst ?? true;
         InProgressIncludeFinishedToday = dto?.InProgressIncludeFinishedToday ?? false;
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
+        ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
+        ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -188,6 +191,15 @@ public sealed class ShellNavigationStore
     /// </para>
     /// </summary>
     public IReadOnlyList<string> RepositoryScope { get; private set; }
+
+    /// <summary>The system tools pane's tab when it was last open on this device, by
+    /// the pane's own tab id; null until one was chosen. Read through Dev PC
+    /// Management's <c>IToolsViewPreferences</c>.</summary>
+    public string? ToolsTab { get; private set; }
+
+    /// <summary>The system tools pane's host filter, by the pane's own id; null until
+    /// one was chosen.</summary>
+    public string? ToolsHostFilter { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -315,6 +327,24 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetToolsTab(string tab)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tab);
+        if (tab == ToolsTab) return;
+
+        ToolsTab = tab;
+        Save();
+    }
+
+    public void SetToolsHostFilter(string hostFilter)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostFilter);
+        if (hostFilter == ToolsHostFilter) return;
+
+        ToolsHostFilter = hostFilter;
+        Save();
+    }
+
     /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
     /// so the same aliases reordered are a change.</summary>
     public void SetRepositoryScope(IReadOnlyList<string> aliases)
@@ -359,7 +389,10 @@ public sealed class ShellNavigationStore
                 CalendarRange = CalendarRange == DefaultCalendarRange ? null : CalendarRange,
                 InProgressNeedsYouFirst = InProgressNeedsYouFirst ? null : false,
                 InProgressIncludeFinishedToday = InProgressIncludeFinishedToday ? true : null,
-                RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope]
+                RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope],
+                // Left out until the tools pane has been on a tab or a filter here.
+                ToolsTab = ToolsTab,
+                ToolsHostFilter = ToolsHostFilter
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -422,6 +455,12 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RepositoryScope { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ToolsTab { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ToolsHostFilter { get; init; }
 
         /// <summary>The retired "No repo" chip's state, read only to migrate it — see
         /// <see cref="MigrateNoRepositoryOnly"/>. Never set on a save, so never written.</summary>

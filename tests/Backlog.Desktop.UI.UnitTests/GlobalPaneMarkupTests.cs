@@ -277,7 +277,7 @@ public sealed class GlobalPaneMarkupTests
         {
             Assert.Contains($"Pressed=\"PaneOptionPressed(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
             Assert.Contains($"OnClick=\"() => PressPane(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
-            Assert.Contains($"Title=\"@PaneOptionTitle(GlobalPane.{pane}, \"", home, StringComparison.Ordinal);
+            Assert.Contains($"Title=\"@PaneOptionTitle(GlobalPane.{pane}, ", home, StringComparison.Ordinal);
         }
 
         foreach (var view in new[] { "Tasks", "Roadmap" })
@@ -864,7 +864,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" CalendarRange=\"@CalendarRange\" CalendarRangeChanged=\"OnCalendarRangeChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
+        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" BrainNotesFor=\"@BrainNotesForTask\" OnOpenBrainNote=\"OpenBrainNoteAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" CalendarRange=\"@CalendarRange\" CalendarRangeChanged=\"OnCalendarRangeChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
 
         // The roadmap and the dashboard are composed on the same terms. Their content

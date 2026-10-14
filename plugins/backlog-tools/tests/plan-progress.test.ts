@@ -1,6 +1,9 @@
 import { expect, test } from 'claude-code/testing'
+import type { On } from 'claude-code'
 
-import { kindOf, parseBrief, parsePlan, parseReturn, parseRunId, surfaceOp, tally } from '../hooks/parse'
+import type { Worker } from '../types'
+
+import { asId, asIndex, kindOf, parseBrief, parsePlan, parseReturn, parseRunId, parseStages, surfaceOp, tally } from '../hooks/parse'
 import { abbrev, alsoLine, bandRows, columnsOf, liveRows, matrixLayout, rowsOf } from '../hooks/view'
 import { demoAt } from './demo'
 
@@ -39,9 +42,25 @@ test('recognises the brief, the surface tools and the returns', () => {
   expect(parseBrief(BRIEF.replace('`2 - Second', '`2 - 2 - Second'))?.title).toBe('Second prompt')
 })
 
+test('reads a declared stage list in any shape a worker sends it', () => {
+  const stages = ['scope', 'implement', 'build-test']
+  expect(parseStages(stages)).toEqual(stages)
+  expect(parseStages('["scope","implement","build-test"]')).toEqual(stages)
+  expect(parseStages(' scope, implement ,,build-test ')).toEqual(stages)
+  expect(parseStages([{ name: 'scope' }, { title: 'implement' }, { name: 'build-test' }])).toEqual(stages)
+  for (const other of [undefined, null, 3, {}, '', '{"stages":1}', [1, 2]]) expect(parseStages(other)).toEqual([])
+})
+
+test('compares a stage index and a run id after coercion', () => {
+  expect([asIndex(2), asIndex('0'), asIndex(' 3 ')]).toEqual([2, 0, 3])
+  for (const other of [undefined, null, '', 'two', '1.5', 1.5, {}]) expect(asIndex(other)).toBeNaN()
+  expect([asId('r1'), asId(' r1 '), asId(42)]).toEqual(['r1', 'r1', '42'])
+  for (const other of [undefined, null, {}, [], true]) expect(asId(other)).toBe('')
+})
+
 test('tallies entries with workers overriding stored status', () => {
   const plan = parsePlan('+demo', PLAN)
-  const w = { agentId: 'ag', entryId: 'b2', n: 2, title: 'Second prompt', state: 'gate' as const, note: '', flow: '', runId: '', stages: [], stageStatus: [], runStatus: '' }
+  const w = { agentId: 'ag', entryId: 'b2', n: 2, title: 'Second prompt', state: 'gate' as const, note: '', flow: '', runIds: [], stages: [], stageStatus: [], runStatus: '' }
   expect(kindOf(plan?.entries[2], undefined)).toBe('manual')
   const c = tally(plan, [w])
   expect([c.total, c.done, c.gate, c.manual]).toEqual([3, 1, 1, 1])
@@ -119,7 +138,7 @@ test('lays out the matrix and the band from the rows', () => {
   expect(matrixLayout(80, 12)).toEqual({ cell: 3, gap: 1, hasHeadings: true, titleWidth: 29 })
   expect(matrixLayout(56, 12)).toEqual({ cell: 2, gap: 0, hasHeadings: false, titleWidth: 29 })
   const plan = parsePlan('+demo', PLAN)
-  const w = { agentId: 'ag', entryId: 'b2', n: 2, title: 'Second prompt', state: 'gate' as const, note: '', flow: 'flow-code', runId: 'r', stages: ['Scope', 'Implement'], stageStatus: ['done', 'in_progress'], runStatus: '' }
+  const w = { agentId: 'ag', entryId: 'b2', n: 2, title: 'Second prompt', state: 'gate' as const, note: '', flow: 'flow-code', runIds: ['r'], stages: ['Scope', 'Implement'], stageStatus: ['done', 'in_progress'], runStatus: '' }
   const rows = rowsOf(plan, [w])
   expect(liveRows(rows).map(r => r.n)).toEqual([2])
   expect(alsoLine(rows)).toBe('✓ 1 · ✎ 1')
@@ -142,6 +161,142 @@ test('a brief for another plan starts the pane over', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /\+other/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /0\/1 done/ })).toBeDefined()
   await ui.unmount()
+})
+
+// The surface calls the pane mirrors are what the worker said, not what a surface stored: a call
+// the surface rejected still counts, and a call the host denied never ran.
+const STAGES = ['scope', 'implement', 'build-test', 'personal-validation']
+// The run status is drawn nowhere: a plugin beside this one reads the state it declares instead.
+const PEEK = {
+  name: 'peek',
+  register: (on: On) => {
+    on('command.run', { command: 'peek-workers' }, async $ => {
+      const { value } = await $.state.get({ plugin: 'backlog-tools', key: 'workers' })
+      return { text: JSON.stringify(value ?? []) }
+    })
+  },
+}
+const workerOf = async ($: { command: { run: (e: never) => Promise<{ text?: string }> } }) =>
+  (JSON.parse((await $.command.run({ command: 'peek-workers', args: '' } as never)).text ?? '[]') as Worker[])[0]
+// The session's state outlives a reload of the plugin's code: after /reload-plugins the module
+// meets the workers 0.17.0 stored, with one `runId` and no `runIds`. This plugin turns the first
+// worker written into one 0.17.0 left mid-run, its start_run confirmed as `r1`.
+const LEGACY = {
+  name: 'legacy',
+  register: (on: On) => {
+    let seeded = false
+    on('state.set', { plugin: 'backlog-tools', key: 'workers' }, ($, e, next) => {
+      if (seeded) return next(e)
+      seeded = true
+      const stages = ['scope', 'implement', 'build-test', 'personal-validation']
+      const value = e.value.map(({ runIds: _, ...w }) => ({
+        ...w, flow: 'flow-code', runId: 'r1', stages, stageStatus: stages.map(() => 'pending'), runStatus: 'in_progress',
+      }))
+      return next({ ...e, value } as never)
+    })
+  },
+}
+const REJECTED = { isError: true, result: null, text: "An error occurred invoking 'start_run'." } as const
+const runIdAnswer = (id: string) => ({ result: `{"runId":"${id}"}`, text: `{"runId":"${id}"}` })
+
+test('a start_run the surface rejected still draws the entry’s stages, and its reports move them', async ($, on) => {
+  // The Backlog surface rejects every lifecycle call, as it did a start_run without a worktree.
+  on('tool.call', ($, e) => (e.tool === 'mcp__backlog__get_plan_items' ? { result: PLAN, text: PLAN } : REJECTED) as never)
+  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
+  on('ui.render', () => ({ type: 'Box' }) as never)
+
+  await $.tool.call({ tool: 'mcp__backlog__get_plan_items', planId: '+demo' } as never)
+  await $.agent.spawn({ prompt: BRIEF, description: 'entry 2' } as never)
+  // The observed call: stages JSON-encoded as a string, resume as a string, no worktree.
+  await $.tool.call({
+    tool: 'mcp__backlog__start_run',
+    agentId: 'worker-1',
+    skillId: 'flow-code',
+    title: 'Second prompt',
+    stages: JSON.stringify(STAGES),
+    resume: 'false',
+  } as never)
+
+  const pane = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
+  for (const heading of [/^scp$/, /^imp$/, /^b&t$/, /^pv$/]) expect(await pane.find({ type: 'Text', text: heading })).toBeDefined()
+  expect(await pane.findAll({ type: 'Text', text: /^·$/ })).toHaveLength(STAGES.length)
+  await pane.unmount()
+
+  // No surface confirmed the run, so a report without a run id is the worker's current run's.
+  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', stageIndex: 1, status: 'in_progress' } as never)
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const band = await $.ui.mount({ plugin: 'backlog-tools', surface, component: 'AbovePrompt', props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } } as never)
+    expect(await band.find({ type: 'Text', text: /^●$/ })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: /^implement$/ })).toBeDefined()
+    await band.unmount()
+  }
+})
+
+test('a finish_run the surface rejected still records how the run ended', { plugins: [PEEK] }, async ($, on) => {
+  on('tool.call', () => REJECTED as never)
+  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
+
+  await $.agent.spawn({ prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'worker-1', skillId: 'flow-code', stages: STAGES } as never)
+  await $.tool.call({ tool: 'mcp__backlog__finish_run', agentId: 'worker-1', status: 'done' } as never)
+
+  expect((await workerOf($))?.runStatus).toBe('done')
+})
+
+test('once a surface confirmed the run, another run’s reports leave it alone', { plugins: [PEEK] }, async ($, on) => {
+  on('tool.call', () => runIdAnswer('r1'))
+  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
+
+  await $.agent.spawn({ prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'worker-1', skillId: 'flow-code', stages: STAGES } as never)
+  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r2', stageIndex: 0, status: 'done' } as never)
+  await $.tool.call({ tool: 'mcp__backlog__finish_run', agentId: 'worker-1', runId: 'r2', status: 'failed' } as never)
+
+  const w = await workerOf($)
+  expect([w?.stageStatus, w?.runStatus]).toEqual([['pending', 'pending', 'pending', 'pending'], 'in_progress'])
+})
+
+test('a report the host denied moves nothing', { plugins: [PEEK] }, async ($, on) => {
+  on('tool.call', ($, e) => (e.tool === 'mcp__backlog__update_stage' ? { deny: 'refused by the host' } : runIdAnswer('r1')) as never)
+  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
+
+  await $.agent.spawn({ prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'worker-1', skillId: 'flow-code', stages: STAGES } as never)
+  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 0, status: 'done' } as never)
+
+  expect((await workerOf($))?.stageStatus).toEqual(['pending', 'pending', 'pending', 'pending'])
+})
+
+test('one run fanned out to two surfaces keeps one set of stages, moved by either run id', { plugins: [PEEK] }, async ($, on) => {
+  // Each bound surface answers the same run with its own id.
+  on('tool.call', ($, e) => runIdAnswer(String(e.tool).includes('dashboard') ? 'r2' : 'r1'))
+  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
+
+  await $.agent.spawn({ prompt: BRIEF } as never)
+  const start = { agentId: 'worker-1', skillId: 'flow-code', stages: STAGES }
+  await $.tool.call({ tool: 'mcp__backlog__start_run', ...start } as never)
+  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 0, status: 'done' } as never)
+  await $.tool.call({ tool: 'mcp__dashboard__start_run', ...start } as never)
+  await $.tool.call({ tool: 'mcp__dashboard__update_stage', agentId: 'worker-1', runId: 'r2', stageIndex: 1, status: 'in_progress' } as never)
+  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 2, status: 'skipped' } as never)
+
+  expect((await workerOf($))?.stageStatus).toEqual(['done', 'in_progress', 'skipped', 'pending'])
+})
+
+test('a worker stored by 0.17.0 still moves after a reload', { plugins: [PEEK, LEGACY] }, async ($, on) => {
+  on('tool.call', () => runIdAnswer('r1'))
+  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
+
+  await $.agent.spawn({ prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 0, status: 'done' } as never)
+  // The same run declared again (a reattach): it keeps the statuses and takes the answered id.
+  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'worker-1', skillId: 'flow-code', stages: STAGES } as never)
+  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 1, status: 'in_progress' } as never)
+  await $.tool.call({ tool: 'mcp__backlog__finish_run', agentId: 'worker-1', runId: 'r1', status: 'done' } as never)
+
+  const w = await workerOf($)
+  expect([w?.stageStatus, w?.runStatus, w?.runIds]).toEqual([['done', 'in_progress', 'pending', 'pending'], 'done', ['r1']])
 })
 
 test('the scripted run ends with a merge, a gate, a block and a manual step', () => {

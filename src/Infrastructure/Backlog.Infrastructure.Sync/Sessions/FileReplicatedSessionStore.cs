@@ -8,8 +8,8 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// The records pulled from the owner's feed, as one JSON file beside the session
 /// sync state.
 /// <para>
-/// Beside the progress rather than inside it: the cursor is saved after every
-/// page and is two scalars, while this is the newest
+/// Beside the progress rather than inside it: the cursor is two scalars, while
+/// this is the newest
 /// <see cref="ReplicatedSessionLimits.PerEnvironmentPerAgent"/> records per
 /// environment per agent plus every record inside
 /// <see cref="ReplicatedSessionLimits.History"/>. Writing the whole cache every
@@ -95,12 +95,50 @@ public sealed class FileReplicatedSessionStore : IReplicatedSessionStore
             // one use that order: a write that fails throws and leaves Current as
             // it was, so the process does not go on serving a list the next
             // launch will not find.
-            File.WriteAllText(_path, JsonSerializer.Serialize(merged, JsonOptions));
+            Write(JsonSerializer.Serialize(merged, JsonOptions));
 
             Current = merged;
         }
 
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Written to a sibling and moved over the original, the way
+    /// <c>DeviceIdentityStore</c> and <c>AgentSessionRecordStore</c> write, so the file
+    /// is replaced whole or not at all. Writing in place truncates first, and a write
+    /// cut short there leaves a file <see cref="Read"/> opens as empty — every record
+    /// the cursor has already passed, gone. One fixed sibling name is enough: every
+    /// write holds <see cref="_gate"/>, and a sibling a dead run left behind is
+    /// overwritten. A failure still throws, after the sibling is cleared away.
+    /// </summary>
+    private void Write(string json)
+    {
+        var temporary = _path + ".tmp";
+
+        try
+        {
+            File.WriteAllText(temporary, json);
+            File.Move(temporary, _path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Discard(temporary);
+
+            throw;
+        }
+    }
+
+    private static void Discard(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Overwritten by the next save, which is the only thing that reads it.
+        }
     }
 
     /// <summary>

@@ -25,8 +25,9 @@ namespace Backlog.Infrastructure.Sqlite.Inbox;
 /// <c>tasks</c> or <c>roadmap_plan</c>. Inherited ADR 0014 puts persistence in
 /// the hands of the module that owns the data; what the adapters here share is
 /// a file, not a schema. The tables are created by idempotent
-/// <c>IF NOT EXISTS</c> DDL on every open (local ADR 0003); a column added
-/// later goes through <see cref="EnsureColumnAsync"/> (local ADR 0006) — the
+/// <c>IF NOT EXISTS</c> DDL on any open the file is not yet stamped for (local
+/// ADR 0003); a column added later goes in <see cref="Schema"/>'s added
+/// columns (local ADR 0006) — the
 /// first was <c>dismissed_suggestions</c>, the suggestions a reader turned down,
 /// the second <c>duplicate_of</c>, the item one was archived as a duplicate of,
 /// and the third <c>duplicate_of_task</c>, whether that id is a backlog task's.
@@ -236,6 +237,43 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         return item;
     }
 
+    /// <summary>The items among <paramref name="ids"/> that exist, with their
+    /// files, over one connection: the ids go in as one JSON array parameter, so
+    /// a batch of any size is one statement for the items and one for their
+    /// attachments. No promised order.</summary>
+    public async Task<IReadOnlyList<InboxItem>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if (ids.Count == 0) return [];
+
+        var idsJson = TaskPayloads.Write<string>([.. ids.Select(id => id.ToString())]);
+
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        var items = new List<InboxItem>();
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"SELECT {ItemColumns} FROM inbox_items WHERE id IN (SELECT value FROM json_each($ids));";
+            command.Parameters.AddWithValue("$ids", idsJson);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                items.Add(ReadItem(reader));
+            }
+        }
+
+        if (items.Count == 0) return items;
+
+        var attachments = await ReadAttachmentsAsync(connection, idsJson, cancellationToken).ConfigureAwait(false);
+        foreach (var item in items)
+        {
+            if (attachments.TryGetValue(item.Id, out var files)) item.LoadAttachments(files);
+        }
+
+        return items;
+    }
+
     /// <summary>Every attachment row, or one item's, grouped by item and in the
     /// order they were recorded. One read for a whole list, rather than one per
     /// item: the inbox is read whole on every reload.</summary>
@@ -250,6 +288,28 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             : $"SELECT {AttachmentColumns} FROM inbox_item_attachments WHERE item_id = $item_id ORDER BY sort_order;";
         if (itemId is { } id) command.Parameters.AddWithValue("$item_id", id.ToString());
 
+        return await ReadAttachmentRowsAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The attachment rows of the items whose ids <paramref name="idsJson"/>
+    /// lists as a JSON array — a batch's files, and nobody else's.</summary>
+    private static async Task<Dictionary<Guid, List<InboxAttachment>>> ReadAttachmentsAsync(
+        SqliteConnection connection,
+        string idsJson,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            $"SELECT {AttachmentColumns} FROM inbox_item_attachments WHERE item_id IN (SELECT value FROM json_each($ids)) ORDER BY item_id, sort_order;";
+        command.Parameters.AddWithValue("$ids", idsJson);
+
+        return await ReadAttachmentRowsAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<Dictionary<Guid, List<InboxAttachment>>> ReadAttachmentRowsAsync(
+        SqliteCommand command,
+        CancellationToken cancellationToken)
+    {
         var byItem = new Dictionary<Guid, List<InboxAttachment>>();
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -553,16 +613,15 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     // --- Schema -------------------------------------------------------------
 
     /// <summary>Creates the database and the inbox tables if they are not
-    /// there yet. Called on the way into every operation, for the reason
-    /// <see cref="SqliteTaskRepository"/> gives: the statements are idempotent,
-    /// and caching which paths have been prepared would be wrong the first time
-    /// somebody moved or deleted the file underneath a running app.</summary>
+    /// there yet. Called on the way into every operation; the setup itself runs
+    /// only on a file not yet stamped with this <see cref="Schema"/>, for the
+    /// reasons <see cref="SqliteSchema.OpenAsync"/> gives.</summary>
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
 
-    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
-    {
-        await SqliteSchema.EnsureAsync(connection, """
+    internal static readonly SqliteSchemaDefinition Schema = new(
+        owner: "inbox",
+        ddl: """
             CREATE TABLE IF NOT EXISTS inbox_groups (
                 id          TEXT PRIMARY KEY NOT NULL,
                 name        TEXT NOT NULL,
@@ -658,70 +717,33 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 id           TEXT PRIMARY KEY NOT NULL,
                 deleted_at   TEXT NOT NULL
             );
-            """, cancellationToken).ConfigureAwait(false);
+            """,
 
         // Columns added after inbox_items had rows. Every column above shipped
         // with its table; these arrive on a database written before them, so
-        // each carries a default a row written then can stand on.
-        await EnsureColumnAsync(connection, "inbox_items", "dismissed_suggestions", "TEXT NOT NULL DEFAULT '[]'", cancellationToken)
-            .ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "inbox_items", "duplicate_of", "TEXT NULL", cancellationToken)
-            .ConfigureAwait(false);
-        await EnsureColumnAsync(connection, "inbox_items", "duplicate_of_task", "INTEGER NOT NULL DEFAULT 0", cancellationToken)
-            .ConfigureAwait(false);
-        // A note's own last-write-wins stamp (InboxItem.EditedAt). Null on a row
-        // written before it, which reads as the row's updated_at.
-        await EnsureColumnAsync(connection, "inbox_items", "edited_at", "TEXT NULL", cancellationToken)
-            .ConfigureAwait(false);
-        // A note this desktop changed and has not pushed yet (InboxItem.NotePushPending).
-        await EnsureColumnAsync(connection, "inbox_items", "note_push_pending", "INTEGER NOT NULL DEFAULT 0", cancellationToken)
-            .ConfigureAwait(false);
-        // When the reader last took a decision back (InboxItem.RestoredAt). Null
-        // on a row written before it, which reads as never reopened.
-        await EnsureColumnAsync(connection, "inbox_items", "restored_at", "TEXT NULL", cancellationToken)
-            .ConfigureAwait(false);
-        // Which kind of item a deleted capture was, so its tombstone goes out as
-        // the document the phone holds it as. Null on a row written before it:
-        // every such row was a plain capture.
-        await EnsureColumnAsync(connection, "inbox_deleted_captures", "kind", "TEXT NULL", cancellationToken)
-            .ConfigureAwait(false);
-    }
+        // each carries a default a row written then can stand on (local ADR 0006).
+        columns:
+        [
+            new("inbox_items", "dismissed_suggestions", "TEXT NOT NULL DEFAULT '[]'"),
+            new("inbox_items", "duplicate_of", "TEXT NULL"),
+            new("inbox_items", "duplicate_of_task", "INTEGER NOT NULL DEFAULT 0"),
 
-    /// <summary>Adds a column to one of the inbox tables when it is not already
-    /// there, and does nothing when it is — the same additive-only bootstrap
-    /// <see cref="SqliteTaskRepository"/> keeps (local ADR 0006). <paramref name="table"/>,
-    /// <paramref name="column"/> and <paramref name="definition"/> are compile-time
-    /// constants from this class and never anything a caller supplies, which is
-    /// what makes composing the DDL by string safe here.</summary>
-    internal static async Task EnsureColumnAsync(
-        SqliteConnection connection,
-        string table,
-        string column,
-        string definition,
-        CancellationToken cancellationToken)
-    {
-        var present = false;
-        await using (var probe = connection.CreateCommand())
-        {
-            probe.CommandText = $"PRAGMA table_info({table});";
-            await using var reader = await probe.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-            var nameOrdinal = reader.GetOrdinal("name");
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-            {
-                if (string.Equals(reader.GetString(nameOrdinal), column, StringComparison.OrdinalIgnoreCase))
-                {
-                    present = true;
-                    break;
-                }
-            }
-        }
+            // A note's own last-write-wins stamp (InboxItem.EditedAt). Null on a row
+            // written before it, which reads as the row's updated_at.
+            new("inbox_items", "edited_at", "TEXT NULL"),
 
-        if (present) return;
+            // A note this desktop changed and has not pushed yet (InboxItem.NotePushPending).
+            new("inbox_items", "note_push_pending", "INTEGER NOT NULL DEFAULT 0"),
 
-        await using var alter = connection.CreateCommand();
-        alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition};";
-        await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-    }
+            // When the reader last took a decision back (InboxItem.RestoredAt). Null
+            // on a row written before it, which reads as never reopened.
+            new("inbox_items", "restored_at", "TEXT NULL"),
+
+            // Which kind of item a deleted capture was, so its tombstone goes out as
+            // the document the phone holds it as. Null on a row written before it:
+            // every such row was a plain capture.
+            new("inbox_deleted_captures", "kind", "TEXT NULL"),
+        ]);
 
     // --- Reading ------------------------------------------------------------
 

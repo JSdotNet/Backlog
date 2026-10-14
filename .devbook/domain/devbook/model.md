@@ -19,7 +19,6 @@ classDiagram
         +Id id
         +String title
         +String body_md
-        +String topic
         +PARACategory category
         +NoteSource source
         +Integer effort
@@ -75,8 +74,8 @@ classDiagram
 
 ## Relationship notes
 
-- `KnowledgeNote` is the aggregate root; `ProjectRef`, `Tag`,
-  `RoadmapContribution`, and `TaskLink` are owned value objects. There are no
+- `KnowledgeNote` is the aggregate root. `ProjectRef`, `Tag`,
+  `RoadmapContribution`, and `TaskLink` are owned value objects, and there are no
   separately identified child entities.
 - `Brain` is the folder the person picked, not an aggregate: it holds the notes
   as Markdown files and declares its areas in `CONVENTIONS.md`, the PARA set when
@@ -91,13 +90,11 @@ classDiagram
   directions consistent.
 - `effort` is the [Effort](domain.md#effort) scalar on the root. It carries no relationship to another type. Roadmap
   Planning reads and totals it; Devbook owns it.
-- `Tag` and `RoadmapContribution` are **two different value objects on purpose**,
-  even though both read as "tags". `Tag` is a `#keyword` this context owns for
-  cross-cutting discovery; `RoadmapContribution` is a
-  [Roadmap Item](../roadmap/model.md) tag slug the chapter declares it contributes
-  to. Neither draws an edge: `Tag` groups notes here, and `RoadmapContribution`
-  *names* a roadmap item rather than *addressing* a chapter, so — like an alias —
-  it stays a node attribute and produces no cross-reference in the knowledge graph.
+- `Tag` and `RoadmapContribution` are both owned value objects, and neither is an
+  edge in the knowledge graph; for the contribution, see
+  [its invariant](domain.invariants.md#invariant-a-roadmap-contribution-draws-no-graph-edge).
+  Why they are two different things is the
+  [Roadmap Contribution](domain.md#roadmap-contribution) chapter's.
 
 ## Chapter metadata the panels read
 
@@ -187,9 +184,9 @@ classDiagram
   it is a rating and always present. The domain area alone adds two decision
   steps above the ladder, `approved` and `accepted`.
 - **`DecisionState` and `ReviewState` are state, not content.** They sit in the
-  chapter's `meta` block but describe the road to a decision, so the panels draw
-  them beside the status and hand none of them on as what the chapter says.
-  `DecisionState` exists only while its step stands and leaves with it;
+  chapter's `meta` block but describe the road to a decision. The panels draw them
+  beside the status and never hand them on as what the chapter says.
+  `DecisionState` exists only while its step stands and leaves with it.
   `ReviewState` is replaced by `DecisionState` when approval is written. Neither
   is legal outside the domain area.
 - **`type` is folder-relative too.** Domain, technology and AI chapters each
@@ -197,10 +194,9 @@ classDiagram
   context's additional page takes its own filename as its type.
 - **`ExtensionState` belongs to whoever wrote it.** Keys under `ext.` are
   carried through verbatim and never validated or interpreted here.
-- **`ReviewNote` and `Remark` are two things on purpose.** A `ReviewNote` is an
-  `annotation` fence in the chapter file: the repository's shared review state,
-  read-only here, attached to the passage above it, and never chapter content.
-  A `Remark` is the person's own note on a block, owned and replicated by this
-  context — local ADR 0011 (`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`)
-  records why the two are kept apart and why neither is converted into the
-  other.
+- **`ReviewNote` and `Remark` are two things on purpose.** A
+  [Review Note](domain.md#review-note) is an `annotation` fence in the chapter
+  file, read-only here. A [Remark](domain.md#remark) is the person's own note on a
+  block, owned and replicated by this context. Local ADR 0011
+  (`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`)
+  records why the two are kept apart and why neither is converted into the other.

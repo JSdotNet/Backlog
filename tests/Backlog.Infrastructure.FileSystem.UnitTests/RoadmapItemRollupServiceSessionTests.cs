@@ -99,6 +99,23 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
         Assert.Equal(DateOnly.FromDateTime(Now.AddDays(-2).LocalDateTime), link.CompletedOn);
     }
 
+    /// <summary>Dating an entry needs a session's start and last activity and nothing a
+    /// transcript is opened for, so the horizon is read at the timestamps depth — the
+    /// reading that does not parse every transcript inside 26 weeks.</summary>
+    [Fact]
+    public async Task Linked_sessions_are_read_at_the_timestamps_depth()
+    {
+        var id = Guid.NewGuid();
+        var sessions = new StubSessions(Session("worked", Now.AddDays(-10), Now.AddDays(-8)));
+        var service = Service(sessions, Entry(id, EntryStatus.Done, "worked"));
+
+        await service.GatherPlanAsync(Plan(Item(id)), TestContext.Current.CancellationToken);
+
+        var query = Assert.Single(sessions.Queries);
+        Assert.Equal(AgentSessionDetail.Timestamps, query.Detail);
+        Assert.Equal(Now - AgentSessionLimits.History, query.Horizon);
+    }
+
     private RoadmapItemRollupService Service(StubSessions sessions, params TaskItemDto[] backlog) =>
         new(new ListingTaskItems(backlog), () => _root, sessions, new FakeTimeProvider(Now));
 

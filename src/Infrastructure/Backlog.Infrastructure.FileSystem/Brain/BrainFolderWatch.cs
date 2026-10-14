@@ -182,20 +182,14 @@ public sealed class BrainFolderWatch : IDisposable
         }
     }
 
+    /// <summary>Whether two spellings name one folder, by the normalization the
+    /// refresher keys its watches and databases on — so this and the refresher
+    /// cannot disagree about which Brain a rebuild was for. Case is ignored, as it
+    /// was before, on every platform: a case-insensitive file system off Windows
+    /// keeps one folder one folder.</summary>
     private static bool SameFolder(string left, string right) =>
-        string.Equals(Normalize(left), Normalize(right), StringComparison.OrdinalIgnoreCase);
-
-    private static string Normalize(string folder)
-    {
-        try
-        {
-            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
-        }
-        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
-        {
-            return folder;
-        }
-    }
+        DevbookDatabaseLocation.NormalizedRoot(left) is { } normalized
+        && string.Equals(normalized, DevbookDatabaseLocation.NormalizedRoot(right), StringComparison.OrdinalIgnoreCase);
 
     public void Dispose()
     {

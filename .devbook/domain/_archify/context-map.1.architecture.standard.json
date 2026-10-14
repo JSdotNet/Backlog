@@ -321,18 +321,18 @@
       "label": "OHS + Published Language — ProductivityRecorded"
     },
     {
-      "from": "environment",
-      "to": "monitor",
-      "label": "Customer/Supplier — environment availability feed",
+      "from": "monitor",
+      "to": "environment",
+      "label": "Customer/Supplier — health and availability signals",
       "fromSide": "bottom",
       "toSide": "bottom",
       "via": [
         [
-          2540,
+          1325,
           1060
         ],
         [
-          1325,
+          2540,
           1060
         ]
       ]
@@ -449,8 +449,28 @@
     {
       "from": "sessions",
       "to": "productivity",
-      "label": "Customer/Supplier (not built) — agent session facts",
-      "variant": "dashed"
+      "label": "Customer/Supplier — agent session facts"
+    },
+    {
+      "from": "sessions",
+      "to": "backlog",
+      "label": "Customer/Supplier — linked session state",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          1420,
+          1640
+        ],
+        [
+          100,
+          1640
+        ],
+        [
+          100,
+          329
+        ]
+      ]
     },
     {
       "from": "sessions",

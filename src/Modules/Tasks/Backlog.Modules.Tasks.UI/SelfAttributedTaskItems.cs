@@ -33,6 +33,14 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         inner.ListAsync(cancellationToken);
 
+    // Reads, so nothing to attribute - forwarded rather than left to the port's
+    // defaults, which would read the whole list for one entry or a count.
+    public Task<TaskItemDto?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+        inner.GetAsync(id, cancellationToken);
+
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        inner.CountAsync(cancellationToken);
+
     public async Task<Result<SavedTaskDto>> SaveFromTextAsync(
         Guid? id,
         string rawText,

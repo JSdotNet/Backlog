@@ -54,6 +54,48 @@ public sealed class RootedSqliteTaskRepositoryTests : IDisposable
         Assert.Equal("Announced", seenOnSignal.Title);
     }
 
+    /// <summary>Several tasks saved together are one write and one signal, so a
+    /// drag that re-ranks a dozen rows reloads the list once, not a dozen times —
+    /// and the signal still comes after every row has landed.</summary>
+    [Fact]
+    public async Task Saving_several_raises_the_change_signal_once_after_all_of_them()
+    {
+        var signal = new TaskChangeSignal();
+        var repository = new RootedSqliteTaskRepository(() => _root, signal);
+        var tasks = new[]
+        {
+            new TaskItem("One", string.Empty, EntryType.Task),
+            new TaskItem("Two", string.Empty, EntryType.Task),
+            new TaskItem("Three", string.Empty, EntryType.Task),
+        };
+
+        var raised = 0;
+        var seenOnSignal = 0;
+        signal.Changed += () =>
+        {
+            raised++;
+            seenOnSignal = repository.ListAsync(TestContext.Current.CancellationToken).GetAwaiter().GetResult().Count;
+        };
+
+        await repository.SaveManyAsync(tasks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, raised);
+        Assert.Equal(3, seenOnSignal);
+    }
+
+    [Fact]
+    public async Task Saving_none_raises_nothing()
+    {
+        var signal = new TaskChangeSignal();
+        var repository = new RootedSqliteTaskRepository(() => _root, signal);
+        var raised = 0;
+        signal.Changed += () => raised++;
+
+        await repository.SaveManyAsync([], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, raised);
+    }
+
     /// <summary>And without a signal - a head or a test that composed none - a
     /// save is just a save.</summary>
     [Fact]

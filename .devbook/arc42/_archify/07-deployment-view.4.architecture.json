@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Cloud Deployment (Azure)",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1220,
+      710
+    ]
+  },
+  "components": [
+    {
+      "id": "desktop",
+      "type": "frontend",
+      "label": "Desktop App",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "ide",
+      "type": "frontend",
+      "label": "IDE Extensions",
+      "pos": [
+        40,
+        225
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "mobile",
+      "type": "frontend",
+      "label": "Mobile App",
+      "pos": [
+        40,
+        340
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "appservice",
+      "type": "cloud",
+      "label": "Azure Container Apps",
+      "sublabel": "(consumption, scale-to-zero)",
+      "tag": "Compute",
+      "pos": [
+        380,
+        215
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "cosmos",
+      "type": "database",
+      "label": "Azure Cosmos DB (serverless)",
+      "sublabel": "tasks, sessions, annotations, devices, pairingCodes containers, change feed per replica container",
+      "tag": "Data",
+      "pos": [
+        710,
+        110
+      ],
+      "size": [
+        480,
+        80
+      ]
+    },
+    {
+      "id": "keyvault",
+      "type": "security",
+      "label": "Azure Key Vault",
+      "sublabel": "webhook secrets, OAuth tokens",
+      "tag": "Data",
+      "pos": [
+        750,
+        230
+      ],
+      "size": [
+        440,
+        80
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "Azure Storage (Standard LRS)",
+      "sublabel": "private container attachments, 30-day lifecycle rule",
+      "tag": "Data",
+      "pos": [
+        750,
+        350
+      ],
+      "size": [
+        440,
+        80
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub",
+      "sublabel": "webhooks in",
+      "pos": [
+        380,
+        530
+      ],
+      "size": [
+        180,
+        70
+      ]
+    },
+    {
+      "id": "fcm",
+      "type": "external",
+      "label": "Firebase Cloud Messaging",
+      "sublabel": "Android push",
+      "pos": [
+        750,
+        530
+      ],
+      "size": [
+        350,
+        80
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Clients",
+      "wraps": [
+        "desktop",
+        "ide",
+        "mobile"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Azure",
+      "wraps": [
+        "appservice",
+        "cosmos",
+        "keyvault",
+        "storage"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "External",
+      "wraps": [
+        "github",
+        "fcm"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "desktop-sync",
+      "from": "desktop",
+      "to": "appservice",
+      "label": "HTTPS — state sync"
+    },
+    {
+      "id": "ide-sync",
+      "from": "ide",
+      "to": "appservice",
+      "label": "HTTPS — state sync",
+      "labelDy": 11
+    },
+    {
+      "id": "mobile-sync",
+      "from": "mobile",
+      "to": "appservice",
+      "label": "HTTPS — sync and offline flush"
+    },
+    {
+      "id": "appservice-cosmos",
+      "from": "appservice",
+      "to": "cosmos",
+      "label": "Managed identity — data-plane role",
+      "labelAt": [
+        635,
+        204
+      ]
+    },
+    {
+      "id": "appservice-keyvault",
+      "from": "appservice",
+      "to": "keyvault"
+    },
+    {
+      "id": "appservice-storage",
+      "from": "appservice",
+      "to": "storage",
+      "label": "Managed identity — Blob Data Contributor",
+      "labelAt": [
+        655,
+        330
+      ]
+    },
+    {
+      "id": "webhooks-in",
+      "from": "github",
+      "to": "appservice",
+      "label": "Webhook events"
+    },
+    {
+      "id": "android-push",
+      "from": "appservice",
+      "to": "fcm",
+      "label": "Android push",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "push-notification",
+      "from": "fcm",
+      "to": "mobile",
+      "label": "Notification",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          925,
+          660
+        ],
+        [
+          115,
+          660
+        ]
+      ],
+      "labelAt": [
+        520,
+        655
+      ]
+    }
+  ]
+}

@@ -27,6 +27,20 @@
         <Alert Message="@ConflictMessage" Role="status" TestId="brain-pane-conflict" />
     </Story>
 
+    <Story Name="A note's tasks"
+           Description="Under a Brain note's links into devbooks, the tasks its tasks field names, each a TaskLinkChip. A task this backlog holds is a gold chip reading its title, and pressing it opens the task. A task id it has not got is a dashed chip reading not in this backlog, never an error: one Brain is read beside more than one backlog."
+           Code="@TaskChipsCode">
+        <TaskLinkChip Label="Ship the Brain badge" Reference="6f9619ff-8b86-d011-b42d-00c04fc964ff" Resolved="true" OnOpen="_ => { }" TestId="brain-pane-task-known" />
+        <TaskLinkChip Label="0c8a1b4e-2f6d-4a37-9c11-5e0b7d3f2a90" Reference="0c8a1b4e-2f6d-4a37-9c11-5e0b7d3f2a90" TestId="brain-pane-task-unknown" />
+    </Story>
+
+    <Story Name="Brain notes on a task row"
+           Description="BrainNotesBadge, after a task row's other badges in a repository scope or the Brain scope: a teal ◆ n note in the Brain's band painting, counting the owner's Brain notes that name the task. With one note, pressing it opens the note in the Devbook pane, Brain side; with several, it lists them. Its name says only you see this — the notes are read from the owner's own Brain, so another reader of the backlog sees no badge."
+           Code="@NotesBadgeCode">
+        <BrainNotesBadge Notes="@OneNote" OnOpen="_ => { }" TestId="brain-pane-notes-one" />
+        <BrainNotesBadge Notes="@TwoNotes" OnOpen="_ => { }" TestId="brain-pane-notes-two" />
+    </Story>
+
     <Story Name="First use"
            Description="The pane on a Brain with no folder set. No tabs and no menu: an EmptyState in the status role whose action links to the Brain card on Settings › Storage, the one place the folder is chosen. A folder that is set and missing says what is wrong in an Alert instead, in the Brain source's own words."
            Code="@FirstUseCode">
@@ -45,11 +59,25 @@
     private static readonly DesignGuideline[] Rules =
     [
         new("color-scheme.md#the-brains-accent", "The band 2 painting the badge wears, and why the word always goes with it."),
+        new("color-scheme.md#badge-and-chip-tones", "Why a task chip that opens something is gold, and an unresolved one dashed and quiet."),
         new("interaction-guidelines.md#group-shape-says-cardinality", "Why a choice of one of two is a radio group and not two independent toggles."),
         new("interaction-guidelines.md#empty-loading-and-error-states", "What the pane says while there is no Brain to read, and where the way forward goes.")
     ];
 
     private bool _showsBrain = true;
+
+    private static readonly BrainNoteLink[] OneNote = [new("projects/plan.md", "Plan")];
+
+    private static readonly BrainNoteLink[] TwoNotes = [new("projects/plan.md", "Plan"), new("work/standup.md", "Standup")];
+
+    private const string TaskChipsCode = """
+        <TaskLinkChip Label="@title" Reference="@raw" Resolved="true" OnOpen="OpenTaskAsync" />
+        <TaskLinkChip Label="@raw" Reference="@raw" />
+        """;
+
+    private const string NotesBadgeCode = """
+        <BrainNotesBadge Notes="@notes" OnOpen="OnOpenBrainNote" TestId="entry-brain-notes" />
+        """;
 
     private const string ConflictMessage =
         "OneDrive kept two copies: projects/plan.md and projects/plan-LAPTOP.md. Neither file was changed — keep the one you want and delete the other.";

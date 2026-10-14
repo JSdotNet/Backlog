@@ -52,12 +52,17 @@ public sealed class TaskSyncClient
     /// <summary>
     /// Writes a batch of changes into this owner's replica.
     /// <para>
-    /// Safe to retry, and safe under the standard resilience handler's retries,
-    /// with no idempotency key: the replica upserts whole documents under
-    /// last-write-wins, so sending the same batch twice lands the same documents
-    /// in the same state. A key would buy nothing and would have to be stored
-    /// somewhere, which is a second piece of per-device state for a property the
-    /// write already has by construction.
+    /// Safe to send twice with no idempotency key: the replica upserts whole
+    /// documents under last-write-wins, so sending the same batch twice lands the
+    /// same documents in the same state. A key would buy nothing and would have to
+    /// be stored somewhere, which is a second piece of per-device state for a
+    /// property the write already has by construction.
+    /// </para>
+    /// <para>
+    /// The pipeline still does not send it twice. The second answer refuses every
+    /// item the first landed as not later, so its accepted count falls short of
+    /// what the replica holds; the registration gives this client one long attempt
+    /// and no retry on a push.
     /// </para>
     /// </summary>
     public async Task<Result<PushTasksResponse>> PushAsync(
