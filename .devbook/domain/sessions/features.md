@@ -817,6 +817,11 @@ related: [.devbook/design/effort-and-mode-chips.md#mode-chips]
 | fork | The session started the stage in a separate session that runs on its own. |
 | gate | The stage waited for a person to decide. |
 
+What a stage's latest pass found sits on its row beside the mode: Implement's and
+Review's round, the blockers Review left open, the defects Verify found, such as
+"round 2 · no blockers". A blocker left open or a defect found is drawn as an error; a
+stage that reported none of the three shows nothing, never a zero.
+
 Every stage shows its mode. A reader needs it to read the stage's figures: an inline stage
 shares the driving session's context and cost, while a delegated stage spends its own.
 How the mode is read, and when it is marked as inferred, is the
@@ -867,6 +872,10 @@ The panel says:
 - **Ran**: the mode, the agent or the owner session, the model and the effort, and the
   stage's output tokens and tool calls where the run counted them. A stage nobody has
   reported on reads "Not run yet".
+- **Found**: what the latest pass found, and, on Implement, Review and Verify, what the
+  run's [quality facts](domain.md#delivery-run) say across every pass: the review
+  rounds, the blockers left open over the rounds listed, the defects Verify found.
+  Left out where neither says anything.
 - **Configured**: the agent, model and effort the run resolved, and where that came
   from: the team default, or the team default with an overlay merged over it.
 - **Skill** and **MCP servers**: what the stage followed and was given, or "not recorded".
@@ -874,7 +883,8 @@ The panel says:
 - **Why ≠ or ?**: the difference or the inference in words.
 - **Sub-agents**: every sub-agent call the stage made, with its agent, model, time,
   tokens, tool calls and result, each left out where the run did not record it. A call
-  under the gate is marked as a [revise round](domain.md#revise-round). A delegated
+  under the gate is marked as a [revise round](domain.md#revise-round), with the round
+  it worked where the run lists one, and every other call names its round. A delegated
   stage whose calls the run did not record says so rather than claiming none ran.
 
 ## The cost of a run and its stages
@@ -1000,9 +1010,10 @@ One insight line sits under that line once the run has finished and five earlier
 its flow were priced. It names the run's ratio to the flow's median and the stage that
 explains most of the difference. If that stage was entered again, the line says how many
 times, for example "2.0× the usual flow-code run · Implement explains most of it: $5.00
-over its usual, entered again once". A typical run names no stage. The line wears the
-same bands as the ratios. Review rounds are to join the re-entry count once the run
-records them.
+over its usual, entered again once". Where that stage is Implement or Review, the line
+also names the run's review rounds, as in ", over 3 review rounds". A typical run names
+no stage. The line wears the same bands as the ratios. A run still active, blocked or
+parked has no line.
 
 The comparison is per flow and per stage because a review stage and an implement stage
 cost very different amounts. A run-wide average would flag every long run and explain
@@ -1125,10 +1136,10 @@ measure. Every other phase has none.
 | Phase | Quality measure | Read from |
 | --- | --- | --- |
 | Scope | Share of runs scoped again after Implement started | Scope marked done more than once, over the runs whose Implement started |
-| Implement | Mean review rounds | The highest round the run's Implement or Review reported |
-| Review | Blockers per round, and the defects that escaped to Verify | The blockers Review's round left open; the defects Verify found |
+| Implement | Mean review rounds | The most rounds a slice took, from the run's quality facts, else the highest round its Implement or Review reported |
+| Review | Blockers per round, and the defects that escaped to Verify | The blockers per round the quality facts list, else Review's latest round; the defects Verify found |
 | Build & Test | Share green first time | Build & Test marked done once |
-| Verify | Share of runs with a defect found | Verify's defects found, over the runs that reported a count |
+| Verify | Share of runs with a defect found | The escaped defects the quality facts filed under Verify, else Verify's latest pass, over the runs that reported either |
 
 A phase is matched by its name in any casing, so "Build and Test" is Build & Test. The
 measure is a mean over the runs that reported what it is read from. A run that reported
@@ -1144,7 +1155,9 @@ type: sub-feature
 The round, the blockers and the defects come from what the delivery phases report on a
 stage (see [Delivery Run](domain.md#delivery-run)). Only the phase that reviews or verifies
 the work knows them, so this product records what is reported and works out none of the
-three itself. Each count describes the stage's latest pass.
+three itself. Each stage count describes the stage's latest pass, so where the run
+carries its cumulative quality facts those are read first, and the stage counts are the
+fallback for a run without them.
 
 ### The verdict per phase
 

@@ -358,8 +358,16 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         string? summary = null,
         [Description("Optional. A devbook sync sweep's verdicts: the units rows of its devbook-sync-report block, verbatim. Backlog keeps the latest verdict per chapter. Omit for a run that verified nothing.")]
         IReadOnlyList<SyncUnitVerdictInput>? verdicts = null,
-        CancellationToken cancellationToken = default) =>
-        surface.FinishRunAsync(worktree, runId, status, summary, Projections.Verdicts(verdicts), cancellationToken);
+        [Description("Optional. A JSON object: the run's Quality Facts as totals — reviewRounds { reportedBy, total, slices[{ slice, rounds }] }, blockers { reportedBy, rule { open, fixed }, bug { open, fixed }, rounds[{ slice, round, rule, bug }] } and escapedDefects { total, items[{ foundAt, summary }] }. Kept verbatim, replacing an earlier one; anything but an object is refused.")]
+        JsonElement? quality = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Before the port, so a refused quality leaves the run open rather than
+        // finished without it.
+        var facts = ObjectOrRefuse(quality, nameof(quality));
+
+        return surface.FinishRunAsync(worktree, runId, status, summary, Projections.Verdicts(verdicts), facts, cancellationToken);
+    }
 
     /// <summary>Every run this machine has recorded for one worktree.</summary>
     [McpServerTool(

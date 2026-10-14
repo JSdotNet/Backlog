@@ -809,14 +809,17 @@ public static class DeliveryEconomics
     }
 
     /// <summary>
-    /// The implement ⇄ review rounds a run took: the highest round its Implement or
-    /// Review reported, or null where neither reported one. Never counted from the
-    /// stages' passes: the delivery phases report it, and this product works out none of
-    /// it itself.
+    /// The implement ⇄ review rounds a run took: the most rounds any one slice took,
+    /// from the run's cumulative Quality Facts where it carries them, else the highest
+    /// round its Implement or Review reported, or null where neither said. Never counted
+    /// from the stages' passes: the delivery phases report it, and this product works
+    /// out none of it itself.
     /// </summary>
     public static int? RoundsOf(DeliveryRun run)
     {
         ArgumentNullException.ThrowIfNull(run);
+
+        if (run.Quality?.HighestSliceRounds is { } highest) return highest;
 
         var reported = run.Stages
             .Where(stage => MeasureOf(stage.Name) is DeliveryQualityMeasure.ReviewRounds or DeliveryQualityMeasure.BlockersPerRound)
@@ -827,9 +830,31 @@ public static class DeliveryEconomics
         return reported.Count == 0 ? null : reported.Max();
     }
 
-    /// <summary>The defects a run's Verify found that review had passed, or null where its
-    /// Verify reported no count.</summary>
-    private static int? VerifyDefectsOf(DeliveryRun run) =>
+    /// <summary>
+    /// Every Review pass the run made, over every slice: the Quality Facts' total where
+    /// the run carries it, else the highest round its Implement or Review reported, or
+    /// null where neither said.
+    /// </summary>
+    public static int? ReviewRoundsOf(DeliveryRun run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+
+        return run.Quality?.ReviewRounds ?? RoundsOf(run);
+    }
+
+    /// <summary>
+    /// The defects a run's Verify found that review had passed, over every pass: the
+    /// escaped defects the run's Quality Facts filed under Verify, else what its Verify
+    /// stage's latest pass reported, or null where neither said.
+    /// </summary>
+    public static int? VerifyDefectsOf(DeliveryRun run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+
+        return run.Quality?.VerifyDefects ?? StageVerifyDefects(run);
+    }
+
+    private static int? StageVerifyDefects(DeliveryRun run) =>
         run.Stages.FirstOrDefault(stage => MeasureOf(stage.Name) is DeliveryQualityMeasure.DefectFound && stage.DefectsFound is not null)?.DefectsFound;
 
     /// <summary>
@@ -845,9 +870,9 @@ public static class DeliveryEconomics
             ? stage.DoneCount > 1 ? 1 : 0
             : null,
         DeliveryQualityMeasure.ReviewRounds => RoundsOf(run),
-        DeliveryQualityMeasure.BlockersPerRound => stage.Blockers,
+        DeliveryQualityMeasure.BlockersPerRound => run.Quality?.BlockersPerRound ?? stage.Blockers,
         DeliveryQualityMeasure.GreenFirstTime => stage.DoneCount == 1 ? 1 : 0,
-        DeliveryQualityMeasure.DefectFound => stage.DefectsFound is { } found ? found > 0 ? 1 : 0 : null,
+        DeliveryQualityMeasure.DefectFound => VerifyDefectsOf(run) is { } found ? found > 0 ? 1 : 0 : null,
         _ => null
     };
 

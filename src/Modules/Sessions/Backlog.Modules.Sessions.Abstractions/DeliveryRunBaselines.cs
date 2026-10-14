@@ -62,18 +62,22 @@ public sealed record StageCostAgainstUsual(CostFigure Cost, double? Share, CostA
 /// <param name="StageUsual">That stage's comparison.</param>
 /// <param name="StageDifferenceUsdMicros">That stage's cost less its median.</param>
 /// <param name="ReEntries">How many times the stage was entered again after it first
-/// finished — the implement–review loop and every revise round — from its done count.
-/// Review rounds join it once the run records them.</param>
+/// finished — the implement–review loop and every revise round — from its done count.</param>
+/// <param name="ReviewRounds">The review rounds behind that stage, where it is
+/// Implement or Review and the run reported them
+/// (<see cref="DeliveryEconomics.ReviewRoundsOf"/>); null for every other stage and
+/// where nothing was reported.</param>
 public sealed record DeliveryRunCostInsight(
     string SkillId,
     CostAgainstUsual Usual,
     string? Stage,
     CostAgainstUsual? StageUsual,
     decimal StageDifferenceUsdMicros,
-    int ReEntries)
+    int ReEntries,
+    int? ReviewRounds = null)
 {
     /// <summary>The line, such as "2.1× the usual flow-code run · Implement explains most
-    /// of it: $3.40 over its usual, entered again twice".</summary>
+    /// of it: $3.40 over its usual, entered again twice, over 3 review rounds".</summary>
     public string Text
     {
         get
@@ -94,7 +98,14 @@ public sealed record DeliveryRunCostInsight(
                 var times => $", entered again {times} times"
             };
 
-            return $"{head} · {Stage} explains most of it: {amount} {over} its usual{loop}";
+            var rounds = ReviewRounds switch
+            {
+                null => "",
+                1 => ", over 1 review round",
+                var count => $", over {count} review rounds"
+            };
+
+            return $"{head} · {Stage} explains most of it: {amount} {over} its usual{loop}{rounds}";
         }
     }
 }
@@ -106,7 +117,7 @@ public sealed record DeliveryRunCostInsight(
 /// was priced.</param>
 /// <param name="Stages">One per stage in run order, null where the stage was not
 /// priced.</param>
-/// <param name="Insight">The insight line, or null while the run is under way, or where
+/// <param name="Insight">The insight line, or null until the run has finished, or where
 /// fewer than <see cref="DeliveryRunBaselines.MinimumRuns"/> earlier runs were priced.</param>
 public sealed record DeliveryRunCostComparison(
     CostFigure? Total,
@@ -138,7 +149,7 @@ public sealed record PricedDeliveryRun(DeliveryRun Run, IReadOnlyList<DeliveryRu
 /// <item><b>Bands.</b> 0.8× or below is <see cref="CostBand.Lower"/>; within 5% of the
 /// median <see cref="CostBand.Typical"/>; 1.5× and up <see cref="CostBand.Higher"/>;
 /// the rest <see cref="CostBand.Plain"/>.</item>
-/// <item><b>Insight.</b> Once the run has left in-progress: its total against the
+/// <item><b>Insight.</b> Once the run has finished: its total against the
 /// median total of the earlier runs that finished and priced every stage this run
 /// priced, over those same stages — like for like — and the stage whose cost less its own median is largest in the
 /// direction the run moved — above when the run cost more, below when it cost less.</item>
@@ -317,7 +328,9 @@ public static class DeliveryRunBaselines
         IReadOnlyDictionary<int, CostAgainstUsual> medians,
         IReadOnlyList<PricedDeliveryRun> window)
     {
-        if (run.InProgress || total is null) return null;
+        // Only once the run has finished: an active, running, blocked or parked run is
+        // still owed the stages that would move its total.
+        if (!Finished(run.Status) || total is null) return null;
 
         // Like for like: an earlier run's total is the same stages this run priced, and
         // only a run that finished and priced every one of them is a sample. Summed
@@ -381,6 +394,10 @@ public static class DeliveryRunBaselines
 
         var stage = run.Stages[chosen];
 
-        return new DeliveryRunCostInsight(run.SkillId, usual, stage.Name, medians[chosen], pickDifference, Math.Max(0, stage.DoneCount - 1));
+        var reviewRounds = DeliveryEconomics.MeasureOf(stage.Name) is DeliveryQualityMeasure.ReviewRounds or DeliveryQualityMeasure.BlockersPerRound
+            ? DeliveryEconomics.ReviewRoundsOf(run)
+            : null;
+
+        return new DeliveryRunCostInsight(run.SkillId, usual, stage.Name, medians[chosen], pickDifference, Math.Max(0, stage.DoneCount - 1), reviewRounds);
     }
 }

@@ -703,6 +703,35 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
     }
 
     [Fact]
+    public async Task A_run_closed_with_its_quality_facts_keeps_them_and_reads_them_back_over_the_run_context()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+        var ct = TestContext.Current.CancellationToken;
+
+        // While under way, the flow-runner keeps the running count in the run context.
+        await surface.SetRunContextAsync(
+            Worktree,
+            started.RunId,
+            runContext: new JsonObject { ["quality"] = JsonNode.Parse("""{"reviewRounds":{"total":1}}""") },
+            cancellationToken: ct);
+
+        Assert.Equal(1, (await surface.GetRunAsync(Worktree, started.RunId, ct))!.Quality!.ReviewRounds);
+
+        // finish_run's totals win, and a later one replaces the earlier whole.
+        await surface.FinishRunAsync(Worktree, started.RunId, "done", quality: JsonNode.Parse("""{"reviewRounds":{"total":2},"escapedDefects":{"total":0}}""")!.AsObject(), cancellationToken: ct);
+        await surface.FinishRunAsync(Worktree, started.RunId, "done", quality: JsonNode.Parse("""{"reviewRounds":{"total":3}}""")!.AsObject(), cancellationToken: ct);
+
+        var run = await surface.GetRunAsync(Worktree, started.RunId, ct);
+        Assert.Equal(3, run!.Quality!.ReviewRounds);
+        Assert.Null(run.Quality.EscapedDefects);
+
+        // A finish without quality keeps what was there.
+        await surface.FinishRunAsync(Worktree, started.RunId, "done", cancellationToken: ct);
+        Assert.Equal(3, (await surface.GetRunAsync(Worktree, started.RunId, ct))!.Quality!.ReviewRounds);
+    }
+
+    [Fact]
     public async Task A_sweep_closes_its_run_with_verdicts_the_run_keeps_and_the_chapters_get()
     {
         var verdicts = new DevbookSyncVerdictStore(_home);
@@ -724,7 +753,7 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
             "done",
             "One group captured.",
             [SessionsUnit("code-ahead", "https://github.com/JSdotNet/Backlog/pull/950")],
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         // On the run, verbatim, as the reader hands it to the pane.
         var run = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);

@@ -426,12 +426,16 @@ public interface IDeliverySurfaceLifecycle
     /// <param name="verdicts">A devbook sweep's verdict rows, kept on the run verbatim
     /// and, where the host keeps chapter verdicts, recorded as the latest verdict of
     /// every chapter they name. Null or empty for a run that verified nothing.</param>
+    /// <param name="quality">The run's Quality Facts as their totals — review rounds,
+    /// blockers, escaped defects — kept at the run's root under <c>quality</c>,
+    /// verbatim, and replacing an earlier one whole. Null keeps what was there.</param>
     Task FinishRunAsync(
         string worktree,
         string runId,
         string status,
         string? summary = null,
         IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null,
+        JsonObject? quality = null,
         CancellationToken cancellationToken = default);
 
     /// <summary><c>list_runs</c> — the runs filed under one worktree, most recently

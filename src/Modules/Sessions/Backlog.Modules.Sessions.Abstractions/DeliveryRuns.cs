@@ -134,6 +134,14 @@ public sealed record DeliveryRun(
     /// </summary>
     public string? RunContext { get; init; }
 
+    /// <summary>
+    /// The run's cumulative Quality Facts — review rounds, blockers per round, escaped
+    /// defects — as <c>finish_run</c> or <c>runContext.quality</c> stated them, or null
+    /// where the run file holds neither: every run from before the delivery phases sent
+    /// them. Where it is null, a reader falls back to the stages' own counts.
+    /// </summary>
+    public DeliveryQualityFacts? Quality { get; init; }
+
     /// <summary>Whether a schedule fired the run rather than a person.</summary>
     public bool Scheduled => string.Equals(Trigger, DeliveryRunTriggers.Scheduled, StringComparison.OrdinalIgnoreCase);
 
