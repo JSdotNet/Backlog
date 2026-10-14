@@ -185,7 +185,10 @@ related: [.devbook/domain/dev-pc-management/requirements.md#overview-tab]
 
 Read every kind at once. Four headline figures lead: how many entries match the
 catalog out of how many this machine wants, with the share that is matching,
-behind, missing and not confirmed; how many are behind, by host; how many are
+behind, missing and not confirmed; how many are behind, by host — each entry
+counted once, under the one host it is for or the one that reports it behind,
+under Both when it is for both and both or neither say, or as the machine's own
+software, so the lines add up to the figure; how many are
 missing, and how many of those can be installed from here rather than by hand; and
 how many cached plugin versions nothing loads any more. Under them, Needs you lists
 every entry that needs action, updates first, then missing entries, then
@@ -195,7 +198,10 @@ clear the cache — and says that everything matches the catalog when nothing is
 left. Beside it, one bar per kind says how many of that kind's entries match, and
 opens that kind's tab, and the last run this machine finished says how it ended,
 what it was, when, how many of its steps succeeded and how long it took, with the
-end of its transcript and the whole of it a click away. An entry switched off on
+end of its transcript and the whole of it a click away. The tab strip's "Last run
+transcript" opens that same whole transcript whenever there is a last run, after
+a restart too, before anything has run in this session; a tab opened from the
+Overview takes the keyboard focus with it, to that tab in the strip. An entry switched off on
 this machine, or one whose version could not be looked up, is left out of every
 figure. The host filter narrows every figure here as it does on the kind tabs.
 

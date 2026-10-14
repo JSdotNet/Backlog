@@ -41,6 +41,48 @@ public sealed class ToolsPaneOverviewTests
             pane.FindAll("[data-testid='tools-overview-updates-split'] li").Select(line => Squash(line.TextContent)));
     }
 
+    /// <summary>Every row behind counts on exactly one line, so the split adds up to
+    /// the tile: a row for both hosts goes to the one host that reports it, and to
+    /// Both when both or neither do.</summary>
+    [Fact]
+    public void The_updates_split_counts_each_row_once_and_adds_up_to_the_tile()
+    {
+        using var context = Context(BehindOnEveryHost());
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal("7", Text(pane, "tools-overview-tile-updates-value"));
+        Assert.Equal(
+            ["Copilot 2", "Claude 2", "Both 2", "Machine 1"],
+            pane.FindAll("[data-testid='tools-overview-updates-split'] li").Select(line => Squash(line.TextContent)));
+        Assert.Equal(7, SplitSum(pane));
+    }
+
+    /// <summary>Under a host filter the filter's host always shows, and a line it
+    /// would not show appears when it has a row — a both-hosts row only Copilot
+    /// reports, under Claude — so the split still adds up to the tile.</summary>
+    [Fact]
+    public void The_updates_split_under_a_host_filter_still_adds_up_to_the_tile()
+    {
+        using var context = Context(BehindOnEveryHost());
+        var pane = context.Render<ToolsPane>();
+
+        pane.Find("[data-testid='tools-host-claude']").Click();
+
+        Assert.Equal("5", Text(pane, "tools-overview-tile-updates-value"));
+        Assert.Equal(
+            ["Copilot 1", "Claude 2", "Both 2"],
+            pane.FindAll("[data-testid='tools-overview-updates-split'] li").Select(line => Squash(line.TextContent)));
+        Assert.Equal(5, SplitSum(pane));
+
+        pane.Find("[data-testid='tools-host-copilot']").Click();
+
+        Assert.Equal("5", Text(pane, "tools-overview-tile-updates-value"));
+        Assert.Equal(
+            ["Copilot 2", "Claude 1", "Both 2"],
+            pane.FindAll("[data-testid='tools-overview-updates-split'] li").Select(line => Squash(line.TextContent)));
+        Assert.Equal(5, SplitSum(pane));
+    }
+
     /// <summary>Missing counts the rows the machine is short of, and how many of them
     /// install from here against by hand.</summary>
     [Fact]
@@ -206,6 +248,21 @@ public sealed class ToolsPaneOverviewTests
         Assert.Equal("true", pane.Find("[data-testid='tools-tab-applications']").GetAttribute("aria-selected"));
     }
 
+    /// <summary>The link went with the Overview panel it was in, so focus goes to the
+    /// tab it opened rather than falling to the document.</summary>
+    [Fact]
+    public void The_see_how_link_takes_focus_to_the_tab_it_opens()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Application("dev-drive", "Dev Drive configured", installed: false, installable: false, installedVersion: "not installed") with { Source = "command" }));
+        context.JSInterop.SetupVoid(FocusIdentifier, _ => true);
+        var pane = context.Render<ToolsPane>();
+
+        Card(pane, "app:dev-drive").QuerySelector("[data-testid='tools-overview-need-open-tab']")!.Click();
+
+        AssertFocused(context, pane, "tools-tab-applications");
+    }
+
     /// <summary>A catalog that names a download page is linked to it, for a row
     /// that had no page to derive and for one whose derived page it replaces.</summary>
     [Fact]
@@ -295,6 +352,20 @@ public sealed class ToolsPaneOverviewTests
         pane.Find("[data-testid='tools-overview-kind-checklist']").Click();
 
         Assert.Equal("true", pane.Find("[data-testid='tools-tab-checklist']").GetAttribute("aria-selected"));
+    }
+
+    /// <summary>A By kind link is in the Overview panel it hides, so focus goes to
+    /// the tab it opened.</summary>
+    [Fact]
+    public void A_by_kind_link_takes_focus_to_the_tab_it_opens()
+    {
+        using var context = Context(Mixed());
+        context.JSInterop.SetupVoid(FocusIdentifier, _ => true);
+        var pane = context.Render<ToolsPane>();
+
+        pane.Find("[data-testid='tools-overview-kind-checklist']").Click();
+
+        AssertFocused(context, pane, "tools-tab-checklist");
     }
 
     // ------------------------------------------------------------ host filter
@@ -416,6 +487,45 @@ public sealed class ToolsPaneOverviewTests
 
     private static DevToolInfo Behind(string key, string name, DevToolHosts hosts) =>
         Tool(key, name) with { Hosts = hosts, AvailableVersion = "1.1.0" };
+
+    /// <summary>Seven rows behind: one each on Copilot and on Claude Desktop alone;
+    /// four for both hosts — reported by Copilot, by Claude, by both, and by
+    /// neither (no host states) — and one machine application.</summary>
+    private static FakeDevToolService BehindOnEveryHost() => FakeDevToolService.With(
+        Behind("plugin:copilot-only", "copilot-only", DevToolHosts.Copilot),
+        Behind("plugin:claude-only", "claude-only", DevToolHosts.ClaudeDesktop),
+        BehindOnBoth("plugin:copilot-reports", copilotBehind: true, claudeBehind: false),
+        BehindOnBoth("plugin:claude-reports", copilotBehind: false, claudeBehind: true),
+        BehindOnBoth("plugin:both-report", copilotBehind: true, claudeBehind: true),
+        Behind("plugin:silent", "silent", DevToolHosts.Default),
+        Application("Microsoft.PowerShell", "PowerShell", installedVersion: "7.4.0", availableVersion: "7.5.0"));
+
+    private static DevToolInfo BehindOnBoth(string key, bool copilotBehind, bool claudeBehind) =>
+        Behind(key, key["plugin:".Length..], DevToolHosts.Default) with
+        {
+            HostStates =
+            [
+                new DevToolHostState(DevToolHosts.Copilot, Installed: true, copilotBehind ? "1.0.0" : "1.1.0", "1.1.0", "Installed"),
+                new DevToolHostState(DevToolHosts.Claude, Installed: true, claudeBehind ? "1.0.0" : "1.1.0", "1.1.0", "Installed")
+            ]
+        };
+
+    private static int SplitSum(IRenderedComponent<ToolsPane> pane) =>
+        pane.FindAll("[data-testid='tools-overview-updates-split'] .tools-overview__line-figure")
+            .Sum(figure => int.Parse(figure.TextContent.Trim(), System.Globalization.CultureInfo.InvariantCulture));
+
+    private const string FocusIdentifier = "Blazor._internal.domWrapper.focus";
+
+    /// <summary>The tab is on show and focus moved exactly once. Which element it
+    /// went to is the strip's own test: bUnit leaves the reference attribute empty on
+    /// a tab the strip captures into its array, so it cannot be matched here.</summary>
+    private static void AssertFocused(BunitContext context, IRenderedComponent<ToolsPane> pane, string tabTestId)
+    {
+        pane.WaitForAssertion(() =>
+            Assert.Equal("true", pane.Find($"[data-testid='{tabTestId}']").GetAttribute("aria-selected")));
+
+        Assert.Single(context.JSInterop.Invocations[FocusIdentifier]);
+    }
 
     private static DevToolInfo Cached(int stale, int inUse) =>
         Tool("plugin:devbook", "devbook") with
