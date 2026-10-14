@@ -31,7 +31,7 @@ back, the eyebrow over the headline, and the saved chip beside the search.
 
 | Part | What it shows | Rule |
 |---|---|---|
-| Panel | `border-radius-lg`, `color-background-alt` mixed into `color-background`, `shadow-md` | A settings page MUST NOT draw a panel of its own inside the frame. |
+| Panel | `border-radius-lg`, `color-background-alt` mixed into `color-background`, `shadow-md` | A settings page MUST NOT draw a panel of its own inside the frame: the page's region in the content slot has no border, radius, padding or surface, so its cards sit directly on the panel. |
 | Way back | An arrow, 44 × 44 px, to the tasks | Its accessible name MUST be said in words (`Back to your tasks`); the arrow is `aria-hidden`. |
 | Eyebrow | `Settings · <group>`, from `SettingsPages.Eyebrow` | The group half MUST be the menu group's label, so the eyebrow and the menu never disagree. |
 | Headline | The frame's `h1`, one sentence | See *Headline*. |
@@ -333,7 +333,7 @@ The checklist a module's page meets, each item from a chapter above:
 
 | Rule | Materialized in |
 |---|---|
-| Panel, header, headline outlet, saved chip, phone-width switch | `SettingsFrame.razor`, `SettingsHeadline.razor`, the `settings-frame` rules in `components.css` |
+| Panel, header, headline outlet, saved chip, phone-width switch | `SettingsFrame.razor`, `SettingsHeadline.razor`, the `settings-frame` rules in `components.css`; the unframed page region is `.settings-frame__content > .setting` in the app's `app.css` |
 | Menu groups, links, badges, matched cards | `SettingsMenuGroup.razor`, `SettingsMenuItem.cs`, `SettingsPages.Menu` |
 | Search over declared titles, card fragments | `SettingsSearch.razor`, `SettingsPages.Find`, `SettingsPages.CardFragment`, `backlogRevealSettingsCard` in `components.js` |
 | Off state, badge values | `Settings.razor`, `SettingsBadges.cs` |
