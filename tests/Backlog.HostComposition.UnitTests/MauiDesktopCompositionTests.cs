@@ -395,5 +395,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         }
 
         public string EnsureToken() => string.Empty;
+
+        public string? CurrentToken => null;
     }
 }

@@ -179,6 +179,14 @@ public sealed class DevToolService : IDevToolService
     {
     }
 
+    /// <summary>A catalog at <paramref name="configPath"/> beside this machine's
+    /// MCP server, with no store. Internal: only a test needs both at once, to
+    /// prove what the last run is kept with.</summary>
+    internal DevToolService(string configPath, IMcpEndpointSource? mcp)
+        : this(null, mcp, null, configPath)
+    {
+    }
+
     private DevToolService(ITaskStore? store, IMcpEndpointSource? mcp, ILogger<DevToolService>? logger, string? configPath)
     {
         _store = store;
@@ -1383,7 +1391,10 @@ public sealed class DevToolService : IDevToolService
 
         try
         {
-            await DevToolLastRunStore.WriteAsync(ConfigurationPaths.LastRunPath, run, ct).ConfigureAwait(false);
+            // This machine's token by value, read and never minted: a run that
+            // minted nothing never seeded it into the command log, yet
+            // `claude mcp get` still echoes the Headers: block it is registered with.
+            await DevToolLastRunStore.WriteAsync(ConfigurationPaths.LastRunPath, run, [_mcp?.CurrentToken], ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
