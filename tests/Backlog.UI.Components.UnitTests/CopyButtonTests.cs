@@ -349,4 +349,64 @@ public sealed class CopyButtonTests
         Assert.Equal("Copied", button.Find("[data-testid='status']").TextContent);
         Assert.Equal("true", button.Find(".copy-button").GetAttribute("data-copied"));
     }
+
+    /// <summary>Given HTML, the copy carries it beside the text — <c>text/html</c> and
+    /// <c>text/plain</c> in one clipboard write — so a table pastes as a table.</summary>
+    [Fact]
+    public void A_copy_with_html_hands_over_the_html_and_the_text_together()
+    {
+        using var context = new BunitContext();
+        var rich = context.JSInterop.Setup<bool>("backlogClipboard.copyRich", _ => true);
+        rich.SetResult(true);
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "a\tb")
+            .Add(c => c.Html, "<table><tr><td>a</td><td>b</td></tr></table>")
+            .Add(c => c.ButtonTestId, "copy")
+            .Add(c => c.StatusTestId, "status"));
+
+        button.Find("[data-testid='copy']").Click();
+
+        var invocation = Assert.Single(rich.Invocations);
+        Assert.Equal(["<table><tr><td>a</td><td>b</td></tr></table>", "a\tb"], invocation.Arguments);
+        Assert.Equal("Copied", button.Find("[data-testid='status']").TextContent);
+    }
+
+    /// <summary>With no HTML the copy is the text alone, through the call it always
+    /// made: every host from before the HTML option copies as it did.</summary>
+    [Fact]
+    public void A_copy_without_html_hands_over_the_text_alone()
+    {
+        using var context = new BunitContext();
+        var plain = context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true);
+        plain.SetResult(true);
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Only words.")
+            .Add(c => c.ButtonTestId, "copy"));
+
+        button.Find("[data-testid='copy']").Click();
+
+        Assert.Equal(["Only words."], Assert.Single(plain.Invocations).Arguments);
+        Assert.Contains("btn--icon", button.Find("[data-testid='copy']").ClassName, StringComparison.Ordinal);
+    }
+
+    /// <summary>A host drawing the copy as a worded button swaps the icon button's base
+    /// class for its own.</summary>
+    [Fact]
+    public void A_worded_copy_takes_the_host_s_button_class()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Words.")
+            .Add(c => c.ButtonBaseClass, "btn btn--ghost btn--small")
+            .Add(c => c.ButtonTestId, "copy")
+            .AddChildContent("Copy as table"));
+
+        var control = button.Find("[data-testid='copy']");
+        Assert.Equal("btn btn--ghost btn--small", control.ClassName);
+        Assert.Equal("Copy as table", control.TextContent.Trim());
+    }
 }
