@@ -29,6 +29,9 @@ public static class SprintTableClipboard
     /// <summary>The column headings, in order.</summary>
     public static IReadOnlyList<string> Columns { get; } = ["Plan", "Item", "Status", "Pull requests", "Owner", "Note"];
 
+    /// <summary>The heading of the column the sprint review adds.</summary>
+    public const string ResultColumn = "Result";
+
     private const string NoPlan = "No plan";
 
     /// <summary>Line breaks in the plain text are Windows', where PowerPoint and Outlook
@@ -51,19 +54,32 @@ public static class SprintTableClipboard
 
     /// <summary>The table over <paramref name="rows"/>, the plans an "in these plans" goal
     /// rule names leading.</summary>
-    public static SprintTable Build(IEnumerable<SprintBoardRow> rows, IReadOnlyCollection<string> goalPlans)
+    public static SprintTable Build(IEnumerable<SprintBoardRow> rows, IReadOnlyCollection<string> goalPlans) =>
+        Build(rows, goalPlans, result: null);
+
+    /// <summary>
+    /// The table over <paramref name="rows"/> with a last <see cref="ResultColumn"/>
+    /// column when <paramref name="result"/> is given: what became of each item — the
+    /// sprint review that closing a sprint copies
+    /// (<c>.devbook/domain/progress/features.md#closing-a-sprint</c>).
+    /// </summary>
+    public static SprintTable Build(
+        IEnumerable<SprintBoardRow> rows,
+        IReadOnlyCollection<string> goalPlans,
+        Func<SprintBoardRow, string>? result)
     {
         ArgumentNullException.ThrowIfNull(rows);
         ArgumentNullException.ThrowIfNull(goalPlans);
 
         var groups = SprintBoardRules.Group(rows, goalPlans, byPlan: true);
+        IReadOnlyList<string> columns = result is null ? Columns : [.. Columns, ResultColumn];
 
         var html = new StringBuilder();
         html.Append($"<table style=\"{TableStyle}\"><thead><tr>");
-        foreach (var column in Columns) html.Append($"<th style=\"{HeadStyle}\">{column}</th>");
+        foreach (var column in columns) html.Append($"<th style=\"{HeadStyle}\">{column}</th>");
         html.Append("</tr></thead><tbody>");
 
-        var text = new StringBuilder(string.Join('\t', Columns));
+        var text = new StringBuilder(string.Join('\t', columns));
 
         foreach (var group in groups)
         {
@@ -79,16 +95,21 @@ public static class SprintTableClipboard
                     .Append(Cell($"<span style=\"color:{StatusColour(row)};font-weight:600\">{Encode(row.StatusText)}</span>"))
                     .Append(Cell(string.Join(", ", row.PullRequests.Select(PullRequestHtml))))
                     .Append(Cell(Encode(string.Join(", ", row.Owners))))
-                    .Append(Cell(Encode(Note(row))))
-                    .Append("</tr>");
+                    .Append(Cell(Encode(Note(row))));
+                if (result is not null) html.Append(Cell(Encode(result(row))));
+                html.Append("</tr>");
 
-                text.Append(NewLine).Append(string.Join('\t',
+                List<string> cells =
+                [
                     Flat(plan),
                     Flat(row.Title),
                     Flat(row.StatusText),
                     Flat(string.Join(", ", row.PullRequests.Select(PullRequestText))),
                     Flat(string.Join(", ", row.Owners)),
-                    Flat(Note(row))));
+                    Flat(Note(row))
+                ];
+                if (result is not null) cells.Add(Flat(result(row)));
+                text.Append(NewLine).Append(string.Join('\t', cells));
             }
         }
 

@@ -20720,3 +20720,119 @@ button.sprint-pr:focus-visible {
         justify-self: start;
     }
 }
+
+/* Closing a sprint (.devbook/domain/progress/features.md#closing-a-sprint): the review
+   figures, an outcome per unfinished item, the next goal and the review table. */
+.sprint-close-dialog {
+    width: min(46rem, calc(100vw - 2 * var(--spacing-md)));
+    max-width: 46rem;
+}
+
+.sprint-close-dialog__description {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-close-dialog__figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+}
+
+.sprint-close-dialog__figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.sprint-close-dialog__figure strong {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-close-dialog__figure span {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-close-dialog__verdict--met {
+    color: var(--color-success-text);
+}
+
+.sprint-close-dialog__verdict--missed {
+    color: var(--color-error-text);
+}
+
+.sprint-close-dialog__items {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--spacing-md);
+}
+
+.sprint-close-dialog__items-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+}
+
+.sprint-close-dialog__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-close-dialog__list {
+    max-height: 22rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.sprint-close-dialog__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 12rem;
+    gap: var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-xs) 0;
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.sprint-close-dialog__title {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.sprint-close-dialog__detail {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-close-dialog__choice {
+    display: block;
+    min-width: 0;
+}
+
+.sprint-close-dialog__choice .field__input {
+    width: 100%;
+}
+
+.sprint-close-dialog__copy {
+    margin-right: auto;
+}
+
+@media (max-width: 560px) {
+    .sprint-close-dialog__item {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

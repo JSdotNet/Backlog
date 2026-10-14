@@ -1,0 +1,173 @@
+@*
+    Closing the open sprint and starting the next one in one step
+    (.devbook/domain/progress/features.md#closing-a-sprint), drawn after the Close
+    artboard of the progress-sprints design.
+
+    It reviews the sprint — the goal met or not with the goal tasks done of their total,
+    all the work done of its total, and how much was added after the start — then lists
+    every unfinished item with what closing does with it: carried to the next sprint
+    (the default), back to the backlog, or dropped. "Set all to Sprint n" puts every item
+    back on carry. Below them the next sprint's goal, and in the footer the review as a
+    table (SprintTableClipboard with a Result column, which follows the choices as they
+    are made), Cancel, and Close and start Sprint n.
+
+    The choices start over at each opening. Close hands them back at once with the goal;
+    the host writes them through the module and closes the dialog, or keeps it open with
+    the module's refusal in Error. Nothing here changes a task, and the dialog says so.
+*@
+<Modal Open="Open"
+       OpenChanged="OpenChanged"
+       Title="@(Model is null ? "Close sprint" : $"Close {Model.SprintName}")"
+       CssClass="sprint-close-dialog"
+       TestId="@TestId">
+    <ChildContent>
+        @if (Model is { } model)
+        {
+            <p class="sprint-close-dialog__description" data-testid="sprint-close-subtitle">@model.Subtitle</p>
+
+            <div class="sprint-close-dialog__figures">
+                <div class="sprint-close-dialog__figure" data-testid="sprint-close-goal">
+                    <strong class="@(model.GoalMet ? "sprint-close-dialog__verdict sprint-close-dialog__verdict--met" : "sprint-close-dialog__verdict sprint-close-dialog__verdict--missed")"
+                            data-testid="sprint-close-goal-verdict">@SprintCloseRules.GoalVerdict(model)</strong>
+                    <span data-testid="sprint-close-goal-line">@SprintCloseRules.GoalLine(model)</span>
+                </div>
+                <div class="sprint-close-dialog__figure" data-testid="sprint-close-all">
+                    <strong>@SprintCloseRules.AllWorkFigure(model)</strong>
+                    <span>all sprint work done</span>
+                </div>
+                <div class="sprint-close-dialog__figure" data-testid="sprint-close-added">
+                    <strong>@model.AddedAfterStart</strong>
+                    <span>added after the start</span>
+                </div>
+            </div>
+
+            <section class="sprint-close-dialog__items" aria-labelledby="@_headingId">
+                <div class="sprint-close-dialog__items-head">
+                    <h3 id="@_headingId" class="sprint-close-dialog__heading" data-testid="sprint-close-unfinished-heading">@SprintCloseRules.UnfinishedHeading(model)</h3>
+                    @if (model.Unfinished.Count > 0)
+                    {
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   Size="ButtonSize.Small"
+                                   TestId="sprint-close-carry-all"
+                                   OnClick="CarryAll">Set all to @model.NextSprintName</AppButton>
+                    }
+                </div>
+                @if (model.Unfinished.Count > 0)
+                {
+                    <ul class="sprint-close-dialog__list">
+                        @foreach (var item in model.Unfinished)
+                        {
+                            <li @key="item.TaskId" class="sprint-close-dialog__item" data-testid="sprint-close-item" data-task-id="@item.TaskId">
+                                <span class="sprint-close-dialog__title">
+                                    @item.Title
+                                    @if (!string.IsNullOrWhiteSpace(item.Detail))
+                                    {
+                                        <small class="sprint-close-dialog__detail">@item.Detail</small>
+                                    }
+                                </span>
+                                <SelectField CurrentValue="@ChoiceOf(item).ToString()"
+                                             Options="@SprintCloseRules.Options(model.NextSprintName)"
+                                             Label="@($"{item.Title} goes to")"
+                                             BaseClass="sprint-close-dialog__choice"
+                                             SelectCssClass="field__input"
+                                             TestId="sprint-close-item-choice"
+                                             OnChanged="value => Choose(item, value)" />
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <TextField Label="@($"Goal for {model.NextSprintName}")"
+                       Value="@_goal"
+                       ValueChanged="value => _goal = value"
+                       Placeholder="What the next sprint is for"
+                       TestId="sprint-close-next-goal" />
+
+            <p class="sprint-close-dialog__description">Closing changes no task: a dropped item is recorded in @model.SprintName alone, and @model.SprintName stays readable from the sprint view.</p>
+            <Alert Message="@Error" TestId="sprint-close-error" />
+        }
+    </ChildContent>
+    <Footer>
+        @if (Model is { } model)
+        {
+            var review = SprintCloseRules.ReviewTable(model, _choices);
+            <CopyButton Text="@review.Text"
+                        Html="@review.Html"
+                        Label="Copy the review as a table"
+                        ButtonBaseClass="btn btn--secondary"
+                        CssClass="sprint-close-dialog__copy"
+                        StatusCssClass="copy-button__status"
+                        TestId="sprint-close-copy"
+                        ButtonTestId="sprint-close-copy-button"
+                        StatusTestId="sprint-close-copy-status">Copy the review as a table</CopyButton>
+            <AppButton Variant="ButtonVariant.Ghost" Disabled="Busy" OnClick="() => OpenChanged.InvokeAsync(false)" TestId="sprint-close-cancel">Cancel</AppButton>
+            <AppButton Variant="ButtonVariant.Primary"
+                       Busy="Busy"
+                       BusyLabel="Closing"
+                       OnClick="CloseAsync"
+                       TestId="sprint-close-confirm">Close and start @model.NextSprintName</AppButton>
+        }
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The sprint to close; null draws an empty dialog.</summary>
+    [Parameter]
+    public SprintCloseModel? Model { get; set; }
+
+    /// <summary>Close was pressed, with every unfinished item's choice and the next
+    /// sprint's goal.</summary>
+    [Parameter]
+    public EventCallback<SprintCloseDecision> OnClose { get; set; }
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Why the close was refused, in the module's words.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "sprint-close-dialog";
+
+    private readonly string _headingId = "sprint-close-" + Guid.NewGuid().ToString("N");
+    private Dictionary<string, SprintCloseChoice> _choices = [];
+    private string? _goal;
+    private bool _wasOpen;
+
+    protected override void OnParametersSet()
+    {
+        if (Open && !_wasOpen)
+        {
+            _choices = SprintCloseRules.CarryAll(Model?.Unfinished ?? []);
+            _goal = null;
+        }
+
+        _wasOpen = Open;
+    }
+
+    private SprintCloseChoice ChoiceOf(SprintCloseItem item) =>
+        _choices.TryGetValue(item.TaskId, out var choice) ? choice : SprintCloseChoice.Carry;
+
+    private void Choose(SprintCloseItem item, string? value)
+    {
+        if (Enum.TryParse<SprintCloseChoice>(value, out var choice)) _choices[item.TaskId] = choice;
+    }
+
+    private void CarryAll() => _choices = SprintCloseRules.CarryAll(Model?.Unfinished ?? []);
+
+    private Task CloseAsync()
+    {
+        if (Model is not { } model || Busy) return Task.CompletedTask;
+
+        var choices = model.Unfinished.DistinctBy(item => item.TaskId).ToDictionary(item => item.TaskId, ChoiceOf);
+        return OnClose.InvokeAsync(new SprintCloseDecision(choices, _goal?.Trim() ?? string.Empty));
+    }
+}

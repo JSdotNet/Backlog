@@ -35,6 +35,12 @@
     goal mark, the note and open question, and taking the task out. Each goes through
     ISprintSeriesPlanning, and the sprint is read again once it lands. A closed sprint
     draws no menu and no Add.
+
+    "Close sprint…" sits beside them on the open sprint
+    (.devbook/domain/progress/features.md#closing-a-sprint): SprintCloseDialog over the
+    last reading, written by SprintCloseMapper, and one CloseSprintAsync through
+    ISprintSeriesPlanning. Once it lands the view opens on the sprint it started; the
+    closed sprint is a step back, read-only like every closed one.
 *@
 
 @if (_series is { } series && SwitchName(series) is { } sprintName)
@@ -70,6 +76,14 @@
                                    Size="ButtonSize.Small"
                                    TestId="in-progress-sprint-add"
                                    OnClick="OpenPicker">Add to sprint…</AppButton>
+                    }
+                    @if (Writable is not null)
+                    {
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   Size="ButtonSize.Small"
+                                   TestId="in-progress-sprint-close"
+                                   Disabled="@(_model is null || _writing)"
+                                   OnClick="OpenClose">Close sprint…</AppButton>
                     }
                     @* The whole sprint as a table for PowerPoint and mail
                        (.devbook/domain/progress/features.md#copying-a-sprint-as-a-table):
@@ -112,6 +126,12 @@
                                       Busy="_writing"
                                       Error="@_noteError"
                                       OnSave="SaveNoteAsync" />
+                <SprintCloseDialog Open="_closing is not null"
+                                   OpenChanged="CloseCloseDialog"
+                                   Model="_closing"
+                                   Busy="_writing"
+                                   Error="@_closeError"
+                                   OnClose="CloseSprintAsync" />
             }
         </div>
     }
@@ -210,6 +230,8 @@ else
     private SprintMemberDto? _noteFor;
     private string? _noteError;
     private string? _writeError;
+    private SprintCloseModel? _closing;
+    private string? _closeError;
 
     protected override void OnInitialized()
     {
@@ -301,6 +323,8 @@ else
         _writeError = null;
         _picking = false;
         _noteFor = null;
+        _closing = null;
+        _closeError = null;
     }
 
     // ---- Planning the open sprint -------------------------------------------------------
@@ -425,6 +449,56 @@ else
 
         _noteError = null;
         _noteFor = null;
+    }
+
+    // ---- Closing the open sprint --------------------------------------------------------
+
+    /// <summary>Opens the Close dialog on the sprint as last read: its unfinished items
+    /// are the members the board shows as not done, which is the module's own reading.</summary>
+    private void OpenClose()
+    {
+        if (_series is not { } series || Writable is null || _progress is not { } progress || _model is not { } board) return;
+
+        _closeError = null;
+        _closing = SprintCloseMapper.ToModel(progress, series, board);
+    }
+
+    private void CloseCloseDialog(bool open)
+    {
+        if (!open) _closing = null;
+    }
+
+    /// <summary>
+    /// Closes the open sprint and starts the next one through the module
+    /// (<c>.devbook/domain/progress/features.md#closing-a-sprint</c>), then opens the view
+    /// on the sprint it started; the closed one stays a step back. A refusal stays in the
+    /// dialog in the module's words, over a fresh reading: when an item turned unfinished
+    /// since the dialog opened, it is listed now, on Carry, beside the choices already
+    /// made.
+    /// </summary>
+    private async Task CloseSprintAsync(SprintCloseDecision decision)
+    {
+        if (_series is not { } series || Writable is null || Planning is not { } planning || _writing) return;
+
+        // The read after the close opens on the open sprint, which is then the new one.
+        var shown = _number;
+        _number = null;
+        var closed = await WriteAsync(() => planning.CloseSprintAsync(series.Id, SprintCloseMapper.Outcomes(decision), decision.NextGoal));
+        if (closed.IsFailure)
+        {
+            _number = shown;
+            _closeError = closed.Error.Message;
+            await ReadSprintAsync();
+            if (_closing is not null && _series is { } still && _progress is { IsOpen: true } progress && _model is { } board)
+            {
+                _closing = SprintCloseMapper.ToModel(progress, still, board);
+            }
+
+            return;
+        }
+
+        _closeError = null;
+        _closing = null;
     }
 
     private ISprintSeriesPlanning? Planning => Services.GetService(typeof(ISprintSeriesPlanning)) as ISprintSeriesPlanning;
