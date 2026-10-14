@@ -17,16 +17,19 @@
 @using System.Globalization
 @using global::Backlog.SharedKernel
 @using global::Backlog.UI.Components.Inputs
+@using global::Backlog.UI.Components.Settings
 @inject IWorkingHoursSettings WorkingWeek
 
-<div class="repo-card__section" data-testid="working-hours-settings">
-    <h3 class="devbook-folders__title">Your working week</h3>
+<SettingsHeadline>@Headline()</SettingsHeadline>
+
+<SettingsCard Title="@CardTitle"
+              Description="Which hours you mean to be working. The dashboard shades them, and the roadmap counts them."
+              TestId="working-hours-settings">
     <p class="setting__note">
-        Which hours you mean to be working. The dashboard shades them, so out-of-hours
-        work is something you can see rather than something you have to work out; work
-        is still counted the same whenever it happened. The roadmap counts them: a plan
-        sized by its effort runs through these hours and skips the days you do not work,
-        and a pace is points per week of them. The week travels with your pace to your
+        Out-of-hours work is then something you can see rather than something you have
+        to work out; work is still counted the same whenever it happened. A plan sized
+        by its effort runs through these hours and skips the days you do not work, and
+        a pace is points per week of them. The week travels with your pace to your
         other paired devices. Each day stands on its own, and a day you turn off keeps
         its hours for when you turn it back on.
     </p>
@@ -101,9 +104,13 @@
         beside the app's other per-user
         choices rather than in the backlog folder - it is yours, not the workspace's.
     </p>
-</div>
+</SettingsCard>
 
 @code {
+    /// <summary>The page's one card - what its
+    /// <c>SettingsSection.CardTitles</c> declares.</summary>
+    public const string CardTitle = "Your working week";
+
     private readonly Dictionary<string, string> _draftWorkingHours = new(StringComparer.Ordinal);
 
     private string? _workingHoursError;
@@ -229,6 +236,61 @@
             ? $"{names}, {FormatWorkingTime(worked[0].Start)} to {FormatWorkingTime(worked[0].End)}."
             : $"{names}, each between the hours listed.";
     }
+
+    /// <summary>
+    /// The sentence the frame shows over this page: the week in force, read off
+    /// the store rather than the fields, so a refused time never reaches it.
+    /// <para>
+    /// A run of three days or more reads as a range - <c>Mon–Fri</c> - and the
+    /// rest as a list, so a week with a gap in it says where. The hours are named
+    /// only when every working day shares them; seven rows of differing hours do
+    /// not fit in a headline, and the rows under it already say them.
+    /// </para>
+    /// </summary>
+    public static string HeadlineFor(WorkingHours week)
+    {
+        var worked = WorkingHours.Week.Select(week.On).Where(day => day.Working).ToList();
+        if (worked.Count == 0) return "You have no working days set.";
+
+        var days = DayRanges(worked.Select(day => day.Day).ToList());
+
+        return worked.All(day => day.Start == worked[0].Start && day.End == worked[0].End)
+            ? $"You work {days}, {FormatWorkingTime(worked[0].Start)}–{FormatWorkingTime(worked[0].End)}."
+            : $"You work {days}, each day at its own hours.";
+    }
+
+    private string Headline() => HeadlineFor(WorkingWeek.Current);
+
+    /// <summary>The worked days, in the week's own order, as ranges and single
+    /// days: <c>Mon–Wed, Fri</c>.</summary>
+    private static string DayRanges(IReadOnlyList<DayOfWeek> days)
+    {
+        var order = WorkingHours.Week.ToList();
+        var parts = new List<string>();
+        var start = 0;
+
+        while (start < days.Count)
+        {
+            var end = start;
+            while (end + 1 < days.Count && order.IndexOf(days[end + 1]) == order.IndexOf(days[end]) + 1) end++;
+
+            if (end - start >= 2)
+            {
+                parts.Add($"{Abbreviated(days[start])}–{Abbreviated(days[end])}");
+            }
+            else
+            {
+                for (var index = start; index <= end; index++) parts.Add(Abbreviated(days[index]));
+            }
+
+            start = end + 1;
+        }
+
+        return string.Join(", ", parts);
+    }
+
+    private static string Abbreviated(DayOfWeek day) =>
+        CultureInfo.InvariantCulture.DateTimeFormat.GetAbbreviatedDayName(day);
 
     /// <summary>The wire format a <c>time</c> input takes and returns, and the
     /// one the settings file is written in - invariant, so the two never drift
