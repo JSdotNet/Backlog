@@ -255,6 +255,10 @@ Rules:
   `repo-card` with its own title and its destructive action in the header: the
   one that keeps everything first (Rename), the one that keeps nothing last
   (Remove repository, Forget this account).
+- Opening or closing the editor MUST NOT resize a row. A list laid out as a
+  grid keeps one column template in both states: the GitHub accounts list is
+  `repeat(auto-fill, …)`, never `auto-fit`, so a lone account is one track wide
+  whether its card is closed or open.
 - A table that is too wide scrolls sideways inside its own frame; the page never
   scrolls sideways.
 - A list with nothing in it says so in a sentence, and what happens meanwhile,
