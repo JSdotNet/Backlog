@@ -201,6 +201,41 @@ What goes in it is the caller's, as every cell here is. Passing nothing for a re
         </DataTable>
     </Story>
 
+    <Story Name="A detail opened by the row's own button"
+           Description="`HasRowDetail` says which records get their detail row at all. It is for a detail that is opened rather than always there — an editor under an Edit button, as the Settings Repositories page draws a repository's card under its row.
+
+Leaving the row out, rather than rendering it empty, is the point. The pair is drawn as one record, so even an empty detail row takes the line from under the row above it; a closed record has to look like every other row, line and all. One row is open here at a time, which is the host's rule, not the table's."
+           Code="@OpenedDetailCode">
+        <DataTable TItem="Run"
+                   Columns="OpenedColumns"
+                   Items="WithRuns"
+                   RowKey="@(run => (object)run.Id)"
+                   HasRowDetail="@(run => run.Id == _opened)"
+                   RowNoun="session"
+                   AriaLabel="Sessions, one of them opened"
+                   TestId="data-table-opened-detail">
+            <Row Context="run">
+                <td>@run.Title</td>
+                <td>@run.Environment</td>
+                <td>
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               aria-label="@($"Edit {run.Title}")"
+                               aria-expanded="@(run.Id == _opened ? "true" : "false")"
+                               OnClick="() => _opened = run.Id == _opened ? null : run.Id">
+                        @(run.Id == _opened ? "Done" : "Edit")
+                    </AppButton>
+                </td>
+            </Row>
+            <RowDetail Context="run">
+                <div class="sb-row">
+                    <span class="sb-label">Branch</span>
+                    <span>@run.Branch</span>
+                </div>
+            </RowDetail>
+        </DataTable>
+    </Story>
+
     <Story Name="Nothing to show"
            Description="A heading row over an empty body reads as a broken feature. So an empty table is not rendered at all: the component collapses to the library's own EmptyState, which says what is missing and — where it is worth saying — why.
 
@@ -439,6 +474,38 @@ Two lines rather than one, because “no rows” and “no rows yet, and here is
                 </span>
             }
         </td>
+        """;
+
+    /// <summary>Which session's detail is open in the opened-detail story, or null.</summary>
+    private string? _opened = "1";
+
+    private static readonly DataTableColumn[] OpenedColumns =
+    [
+        new("Session"),
+        new("Environment"),
+        new("Actions")
+    ];
+
+    private const string OpenedDetailCode = """
+        <DataTable TItem="Run"
+                   Columns="Columns"
+                   Items="Sessions"
+                   RowKey="@(run => (object)run.Id)"
+                   HasRowDetail="@(run => run.Id == _opened)">
+            <Row Context="run">
+                <td>@run.Title</td>
+                <td>@run.Environment</td>
+                <td>
+                    <AppButton aria-expanded="@(run.Id == _opened ? "true" : "false")"
+                               OnClick="() => _opened = run.Id == _opened ? null : run.Id">
+                        @(run.Id == _opened ? "Done" : "Edit")
+                    </AppButton>
+                </td>
+            </Row>
+            <RowDetail Context="run">
+                @* The editor for this one record. *@
+            </RowDetail>
+        </DataTable>
         """;
 
     private const string EmptyCode = """

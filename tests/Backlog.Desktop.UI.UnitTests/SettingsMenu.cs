@@ -38,4 +38,26 @@ internal static class SettingsMenu
     /// <c>settings</c> for null.</summary>
     public static void Navigate(IRenderedComponent<Settings> component, string? pageId) =>
         component.Render(parameters => parameters.Add(settings => settings.PageId, pageId));
+
+    /// <summary>Opens the Repositories page and presses Edit on the row whose alias
+    /// is <paramref name="alias"/> - the first row when null - so the repository's
+    /// card is on screen under it.</summary>
+    public static void OpenRepository(IRenderedComponent<Settings> component, string? alias = null)
+    {
+        Open(component, "Repositories");
+        EditRepository(component, alias);
+    }
+
+    /// <summary>Presses Edit on a row of the Repositories table already on screen,
+    /// by the button's accessible name - the first row's when
+    /// <paramref name="alias"/> is null.</summary>
+    public static void EditRepository(IRenderedComponent<Settings> component, string? alias = null)
+    {
+        var button = alias is null
+            ? component.FindAll("[data-testid='repo-edit']")[0]
+            : component.Find($"[data-testid='repo-edit'][aria-label='Edit {alias}']");
+
+        Assert.Equal("false", button.GetAttribute("aria-expanded"));
+        button.Click();
+    }
 }

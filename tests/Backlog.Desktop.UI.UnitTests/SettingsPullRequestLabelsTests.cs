@@ -15,7 +15,7 @@ public sealed class SettingsPullRequestLabelsTests
     public void Leaving_the_field_saves_its_comma_separated_labels()
     {
         using var settings = SettingsRepositoryColourTests.RenderSettings();
-        SettingsRepositoryColourTests.OpenRepositoriesTab(settings.Component);
+        SettingsRepositoryColourTests.OpenRepositoryCard(settings.Component);
 
         settings.Component.Find(Field).Input(" frontend, design ,, Frontend ");
         settings.Component.Find(Field).Change(" frontend, design ,, Frontend ");
@@ -34,7 +34,7 @@ public sealed class SettingsPullRequestLabelsTests
     public void A_registry_edit_resets_an_unsaved_label_draft_to_what_is_stored()
     {
         using var settings = SettingsRepositoryColourTests.RenderSettings();
-        SettingsRepositoryColourTests.OpenRepositoriesTab(settings.Component);
+        SettingsRepositoryColourTests.OpenRepositoryCard(settings.Component);
         settings.Component.Find(Field).Input("frontend");
         settings.Component.Find(Field).Change("frontend");
         settings.Component.WaitForAssertion(() => Assert.Equal(["frontend"], settings.GitHub.Current.Find("backlog")!.PullRequestLabels));
