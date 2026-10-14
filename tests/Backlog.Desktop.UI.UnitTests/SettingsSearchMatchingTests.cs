@@ -1,4 +1,6 @@
+using System.Reflection;
 using Backlog.UI.Components.Settings;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -170,13 +172,56 @@ public sealed class SettingsSearchMatchingTests
             pair => Assert.Same(pair.First, pair.Second));
     }
 
+    /// <summary>
+    /// A card's address is its page's with <c>#card-&lt;slug&gt;</c>, so two cards of
+    /// one page whose titles make the same slug would share an address and the second
+    /// could never be revealed. Checked over the app-wide pages and every section a
+    /// module registers (#1234).
+    /// </summary>
     [Fact]
-    public void Every_built_in_card_has_its_own_fragment_on_its_page()
+    public void Every_card_has_its_own_fragment_on_its_page()
     {
-        Assert.All(SettingsPages.BuiltIn, page =>
+        var pages = SettingsPages.BuiltIn.Concat(RegisteredSections()).ToList();
+
+        Assert.All(pages, page =>
         {
-            var fragments = page.CardTitles!.Select(SettingsPages.CardFragment).ToList();
-            Assert.Equal(fragments.Count, fragments.Distinct(StringComparer.Ordinal).Count());
+            var fragments = (page.CardTitles ?? []).Select(SettingsPages.CardFragment).ToList();
+            var shared = fragments.GroupBy(fragment => fragment, StringComparer.Ordinal).Where(group => group.Count() > 1).Select(group => group.Key);
+            Assert.True(fragments.Count == fragments.Distinct(StringComparer.Ordinal).Count(),
+                $"Cards of the '{page.Id}' page share a fragment: {string.Join(", ", shared)}.");
         });
+    }
+
+    [Fact]
+    public void The_fragment_guard_reads_every_module_page()
+    {
+        Assert.Superset(
+            new HashSet<string>(["dashboard", "working-week", "inbox", "claude-code", "model-prices", "connectors", "devices"], StringComparer.Ordinal),
+            RegisteredSections().Select(section => section.Id).ToHashSet(StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Every <see cref="SettingsSection"/> the modules register: each module's
+    /// <c>.UI</c> assembly beside the tests is searched for its public static
+    /// <c>Add…Settings(IServiceCollection)</c> extensions, and each is run into one
+    /// collection. Found by convention rather than listed, so a module that adds a
+    /// page is guarded without a line here.
+    /// </summary>
+    private static IReadOnlyList<SettingsSection> RegisteredSections()
+    {
+        var services = new ServiceCollection();
+        var registrations = Directory.EnumerateFiles(AppContext.BaseDirectory, "Backlog.Modules.*.UI.dll")
+            .Select(path => Assembly.LoadFrom(path))
+            .SelectMany(assembly => assembly.GetExportedTypes())
+            .Where(type => type is { IsAbstract: true, IsSealed: true })
+            .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Static))
+            .Where(method => method.Name.StartsWith("Add", StringComparison.Ordinal)
+                             && method.Name.EndsWith("Settings", StringComparison.Ordinal)
+                             && method.ReturnType == typeof(IServiceCollection)
+                             && method.GetParameters() is [{ ParameterType: var parameter }] && parameter == typeof(IServiceCollection));
+
+        foreach (var registration in registrations) registration.Invoke(null, [services]);
+
+        return [.. services.Select(descriptor => descriptor.ImplementationInstance).OfType<SettingsSection>()];
     }
 }
