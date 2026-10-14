@@ -1172,7 +1172,7 @@ public sealed class ToolsPaneTests
         // The trigger says how much is behind it, so a folded group can be read
         // without opening it.
         Assert.Contains("Git configuration", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
-        Assert.Contains("2 row(s)", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("2 rows", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>A machine that is set up correctly should open this pane to

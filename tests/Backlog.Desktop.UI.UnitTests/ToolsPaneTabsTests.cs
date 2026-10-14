@@ -299,8 +299,9 @@ public sealed class ToolsPaneTabsTests
         Assert.Equal("System tools · Overview", pane.Find(".tools-panel__eyebrow").TextContent.Trim());
     }
 
-    /// <summary>The strip's "Last run transcript" opens the transcript fold, and is
-    /// there only while there is a transcript to open.</summary>
+    /// <summary>The strip's "Last run transcript" is there only while there is a
+    /// transcript to open. With no saved run it opens the rail's command fold; with
+    /// one it opens that run's transcript, as the Overview's card does.</summary>
     [Fact]
     public void The_transcript_link_opens_the_last_run_transcript()
     {
@@ -316,6 +317,44 @@ public sealed class ToolsPaneTabsTests
         pane.Find("[data-testid='tools-transcript-link']").Click();
 
         Assert.Equal("true", pane.Find("[data-testid='tools-command-log']").GetAttribute("aria-expanded"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-last-run-transcript-dialog']"));
+    }
+
+    [Fact]
+    public void There_is_no_transcript_link_without_a_run_or_a_command()
+    {
+        using var context = Context(FakeDevToolService.With(Tool("plugin:architecture", "architecture")));
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-transcript-link']"));
+    }
+
+    /// <summary>After a restart the pane has run no command yet, but the saved last
+    /// run is still a transcript to read: the link shows and opens it.</summary>
+    [Fact]
+    public void The_transcript_link_opens_a_saved_run_with_no_commands_yet()
+    {
+        var service = FakeDevToolService.With(Tool("plugin:architecture", "architecture"));
+        var finished = DateTimeOffset.Now.AddMinutes(-5);
+        service.SavedRuns.Add(new DevToolLastRun(
+            DevToolRunKind.UpdateAll,
+            finished.AddSeconds(-30),
+            finished,
+            DevToolRunOutcome.Succeeded,
+            [new DevToolRunStep("delivery", "1.0.0", "1.1.0", DevToolRunOutcome.Succeeded, TimeSpan.FromSeconds(30))],
+            "$ claude plugin update delivery\nupdated"));
+        using var context = Context(service);
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-command-log']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-last-run-transcript-dialog']"));
+
+        pane.Find("[data-testid='tools-transcript-link']").Click();
+
+        Assert.Contains(
+            "claude plugin update delivery",
+            pane.Find("[data-testid='tools-last-run-transcript-dialog']").TextContent,
+            StringComparison.Ordinal);
     }
 
     /// <summary>Every panel is drawn, but the toolbar only in the one on show, so each
