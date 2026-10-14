@@ -23,6 +23,8 @@
 @* SelectField draws the account binding; written here because this folder
    cannot have an _Imports of its own. *@
 @using Backlog.UI.Components.Selects
+@* The repositories table is the library's DataTable. *@
+@using Backlog.UI.Components.Data
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
 @inject ILocalGitRepositoryService LocalGit
@@ -34,6 +36,22 @@
 @inject IServiceProvider Services
 @implements IDisposable
 
+@* The page's sentence for the frame's h1: how many repositories there are and
+   how many of them carry a devbook - the two counts the table below answers
+   row by row. *@
+<SettingsHeadline>@Headline</SettingsHeadline>
+
+<SettingsCard Title="Repositories"
+              Description="The repositories whose devbooks, sessions and pull requests Backlog reads."
+              TestId="repositories-card">
+    <Action>
+        <AppButton Variant="ButtonVariant.None"
+                   data-testid="add-repository-button"
+                   OnClick="AddRepositoryDraft">
+            Add repository
+        </AppButton>
+    </Action>
+    <ChildContent>
 <p class="setting__body">
     Configure zero or more repositories Backlog can work with. GitHub needs an
     <code>owner/repo</code> connection; local features also
@@ -106,40 +124,61 @@
     }
 </p>
 
-<div class="setting__actions">
-    <AppButton Variant="ButtonVariant.None"
-               data-testid="add-repository-button"
-               OnClick="AddRepositoryDraft">
-        Add repository
-    </AppButton>
-</div>
 @if (VisibleRepositories.Any())
 {
-    @* One subpage per repository, same shared strip as the page tabs
-       above - only the classes differ. *@
-    <Tabs Bare="true"
-          ListCssClass="repo-subpages"
-          ListTestId="repo-subpages"
-          AriaLabel="Repository pages"
-          TabCssClass="repo-subpage"
-          ActiveTabCssClass="repo-subpage repo-subpage--active"
-          ActiveId="@ActiveRepository?.Alias"
-          ActiveIdChanged="ShowRepositoryPage">
-        @foreach (var repository in VisibleRepositories)
-        {
-            var activeRepo = repository;
+    @* One row per repository, and its whole card under it when Edit is
+       pressed. A table rather than one sub-tab per repository: the row
+       says where each repository lives and what it reads without opening
+       it, and the card opens in place under the row it belongs to rather
+       than somewhere else on the page. One row is open at a time. The
+       table scrolls sideways inside its own box at a narrow width - the
+       library's frame does that - so the page never does.
 
-            <TabPanel @key="activeRepo.Alias"
-                      Id="@activeRepo.Alias"
-                      TabTestId="repo-subpage-tab"
-                      Element="article"
-                      BaseClass="repo-card"
-                      TestId="github-repo-card"
-                      aria-label="@($"{activeRepo.FullName} repository settings")">
-                <TitleContent>
-                    <span>@activeRepo.FullName</span>
-                </TitleContent>
-                <ChildContent>
+       Rows are keyed by the repository's id rather than its alias: a
+       registry can arrive with two rows sharing an alias, and two rows
+       under one key is a render Blazor refuses. *@
+    <DataTable TItem="GitHubRepositoryRef"
+               Items="@VisibleRepositories"
+               Columns="@RepositoryColumns"
+               RowKey="@(repository => repository.FullName)"
+               RowAttributes="@(repository => new Dictionary<string, object> { ["data-repository"] = repository.Alias })"
+               HasRowDetail="@IsExpanded"
+               AriaLabel="Repositories"
+               RowNoun="repository"
+               CssClass="repo-table"
+               TestId="repo-table">
+        <Row Context="repository">
+            <th scope="row" class="repo-table__alias">
+                <span class="repo-table__mark @($"repo-swatch--{ColourOf(repository)}")" aria-hidden="true"></span>
+                <span>@repository.Alias</span>
+            </th>
+            <td class="data-table__mono" data-testid="repo-table-folder">@(string.IsNullOrWhiteSpace(repository.CloneDirectory) ? "Not set" : repository.CloneDirectory)</td>
+            <td data-testid="repo-table-devbook">
+                @if (DevbookFolderSummary(repository) is { } devbook)
+                {
+                    <span class="data-table__mono">@devbook</span>
+                }
+                else
+                {
+                    <span>None</span>
+                }
+            </td>
+            <td data-testid="repo-table-account">@(repository.Account ?? "Default")</td>
+            <td class="repo-table__edit">
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           TestId="repo-edit"
+                           aria-label="@($"Edit {repository.Alias}")"
+                           aria-expanded="@(IsExpanded(repository) ? "true" : "false")"
+                           OnClick="() => ToggleRepository(repository)">
+                    @(IsExpanded(repository) ? "Done" : "Edit")
+                </AppButton>
+            </td>
+        </Row>
+        <RowDetail Context="activeRepo">
+            <article class="repo-card"
+                     data-testid="github-repo-card"
+                     aria-label="@($"{activeRepo.FullName} repository settings")">
             <header class="repo-card__header">
                 <div>
                     <h3 class="repo-card__title">@activeRepo.FullName</h3>
@@ -597,11 +636,13 @@
                     </div>
                 </div>
             </div>
-                </ChildContent>
-            </TabPanel>
-        }
-    </Tabs>
+            </article>
+        </RowDetail>
+    </DataTable>
 }
+    </ChildContent>
+</SettingsCard>
+
 
 @code {
     private string _draftRepos = string.Empty;
@@ -630,9 +671,23 @@
     private readonly Dictionary<string, string> _draftDevbookPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
-    private string? _activeRepositoryAlias;
+    /// <summary>The id (<c>owner/name</c>) of the repository whose row is open, or
+    /// null while every row is closed. An id rather than an alias, because a
+    /// registry can carry two rows under one alias and only one of them is being
+    /// edited; a rename moves it to the new id.</summary>
+    private string? _expandedId;
 
-    private GitHubRepositoryRef? ActiveRepository => FindActiveRepository();
+    /// <summary>The table's headings, in the order the row template draws its
+    /// cells. The last one is the Edit button's, and says so to a screen reader
+    /// even though nothing is printed above it.</summary>
+    private static readonly IReadOnlyList<DataTableColumn> RepositoryColumns =
+    [
+        new("Alias"),
+        new("Local folder"),
+        new("Devbook folder"),
+        new("GitHub account"),
+        new("Actions", "repo-table__edit-heading"),
+    ];
 
     private bool AdditionalRepositoriesEnabled => Features.IsEnabled(TasksFeatures.AdditionalRepositories);
 
@@ -660,12 +715,74 @@
     private void OnFeaturesChanged()
     {
         _draftRepos = RepositorySettingsText();
-        EnsureActiveRepositoryPage();
+        EnsureExpandedRepository();
     }
 
     public void Dispose() => Screen.FeaturesChanged -= OnFeaturesChanged;
 
-    private void ShowRepositoryPage(string alias) => _activeRepositoryAlias = GitHubRepositoryRef.NormalizeAlias(alias);
+    /// <summary>The frame's headline: how many repositories, and how many of them
+    /// carry a devbook a reader would find.</summary>
+    private string Headline
+    {
+        get
+        {
+            var count = VisibleRepositories.Count;
+            var withDevbook = VisibleRepositories.Count(repository => DevbookFolderSummary(repository) is not null);
+
+            return $"{count} {(count == 1 ? "repository" : "repositories")} registered, {withDevbook} with a devbook.";
+        }
+    }
+
+    private bool IsExpanded(GitHubRepositoryRef repository) =>
+        string.Equals(_expandedId, repository.FullName, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Edit opens the row and closes whichever was open; Done closes it.
+    /// One at a time, because the card under a row is as tall as a page and two of
+    /// them open would push the table's other rows out of reach.</summary>
+    private void ToggleRepository(GitHubRepositoryRef repository)
+    {
+        _expandedId = IsExpanded(repository) ? null : repository.FullName;
+
+        // A rename form left open belongs to the card it was opened on, so it
+        // closes with it rather than reappearing the next time that row opens.
+        CancelRename();
+    }
+
+    /// <summary>The colour the repository wears everywhere else: its chosen one,
+    /// or the one the default picked for it.</summary>
+    private int ColourOf(GitHubRepositoryRef repository) =>
+        GitHub.Settings.Current.Colours().GetValueOrDefault(repository.Alias, 1);
+
+    /// <summary>
+    /// Where this repository's devbook is, for its row, or null when no section of
+    /// it is there to read. Asked of the folder source, as each section's row on the
+    /// card is, so the table and the card cannot disagree about whether there is one.
+    /// <para>
+    /// The sections share a parent in either layout's usual shape, so the row names
+    /// that parent - <c>.devbook</c> - rather than five paths; a layout whose found
+    /// sections share none is listed by section instead.
+    /// </para>
+    /// </summary>
+    private string? DevbookFolderSummary(GitHubRepositoryRef repository)
+    {
+        var found = repository.DevbookFolders
+            .Where(folder => folder.Enabled && folder.SupportsPathOverride)
+            .Select(folder => DevbookFolders.Resolve(folder.Key, repository.Alias))
+            .Where(location => location.Available)
+            .Select(location => (location.Folder?.EffectivePath ?? string.Empty).Replace('\\', '/').TrimEnd('/'))
+            .Where(path => path.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (found.Count == 0) return null;
+
+        var parents = found
+            .Select(path => path.LastIndexOf('/') is var slash and > 0 ? path[..slash] : string.Empty)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return parents is [{ Length: > 0 } parent] ? parent : string.Join(", ", found);
+    }
 
     /// <summary>
     /// Records the repository's colour, or clears it back to automatic. No save
@@ -716,6 +833,14 @@
         _repoReplacedHint = removed.Count > 0 && added.Count > 0
             ? $"Removed {string.Join(", ", removed)} and added {string.Join(", ", added)}. To rename a repository and keep its settings and entries, use Rename on its card."
             : null;
+
+        // A repository just added is the one about to be set up, so its row opens
+        // on the save that added it - the last one, when a paste added several.
+        if (added.Count > 0)
+        {
+            _expandedId = added[^1];
+            CancelRename();
+        }
     }
 
     private void BeginRename(GitHubRepositoryRef repository)
@@ -768,11 +893,12 @@
         SyncRepositoryDrafts();
         CancelRename();
 
-        // A merge leaves no card under the renamed alias, so the note goes on the
-        // repository it was folded into, and the active card follows it there.
+        // The open row follows the repository to its new id. A merge leaves no
+        // row under the renamed one, so the note goes on the repository it was
+        // folded into, and that row is the one left open.
         var kept = GitHub.Settings.Current.Find(rename.NewId);
         var merged = kept is not null && kept.Alias != repository.Alias;
-        if (merged) _activeRepositoryAlias = kept!.Alias;
+        _expandedId = kept?.FullName;
 
         _renameNote = await FollowRenameAsync(rename, merged);
         _renameNoteAlias = kept?.Alias ?? repository.Alias;
@@ -1105,34 +1231,18 @@
             }
         }
 
-        EnsureActiveRepositoryPage();
+        EnsureExpandedRepository();
     }
 
-    private GitHubRepositoryRef? FindActiveRepository()
+    /// <summary>Closes the open row when its repository is gone - removed, or
+    /// retyped to another id in the box above - rather than leaving an id behind
+    /// that a repository added later under the same name would open on.</summary>
+    private void EnsureExpandedRepository()
     {
-        if (!VisibleRepositories.Any()) return null;
-
-        if (!string.IsNullOrWhiteSpace(_activeRepositoryAlias))
+        if (_expandedId is not null && !VisibleRepositories.Any(IsExpanded))
         {
-            var selected = VisibleRepositories.FirstOrDefault(repo => string.Equals(repo.Alias, _activeRepositoryAlias, StringComparison.Ordinal));
-            if (selected is not null) return selected;
+            _expandedId = null;
         }
-
-        return VisibleRepositories[0];
-    }
-
-    private bool IsActiveRepository(GitHubRepositoryRef repo) =>
-        string.Equals(FindActiveRepository()?.Alias, repo.Alias, StringComparison.Ordinal);
-
-    private void EnsureActiveRepositoryPage()
-    {
-        if (!VisibleRepositories.Any())
-        {
-            _activeRepositoryAlias = null;
-            return;
-        }
-
-        _activeRepositoryAlias = FindActiveRepository()?.Alias;
     }
 
     private string RepositorySettingsText() => GitHub.Settings.Current.ToText();

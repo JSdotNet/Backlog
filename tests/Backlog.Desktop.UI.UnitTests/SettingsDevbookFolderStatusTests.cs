@@ -29,7 +29,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void The_architecture_section_is_labelled_for_what_it_holds()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.WithArchitectureFolder);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Assert.Equal("Architecture", Row(settings.Component, ".arc42").QuerySelector(".checkbox__label")!.TextContent);
     }
@@ -44,7 +44,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_section_whose_folder_is_in_the_clone_is_marked_in_the_field_rather_than_in_words()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.WithArchitectureFolder);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var row = Row(settings.Component, ".arc42");
         var marker = Marker(row)!;
@@ -70,7 +70,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_section_found_at_its_legacy_root_folder_says_so()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.WithLegacyArchitectureFolder);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var status = Status(settings.Component, ".arc42");
 
@@ -82,7 +82,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_section_whose_folder_is_absent_names_the_path_that_was_looked_at()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var marker = Marker(Row(settings.Component, ".arc42"))!;
         Assert.Equal("Folder not found.", marker.GetAttribute("aria-label"));
@@ -106,8 +106,8 @@ public sealed class SettingsDevbookFolderStatusTests
     {
         using var found = RenderSettings(cloneDirectory: CloneDirectory.WithArchitectureFolder);
         using var missing = RenderSettings(cloneDirectory: CloneDirectory.Empty);
-        OpenRepositoriesTab(found.Component);
-        OpenRepositoriesTab(missing.Component);
+        OpenRepositoryCard(found.Component);
+        OpenRepositoryCard(missing.Component);
 
         var foundGlyph = Marker(Row(found.Component, ".arc42"))!.TextContent.Trim();
         var missingGlyph = Marker(Row(missing.Component, ".arc42"))!.TextContent.Trim();
@@ -125,7 +125,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_repository_with_no_clone_directory_is_pointed_at_the_clone_directory()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.None);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var status = Status(settings.Component, ".arc42");
 
@@ -145,7 +145,7 @@ public sealed class SettingsDevbookFolderStatusTests
     {
         var cache = new GatedSnapshotCache();
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.None, snapshots: cache);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var status = Status(settings.Component, ".arc42");
 
@@ -164,7 +164,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_section_turned_off_is_not_checked_for_a_folder_at_all()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Row(settings.Component, ".arc42").QuerySelector("[data-testid='devbook-folder-enabled']")!.Change(false);
 
@@ -189,7 +189,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void The_instructions_section_keeps_its_own_sentence()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var status = Status(settings.Component, "instructions");
 
@@ -206,8 +206,8 @@ public sealed class SettingsDevbookFolderStatusTests
         WithLegacyArchitectureFolder
     }
 
-    private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        SettingsMenu.Open(component, "Repositories");
+    private static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
+        SettingsMenu.OpenRepository(component);
 
     /// <summary>Keyed on the section's own key chip rather than on row order, so a
     /// section added to the defaults does not move the assertions.</summary>

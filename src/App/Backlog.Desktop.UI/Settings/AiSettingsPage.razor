@@ -12,6 +12,10 @@
 @inherits SettingsPageBase
 @using Backlog.SharedKernel
 @using Backlog.Infrastructure.Claude
+@using Backlog.UI.Components.Metrics
+@using Backlog.Modules.Dashboard.Abstractions.Insights
+@using Backlog.Modules.Dashboard.Abstractions.Services
+@implements IDisposable
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
 @inject AzureFoundrySettingsStore AzureFoundry
@@ -20,37 +24,76 @@
    that composes none of them can still render the page. *@
 @inject IServiceProvider Services
 
-@* Two cards that configure unrelated things, so on a window with
-   the room they stand side by side rather than one under the other. *@
-<div class="setting-columns">
+@* The page's headline, from each provider's state: which report usage, which
+   are not set up. Written into the frame's h1; see SettingsHeadline. *@
+<SettingsHeadline>@AiProvidersOverview.Headline(Providers)</SettingsHeadline>
+
+@* One tile per provider the page offers, before any card: what is set up and
+   when its usage was last read on this device, at a glance. The tile is the
+   shared MetricTile; the read line sits in its trend slot. *@
+<div class="ai-providers__tiles" data-testid="ai-provider-tiles">
+    @foreach (var provider in Providers)
+    {
+        var readLine = AiProvidersOverview.ReadLine(provider.LastRead, Now);
+
+        <MetricTile @key="provider.Provider"
+                    Label="@AiProvidersOverview.Label(provider.Provider)"
+                    Value="@AiProvidersOverview.Figure(provider)"
+                    CssClass="@(provider.Configured ? "ai-provider-tile" : "ai-provider-tile ai-provider-tile--unset")"
+                    Footnote="@(!provider.Configured && provider.Provider == AiProvider.AzureFoundry ? AiProvidersOverview.AssistantNeedsFoundry : null)"
+                    TestId="ai-provider-tile"
+                    data-provider="@provider.Provider.ToString().ToLowerInvariant()"
+                    data-configured="@(provider.Configured ? "true" : "false")">
+            <Trend>
+                @if (readLine is not null)
+                {
+                    <p class="@(readLine.Failed ? "ai-provider-tile__read ai-provider-tile__read--failed" : "ai-provider-tile__read ai-provider-tile__read--ok")"
+                       data-testid="ai-provider-read">
+                        @if (!readLine.Failed)
+                        {
+                            <span class="ai-provider-tile__dot" aria-hidden="true"></span>
+                        }
+                        @readLine.Text
+                    </p>
+                }
+            </Trend>
+        </MetricTile>
+    }
+</div>
+
+@* The cards, in a row that wraps: Claude's on the left, because it is the tall
+   one with a page per organization; GitHub's and Azure Foundry's stacked on the
+   right. A narrow window puts the right column under the left. *@
+<div class="ai-providers__cards">
     @if (UsageMetricsEnabled)
     {
+        <div class="ai-providers__column">
         @* Claude and GitHub are two vendors, two credentials and two failure
            modes, so they are two cards. One card mixing them meant a change to
            either endpoint saved both and reported through a single status line
            that could not say which vendor it was talking about. *@
-        <section class="setting" data-testid="claude-usage-settings" aria-label="Claude usage API settings">
-            <h2 class="setting__title">Claude usage API</h2>
-            <p class="setting__body">
-                What Backlog needs to read your Claude usage and cost reports. One card per
-                organization you belong to - a personal Console beside an employer's - and
-                the dashboard adds their spend up.
-            </p>
-
+        <SettingsCard Title="Claude usage API"
+                      Description="What Backlog needs to read your Claude usage and cost reports. One page per organization you belong to - a personal Console beside an employer's - and the dashboard adds their spend up."
+                      TestId="claude-usage-settings">
+            <Action>
+                <AppButton Variant="ButtonVariant.None"
+                           TestId="add-claude-account-button"
+                           OnClick="AddClaudeAccount">
+                    Add organization
+                </AppButton>
+            </Action>
+            <ChildContent>
             <p class="setting__status" data-testid="claude-accounts-status" role="status">
                 <span>@ClaudeAccountsSummary()</span>
             </p>
 
-            @* One subpage per account, the same shared strip the GitHub account
-               cards use - only what is inside the card differs. There is always
-               at least one: the store keeps a blank account rather than an empty
-               list, so a fresh install sees the fields straight away. *@
+            @* One subpage per organization, on the shared tab strip with its
+               underline. There is always at least one: the store keeps a blank
+               account rather than an empty list, so a fresh install sees the
+               fields straight away. *@
             <Tabs Bare="true"
-                  ListCssClass="repo-subpages"
                   ListTestId="claude-account-subpages"
-                  AriaLabel="Claude account pages"
-                  TabCssClass="repo-subpage"
-                  ActiveTabCssClass="repo-subpage repo-subpage--active"
+                  AriaLabel="Claude organization pages"
                   ActiveId="@ActiveClaudeAccount.Id"
                   ActiveIdChanged="ShowClaudeAccountPage">
                 @foreach (var account in Claude.Current.Accounts)
@@ -251,25 +294,22 @@
                 }
             </Tabs>
 
-            <div class="setting__actions">
-                <AppButton Variant="ButtonVariant.None"
-                           TestId="add-claude-account-button"
-                           OnClick="AddClaudeAccount">
-                    Add another Claude account
-                </AppButton>
-            </div>
-
             <p class="setting__note">
                 Everything here is auto-saved. The keys are kept in <code>@Claude.SettingsPath</code> - outside the backlog folder, so they are never synced or committed with entries.
             </p>
-        </section>
+            </ChildContent>
+        </SettingsCard>
+        </div>
+    }
 
-        <section class="setting" data-testid="github-usage-settings" aria-label="GitHub usage API settings">
-            <h2 class="setting__title">GitHub usage API</h2>
-            <p class="setting__body">
-                What Backlog needs to read organization Copilot seat activity.
-            </p>
-
+    @if (UsageMetricsEnabled || AiAssistantEnabled)
+    {
+        <div class="ai-providers__column">
+        @if (UsageMetricsEnabled)
+        {
+        <SettingsCard Title="GitHub usage API"
+                      Description="What Backlog needs to read organization Copilot seat activity."
+                      TestId="github-usage-settings">
             <SetupSteps AriaLabel="Setting up GitHub usage reporting"
                         TestId="github-usage-setup-steps"
                         Steps="@GitHubUsageSetupSteps" />
@@ -349,18 +389,21 @@
             <p class="setting__note">
                 Auto-saved. GitHub access and a per-account endpoint are set up on the Accounts tab, or by signing in with the GitHub CLI.
             </p>
-        </section>
-    }
+        </SettingsCard>
+        }
 
-    @if (AiAssistantEnabled)
-    {
-        <section class="setting" data-testid="azure-foundry-settings" aria-label="Azure Foundry AI settings">
-            <h2 class="setting__title">Azure Foundry AI</h2>
-            <p class="setting__body">
-                Connect Backlog to an Azure Foundry chat deployment. The app sends the
-                visible backlog content and your question to that deployment only when
-                you ask.
-            </p>
+        @if (AiAssistantEnabled)
+        {
+        <SettingsCard Title="Azure Foundry AI"
+                      Description="Connect Backlog to an Azure Foundry chat deployment. The app sends the visible backlog content and your question to that deployment only when you ask."
+                      TestId="azure-foundry-settings">
+            @* The feature is on and the assistant still is not there: say why,
+               where the fields that fix it are. A note rather than a live region:
+               it is a standing state, not news, and is there when the page opens. *@
+            <Alert Message="@(AzureFoundry.Current.IsConfigured ? null : AssistantHiddenWarning)"
+                   BaseClass="setting__warning"
+                   Role="note"
+                   TestId="azure-foundry-assistant-hidden" />
 
             <SetupSteps AriaLabel="Setting up Azure Foundry AI"
                         TestId="azure-foundry-setup-steps"
@@ -511,7 +554,9 @@
                 machine - the Azure CLI (<code>az login</code>), the Azure Developer CLI, or Visual
                 Studio - as an account with the Cost Management Reader role on the resource.
             </p>
-        </section>
+        </SettingsCard>
+        }
+        </div>
     }
 </div>
 
@@ -519,6 +564,9 @@
     private bool AiAssistantEnabled => Features.IsEnabled(AppFeatures.AiAssistant);
 
     private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatures.UsageMetrics);
+
+    private const string AssistantHiddenWarning =
+        "Until both are filled in, the AI assistant stays hidden even though its feature is on.";
 
     private string _draftAzureFoundryEndpoint = string.Empty;
     private string _draftAzureFoundryDeployment = string.Empty;
@@ -670,7 +718,7 @@
 
     private string ClaudeAccountsSummary() => Claude.Current.Accounts.Count switch
     {
-        1 => "One Claude organization. Add another below if you also belong to a second one.",
+        1 => "One Claude organization. Use Add organization if you also belong to a second one.",
         var count => $"{count} Claude organizations. The dashboard adds their spend up."
     };
 
@@ -919,9 +967,76 @@
         else if (e.Key == "Escape") _draftClaudeApiKeys[account.Id] = string.Empty;
     }
 
+    /// <summary>When each usage source was last read, where the host composes it;
+    /// without it the tiles say nothing about reads.</summary>
+    private IUsageReadStatus? _reads;
+
+    private TimeProvider _clock = TimeProvider.System;
+
+    private DateTimeOffset Now => _clock.GetUtcNow();
+
+    /// <summary>
+    /// The providers this page offers, in the order the tiles and the headline
+    /// name them. Claude and GitHub come with the Usage metrics feature, Azure
+    /// Foundry with the AI assistant - the same rule that decides which cards are
+    /// drawn, so a tile never stands over a card that is not there.
+    /// </summary>
+    private IReadOnlyList<AiProviderState> Providers
+    {
+        get
+        {
+            var providers = new List<AiProviderState>(3);
+
+            if (UsageMetricsEnabled)
+            {
+                var organizations = Claude.Current.Accounts.Where(account => account.IsConfigured).ToList();
+                providers.Add(new AiProviderState(
+                    AiProvider.Claude,
+                    organizations.Count > 0,
+                    organizations.Count,
+                    AiProvidersOverview.Combine(organizations.Select(account => _reads?.For(UsageSource.Claude(account.Id))))));
+
+                // Usage is read as every configured account, or as this machine's
+                // own sign-in when there is none.
+                var identities = Screen.ConfiguredAccounts.Count > 0
+                    ? Screen.ConfiguredAccounts.Count
+                    : Screen.Connection?.IsConnected == true ? 1 : 0;
+                providers.Add(new AiProviderState(
+                    AiProvider.GitHub,
+                    identities > 0,
+                    identities,
+                    _reads?.For(UsageSource.GitHub)));
+            }
+
+            if (AiAssistantEnabled)
+            {
+                providers.Add(new AiProviderState(
+                    AiProvider.AzureFoundry,
+                    AzureFoundry.Current.IsConfigured,
+                    LastRead: AiProvidersOverview.Combine(
+                        _reads?.All.Where(read => read.Key.Provider == SpendProvider.AzureFoundry).Select(read => (UsageReadStatus?)read.Value) ?? [])));
+            }
+
+            return providers;
+        }
+    }
+
+    /// <summary>A read finished somewhere - the dashboard, most likely - so the
+    /// tile under it says so without the page being reopened.</summary>
+    private void OnUsageRead() => _ = InvokeAsync(StateHasChanged);
+
     protected override void OnInitialized()
     {
+        _reads = Services.GetService<IUsageReadStatus>();
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+        if (_reads is not null) _reads.Changed += OnUsageRead;
+
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
+    }
+
+    public void Dispose()
+    {
+        if (_reads is not null) _reads.Changed -= OnUsageRead;
     }
 }

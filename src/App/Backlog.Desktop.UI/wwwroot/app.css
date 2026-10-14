@@ -2496,6 +2496,75 @@ h1, h2, h3 {
     border-top: 0;
 }
 
+/* The AI providers page: a row of provider tiles, then the cards in two
+   columns that wrap - Claude's on the left, GitHub's and Azure Foundry's
+   stacked on the right. */
+.ai-providers__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* A provider that is not set up is a place for one, not a figure: dashed,
+   and no fill. */
+.metric-tile.ai-provider-tile--unset {
+    border: var(--border-width) dashed var(--color-border-strong);
+    background: transparent;
+}
+
+.ai-provider-tile__read {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.ai-provider-tile__read--ok {
+    color: var(--color-success-text);
+}
+
+.ai-provider-tile__read--failed {
+    color: var(--color-error-text);
+}
+
+.ai-provider-tile__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-success-text);
+}
+
+.ai-providers__cards {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+}
+
+.ai-providers__column {
+    display: grid;
+    flex: 1 1 22rem;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+/* One feature on draws one column, which a flex row would stretch across the
+   whole shell - fields and all. Kept to the width a settings block keeps
+   elsewhere (.setting-columns). */
+.ai-providers__column:only-child {
+    max-width: 640px;
+}
+
+/* The card's body spaces its children; the warning's own bottom margin is
+   for the pages that place it in plain flow. */
+.settings-card__body > .setting__warning {
+    margin: 0;
+}
+
 /* Storage & backup: the folder field with Browse beside it, wrapping under it
    once the card is too narrow for both. */
 .storage-folder {
@@ -2866,6 +2935,63 @@ h1, h2, h3 {
 
 .repo-card--primary {
     border-color: var(--color-primary);
+}
+
+/* --- Settings · Repositories table ----------------------------------------- */
+
+/* The scroll box is the container the open card is measured against: the table
+   can be wider than the box at a narrow width, and the card under a row must stay
+   the width of what is on screen rather than of the table behind it. */
+.repo-table .data-table__scroll {
+    container-type: inline-size;
+}
+
+.repo-table__alias {
+    font-weight: 500;
+}
+
+/* The repository's band colour, as a 10px square before its alias. The hue comes
+   from the swatch modifier the colour picker itself wears, so the two cannot
+   name different colours. Decoration only: the alias beside it is the name. */
+.repo-table__mark {
+    display: inline-block;
+    width: 0.625rem;
+    height: 0.625rem;
+    margin-right: var(--spacing-xs);
+    border-radius: var(--border-radius-none);
+    background: var(--repo-mark-color, var(--color-border));
+    vertical-align: baseline;
+}
+
+.repo-table__edit,
+.repo-table__edit-heading {
+    width: 1%;
+    text-align: right;
+}
+
+/* The heading over the Edit buttons is for a screen reader; nothing is printed
+   above a column of buttons. */
+.repo-table .data-table__table thead th.repo-table__edit-heading {
+    font-size: 0;
+}
+
+/* The open row's card: held to the visible width of the box and pinned to its
+   left edge, so a table scrolled sideways does not carry half the card out of
+   view. The detail row does not light up with the row: it is a form to work in,
+   not a part of the row to point at. */
+.repo-table .data-table__row-detail > td > .repo-card {
+    position: sticky;
+    left: 0;
+    box-sizing: border-box;
+    width: calc(100cqi - 2 * var(--spacing-sm));
+    margin: 0 var(--spacing-sm) var(--spacing-sm);
+    padding: var(--spacing-md);
+}
+
+.repo-table .data-table__row-detail,
+.repo-table .data-table__row-detail:hover,
+.repo-table .data-table__row:hover + .data-table__row-detail {
+    background: transparent;
 }
 
 .repo-card__header {

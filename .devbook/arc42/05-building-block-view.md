@@ -439,6 +439,10 @@ chevron and the page's badge value when it has one; `settings/<page>` is the
 page alone at full width, and its back link goes to that list instead of to
 the tasks. The screen tells the frame which address it is on (`PageChosen`);
 the stylesheet decides the width.
+The Repositories page draws the
+working set as the library's `DataTable`, a row per repository, and opens that
+repository's card in place in a detail row under it; `HasRowDetail` keeps the
+detail row to the one repository being edited.
 
 **Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
 only UI. Its Devices page registers a device and pairs it, counts down the
@@ -446,9 +450,11 @@ pairing code, and forgets a device. It also holds the sync service address and
 drives the task and session sync loops through the Sync Client.
 `SyncSettingsRegistration.AddSyncSettings` registers the page as a
 `SettingsSection` from `Backlog.SharedKernel`, and the desktop composition
-calls it. The shell knows a section only as a title and a component. It offers
-the page under Product areas while the Sync feature is on and keeps it alive
-across moves to other pages.
+calls it. Each of the page's groups is a card, and its headline says whether
+this device is paired with the sync service; the section declares all seven
+card titles, both states' among them, for the settings search. The shell
+offers the page under Product areas while the Sync feature is on and keeps it
+alive across moves to other pages.
 
 ## Mobile App
 

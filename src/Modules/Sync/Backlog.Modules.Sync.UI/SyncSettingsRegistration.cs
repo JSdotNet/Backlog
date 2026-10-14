@@ -27,7 +27,14 @@ public static class SyncSettingsRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("devices", "Devices", Order, typeof(DevicesSettings), SyncFeatures.Sync, SettingsGroup.ProductAreas));
+        services.AddSingleton(new SettingsSection(
+            "devices",
+            "Devices",
+            Order,
+            typeof(DevicesSettings),
+            SyncFeatures.Sync,
+            SettingsGroup.ProductAreas,
+            CardTitles: DevicesSettings.CardTitles));
 
         return services;
     }

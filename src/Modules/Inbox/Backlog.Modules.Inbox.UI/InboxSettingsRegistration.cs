@@ -28,7 +28,14 @@ public static class InboxSettingsRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(new SettingsSection("inbox", "Inbox", Order, typeof(InboxSettings), InboxFeatures.Pane, SettingsGroup.ProductAreas));
+        services.AddSingleton(new SettingsSection(
+            "inbox",
+            "Inbox",
+            Order,
+            typeof(InboxSettings),
+            InboxFeatures.Pane,
+            SettingsGroup.ProductAreas,
+            CardTitles: [InboxSettings.CardTitle]));
 
         return services;
     }
