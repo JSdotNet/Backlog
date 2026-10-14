@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 internal static class SettingsMenu
 {
-    private const string Links = "nav[aria-label='Settings pages'] a";
+    private const string Links = "nav[aria-label='Settings pages'] a[data-page]";
 
     private const string AddressPrefix = "settings/";
 

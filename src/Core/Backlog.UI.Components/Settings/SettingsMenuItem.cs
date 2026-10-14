@@ -12,4 +12,20 @@ namespace Backlog.UI.Components.Settings;
 /// carries <c>aria-current="page"</c>.</param>
 /// <param name="Badge">A short value shown on the right of the item - a count or
 /// a state. Null or blank draws nothing, not an empty pill.</param>
-public sealed record SettingsMenuItem(string Id, string Label, string Href, bool Current = false, string? Badge = null);
+/// <param name="Cards">The cards on the page a search matched, each listed under
+/// the page as a link of its own. Null or empty while nothing is searched.</param>
+public sealed record SettingsMenuItem(
+    string Id,
+    string Label,
+    string Href,
+    bool Current = false,
+    string? Badge = null,
+    IReadOnlyList<SettingsMenuCardLink>? Cards = null);
+
+/// <summary>
+/// A card a settings search matched, listed under its page in the menu: a link
+/// to the page that brings the card into view.
+/// </summary>
+/// <param name="Label">The card's title.</param>
+/// <param name="Href">The page's address with the card named in its fragment.</param>
+public sealed record SettingsMenuCardLink(string Label, string Href);

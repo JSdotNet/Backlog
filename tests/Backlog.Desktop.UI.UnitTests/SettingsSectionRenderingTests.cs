@@ -20,7 +20,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class SettingsSectionRenderingTests
 {
-    private static readonly string[] AppWidePages = ["Features", "Storage & backup", "Repositories"];
+    internal static readonly string[] AppWidePages = ["Features", "Storage & backup", "Repositories"];
 
     [Fact]
     public void With_no_section_registered_only_the_app_wide_pages_are_offered()
@@ -490,7 +490,7 @@ public sealed class SettingsSectionRenderingTests
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
         SettingsMenu.Open(component, title);
 
-    private static SettingsRenderContext RenderSettings(params SettingsSection[] sections) =>
+    internal static SettingsRenderContext RenderSettings(params SettingsSection[] sections) =>
         RenderSettings(sections, inboxPane: false);
 
     private static SettingsRenderContext RenderSettings(SettingsSection section, bool inboxPane) =>
@@ -563,7 +563,7 @@ public sealed class SettingsSectionRenderingTests
         }
     }
 
-    private sealed record SettingsRenderContext(
+    internal sealed record SettingsRenderContext(
         string Root,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable

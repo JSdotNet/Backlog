@@ -115,4 +115,71 @@ public static class SettingsPages
                         string.Equals(page.Id, currentId, StringComparison.Ordinal),
                         badge?.Invoke(page)))]))
         ];
+
+    /// <summary>
+    /// The pages a settings search keeps, in the order given: every page whose
+    /// title or one of whose declared card titles holds <paramref name="text"/>,
+    /// ignoring case, each with the card titles that hold it. Only titles are
+    /// searched - never a field's label or what a page draws - so the search
+    /// answers without rendering a page. Blank text keeps every page, with no
+    /// cards. A page <paramref name="switchedOff"/> names is matched on its title
+    /// alone: its feature is off, so it draws a note in place of its cards.
+    /// </summary>
+    public static IReadOnlyList<SettingsSearchMatch> Find(
+        IReadOnlyList<SettingsSection> pages,
+        string? text,
+        Func<SettingsSection, bool>? switchedOff = null)
+    {
+        var query = text?.Trim();
+        if (string.IsNullOrEmpty(query)) return [.. pages.Select(page => new SettingsSearchMatch(page, []))];
+
+        bool Holds(string title) => title.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+        return
+        [
+            .. pages
+                .Select(page => new SettingsSearchMatch(page, switchedOff?.Invoke(page) == true ? [] : [.. (page.CardTitles ?? []).Where(Holds)]))
+                .Where(match => match.Cards.Count > 0 || Holds(match.Page.Title))
+        ];
+    }
+
+    /// <summary>Whether <paramref name="text"/> is a search at all: blank is none.</summary>
+    public static bool IsSearching(string? text) => !string.IsNullOrWhiteSpace(text);
+
+    /// <summary>What the menu says in its place when a search keeps no page.</summary>
+    public static string NoMatch(string text) => $"No setting matches \"{text.Trim()}\".";
+
+    private const string CardFragmentPrefix = "card-";
+
+    /// <summary>The fragment that names a card in a page's address: <c>card-</c>
+    /// and the title in lower case, every run of other characters a hyphen -
+    /// <c>card-storage-backup</c>.</summary>
+    public static string CardFragment(string cardTitle)
+    {
+        var slug = new System.Text.StringBuilder(cardTitle.Length);
+        foreach (var character in cardTitle.Trim().ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(character)) slug.Append(character);
+            else if (slug.Length > 0 && slug[^1] != '-') slug.Append('-');
+        }
+
+        return CardFragmentPrefix + slug.ToString().TrimEnd('-');
+    }
+
+    /// <summary>A card's address: its page's, with the card named in the fragment.</summary>
+    public static string CardHref(string pageId, string cardTitle) => Href(pageId) + "#" + CardFragment(cardTitle);
+
+    /// <summary>The card of <paramref name="page"/> that <paramref name="fragment"/>
+    /// names, or null where it names none of the cards the page declares.</summary>
+    public static string? CardNamedBy(SettingsSection page, string? fragment)
+    {
+        var name = fragment?.TrimStart('#');
+        if (string.IsNullOrEmpty(name) || !name.StartsWith(CardFragmentPrefix, StringComparison.Ordinal)) return null;
+
+        return (page.CardTitles ?? []).FirstOrDefault(title => string.Equals(CardFragment(title), name, StringComparison.Ordinal));
+    }
 }
+
+/// <summary>A page a settings search kept, and the titles of its cards that
+/// matched - empty where only the page's own title did.</summary>
+public sealed record SettingsSearchMatch(SettingsSection Page, IReadOnlyList<string> Cards);
