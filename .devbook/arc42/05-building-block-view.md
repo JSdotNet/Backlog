@@ -430,9 +430,11 @@ pairing code, and forgets a device. It also holds the sync service address and
 drives the task and session sync loops through the Sync Client.
 `SyncSettingsRegistration.AddSyncSettings` registers the page as a
 `SettingsSection` from `Backlog.SharedKernel`, and the desktop composition
-calls it. The shell knows a section only as a title and a component. It offers
-the page under Product areas while the Sync feature is on and keeps it alive
-across moves to other pages.
+calls it. Each of the page's groups is a card, and its headline says whether
+this device is paired with the sync service; the section declares all seven
+card titles, both states' among them, for the settings search. The shell
+offers the page under Product areas while the Sync feature is on and keeps it
+alive across moves to other pages.
 
 ## Mobile App
 
