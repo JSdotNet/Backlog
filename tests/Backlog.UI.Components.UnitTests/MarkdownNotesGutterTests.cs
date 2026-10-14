@@ -206,19 +206,103 @@ public sealed class MarkdownNotesGutterTests
     [Fact]
     public void The_narrow_fallback_puts_the_gutters_furniture_away()
     {
-        var css = Stylesheet();
-        var breakpoint = css.IndexOf("@media (max-width: 60rem)", StringComparison.Ordinal);
+        var fallback = Assert.Single(AtRuleBlocks(MarginQuery), block => block.Contains(".md-view--margin .md-block-row", StringComparison.Ordinal));
 
-        Assert.True(breakpoint >= 0, "components.css no longer has the margin layout's narrow fallback.");
-
-        var fallback = css[breakpoint..];
-        var end = fallback.IndexOf("\n}", StringComparison.Ordinal);
-        fallback = end >= 0 ? fallback[..end] : fallback;
-
+        Assert.True(
+            Regex.IsMatch(fallback, @"\.md-view--margin \.md-block-row\s*\{\s*display\s*:\s*block"),
+            $"Below the breakpoint the row has to stop being a grid, or the 18rem track still claims the pane. Found:\n{fallback}");
         Assert.Contains(".md-block-row__notes", fallback, StringComparison.Ordinal);
         Assert.True(
             Regex.IsMatch(fallback, @"border-inline-start\s*:\s*none"),
             $"The column's rule survives into the stacked layout, beside the inline one. Found:\n{fallback}");
+    }
+
+    /// <summary>
+    /// The margin falls back on the width of the surface it is drawn on, not on the
+    /// width of the window.
+    ///
+    /// <para>A Devbook side pane is a 24–44rem track beside the Tasks view on a
+    /// screen nineteen hundred pixels wide. Asked of the window, the fallback never
+    /// fired there: at a 1689px window and a 24rem pane the prose track measured
+    /// 16px, the block's own affordance gutter spilled over the notes cell, and
+    /// the remark's Save and Delete could not be clicked because the block was
+    /// painted on top of them. So the collapse is a container query, and nothing
+    /// about the margin is left in a viewport query to disagree with it.</para>
+    ///
+    /// <para>One container for everything the margin costs. Inside a file view
+    /// the rows, the header's reservation, the body's trailing padding and the
+    /// card's paint all answer to the file view's width — a row asking the reading
+    /// body and a header asking the card would differ by the body's padding, and
+    /// in that band the card would say "margin" while the rows said "stacked".
+    /// <c>MarkdownDocument</c> has no file view, so the view itself is the
+    /// container there, and gives that up inside a file view.</para>
+    /// </summary>
+    [Fact]
+    public void The_margin_follows_the_surface_it_is_drawn_on_not_the_window()
+    {
+        Assert.Contains(
+            "container: md-margin / inline-size",
+            TopLevelRule(".md-view--margin"),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "container: md-margin / inline-size",
+            TopLevelRule(".file-view:has(> .file-view__body--notes)"),
+            StringComparison.Ordinal);
+        Assert.True(
+            Regex.IsMatch(TopLevelRule(".file-view__body--notes .md-view--margin"), @"container\s*:\s*none"),
+            "Inside a file view the markdown view must not be a container of the same name, or the rows "
+            + "measure the reading body while the header and the card measure the file view.");
+
+        var media = AtRuleBlocks("@media").Where(block =>
+            block.Contains(".md-view--margin", StringComparison.Ordinal)
+            || block.Contains(".file-view__body--notes", StringComparison.Ordinal)).ToList();
+
+        Assert.True(
+            media.Count == 0,
+            "The margin layout still answers to the window somewhere; a side pane on a wide screen never "
+            + $"reaches that query. Found:\n{string.Join("\n---\n", media)}");
+    }
+
+    /// <summary>
+    /// A remark's controls are painted above the block they hang off.
+    ///
+    /// <para>The block is positioned — its corner affordances are placed against
+    /// it — and the notes cell was not, so wherever the block overflowed its track
+    /// the block was painted, and hit-tested, over the cell's Save and Delete. A
+    /// positioned cell later in the row paints after its block whatever the block
+    /// does, with no z-index to keep in step.</para>
+    /// </summary>
+    [Fact]
+    public void The_notes_cell_paints_above_its_own_block()
+    {
+        var notes = TopLevelRule(".md-view--margin .md-block-row__notes");
+
+        Assert.True(
+            Regex.IsMatch(notes, @"position\s*:\s*relative"),
+            $"An unpositioned notes cell is painted under its positioned block. Rule found:\n{notes}");
+    }
+
+    /// <summary>
+    /// Below the breakpoint a file view carrying remarks looks like any other file
+    /// view: the card it painted beside the gutter covers the whole pane again, edge
+    /// on edge with the border a plain card draws, and the body takes back the
+    /// trailing padding it gave the gutter.
+    ///
+    /// <para>Repainted rather than restored, because a container query cannot
+    /// style the container: the card's own border and ground stay off at every
+    /// width, and the layer that paints them is what changes size.</para>
+    /// </summary>
+    [Fact]
+    public void Below_the_breakpoint_the_card_is_the_whole_pane_again()
+    {
+        var narrow = string.Join("\n", AtRuleBlocks(MarginQuery));
+
+        Assert.True(
+            Regex.IsMatch(narrow, @"\.file-view:has\(> \.file-view__body--notes\)::before\s*\{\s*inset\s*:\s*calc\(-1 \* var\(--border-width\)\)"),
+            $"The narrow card has to cover the pane, on the border a plain card draws. Found:\n{narrow}");
+        Assert.True(
+            Regex.IsMatch(narrow, @"\.file-view__body--notes\s*\{\s*padding-inline-end\s*:\s*var\(--spacing-md\)"),
+            $"The body has to take its trailing padding back with the edge. Found:\n{narrow}");
     }
 
     /// <summary>
@@ -333,7 +417,7 @@ public sealed class MarkdownNotesGutterTests
         // at, not merely somewhere later in the file.
         var css = Stylesheet();
         var withdrawal = css.LastIndexOf(Selector, StringComparison.Ordinal);
-        var breakpoint = css.LastIndexOf("@media (max-width: 60rem)", withdrawal, StringComparison.Ordinal);
+        var breakpoint = css.LastIndexOf(MarginQuery, withdrawal, StringComparison.Ordinal);
 
         // The withdrawal opens that media block: nothing but whitespace stands
         // between the block's brace and this selector. Which is what says the rule
@@ -348,13 +432,70 @@ public sealed class MarkdownNotesGutterTests
             $"The withdrawal has to take the reservation back. Rule found:\n{rules[1]}");
 
         // And the pane takes back the trailing edge it gave the gutter, which the
-        // header's own padding is measured from.
-        // Matched with the brace, so the ::before that paints the card is not
-        // mistaken for the pane's own rule.
-        Assert.Contains(
-            "--file-view-content-end: var(--spacing-md)",
-            Rules(".file-view:has(> .file-view__body--notes) {")[1],
-            StringComparison.Ordinal);
+        // header's own padding is measured from. On the pane's children rather
+        // than on the pane: the pane is the container, and a container query
+        // cannot style the box it measures.
+        const string Children = ".file-view:has(> .file-view__body--notes) > * {";
+        var children = Rules(Children);
+
+        Assert.Equal(2, children.Count);
+        Assert.Contains("--file-view-content-end: var(--spacing-md)", children[1], StringComparison.Ordinal);
+
+        var restated = css.LastIndexOf(Children, StringComparison.Ordinal);
+        Assert.True(
+            css.LastIndexOf(MarginQuery, restated, StringComparison.Ordinal) > css.LastIndexOf("\n}", restated, StringComparison.Ordinal),
+            "The trailing edge has to come back at the width the gutter collapses at.");
+    }
+
+    /// <summary>The one query every narrow-margin rule sits in: the <c>md</c>
+    /// breakpoint, asked of the surface the margin is drawn on.</summary>
+    private const string MarginQuery = "@container md-margin (max-width: 48rem)";
+
+    /// <summary>The bodies of every at-rule block that opens with
+    /// <paramref name="prelude"/>, braces matched. Matched on
+    /// <see cref="Stylesheet"/>, which has its comments stripped, so neither a
+    /// brace nor a query quoted in a comment can open or close a block here.</summary>
+    private static List<string> AtRuleBlocks(string prelude)
+    {
+        var css = Stylesheet();
+        var found = new List<string>();
+
+        for (var at = css.IndexOf(prelude, StringComparison.Ordinal); at >= 0;
+             at = css.IndexOf(prelude, at + prelude.Length, StringComparison.Ordinal))
+        {
+            var depth = 0;
+
+            for (var index = css.IndexOf('{', at); index >= 0 && index < css.Length; index++)
+            {
+                if (css[index] == '{')
+                {
+                    depth++;
+                }
+                else if (css[index] == '}' && --depth == 0)
+                {
+                    found.Add(css[at..(index + 1)]);
+                    break;
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>The top-level rule whose whole selector is
+    /// <paramref name="selector"/> — at the start of a line and followed by its
+    /// brace, so a longer selector ending in the same words, or the same selector
+    /// restated inside a query, is not mistaken for it. Matched on the
+    /// comment-stripped <see cref="Stylesheet"/>, for the reason
+    /// <see cref="AtRuleBlocks"/> gives.</summary>
+    private static string TopLevelRule(string selector)
+    {
+        var css = Stylesheet();
+        var match = Regex.Match(css, $@"(?m)^{Regex.Escape(selector)} \{{");
+        Assert.True(match.Success, $"components.css has no top-level rule for {selector}.");
+
+        var end = css.IndexOf("\n}", match.Index, StringComparison.Ordinal);
+        return css[match.Index..(end + 2)];
     }
 
     /// <summary>Every rule that opens with <paramref name="selector"/>, in the
