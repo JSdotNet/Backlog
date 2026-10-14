@@ -95,6 +95,7 @@ select or radio commits on change.
 
 ```meta
 related: [".devbook/design/interaction-guidelines.md#group-shape-says-cardinality"]
+tests: [e2e:dotnet:Backlog.EndToEndTests.SettingsTests.A_page_opens_by_address_and_menu_back_returns_find_reveals_a_card_and_a_phone_gets_the_list]
 ```
 
 The menu lists every page under one of three groups, in this order
@@ -170,6 +171,7 @@ Rules:
 
 ```meta
 related: [".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/accessibility.md#keyboard-navigation"]
+tests: [e2e:dotnet:Backlog.EndToEndTests.SettingsTests.A_page_opens_by_address_and_menu_back_returns_find_reveals_a_card_and_a_phone_gets_the_list]
 ```
 
 `SettingsSearch` narrows the menu to the pages whose title, or one of whose
@@ -287,6 +289,7 @@ Rules:
 
 ```meta
 related: [".devbook/design/typography-and-layout.md#layout-grid-and-breakpoints", ".devbook/design/accessibility.md#target-sizes-and-text"]
+tests: [e2e:dotnet:Backlog.EndToEndTests.SettingsTests.A_page_opens_by_address_and_menu_back_returns_find_reveals_a_card_and_a_phone_gets_the_list]
 ```
 
 The menu and the page sit side by side while the panel has room for both. Below
@@ -316,6 +319,7 @@ Rules:
 
 ```meta
 related: [".devbook/design/interaction-guidelines.md#shell-header"]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsSearchMatchingTests.Every_card_has_its_own_fragment_on_its_page, e2e:dotnet:Backlog.EndToEndTests.SettingsTests.A_page_opens_by_address_and_menu_back_returns_find_reveals_a_card_and_a_phone_gets_the_list]
 ```
 
 Every page has an address, `settings/{page}`, where `{page}` is the
@@ -337,6 +341,9 @@ Rules:
   collision and leave the registered page out.
 - A link to a page MUST be built with `SettingsPages.Href` or the address above,
   never by query string.
+- Two cards of one page MUST NOT make the same `#card-<slug>`, or the second could
+  never be revealed. `Every_card_has_its_own_fragment_on_its_page` holds it over
+  the shell's pages and every section a module registers.
 - A page opened once stays alive, hidden, while another is on screen, so a
   half-typed field survives a move. It is not redrawn while hidden.
 
@@ -378,3 +385,9 @@ The storybook shows the frame, the menu and the card on its *Settings frame*,
 from its **Design rules** block: the frame to *Panel and Header* and *Headline*,
 the menu to *Menu Groups*, *Badges and the Off State* and *Phone Width*, the
 card to *Settings Card* and *Figure Tiles*.
+
+`SettingsTests` in `tests/Backlog.EndToEndTests` drives the screen on the desktop
+harness, and the `tests` of *Menu Groups*, *Card Titles and Search*, *Phone Width*
+and *Addresses* name it: a page opened by its address and by the menu, Back to the
+page before, Find a setting to a card brought into view and lit, and at phone width
+the grouped list and a page alone with the way back to it.

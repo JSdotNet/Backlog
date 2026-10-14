@@ -43,7 +43,7 @@ internal sealed partial class DesktopHarness
     /// page's badge (<c>Features 12/19</c>). An address naming a page that is not
     /// on offer shows Features instead, so the wait times out naming the page that
     /// never came.</summary>
-    private async Task OpenSettingsAsync(string page)
+    public async Task OpenSettingsAsync(string page)
     {
         await Page.GotoAsync(new Uri(_baseUrl, $"settings/{page}").ToString());
         var current = Page.Locator($"a[data-page='{page}'][aria-current='page']");
