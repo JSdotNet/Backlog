@@ -258,6 +258,43 @@ public sealed class DeliveryRunStagesTests
         Assert.Null(stages[3].QuerySelector("[data-testid='sessions-stage-usual']"));
     }
 
+    /// <summary>Scenario evidence sits under the stage that reported it: its folded
+    /// row counts the passing parts, and its panel lists them. A stage without
+    /// evidence carries neither.</summary>
+    [Fact]
+    public void Only_the_stage_with_evidence_carries_the_checklist_in_its_panel()
+    {
+        using var context = new BunitContext();
+        var run = Run();
+        var stages = run.Stages.ToList();
+        stages[2] = stages[2] with
+        {
+            Evidence =
+            [
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "statuses-are-set-up", "passed", "2026-10-07T08:30:00Z"),
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "an-item-is-moved", "failed", "2026-10-07T08:31:00Z")
+            ]
+        };
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run with { Stages = stages }));
+        var rows = list.FindAll("[data-testid='sessions-stage']");
+
+        Assert.Equal("1 of 2 passing", rows[2].QuerySelector("[data-testid='sessions-stage-evidence-summary']")!.TextContent.Trim());
+        Assert.Single(list.FindAll("[data-testid='sessions-stage-evidence-summary']"));
+
+        // The one checklist is in the evidence stage's panel, and no other stage's.
+        Assert.Single(list.FindAll("[data-testid='sessions-stage-evidence']"));
+        Assert.All(new[] { 0, 1, 3 }, other => Assert.Null(rows[other].QuerySelector("[data-testid='sessions-stage-evidence']")));
+
+        list.FindAll("[data-testid='sessions-stage-toggle']")[2].Click();
+
+        var panel = list.FindAll("[data-testid='sessions-stage']")[2].QuerySelector("[data-testid='sessions-stage-panel']")!;
+        var checklist = panel.QuerySelector("[data-testid='sessions-stage-evidence']")!;
+        Assert.Equal("Scenario evidence", checklist.GetAttribute("aria-label"));
+        Assert.Equal(["passed", "failed"], checklist.QuerySelectorAll("[data-testid='sessions-stage-evidence-part']").Select(part => part.GetAttribute("data-state")));
+        Assert.Empty(checklist.QuerySelectorAll("button"));
+    }
+
     // What each pass found — Stage Counts on the rows, the run's Quality Facts in the panel.
 
     [Fact]

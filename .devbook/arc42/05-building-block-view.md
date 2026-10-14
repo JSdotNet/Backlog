@@ -378,7 +378,16 @@ the port to devbook's shared vector. It also reads a committed `run.json` in bot
 of its versions and devbook's `_meta/scenarios.json` register, and it does the
 disk reads behind them. The Devbook UI's `DevbookScenarioStore` keeps one catalog
 per repository from those reads. The menu, the Domain panel, and every chapter's
-`scenario:` images draw from that catalog.
+`scenario:` images draw from that catalog. So does a task entry's text, which the
+Tasks pane is not allowed to reach on its own. The shell answers the pane's
+`DevbookImagesFor` parameter from `DevbookScenarioImageSources`, one
+`IDevbookImageSource` per repository over the same store. `IDevbookImageSource`
+lives in the component library, so Tasks.UI still references no Devbook project.
+Outside a knowledge document, `MarkdownView` asks that source about images and
+nothing else. A followed reference's `#anchor` reaches a scenario page as a
+`DevbookFocus`, passed from `DevbookPane` through `DomainDevbookPanel` to
+`DevbookScenarioPage`. The page marks that part and reveals it with
+`backlogRevealRow`.
 
 **Inbox Service** is `Backlog.Modules.Inbox`, a module with its own `Abstractions`
 project and its own tables in `backlog.db` (`inbox_items`, `inbox_lists`,

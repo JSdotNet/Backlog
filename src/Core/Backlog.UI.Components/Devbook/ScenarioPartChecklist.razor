@@ -72,9 +72,20 @@
     [Parameter]
     public string TestId { get; set; } = "scenario-checklist";
 
-    private int Passing => Parts.Count(part => ScenarioStateDot.SlugOf(part.State) == "passed");
+    private int Passing => PassingOf(Parts);
 
     private bool IsProved => Parts.Count > 0 && Passing == Parts.Count;
 
-    private string Summary => $"{Passing} of {Parts.Count} passing";
+    private string Summary => SummaryOf(Parts);
+
+    /// <summary>How many of the parts passed, as the checklist counts them, for a
+    /// host that says it where the list itself is folded away.</summary>
+    public static string SummaryOf(IReadOnlyList<ScenarioChecklistPart> parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        return $"{PassingOf(parts)} of {parts.Count} passing";
+    }
+
+    private static int PassingOf(IReadOnlyList<ScenarioChecklistPart> parts) =>
+        parts.Count(part => ScenarioStateDot.SlugOf(part.State) == "passed");
 }

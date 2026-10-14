@@ -1505,6 +1505,7 @@
     {
         FollowSectionWithAtlas(key);
         _pendingChapter = null;
+        _focus = null;
         _selectedSection = key;
         _folderOpenError = null;
         if (SectionUsesMenu)
@@ -1521,6 +1522,8 @@
         _selectedSection = node.AreaKey;
         if (IsSelectableMenuNode(node) || IsContextOverviewNode(node) || IsAreaOverviewNode(node))
         {
+            // The reader's own pick: whatever a followed reference focused is done.
+            _focus = null;
             _selectedChapterPaths[node.AreaKey] = node.Path;
         }
 
@@ -1695,6 +1698,7 @@
             _selectedSection = target.AreaKey;
             _selectedC4View = target.Reference;
             _folderOpenError = null;
+            _focus = null;
             return;
         }
 
@@ -1718,7 +1722,40 @@
         _selectedChapterPaths[target.AreaKey] = target.RelativePath;
         _folderOpenError = null;
         ExpandAncestorsToSelected(root.Children, target.RelativePath);
+
+        // The heading the reference named, kept with the chapter it is in; each
+        // followed reference is a new request, so the same part asked for twice is
+        // scrolled to twice. One naming no heading leaves nothing focused.
+        _focus = target.Anchor is { Length: > 0 } anchor
+            ? new ChapterFocus(ActiveRepositoryAlias, target.AreaKey, target.RelativePath, new DevbookFocus(anchor, ++_focusSequence))
+            : null;
     }
+
+    /// <summary>The heading a followed reference named, in the repository and the
+    /// chapter it named it in. The repository too, because a fork or a sibling
+    /// checkout has a page at the same path, and switching to it must not light up
+    /// the part asked for in the other.</summary>
+    private sealed record ChapterFocus(string? RepositoryAlias, string AreaKey, string RelativePath, DevbookFocus Focus);
+
+    /// <summary>
+    /// The part a followed reference opened — a part pressed in an entry's
+    /// Acceptance checklist — which the scenario page marks and scrolls to.
+    /// <para>
+    /// Kept until the reader picks a chapter themselves, from the menu or the
+    /// section strip, or follows another reference: a timed flash would be gone
+    /// before a slow catalog drew the page it is on.
+    /// </para>
+    /// </summary>
+    private ChapterFocus? _focus;
+    private int _focusSequence;
+
+    private DevbookFocus? FocusFor(string areaKey, string? selectedPath) =>
+        _focus is { } focus
+        && string.Equals(focus.RepositoryAlias, ActiveRepositoryAlias, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(focus.AreaKey, areaKey, StringComparison.Ordinal)
+        && string.Equals(focus.RelativePath, selectedPath, StringComparison.OrdinalIgnoreCase)
+            ? focus.Focus
+            : null;
 
     private bool IsMenuNodeExpanded(DevbookMenuNode node) => _expandedMenuNodes.Contains(MenuNodeKey(node));
 
@@ -2054,7 +2091,7 @@
             "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42DevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
-            "domain" => @<DomainDevbookPanel Compact="true" ShowContextTabs="false" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
+            "domain" => @<DomainDevbookPanel Compact="true" ShowContextTabs="false" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("domain", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,
             "instructions" => @<InstructionsDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             _ => @<Alert Message="Turn on Devbook in Settings to read the repository's devbook here." BaseClass="devbook-empty" Role="status" />

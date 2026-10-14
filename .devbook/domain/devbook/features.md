@@ -413,7 +413,7 @@ rather than offering an empty tab strip.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents]
+related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
 ```
 
 Present each area's documents as readable content rather than raw files:
@@ -506,10 +506,15 @@ Opening a journey shows its run above the page. The run shows the setup the
 journey runs under: where it starts, who is signed in, the profile, the data sets,
 and the flag and setting overrides. Under the setup is a summary line, then each
 part with its outcome and the screenshots it took. A failed part also shows the
-screenshot taken where it failed.
+screenshot taken where it failed. A journey opened from a reference that names one
+of its parts, such as a part pressed in a task's acceptance checklist, opens at that
+part, marks it as the one asked for, and scrolls it into view. The mark stays until
+the reader picks another chapter, and it belongs to the repository the reference
+named.
 
-An image written `scenario:<stem>#<label>` in any chapter shows that screenshot
-from the journey's last run, with a source line under it naming the journey, the
+An image written `scenario:<stem>#<label>` in any chapter, or in a task's own text
+([Acceptance from scenario parts](../tasks/features.md#acceptance-from-scenario-parts)),
+shows that screenshot from the journey's last run, with a source line under it naming the journey, the
 part, the run's state and the time of the capture. Two such images in one
 paragraph sit side by side. A label the journey does not have lists the labels
 it does have. A journey that does not exist, or a name two journeys share, says

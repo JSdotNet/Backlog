@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Devbook;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -736,5 +737,94 @@ public sealed class EntryDevbookReferencesTests
         await first;
 
         pane.WaitForAssertion(() => Assert.Equal([TasksPage, TaskChapter], row.DevbookReferences));
+    }
+    /// <summary>A <c>scenario:</c> image in the prose an entry opens with and in a
+    /// step's note draws what the shell's source answers — the screenshot a chapter
+    /// would show — asked for the repository the entry's references resolve against.</summary>
+    [Fact]
+    public async Task A_scenario_image_in_the_body_draws_what_the_shell_source_answers()
+    {
+        using var host = await TasksPaneHost.CreateAsync(new FakeDevbookReferenceResolver(), Repositories);
+        await host.WriteEntryAsync(
+            "# Show the cart\n`task` `repo:backlog`\n\n" +
+            "![The cart](scenario:place-an-order#cart-filled)\n\n" +
+            "## [ ] Check the totals\n" +
+            "![Totals](scenario:place-an-order#totals)\n");
+
+        var asked = new List<string?>();
+        var source = new RecordingImages();
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.DevbookImagesFor, alias => { asked.Add(alias); return source; }));
+
+        pane.WaitForAssertion(() =>
+        {
+            var prose = pane.Find("[data-testid='entry-view-prose']");
+            Assert.Equal("scenario:place-an-order#cart-filled|The cart", prose.QuerySelector("[data-testid='claimed-image']")!.TextContent);
+
+            var note = pane.Find("[data-testid='subitem-list-0-body']");
+            Assert.Equal("scenario:place-an-order#totals|Totals", note.QuerySelector("[data-testid='claimed-image']")!.TextContent);
+        });
+        Assert.Contains("backlog", asked);
+        Assert.All(asked, alias => Assert.Equal("backlog", alias));
+    }
+
+    /// <summary>An ordinary image in an entry renders as it always has, source or no
+    /// source: only what the source claims changes.</summary>
+    [Fact]
+    public async Task An_ordinary_image_in_the_body_renders_as_before()
+    {
+        using var host = await TasksPaneHost.CreateAsync(new FakeDevbookReferenceResolver(), Repositories);
+        await host.WriteEntryAsync(
+            "# Show the logo\n`task` `repo:backlog`\n\n" +
+            "![Logo](https://example.com/logo.png)\n\n" +
+            "## [ ] Check it\n");
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.DevbookImagesFor, _ => new RecordingImages()));
+
+        pane.WaitForAssertion(() =>
+        {
+            var image = pane.Find("[data-testid='entry-view-prose'] img");
+            Assert.Equal("https://example.com/logo.png", image.GetAttribute("src"));
+            Assert.Equal("Logo", image.GetAttribute("alt"));
+        });
+        Assert.Empty(pane.FindAll("[data-testid='claimed-image']"));
+    }
+
+    /// <summary>Answers a <c>scenario:</c> target with its target and caption, and
+    /// declines everything else.</summary>
+    private sealed class RecordingImages(string? repository = null) : IDevbookImageSource
+    {
+        public RenderFragment? Image(string target, string caption, string? documentPath) =>
+            target.StartsWith("scenario:", StringComparison.Ordinal)
+                ? builder =>
+                {
+                    builder.OpenElement(0, "span");
+                    builder.AddAttribute(1, "data-testid", "claimed-image");
+                    builder.AddAttribute(2, "data-repository", repository);
+                    builder.AddContent(3, $"{target}|{caption}");
+                    builder.CloseElement();
+                }
+                : null;
+    }
+
+    /// <summary>An entry from another repository draws that repository's images: the
+    /// open entry decides which source the body asks, on every render, so moving to
+    /// it needs nothing remounted.</summary>
+    [Fact]
+    public async Task An_entry_from_another_repository_draws_that_repository_s_images()
+    {
+        using var host = await TasksPaneHost.CreateAsync(new FakeDevbookReferenceResolver(), Repositories);
+        var first = await host.WriteEntryAsync("# In backlog\n`task` `repo:backlog`\n\n![Cart](scenario:place-an-order#cart-filled)\n\n## [ ] A step\n");
+        var second = await host.WriteEntryAsync("# In docs\n`task` `repo:docs`\n\n![Cart](scenario:place-an-order#cart-filled)\n\n## [ ] A step\n");
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.DevbookImagesFor, alias => new RecordingImages(alias)));
+
+        await host.OpenAsync(first);
+        pane.WaitForAssertion(() => Assert.Equal("backlog", pane.Find("[data-testid='entry-view-prose'] [data-testid='claimed-image']").GetAttribute("data-repository")));
+
+        await host.OpenAsync(second);
+        pane.WaitForAssertion(() => Assert.Equal("docs", pane.Find("[data-testid='entry-view-prose'] [data-testid='claimed-image']").GetAttribute("data-repository")));
     }
 }

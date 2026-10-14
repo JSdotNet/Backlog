@@ -185,22 +185,10 @@
 
         @* How each stage ran, under the picture of where it stands: the mode, the
            model and effort, whether it ran as configured, and one panel at a time
-           with the whole of it. *@
+           with the whole of it — the scenario evidence a stage reported among it. *@
         @if (Run.Stages.Count > 0)
         {
             <DeliveryRunStages Run="Run" Costs="Costs" Comparison="Comparison" />
-        }
-
-        @* The scenario page parts a stage ran (BL2 evidence), per part, under the
-           stage that reported them — the verify stage, for a delivery run. Left
-           out where no stage reported any. *@
-        @foreach (var stage in Run.Stages.Where(stage => stage.Evidence.Count > 0))
-        {
-            <div class="sessions-run__evidence" data-testid="sessions-run-evidence">
-                <ScenarioPartChecklist Parts="@EvidenceParts(stage)"
-                                       Heading="@($"{stage.Name}: scenario evidence")"
-                                       TestId="sessions-run-evidence-list" />
-            </div>
         }
 
         @* Groups rather than one long list, so the grid can set them side by side:

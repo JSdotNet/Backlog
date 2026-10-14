@@ -1323,6 +1323,17 @@
     [Parameter]
     public Func<string, IReadOnlyList<Backlog.UI.Components.Brain.BrainNoteLink>>? BrainNotesFor { get; set; }
 
+    /// <summary>
+    /// What draws an image an entry names by scheme — <c>scenario:&lt;stem&gt;#&lt;label&gt;</c>,
+    /// a scenario page's screenshot — asked by the repository the entry's references
+    /// resolve against (<see cref="TasksDesktopState.DevbookRepositoryAliasFor"/>). The
+    /// host's for the reason <see cref="OnOpenDevbookReference"/> is: the scenario pages
+    /// and their runs are the Devbook's, and this pane may not reach them. Unset, or
+    /// answering null, every image in an entry renders as it always has.
+    /// </summary>
+    [Parameter]
+    public Func<string?, IDevbookImageSource?>? DevbookImagesFor { get; set; }
+
     /// <summary>Raised with the note a row's Brain badge opens; the host shows it
     /// in the Devbook pane, Brain side.</summary>
     [Parameter]
@@ -3200,7 +3211,18 @@
     /// </para>
     /// </summary>
     private RenderFragment RenderBodyViews(EntryRow row) =>
-        @<div class="entry-detail__body">
+        @<CascadingValue TValue="IDevbookImageSource"
+                         Value="@BodyImagesFor(row)"
+                         IsFixed="true">
+        @* A scenario: image in the opening text or a step's note draws the
+           screenshot a chapter would. Cascaded rather than handed to every view, as
+           the Devbook pane does, and fixed for the reason it is: a cascade that is not
+           fixed re-renders every view under it on every render of this pane, and that
+           takes a note being typed with it. What is cascaded is this pane's own
+           stand-in, pointed at the open entry's repository on every render, so an
+           entry from another repository — or a repository resolved late — reaches
+           the views without remounting the editor or the step composer beside them. *@
+        <div class="entry-detail__body">
 
             @* Tabs, not a pressed strip. Two readings of one text, one of them on
                screen at a time and the other reachable by name — that is a tab
@@ -3289,6 +3311,19 @@
                        entry the reader opens, and a half-typed step would follow them to
                        the next one and be committed there — which is what the composer's
                        reset on selection used to prevent. *@
+                    @if (row.StepsViewHidesProse)
+                    {
+                        @* The text an entry opens with, before its first chapter, read
+                           rather than edited: the steps view lists chapters and this
+                           prose is not one, so a view that left it off would make the
+                           entry look like it had lost text. Rendered here, a scenario
+                           image in it shows its screenshot the way a chapter does; the
+                           Markdown tab stays where it is written. *@
+                        <div class="entry-detail__prose" data-testid="entry-view-prose">
+                            <MarkdownView Blocks="@row.PreviewBlocks" />
+                        </div>
+                    }
+
                     <TaskListView @key="row.Key"
                                   Tasks="@StepTasks(row)"
                                   OnToggle="index => OnStepToggledAsync(row, index)"
@@ -3307,24 +3342,6 @@
                                   EmptyMessage=""
                                   TestId="subitem-list" />
 
-                    @if (row.StepsViewHidesProse)
-                    {
-                        @* Said out loud rather than hidden. The steps view lists
-                           chapters, and the prose an entry opens with is not one — so
-                           this view is showing less than the entry holds, and a reader
-                           with no way to know that would read the missing paragraph as
-                           text the app had lost. Quiet, one line, and the block that
-                           does show it is the press at the end of the sentence. *@
-                        <p class="entry-detail__elsewhere" data-testid="entry-view-elsewhere">
-                            <span>There is text on this entry the steps do not show.</span>
-                            <AppButton BaseClass="entry-detail__elsewhere-link"
-                                       Variant="ButtonVariant.None"
-                                       TestId="entry-view-elsewhere-link"
-                                       OnClick="() => State.ChangeViewAsync(row, EntryView.Notes)">
-                                Show the markdown
-                            </AppButton>
-                        </p>
-                    }
                 </TabPanel>
 
                 <TabPanel Id="@NotesViewId"
@@ -3349,7 +3366,33 @@
                                     TestId="entry-body-editor" />
                 </TabPanel>
             </Tabs>
-        </div>;
+        </div>
+        </CascadingValue>;
+
+    private readonly BodyImageSource _bodyImages = new();
+
+    /// <summary>The stand-in the body cascades, pointed at the source for the
+    /// repository the entry's references resolve against — the one its Devbook
+    /// references open in.</summary>
+    private IDevbookImageSource BodyImagesFor(EntryRow row)
+    {
+        _bodyImages.Current = DevbookImagesFor?.Invoke(State.DevbookRepositoryAliasFor(row));
+        return _bodyImages;
+    }
+
+    /// <summary>
+    /// One instance for the pane's lifetime, so the fixed cascade never needs a new
+    /// value: it asks whichever source the open entry's repository has now. With no
+    /// source it declines every image, which leaves every image to the plain rule —
+    /// what an entry's body drew before any source existed.
+    /// </summary>
+    private sealed class BodyImageSource : IDevbookImageSource
+    {
+        public IDevbookImageSource? Current { get; set; }
+
+        public RenderFragment? Image(string target, string caption, string? documentPath) =>
+            Current?.Image(target, caption, documentPath);
+    }
 
     private const string StepsViewId = "steps";
     private const string NotesViewId = "notes";

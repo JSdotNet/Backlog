@@ -737,7 +737,7 @@
                 }
                 else
                 {
-                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" BrainNotesFor="@BrainNotesForTask" OnOpenBrainNote="OpenBrainNoteAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
+                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" BrainNotesFor="@BrainNotesForTask" DevbookImagesFor="@DevbookImagesForEntry" OnOpenBrainNote="OpenBrainNoteAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
                 }
 
                 @if (DevbookPaneVisible)
@@ -918,6 +918,13 @@
         // answering questions from outside, so a host that composed no activator
         // simply is not asked, which is the correct behaviour rather than a gap.
         _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
+
+        // The scenario screenshots an entry's body names, answered for the Tasks
+        // pane, which may not reach the scenario pages. A host that composed no
+        // scenario store gets no source, and an entry's images render as before.
+        _devbookImages = new global::Backlog.Desktop.UI.Devbook.DevbookScenarioImageSources(
+            Services.GetService<global::Backlog.Desktop.UI.Devbook.DevbookScenarioStore>());
+        _devbookImages.Changed += HandleDevbookImagesChanged;
 
         _work = WorkInProgressReader.From(Services);
 
@@ -2828,6 +2835,27 @@
         }
     }
 
+    private global::Backlog.Desktop.UI.Devbook.DevbookScenarioImageSources? _devbookImages;
+
+    /// <summary>The image source for an entry's repository, which the Tasks pane
+    /// cascades over the entry's body.</summary>
+    private Backlog.UI.Components.Devbook.IDevbookImageSource? DevbookImagesForEntry(string? repositoryAlias) =>
+        _devbookImages?.For(repositoryAlias);
+
+    /// <summary>A repository's scenario catalog arrived or moved: the entry on
+    /// screen draws its screenshots again.</summary>
+    private async void HandleDevbookImagesChanged()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // An async void handler: a screenshot is not worth the process.
+        }
+    }
+
     /// <summary>A task row's Brain notes, by the row's stored id.</summary>
     private IReadOnlyList<Backlog.UI.Components.Brain.BrainNoteLink> BrainNotesForTask(string taskId) =>
         _brainNotesByTask.TryGetValue(taskId, out var notes)
@@ -3022,6 +3050,11 @@
         InboxState.RouteUndone -= HandleInboxRouteUndone;
         Features.Changed -= HandleFeaturesChanged;
         if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
+        if (_devbookImages is not null)
+        {
+            _devbookImages.Changed -= HandleDevbookImagesChanged;
+            _devbookImages.Dispose();
+        }
 
         // Detached before anything else of this component goes, for the reason the
         // JS reference below is: the activator holds a delegate over this instance,

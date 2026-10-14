@@ -130,9 +130,21 @@ reads as passed only when its last run passed on the page as it stands now. A pa
 that passed before the page was edited is stale, because the run proved a different
 page.
 
+Pressing a part opens its scenario page in the Devbook pane at that part. The part is
+marked as the one asked for and scrolled into view, and it stays marked until the
+reader picks another chapter or opens another reference. Pressing the same part again
+scrolls to it again. A part the page no longer has opens the page and marks nothing.
+
 When every part passes, the task says it is proved. Being proved is a signal and
 nothing more: the task keeps its status until a person moves it. A green run is
 evidence for deciding that the work is done, and the decision stays with the person.
+
+A task's own text can show a scenario screenshot. An image written
+`scenario:<stem>#<label>` in the text a task opens with, or in a step's note, shows
+the capture from the journey's last run with its source line, exactly as a chapter
+shows it ([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
+It is resolved against the repository the task's Devbook references open in. Any
+other image in a task shows as it always has.
 
 The same answer reaches a coding session. Listing a task's Devbook references gives
 each part with its state and last run, and a count with whether the task is proved.
