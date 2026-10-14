@@ -5,6 +5,7 @@ using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Modules.Tasks.UnitTests.LinkedTasks;
 
@@ -192,6 +193,9 @@ internal sealed class RecordingSyncHandler : ICommandHandler<SyncLinkedTasksComm
     /// for a test that needs a run to be in flight.</summary>
     public Dictionary<string, Task> Holding { get; } = [];
 
+    /// <summary>What a sync that succeeds answers.</summary>
+    public LinkedTaskSyncSummary Summary { get; set; } = new(0, 0, 0, 0, 0, 0, 0);
+
     public async Task<Result<LinkedTaskSyncSummary>> Handle(SyncLinkedTasksCommand command, CancellationToken cancellationToken = default)
     {
         Commands.Add(command);
@@ -199,7 +203,7 @@ internal sealed class RecordingSyncHandler : ICommandHandler<SyncLinkedTasksComm
         if (Refusing.TryGetValue(command.Target, out var refusal)) return refusal;
         return Failing.Contains(command.Target)
             ? Error.Unexpected("linked_tasks.fetch_failed", "down")
-            : new LinkedTaskSyncSummary(0, 0, 0, 0, 0, 0);
+            : Summary;
     }
 }
 
@@ -215,5 +219,25 @@ internal sealed class HandlerScopeFactory(object handler) : IServiceScopeFactory
 
     public void Dispose()
     {
+    }
+}
+
+/// <summary>A logger that keeps every line, with its level, its rendered message
+/// and its structured properties, so a test can say what was logged.</summary>
+internal sealed class CapturingLogger<T> : ILogger<T>
+{
+    public List<(LogLevel Level, string Message, Dictionary<string, object?> Properties)> Lines { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        var properties = state is IReadOnlyList<KeyValuePair<string, object?>> pairs
+            ? pairs.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
+            : [];
+
+        Lines.Add((logLevel, formatter(state, exception), properties));
     }
 }

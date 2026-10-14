@@ -36,7 +36,8 @@ another repository to a session there.
    repository, not done, not running, not blocked, and the landing mode lets its `after:` edges start it. Show the graph, the
    modes and the first frontier, then go: from here an unattended run asks nothing.
 2. **Resume.** Before dispatching, act on what an earlier run left: an entry or closing pull
-   request merged into `<base>` since → `transition` its entries to Done and remove their
+   request merged into `<base>` since → `transition` its entries to Done — the sign-off too,
+   once every repository's closing pull request has merged — and remove their
    worktrees; then restack, merge what is settled, re-check blocked entries, and tear down a
    manual entry's app once it is Done — all per `assets/landing-modes.md`.
 3. **Dispatch.** For each ready entry, `transition` it to In progress and `link_session` it
@@ -61,9 +62,9 @@ another repository to a session there.
 7. **Stop.** No entry ready and none running: list what blocks — each `task`/`test` the person
    has to do with the prompts waiting on it, each blocked entry with its reason and
    dependents, each pull request waiting on the person, each handoff to another repository
-   with its path and entries. Branch mode: open the closing pull
-   request. Then start the app for the next manual entry and hand it over, per **Manual
-   entries** in `assets/landing-modes.md`. Invoking this skill again resumes from the plan's
+   with its path and entries. Branch mode: open the closing pull request and link it on the
+   sign-off entry. Then start the app for the next manual entry and hand it over, per
+   **Manual entries** in `assets/landing-modes.md`. Invoking this skill again resumes from the plan's
    state; nothing is kept in the session but what the pull requests and Backlog hold.
 8. **Report.** Per entry: done before, landed now (pull request, draft or merged), waiting
    (on what), blocked (why), manual, handed off (where); then the running app's URLs and its worktree. An
@@ -72,7 +73,8 @@ another repository to a session there.
 ## Never
 
 - Edit or commit in this checkout or another repository's; run a `task` or `test` — starting the app for one is
-  setup, not running it; tick a manual entry's checks or mark it Done; mark an entry Done
+  setup, not running it; tick a manual entry's checks or mark it Done — except the sign-off,
+  once the person has merged its closing pull requests; mark an entry Done
   before it reaches `<base>`; merge into `<base>` directly; force a branch other than a restacked entry's own;
   approve a gate for the person, or take a pull request out of draft before its review is
   settled.

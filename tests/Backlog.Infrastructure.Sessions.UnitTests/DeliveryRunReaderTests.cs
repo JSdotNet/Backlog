@@ -448,6 +448,55 @@ public sealed class DeliveryRunReaderTests : IDisposable
         Assert.Null(runs["run-strings"].RunContext);
     }
 
+    /// <summary>
+    /// The quality signals a pass reports on its execution — the implement ⇄ review
+    /// round, Review's open blockers, Verify's defects — are read onto the stage. A run
+    /// file written before the delivery phases sent them reads them as absent, never as
+    /// zero: zero is a clean round, which nobody reported.
+    /// </summary>
+    [Fact]
+    public async Task A_stage_carries_the_round_blockers_and_defects_its_execution_reported()
+    {
+        GivenRun("backlog", "Backlog-43b9057e", "run-quality.json", """
+            {
+              "id": "run-quality",
+              "skillId": "flow-code",
+              "status": "in_progress",
+              "stages": [
+                { "name": "Implement", "status": "done", "execution": { "mode": "inline", "round": 2 } },
+                { "name": "Review", "status": "done", "execution": { "mode": "delegate", "round": 2, "blockers": 0 } },
+                { "name": "Verify", "status": "done", "execution": { "mode": "inline", "defectsFound": 3 } }
+              ]
+            }
+            """);
+        GivenRun("backlog", "Backlog-43b9057e", "run-older.json", """
+            {
+              "id": "run-older",
+              "skillId": "flow-code",
+              "status": "done",
+              "stages": [
+                { "name": "Implement", "status": "done", "execution": { "mode": "inline" } },
+                { "name": "Review", "status": "done" },
+                { "name": "Verify", "status": "done", "execution": { "round": null, "blockers": "two", "defectsFound": -1 } }
+              ]
+            }
+            """);
+
+        var runs = (await ReadAsync()).Runs.ToDictionary(run => run.Id);
+        var quality = runs["run-quality"].Stages;
+
+        Assert.Equal((2, (int?)null, (int?)null), (quality[0].Round!.Value, quality[0].Blockers, quality[0].DefectsFound));
+        Assert.Equal((2, 0, (int?)null), (quality[1].Round!.Value, quality[1].Blockers!.Value, quality[1].DefectsFound));
+        Assert.Equal(((int?)null, (int?)null, 3), (quality[2].Round, quality[2].Blockers, quality[2].DefectsFound!.Value));
+
+        Assert.All(runs["run-older"].Stages, stage =>
+        {
+            Assert.Null(stage.Round);
+            Assert.Null(stage.Blockers);
+            Assert.Null(stage.DefectsFound);
+        });
+    }
+
     /// <summary>A stage's scenario evidence is read per part; an entry that is not
     /// an object, or names neither a page nor a part, is skipped rather than drawn
     /// as an empty row.</summary>

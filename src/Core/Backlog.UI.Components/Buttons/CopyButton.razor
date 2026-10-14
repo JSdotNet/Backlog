@@ -33,7 +33,8 @@
       data-testid="@TestId"
       data-copied="@(IsCopied ? "true" : "false")"
       title="@(HasReason ? DisabledReason : null)">
-    <IconButton CssClass="@ButtonCssClass"
+    <IconButton BaseClass="@ButtonBaseClass"
+                CssClass="@ButtonCssClass"
                 AriaLabel="@Label"
                 Title="@(HasReason ? DisabledReason : null)"
                 Disabled="@Disabled"
@@ -114,8 +115,22 @@
     [Parameter]
     public TimeSpan ConfirmationDuration { get; set; } = TimeSpan.FromSeconds(3);
 
+    /// <summary>
+    /// The same content as HTML, for a paste that keeps its formatting — a table into
+    /// PowerPoint or a mail. When set, the clipboard carries both: <c>text/html</c> from
+    /// this and <c>text/plain</c> from <see cref="Text"/>, which stays the fallback for
+    /// whatever takes no HTML. Null copies <see cref="Text"/> alone.
+    /// </summary>
+    [Parameter]
+    public string? Html { get; set; }
+
     [Parameter]
     public string BaseClass { get; set; } = "copy-button";
+
+    /// <summary>Replaces the button's own base class, for a host that draws the copy as
+    /// a worded button rather than an icon — "btn btn--ghost btn--small".</summary>
+    [Parameter]
+    public string ButtonBaseClass { get; set; } = "btn btn--icon";
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -204,7 +219,10 @@
 
         try
         {
-            ShowStatus(await Js.InvokeAsync<bool>("backlogClipboard.copy", Text) ? Copied : Failed);
+            var copied = Html is null
+                ? await Js.InvokeAsync<bool>("backlogClipboard.copy", Text)
+                : await Js.InvokeAsync<bool>("backlogClipboard.copyRich", Html, Text);
+            ShowStatus(copied ? Copied : Failed);
         }
         catch (JSException)
         {

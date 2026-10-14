@@ -105,7 +105,8 @@
         State.RepositoryColourFor,
         State.SessionStateOf,
         _clock.GetLocalNow(),
-        Reader.SessionsRead);
+        Reader.SessionsRead,
+        Reader.LinkedPullRequests);
 
     /// <summary>Every repository's, not only the header's scope: the task may be
     /// in a repository the reader has not scoped to.</summary>

@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Settings;
 using Bunit;
@@ -148,7 +149,7 @@ public sealed class TaskConnectorSettingsTests
 
         var page = context.Render<TaskConnectorSettings>();
         await page.Find("[data-testid='task-connector-target-card-title-follows'] button[role='switch']").ClickAsync(new());
-        await page.Find("select#task-connector-target-card-interval").ChangeAsync(new() { Value = "60" });
+        await page.Find("[data-testid='task-connector-target-card-interval'] select").ChangeAsync(new() { Value = "60" });
 
         var stored = Assert.Single(targets.List());
         Assert.False(stored.TitleFollowsSource);
@@ -972,6 +973,390 @@ public sealed class TaskConnectorSettingsTests
         }
 
         public void RaiseAccountChanged() => AccountChanged?.Invoke();
+    }
+
+    private static readonly IReadOnlyList<SourceStatus> ProductStatuses =
+    [
+        new("Idee", NormalisedSourceState.Open),
+        new("Verfijnd", NormalisedSourceState.Active),
+        new("Gereed", NormalisedSourceState.Done),
+    ];
+
+    private static (BunitContext Context, InMemoryTargets Targets) ComposeListing(ListingConnector connector, params ConnectedTarget[] targets)
+    {
+        var context = new BunitContext();
+        var store = new InMemoryTargets(targets);
+        context.Services.AddSingleton(new LinkedTaskSources([connector], store));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+        context.Services.AddSingleton<IRepositoryDirectory>(new TwoRepositories());
+        return (context, store);
+    }
+
+    /// <summary>The registry's repositories are offered by alias and stored by
+    /// <c>owner/name</c>; the empty choice, None for a product, clears it.</summary>
+    [Fact]
+    public async Task Picking_a_repository_stores_it_on_the_target_and_none_clears_it()
+    {
+        var (context, targets) = ComposeListing(new ListingConnector(_ => Task.FromResult(ProductStatuses)), new ConnectedTarget(ListingConnector.Id, "backlog"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.Equal(
+            ["None", "backlog", "marketplace"],
+            page.FindAll("[data-testid='task-connector-target-card-repository'] select option").Select(option => option.TextContent));
+
+        await page.Find("[data-testid='task-connector-target-card-repository'] select").ChangeAsync(new() { Value = "JSdotNet/Marketplace" });
+        Assert.Equal("JSdotNet/Marketplace", targets.Get(ListingConnector.Id, "backlog")!.RepositoryId);
+        Assert.Equal("JSdotNet/Marketplace", page.Find("[data-testid='task-connector-target-card-repository'] select").GetAttribute("value"));
+
+        await page.Find("[data-testid='task-connector-target-card-repository'] select").ChangeAsync(new() { Value = string.Empty });
+        Assert.Null(targets.Get(ListingConnector.Id, "backlog")!.RepositoryId);
+    }
+
+    [Fact]
+    public void A_repository_targets_empty_choice_is_its_own_repository()
+    {
+        var (context, _) = ComposeListing(
+            new ListingConnector(_ => Task.FromResult<IReadOnlyList<SourceStatus>>([]), targetIsRepository: true),
+            new ConnectedTarget(ListingConnector.Id, "owner/repo"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Equal("Its own repository (owner/repo)", page.FindAll("[data-testid='task-connector-target-card-repository'] select option")[0].TextContent);
+    }
+
+    /// <summary>One row per status the source lists, its empty choice the default its
+    /// state gives; a row mapped is stored under the status's name, and Default
+    /// removes it again.</summary>
+    [Fact]
+    public async Task Each_status_the_source_lists_is_a_row_and_mapping_one_stores_it()
+    {
+        var connector = new ListingConnector(_ => Task.FromResult(ProductStatuses));
+        var (context, targets) = ComposeListing(connector, new ConnectedTarget(ListingConnector.Id, "backlog"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-testid='task-connector-target-card-statuses']")));
+
+        Assert.Equal(["backlog"], connector.Asked);
+        Assert.Equal(
+            ["Idee", "Verfijnd", "Gereed"],
+            page.FindAll("[data-testid='task-connector-target-card-statuses'] label.field__label").Select(label => label.TextContent));
+        Assert.Equal(
+            ["Default (Ready)", "Default (In progress)", "Default (Done)"],
+            Enumerable.Range(0, 3).Select(index => page.FindAll($"[data-testid='task-connector-target-card-status-{index}'] select option")[0].TextContent));
+        Assert.Equal(
+            ["Draft", "Ready", "In progress", "Done", "Archived"],
+            page.FindAll("[data-testid='task-connector-target-card-status-1'] select option").Skip(1).Select(option => option.TextContent));
+
+        await page.Find("[data-testid='task-connector-target-card-status-1'] select").ChangeAsync(new() { Value = "Ready" });
+        var stored = targets.Get(ListingConnector.Id, "backlog")!;
+        var mapping = Assert.Single(stored.StatusMap);
+        Assert.Equal("Verfijnd", mapping.Key);
+        Assert.Equal(EntryStatus.Ready, mapping.Value);
+        Assert.Equal("Ready", page.Find("[data-testid='task-connector-target-card-status-1'] select").GetAttribute("value"));
+
+        await page.Find("[data-testid='task-connector-target-card-status-1'] select").ChangeAsync(new() { Value = string.Empty });
+        Assert.Empty(targets.Get(ListingConnector.Id, "backlog")!.StatusMap);
+    }
+
+    /// <summary>A mapping stored for a status the source no longer lists is still a
+    /// row, after the listed ones, so it can be cleared.</summary>
+    [Fact]
+    public async Task A_stored_mapping_the_source_no_longer_lists_is_still_a_row_to_clear()
+    {
+        var target = new ConnectedTarget(ListingConnector.Id, "backlog")
+        {
+            StatusMap = new Dictionary<string, EntryStatus> { ["Oud"] = EntryStatus.Done, ["Idee"] = EntryStatus.Draft },
+        };
+        var (context, targets) = ComposeListing(
+            new ListingConnector(_ => Task.FromResult<IReadOnlyList<SourceStatus>>([new("Idee", NormalisedSourceState.Open)])),
+            target);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Equal(
+            ["Idee", "Oud"],
+            page.FindAll("[data-testid='task-connector-target-card-statuses'] label.field__label").Select(label => label.TextContent));
+        Assert.Equal("Draft", page.Find("[data-testid='task-connector-target-card-status-0'] select").GetAttribute("value"));
+        Assert.Equal("Done", page.Find("[data-testid='task-connector-target-card-status-1'] select").GetAttribute("value"));
+        Assert.Equal("Default (no longer listed)", page.FindAll("[data-testid='task-connector-target-card-status-1'] select option")[0].TextContent);
+
+        await page.Find("[data-testid='task-connector-target-card-status-1'] select").ChangeAsync(new() { Value = string.Empty });
+
+        var stored = targets.Get(ListingConnector.Id, "backlog")!;
+        Assert.Equal(EntryStatus.Draft, Assert.Single(stored.StatusMap).Value);
+        Assert.Equal(["Idee"], page.FindAll("[data-testid='task-connector-target-card-statuses'] label.field__label").Select(label => label.TextContent));
+    }
+
+    [Fact]
+    public void A_source_that_lists_no_status_shows_no_statuses_group()
+    {
+        var (context, _, _) = Compose(true, new ConnectedTarget(FakeConnector.Id, "owner/repo"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.NotNull(page.Find("[data-testid='task-connector-target-card']"));
+        Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-statuses']"));
+    }
+
+    /// <summary>A connector that fails to list is answered as one that lists none:
+    /// no group, no error on the page, and the rest of the card as it was.</summary>
+    [Fact]
+    public void A_source_whose_listing_throws_shows_no_group_and_no_error()
+    {
+        var (context, _) = ComposeListing(
+            new ListingConnector(_ => Task.FromException<IReadOnlyList<SourceStatus>>(new InvalidOperationException("The source is down."))),
+            new ConnectedTarget(ListingConnector.Id, "backlog"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.NotNull(page.Find("[data-testid='task-connector-target-card-title-follows']"));
+        Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-statuses']"));
+        Assert.Empty(page.FindAll("[data-testid='task-connectors-message']"));
+        Assert.DoesNotContain("The source is down.", page.Markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>A switch flipped while the source is still being asked draws no row
+    /// for the stored mapping, and must not clear it either.</summary>
+    [Fact]
+    public async Task A_switch_flipped_before_the_statuses_arrive_keeps_the_stored_map()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<SourceStatus>>();
+        var target = new ConnectedTarget(ListingConnector.Id, "backlog")
+        {
+            RepositoryId = "JSdotNet/Backlog",
+            StatusMap = new Dictionary<string, EntryStatus> { ["Verfijnd"] = EntryStatus.Ready },
+        };
+        var (context, targets) = ComposeListing(new ListingConnector(_ => pending.Task), target);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-statuses']"));
+
+        await page.Find("[data-testid='task-connector-target-card-title-follows'] button[role='switch']").ClickAsync(new());
+
+        var stored = targets.Get(ListingConnector.Id, "backlog")!;
+        Assert.False(stored.TitleFollowsSource);
+        Assert.Equal("JSdotNet/Backlog", stored.RepositoryId);
+        Assert.Equal(EntryStatus.Ready, Assert.Single(stored.StatusMap).Value);
+
+        pending.SetResult(ProductStatuses);
+        page.WaitForAssertion(() => Assert.Equal("Ready", page.Find("[data-testid='task-connector-target-card-status-1'] select").GetAttribute("value")));
+    }
+
+    /// <summary>A target connected on the page asks its source for its statuses, so
+    /// its card has rows without the page being opened again.</summary>
+    [Fact]
+    public async Task A_target_connected_on_the_page_asks_for_its_statuses()
+    {
+        var connector = new ListingConnector(_ => Task.FromResult(ProductStatuses));
+        var (context, _) = ComposeListing(connector);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("input#task-connector-target").InputAsync(new() { Value = "backlog" });
+        await page.Find("[data-testid='task-connector-connect']").ClickAsync(new());
+
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-testid='task-connector-target-card-statuses']")));
+        Assert.Equal(["backlog"], connector.Asked);
+    }
+
+    /// <summary>A source slow to list its statuses holds up neither the connect
+    /// form's choices nor the disconnected list: each is drawn as soon as its own
+    /// answer is in, and the card draws its rows when the statuses land.</summary>
+    [Fact]
+    public void A_status_listing_that_never_answers_holds_up_neither_the_choices_nor_the_disconnected_list()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var targets = new InMemoryTargets(new ConnectedTarget(ListingConnector.Id, "backlog"));
+        var never = new TaskCompletionSource<IReadOnlyList<SourceStatus>>();
+        context.Services.AddSingleton(new LinkedTaskSources(
+            [new ChoosingConnector(new ConnectorTargetChoices([new("fincent", "Fincent")])), new ListingConnector(_ => never.Task)],
+            targets));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+        context.Services.AddSingleton<IDisconnectedLinkedTasks>(
+            new FakeDisconnected(targets, [new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0)]));
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        page.WaitForAssertion(() => Assert.False(page.Find("select#task-connector-target").HasAttribute("disabled")));
+        Assert.NotNull(page.Find("select#task-connector-target option[value='fincent']"));
+        Assert.NotNull(page.Find("[data-testid='task-connectors-disconnected']"));
+        Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-statuses']"));
+    }
+
+    /// <summary>A source that lists nothing — signed out, refused, failing — has not
+    /// stopped listing anything, so its stored mappings are neither drawn as rows
+    /// nor cleared by another change.</summary>
+    [Fact]
+    public async Task A_source_that_lists_nothing_draws_no_row_for_a_stored_mapping_and_keeps_it()
+    {
+        var target = new ConnectedTarget(ListingConnector.Id, "backlog")
+        {
+            StatusMap = new Dictionary<string, EntryStatus> { ["Verfijnd"] = EntryStatus.Ready },
+        };
+        var (context, targets) = ComposeListing(new ListingConnector(_ => Task.FromResult<IReadOnlyList<SourceStatus>>([])), target);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-statuses']"));
+
+        await page.Find("[data-testid='task-connector-target-card-title-follows'] button[role='switch']").ClickAsync(new());
+
+        Assert.Equal(EntryStatus.Ready, Assert.Single(targets.Get(ListingConnector.Id, "backlog")!.StatusMap).Value);
+    }
+
+    /// <summary>Two cards draw their selects under ids of their own, so each label
+    /// points at its own card's select.</summary>
+    [Fact]
+    public void Each_card_draws_its_selects_under_ids_of_its_own()
+    {
+        var (context, _) = ComposeListing(
+            new ListingConnector(_ => Task.FromResult(ProductStatuses)),
+            new ConnectedTarget(ListingConnector.Id, "backlog"),
+            new ConnectedTarget(ListingConnector.Id, "fincent"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        var ids = page.FindAll(".connected-target select").Select(select => select.Id).ToList();
+        Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
+        foreach (var card in page.FindAll("[data-testid='task-connector-target-card']"))
+        {
+            foreach (var label in card.QuerySelectorAll("label.field__label[for]"))
+            {
+                Assert.NotNull(card.QuerySelector($"select#{label.GetAttribute("for")}"));
+            }
+        }
+    }
+
+    /// <summary>A sign-in asks the connector's targets for their statuses again,
+    /// since a source signed out lists none, and the rows it then lists are drawn.</summary>
+    [Fact]
+    public void A_sign_in_asks_for_the_statuses_again_and_draws_them()
+    {
+        var connector = new SigningListingConnector(call => Task.FromResult(call == 0 ? [] : ProductStatuses));
+        var (context, _) = ComposeSigningListing(connector, new ConnectedTarget(SigningListingConnector.Id, "backlog"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-statuses']"));
+
+        connector.RaiseAccountChanged();
+
+        page.WaitForAssertion(() => Assert.Equal(
+            ["Idee", "Verfijnd", "Gereed"],
+            page.FindAll("[data-testid='task-connector-target-card-statuses'] label.field__label").Select(label => label.TextContent)));
+        Assert.Equal(2, connector.Calls);
+    }
+
+    /// <summary>Only the latest request for a target lands: an answer asked for
+    /// before a sign-in, arriving after the newer one, is dropped.</summary>
+    [Fact]
+    public void An_answer_overtaken_by_a_newer_request_is_dropped()
+    {
+        var first = new TaskCompletionSource<IReadOnlyList<SourceStatus>>();
+        var second = new TaskCompletionSource<IReadOnlyList<SourceStatus>>();
+        var connector = new SigningListingConnector(call => call == 0 ? first.Task : second.Task);
+        var (context, _) = ComposeSigningListing(connector, new ConnectedTarget(SigningListingConnector.Id, "backlog"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        connector.RaiseAccountChanged();
+        page.WaitForAssertion(() => Assert.Equal(2, connector.Calls));
+
+        second.SetResult(ProductStatuses);
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-testid='task-connector-target-card-statuses']")));
+        first.SetResult([new SourceStatus("Oud", NormalisedSourceState.Open)]);
+
+        page.WaitForAssertion(() => Assert.Equal(
+            ["Idee", "Verfijnd", "Gereed"],
+            page.FindAll("[data-testid='task-connector-target-card-statuses'] label.field__label").Select(label => label.TextContent)));
+    }
+
+    private static (BunitContext Context, InMemoryTargets Targets) ComposeSigningListing(SigningListingConnector connector, params ConnectedTarget[] targets)
+    {
+        var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var store = new InMemoryTargets(targets);
+        context.Services.AddSingleton(new LinkedTaskSources([connector], store));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+        return (context, store);
+    }
+
+    /// <summary>A connector a person signs in to whose targets list their statuses,
+    /// answering each call by its number, from zero.</summary>
+    private sealed class SigningListingConnector(Func<int, Task<IReadOnlyList<SourceStatus>>> byCall) : ITaskConnector, ITaskConnectorSignIn
+    {
+        public const string Id = "signing-listing";
+
+        public TaskConnectorDescriptor Descriptor { get; } = new(Id, "Signing listing", "signing-listing", "color-primary");
+
+        public TaskConnectorCapabilities Capabilities { get; } = new();
+
+        public TaskConnectorAccount? Account { get; } = new("Someone", DateTimeOffset.UnixEpoch);
+
+        public event Action? AccountChanged;
+
+        /// <summary>How many times the statuses were asked for.</summary>
+        public int Calls { get; private set; }
+
+        public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<SourceItem>>([]);
+
+        public Task<IReadOnlyList<SourceStatus>> ListSourceStatusesAsync(string target, CancellationToken cancellationToken) =>
+            byCall(Calls++);
+
+        public Task<string?> SignInAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
+
+        public Task SignOutAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public void RaiseAccountChanged() => AccountChanged?.Invoke();
+    }
+
+    /// <summary>A connector whose targets list their statuses, through the delegate
+    /// the test hands it.</summary>
+    private sealed class ListingConnector(Func<string, Task<IReadOnlyList<SourceStatus>>> list, bool targetIsRepository = false) : ITaskConnector
+    {
+        public const string Id = "listing";
+
+        public TaskConnectorDescriptor Descriptor { get; } = new(Id, "Listing", "listing", "color-primary");
+
+        public TaskConnectorCapabilities Capabilities { get; } = new(TargetIsRepository: targetIsRepository);
+
+        /// <summary>Every target asked for its statuses, in order.</summary>
+        public List<string> Asked { get; } = [];
+
+        public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<SourceItem>>([]);
+
+        public Task<IReadOnlyList<SourceStatus>> ListSourceStatusesAsync(string target, CancellationToken cancellationToken)
+        {
+            Asked.Add(target);
+            return list(target);
+        }
+    }
+
+    /// <summary>A registry of two repositories, whose aliases are not their names, so
+    /// the label and the stored value can be told apart.</summary>
+    private sealed class TwoRepositories : IRepositoryDirectory
+    {
+        public IReadOnlyList<TasksRepositoryRef> Repositories { get; } =
+        [
+            new("backlog", "JSdotNet", "Backlog"),
+            new("marketplace", "JSdotNet", "Marketplace"),
+        ];
+
+        public TasksRepositoryRef? Resolve(string name) => null;
+
+        public Result<TasksRepositoryRef> Register(string name) => new TasksRepositoryRef(name, name, name);
     }
 
     /// <summary>A connector whose targets are products, naming its field the way

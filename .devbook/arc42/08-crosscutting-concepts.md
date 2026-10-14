@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-sprints-between-devices"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -36,6 +36,7 @@ Optional cloud sync carries this state between a person's devices:
 | Planning pace and working week | kind `planning-pace` in `tasks`, with a `workingWeek` key | last-write-wins | local ADRs 0018 and 0019 |
 | Repository registry | kind `repository-registry` in `tasks` | last-write-wins | local ADR 0021 |
 | GitHub accounts | kind `github-accounts` in `tasks`, never a token | last-write-wins | local ADR 0021 |
+| Sprint series | kind `sprint-series` in `tasks`, one document per series under its own id | last-write-wins per series on `progress_series.updated_at` | local ADR 0018's arrangement, local ADR 0028 |
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
 
@@ -242,6 +243,16 @@ emulator does not honour TTL.
 A device keeps the records it pushed when they come back down the feed. A session
 whose transcript the assistant has cleaned away is therefore still answered from
 its record. The local reading of a session wins wherever there is one.
+
+A pull keeps what it read in one write, made when the pull ends. That holds
+whichever way it ends: at the end of the feed, on a failed page, on an exception or
+on a cancellation. Only then does it save the cursor that covers those records. The
+activity log names the sessions the pull received only after both writes. The
+replica store writes its file to a sibling and moves it over the original, so the
+file is replaced whole or not at all. The cursor therefore never runs ahead of the
+records it covers. A pull the process did not survive is read again from the last
+cursor it saved. That costs repeated work and loses nothing, because a record
+merges idempotently on its identity and server timestamp.
 
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a

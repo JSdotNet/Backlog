@@ -56,6 +56,14 @@ the full build (`pull-request.yml`); into a stack parent they get none until res
   updated instead.
   Opened through the repository's own pull-request rules; a draft when unattended. Entries
   merged into `plan/<slug>` stay In progress until it merges into `<base>`.
+- **The sign-off carries it.** Merging the closing pull request is the plan's sign-off, so the
+  `sign-off-plan` entry is where the task list shows it. Once its pull request is open or
+  found open, `read_item` the sign-off: unless its notes already carry the pull request's URL,
+  `link_change` it there and `comment` the URL with one line — merge it to sign the plan off,
+  after reading the review. `link_change` is not idempotent and `read_item` does not show
+  links, so that comment is the record that the link exists. One per repository the plan
+  touched. Once every one has merged into `<base>`, Resume moves the sign-off to Done with
+  the rest. A plan without a sign-off entry (a feature-level plan) links nothing.
 
 ### Stacked
 

@@ -15,7 +15,8 @@ type: invariants
 related: [.devbook/domain/devbook/domain.md#knowledge-note]
 ```
 
-> The rules a Knowledge Note holds its area and its links to.
+> The rules a Knowledge Note holds its area and its links to, the areas its Brain
+> declares, and the planning fields any knowledge chapter carries.
 
 ### Invariant: A note sits in one area
 
@@ -80,6 +81,44 @@ It names a roadmap item rather than addressing a chapter, so there is no node fo
 
 Enforced at: `DevbookGraphBuilder.ApplyMeta()`, which keeps `roadmap` as a node attribute and leaves it out of `ReferenceFields`
 
+### Invariant: An area is one plain folder, declared once
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_folder_that_is_not_one_plain_segment_is_skipped, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_folder_declared_twice_counts_once]
+```
+
+Every area `CONVENTIONS.md` declares is a distinct folder of one plain segment: a path, `..`, a dot-folder, or a second spelling of a folder already declared is skipped.
+An area is one top folder of the Brain, so a declaration that leaves the Brain or names a folder twice cannot be one.
+
+Enforced at: `BrainConventions.Declared()`, through `IsAreaFolder()` and a case-insensitive set of the folders already kept
+
+### Invariant: Declared areas keep the order written
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_table_declares_the_areas_in_its_order, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_table_s_order_column_wins_over_the_row_order]
+```
+
+The declared areas keep the order `CONVENTIONS.md` writes them in, unless a table's `Order` column numbers them, in which case the numbered rows come first by number and the rest follow in the order written.
+
+Enforced at: `BrainConventions.Declared()`
+
+### Invariant: An unreadable effort is no estimate
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.KnowledgeGraphTests.AMissingOrUnreadableEffortIsNull_NotZero
+```
+
+A chapter's `effort` that is not a whole number of zero or more, a negative one included, reads as no estimate rather than as zero.
+A chapter is a file nothing checks on save, so the reader is where a value it cannot use stops.
+
+Enforced at: `DevbookGraphBuilder.ApplyMeta()`, which reads only an all-digit value; on the Roadmap side, `KnowledgeGraph.Effort()`, which reads only a value of zero or more
+
 ## Remark
 
 ```meta
@@ -137,10 +176,36 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_fresh_remark_is_a_draft_on_the_block_it_was_asked_for, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_push_selects_what_changed_after_the_watermark_and_never_a_draft, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.Deleting_a_draft_removes_it_outright]
 ```
 
-A remark with an empty body is a draft: it is kept on this device, never replicated, and deleting it removes it outright with no tombstone.
+A live remark with an empty body is a draft: it is kept on this device, never replicated, and deleting it removes it outright with no tombstone.
 A draft is a remark open in the read view that the reader has not written yet, and a draft never pushed leaves nothing to replicate.
 
 Enforced at: `DevbookAnnotation.IsDraft`; `DevbookAnnotationStore.ListChangedSince()` leaves drafts out of a push, and `Delete()` removes a draft
+
+### Invariant: A remark the sync service would refuse stays on this device
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_the_service_would_refuse_does_not_hold_back_the_rest, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_longer_than_the_service_stores_does_not_hold_back_the_rest, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_remark_left_out_is_counted_and_named_in_a_warning_that_leaves_out_its_body]
+```
+
+A remark filed under no repository, with a blank chapter path or a negative block index, or with a field past its bound, is left out of the push, named in a warning without its body, and offered again only after an edit.
+The sync service refuses a push whole, so sending it would hold back every remark beside it on every cycle.
+
+Enforced at: `AnnotationSyncSession.PushAsync()`, through `AnnotationRecordLimits.WhyRefused()`, the rule the sync endpoint runs
+
+### Invariant: A deletion replicates without the remark's body
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.AnnotationSyncSessionTests.A_deleted_remark_is_sent_as_a_tombstone_however_long_it_was]
+```
+
+A tombstone goes to the sync service with an empty body, however long the remark's body was.
+A deletion says nothing about what the remark said, and a body past the bound would otherwise keep the deletion off every other device.
+
+Enforced at: `AnnotationReplicaMerge.ToChange()`
 
 ### Invariant: A remark is never written into a repository
 

@@ -51,10 +51,10 @@ The system SHALL render the Brain chip first in the repository scope, behind a d
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_alone_keeps_the_rows_no_repository_claims, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_repo_token_naming_nothing_configured_counts_as_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_brain_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.The_brain_keeps_the_sessions_of_no_configured_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_keeps_the_pull_requests_of_tasks_filed_against_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_alone_with_nothing_linked_says_pull_requests_belong_to_repositories, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests.The_brain_counts_the_tasks_that_name_no_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_brain_keeps_the_rows_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.RepositoryFocusTests.The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.The_brain_alone_keeps_the_rows_no_repository_claims, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksRepositoryScopeTests.A_repo_token_naming_nothing_configured_counts_as_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_brain_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.The_brain_keeps_the_sessions_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests.The_brain_counts_the_tasks_that_name_no_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_brain_keeps_the_rows_of_no_configured_repository, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.RepositoryFocusTests.The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_brain_chip_narrows_the_tasks_to_those_filed_against_no_repository]
 ```
 
-The system SHALL show only the tasks filed against no repository in Tasks, Board, Calendar, In progress, Dashboard, Sessions and Pull requests while Brain is the only chip pressed.
+The system SHALL show only the tasks filed against no repository in Tasks, Board, Calendar, In progress, Dashboard and Sessions while Brain is the only chip pressed.
 
 #### Scenario: Tasks
 
@@ -62,11 +62,27 @@ The system SHALL show only the tasks filed against no repository in Tasks, Board
 - **When** the reader presses Brain on the Tasks view
 - **Then** only the task with no repository is listed
 
-#### Scenario: Pull requests with nothing to show
+### Requirement: Pull requests read the scope without the Brain
 
-- **Given** no pull request is linked to a task filed against no repository
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_alone_lists_every_pull_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.The_brain_beside_a_repository_lists_that_repositorys_pull_requests]
+```
+
+The system SHALL list every pull request while Brain is the only chip pressed, and the pressed repositories' pull requests while Brain is pressed beside them.
+
+#### Scenario: Brain alone
+
+- **Given** pull requests in `backlog` and in `tools`
 - **When** the reader presses Brain and opens Pull requests
-- **Then** the list is empty and its empty state says that pull requests belong to repositories
+- **Then** both pull requests are listed
+
+#### Scenario: Brain beside a repository
+
+- **Given** pull requests in `backlog` and in `tools`
+- **When** the reader presses Brain, Ctrl-presses `backlog` and opens Pull requests
+- **Then** only the pull request in `backlog` is listed
 
 ### Requirement: Ctrl adds Brain to the pressed repositories
 
@@ -224,6 +240,29 @@ The system SHALL state on the Brain card whether the folder is synced, as inform
 - **Given** the Brain folder sits under OneDrive
 - **When** the reader opens Settings › Storage
 - **Then** the card says the folder is synced, without a warning, and says the search database lives in the app's storage
+
+### Requirement: A folder that cannot hold the Brain is refused
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/context.md#brain-folder]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_folder_inside_a_repository_is_refused, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_folder_inside_a_linked_worktree_is_refused, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_relative_path_is_refused_in_words, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainSettingsStoreTests.A_file_is_not_a_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.A_folder_inside_a_repository_is_refused_on_the_card]
+```
+
+The system SHALL refuse, in words on the Brain card, a Brain folder inside a repository's working tree, a relative path, or a file, and keep no folder for it.
+
+#### Scenario: A folder inside a repository
+
+- **Given** no Brain folder is set and `D:\repo` is a repository
+- **When** the reader enters `D:\repo\notes` as the Brain folder
+- **Then** the card says the folder must be outside every repository, and no Brain folder is set
+
+#### Scenario: A relative path
+
+- **Given** no Brain folder is set
+- **When** the reader enters `notes\brain` as the Brain folder
+- **Then** the card asks for a full path, and no Brain folder is set
 
 ## Brain mode of the Devbook pane
 
@@ -790,6 +829,71 @@ The system SHALL write a note sent to the capture tool into the Brain's inbox ar
 - **When** an assistant calls the capture tool with a title and a body
 - **Then** a new note with that title and body is in the Brain's inbox area
 
+## Rendered devbook documents
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
+```
+
+> The requirements of how a chapter's metadata is shown and written: the decision
+> state a domain chapter carries, and the state another tool keeps on it.
+
+### Requirement: Decision state is shown beside the status
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.The_nine_state_fields_are_never_rows_in_the_strip, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.Approval_and_acceptance_are_drawn_beside_the_status_as_who_and_when]
+```
+
+The system SHALL show a domain chapter's decision and review state as one line beside its status, saying who decided and when, and never as fields among the chapter's metadata.
+
+#### Scenario: An accepted chapter
+
+- **Given** a domain chapter approved by `jobsc` on 2026-09-02 and accepted by `ann` on 2026-09-20
+- **When** the reader opens it in the domain panel
+- **Then** the bar beside its status reads *approved by jobsc · 2026-09-02; accepted by ann · 2026-09-20*, and none of the approval or acceptance fields is listed with the chapter's metadata
+
+### Requirement: Leaving a decision step takes its record with it
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Moving_from_accepted_to_approved_deletes_the_acceptance_record_and_keeps_the_approval, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Leaving_the_rungs_for_an_ordinary_status_deletes_all_six_record_fields, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Leaving_the_rungs_for_the_resting_value_deletes_the_status_and_all_six_record_fields, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookStatusWriteRulesTests.Removing_the_status_of_an_approved_chapter_deletes_the_approval_record_with_it]
+```
+
+The system SHALL delete a domain chapter's approval or acceptance record in the same write that moves the chapter off that step.
+
+#### Scenario: Back from accepted to approved
+
+- **Given** a domain chapter that is accepted, with its approval and acceptance records
+- **When** the reader sets its status to approved
+- **Then** the chapter keeps its approval record and no longer carries an acceptance record
+
+#### Scenario: Back to draft
+
+- **Given** a domain chapter that is accepted, with its approval and acceptance records
+- **When** the reader sets its status to draft
+- **Then** the chapter carries neither record
+
+### Requirement: Another tool's state is carried as written
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MetadataReaderContractTests.An_extension_keeps_its_authors_casing_and_its_value_verbatim, unit:dotnet:Backlog.UI.Components.UnitTests.DevbookMetadataFindingsTests.Extension_keys_are_never_validated, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.An_extension_key_stays_a_row_and_is_marked_as_one]
+```
+
+The system SHALL show every `ext.` key of a chapter's metadata with its key and value exactly as written, and report no finding about it.
+
+#### Scenario: A plugin's own key
+
+- **Given** a chapter whose metadata holds `ext.archify.layer: core`
+- **When** the reader opens it
+- **Then** the chapter lists `ext.archify.layer` with the value `core`, marked as another tool's, and no finding is reported about it
+
 ## Remarks on a chapter
 
 ```meta
@@ -834,6 +938,76 @@ The read view SHALL show a remark whose passage has been deleted or reworded at 
 - **Given** a remark on a paragraph of a chapter
 - **When** that paragraph is deleted and the reader opens the chapter again
 - **Then** the remark shows at the end of the chapter
+
+## Review notes in a chapter
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#review-notes-in-a-chapter]
+```
+
+> The requirements of the review notes a repository keeps in its chapters as
+> `annotation` fences.
+
+### Requirement: A review note never travels as the chapter's content
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/domain.md#review-note]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookToolsTests.An_ordinary_read_leaves_out_only_the_meta_and_annotation_fences, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.PrivateFenceTests.An_annotation_fence_quoting_a_code_sample_is_cut_whole]
+```
+
+The system SHALL leave a chapter's review notes out of everything it hands on as the chapter's content: an assistant's ordinary read, the text it searches, and an excerpt.
+
+#### Scenario: An assistant reads a chapter with an open question
+
+- **Given** a chapter holding an open review note beside one of its paragraphs
+- **When** an assistant reads the chapter without asking for its review state
+- **Then** the answer holds the chapter's prose, diagrams and code listings, and no review note
+
+## Sync verdicts beside a chapter
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter]
+```
+
+> The requirements of the [Sync Verdict](domain.md#sync-verdict) a chapter shows.
+
+### Requirement: A sweep replaces only the verdicts of the chapters it checked
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DevbookSyncVerdictStoreTests.A_later_run_replaces_the_chapters_it_names_and_leaves_the_rest]
+```
+
+The system SHALL show beside a chapter the verdict of the latest sweep that checked it, and keep every other chapter's verdict when a sweep checks only some.
+
+#### Scenario: A later sweep checks one of two chapters
+
+- **Given** one sweep found `run-start` code-ahead and `run-finish` in conflict
+- **When** a later sweep finds `run-start` aligned and says nothing about `run-finish`
+- **Then** `run-start` shows aligned and `run-finish` still shows in conflict
+
+### Requirement: A verdict keeps the sweep's word
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookSyncVerdictBadgeTests.A_word_outside_the_sweeps_vocabulary_keeps_its_spelling_and_wears_the_unknown_tone]
+```
+
+The system SHALL show a verdict in the sweep's own word, and show a word outside the sweep's vocabulary as written, flagged as unknown.
+
+#### Scenario: A word the app does not know
+
+- **Given** a sweep recorded the verdict `drifting` for a chapter
+- **When** the reader opens the chapter
+- **Then** its badge reads `drifting` in the unknown tone, not the tone of a known verdict
 
 ## Choosing where the devbook is read from
 

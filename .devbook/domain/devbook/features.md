@@ -12,7 +12,6 @@ status: draft
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/inbox/features.md#routing, .devbook/domain/devbook/features.md#capture-into-the-brain]
 ```
 
@@ -25,7 +24,6 @@ comes from is [Capture into the Brain](#capture-into-the-brain).
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#knowledge-capture]
 related: [.devbook/domain/devbook/domain.md#para-category, .devbook/domain/devbook/features.md#brain-folder-setup]
 ```
@@ -45,7 +43,6 @@ name its area in its `para` field instead, which wins over the folder.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
 ```
 
@@ -58,7 +55,6 @@ so with a [repo link](#repo-links-and-backlinks).
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/devbook/domain.md#tag, .devbook/domain/devbook/domain.md#roadmap-contribution]
 ```
 
@@ -74,7 +70,6 @@ reads.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/devbook/requirements.md#bi-directional-linking, .devbook/domain/devbook/domain.md#task-link, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
@@ -102,7 +97,6 @@ details is not built.
 
 ```meta
 type: feature
-status: draft
 related: [.devbook/domain/devbook/requirements.md#brain-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#shell-header]
 ```
 
@@ -112,21 +106,21 @@ worn in the Brain's teal. It cannot be removed, and it needs no repository, so
 the scope works for a person who has configured none.
 
 Brain is the scope of everything filed against no repository. Pressed alone, it
-narrows Tasks, Board, Calendar, In progress, the Dashboard, Sessions and Pull
-requests to the tasks with no repository. It also opens the Brain in the Devbook
-pane. Ctrl adds it to the repositories already pressed, and nothing pressed still
+narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the
+tasks with no repository. It also opens the Brain in the Devbook pane. Pull
+requests and the Roadmap read Brain alone as nothing pressed: every pull request
+belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still
 means everything.
 
 The scope is remembered with Brain in its place, so a fresh shell reopens on it.
 The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows.
-Until a Brain folder is set up, the chip reads **Set up your Brain** and still
-scopes the tasks.
+Until a Brain folder is set up, the chip reads **Set up your Brain**, still
+scopes the tasks, and its tooltip points to Settings › Storage.
 
 ## Brain folder setup
 
 ```meta
 type: feature
-status: draft
 setting: .devbook/domain/devbook/context.md#brain-folder
 related: [.devbook/domain/devbook/requirements.md#brain-folder-setup, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/domain.md#para-category]
 ```
@@ -158,7 +152,6 @@ one, the browser harness among them, takes a typed path.
 
 ```meta
 type: feature
-status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/devbook/requirements.md#brain-mode-of-the-devbook-pane, .devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/design/interaction-guidelines.md#shell-header]
 ```
@@ -215,7 +208,6 @@ ordinary notes. The warning names every pair.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
 related: [.devbook/domain/devbook/requirements.md#repo-links-and-backlinks, .devbook/domain/devbook/domain.md#repo-link, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
 ```
@@ -253,7 +245,6 @@ A repository devbook has no way to link into a Brain.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#devbook-retrieval]
 related: [.devbook/domain/devbook/requirements.md#unified-search, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
@@ -278,7 +269,6 @@ without touching the header's scope or the task filter.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#repo-links-and-backlinks]
 related: [.devbook/domain/devbook/requirements.md#atlas-edges, .devbook/design/component-libraries.md]
 ```
@@ -307,7 +297,6 @@ drawing an empty map.
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
 related: [.devbook/domain/devbook/requirements.md#capture-into-the-brain, .devbook/domain/inbox/features.md#route-to-brain, .devbook/domain/inbox/domain.md#itemtriaged]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
@@ -337,7 +326,6 @@ an assistant calls over MCP ([MCP Brain scope](#mcp-brain-scope)).
 
 ```meta
 type: feature
-status: draft
 depends-on: [.devbook/domain/devbook/features.md#capture-into-the-brain]
 related: [.devbook/domain/devbook/requirements.md#mcp-brain-scope, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#review-notes-in-a-chapter]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.McpToolCreationTests.A_host_without_the_brain_ports_still_builds_the_devbook_tools]
@@ -425,6 +413,7 @@ rather than offering an empty tab strip.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents]
 ```
 
 Present each area's documents as readable content rather than raw files:
@@ -460,13 +449,14 @@ checks reject:
   chapters are ratings, so theirs is always stated.
 - **A decision is state, not content.** A domain chapter can stand approved
   (someone agreed it), and above that accepted (someone saw the built work
-  against it and accepted it). Who decided and when is shown beside the chapter's
-  status rather than among its fields. So is where a review stands on the way
-  there: requested, changes requested or cleared, and who owes the next move. The
+  against it and accepted it). Where a review stands on the way there is state
+  too: requested, changes requested or cleared, and who owes the next move. The
   app never offers those two steps as a status to pick, because the approval step
-  that makes the decision records them. Moving a chapter off either step takes its
-  decision record with it. No other area has them, and a chapter outside the
-  domain that carries one is pointed out.
+  that makes the decision records them. Where that state is shown, and when a
+  decision record goes, are in
+  [the requirements of this sub-feature](requirements.md#rendered-devbook-documents).
+  No other area has them, and a chapter outside the domain that carries one is
+  pointed out.
 - **Kinds.** Each area that classifies its chapters is read with its own set of
   kinds. A domain context's set covers its boundary document, its requirements and
   invariants and the single rules inside them, and its switches and settings. It
@@ -477,8 +467,8 @@ checks reject:
   and the context's own boundary document disagree about it, the app says so.
 - **Everything else a chapter declares** is shown as it was written: the tests
   that back it, its number and place in the reading order, and the day it
-  records. State another tool keeps on the chapter under its own name is carried
-  through untouched.
+  records. State another tool keeps on the chapter under its own name is
+  [carried as written](requirements.md#requirement-another-tools-state-is-carried-as-written).
 
 A bounded context's click demo is shown with the page it belongs to. A demo is
 the one HTML file a context holds: a clickable picture of what a person sees. It
@@ -556,7 +546,7 @@ read view then shows it is in
 
 ```meta
 type: sub-feature
-related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#remarks-on-a-chapter]
+related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/domain/devbook/requirements.md#review-notes-in-a-chapter]
 ```
 
 Show the [review notes](domain.md#review-note) a repository keeps in its own
@@ -565,10 +555,10 @@ raw text they are stored in. Each shows its kind and its replies. Whoever review
 the chapter reads the same notes, and they leave with the change that resolves
 them.
 
-A review note is never read as what the chapter says. An open question about
-whether a rule still holds is not the rule. So anything the app hands on as the
-chapter's content leaves the notes out, together with where the chapter's review
-stands. That covers what goes to an assistant, to search, and to an excerpt.
+A review note is never read as what the chapter says, because an open question
+about whether a rule still holds is not the rule. What that keeps out of an
+assistant's read, search and excerpts is in
+[the requirements of this sub-feature](requirements.md#review-notes-in-a-chapter).
 
 The app shows these notes and does not write them; the convention's own tooling
 does. They are also not the reader's [remarks](#remarks-on-a-chapter). The two are
@@ -578,7 +568,7 @@ shown apart and never merged, the decision local ADR 0011 records.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/productivity/features.md#drift-at-a-glance]
+related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/productivity/features.md#drift-at-a-glance, .devbook/domain/devbook/requirements.md#sync-verdicts-beside-a-chapter]
 ```
 
 Show beside each chapter heading its [Sync Verdict](domain.md#sync-verdict): the
@@ -587,11 +577,11 @@ or unresolved). The root chapter of a [Sync Unit](domain.md#sync-unit) also show
 the unit's own verdict and what the sweep did about it. Each badge leads to the
 pull request or drift issue the sweep opened, where the verdict is argued.
 
-Only the latest verdict per chapter is shown, and a sweep replaces only the
-chapters it checked. A chapter last checked a month ago keeps that month-old word
-until a sweep checks it again. The words are the sweep's, verbatim. A word outside
-its vocabulary is shown as written and flagged, rather than coloured like one it
-is not. A chapter no sweep has checked carries nothing.
+Only the latest verdict per chapter is shown, in the sweep's own words, so a
+chapter last checked a month ago keeps that month-old word until a sweep checks it
+again. Which verdict that is, and how a word the app does not know looks, are in
+[the requirements of this sub-feature](requirements.md#sync-verdicts-beside-a-chapter).
+A chapter no sweep has checked carries nothing.
 
 Each verdict also keeps the unit's sync direction as the sweep resolved it, and where
 it was inherited from. The dashboard's

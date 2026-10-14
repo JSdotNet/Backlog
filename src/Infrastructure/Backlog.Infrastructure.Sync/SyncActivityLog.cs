@@ -29,6 +29,10 @@ public enum SyncItemKind
 
     /// <summary>A note: the one Inbox item that syncs both ways with the phone.</summary>
     Note,
+
+    /// <summary>A sprint series: its cadence, its sprints and what each holds, as one
+    /// whole document.</summary>
+    SprintSeries,
 }
 
 /// <summary>

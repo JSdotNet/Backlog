@@ -46,8 +46,6 @@ classDiagram
     class TaskLink {
         <<value object>>
         +String task_id
-        +String link_type
-        +Timestamp linked_at
     }
     class PARACategory {
         <<value object>>
@@ -86,8 +84,9 @@ classDiagram
   `ProjectRef`: it addresses one chapter, and the Brain's database keeps it as an
   edge that resolves only on a machine where that repository is configured.
 - `TaskLink` references a Task by id only, never by object reference,
-  so the two contexts stay decoupled; the Cross-Linking service keeps both
-  directions consistent.
+  so the two contexts stay decoupled. It is a value on the note's node, not an
+  edge. Both directions are read from the note's `tasks` field, and a task's
+  record carries no note ([Bi-directional linking](features.md#bi-directional-linking)).
 - `effort` is the [Effort](domain.md#effort) scalar on the root. It carries no relationship to another type. Roadmap
   Planning reads and totals it; Devbook owns it.
 - `Tag` and `RoadmapContribution` are both owned value objects, and neither is an
@@ -184,16 +183,17 @@ classDiagram
   it is a rating and always present. The domain area alone adds two decision
   steps above the ladder, `approved` and `accepted`.
 - **`DecisionState` and `ReviewState` are state, not content.** They sit in the
-  chapter's `meta` block but describe the road to a decision. The panels draw them
-  beside the status and never hand them on as what the chapter says.
-  `DecisionState` exists only while its step stands and leaves with it.
+  chapter's `meta` block but describe the road to a decision. Where the panels
+  show them, and when a `DecisionState` goes, are in
+  [the requirements of Rendered devbook documents](requirements.md#rendered-devbook-documents).
   `ReviewState` is replaced by `DecisionState` when approval is written. Neither
   is legal outside the domain area.
 - **`type` is folder-relative too.** Domain, technology and AI chapters each
   draw from their own set; architecture and design define none. A domain
   context's additional page takes its own filename as its type.
-- **`ExtensionState` belongs to whoever wrote it.** Keys under `ext.` are
-  carried through verbatim and never validated or interpreted here.
+- **`ExtensionState` belongs to whoever wrote it.** Keys under `ext.` mean what
+  their tool means by them, so this context
+  [carries them as written](requirements.md#requirement-another-tools-state-is-carried-as-written).
 - **`ReviewNote` and `Remark` are two things on purpose.** A
   [Review Note](domain.md#review-note) is an `annotation` fence in the chapter
   file, read-only here. A [Remark](domain.md#remark) is the person's own note on a

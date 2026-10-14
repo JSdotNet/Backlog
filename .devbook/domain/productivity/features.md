@@ -536,7 +536,7 @@ What the projection promises is in
 type: sub-feature
 status: draft
 related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyBriefSentencesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardBriefFiguresTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.BriefWeekTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyBriefSentencesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintWeekBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardBriefFiguresTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.BriefWeekTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
 ```
 
 Read the last finished week as a few sentences rather than as charts. The brief
@@ -558,7 +558,12 @@ quarter merged the same number, the title names neither a best nor a quietest we
 Until the shipping figures answer, the title reads "Weekly brief", which stays the
 brief's accessible name throughout.
 
-The brief has one block each for Shipping, Plan, Sessions and Cost. Each block opens
+With the progress feature on, the brief opens with a Sprint block for each sprint
+series that shows in the weekly brief and has a sprint overlapping the reported week,
+as [Sprints in the briefs](../progress/features.md#sprints-in-the-briefs) describes.
+With it off, or no such series, there is no Sprint block.
+
+The brief then has one block each for Shipping, Plan, Sessions and Cost. Each block opens
 with a headline sentence built from a template, adds one supporting sentence, and
 shows its figure and the eight weeks up to the reported one as bars, that week
 highlighted. A block's link opens the tab it reads. It closes with "Carrying into next

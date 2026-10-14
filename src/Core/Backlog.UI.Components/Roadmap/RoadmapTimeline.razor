@@ -1359,12 +1359,22 @@
         if (_dragId is null) return;
 
         // Asked before Settle, because settling releases the gesture and the answer
-        // goes with it.
-        var moved = PreviewFor(_dragId) is not null;
+        // goes with it. Armed before it too: Settle awaits the host's change, a host
+        // that saves and reloads yields there, and the click the browser synthesises
+        // after the pointerup arrives during that wait, not after it.
+        _clickEndsADrag = PreviewFor(_dragId) is not null;
 
-        await Settle(_dragId);
-
-        _clickEndsADrag = moved;
+        try
+        {
+            await Settle(_dragId);
+        }
+        catch
+        {
+            // A host that failed to take the move has not moved anything, and a
+            // flag left armed would swallow the reader's next real click.
+            _clickEndsADrag = false;
+            throw;
+        }
     }
 
     [JSInvokable]

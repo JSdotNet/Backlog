@@ -624,6 +624,9 @@ internal sealed partial class DeliveryRunReader
                 ],
                 ToolCalls = toolCalls.Count(call => InStage(call.Index, call.Stage, position, name)),
                 Execution = ObjectText(stage, "execution"),
+                Round = ExecutionCount(stage, "round"),
+                Blockers = ExecutionCount(stage, "blockers"),
+                DefectsFound = ExecutionCount(stage, "defectsFound"),
                 StartedAt = Moment(stage, "startedAt"),
                 CompletedAt = Moment(stage, "completedAt"),
                 Evidence = StageEvidence(stage)
@@ -913,6 +916,23 @@ internal sealed partial class DeliveryRunReader
 
         return value.TryGetDouble(out var fraction) && double.IsFinite(fraction) ? (long)Math.Round(fraction) : null;
     }
+
+    /// <summary>
+    /// One of the counts a stage's <c>execution</c> reports for its pass — the round,
+    /// Review's blockers, Verify's defects — or null where the execution is not an
+    /// object or does not carry it as a whole number from zero up. Absent stays absent:
+    /// a run file from before the delivery phases sent these never reads as a clean
+    /// round, and a value a hand-edit broke is no count rather than a guessed one.
+    /// </summary>
+    private static int? ExecutionCount(JsonElement stage, string name) =>
+        stage.TryGetProperty("execution", out var execution)
+        && execution.ValueKind is JsonValueKind.Object
+        && execution.TryGetProperty(name, out var value)
+        && value.ValueKind is JsonValueKind.Number
+        && value.TryGetInt32(out var count)
+        && count >= 0
+            ? count
+            : null;
 
     private static string? Text(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String

@@ -363,8 +363,9 @@
    either, because it is neither the backlog's folder nor its backup -
    moving the backlog never moves the Brain. Drawn only where the host
    composes the Brain's setting, so a host without one still renders
-   this screen. The Brain chip reads "Set up your Brain" and links here
-   (BrainSetup.SettingsHref) until a folder is set. *@
+   this screen. Until a folder is set the Brain chip reads "Set up your
+   Brain" and its tooltip points here; the Devbook pane's first-use
+   prompt links here (BrainSetup.SettingsHref). *@
 @if (_brainSettings is not null && _brainSetup is not null)
 {
     <BrainFolderCard Id="@BrainSetup.CardId"

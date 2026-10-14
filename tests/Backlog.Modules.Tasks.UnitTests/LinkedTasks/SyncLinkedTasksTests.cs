@@ -33,6 +33,22 @@ public sealed class SyncLinkedTasksTests
 
     // --- Creating -------------------------------------------------------------
 
+    /// <summary>Fetched counts what the source answered, whatever the sync then did
+    /// with it, so a log line can tell a source that answered nothing from one whose
+    /// items all stood still.</summary>
+    [Fact]
+    public async Task Fetched_counts_every_item_the_source_answered()
+    {
+        _connector.Items.Add(Item("I_1"));
+        _connector.Items.Add(Item("I_2"));
+
+        var first = await SyncAsync();
+        var second = await SyncAsync();
+
+        Assert.Equal((2, 2), (first.Fetched, first.Created));
+        Assert.Equal((2, 2), (second.Fetched, second.Unchanged));
+    }
+
     [Fact]
     public async Task An_open_item_becomes_a_ready_linked_task()
     {
@@ -491,6 +507,168 @@ public sealed class SyncLinkedTasksTests
 
         Assert.Equal(EntryStatus.InProgress, task.Status);
         Assert.Equal(writes, _tasks.Writes);
+    }
+
+    // --- The target's status map -----------------------------------------------------
+
+    /// <summary>A product with no status flagged as work reads every status after the
+    /// first as Active. The target's map names the status a source status becomes,
+    /// by the source's own name, in any case and with any spacing.</summary>
+    [Fact]
+    public async Task The_target_s_status_map_decides_the_status_a_new_task_gets()
+    {
+        MapStatuses(new() { [" verfijnd "] = EntryStatus.Ready });
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Verfijnd" });
+
+        await SyncAsync();
+
+        var task = Assert.Single(_tasks.Entries.Values);
+        Assert.Equal(EntryStatus.Ready, task.Status);
+        Assert.Null(task.StartedOn);
+    }
+
+    [Fact]
+    public async Task A_status_name_the_map_does_not_have_takes_the_fixed_map()
+    {
+        MapStatuses(new() { ["Verfijnd"] = EntryStatus.Ready });
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "In ontwikkeling" });
+
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.InProgress, Assert.Single(_tasks.Entries.Values).Status);
+    }
+
+    /// <summary>Two statuses with one normalised state are still two places at the
+    /// source when the map tells them apart: a move between them moves the task.</summary>
+    [Fact]
+    public async Task A_move_between_two_statuses_the_map_tells_apart_moves_the_task()
+    {
+        MapStatuses(new() { ["Verfijnd"] = EntryStatus.Ready });
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Verfijnd" });
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        Assert.Equal(EntryStatus.Ready, task.Status);
+
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "In ontwikkeling", UpdatedAt = Now };
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.InProgress, task.Status);
+        Assert.Equal(Today, task.StartedOn);
+    }
+
+    /// <summary>A task the person finished stays finished through a move the map
+    /// tells apart, and stays flagged done here while the source holds it open.</summary>
+    [Fact]
+    public async Task A_task_the_person_finished_stays_done_through_a_move_the_map_tells_apart()
+    {
+        MapStatuses(new() { ["Verfijnd"] = EntryStatus.Ready });
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Verfijnd" });
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.ChangeStatus(EntryStatus.InProgress, Today);
+        task.ChangeStatus(EntryStatus.Done, Today);
+        await SyncAsync();
+        Assert.True(task.SourceRef!.HasFlag(LinkedTaskFlags.DoneLocally));
+
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "In ontwikkeling", UpdatedAt = Now };
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.Done, task.Status);
+        Assert.True(task.SourceRef!.HasFlag(LinkedTaskFlags.DoneLocally));
+    }
+
+    /// <summary>A Done mapping added after the person finished a task does not turn
+    /// their finish into the source's: the task stays flagged, and the source moving
+    /// the item on does not reopen it.</summary>
+    [Fact]
+    public async Task A_done_mapping_added_later_never_reopens_a_task_the_person_finished()
+    {
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Released" });
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.ChangeStatus(EntryStatus.Done, Today);
+        await SyncAsync();
+
+        MapStatuses(new() { ["Released"] = EntryStatus.Done });
+        await SyncAsync();
+        Assert.True(task.SourceRef!.HasFlag(LinkedTaskFlags.DoneLocally));
+
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Review", UpdatedAt = Now };
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.Done, task.Status);
+        Assert.True(task.SourceRef!.HasFlag(LinkedTaskFlags.DoneLocally));
+    }
+
+    /// <summary>A map edit is not a move at the source: an item that did not move
+    /// keeps its task where it is, and the sync stays quiet. The new map is read
+    /// on the item's next move.</summary>
+    [Fact]
+    public async Task A_map_edit_alone_leaves_an_unmoved_item_s_task_where_it_is()
+    {
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Verfijnd" });
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        Assert.Equal(EntryStatus.InProgress, task.Status);
+        var writes = _tasks.Writes;
+
+        MapStatuses(new() { ["Verfijnd"] = EntryStatus.Ready });
+        var summary = await SyncAsync();
+
+        Assert.Equal(EntryStatus.InProgress, task.Status);
+        Assert.Equal(1, summary.Unchanged);
+        Assert.Equal(writes, _tasks.Writes);
+    }
+
+    /// <summary>Without a map, a move between two statuses of one normalised state
+    /// is no move: the status the person gave the task stands, as it always has.</summary>
+    [Fact]
+    public async Task Without_a_map_a_move_within_one_normalised_state_leaves_the_status_alone()
+    {
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Verfijnd" });
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.SetStatus(EntryStatus.Ready, Today);
+
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "In ontwikkeling", UpdatedAt = Now };
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.Ready, task.Status);
+        Assert.Equal("In ontwikkeling", task.SourceRef!.SourceState);
+    }
+
+    /// <summary>A Done the map gives for an open status is the source's word, not
+    /// the person's finish: the task is not flagged done here and open there, and
+    /// the source moving the item on moves the task out of Done.</summary>
+    [Fact]
+    public async Task A_done_the_map_gives_is_the_source_s_and_follows_its_next_move()
+    {
+        MapStatuses(new() { ["Released"] = EntryStatus.Done });
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Released" });
+        await SyncAsync();
+
+        var task = Assert.Single(_tasks.Entries.Values);
+        Assert.Equal(EntryStatus.Done, task.Status);
+        Assert.False(task.SourceRef!.HasFlag(LinkedTaskFlags.DoneLocally));
+
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Active) with { SourceStateName = "Review", UpdatedAt = Now };
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.InProgress, task.Status);
+    }
+
+    /// <summary>A dropped item is closed whatever status it was closed in: the map
+    /// names what a status means while the item is in it, and an archived item is
+    /// in none.</summary>
+    [Fact]
+    public async Task A_dropped_item_is_archived_whatever_its_status_name_maps_to()
+    {
+        MapStatuses(new() { ["Verfijnd"] = EntryStatus.Ready });
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Dropped) with { SourceStateName = "Verfijnd" });
+
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.Archived, Assert.Single(_tasks.Entries.Values).Status);
     }
 
     // --- What the person did stands ------------------------------------------------
@@ -1078,6 +1256,62 @@ public sealed class SyncLinkedTasksTests
         Assert.Empty(Assert.Single(_tasks.Entries.Values).RepoIds);
     }
 
+    /// <summary>A repository set on the target files its tasks under it whatever the
+    /// source's targets are — a spec-manager product's tasks under the repository
+    /// the product is built in — spelled the way the registry spells it.</summary>
+    [Fact]
+    public async Task A_repository_set_on_the_target_files_a_product_s_tasks_under_it()
+    {
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo) { RepositoryId = " jsdotnet/backlog " });
+        _connector.Items.Add(Item("I_1"));
+
+        await SyncAsync(repositories: new FakeRepositoryDirectory([new TasksRepositoryRef("backlog", "JSdotNet", "Backlog")]));
+
+        Assert.Equal(["JSdotNet/Backlog"], Assert.Single(_tasks.Entries.Values).RepoIds);
+    }
+
+    [Fact]
+    public async Task A_repository_set_on_the_target_wins_over_the_repository_the_target_names()
+    {
+        _connector.Capabilities = new(TargetIsRepository: true);
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo) { RepositoryId = "JSdotNet/Docs" });
+        _connector.Items.Add(Item("I_1"));
+
+        await SyncAsync(repositories: new FakeRepositoryDirectory());
+
+        Assert.Equal(["JSdotNet/Docs"], Assert.Single(_tasks.Entries.Values).RepoIds);
+    }
+
+    /// <summary>The target's repository fills only a task filed under none: one the
+    /// person filed elsewhere keeps it, and the sync stays quiet.</summary>
+    [Fact]
+    public async Task A_repository_set_on_the_target_leaves_a_task_already_filed_alone()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.SetRepoIds(["someone/elsewhere"]);
+        _targets.Save(_targets.Get(StubTaskConnector.Id, Repo)! with { RepositoryId = "JSdotNet/Docs" });
+        var writes = _tasks.Writes;
+
+        var summary = await SyncAsync();
+
+        Assert.Equal(1, summary.Unchanged);
+        Assert.Equal(writes, _tasks.Writes);
+        Assert.Equal(["someone/elsewhere"], task.RepoIds);
+    }
+
+    [Fact]
+    public async Task A_blank_repository_on_the_target_files_nothing()
+    {
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo) { RepositoryId = "  " });
+        _connector.Items.Add(Item("I_1"));
+
+        await SyncAsync();
+
+        Assert.Empty(Assert.Single(_tasks.Entries.Values).RepoIds);
+    }
+
     [Fact]
     public async Task A_sync_records_when_its_fetch_started_and_the_next_fetch_asks_from_there()
     {
@@ -1412,6 +1646,9 @@ public sealed class SyncLinkedTasksTests
     }
 
     // --- Helpers -------------------------------------------------------------------
+
+    private void MapStatuses(Dictionary<string, EntryStatus> map) =>
+        _targets.Save(_targets.Get(StubTaskConnector.Id, Repo)! with { StatusMap = map });
 
     private SyncLinkedTasksCommandHandler Handler(
         InMemoryTaskRepository? tasks = null,

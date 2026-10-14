@@ -337,12 +337,13 @@ public sealed class DeliveryEconomicsTests
 
         var only = Assert.Single(DeliveryEconomics.Compare(phase));
 
-        Assert.Null(only.Quality);
+        Assert.Null(only.Quality.Value);
         Assert.Equal(0, only.QualityRuns);
+        Assert.Equal("not reported", only.Quality.Label);
     }
 
     [Fact]
-    public void A_reported_quality_is_the_median_over_the_runs_that_reported_it()
+    public void A_reported_quality_is_the_mean_over_the_runs_that_reported_it()
     {
         var phase = DeliveryEconomics.Of([Priced("s1", 1, Sonnet, 1m, 1m), Priced("s2", 2, Sonnet, 1m, 1m), Priced("s3", 3, Sonnet, 1m, 1m)]).Phases[0];
         var reported = phase with
@@ -352,7 +353,7 @@ public sealed class DeliveryEconomicsTests
 
         var only = Assert.Single(DeliveryEconomics.Compare(reported));
 
-        Assert.Equal(0.7, only.Quality!.Value, 3);
+        Assert.Equal(0.7, only.Quality.Value!.Value, 3);
         Assert.Equal(2, only.QualityRuns);
     }
 
@@ -383,10 +384,11 @@ public sealed class DeliveryEconomicsTests
         Assert.Equal("Sonnet at high effort: 6 runs · Opus: 5 runs", lesson.Samples);
         Assert.Equal(new DeliveryConfiguration("sonnet", "high", null, null), lesson.Best);
         Assert.DoesNotContain("quality", lesson.Headline, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("Quality not reported: this compares cost only.", lesson.QualityNote);
+        Assert.Equal("Quality measure: Sonnet at high effort not reported · Opus not reported", lesson.QualityNote);
         Assert.Equal(
-            "Use devbook-config:local to set the Implement phase of flow-code to Sonnet at high effort in my personal overlay. "
-            + "The Delivery economics page found it $2.00 cheaper per run of that phase than Opus, over 6 and 5 priced runs, and the whole run $2.00 cheaper. Quality was not compared.",
+            "Use devbook-config:local to set the Implement phase of flow-code in my personal overlay: its model to sonnet, its effort to high. "
+            + "The Delivery economics page found it $2.00 cheaper per run of that phase than Opus, and the whole run $2.00 cheaper, over 6 and 5 priced runs. "
+            + "Quality measure: Sonnet at high effort not reported, against not reported. Not enough to call: 5 runs on the smaller side, under 10.",
             lesson.Request);
     }
 
@@ -399,9 +401,27 @@ public sealed class DeliveryEconomicsTests
         var lesson = DeliveryEconomics.Lesson("flow-code", report.Phases[0]);
 
         Assert.NotNull(lesson);
-        Assert.Equal("Sonnet at high effort runs Implement for $2.00 less than Opus (medians), but whole runs cost $3.00 more", lesson.Headline);
+        Assert.Equal("Sonnet at high effort runs Implement for $2.00 less than Opus (medians), but whole runs cost $3.00 more: the cheaper phase raises the run's cost", lesson.Headline);
         Assert.Null(lesson.Best);
-        Assert.Contains("and the whole run $3.00 dearer", lesson.Request, StringComparison.Ordinal);
+
+        // The lesson points to the dearer configuration, which is configured now.
+        Assert.Same(lesson.Dearer, lesson.Target);
+        Assert.Null(lesson.Request);
+    }
+
+    [Fact]
+    public void Where_the_cheaper_configured_now_raises_the_run_cost_the_request_sets_the_dearer()
+    {
+        // Sonnet runs now and saves $2 in Implement, but its runs' Review costs $5 more.
+        var report = DeliveryEconomics.Of([.. Series("s", 5, 1, Sonnet, 1m, 6m), .. Series("o", 5, 10, Opus, 3m, 1m)]);
+
+        var lesson = DeliveryEconomics.Lesson("flow-code", report.Phases[0]);
+
+        Assert.NotNull(lesson);
+        Assert.True(lesson.CheaperIsNow);
+        Assert.False(lesson.KeepsNow);
+        Assert.StartsWith("Use devbook-config:local to set the Implement phase of flow-code in my personal overlay: its model to opus, leave its effort unset. ", lesson.Request, StringComparison.Ordinal);
+        Assert.Contains("whole runs $3.00 cheaper (medians) than with Sonnet at high effort, though the phase itself costs $2.00 more", lesson.Request, StringComparison.Ordinal);
     }
 
     private const string Haiku = """{"mode":"delegate","agent":"csharp-coding:coding","model":"claude-haiku-5"}""";
@@ -424,7 +444,7 @@ public sealed class DeliveryEconomicsTests
         Assert.Equal("opus", lesson.Dearer.Configuration.Family);
         Assert.False(lesson.KeepsNow);
         Assert.Equal("Haiku runs Implement for $4.00 less than Opus (medians), and whole runs cost $4.00 less", lesson.Headline);
-        Assert.StartsWith("Use devbook-config:local to set the Implement phase of flow-code to Haiku", lesson.Request, StringComparison.Ordinal);
+        Assert.StartsWith("Use devbook-config:local to set the Implement phase of flow-code in my personal overlay: its model to haiku, leave its effort unset.", lesson.Request, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -461,7 +481,7 @@ public sealed class DeliveryEconomicsTests
         Assert.Null(lesson.RunDifferenceUsdMicros);
         Assert.Null(lesson.Best);
         Assert.Equal("Sonnet at high effort runs Implement for $2.00 less than Opus (medians); the whole-run difference is unknown", lesson.Headline);
-        Assert.Contains("the whole-run difference is unknown", lesson.Request, StringComparison.Ordinal);
+        Assert.Contains("the whole-run difference unknown", lesson.Request, StringComparison.Ordinal);
         Assert.DoesNotContain("whole run $", lesson.Request, StringComparison.Ordinal);
 
         // The card still shows its whole-run median over part of the runs, and says so.
@@ -521,6 +541,22 @@ public sealed class DeliveryEconomicsTests
     }
 
     [Fact]
+    public void A_request_sets_the_mode_where_the_configurations_differ_on_it()
+    {
+        // Opus delegated is the configuration now; Opus inline in the owner session is cheaper.
+        var phase = DeliveryEconomics.Of(
+        [
+            .. Enumerable.Range(0, 5).Select(index => Priced($"d{index}", 1 + index, Opus, 3m, 1m)),
+            .. Enumerable.Range(0, 5).Select(index => Priced($"i{index}", 10 + index, """{"mode":"inline","model":"claude-opus-5-5"}""", 1m, 1m))
+        ]).Phases[0];
+
+        var lesson = DeliveryEconomics.Lesson("flow-code", phase);
+
+        Assert.NotNull(lesson);
+        Assert.StartsWith("Use devbook-config:local to set the Implement phase of flow-code in my personal overlay: its model to opus, its mode to inline, leave its effort unset.", lesson.Request, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_card_matches_the_configuration_now_on_the_fields_the_phase_dropped()
     {
         var phase = DeliveryEconomics.Of([Priced("s1", 1, Sonnet, 1m, 1m), Priced("o1", 2, Opus, 1m, 1m)]).Phases[0];
@@ -557,5 +593,381 @@ public sealed class DeliveryEconomicsTests
 
         Assert.Equal(new DeliveryConfiguration("opus", null, null, null), Assert.Single(scope.Samples).Configuration);
         Assert.Equal("opus", scope.Now!.Family);
+    }
+
+    // Seam 7 — the quality measure per phase, from what the delivery phases reported.
+
+    [Theory]
+    [InlineData("Scope", DeliveryQualityMeasure.ScopedAgain)]
+    [InlineData("Implement", DeliveryQualityMeasure.ReviewRounds)]
+    [InlineData("review", DeliveryQualityMeasure.BlockersPerRound)]
+    [InlineData("Build & Test", DeliveryQualityMeasure.GreenFirstTime)]
+    [InlineData("Build and Test", DeliveryQualityMeasure.GreenFirstTime)]
+    [InlineData("Verify", DeliveryQualityMeasure.DefectFound)]
+    [InlineData("Spec Check", DeliveryQualityMeasure.None)]
+    [InlineData("Personal Validation", DeliveryQualityMeasure.None)]
+    public void Each_phase_is_read_on_its_own_quality_measure_and_every_other_phase_on_none(string phase, DeliveryQualityMeasure measure) =>
+        Assert.Equal(measure, DeliveryEconomics.MeasureOf(phase));
+
+    private static DeliveryRunStage Reported(string name, int doneCount = 1, int? round = null, int? blockers = null, int? defects = null, string status = "done") =>
+        new(name, status, 60_000, doneCount) { Round = round, Blockers = blockers, DefectsFound = defects };
+
+    /// <summary>A run of the given stages, each priced at <paramref name="dollars"/>.</summary>
+    private static PricedDeliveryRun Flow(string id, int daysAgo, DeliveryRunStage[] stages, decimal dollars = 1m) =>
+        new(Run(id, Now.AddDays(-daysAgo), stages: stages), Costs([.. stages.Select(_ => (decimal?)dollars)]));
+
+    /// <summary>Scope, Implement, Review, Build &amp; Test and Verify, with what each
+    /// reported.</summary>
+    private static DeliveryRunStage[] FiveStages(
+        int scopePasses = 1,
+        int? rounds = null,
+        int? blockers = null,
+        int buildPasses = 1,
+        int? defects = null,
+        string implementStatus = "done") =>
+    [
+        Reported("Scope", scopePasses),
+        Reported("Implement", implementStatus == "pending" ? 0 : 1, rounds, status: implementStatus),
+        Reported("Review", 1, rounds, blockers),
+        Reported("Build & Test", buildPasses),
+        Reported("Verify", 1, defects: defects)
+    ];
+
+    [Fact]
+    public void Implement_is_read_on_the_mean_review_rounds_its_runs_reported()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("a", 1, FiveStages(rounds: 1)),
+            Flow("b", 2, FiveStages(rounds: 3)),
+            Flow("c", 3, FiveStages())
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Implement").Quality;
+
+        Assert.Equal(DeliveryQualityMeasure.ReviewRounds, quality.Measure);
+        Assert.Equal(2.0, quality.Value!.Value, 6);
+        Assert.Equal(2, quality.Runs);
+        Assert.Equal("2 rounds", quality.Label);
+    }
+
+    [Fact]
+    public void A_run_takes_the_highest_round_its_Implement_or_Review_reported()
+    {
+        var run = Run("r", Now, stages: [Reported("Implement", round: 2), Reported("Review", round: 3), Reported("Verify")]);
+
+        Assert.Equal(3, DeliveryEconomics.RoundsOf(run));
+        Assert.Null(DeliveryEconomics.RoundsOf(Run("old", Now, stages: [Stage("Implement"), Stage("Review")])));
+    }
+
+    [Fact]
+    public void Review_is_read_on_blockers_per_round_and_the_defects_that_escaped_to_Verify()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("a", 1, FiveStages(rounds: 1, blockers: 0, defects: 2)),
+            Flow("b", 2, FiveStages(rounds: 2, blockers: 1, defects: 0)),
+            Flow("c", 3, FiveStages())
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Review").Quality;
+
+        Assert.Equal(0.5, quality.Value!.Value, 6);
+        Assert.Equal(2, quality.Runs);
+        Assert.Equal(2, quality.Escaped);
+        Assert.Equal(2, quality.EscapedRuns);
+        Assert.Equal("0.5 blockers per round · 2 escaped to Verify", quality.Label);
+    }
+
+    [Fact]
+    public void Scope_is_read_on_the_share_scoped_again_once_Implement_had_started()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("again", 1, FiveStages(scopePasses: 2)),
+            Flow("once", 2, FiveStages()),
+            Flow("once2", 3, FiveStages()),
+            Flow("before-implement", 4, FiveStages(scopePasses: 2, implementStatus: "pending"))
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Scope").Quality;
+
+        // The run that never started Implement could not go back to Scope from it.
+        Assert.Equal(3, quality.Runs);
+        Assert.Equal(1.0 / 3, quality.Value!.Value, 6);
+        Assert.Equal("33% scoped again", quality.Label);
+    }
+
+    [Fact]
+    public void Build_and_Test_is_read_on_the_share_green_first_time()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("green", 1, FiveStages()),
+            Flow("green2", 2, FiveStages()),
+            Flow("green3", 3, FiveStages()),
+            Flow("red", 4, FiveStages(buildPasses: 3))
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Build & Test").Quality;
+
+        Assert.Equal(0.75, quality.Value!.Value, 6);
+        Assert.Equal(4, quality.Runs);
+        Assert.Equal("75% green first time", quality.Label);
+    }
+
+    [Fact]
+    public void Verify_is_read_on_the_share_of_runs_with_a_defect_found_over_those_that_reported_a_count()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("found", 1, FiveStages(defects: 2)),
+            Flow("clean", 2, FiveStages(defects: 0)),
+            Flow("silent", 3, FiveStages())
+        ]);
+
+        var quality = report.Phases.Single(phase => phase.Name == "Verify").Quality;
+
+        Assert.Equal(0.5, quality.Value!.Value, 6);
+        Assert.Equal(2, quality.Runs);
+        Assert.Equal("50% found a defect", quality.Label);
+    }
+
+    [Fact]
+    public void A_phase_without_a_measure_says_so_and_one_nobody_reported_says_not_reported()
+    {
+        var report = DeliveryEconomics.Of([Flow("a", 1, [Reported("Spec Check"), Reported("Verify")])]);
+
+        Assert.Equal("no measure", report.Phases[0].Quality.Label);
+        Assert.False(report.Phases[0].Quality.Reported);
+        Assert.Equal("not reported", report.Phases[1].Quality.Label);
+    }
+
+    [Fact]
+    public void Each_configuration_carries_the_phase_quality_over_its_own_runs_and_the_agent_as_recorded()
+    {
+        static PricedDeliveryRun Ran(string id, int daysAgo, string implement, int rounds) =>
+            new(Run(id, Now.AddDays(-daysAgo), stages: [Stage("Implement", implement) with { Round = rounds }, Stage("Review") with { Round = rounds }]), Costs(1m, 1m));
+
+        var phase = DeliveryEconomics.Of([Ran("s1", 1, Sonnet, 1), Ran("s2", 2, Sonnet, 1), Ran("o1", 3, Opus, 3)]).Phases[0];
+
+        var cards = DeliveryEconomics.Compare(phase);
+        var sonnet = cards.Single(card => card.Configuration.Family == "sonnet");
+        var opus = cards.Single(card => card.Configuration.Family == "opus");
+
+        Assert.Equal(1.0, sonnet.Quality.Value!.Value, 6);
+        Assert.Equal(2, sonnet.QualityRuns);
+        Assert.Equal(3.0, opus.Quality.Value!.Value, 6);
+
+        // Every run shared the agent, so it is not part of the key; the card still says it.
+        Assert.Null(sonnet.Configuration.Agent);
+        Assert.Equal("csharp-coding:coding", sonnet.Agent);
+    }
+
+    // Seam 8 — the flow's quality and spend figures at a glance.
+
+    [Fact]
+    public void Implement_and_Review_share_is_their_cost_over_all_the_spend()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            new PricedDeliveryRun(Run("a", Now.AddDays(-1), stages: [Stage("Scope"), Stage("Implement"), Stage("Review"), Stage("Verify")]), Costs(1m, 4m, 2m, 1m)),
+            new PricedDeliveryRun(Run("b", Now.AddDays(-2), stages: [Stage("Scope"), Stage("Implement"), Stage("Review"), Stage("Verify")]), Costs(1m, 2m, null, 1m))
+        ]);
+
+        // (4 + 2 + 2) over (8 + 4).
+        Assert.Equal(8.0 / 12, report.ImplementReviewShare!.Value, 6);
+        Assert.Null(DeliveryEconomics.Of([Priced("n", 1, Sonnet, null, null)]).ImplementReviewShare);
+    }
+
+    [Fact]
+    public void Runs_with_two_or_more_review_rounds_are_counted_and_their_cost_set_against_the_rest()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("one-a", 1, FiveStages(rounds: 1), 1m),
+            Flow("one-b", 2, FiveStages(rounds: 1), 1m),
+            Flow("two", 3, FiveStages(rounds: 2), 2m),
+            Flow("three", 4, FiveStages(rounds: 3), 4m),
+            Flow("unreported", 5, FiveStages(), 9m)
+        ]);
+
+        Assert.Equal(4, report.RoundRuns);
+        Assert.Equal(2, report.MultiRoundRuns);
+
+        // Median $15 (of $10 and $20) over the one-round median of $5.
+        Assert.Equal(3.0, report.MultiRoundCostRatio!.Value, 6);
+    }
+
+    [Fact]
+    public void The_round_cost_ratio_leaves_out_partly_priced_runs_and_needs_both_sides()
+    {
+        var partial = new PricedDeliveryRun(
+            Run("partial", Now.AddDays(-3), stages: [Reported("Implement", round: 1), Reported("Review", round: 1)]),
+            Costs(0.1m, null));
+
+        var onlyMulti = DeliveryEconomics.Of([Flow("two", 1, FiveStages(rounds: 2)), partial]);
+
+        Assert.Equal(2, onlyMulti.RoundRuns);
+        Assert.Equal(1, onlyMulti.MultiRoundRuns);
+        Assert.Null(onlyMulti.MultiRoundCostRatio);
+    }
+
+    [Fact]
+    public void Defects_that_escaped_review_are_summed_over_the_runs_whose_Verify_reported_a_count()
+    {
+        var report = DeliveryEconomics.Of(
+        [
+            Flow("a", 1, FiveStages(defects: 2)),
+            Flow("b", 2, FiveStages(defects: 1)),
+            Flow("c", 3, FiveStages(defects: 0)),
+            Flow("d", 4, FiveStages())
+        ]);
+
+        Assert.Equal(3, report.EscapedDefects);
+        Assert.Equal(3, report.EscapedRuns);
+
+        var silent = DeliveryEconomics.Of([Flow("d", 1, FiveStages())]);
+        Assert.Null(silent.EscapedDefects);
+        Assert.Equal(0, silent.EscapedRuns);
+        Assert.Equal(0, silent.RoundRuns);
+    }
+
+    // Seam 8 — what a lesson can be trusted on, and the phase table's verdict.
+
+    /// <summary>Runs of Implement then Review under one configuration, Implement reporting
+    /// <paramref name="rounds"/> review rounds where given.</summary>
+    private static IEnumerable<PricedDeliveryRun> Rounds(string name, int count, int from, string implement, decimal implementUsd, decimal reviewUsd, int? rounds) =>
+        Enumerable.Range(0, count).Select(index => new PricedDeliveryRun(
+            Run($"{name}{index}", Now.AddDays(-(from + index)), stages: [new DeliveryRunStage("Implement", "done", 60_000, 1) { Execution = implement, Round = rounds }, Stage("Review")]),
+            Costs(implementUsd, reviewUsd)));
+
+    [Theory]
+    [InlineData(5, DeliveryConfidence.NotEnoughToCall, "Not enough to call: 5 runs on the smaller side, under 10.")]
+    [InlineData(9, DeliveryConfidence.NotEnoughToCall, "Not enough to call: 9 runs on the smaller side, under 10.")]
+    [InlineData(10, DeliveryConfidence.KeepBothRunning, "Keep both running: 10 runs on the smaller side, 10 to 20.")]
+    [InlineData(20, DeliveryConfidence.KeepBothRunning, "Keep both running: 20 runs on the smaller side, 10 to 20.")]
+    [InlineData(21, DeliveryConfidence.FairlyConfident, "Fairly confident: 21 runs on the smaller side, over 20.")]
+    public void A_lesson_is_as_confident_as_its_smaller_sample_allows(int smaller, DeliveryConfidence confidence, string line)
+    {
+        var phase = DeliveryEconomics.Of([.. Series("o", 30, 1, Opus, 3m, 1m), .. Series("s", smaller, 40, Sonnet, 1m, 1m)]).Phases[0];
+
+        var lesson = DeliveryEconomics.Lesson("flow-code", phase);
+
+        Assert.NotNull(lesson);
+        Assert.Equal(confidence, lesson.Confidence);
+        Assert.Equal(line, lesson.ConfidenceLine);
+    }
+
+    [Fact]
+    public void A_lesson_sets_the_quality_measure_of_both_configurations_side_by_side()
+    {
+        var phase = DeliveryEconomics.Of([.. Rounds("o", 5, 1, Opus, 3m, 1m, 1), .. Rounds("s", 5, 10, Sonnet, 1m, 1m, 2)]).Phases[0];
+
+        var lesson = DeliveryEconomics.Lesson("flow-code", phase);
+
+        Assert.NotNull(lesson);
+        Assert.Equal("Quality measure: Sonnet at high effort 2 rounds · Opus 1 round", lesson.QualityNote);
+        Assert.False(lesson.QualityWithin);
+    }
+
+    [Theory]
+    [InlineData(DeliveryQualityMeasure.ReviewRounds, 1.1, 1.0, true)]
+    [InlineData(DeliveryQualityMeasure.ReviewRounds, 1.2, 1.0, false)]
+    [InlineData(DeliveryQualityMeasure.ReviewRounds, 0.5, 1.0, true)]
+    [InlineData(DeliveryQualityMeasure.BlockersPerRound, 0.1, 0.0, true)]
+    [InlineData(DeliveryQualityMeasure.GreenFirstTime, 0.85, 0.9, true)]
+    [InlineData(DeliveryQualityMeasure.GreenFirstTime, 0.75, 0.9, false)]
+    [InlineData(DeliveryQualityMeasure.ScopedAgain, 0.15, 0.1, true)]
+    [InlineData(DeliveryQualityMeasure.ScopedAgain, 0.25, 0.1, false)]
+    public void Quality_is_within_a_tenth_in_the_measure_worse_direction(DeliveryQualityMeasure measure, double cheaper, double dearer, bool within) =>
+        Assert.Equal(within, DeliveryQuality.Within(new(measure, cheaper, 5), new(measure, dearer, 5)));
+
+    [Fact]
+    public void Quality_nobody_reported_is_unknown_and_a_phase_with_no_measure_is_level()
+    {
+        Assert.Null(DeliveryQuality.Within(new(DeliveryQualityMeasure.ReviewRounds, null, 0), new(DeliveryQualityMeasure.ReviewRounds, 1, 5)));
+        Assert.True(DeliveryQuality.Within(DeliveryQuality.None, DeliveryQuality.None));
+    }
+
+    [Fact]
+    public void Verdict_nothing_to_tune_is_a_phase_under_two_percent_of_the_run()
+    {
+        var phase = DeliveryEconomics.Of([.. Series("o", 5, 1, Opus, 0.01m, 1m), .. Series("s", 5, 10, Sonnet, 0.005m, 1m)]).Phases[0];
+
+        Assert.Equal(DeliveryVerdict.NothingToTune, DeliveryEconomics.VerdictOf(phase).Kind);
+        Assert.Equal("Nothing to tune", DeliveryEconomics.VerdictOf(phase).Label);
+    }
+
+    [Fact]
+    public void A_share_just_under_two_percent_is_not_rounded_up_to_two_in_the_reason()
+    {
+        // $0.0196 of a $1.00 run.
+        var phase = DeliveryEconomics.Of([Priced("a", 1, Sonnet, 0.0196m, 0.9804m)]).Phases[0];
+
+        var verdict = DeliveryEconomics.VerdictOf(phase);
+
+        Assert.Equal(DeliveryVerdict.NothingToTune, verdict.Kind);
+        Assert.StartsWith("1.96% of the run's cost: under 2%", verdict.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Verdict_not_compared_is_a_phase_one_configuration_ran()
+    {
+        var phase = DeliveryEconomics.Of([.. Series("s", 6, 1, Sonnet, 1m, 1m)]).Phases[0];
+
+        var verdict = DeliveryEconomics.VerdictOf(phase);
+
+        Assert.Equal(DeliveryVerdict.NotCompared, verdict.Kind);
+        Assert.Equal("Not compared", verdict.Label);
+    }
+
+    [Fact]
+    public void Verdict_worth_it_is_a_dearer_configuration_that_lowers_the_median_run_cost()
+    {
+        var phase = DeliveryEconomics.Of([.. Series("o", 5, 1, Opus, 3m, 1m), .. Series("s", 5, 10, Sonnet, 1m, 6m)]).Phases[0];
+
+        var verdict = DeliveryEconomics.VerdictOf(phase);
+
+        Assert.Equal(DeliveryVerdict.WorthIt, verdict.Kind);
+        Assert.Equal("Worth it", verdict.Label);
+    }
+
+    [Fact]
+    public void Verdict_try_cheaper_is_a_cheaper_configuration_that_lowers_the_run_cost_within_a_tenth_on_quality()
+    {
+        var phase = DeliveryEconomics.Of([.. Rounds("o", 5, 1, Opus, 3m, 1m, 1), .. Rounds("s", 5, 10, Sonnet, 1m, 1m, 1)]).Phases[0];
+
+        var verdict = DeliveryEconomics.VerdictOf(phase);
+
+        Assert.Equal(DeliveryVerdict.TryCheaper, verdict.Kind);
+        Assert.Equal("Try cheaper", verdict.Label);
+    }
+
+    [Fact]
+    public void A_cheaper_configuration_short_on_quality_or_with_none_reported_is_no_call()
+    {
+        var shortOnQuality = DeliveryEconomics.Of([.. Rounds("o", 5, 1, Opus, 3m, 1m, 1), .. Rounds("s", 5, 10, Sonnet, 1m, 1m, 2)]).Phases[0];
+        var unreported = DeliveryEconomics.Of([.. Series("o", 5, 1, Opus, 3m, 1m), .. Series("s", 5, 10, Sonnet, 1m, 1m)]).Phases[0];
+
+        Assert.Equal(DeliveryVerdict.NoCall, DeliveryEconomics.VerdictOf(shortOnQuality).Kind);
+        Assert.Equal(DeliveryVerdict.NoCall, DeliveryEconomics.VerdictOf(unreported).Kind);
+        Assert.Equal("No call yet", DeliveryEconomics.VerdictOf(unreported).Label);
+    }
+
+    [Fact]
+    public void Two_configurations_with_too_few_runs_for_a_lesson_are_no_call()
+    {
+        var phase = DeliveryEconomics.Of([.. Series("s", 5, 1, Sonnet, 1m, 1m), .. Series("o", 4, 10, Opus, 3m, 1m)]).Phases[0];
+
+        Assert.Equal(DeliveryVerdict.NoCall, DeliveryEconomics.VerdictOf(phase).Kind);
+    }
+
+    [Fact]
+    public void Nothing_to_tune_wins_over_not_compared()
+    {
+        var phase = DeliveryEconomics.Of([.. Series("s", 5, 1, Sonnet, 0.01m, 1m)]).Phases[0];
+
+        Assert.Equal(DeliveryVerdict.NothingToTune, DeliveryEconomics.VerdictOf(phase).Kind);
     }
 }

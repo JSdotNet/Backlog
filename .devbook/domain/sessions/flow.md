@@ -70,8 +70,9 @@ sequenceDiagram
 ```
 
 - **The agents are asked independently, and their failures are collected, not
-  thrown.** An environment with only one agent installed is the ordinary case. One
-  unreadable source must not cost the reader the other's sessions. Each source either
+  thrown.** An environment with only one agent installed is the ordinary case, and
+  [one unreadable source costs only its own sessions](requirements.md#requirement-one-unreadable-source-costs-only-its-own-sessions).
+  Each source either
   contributes its sessions or contributes its name to `unreadable`.
 - **Duplicates are collapsed before anything else.** One session can leave more than
   one record. It may leave a live marker per process beside its own transcript, or two

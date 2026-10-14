@@ -45,7 +45,7 @@ public sealed class LinkedTaskSources
     /// <summary>The descriptor for <paramref name="connectorId"/>, or null when this
     /// build has no connector by that id.</summary>
     public TaskConnectorDescriptor? Find(string? connectorId) =>
-        _connectors.FirstOrDefault(connector => string.Equals(connector.Descriptor.Id, connectorId, StringComparison.Ordinal))?.Descriptor;
+        Connector(connectorId)?.Descriptor;
 
     /// <summary>The name a connector id is shown by: its descriptor's, or the id
     /// itself for one this build does not know.</summary>
@@ -88,7 +88,7 @@ public sealed class LinkedTaskSources
     /// </summary>
     public async Task<ConnectorTargetChoices> ListChoicesAsync(string? connectorId, CancellationToken cancellationToken)
     {
-        var connector = _connectors.FirstOrDefault(candidate => string.Equals(candidate.Descriptor.Id, connectorId, StringComparison.Ordinal));
+        var connector = Connector(connectorId);
         if (connector is null) return ConnectorTargetChoices.None;
 
         try
@@ -102,11 +102,46 @@ public sealed class LinkedTaskSources
         }
     }
 
+    /// <summary>
+    /// The statuses an item of <paramref name="target"/> can be in, as the installed
+    /// connector by <paramref name="connectorId"/> lists them, for the settings
+    /// page's status map. A connector this build does not have lists none.
+    /// <para>
+    /// Never throws but for cancellation, for the reason
+    /// <see cref="ListChoicesAsync"/> gives: a connector that fails while listing is
+    /// answered as one that lists none, so the card offers no rows rather than
+    /// breaking the page.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<SourceStatus>> ListStatusesAsync(string? connectorId, string target, CancellationToken cancellationToken)
+    {
+        var connector = Connector(connectorId);
+        if (connector is null) return [];
+
+        try
+        {
+            return await connector.ListSourceStatusesAsync(target, cancellationToken).ConfigureAwait(false) ?? [];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>Whether the installed connector by <paramref name="connectorId"/>
+    /// connects code repositories, so a target files its tasks under itself unless
+    /// the settings page names another. False for a connector this build does not
+    /// have.</summary>
+    public bool TargetIsRepository(string? connectorId) =>
+        Connector(connectorId)?.Capabilities.TargetIsRepository == true;
+
+    private ITaskConnector? Connector(string? connectorId) =>
+        _connectors.FirstOrDefault(connector => string.Equals(connector.Descriptor.Id, connectorId, StringComparison.Ordinal));
+
     /// <summary>Whether the installed connector by <paramref name="connectorId"/> can
     /// finish an item at its source, so the settings page offers "Complete at the
     /// source" for its targets. False for a connector this build does not
     /// have.</summary>
     public bool CanComplete(string? connectorId) =>
-        _connectors.FirstOrDefault(connector => string.Equals(connector.Descriptor.Id, connectorId, StringComparison.Ordinal))
-            ?.Capabilities.CanComplete == true;
+        Connector(connectorId)?.Capabilities.CanComplete == true;
 }

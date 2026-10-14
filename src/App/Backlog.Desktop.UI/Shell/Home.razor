@@ -679,7 +679,6 @@
                               RepositoryAlias="@RepositoryAliasFor"
                               RepositoryColour="@RepositoryColourFor"
                               PullRequestTask="PullRequestTaskFor"
-                              PullRequestInBrain="PullRequestInBrain"
                               OnOpenTask="OpenPlanEntryAsync"
                               OnOpenSession="OpenSessionAsync"
                               FocusPullRequest="@_focusPullRequest" />
@@ -720,18 +719,20 @@
                 }
                 else if (InProgressViewVisible)
                 {
-                    @* A view like the roadmap: no Escape, no filter bar. *@
+                    @* A view like the roadmap: no Escape, no filter bar. The tab is the
+                       view by task and, while the scope holds a repository in a sprint
+                       series, the sprint view beside it (InProgressTab). *@
                     <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
-                        <InProgressView Reader="_work"
-                                        OnOpenTask="OpenEntryAsync"
-                                        OnOpenSession="OpenSessionAsync"
-                                        OnOpenPullRequest="OpenPullRequestAsync"
-                                        ShowSessions="SessionsOffered"
-                                        ShowPullRequests="PullRequestsOffered"
-                                        NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
-                                        NeedsYouFirstChanged="OnNeedsYouFirstChanged"
-                                        IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
-                                        IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
+                        <InProgressTab Reader="_work"
+                                       OnOpenTask="OpenEntryAsync"
+                                       OnOpenSession="OpenSessionAsync"
+                                       OnOpenPullRequest="OpenPullRequestAsync"
+                                       ShowSessions="SessionsOffered"
+                                       ShowPullRequests="PullRequestsOffered"
+                                       NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
+                                       NeedsYouFirstChanged="OnNeedsYouFirstChanged"
+                                       IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
+                                       IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
                     </div>
                 }
                 else
@@ -1523,17 +1524,44 @@
 
     /// <summary>The fragment behind <see cref="LinkedWorkFor"/>. It reads the flags
     /// and the reader as it draws, so only whether it is offered at all is decided
-    /// here, and that is a feature's to change.</summary>
-    private RenderFragment<EntryRow>? BuildLinkedWork() => InProgressViewOffered
-        ? row => @<LinkedWorkSection @key="row.Key"
-                                     Row="row"
-                                     Reader="_work"
-                                     OnOpenSession="OpenSessionAsync"
-                                     OnOpenPullRequest="OpenPullRequestAsync"
-                                     OnOpenInProgress="() => ShowView(ShellView.InProgress)"
-                                     ShowSessions="SessionsOffered"
-                                     ShowPullRequests="PullRequestsOffered" />
-        : null;
+    /// here, and that is a feature's to change.
+    /// <para>
+    /// The slot carries the entry's Sprint section too, composed from Progress UI the
+    /// same way (<c>.devbook/domain/progress/features.md#planning-from-a-task</c>): the
+    /// Tasks pane draws whatever the shell hands it and gains no sprint field (local
+    /// ADR 0028). The section draws nothing while the entry's repositories are in no
+    /// series switched on.
+    /// </para></summary>
+    private RenderFragment<EntryRow>? BuildLinkedWork()
+    {
+        var linked = InProgressViewOffered;
+        var sprint = SprintSectionOffered;
+        if (!linked && !sprint) return null;
+
+        return row => builder =>
+        {
+            if (linked) builder.AddContent(0, LinkedWorkSectionFor(row));
+            if (sprint) builder.AddContent(1, SprintSectionFor(row));
+        };
+    }
+
+    private RenderFragment LinkedWorkSectionFor(EntryRow row) =>
+        @<LinkedWorkSection @key="row.Key"
+                            Row="row"
+                            Reader="_work"
+                            OnOpenSession="OpenSessionAsync"
+                            OnOpenPullRequest="OpenPullRequestAsync"
+                            OnOpenInProgress="() => ShowView(ShellView.InProgress)"
+                            ShowSessions="SessionsOffered"
+                            ShowPullRequests="PullRequestsOffered" />;
+
+    private RenderFragment SprintSectionFor(EntryRow row) =>
+        @<Backlog.Modules.Progress.UI.Planning.TaskSprintSection @key="row.Key"
+                                                                Candidate="SprintCandidates.Of(State, row)" />;
+
+    /// <summary>Whether an entry's side panel carries its Sprint section: while the
+    /// Progress area is on.</summary>
+    private bool SprintSectionOffered => IsFeatureEnabled(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Progress);
 
     /// <summary>
     /// The repository an entry's reference asked the Devbook pane to read, and the
@@ -1874,18 +1902,6 @@
     /// pane's "Mine" adds to the pull requests I opened myself.
     /// </para>
     /// </summary>
-    /// <summary>Whether a pull request belongs to a task filed against no repository —
-    /// what puts it in the Brain's scope on the pull requests list (local ADR 0027, §2).
-    /// The same relation <see cref="PullRequestTaskFor"/> answers, asked of the task's
-    /// repository.</summary>
-    private bool PullRequestInBrain(PullRequestTaskSubject pull)
-    {
-        var (matcher, rows) = PullRequestMatcher;
-        return matcher.Match(pull, false) is { } match
-            && rows.TryGetValue(match.Candidate.EntryId, out var row)
-            && State.RepositoryFor(row) is null;
-    }
-
     private DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
     {
         var (matcher, rows) = PullRequestMatcher;

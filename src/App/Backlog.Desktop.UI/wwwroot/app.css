@@ -2626,6 +2626,26 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* Settings › Sprints: a card per series, the repositories in no series, and Add
+   another sprint, stacked. */
+.sprint-settings {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.sprint-settings__chips,
+.sprint-settings__add {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.sprint-settings__add .setting__body {
+    margin: 0;
+}
+
 /* A second topic inside one setting block - the Foundry resource's spend under
    its chat connection - headed like the block but a size down. */
 .setting__subtitle {
@@ -7454,6 +7474,47 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The sessions pane's content as a column, so the layout can take the height the
+   notices above it leave. Not on the economics page, which shares the content
+   class and has nothing beside its table. */
+.sessions-panel__content--columns {
+    display: flex;
+    flex-direction: column;
+}
+
+.sessions-panel__content--columns > * {
+    flex: none;
+}
+
+/* While the list and the panel sit side by side (28rem + 32rem + the gap), each
+   scrolls on its own: the list's bar sits beside the list, and a long run in the
+   panel does not carry the list away. Once the panel drops under the list, the
+   content scrolls as one again. */
+@container sessions-content (min-width: 61.5rem) {
+    .sessions-panel__content--columns > .sessions-layout {
+        flex: 1 1 0;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        min-height: 0;
+    }
+
+    .sessions-layout > .sessions-list,
+    .sessions-layout > .sessions-detail {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    /* Room for a row's focus outline, which sits outside the row and would
+       otherwise be cut by the list's own scroll box; the margin keeps the rows
+       in line with the header. Only inline: a block margin would push the
+       column past the content and give it a scrollbar again. */
+    .sessions-layout > .sessions-list {
+        padding: 4px;
+        margin-inline: -4px;
+    }
+}
+
 .sessions-group {
     display: flex;
     flex-direction: column;
@@ -8909,7 +8970,7 @@ a.pull-request-detail-checks__name:hover {
 .delivery-economics__phases {
     --delivery-economics-columns:
         minmax(7rem, 1.1fr) minmax(9rem, 1.3fr) 4rem 6rem
-        minmax(8rem, 1.4fr) minmax(6rem, 0.9fr) 6.5rem;
+        minmax(8rem, 1.2fr) minmax(9rem, 1.5fr) minmax(7.5rem, 0.9fr);
     flex: 1.6 1 40rem;
     min-width: 0;
     padding: var(--spacing-xs);
@@ -8923,7 +8984,7 @@ a.pull-request-detail-checks__name:hover {
     grid-template-columns: var(--delivery-economics-columns);
     gap: var(--spacing-sm);
     align-items: center;
-    min-width: 50rem;
+    min-width: 58rem;
     padding: var(--spacing-xs) var(--spacing-md);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
@@ -8950,7 +9011,7 @@ a.pull-request-detail-checks__name:hover {
     grid-template-columns: var(--delivery-economics-columns);
     gap: var(--spacing-sm);
     align-items: center;
-    min-width: 50rem;
+    min-width: 58rem;
     width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
     border: 0;
@@ -9030,6 +9091,15 @@ a.pull-request-detail-checks__name:hover {
 .delivery-economics__quality {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+.delivery-economics__verdict {
+    display: inline-flex;
+    align-items: center;
+}
+
+.delivery-economics__confidence {
+    font-weight: 500;
 }
 
 .delivery-economics__panel {

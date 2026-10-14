@@ -1,0 +1,239 @@
+@page "/sprint-view"
+
+<PageTitle>Sprint view — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Sprint view"
+           Summary="SprintBoard and SprintViewSwitch: the In progress tab's sprint view, drawn while the header's repository scope holds a repository in a sprint series and the Progress area is on. Every value is handed in and every act is a callback, so the sprint below is a stub with no series behind it."
+           Guidelines="@Rules">
+
+    <Story Name="A sprint under way"
+           Description="The design's own state: Sprint 42 of the Fincent team on day 7 of 10. The goal card counts the goal tasks the rules picked — here two goal plans and the tasks marked goal — as a bar by status, then all the sprint's work, how much of it is outside the goal and how much joined after the start. The done line runs against the even pace, dashed, with one sentence on where the sprint stands.
+
+Needs you lists what is blocked, waiting on review or carrying an open question; each opens its task. Pick a repository to narrow every part to it, or Group: None to drop the plan groups. A goal plan's group carries the Goal plan badge; a goal task elsewhere carries Goal on its row, and a task added after the start carries added. Pull request chips are merged green, open amber and draft grey; a chip whose state is not read yet is dashed. Outside the sprint is folded: Show lists the live work running against tasks the sprint does not hold."
+           Code="@BoardCode">
+        <div class="sb-menu-wide">
+            <SprintBoard Model="@Fincent"
+                         Outside="@OutsideWork"
+                         ViewSwitch="@Switch("Sprint 42")"
+                         OnPrevious="@(() => _said = "Previous sprint")"
+                         OnOpenTask="@((string id) => _said = $"Open task {id}")"
+                         OnOpenPullRequest="@((string key) => _said = $"Open pull request {key}")" />
+            <p class="sb-state" data-testid="sprint-view-said">@(_said ?? "Press a row, a card or a chip.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Since yesterday"
+           Description="The stand-up strip at the top of the sprint view, drawn only for the open sprint of a series with Show it in the daily on. Every sentence is a fixed template the host fills from its sprint reading: what was done, opened for review, started and added since the previous working day; what is in progress and waiting on review; what is blocked or carries an open question; and the pace, with the goal at risk in the error tone.
+
+The header folds the strip to its label and headline. Copy for the stand-up puts the strip on the clipboard as HTML and as plain text; in the sprint view the sprint's table follows it."
+           Code="@DailyCode">
+        <div class="sb-menu-wide">
+            <SprintDailyStrip Model="@Daily" TestId="sprint-view-daily" />
+        </div>
+    </Story>
+
+    <Story Name="A quiet day"
+           Description="Nothing moved since Friday, nothing is blocked and the goal is on track: each section says so in one line, and the blocked section is not drawn."
+           Code="@QuietCode">
+        <div class="sb-menu-wide">
+            <SprintDailyStrip Model="@Quiet" TestId="sprint-view-daily-quiet" />
+        </div>
+    </Story>
+
+    <Story Name="The switch"
+           Description="Now | Sprint n, a radio pair beside the title in both views, so it never moves when pressed. Now is the view by task, unchanged; the sprint side names the sprint it opens on."
+           Code="@SwitchCode">
+        <div class="sb-menu-wide">
+            @Switch("Sprint 42")
+        </div>
+    </Story>
+
+    <Story Name="Goal met, nothing outside"
+           Description="Every goal task done: the goal card says Goal met and the pace line says so too. With no live work against tasks outside the sprint the folded line says nothing is running and offers no Show."
+           Code="@MetCode">
+        <div class="sb-menu-wide">
+            <SprintBoard Model="@Met" TestId="sprint-view-met" />
+        </div>
+    </Story>
+
+    <Story Name="An empty sprint"
+           Description="A sprint just started with nothing added and no plan linked. The counts read nought and the rows give way to an empty state."
+           Code="@EmptyCode">
+        <div class="sb-menu-wide">
+            <SprintBoard Model="@Empty" TestId="sprint-view-empty" />
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "The tones the status dots, the pull request chips and the goal badges wear."),
+        new("interaction-guidelines.md#error-states", "Where a sprint that cannot be read says so, in the module's words."),
+        new("accessibility.md#iconography-accessibility", "Why the strip's markers never carry a line's meaning on their own: every line says what it is in words.")
+    ];
+
+    private string? _said;
+    private bool _sprint = true;
+
+    private RenderFragment Switch(string name) =>
+        @<SprintViewSwitch Sprint="_sprint" SprintName="@name" SprintChanged="sprint => _sprint = sprint" />;
+
+    private const string Fincent1 = "innovadis-dev/Fincent";
+
+    private static SprintBoardPullRequest Merged(string number) => new(Fincent1, number, SprintPullRequestState.Merged);
+
+    private static SprintBoardRow Row(
+        string id,
+        string title,
+        SprintRowState state,
+        string plan,
+        SprintBoardPullRequest[]? pulls = null,
+        bool goal = false,
+        bool added = false,
+        string? note = null,
+        bool question = false,
+        string repository = "Fincent") =>
+        new(id, title, state, plan, repository, goal, added, pulls ?? [], (pulls ?? []).Length == 0 ? [] : ["jsdotnet"], note, question);
+
+    private static readonly SprintBoardRow[] Rows =
+    [
+        Row("1", "Opdrachtbrief", SprintRowState.Done, "rekeningen", [Merged("4530")], goal: true),
+        Row("2", "Overzicht", SprintRowState.Done, "rekeningen", [Merged("4573")], goal: true),
+        Row("3", "Bug gemeenterekening", SprintRowState.Done, "rekeningen", [Merged("4631")], goal: true, added: true),
+        Row("4", "Categorieën", SprintRowState.Done, "rekeningen", [Merged("4685")], goal: true, note: "Import?", question: true),
+        Row("5", "Klantrekening", SprintRowState.InProgress, "rekeningen", [new(Fincent1, "4707", SprintPullRequestState.Open)], goal: true, added: true),
+        Row("6", "Feature flags", SprintRowState.Done, "feature-flags", [Merged("4560"), Merged("4558"), Merged("4548")]),
+        Row("7", "Product feature flag", SprintRowState.NotStarted, "feature-flags"),
+        Row("8", "Specs naar het devbook", SprintRowState.Done, "verplaatsen-specs", [Merged("4580"), Merged("4581")], goal: true, repository: "devbook-marketplace"),
+        Row("9", "Openspec", SprintRowState.Blocked, "verplaatsen-specs", goal: true, note: "Waiting on the CLI release", repository: "devbook-marketplace"),
+        Row("10", "Fix specs (taal + diagrams op juiste plek)", SprintRowState.InProgress, "verplaatsen-specs", [new("JSdotNet/devbook-marketplace", "212", SprintPullRequestState.Draft)], goal: true, note: "Align with demo?", question: true, repository: "devbook-marketplace"),
+        Row("11", "e2e versie", SprintRowState.NotStarted, "verplaatsen-specs", goal: true, repository: "devbook-marketplace"),
+        Row("12", "Local dev platform", SprintRowState.InProgress, "local-dev", [new(Fincent1, "4572", SprintPullRequestState.Unknown)], note: "2 sessions running"),
+        Row("13", "Rekeningen", SprintRowState.Done, "specs", goal: true),
+        Row("14", "Budgetbeheer aanpassen", SprintRowState.InProgress, "specs"),
+        Row("15", "Grootboek uitwerken", SprintRowState.NotStarted, "")
+    ];
+
+    private static readonly SprintBoardModel Fincent = new(
+        "Fincent team",
+        "Sprint 42",
+        "Mon 5 Oct – Sun 18 Oct",
+        ["Fincent", "devbook-marketplace"],
+        HasPrevious: true,
+        HasNext: false,
+        "Rekeningen specs shipped and specs moved into the devbook before the demo",
+        new SprintBoardCounts(6, 2, 1, 1, 2),
+        "+rekeningen, +verplaatsen-specs and tasks marked goal",
+        GoalMet: false,
+        SprintBoardCounts.Of(Rows),
+        "Day 7 of 10 · 3 working days left",
+        [2, 3, 4, 5, 6, 7, 7],
+        10,
+        "Goal: 4 open with 3 working days left; Openspec is blocked. All work is 4 behind the even pace.",
+        ["rekeningen", "verplaatsen-specs"],
+        Rows);
+
+    private static readonly IReadOnlyList<SprintBoardOutside> OutsideWork =
+    [
+        new("t-20", "Dashboard brief polish", Sessions: 2, PullRequests: 0, TaskId: "20"),
+        new("innovadis-dev/Fincent#4711", "#4711 Bump the analyzers", Sessions: 0, PullRequests: 1)
+    ];
+
+    private static readonly SprintBoardModel Met = Fincent with
+    {
+        GoalCounts = new SprintBoardCounts(10, 0, 0, 0),
+        GoalMet = true,
+        AllWork = new SprintBoardCounts(13, 1, 0, 1),
+        DayText = "Day 9 of 10 · 1 working day left",
+        DonePerDay = [2, 4, 6, 7, 9, 10, 11, 12, 13],
+        PaceReading = "Goal met with 1 working day left. All work is 1 behind the even pace.",
+        Rows = [.. Rows.Select(row => row.IsGoal ? row with { State = SprintRowState.Done, PullRequests = [.. row.PullRequests.Select(pull => pull with { State = SprintPullRequestState.Merged })] } : row)]
+    };
+
+    private static readonly SprintBoardModel Empty = Fincent with
+    {
+        SprintName = "Sprint 43",
+        Dates = "Mon 19 Oct – Sun 1 Nov",
+        HasNext = false,
+        Goal = "",
+        GoalCounts = SprintBoardCounts.None,
+        AllWork = SprintBoardCounts.None,
+        DayText = "Day 1 of 10 · 9 working days left",
+        DonePerDay = [0],
+        PaceReading = "Nothing is in the sprint yet.",
+        Rows = []
+    };
+
+    private static SprintBoardPullRequest Open(string number) => new(Fincent1, number, SprintPullRequestState.Open);
+
+    private static readonly SprintDailyModel Daily = new(
+        "Daily · Tue 13 Oct · Sprint 42, day 7 of 10",
+        "2 items landed since yesterday; Openspec has been blocked for 2 working days.",
+        "Fincent team · goal 12 of 17 · all work 13 of 29 · 3 working days left",
+        [
+            new(SprintDailyLineKind.Done, "Done: Reserveringsdefinities and Categorieën", [Merged("4685")]),
+            new(SprintDailyLineKind.OpenedForReview, "Opened for review: Klantrekening", [Open("4707")]),
+            SprintDailyLine.Of(SprintDailyLineKind.Started, "Started: Signalering uitwerken"),
+            SprintDailyLine.Of(SprintDailyLineKind.Added, "Added to the sprint: Klantrekening")
+        ],
+        [
+            new(SprintDailyLineKind.InProgress, "Fix specs (taal + diagrams op juiste plek)", [new(Fincent1, "4710", SprintPullRequestState.Draft)]),
+            SprintDailyLine.Of(SprintDailyLineKind.InProgress, "Budgetbeheer aanpassen"),
+            SprintDailyLine.Of(SprintDailyLineKind.InProgress, "Signalering uitwerken"),
+            new(SprintDailyLineKind.WaitingOnReview, "Review waiting: Local dev platform", [Open("4572")])
+        ],
+        [
+            SprintDailyLine.Of(SprintDailyLineKind.Blocked, "Openspec · blocked since Fri 9 Oct"),
+            SprintDailyLine.Of(SprintDailyLineKind.OpenQuestion, "Categorieën · Import?"),
+            SprintDailyLine.Of(SprintDailyLineKind.OpenQuestion, "Fix specs · Align with demo?")
+        ],
+        "Goal: 5 tasks open, Openspec blocked among them, so the goal is at risk. All work: 7 behind the even pace; about 19 of 29 land by Friday.",
+        true);
+
+    private static readonly SprintDailyModel Quiet = Daily with
+    {
+        Label = "Daily · Mon 12 Oct · Sprint 42, day 6 of 10",
+        Headline = "Nothing landed since Friday; the goal is on track.",
+        SinceYesterday = [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing moved since Friday.")],
+        OnToday = [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing is in progress.")],
+        Blocked = [],
+        Summary = "Fincent team · goal 15 of 17 · all work 18 of 29 · 4 working days left",
+        Pace = "Goal: 2 tasks open, on track. All work: on the even pace; about 29 of 29 land by Friday.",
+        GoalAtRisk = false
+    };
+
+    private const string DailyCode = """
+        <SprintBoard Model="@sprint" ...>
+            <Daily><SprintDailyStrip Model="@daily" Table="@SprintTableClipboard.Build(sprint)" /></Daily>
+        </SprintBoard>
+        """;
+
+    private const string QuietCode = """
+        <SprintDailyStrip Model="@(daily with { SinceYesterday = [SprintDailyLine.Of(SprintDailyLineKind.Quiet, "Nothing moved since Friday.")], ... })" />
+        """;
+
+    private const string BoardCode = """
+        <SprintBoard Model="@sprint"
+                     Outside="@outside"
+                     ViewSwitch="@viewSwitch"
+                     OnPrevious="PreviousAsync"
+                     OnNext="NextAsync"
+                     OnOpenTask="OpenTaskAsync"
+                     OnOpenPullRequest="OpenPullRequestAsync">
+            <Actions><AppButton OnClick="RefreshAsync">Refresh</AppButton></Actions>
+        </SprintBoard>
+        """;
+
+    private const string SwitchCode = """
+        <SprintViewSwitch Sprint="@showingSprint" SprintName="Sprint 42" SprintChanged="OnSwitch" />
+        """;
+
+    private const string MetCode = """
+        <SprintBoard Model="@(sprint with { GoalMet = true, ... })" />
+        """;
+
+    private const string EmptyCode = """
+        <SprintBoard Model="@(sprint with { Rows = [], GoalCounts = SprintBoardCounts.None, ... })" />
+        """;
+}

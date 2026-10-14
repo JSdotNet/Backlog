@@ -26,12 +26,14 @@ internal sealed partial class DesktopHarness
 
     public IPage Page { get; }
 
-    public static async Task<DesktopHarness> OpenAsync(IBrowser browser, AspireAppHost appHost, CancellationToken cancellationToken)
+    public static Task<DesktopHarness> OpenAsync(IBrowser browser, AspireAppHost appHost, CancellationToken cancellationToken) =>
+        OpenAsync(browser, appHost, new ViewportSize { Width = 1440, Height = 900 }, cancellationToken);
+
+    /// <summary>A page at a viewport of the caller's, for a layout that depends on
+    /// the window's width.</summary>
+    public static async Task<DesktopHarness> OpenAsync(IBrowser browser, AspireAppHost appHost, ViewportSize viewport, CancellationToken cancellationToken)
     {
-        var context = await browser.NewContextAsync(new BrowserNewContextOptions
-        {
-            ViewportSize = new ViewportSize { Width = 1440, Height = 900 },
-        });
+        var context = await browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = viewport });
         return new DesktopHarness(await context.NewPageAsync(), await appHost.UrlAsync(Resource, cancellationToken));
     }
 

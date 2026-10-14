@@ -302,7 +302,7 @@ person typed is deleted because a registry changed underneath it.
 type: feature
 status: draft
 depends-on: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#repository-scoped-planning]
-related: [.devbook/domain/roadmap/flow.md, .devbook/design/interaction-guidelines.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md]
+related: [.devbook/domain/roadmap/flow.md, .devbook/design/interaction-guidelines.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/domain/roadmap/requirements.md#reading-and-rescheduling-on-a-timeline]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_roadmap_view_replaces_the_task_list_inside_the_workspace, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbook_opens_beside_the_roadmap_and_the_inbox_takes_the_screen_over_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_leaves_the_roadmap_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view]
 ```
 
@@ -462,7 +462,7 @@ plan still being worked on is drawn from its work too, to a forecast end
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#effort, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/tasks/domain.md#started, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#effort, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/requirements.md#forecasting-work-in-flight, .devbook/domain/tasks/domain.md#started, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 A plan is in flight when some of its tasks are in progress or done and some are
@@ -512,6 +512,11 @@ out:
 
 The bar is locked like a finished one: its dates are read off the work, so a drag
 would change nothing the next reading keeps.
+
+A finished part wears a done style of its own, so a reader tells it from an
+unfinished part at a glance. The lock and a full fill alone do not, because every
+part of a plan in flight is locked. What the style promises is in
+[the requirements](requirements.md#forecasting-work-in-flight).
 
 The parts are never stored. A plan placed by hand or by its due date keeps its
 [planned window](domain.md#planned-window), and its forecast is read off the work
@@ -697,10 +702,16 @@ gantt
     Ends on the latest part end :w1, 2026-10-12, 15d
 ```
 
-- **Each part counts the full points of every task filed in its repository.** A
-  task filed under two repositories counts in full in both parts, because each
-  repository does that work at its own pace. A task filed under none goes to the
-  first part.
+- **Each part counts the full points of its own tasks and of the shared tasks it
+  carries.** An [own task](domain.md#own-task) is filed under that repository
+  alone. A [shared task](domain.md#shared-task), filed under several, counts in
+  full in each of its bands that still has own work open, because each
+  repository does that work at its own pace. A shared coordination task, such as
+  a sign-off, therefore never keeps open a band whose own work is done while
+  another band's is not. When no band of a shared task has own work open, it
+  counts where own work ended last, or in all its bands when none had any
+  ([requirements](requirements.md#requirement-a-shared-task-counts-where-own-work-is-still-open)).
+  A task filed under none goes to the first part.
 - **A part waits on what its work waits on.** Every part waits on the plans this
   plan [depends on](domain.md#dependency). A part also waits on every other part
   that holds a task one of its own tasks waits on: these are the waits

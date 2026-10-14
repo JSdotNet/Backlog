@@ -18,6 +18,7 @@ internal sealed class ProductCatalog
     {
         var ordered = statuses.OrderBy(status => status.Volgorde).ToList();
 
+        Ordered = ordered;
         Statuses = ordered.ToDictionary(status => status.Id, StringComparer.OrdinalIgnoreCase);
         Labels = labels.ToDictionary(label => label.Id, label => label.Naam, StringComparer.OrdinalIgnoreCase);
         LoadedAt = loadedAt;
@@ -30,6 +31,9 @@ internal sealed class ProductCatalog
     /// <summary>The first end status by the product's order — where an item finished
     /// here is moved at the source — or null when the product has none.</summary>
     public BacklogstatusDto? FirstEndStatus { get; }
+
+    /// <summary>The statuses in the product's order, as its board shows them.</summary>
+    public IReadOnlyList<BacklogstatusDto> Ordered { get; }
 
     public IReadOnlyDictionary<string, BacklogstatusDto> Statuses { get; }
 

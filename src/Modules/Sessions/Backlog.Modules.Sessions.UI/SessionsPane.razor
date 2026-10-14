@@ -209,7 +209,7 @@ else
         </div>
     </div>
 
-    <div class="sessions-panel__content" id="sessions-content" aria-busy="@(_loading ? "true" : null)">
+    <div class="sessions-panel__content sessions-panel__content--columns" id="sessions-content" aria-busy="@(_loading ? "true" : null)">
         @if (_recordsMessage is not null)
         {
             <Alert Message="@_recordsMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-records-updated" />

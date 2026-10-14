@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -216,7 +217,9 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
 
     /// <summary>The file's shape: every setting spelled out, so the file is the
     /// documentation of what can be set. Intervals are written as
-    /// <see cref="TimeSpan"/> strings (<c>00:15:00</c>).</summary>
+    /// <see cref="TimeSpan"/> strings (<c>00:15:00</c>). A key this shape no longer
+    /// has — <c>promoteArchivesOriginal</c>, from the dropped Promote to plan — is
+    /// ignored on read and not written again.</summary>
     private sealed class ConnectedTargetDto
     {
         public string ConnectorId { get; init; } = string.Empty;
@@ -230,8 +233,6 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
         public bool TitleFollowsSource { get; init; } = true;
 
         public TimeSpan? SyncInterval { get; init; }
-
-        public bool PromoteArchivesOriginal { get; init; } = true;
 
         /// <summary>False when the key is missing, so a file written before the
         /// setting existed completes nothing at the source.</summary>
@@ -247,6 +248,16 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
 
         public DateTimeOffset? LastSyncFailedAt { get; init; }
 
+        /// <summary>Null when the key is missing or blank, so a file written before
+        /// the setting existed files tasks the connector's default way.</summary>
+        public string? RepositoryId { get; init; }
+
+        /// <summary>Each source status name to a task status's own name —
+        /// <c>"Verfijnd": "Ready"</c> — a word rather than a number, so the file
+        /// says what it means and keeps meaning it if the enum is reordered. Null
+        /// when the key is missing, which is the fixed map for every status.</summary>
+        public Dictionary<string, string>? StatusMap { get; init; }
+
         public static ConnectedTargetDto From(ConnectedTarget target) => new()
         {
             ConnectorId = target.ConnectorId,
@@ -255,17 +266,19 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
             SkipUntouchedOlderThan = target.SkipUntouchedOlderThan,
             TitleFollowsSource = target.TitleFollowsSource,
             SyncInterval = target.SyncInterval,
-            PromoteArchivesOriginal = target.PromoteArchivesOriginal,
             CompleteAtSource = target.CompleteAtSource,
             LastSyncedAt = target.LastSyncedAt,
             IgnoreUntouchedBefore = target.IgnoreUntouchedBefore,
             LastSyncError = target.LastSyncError,
             LastSyncFailedAt = target.LastSyncFailedAt,
+            RepositoryId = target.RepositoryId,
+            StatusMap = target.StatusMap.ToDictionary(entry => entry.Key, entry => entry.Value.ToString()),
         };
 
         /// <summary>The target a line describes, or null when it names none. An
         /// interval that is missing or not positive reads as the default: a zero
-        /// interval would sync on every tick.</summary>
+        /// interval would sync on every tick. A status-map line naming no status
+        /// this build has is dropped, and the rest of the map kept.</summary>
         public ConnectedTarget? ToTarget() =>
             string.IsNullOrWhiteSpace(ConnectorId) || string.IsNullOrWhiteSpace(Target)
                 ? null
@@ -274,12 +287,35 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
                     SkipUntouchedOlderThan = SkipUntouchedOlderThan is { Ticks: > 0 } age ? age : null,
                     TitleFollowsSource = TitleFollowsSource,
                     SyncInterval = SyncInterval is { Ticks: > 0 } interval ? interval : ConnectedTarget.DefaultSyncInterval,
-                    PromoteArchivesOriginal = PromoteArchivesOriginal,
                     CompleteAtSource = CompleteAtSource,
                     LastSyncedAt = LastSyncedAt,
                     IgnoreUntouchedBefore = IgnoreUntouchedBefore,
                     LastSyncError = string.IsNullOrWhiteSpace(LastSyncError) ? null : LastSyncError,
                     LastSyncFailedAt = LastSyncFailedAt,
+                    RepositoryId = RepositoryId,
+                    StatusMap = ReadStatusMap(StatusMap),
                 };
+
+        /// <summary>The map a file's lines describe. Built by hand rather than with
+        /// <c>ToDictionary</c>: a hand edit may name one status twice in two cases,
+        /// and the later line wins rather than the file failing to open.</summary>
+        private static Dictionary<string, EntryStatus> ReadStatusMap(Dictionary<string, string>? lines)
+        {
+            var map = new Dictionary<string, EntryStatus>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, word) in lines ?? [])
+            {
+                if (StatusNamed(word) is { } status) map[name] = status;
+            }
+
+            return map;
+        }
+
+        /// <summary>The status a word names, without regard to case, or null for a
+        /// word that names none. Matched against the names alone, never parsed, so a
+        /// number or a comma list does not name a status by its place in the enum.</summary>
+        private static EntryStatus? StatusNamed(string? word) =>
+            Enum.GetValues<EntryStatus>()
+                .Select(status => (EntryStatus?)status)
+                .FirstOrDefault(status => string.Equals(status.ToString(), word?.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 }

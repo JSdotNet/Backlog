@@ -45,6 +45,7 @@
     }
 
     <InProgressBoard Tasks="@Tasks"
+                     ViewSwitch="ViewSwitch"
                      Loose="@Loose"
                      NeedsYouFirst="NeedsYouFirst"
                      NeedsYouFirstChanged="OnNeedsYouFirstChangedAsync"
@@ -80,6 +81,12 @@
     /// <summary>The shell's reader, shared with the side panel.</summary>
     [Parameter, EditorRequired]
     public WorkInProgressReader Reader { get; set; } = default!;
+
+    /// <summary>The Now | Sprint n switch, drawn beside the title while the header's
+    /// scope holds a repository in a sprint series (InProgressTab); null otherwise,
+    /// which leaves the view exactly as it is.</summary>
+    [Parameter]
+    public RenderFragment? ViewSwitch { get; set; }
 
     /// <summary>How the shell opens an entry in the Tasks view, by its id.</summary>
     [Parameter]
@@ -205,6 +212,7 @@
     private string[] _builtAliases = [];
     private object? _builtSessions;
     private object? _builtPullRequests;
+    private object? _builtLinkedPullRequests;
     private bool _builtSessionsRead;
     private bool _builtShowSessions;
     private bool _builtShowPullRequests;
@@ -230,6 +238,7 @@
             && State.SelectedRepositoryAliases.SequenceEqual(_builtAliases, StringComparer.Ordinal)
             && ReferenceEquals(Reader.Sessions, _builtSessions)
             && ReferenceEquals(Reader.PullRequests, _builtPullRequests)
+            && ReferenceEquals(Reader.LinkedPullRequests, _builtLinkedPullRequests)
             && Reader.SessionsRead == _builtSessionsRead
             && ShowSessions == _builtShowSessions
             && ShowPullRequests == _builtShowPullRequests)
@@ -247,7 +256,8 @@
             State.RepositoryColourFor,
             State.SessionStateOf,
             now,
-            Reader.SessionsRead);
+            Reader.SessionsRead,
+            Reader.LinkedPullRequests);
 
         // Under the whole repository scope the task list applies, the Brain included.
         IReadOnlyList<InProgressTask> tasks =
@@ -276,6 +286,7 @@
         _builtAliases = [.. State.SelectedRepositoryAliases];
         _builtSessions = Reader.Sessions;
         _builtPullRequests = Reader.PullRequests;
+        _builtLinkedPullRequests = Reader.LinkedPullRequests;
         _builtSessionsRead = Reader.SessionsRead;
         _builtShowSessions = ShowSessions;
         _builtShowPullRequests = ShowPullRequests;

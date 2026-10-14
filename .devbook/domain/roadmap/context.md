@@ -74,9 +74,11 @@ works (ADR 0019, proposed).
 It is the divisor behind one thing only: an imported plan that states no due
 date gets a **length from its effort**. Each of its repository
 [parts](domain.md#part) is as long as the story points registered by the work
-filed there, divided by that repository's figure, and never shorter than a day. A
-plan that does state a due date is placed on it, and this figure is not
-consulted.
+filed there, divided by that repository's figure, and
+[never shorter than a day](requirements.md#requirement-a-plan-is-never-shorter-than-its-start-day).
+A plan that does state a due date
+[ends on it](requirements.md#requirement-a-due-date-ends-the-plan-whatever-its-effort),
+and this figure is not consulted.
 
 It is a **reading preference, not an estimate** (ADR 0013, ruling 4). The effort
 stays the tasks' own, added and never invented. The only thing the placement adds
@@ -127,37 +129,40 @@ compared without regard to case.
 
 Per value:
 
-- **Unset**, an unreadable file, a value that is not a number, or one that is
-  not positive all read as seven points a working week. On the default week that
-  is about 1.4 points a worked day. A pace of zero has no length to give, and a
-  default nobody chose should place a plan rather than refuse to.
+- **A pace that cannot be read**
+  [reads as seven points a working week](requirements.md#requirement-a-pace-that-cannot-be-read-is-seven-points-a-week).
+  On the default week that is about 1.4 points a worked day. A pace of zero has
+  no length to give, and a default nobody chose should place a plan rather than
+  refuse to.
 - **A file from when the pace was a day** holds `storyPointsPerDay` and reads
   as seven times it; the next change writes `storyPointsPerWeek` in its place.
-- **Zero or less** is refused on the way in, with a message beside the field,
-  and nothing changes.
-- **Anything finer than 0.0001** is refused rather than rounded away. Four
-  decimal places is what the file and the field can hold, so a finer pace would
-  be written as zero and then read back as the default, silently.
-- **A comma as the decimal mark** is refused rather than read as a whole number.
-  Under a parser that allowed group separators, `2,5` would arrive as `25`. Every
+- **A typed pace the roadmap cannot store as typed**
+  [is refused](requirements.md#requirement-a-typed-pace-the-roadmap-cannot-store-as-typed-is-refused).
+  Four decimal places is what the file and the field can hold, so a finer pace
+  would be written as zero and then read back as the default, silently. Under a
+  parser that allowed group separators, `2,5` would arrive as `25`, and every
   imported plan would then be a tenth of its proper length with nothing on screen
   looking wrong.
 
 Where the pace is changed and shown:
 
-- Each pace is changed on the roadmap, beside the chart it sizes. It sits under
-  its band's name in the chart's sidebar, above the band's named lanes, as a
-  points field ("pt/wk") over the choices. Each measured choice shows its figure,
-  and the band grows to fit them.
+- Each pace is changed on the roadmap, beside the chart it sizes. The typed pace,
+  **Mine**, is the one points field ("pt/wk"), in the chart's heading.
+- Each band carries its pace under its name in the chart's sidebar, above its
+  named lanes, in the same two rows whether it measured anything or not. Releasing
+  its slider sets the band's own pace. A **Measured** button returns the band to
+  its measured pace, and an info mark lists what was finished a week over the
+  last two, four and eight weeks and the pace placing the band.
 - A repository's own pace sits in its band. The global pace, the **default**,
   sits in the band for work under no repository and is measured over all finished
   work. That band is drawn whenever the chart is, even with nothing filed in it,
   so the default is always offered for editing.
 - Every repository band with no pace of its own shows the default until edited.
-- A measuring period that counted nothing is not offered. With none measured,
-  only the field is shown.
-- When a chosen measuring period has since emptied, a line under the choices says
-  that the typed pace is used.
+- A measuring period that finished nothing says so in the info mark, and the next
+  period that measured something places the band.
+- A band that measured nothing in any period has no **Measured** button. A line
+  under its slider says that Mine is used, and the slider runs from half the
+  typed pace to double it.
 - The pace is read per placement rather than pinned at startup, so the next plan
   laid out uses the pace now in force.
 

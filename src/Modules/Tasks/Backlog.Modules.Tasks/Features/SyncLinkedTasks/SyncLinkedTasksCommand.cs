@@ -17,8 +17,9 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 /// <para>
 /// The title and the assignee follow the source on every sync. The status follows
 /// the source's <em>state moves</em>: it is walked to the map's answer when the
-/// normalised state differs from the one the last sync recorded, and otherwise left
-/// where the person put it (ADR 0020 §4, as amended at implementation). The task's
+/// normalised state differs from the one the last sync recorded, or the status the
+/// target's own status map reads it as does, and otherwise left where the person
+/// put it (ADR 0020 §4, as amended at implementation). The task's
 /// blocked mark follows the source's blocked moves on the same terms, and the
 /// item's devbook references are added to the task's on every sync and never taken
 /// away. What the item waits on becomes the task's <c>after:</c> dependencies when
@@ -30,9 +31,10 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 /// creates a Roadmap Item (ADR 0020, §6; ADR 0013, ruling 3).
 /// </para>
 /// <para>
-/// A target whose connector says its targets are repositories
-/// (<see cref="TaskConnectorCapabilities.TargetIsRepository"/>) files each of its
-/// tasks under that repository while the task is filed under none.
+/// A target with a <see cref="ConnectedTarget.RepositoryId"/> files each of its
+/// tasks under that repository while the task is filed under none; one without
+/// files them under the target itself when its connector says its targets are
+/// repositories (<see cref="TaskConnectorCapabilities.TargetIsRepository"/>).
 /// </para>
 /// <para>
 /// <c>.devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md</c> is the
@@ -43,6 +45,8 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 
 /// <summary>What one sync did, counted per task.</summary>
+/// <param name="Fetched">Items the source answered, whatever the sync then did
+/// with each.</param>
 /// <param name="Created">Items that became a task.</param>
 /// <param name="Updated">Tasks a source field, the status, the blocked mark, a
 /// devbook reference, a dependency, the plan, the repository or a flag changed
@@ -54,6 +58,7 @@ public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 /// with no task yet.</param>
 /// <param name="Vanished">Tasks archived because their item was gone.</param>
 public sealed record LinkedTaskSyncSummary(
+    int Fetched,
     int Created,
     int Updated,
     int Unchanged,
@@ -219,21 +224,28 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         RecordSync(target, fetchStartedAt, cutoff);
 
-        return new LinkedTaskSyncSummary(created, updated, unchanged, tombstoned, untouched, vanished);
+        return new LinkedTaskSyncSummary(items.Count, created, updated, unchanged, tombstoned, untouched, vanished);
     }
 
     // --- The status map -----------------------------------------------------
 
-    /// <summary>The one map from a normalised state to a task status, the same for
-    /// every connector (ADR 0020, §4).</summary>
-    internal static EntryStatus StatusFor(NormalisedSourceState state) => state switch
-    {
-        NormalisedSourceState.Open => EntryStatus.Ready,
-        NormalisedSourceState.Active => EntryStatus.InProgress,
-        NormalisedSourceState.Done => EntryStatus.Done,
-        NormalisedSourceState.Dropped => EntryStatus.Archived,
-        _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Not a normalised source state."),
-    };
+    /// <summary>
+    /// The task status an item in <paramref name="state"/>, under the source status
+    /// named <paramref name="stateName"/>, becomes for <paramref name="target"/>: the
+    /// target's <see cref="ConnectedTarget.StatusMap"/> entry for the name when it
+    /// has one, and the fixed map — <see cref="NormalisedSourceStates.DefaultTaskStatus"/>,
+    /// the same for every connector — otherwise (ADR 0020, §4 and §9).
+    /// <para>
+    /// A Dropped item is never mapped. Its state is the archive's or the close's,
+    /// not its status's — an archived spec-manager item keeps the name of the status
+    /// it was archived from — so mapping that name would bring a closed item back as
+    /// open work.
+    /// </para>
+    /// </summary>
+    internal static EntryStatus StatusFor(ConnectedTarget target, NormalisedSourceState state, string? stateName) =>
+        state != NormalisedSourceState.Dropped && target.MappedStatusOf(stateName) is { } mapped
+            ? mapped
+            : NormalisedSourceStates.DefaultTaskStatus(state);
 
     /// <summary>
     /// The shortest way from one status to another along the lifecycle graph's
@@ -357,7 +369,7 @@ public sealed class SyncLinkedTasksCommandHandler(
         if (item.Effort is >= 0) task.SetEffort(item.Effort);
         if (item.DueOn is { } dueOn) task.SetDueOn(dueOn);
 
-        WalkTo(task, StatusFor(item.State), today, finishedOn);
+        WalkTo(task, StatusFor(target, item.State, item.SourceStateName), today, finishedOn);
 
         // Followed rather than copied: the source goes on owning these, the blocked
         // mark by its moves and the references as a union (see Update).
@@ -391,6 +403,17 @@ public sealed class SyncLinkedTasksCommandHandler(
     /// recorded none — an older one, walked once and recorded — or the task carries
     /// <see cref="LinkedTaskFlags.Vanished"/>, because the sync archived it and its
     /// item's return is a move however the state reads.
+    /// </para>
+    /// <para>
+    /// With a status map on the target, a move between two source statuses of one
+    /// normalised state is a move too when the map takes them to different task
+    /// statuses: the held status name and the new one are each read through the
+    /// target's map as it is now. Without a map two names of one state read the
+    /// same, and nothing changes. A Done the map gives is the source's, like a Done
+    /// the source finished: it is not done locally, and the source moving the item
+    /// on moves the task out of it. A Done the person gave first stays theirs: while
+    /// the held reference carries <see cref="LinkedTaskFlags.DoneLocally"/>, a Done
+    /// mapping added since takes nothing over and reopens nothing.
     /// </para>
     /// <para>
     /// The blocked mark is owned the same way. When the source's blocked-ness differs
@@ -432,18 +455,22 @@ public sealed class SyncLinkedTasksCommandHandler(
         var wasVanished = held?.HasFlag(LinkedTaskFlags.Vanished) == true;
         var wasDoneLocally = held?.HasFlag(LinkedTaskFlags.DoneLocally) == true;
         var sourceOpen = item.State is NormalisedSourceState.Open or NormalisedSourceState.Active;
-        var stateMoved = held?.NormalisedState is not { } last || last != item.State || wasVanished;
+        var sourceStatus = StatusFor(target, item.State, item.SourceStateName);
+        var heldStatus = held?.NormalisedState is { } heldState ? StatusFor(target, heldState, held.SourceState) : (EntryStatus?)null;
+        var stateMoved = held?.NormalisedState is not { } last || last != item.State || heldStatus != sourceStatus || wasVanished;
 
         if (stateMoved)
         {
             // A local Done is never reopened. The person's finish is information the
             // source does not have yet, so the task stays Done — and a task that
             // vanished while it was in that state comes back to it. A Done the source
-            // itself brought (the last sync recorded Done) is not local: the source
-            // reopening the item reopens the task.
-            var localDone = task.Status == EntryStatus.Done && held?.NormalisedState != NormalisedSourceState.Done;
+            // itself brought (the last sync's state read as Done, through the
+            // target's map) is not local: the source reopening the item reopens
+            // the task. A Done the reference flagged as the person's stays theirs,
+            // so a Done mapping added after they finished it reopens nothing.
+            var localDone = task.Status == EntryStatus.Done && (heldStatus != EntryStatus.Done || wasDoneLocally);
             var keepDone = sourceOpen && (localDone || (wasVanished && wasDoneLocally));
-            var status = keepDone ? EntryStatus.Done : StatusFor(item.State);
+            var status = keepDone ? EntryStatus.Done : sourceStatus;
 
             // Archived is past Done on the closing side: a task the person archived
             // is not walked back out to Done when its item closes. A vanished task is
@@ -475,8 +502,10 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         // Decided from where the task is now on every sync, moved or not, so the
         // mismatch is flagged the sync after the person finishes a task the source
-        // still holds open, and cleared once either side catches up.
-        var doneLocally = sourceOpen && task.Status == EntryStatus.Done;
+        // still holds open, and cleared once either side catches up. A Done the
+        // target's map gives the source's status is no mismatch — unless the
+        // person's finish came first, which a later mapping does not take over.
+        var doneLocally = sourceOpen && task.Status == EntryStatus.Done && (sourceStatus != EntryStatus.Done || wasDoneLocally);
 
         // Every flag the task carried survives except the two this sync decides
         // afresh — including one a newer build set that this one has no name for.
@@ -728,21 +757,24 @@ public sealed class SyncLinkedTasksCommandHandler(
     // --- The repository a task is filed under -------------------------------------
 
     /// <summary>
-    /// The repository id this target's tasks are filed under, or null when its
-    /// connector's targets are not repositories.
+    /// The repository id this target's tasks are filed under: the target's own
+    /// <see cref="ConnectedTarget.RepositoryId"/> when the person set one, whatever
+    /// the connector; otherwise the target itself when its connector's targets are
+    /// repositories, and null when they are not.
     /// <para>
-    /// Read off the capability, never off the connector's name: Tasks names no
-    /// connector. The registry's spelling when it knows the repository, so the row
-    /// shows the repository's own chip; the target as it is spelled otherwise, which
+    /// The default is read off the capability, never off the connector's name: Tasks
+    /// names no connector. The registry's spelling when it knows the repository, so
+    /// the row shows the repository's own chip; the spelling given otherwise, which
     /// is still the <c>owner/name</c> the registry would store, and reads as the
     /// repository the day it is configured.
     /// </para>
     /// </summary>
     private string? RepositoryIdOf(ITaskConnector connector, ConnectedTarget target)
     {
-        if (!connector.Capabilities.TargetIsRepository) return null;
+        var typed = target.RepositoryId
+            ?? (connector.Capabilities.TargetIsRepository ? target.Target.Trim() : null);
+        if (typed is null) return null;
 
-        var typed = target.Target.Trim();
         return repositories?.Resolve(typed)?.Id ?? typed;
     }
 

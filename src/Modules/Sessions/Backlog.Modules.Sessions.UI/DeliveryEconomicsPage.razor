@@ -13,10 +13,13 @@
     persists are untouched: the pane switches to it and back, and a reopened pane
     shows the list.
 
-    It compares cost and nothing else, and it says so. The delivery engine reports no
-    review rounds, blockers or escaped defects yet, so every quality cell reads "not
-    reported", the page names how many runs the quality measure stands on, and a
-    lesson card claims nothing about quality. A figure nobody measured is never drawn
+    Beside cost, each phase with a quality measure shows it (DeliveryQualityMeasure):
+    read from the round, blockers and defects the delivery phases report on a stage,
+    and from how many passes Scope and Build & Test took. A run that reported nothing
+    reads "not reported", never zero, and the page names how many runs the measure
+    stands on. A lesson card sets the two configurations' measures side by side and
+    says how far its sample sizes let it be trusted; the table's verdict column reads
+    the lesson (DeliveryEconomics.VerdictOf). A figure nobody measured is never drawn
     as a zero: a phase no run priced has no cost.
 
     Like the list, it is not a monitor. It prices the window's runs when it opens, when
@@ -107,26 +110,30 @@
                    Role="status"
                    TestId="economics-pricing" />
             <MetricGrid Label="The flow at a glance" MinColumnWidth="13rem" CssClass="delivery-economics__kpis" TestId="economics-kpis">
-                <MetricTile Label="Runs"
-                            Value="@_windowRuns.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                            Footnote="@($"Finished {_flow} runs, last {_days} days")"
-                            TestId="economics-kpi-runs" />
                 <MetricTile Label="Median run"
                             Value="@MedianRunValue(report)"
                             Status="@(report.MedianRun is null ? MetricStatusKind.Empty : MetricStatusKind.Ready)"
                             StatusMessage="No run was priced."
                             Footnote="@MedianRunFootnote(report)"
                             TestId="economics-kpi-median" />
-                <MetricTile Label="Largest phase"
-                            Value="@Largest(report)?.Name"
-                            Status="@(Largest(report) is null ? MetricStatusKind.Empty : MetricStatusKind.Ready)"
-                            StatusMessage="No run priced a phase yet."
-                            Footnote="@LargestFootnote(report)"
-                            TestId="economics-kpi-largest" />
-                <MetricTile Label="Quality measure"
-                            Value="@($"{report.QualityRuns} of {_windowRuns.Count}")"
-                            Footnote="@QualityLine(report)"
-                            TestId="economics-kpi-quality" />
+                <MetricTile Label="Implement + Review"
+                            Value="@(report.ImplementReviewShare is { } spend ? DeliveryRunStageUsual.Percent(spend) : null)"
+                            Status="@(report.ImplementReviewShare is null ? MetricStatusKind.Empty : MetricStatusKind.Ready)"
+                            StatusMessage="No run was priced."
+                            Footnote="@(report.ImplementReviewShare is null ? null : SpendFootnote)"
+                            TestId="economics-kpi-implement-review" />
+                <MetricTile Label="Two or more review rounds"
+                            Value="@(report.RoundRuns == 0 ? null : $"{report.MultiRoundRuns} of {report.RoundRuns}")"
+                            Status="@(report.RoundRuns == 0 ? MetricStatusKind.Empty : MetricStatusKind.Ready)"
+                            StatusMessage="No run reported its review rounds."
+                            Footnote="@RoundsFootnote(report)"
+                            TestId="economics-kpi-rounds" />
+                <MetricTile Label="Escaped review"
+                            Value="@report.EscapedDefects?.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                            Status="@(report.EscapedDefects is null ? MetricStatusKind.Empty : MetricStatusKind.Ready)"
+                            StatusMessage="No run's Verify reported the defects it found."
+                            Footnote="@EscapedFootnote(report)"
+                            TestId="economics-kpi-escaped" />
             </MetricGrid>
 
             <div class="delivery-economics__layout">
@@ -138,9 +145,9 @@
                         <span>Configuration now</span>
                         <span class="delivery-economics__number">Runs</span>
                         <span class="delivery-economics__number">Median cost</span>
-                        <span>Share of phase costs</span>
-                        <span>Quality</span>
-                        <span class="delivery-economics__number">Configurations</span>
+                        <span>Share of run</span>
+                        <span>Quality measure</span>
+                        <span>Verdict</span>
                     </div>
                     <ul class="delivery-economics__rows">
                         @foreach (var phase in report.Phases)
@@ -150,6 +157,7 @@
                             </li>
                         }
                     </ul>
+                    <p class="delivery-economics__lede" data-testid="economics-quality-line">@QualityLine(report)</p>
                 </section>
 
                 @if (selected is not null)
@@ -212,8 +220,12 @@
                     <span title="@reason" data-testid="economics-phase-no-share">—<span class="sr-only"> @reason</span></span>
                 }
             </span>
-            <span class="delivery-economics__quality" data-testid="economics-phase-quality"><span class="sr-only">quality </span>@NotReported</span>
-            <span class="delivery-economics__number" data-testid="economics-phase-configurations">@phase.Configurations<span class="sr-only">@(phase.Configurations == 1 ? " configuration seen" : " configurations seen")</span></span>
+            <span class="delivery-economics__quality" title="@phase.Quality.Title" data-testid="economics-phase-quality"><span class="sr-only">quality measure: </span>@phase.Quality.Label</span>
+            @{ var verdict = DeliveryEconomics.VerdictOf(phase); }
+            <span class="delivery-economics__verdict" data-testid="economics-phase-verdict" data-verdict="@verdict.Kind">
+                <span class="sr-only">verdict: </span>
+                <Badge Kind="tone" Slug="@VerdictTone(verdict.Kind)" Title="@verdict.Reason">@verdict.Label</Badge>
+            </span>
         </ToggleButton>
     };
 
@@ -248,7 +260,7 @@
                             {
                                 <ModeChip Mode="@DeliveryRunStages.ModeWord(mode)" TestId="economics-config-mode" />
                             }
-                            @if (configuration.Configuration.Agent is { } agent)
+                            @if (configuration.Agent is { } agent)
                             {
                                 <span class="delivery-economics__config-agent data-table__mono">@agent</span>
                             }
@@ -275,8 +287,8 @@
                                     }</dd>
                             </div>
                             <div class="delivery-economics__figure">
-                                <dt>Quality</dt>
-                                <dd data-testid="economics-config-quality">@QualityOf(configuration)</dd>
+                                <dt>Quality measure</dt>
+                                <dd data-testid="economics-config-quality" title="@configuration.Quality.Title">@configuration.Quality.Label</dd>
                             </div>
                             <div class="delivery-economics__figure">
                                 <dt>Whole run, median</dt>
@@ -292,8 +304,8 @@
 
             @if (configurations.Count <= 1)
             {
-                <EmptyState Title="Only one configuration has run this phase"
-                            Description="So there is nothing to compare it with yet. To learn whether it is worth what it costs, run a cheaper one on a few changes through your local overlay; it shows up here beside this one."
+                <EmptyState Title="Not compared: only one configuration has run this phase"
+                            Description="So there is nothing to compare it with yet. To learn whether it is worth what it costs, try a cheaper model or effort on a few changes through your personal overlay (devbook-config:local); it shows up here beside this one."
                             TestId="economics-one-configuration" />
             }
             else if (lesson is not null)
@@ -307,9 +319,10 @@
         </aside>
     };
 
-    /// <summary>One lesson: the headline, both sample sizes, that quality was not
-    /// compared, and — unless it only confirms what is configured now — the request
-    /// to copy into a session, since the app never writes the overlay itself.</summary>
+    /// <summary>One lesson: the headline, both sample sizes, both quality measures, the
+    /// confidence the samples allow, and — unless it points to what is configured now —
+    /// the request to copy into a session, since the app never writes the overlay
+    /// itself.</summary>
     private RenderFragment Lesson(DeliveryLesson lesson) => __builder =>
     {
         <Card CssClass="@(lesson.KeepsNow ? "delivery-economics__lesson delivery-economics__lesson--keep" : "delivery-economics__lesson")"
@@ -320,6 +333,7 @@
                 <p class="delivery-economics__headline" data-testid="economics-lesson-headline">@lesson.Headline</p>
                 <p class="delivery-economics__lede" data-testid="economics-lesson-samples">@lesson.Samples</p>
                 <p class="delivery-economics__lede" data-testid="economics-lesson-quality">@lesson.QualityNote</p>
+                <p class="delivery-economics__lede delivery-economics__confidence" data-testid="economics-lesson-confidence" data-confidence="@lesson.Confidence">@lesson.ConfidenceLine</p>
                 @if (lesson.Estimated)
                 {
                     <p class="delivery-economics__lede">Some of these medians are @CostFigure.EstimatedNote at the Settings prices.</p>
@@ -360,7 +374,15 @@
 
     private static readonly int[] Windows = [30, 90];
 
-    private const string NotReported = "not reported";
+    /// <summary>The badge tone a verdict reads in; the word carries the meaning, the
+    /// tone only groups it.</summary>
+    private static string VerdictTone(DeliveryVerdict verdict) => verdict switch
+    {
+        DeliveryVerdict.TryCheaper => "settled",
+        DeliveryVerdict.WorthIt => "live",
+        DeliveryVerdict.NotCompared => "archived",
+        _ => "quiet"
+    };
 
     private const string NoLessonLine =
         "No lesson yet: a lesson needs two configurations of this phase with at least five priced runs each, at different medians.";
@@ -698,8 +720,23 @@
             ? $"Over {RunsWord(totalRuns)}, each over the stages that were priced; {partialRuns} left a stage unpriced"
             : $"Over {RunsWord(totalRuns)}";
 
-    private static string? LargestFootnote(DeliveryEconomicsReport report) =>
-        Largest(report) is { Share: { } share } ? $"{DeliveryRunStageUsual.Percent(share)} {ShareOf}" : null;
+    private const string SpendFootnote = "of all the spend on these runs";
+
+    /// <summary>The rounds tile's footnote: what the runs that took two rounds or more
+    /// cost against the one-round runs, or why that is not said.</summary>
+    private static string? RoundsFootnote(DeliveryEconomicsReport report) => report switch
+    {
+        { RoundRuns: 0 } => null,
+        { MultiRoundCostRatio: { } ratio } => $"cost {ratio.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}× a one-round run (medians)",
+        { MultiRoundRuns: 0 } => "runs that reported their rounds; every one took a single round",
+        _ => "runs that reported their rounds; too few fully priced on both sides to compare their cost"
+    };
+
+    /// <summary>The escaped tile's footnote: how many runs the count stands on.</summary>
+    private string? EscapedFootnote(DeliveryEconomicsReport report) =>
+        report.EscapedDefects is null
+            ? null
+            : $"found by Verify after review passed · {report.EscapedRuns} of {RunsWord(_windowRuns.Count)} reported";
 
     /// <summary>What a share is of: the summed medians of the phases the latest run
     /// carries — not the Median run tile's figure, which is a whole run's.</summary>
@@ -709,17 +746,15 @@
 
     private const string DroppedReason = "Not in the latest run, so not part of the flow's phase costs now";
 
-    /// <summary>How many runs the quality measure stands on, said every time — while
-    /// the engine reports none, that is zero, and the page says so.</summary>
+    /// <summary>How many runs the quality measure stands on, said every time: a run from
+    /// before the delivery phases reported their counts has none, and still counts
+    /// toward cost.</summary>
     private string QualityLine(DeliveryEconomicsReport report) =>
         report.QualityRuns == 0
-            ? $"Quality measure stands on 0 of {_windowRuns.Count} runs: the delivery engine reports no quality facts yet, so this page compares cost only."
-            : $"Quality measure stands on {report.QualityRuns} of {_windowRuns.Count} runs.";
-
-    private static string QualityOf(DeliveryConfigurationCost configuration) =>
-        configuration.Quality is { } quality
-            ? $"{quality.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} over {RunsWord(configuration.QualityRuns)}"
-            : NotReported;
+            ? $"Quality measure stands on 0 of {_windowRuns.Count} runs: none reported what it is read from, so the costs stand alone."
+            : report.QualityRuns >= _windowRuns.Count
+                ? $"Quality measure stands on all {RunsWord(_windowRuns.Count)}."
+                : $"Quality measure stands on {report.QualityRuns} of {_windowRuns.Count} runs; the rest reported nothing it is read from.";
 
     /// <summary>The bar's width, in percent of the track: the share itself, capped at
     /// the track's end.</summary>

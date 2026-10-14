@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
+using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
@@ -572,6 +573,54 @@ public sealed class TaskSyncWorkerTests
         Assert.Equal("repository-registry", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
     }
 
+    /// <summary>A sprint series changed here is pushed after the same settle delay a
+    /// task write is.</summary>
+    [Fact]
+    public async Task A_sprint_series_change_runs_a_cycle_after_the_settle_delay()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: true, sprints: new RecordingSprintSeriesReplication());
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        fixture.Sprints!.Hold(new SprintSeriesReplicaCopyDto(Guid.NewGuid(), "Platform", "{}", Noon.AddMinutes(1)));
+        fixture.Sprints.RaiseChanged();
+
+        var settled = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay);
+        await settled.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("sprint-series", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
+    }
+
+    /// <summary>"Republish everything" offers every sprint series again too.</summary>
+    [Fact]
+    public async Task Republishing_offers_every_sprint_series_again()
+    {
+        var sprints = new RecordingSprintSeriesReplication();
+        var series = new SprintSeriesReplicaCopyDto(Guid.NewGuid(), "Platform", "{}", Noon);
+        sprints.Hold(series);
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon.AddHours(1), "cursor-1").WithDocumentWatermark(SprintReplicaDocuments.MarkOf(series.Id), Noon),
+            sprints: sprints);
+
+        var caughtUp = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await caughtUp.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        var republished = fixture.NextCycle();
+        fixture.Worker.RepublishEverything();
+        await republished.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(series.Id, Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Id);
+    }
+
     /// <summary>A disposed worker stops listening, so a settings change after the
     /// window closed arms nothing.</summary>
     [Fact]
@@ -861,13 +910,15 @@ public sealed class TaskSyncWorkerTests
             List<string> pushedBodies,
             RecordingRoadmapReplication? roadmap,
             RecordingGitHubSettingsReplication? github,
-            TokenPipeline? tokens)
+            TokenPipeline? tokens,
+            RecordingSprintSeriesReplication? sprints)
         {
             _http = http;
             _repository = repository;
             _tokens = tokens;
             Roadmap = roadmap;
             GitHub = github;
+            Sprints = sprints;
 
             Handler = handler;
             Tasks = tasks;
@@ -886,10 +937,15 @@ public sealed class TaskSyncWorkerTests
                 clock,
                 changes: Changes,
                 roadmap: roadmap,
-                github: github);
+                github: github,
+                sprints: sprints);
         }
 
         public TaskSyncWorker Worker { get; }
+
+        /// <summary>Progress's replication port, where a test composed one, handed to the
+        /// merge, the session and the worker alike.</summary>
+        public RecordingSprintSeriesReplication? Sprints { get; }
 
         /// <summary>The GitHub settings replication port, where a test composed one,
         /// handed to the merge, the session and the worker alike.</summary>
@@ -943,7 +999,8 @@ public sealed class TaskSyncWorkerTests
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
             RecordingRoadmapReplication? roadmap = null,
             bool authenticated = false,
-            RecordingGitHubSettingsReplication? github = null)
+            RecordingGitHubSettingsReplication? github = null,
+            RecordingSprintSeriesReplication? sprints = null)
         {
             var tasks = new InMemoryTaskStore();
             seed?.Invoke(tasks);
@@ -1008,7 +1065,8 @@ public sealed class TaskSyncWorkerTests
                 pushedBodies,
                 roadmap,
                 github,
-                tokens);
+                tokens,
+                sprints);
         }
 
         /// <summary>
@@ -1067,13 +1125,14 @@ public sealed class TaskSyncWorkerTests
 
             return new TaskSyncSession(
                 new TaskSyncClient(_http),
-                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub),
+                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub, sprints: Sprints),
                 _repository,
                 State,
                 Credentials,
                 Clock,
                 roadmap: Roadmap,
-                github: GitHub);
+                github: GitHub,
+                sprints: Sprints);
         }
     }
 
