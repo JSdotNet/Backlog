@@ -126,6 +126,46 @@ filed under that tag in the series' repositories, finished or not. A task filed
 under the plan later joins the sprint by itself. Unlinking the plan takes out the
 tasks it brought in, except those added directly.
 
+### Planning from the sprint view
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/features.md#the-sprint-view, .devbook/domain/progress/features.md#keeping-a-note-on-an-item]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.Add_to_sprint_adds_a_task_through_the_module_and_the_sprint_is_read_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.Add_to_sprint_links_a_whole_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.The_row_menu_marks_goal_and_removes_through_the_module, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.The_note_dialog_writes_the_note_and_the_open_question, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.A_closed_sprint_offers_no_add_and_no_row_menu]
+```
+
+While the sprint view shows the open sprint, it plans it. **Add to sprint…** beside
+Refresh opens a picker over the series' repositories: plans first, then tasks, narrowed
+to one repository and by a search. Choosing a plan links it; choosing a task adds it.
+What the sprint already holds is listed but not offered again. The picker stays open
+for the next choice and says what the last one did.
+
+Each row carries a menu: mark the task as goal or take the mark off, add or edit its
+note, mark or clear its open question, and take it out — **Remove from sprint** for a
+task added directly, **Unlink +plan** for one a linked plan brought in. A closed sprint
+shows no menu and no Add. Every act is a write through Progress, and the sprint is read
+again once it lands; a refusal shows in Progress's words.
+
+### Planning from a task
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md, .devbook/domain/sessions/features.md#in-progress-by-task]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.A_tasks_sprint_section_adds_it_marks_it_and_takes_it_out_through_the_module, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.A_tasks_sprint_section_links_its_plan_and_writes_its_note, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.With_progress_off_or_the_task_in_no_series_the_section_draws_nothing]
+```
+
+A task's side panel carries a **Sprint** section while its repository works to a series
+switched on. It says how the task stands in the open sprint — not in it, added directly,
+brought in by its plan, or both — and offers what applies: add the task or remove it,
+add its plan or unlink it, and, for a member, the goal mark and the note with its open
+question. The desktop shell composes the section from Progress beside **Sessions and
+pull requests**; the task gains no sprint field.
+
+The writes go to the open sprint. The next sprint starts only when the open one closes,
+so there is no later sprint to plan ahead into.
+
 ## Setting the sprint goal
 
 ```meta

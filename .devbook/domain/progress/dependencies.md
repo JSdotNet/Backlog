@@ -37,6 +37,13 @@ is read once, the rest at most once a minute. Where no GitHub is configured, or 
 does not answer, a pull request reads as unknown and a member is done by its task's
 status alone.
 
+Planning a sprint on screen needs the task list as well: the sprint view's
+"Add to sprint…" picker and a task's [Sprint section](features.md#planning-from-a-task)
+are handed the tasks by the desktop shell, which holds the task list, as plain values —
+id, title, repositories, plan tags (`SprintCandidate`). The section sits in the Tasks
+pane's side-panel slot, which the shell fills. Progress UI never reaches Tasks, and
+every write it makes is Progress's own, through `ISprintSeriesPlanning`.
+
 ## Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |

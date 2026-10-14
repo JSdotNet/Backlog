@@ -12,14 +12,16 @@
     (.devbook/domain/progress/features.md#following-a-sprint).
 
     InProgressSprints decides whether there is a sprint to switch to and draws it; this
-    hands it the two things only the shell holds — the header's repository scope, and
-    the live sessions and open pull requests the shell's reader found, for the
-    "Outside the sprint" line — and draws the Now view under the switch it is given.
+    hands it the things only the shell holds — the header's repository scope, the live
+    sessions and open pull requests the shell's reader found, for the "Outside the
+    sprint" line, and the task list, for "Add to sprint…" — and draws the Now view under
+    the switch it is given.
     With no series in scope, or Progress off, the switch is null and the Now view is
     exactly what it was.
 *@
 <InProgressSprints Repositories="@State.SelectedRepositoryAliases"
                    Outside="OutsideOf"
+                   Candidates="SprintCandidatesOf"
                    Revision="_revision"
                    OnOpenTask="OnOpenTask"
                    OnOpenPullRequest="OnOpenPullRequest"
@@ -99,6 +101,10 @@
         _ = refresh ? Reader.ReadAsync() : Reader.EnsureAllAsync();
         return Task.CompletedTask;
     }
+
+    /// <summary>Every saved task, for the sprint view's "Add to sprint…": the picker keeps
+    /// those in the series' repositories, whatever the header's scope.</summary>
+    private IReadOnlyList<Backlog.Modules.Progress.UI.Planning.SprintCandidate> SprintCandidatesOf() => SprintCandidates.Of(State);
 
     /// <summary>
     /// The live sessions and open pull requests running against tasks the sprint does not
