@@ -176,6 +176,92 @@ public sealed class GitHubClientHeadChecksTests
         Assert.True(pull.CanRerunFailed);
     }
 
+    // --- Failed checks past the first fifty ----------------------------------
+
+    /// <summary>The counts say a check failed that the list did not reach, so the head
+    /// commit's checks are paged in by its id, cursor by cursor, and Re-run failed sees
+    /// the failed Actions run that sat past the first fifty.</summary>
+    [Fact]
+    public async Task A_failed_actions_run_past_the_first_fifty_is_paged_in()
+    {
+        var transport = new RoutingTransport().ReturnsInTurn(
+            "graphql",
+            List(Node(contexts: CountedContexts(total: 51, passed: 50, failed: 1, Passing(GitHubClient.HeadCheckLimit)))),
+            """{ "data": { "repository": { "c0": { "compare": { "behindBy": 0 } } } } }""",
+            Page(next: "cursor-1", Passing(GitHubClient.HeadCheckLimit)),
+            Page(next: null, CheckRun("late", "COMPLETED", "FAILURE", "2026-10-01T09:00:00Z", "2026-10-01T09:01:00Z", actionsRun: 4242)));
+
+        var pull = Assert.Single(await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, Cancellation));
+
+        Assert.Equal(51, pull.HeadChecks.Count);
+        Assert.True(pull.CanRerunFailed);
+        Assert.Equal([4242L], pull.FailedWorkflowRunIds);
+
+        Assert.Equal(4, transport.CallsTo("graphql"));
+        using var first = JsonDocument.Parse(transport.Bodies[2]!);
+        Assert.Equal("abc123", first.RootElement.GetProperty("variables").GetProperty("oid").GetString());
+        Assert.Equal(JsonValueKind.Null, first.RootElement.GetProperty("variables").GetProperty("after").ValueKind);
+        Assert.Contains("contexts(first: $first, after: $after)", first.RootElement.GetProperty("query").GetString()!, StringComparison.Ordinal);
+
+        using var second = JsonDocument.Parse(transport.Bodies[3]!);
+        Assert.Equal("cursor-1", second.RootElement.GetProperty("variables").GetProperty("after").GetString());
+    }
+
+    /// <summary>A pinned pull request is paged in the same way: the pin and the list
+    /// read one set of facts.</summary>
+    [Fact]
+    public async Task A_pinned_pull_request_has_its_unlisted_failures_paged_in_too()
+    {
+        var pinned = $$"""
+            { "data": { "repository": {
+                "mergeCommitAllowed": true, "squashMergeAllowed": true, "rebaseMergeAllowed": true,
+                "p712": {{Node(contexts: CountedContexts(total: 51, passed: 50, failed: 1, Passing(GitHubClient.HeadCheckLimit)), state: "OPEN")}} } } }
+            """;
+        var transport = new RoutingTransport().ReturnsInTurn(
+            "graphql",
+            pinned,
+            """{ "data": { "repository": { "c0": { "compare": { "behindBy": 0 } } } } }""",
+            Page(next: null, CheckRun("late", "COMPLETED", "TIMED_OUT", "2026-10-01T09:00:00Z", "2026-10-01T09:01:00Z", actionsRun: 77)));
+
+        var pull = Assert.Single(await new GitHubClient(transport).ListPullRequestsAsync(Repository, [712], Cancellation));
+
+        Assert.Equal([77L], pull.FailedWorkflowRunIds);
+    }
+
+    /// <summary>Every failure already listed means every run the act needs is listed,
+    /// so a commit with more checks than the limit costs no extra query.</summary>
+    [Fact]
+    public async Task Checks_are_not_paged_when_every_failure_is_already_listed()
+    {
+        var transport = new RoutingTransport().ReturnsInTurn(
+            "graphql",
+            List(Node(contexts: CountedContexts(total: 60, passed: 59, failed: 1,
+                CheckRun("build", "COMPLETED", "FAILURE", "2026-10-01T09:00:00Z", "2026-10-01T09:01:00Z", actionsRun: 5)))),
+            """{ "data": { "repository": { "c0": { "compare": { "behindBy": 0 } } } } }""");
+
+        var pull = Assert.Single(await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, Cancellation));
+
+        Assert.Equal(2, transport.CallsTo("graphql"));
+        Assert.Equal([5L], pull.FailedWorkflowRunIds);
+    }
+
+    /// <summary>A page GitHub refuses leaves the checks the list read standing rather
+    /// than failing the list.</summary>
+    [Fact]
+    public async Task A_refused_page_leaves_the_listed_checks_standing()
+    {
+        var transport = new RoutingTransport().ReturnsInTurn(
+            "graphql",
+            List(Node(contexts: CountedContexts(total: 51, passed: 50, failed: 1, Passing(GitHubClient.HeadCheckLimit)))),
+            """{ "data": { "repository": { "c0": { "compare": { "behindBy": 0 } } } } }""",
+            """{ "data": null, "errors": [ { "type": "FORBIDDEN", "message": "Resource not accessible" } ] }""");
+
+        var pull = Assert.Single(await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, Cancellation));
+
+        Assert.Equal(GitHubClient.HeadCheckLimit, pull.HeadChecks.Count);
+        Assert.False(pull.CanRerunFailed);
+    }
+
     // --- How far behind -------------------------------------------------------
 
     /// <summary>A pin is compared too, while it is open: a merged or closed one has
@@ -319,6 +405,27 @@ public sealed class GitHubClientHeadChecksTests
 
     private static string Contexts(params string[] nodes) => $$"""
         { "totalCount": {{nodes.Length}}, "checkRunCountsByState": [], "statusContextCountsByState": [], "nodes": [ {{string.Join(",", nodes)}} ] }
+        """;
+
+    /// <summary>Contexts whose counts GitHub reports beside fewer listed nodes, the way
+    /// a commit with more checks than the limit is answered.</summary>
+    private static string CountedContexts(int total, int passed, int failed, params string[] nodes) => $$"""
+        { "totalCount": {{total}},
+          "checkRunCountsByState": [ { "state": "SUCCESS", "count": {{passed}} }, { "state": "FAILURE", "count": {{failed}} } ],
+          "statusContextCountsByState": [],
+          "nodes": [ {{string.Join(",", nodes)}} ] }
+        """;
+
+    /// <summary>The given number of passing Actions check runs.</summary>
+    private static string[] Passing(int count) =>
+        [.. Enumerable.Range(1, count).Select(index =>
+            CheckRun($"job-{index}", "COMPLETED", "SUCCESS", "2026-10-01T09:00:00Z", "2026-10-01T09:01:00Z", actionsRun: 1000 + index))];
+
+    /// <summary>One page of the head commit's checks, read by the commit's id.</summary>
+    private static string Page(string? next, params string[] nodes) => $$"""
+        { "data": { "repository": { "object": { "statusCheckRollup": { "contexts": {
+            "pageInfo": { "hasNextPage": {{(next is null ? "false" : "true")}}, "endCursor": {{Quoted(next)}} },
+            "nodes": [ {{string.Join(",", nodes)}} ] } } } } } }
         """;
 
     private static string CheckRun(

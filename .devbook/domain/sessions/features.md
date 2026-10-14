@@ -1218,6 +1218,7 @@ session where they can see it happen.
 ```meta
 type: feature
 related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
 ```
 
 The pull requests pane is the Sessions context's second surface. Sessions and delivery
@@ -1246,13 +1247,19 @@ A row shows:
 - a meter of its checks, with how many passed.
 
 A pull request stacked on another is indented and says which one it waits on, so the
-reader merges that one first.
+reader merges that one first. A pinned one keeps both in the Pinned group, so a pin never
+hides what has to merge first.
+
+The pane has no storybook page. The storybook references only `Backlog.UI.Components`,
+and the pane lives in `Backlog.Desktop.UI`, which the storybook cannot render. Its states
+are proved by the bUnit tests named above instead.
 
 ### Lanes that filter the list
 
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#one-verdict-per-pull-request]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests]
 ```
 
 Four lane tiles sit under the header: Needs you, Ready to merge, Waiting and Drafts. Each
@@ -1273,6 +1280,7 @@ combine: Mine and Needs you is the reader's own work that is waiting on them.
 
 ```meta
 type: sub-feature
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionPullRequestStatusesTests]
 ```
 
 Each pull request that is still open gets exactly one readiness verdict. Where several
@@ -1287,7 +1295,7 @@ apply, the first in this table wins:
 | 5 | Draft | Drafts | quiet | Ready for review | — |
 | 6 | Checks running | Waiting | live | Merge when ready | — |
 | 7 | Review required | Waiting | live | Merge when ready | — |
-| 8 | Ready | Ready to merge | settled | Merge | — |
+| 8 | Ready | Ready to merge | settled | Merge | Update branch, when the branch is behind a base that does not require it |
 
 One verdict rather than a row of badges, because a reader acts on one thing at a time. The
 order puts first what blocks the most. A conflict has to be resolved before checks or
@@ -1306,6 +1314,16 @@ banner, and the acts above. A few rules sit beside the table:
 - A stacked pull request's reason names the pull request it waits on. It is offered no
   merge act, because merged now it would land on its parent's branch rather than where
   the stack is going. Its other acts stay.
+- Behind is GitHub's own `BEHIND` state, which GitHub sets only where the repository
+  requires an up-to-date branch. A pull request behind a base that does not require it is
+  still Ready, but its reason says how many commits behind it is and that the repository
+  does not require it, so it never contradicts the up to date line of the detail panel.
+  Update branch is then offered as Ready's second act.
+- Whether Re-run failed is offered is read off the pull request's own checks, never
+  told to the verdict by whoever asks for it.
+- The session list's pull request card gives the same verdict as the pane, stack
+  included: it places an open pull request among its repository's open pull requests and
+  names the one it waits on.
 - A merged pull request reads as Merged, in the settled tone, with no act. A pull request
   closed without merging has no verdict, since there is nothing left to get ready.
 
@@ -1314,6 +1332,7 @@ banner, and the acts above. A few rules sit beside the table:
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#the-detail-of-one-session]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests]
 ```
 
 Picking a pull request opens a detail panel. The first row the list shows is picked until
@@ -1341,7 +1360,8 @@ the reason before the long list of passing checks.
 The list already reads what the panel needs. Each check on the head commit is a check run
 or a commit status. It comes with its name, whether it passed, failed or is still running,
 and, for a check run that finished, how long it took. The first fifty are listed and the
-counts cover the rest. Each open pull request from the same repository also carries how
+counts cover the rest. Where the counts report a failed check past those fifty, every
+check of the head commit is paged in, so no failed run is missing. Each open pull request from the same repository also carries how
 many commits its base has that its branch does not. GitHub cannot compare a fork's branch
 from the base repository, so a pull request from a fork has no such count.
 
@@ -1349,6 +1369,7 @@ from the base repository, so a pull request from a fork has no such count.
 
 ```meta
 type: sub-feature
+tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests]
 ```
 
 Re-run failed is offered when a failed check is a GitHub Actions run. It starts the failed
@@ -1356,7 +1377,8 @@ jobs of that run again, and the jobs that depend on them. It covers the most com
 check goes red without anyone's code being wrong: a runner that flaked.
 
 Where several checks failed, each workflow run behind them is asked once, however many of
-its jobs failed. Every run is asked even when GitHub refuses one, because the runs are
+its jobs failed. That covers a failed run past the first fifty checks too, because the
+list pages those in when the counts say one failed there. Every run is asked even when GitHub refuses one, because the runs are
 independent. The refusal then says how many of the others did start again. Afterwards the
 pane reads that one repository again, as it does after every other act, so the row shows
 the checks running instead of failed.
