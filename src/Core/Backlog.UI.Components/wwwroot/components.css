@@ -19819,6 +19819,17 @@ select.field__input {
     line-height: 1.25;
 }
 
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the
+   headline takes focus only from navigation (FocusOnNavigate gives it tabindex="-1")
+   so a screen reader announces the page, never as a control; it is not a tab stop
+   and every control on the page keeps its own focus ring. The ring would otherwise
+   sit over the eyebrow on every page load, and the browser counts script focus
+   after an address change as focus-visible, so :not(:focus-visible) would still
+   draw it. */
+.settings-frame__headline:focus {
+    outline: none;
+}
+
 .settings-frame__actions {
     display: flex;
     flex: 0 1 auto;

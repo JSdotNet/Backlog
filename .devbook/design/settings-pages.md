@@ -67,6 +67,12 @@ Rules:
 - The headline MUST be one sentence, computed from the store on each render, so
   it moves in the same render as the control that changed it.
 - A page MUST NOT render a heading of its own that restates the headline.
+- Navigation focuses the headline (`FocusOnNavigate`, `tabindex="-1"`) so a screen
+  reader announces the page, and the headline draws no focus outline for it: it
+  is never a tab stop, and a ring would cover the eyebrow on every page load. The
+  rule is a focus-visibility exemption under
+  [Focus Visibility](accessibility.md#focus-visibility); every control on the page
+  keeps its own ring. `SettingsHeadlineFocusTests` holds it.
 
 ## Saved as You Go
 
@@ -132,7 +138,7 @@ It is text, not a pill.
 | Page | Badge | Source |
 |---|---|---|
 | Features | On over total, `9/19` | `SettingsBadges.Features` |
-| AI providers | Providers set up over three, `2/3` | `SettingsBadges.AiProviders` |
+| AI providers | Providers set up over the providers the page offers, `2/3`; `1/1` or `0/1` with usage metrics off | `SettingsBadges.AiProviders` |
 | Repositories, GitHub accounts | The count, zero included | `SettingsBadges.Count` |
 | Storage & backup | None | — |
 | A registered page whose feature is off | `Off` | `SettingsBadges.Off`, drawn by the shell |
@@ -143,6 +149,9 @@ Rules:
 - A badge MUST be a count, a fraction, or `Off`. It MUST NOT be a sentence; the
   headline is where a sentence goes.
 - A count of zero is drawn as `0`: an empty list says so.
+- A badge MUST count only what its page shows: the AI providers badge counts the
+  providers the page draws a tile for under the features as they stand, and it
+  keeps the previous GitHub connection answer while a re-check runs.
 - A null or blank badge draws nothing, not an empty pill.
 - A badge source MUST be registered as a singleton and MUST raise `Changed`
   whenever its value may have moved, from any thread. The menu follows a
@@ -249,6 +258,11 @@ Rules:
 
 - The row MUST say what each thing is without opening it: where it lives, what
   it reads, which account it uses.
+- A row's state MUST be the one its open editor would report. An account row
+  reads `Active`, `Signed in` or `Not signed in` from the same credential check
+  the account's card makes, and the page's headline counts only the accounts
+  whose credential resolves: a login added that this machine cannot sign in as
+  is listed, but not counted.
 - At most one row is open at a time; opening one closes the other.
 - The opening control carries `aria-expanded`, and `aria-controls` naming the
   editor while it is open.
@@ -256,6 +270,10 @@ Rules:
   `repo-card` with its own title and its destructive action in the header: the
   one that keeps everything first (Rename), the one that keeps nothing last
   (Remove repository, Forget this account).
+- Opening or closing the editor MUST NOT resize a row. A list laid out as a
+  grid keeps one column template in both states: the GitHub accounts list is
+  `repeat(auto-fill, …)`, never `auto-fit`, so a lone account is one track wide
+  whether its card is closed or open.
 - A table that is too wide scrolls sideways inside its own frame; the page never
   scrolls sideways.
 - A list with nothing in it says so in a sentence, and what happens meanwhile,
@@ -291,6 +309,9 @@ Rules:
   heading's swap is CSS, an attribute is not. Wider, where Features sits beside
   the menu, its link keeps the raised surface and names itself current in a
   `sr-only` note the phone-width rule hides.
+- Below 720 px an open editor's `repo-card__header` stacks its title over its
+  actions, each as tall as its content and aligned to the start: no fixed
+  height, and no flex basis on the title side, which a column reads as one.
 
 ## Addresses
 

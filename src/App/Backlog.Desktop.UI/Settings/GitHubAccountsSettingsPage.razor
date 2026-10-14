@@ -337,17 +337,24 @@
     private static string Initial(GitHubAccount account) =>
         account.Login.Length == 0 ? "?" : char.ToUpperInvariant(account.Login[0]).ToString();
 
-    /// <summary>The configured account the GitHub CLI is using now, or null when
-    /// it is using none of them or there is no CLI to ask.</summary>
+    /// <summary>Whether this account's credential resolves - the same check its
+    /// open card makes, so a row and its card never disagree about it.</summary>
+    private bool IsSignedIn(GitHubAccount account) => Screen.AccountProblem(account) is null;
+
+    /// <summary>The signed-in account the GitHub CLI is using now, or null when it
+    /// is using none of them, there is no CLI to ask, or the account configured
+    /// for its login cannot reach GitHub.</summary>
     private GitHubAccount? CliActiveAccount =>
-        ConfiguredAccounts.FirstOrDefault(account => Screen.CliAccounts.Any(candidate =>
+        ConfiguredAccounts.FirstOrDefault(account => IsSignedIn(account) && Screen.CliAccounts.Any(candidate =>
             candidate.Active && GitHubAccount.IsSameLogin(candidate.Login, account.Login)));
 
+    /// <summary>Counts only the accounts whose credential resolves: an account
+    /// added by a login this machine cannot sign in as is configured, not signed in.</summary>
     private string Headline
     {
         get
         {
-            var count = ConfiguredAccounts.Count;
+            var count = ConfiguredAccounts.Count(IsSignedIn);
             if (count == 0) return "No GitHub account is signed in yet.";
 
             var signedIn = count == 1 ? "1 GitHub account signed in" : $"{count} GitHub accounts signed in";
@@ -358,13 +365,16 @@
         }
     }
 
-    /// <summary>What sits under a row's login: whether the CLI is using it now,
-    /// and how many repositories are worked as it.</summary>
+    /// <summary>What sits under a row's login: Not signed in while its credential
+    /// does not resolve, else whether the CLI is using it now; then how many
+    /// repositories are worked as it.</summary>
     private string RowMeta(GitHubAccount account)
     {
-        var state = CliActiveAccount is { } active && GitHubAccount.IsSameLogin(active.Login, account.Login)
-            ? "Active"
-            : "Signed in";
+        var state = !IsSignedIn(account)
+            ? "Not signed in"
+            : CliActiveAccount is { } active && GitHubAccount.IsSameLogin(active.Login, account.Login)
+                ? "Active"
+                : "Signed in";
         var repositories = BoundRepositoryCount(account);
 
         return $"{state} · {repositories} {(repositories == 1 ? "repository" : "repositories")}";

@@ -112,6 +112,9 @@
     {
         <span>
             <code>@VisibleRepositories.First().FullName</code> is configured@(VisibleRepositories.Count > 1 ? $", and {VisibleRepositories.Count - 1} more." : ".")
+            @* Razor drops the line break before a code block, so the space
+               between the two sentences has to be written out. *@
+            @(" ")
             @if (AdditionalRepositoriesEnabled)
             {
                 <span>Type <code>@("@" + VisibleRepositories.First().Alias)</code> on an entry to assign it to <code>@VisibleRepositories.First().FullName</code>.</span>
@@ -492,7 +495,7 @@
                                 Signing in with the GitHub CLI is preferred. This repository token is only used as a fallback for <code>@activeRepo.FullName</code> when <code>gh</code> is not signed in.
                             </p>
                             <p class="setting__status" data-testid="github-connection-status" role="status">
-                                @(Screen.Connection?.Summary ?? "Checking how this machine can reach GitHub...")
+                                @(Screen.IsCheckingConnection || Screen.Connection is null ? "Checking how this machine can reach GitHub..." : Screen.Connection.Summary)
                             </p>
                             <TextField Bare="true"
                                        LabelCssClass="setting__label"

@@ -2957,10 +2957,15 @@ h1, h2, h3 {
 /* The GitHub accounts page's list: one row per account in a grid that wraps on
    its own, and the open row's card under it across the whole width. The open
    card is a grid item spanning every track, so it lands on the line below the
-   row that opened it whatever the window's width. */
+   row that opened it whatever the window's width.
+
+   `auto-fill`, not `auto-fit`: `auto-fit` collapses the tracks nothing sits in, so
+   one account filled the list while its card was closed and dropped to one track
+   when the card opened and filled every track. With `auto-fill` a row is one track
+   wide in both states. */
 .account-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
     gap: var(--spacing-xs);
     margin: 0;
     padding: 0;
@@ -3311,6 +3316,20 @@ h1, h2, h3 {
         display: flex;
         flex-direction: column;
         align-items: stretch;
+    }
+
+    /* A settings card's header stacks its title over its actions, each as tall
+       as its content. The title side's `flex: 1 1 12rem` lets the text give way
+       in a row; in this column that basis is a height, and it stood 192 px tall
+       under one or two lines of text. The actions keep their width rather than
+       stretching across the card. */
+    .repo-card__header {
+        align-items: flex-start;
+    }
+
+    .repo-card__header > div {
+        flex: 0 0 auto;
+        max-width: 100%;
     }
 
     .instructions-layout {

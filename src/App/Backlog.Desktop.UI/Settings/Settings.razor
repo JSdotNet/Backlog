@@ -293,6 +293,8 @@
         SettingsPages.Repositories => SettingsBadges.Count(GitHub.Repositories.Count),
         SettingsPages.Accounts => SettingsBadges.Count(GitHub.Settings.Current.Accounts.Count),
         SettingsPages.Ai => SettingsBadges.AiProviders(
+            usageMetrics: UsageMetricsEnabled,
+            aiAssistant: Features.IsEnabled(AppFeatures.AiAssistant),
             claude: _claude?.Current.IsConfigured == true,
             // Usage is read as every configured account, or as this machine's own
             // sign-in when there is none - the AI page's own rule.
