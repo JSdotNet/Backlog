@@ -107,8 +107,11 @@ public sealed class CaptureSheetTests
         var app = Open(host);
 
         app.Find("[data-testid='capture-sheet-target-note']").Click();
-        Assert.Equal("A note keeps thoughts, not to-dos", app.Find("[data-testid='capture-sheet-text'] label").TextContent);
-        Assert.Equal("Save note", app.Find("[data-testid='capture-sheet-save']").TextContent.Trim());
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal("A note keeps thoughts, not to-dos", app.Find("[data-testid='capture-sheet-text'] label").TextContent);
+            Assert.Equal("Save note", app.Find("[data-testid='capture-sheet-save']").TextContent.Trim());
+        });
 
         Type(app, "Three ideas from the async stand-ups keynote");
         app.Find("[data-testid='capture-sheet-save']").Click();
@@ -129,8 +132,11 @@ public sealed class CaptureSheetTests
         var app = Open(host);
 
         app.Find("[data-testid='capture-sheet-target-today']").Click();
-        Assert.Equal("Add to today", app.Find("[data-testid='capture-sheet-save']").TextContent.Trim());
-        Assert.Empty(app.FindAll("[data-testid='capture-sheet-photo']"));
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal("Add to today", app.Find("[data-testid='capture-sheet-save']").TextContent.Trim());
+            Assert.Empty(app.FindAll("[data-testid='capture-sheet-photo']"));
+        });
 
         Type(app, "Renew the domain");
         app.Find("[data-testid='capture-sheet-save']").Click();
@@ -157,7 +163,8 @@ public sealed class CaptureSheetTests
 
         app.Find("[data-testid='capture-sheet-target-note']").Click();
 
-        Assert.Equal(string.Empty, app.Find("[data-testid='capture-sheet-status']").TextContent.Trim());
+        app.WaitForAssertion(() =>
+            Assert.Equal(string.Empty, app.Find("[data-testid='capture-sheet-status']").TextContent.Trim()));
     }
 
     [Fact]
@@ -180,7 +187,7 @@ public sealed class CaptureSheetTests
             Assert.Single(capture.Attachments!);
             Assert.Single(host.Inbox.Uploads);
         });
-        Assert.Empty(app.FindAll("[data-testid='attachment-tile']"));
+        app.WaitForAssertion(() => Assert.Empty(app.FindAll("[data-testid='attachment-tile']")));
     }
 
     [Fact]
@@ -196,8 +203,11 @@ public sealed class CaptureSheetTests
 
         app.Find("[data-testid='capture-sheet-target-today']").Click();
 
-        Assert.NotNull(app.Find("[data-testid='capture-sheet-photo-notice']"));
-        Assert.True(app.Find("[data-testid='capture-sheet-save']").HasAttribute("disabled"));
+        app.WaitForAssertion(() =>
+        {
+            Assert.NotNull(app.Find("[data-testid='capture-sheet-photo-notice']"));
+            Assert.True(app.Find("[data-testid='capture-sheet-save']").HasAttribute("disabled"));
+        });
     }
 
     [Fact]
@@ -279,8 +289,11 @@ public sealed class CaptureSheetTests
         StartListening(app, host);
         app.Find("[data-testid='capture-sheet-cancel']").Click();
 
-        app.WaitForAssertion(() => Assert.Equal(1, host.Speech.StopCount));
-        Assert.Empty(app.FindAll("[data-testid='capture-sheet']"));
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, host.Speech.StopCount);
+            Assert.Empty(app.FindAll("[data-testid='capture-sheet']"));
+        });
     }
 
     [Fact]
@@ -296,7 +309,8 @@ public sealed class CaptureSheetTests
 
         Type(app, "Second thought");
 
-        Assert.Equal(string.Empty, app.Find("[data-testid='capture-sheet-status']").TextContent.Trim());
+        app.WaitForAssertion(() =>
+            Assert.Equal(string.Empty, app.Find("[data-testid='capture-sheet-status']").TextContent.Trim()));
     }
 
     private static IRenderedComponent<Routes> Open(ShellHost host, string route = "capture")
