@@ -244,6 +244,16 @@ A device keeps the records it pushed when they come back down the feed. A sessio
 whose transcript the assistant has cleaned away is therefore still answered from
 its record. The local reading of a session wins wherever there is one.
 
+A pull keeps what it read in one write, made when the pull ends. That holds
+whichever way it ends: at the end of the feed, on a failed page, on an exception or
+on a cancellation. Only then does it save the cursor that covers those records. The
+activity log names the sessions the pull received only after both writes. The
+replica store writes its file to a sibling and moves it over the original, so the
+file is replaced whole or not at all. The cursor therefore never runs ahead of the
+records it covers. A pull the process did not survive is read again from the last
+cursor it saved. That costs repeated work and loses nothing, because a record
+merges idempotently on its identity and server timestamp.
+
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a
   second version to discard. The conflict policy under

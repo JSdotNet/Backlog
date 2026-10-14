@@ -73,8 +73,9 @@ survives, because the thing that replicates is a record, not an authority:
 - **An environment keeps a [Session Record](#session-record) of each of its own
   sessions.** The record answers once the transcript is gone. The assistant
   cleans its transcripts away; Claude does so after a month by default. A session
-  read from nothing is a session the log no longer holds. So every reading amends the
-  local record, whether sync is on or not, and
+  read from nothing is a session the log no longer holds. So the environment reads its
+  sessions in full for the record's own sake and amends the local record from that
+  reading, whether sync is on or not. A consumer's reading never amends it, and
   [what an amendment may change](domain.invariants.md#invariant-a-session-record-is-added-to-and-never-taken-from)
   is an invariant.
 
@@ -1187,7 +1188,7 @@ so. It applies to the list's reading only; a reading since a horizon
 ```meta
 type: term
 aliases: [AgentSessionLimits.History, ReplicatedSessionLimits.History, AgentSessionQuery.Since]
-related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out, .devbook/domain/sessions/domain.md#session-limit]
+related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out, .devbook/domain/sessions/domain.md#session-limit, .devbook/domain/sessions/domain.md#reading-depth]
 ```
 
 How far back a reading since a horizon is promised to reach on every source: 26
@@ -1203,6 +1204,41 @@ many. So a consumer that counts is never handed the session limit as its total. 
 source that keeps another environment's records has to keep two sets: the newest
 sessions up to the limit, and everything inside the history whether or not it is among
 them. A fleet count is only as complete as the least complete store behind it.
+Like the list's reading, it can be asked for at either [reading depth](#reading-depth):
+the depth changes what each session carries, never which sessions are answered.
+
+### Reading Depth
+
+```meta
+type: term
+status: draft
+aliases: [AgentSessionDetail, AgentSessionQuery.Detail, AgentSessionQuery.TimestampsOnly]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-limit, .devbook/domain/sessions/domain.md#session-history, .devbook/domain/sessions/domain.md#session-identity, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/domain.md#activity-window, .devbook/domain/sessions/dependencies.md]
+```
+
+How much of each session a reading carries: **full**, which is what a reading is
+unless it asks otherwise, or **timestamps**. A timestamps reading carries what a
+source knows without opening a transcript. That is the session's `Session Identity`,
+its `Session State` and its `Activity Window`, each exactly as a full reading gives
+it. The list's reading and a reading since a horizon can each be asked for at either
+depth.
+
+A depth and not a third kind of reading, because it decides which fields a session
+carries and never which sessions are answered. A source that ignores it answers more
+than was asked for, which is still a right answer. A horizon is the opposite case:
+getting it wrong answers the wrong set of sessions.
+
+What only a transcript states is **absent** from a timestamps reading, never guessed.
+The reading leaves out the branch, the turn count, the entry point and the work. A
+past session's folder is empty, so its title falls back to the short id. A source
+that holds one of those fields without opening anything may still answer it, as a
+`Session Record` does. This is the log's rule against filling a gap.
+
+**A record is never built from a timestamps reading.** This environment amends its
+own `Session Record` and a push builds the records it sends, each from a full reading
+of its own. A thin reading would carry its absences into this log and into every
+other machine's. The timestamps depth is for a consumer that asks only when and in
+what state: a task's linked-session badge, or a roadmap entry dated by its sessions.
 
 ### Human Turn
 
