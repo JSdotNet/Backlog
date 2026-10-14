@@ -2,7 +2,6 @@
 
 ```meta
 date: 2026-10-07
-status: proposed
 related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md"]
 ```
 
@@ -21,11 +20,11 @@ read into the new shape rather than rejected.
 ```meta
 ```
 
-Proposed, 2026-10-07. Recorded after the fact by the flow-spec run of the
-`task-views` plan's step 9, from the code the plan's steps 1, 5, 7 and 8 merged
-into `plan/task-views` (pull requests #1040, #1044, #1043 and #1045). It
-describes what was built; it waits on the repository owner's acceptance at that
-run's Personal Validation gate.
+Accepted, 2026-10-14, by the repository owner when signing off the `task-views`
+plan (its step 18). Proposed on 2026-10-07 and recorded after the fact by the
+flow-spec run of the plan's step 9, from the code the plan's steps 1, 5, 7 and 8
+merged into `plan/task-views` (pull requests #1040, #1044, #1043 and #1045); the
+deferred pieces step 18 settled landed in pull request #1134.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
