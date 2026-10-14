@@ -112,6 +112,9 @@
     {
         <span>
             <code>@VisibleRepositories.First().FullName</code> is configured@(VisibleRepositories.Count > 1 ? $", and {VisibleRepositories.Count - 1} more." : ".")
+            @* Razor drops the line break before a code block, so the space
+               between the two sentences has to be written out. *@
+            @(" ")
             @if (AdditionalRepositoriesEnabled)
             {
                 <span>Type <code>@("@" + VisibleRepositories.First().Alias)</code> on an entry to assign it to <code>@VisibleRepositories.First().FullName</code>.</span>
