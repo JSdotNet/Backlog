@@ -45,6 +45,13 @@ namespace Backlog.UI.Components.Roadmap;
 /// guesses read apart from the work somebody has already picked up. Only the caller
 /// knows what "carried out" means; say it in <paramref name="Detail"/> as well,
 /// because the outline is not something a screen reader hears.</param>
+/// <param name="Overdue">Whether the bar's window has passed while its work is still
+/// open. Drawn in the warning tone with a marker after the title, over whatever else
+/// the bar is — a tentative bar keeps its outline. Only the caller knows what "open"
+/// and "today" mean, so the library holds no status of its own; and as with
+/// <paramref name="Tentative"/>, say it in <paramref name="Detail"/> too, because the
+/// marker is hidden from a screen reader — as its first line, which the tooltip puts
+/// straight after the dates, ahead of the progress figures.</param>
 public sealed record RoadmapBar(
     string Id,
     string RowId,
@@ -57,7 +64,8 @@ public sealed record RoadmapBar(
     bool Locked = false,
     IReadOnlyList<RoadmapStep>? Steps = null,
     bool EndResizable = false,
-    bool Tentative = false)
+    bool Tentative = false,
+    bool Overdue = false)
 {
     public IReadOnlyList<RoadmapFacet> FacetList => Facets ?? [];
 

@@ -433,4 +433,145 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         band.WaitForElement("[data-testid=\"roadmap-editor\"]");
     }
+
+    // --- Open in Tasks ------------------------------------------------------------
+
+    private const string OpenInTasks = "[data-testid=\"roadmap-editor-open-tasks\"]";
+
+    [Fact]
+    public async Task OpenInTasksIsOfferedForAnExistingItemWithATag_WhenTheShellCanOpenIt()
+    {
+        Configure("JSdotNet/Backlog");
+        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        Assert.False(string.IsNullOrEmpty(added.Value.Tag));
+
+        using var context = Context();
+        var band = context.Render<RoadmapBand>(parameters => parameters
+            .Add(component => component.OnOpenTasks, (RoadmapTasksRequest _) => { }));
+        band.WaitForElement("[data-testid=\"roadmap-timeline\"]");
+
+        await Activate(band, added.Value.Id);
+
+        var button = band.WaitForElement(OpenInTasks);
+        Assert.Equal("Open in Tasks", button.TextContent.Trim());
+    }
+
+    /// <summary>Nothing to go to when the host has no task list to open it in.</summary>
+    [Fact]
+    public async Task OpenInTasksIsNotOffered_WhenNothingAnswersIt()
+    {
+        Configure("JSdotNet/Backlog");
+        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+
+        using var context = Context();
+        var band = Drawn(context);
+
+        await Activate(band, added.Value.Id);
+
+        band.WaitForElement("[data-testid=\"roadmap-editor\"]");
+        Assert.Empty(band.FindAll(OpenInTasks));
+    }
+
+    [Fact]
+    public void OpenInTasksIsNotOfferedForNewWork()
+    {
+        using var context = Context();
+        var band = context.Render<RoadmapBand>(parameters => parameters
+            .Add(component => component.OnOpenTasks, (RoadmapTasksRequest _) => { }));
+
+        Open(band, "roadmap-band-add", "roadmap-editor");
+
+        Assert.Empty(band.FindAll(OpenInTasks));
+    }
+
+    /// <summary>An item with no tag carries no plan a task could be filed under, so there
+    /// is nothing to filter the list by. Rendered on its own, because the plan derives a
+    /// tag for every item it stores.</summary>
+    [Fact]
+    public void OpenInTasksIsNotOfferedForAnItemWithNoTag()
+    {
+        using var context = Context();
+        var item = new RoadmapItemDto(
+            Guid.NewGuid(), "Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9),
+            PlanningPriority.Medium, [], Lane: null, TaskId: null, DependsOn: [], Tag: "");
+
+        var editor = context.Render<RoadmapItemEditor>(parameters => parameters
+            .Add(component => component.Open, true)
+            .Add(component => component.Item, item)
+            .Add(component => component.CanOpenTasks, true));
+
+        Assert.Empty(editor.FindAll(OpenInTasks));
+    }
+
+    [Fact]
+    public void OpenInTasksRaisesTheItemsId()
+    {
+        using var context = Context();
+        var item = new RoadmapItemDto(
+            Guid.NewGuid(), "Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9),
+            PlanningPriority.Medium, [], Lane: null, TaskId: null, DependsOn: [], Tag: "work");
+        Guid? raised = null;
+
+        var editor = context.Render<RoadmapItemEditor>(parameters => parameters
+            .Add(component => component.Open, true)
+            .Add(component => component.Item, item)
+            .Add(component => component.CanOpenTasks, true)
+            .Add(component => component.OnOpenTasks, (Guid id) => raised = id));
+
+        editor.Find(OpenInTasks).Click();
+
+        Assert.Equal(item.Id, raised);
+    }
+
+    /// <summary>Going to the task list closes the dialog, so with an edit not yet saved
+    /// the button waits — disabled, and saying why — rather than throwing the edit away.
+    /// Putting the field back as it was enables it again.</summary>
+    [Fact]
+    public void OpenInTasksWaitsWhileTheEditorHoldsAnUnsavedChange()
+    {
+        using var context = Context();
+        var item = new RoadmapItemDto(
+            Guid.NewGuid(), "Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9),
+            PlanningPriority.Medium, [], Lane: null, TaskId: null, DependsOn: [], Tag: "work");
+        var raised = 0;
+
+        var editor = context.Render<RoadmapItemEditor>(parameters => parameters
+            .Add(component => component.Open, true)
+            .Add(component => component.Item, item)
+            .Add(component => component.CanOpenTasks, true)
+            .Add(component => component.OnOpenTasks, (Guid _) => raised++));
+
+        Assert.False(editor.Find(OpenInTasks).HasAttribute("disabled"));
+
+        editor.Find("[data-testid=\"roadmap-editor-title\"] input").Input("Work, renamed");
+
+        editor.WaitForAssertion(() =>
+        {
+            var button = editor.Find(OpenInTasks);
+            Assert.True(button.HasAttribute("disabled"));
+            Assert.Equal("Save or cancel your changes first", button.GetAttribute("title"));
+
+            // A disabled button leaves the tab order and a title is not announced
+            // reliably, so the reason is also text the button is described by.
+            var describedBy = button.GetAttribute("aria-describedby");
+            Assert.False(string.IsNullOrEmpty(describedBy));
+            var reason = editor.Find($"#{describedBy}");
+            Assert.Equal("Save or cancel your changes first", reason.TextContent.Trim());
+            Assert.Equal("roadmap-editor-open-tasks-reason", reason.GetAttribute("data-testid"));
+        });
+
+        editor.Find("[data-testid=\"roadmap-editor-title\"] input").Input("Work");
+
+        editor.WaitForAssertion(() =>
+        {
+            var button = editor.Find(OpenInTasks);
+            Assert.False(button.HasAttribute("disabled"));
+            Assert.Null(button.GetAttribute("title"));
+            Assert.Null(button.GetAttribute("aria-describedby"));
+            Assert.Empty(editor.FindAll("[data-testid=\"roadmap-editor-open-tasks-reason\"]"));
+        });
+
+        editor.Find(OpenInTasks).Click();
+        Assert.Equal(1, raised);
+    }
 }

@@ -869,9 +869,11 @@ public sealed class GlobalPaneMarkupTests
 
         // The roadmap and the dashboard are composed on the same terms. Their content
         // belongs to Roadmap and the Dashboard; the shell only decides where it goes.
-        // The roadmap takes no parameters at all: the shell renders it as a surface
-        // or it does not.
-        Assert.Contains("<RoadmapBand />", home, StringComparison.Ordinal);
+        // The roadmap takes one parameter, and it is a way out rather than content: its
+        // "Open in Tasks" asks the shell to show a plan in the task list, because the
+        // view switch and the list's filters are the shell's and the roadmap
+        // references no Tasks module. No plan, item or bar is handed down.
+        Assert.Contains("<RoadmapBand OnOpenTasks=\"OpenPlanTasks\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DashboardPane OnClose=", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("entry-doc__meta", home, StringComparison.Ordinal);

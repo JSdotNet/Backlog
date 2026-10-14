@@ -194,6 +194,33 @@
             </AppButton>
         }
 
+        @* The plan's tasks, in the task list: offered for stored work that carries a
+           tag a task can be filed under, and only where the host has a list to show
+           them in. Shown even before any task carries the tag — an empty list under
+           the plan chip says exactly that. Going there closes the dialog, so while it
+           holds an unsaved change the button waits, and says why — to the pointer
+           through `title` and to assistive technology through aria-describedby, as
+           IntegrationAction and CopyButton do: a disabled button leaves the tab order
+           and a title is not announced reliably. *@
+        @if (CanOpenTasks && Item is { Tag.Length: > 0 } tagged)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@HasUnsavedChanges"
+                       title="@(HasUnsavedChanges ? OpenTasksWaitReason : null)"
+                       aria-describedby="@(HasUnsavedChanges ? _openTasksReasonId : null)"
+                       OnClick="() => OnOpenTasks.InvokeAsync(tagged.Id)"
+                       TestId="roadmap-editor-open-tasks">
+                Open in Tasks
+            </AppButton>
+
+            @if (HasUnsavedChanges)
+            {
+                <span id="@_openTasksReasonId"
+                      class="sr-only"
+                      data-testid="roadmap-editor-open-tasks-reason">@OpenTasksWaitReason</span>
+            }
+        }
+
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
             Cancel
         </AppButton>
@@ -207,6 +234,11 @@
 @code {
     private const string MediumPriority = nameof(PlanningPriority.Medium);
     private const string DefaultLanePlaceholder = "Planned";
+    private const string OpenTasksWaitReason = "Save or cancel your changes first";
+
+    // Unique per instance: two editors on one page would otherwise send
+    // aria-describedby to whichever reason the browser saw first.
+    private readonly string _openTasksReasonId = $"roadmap-editor-open-tasks-reason-{Guid.NewGuid():N}";
 
     private string _title = string.Empty;
     private string _start = string.Empty;
@@ -291,6 +323,17 @@
     /// <summary>Raised when the person hands the end back to the forecast.</summary>
     [Parameter]
     public EventCallback<Guid> OnUseForecast { get; set; }
+
+    /// <summary>Whether the host can show the item's plan in the task list, so
+    /// "Open in Tasks" is worth offering. The band decides; the dialog only shows
+    /// it.</summary>
+    [Parameter]
+    public bool CanOpenTasks { get; set; }
+
+    /// <summary>Raised with the item's id when the person asks for its plan in the
+    /// task list.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnOpenTasks { get; set; }
 
     private bool IsNew => Item is null;
 
@@ -386,6 +429,7 @@
 
         if (Item is null)
         {
+            _loadedFields = null;
             _title = string.Empty;
             // A fortnight, which is a plan-shaped default: long enough to be a piece
             // of work, short enough that nobody leaves it as it arrived. From the week
@@ -418,7 +462,39 @@
         _repositories = [.. Item.RepositoryAliases];
         _dependsOn = [.. Item.DependsOn.Select(id => id.ToString())];
         _knowledge = [.. Item.Knowledge];
+        _loadedFields = Fields();
     }
+
+    /// <summary>The fields a Save writes, as they were loaded from the stored item;
+    /// null for new work. Dependencies are not among them: each one is stored the
+    /// moment it is ticked.</summary>
+    private EditedFields? _loadedFields;
+
+    /// <summary>Whether the fields differ from the stored item — an edit a Save would
+    /// write and closing the dialog would lose.</summary>
+    private bool HasUnsavedChanges => _loadedFields is { } loaded && loaded != Fields();
+
+    private EditedFields Fields() => new(
+        _title,
+        _start,
+        _end,
+        _priority,
+        _lane,
+        _notes,
+        _tag,
+        string.Join('\n', _repositories),
+        string.Join('\n', _knowledge));
+
+    private sealed record EditedFields(
+        string Title,
+        string Start,
+        string End,
+        string Priority,
+        string Lane,
+        string Notes,
+        string Tag,
+        string Repositories,
+        string Knowledge);
 
     /// <summary>The title, and — until the person takes the tag over — the tag with
     /// it. Once they have edited the tag, the title stops driving it.</summary>
