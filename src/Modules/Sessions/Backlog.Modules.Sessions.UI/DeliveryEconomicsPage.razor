@@ -17,8 +17,10 @@
     read from the round, blockers and defects the delivery phases report on a stage,
     and from how many passes Scope and Build & Test took. A run that reported nothing
     reads "not reported", never zero, and the page names how many runs the measure
-    stands on. A lesson card still compares cost only and says so. A figure nobody
-    measured is never drawn as a zero: a phase no run priced has no cost.
+    stands on. A lesson card sets the two configurations' measures side by side and
+    says how far its sample sizes let it be trusted; the table's verdict column reads
+    the lesson (DeliveryEconomics.VerdictOf). A figure nobody measured is never drawn
+    as a zero: a phase no run priced has no cost.
 
     Like the list, it is not a monitor. It prices the window's runs when it opens, when
     the window or the flow changes, and when somebody presses Refresh, with no timer.
@@ -145,6 +147,7 @@
                         <span class="delivery-economics__number">Median cost</span>
                         <span>Share of run</span>
                         <span>Quality measure</span>
+                        <span>Verdict</span>
                     </div>
                     <ul class="delivery-economics__rows">
                         @foreach (var phase in report.Phases)
@@ -218,6 +221,11 @@
                 }
             </span>
             <span class="delivery-economics__quality" title="@phase.Quality.Title" data-testid="economics-phase-quality"><span class="sr-only">quality measure: </span>@phase.Quality.Label</span>
+            @{ var verdict = DeliveryEconomics.VerdictOf(phase); }
+            <span class="delivery-economics__verdict" data-testid="economics-phase-verdict" data-verdict="@verdict.Kind">
+                <span class="sr-only">verdict: </span>
+                <Badge Kind="tone" Slug="@VerdictTone(verdict.Kind)" Title="@verdict.Reason">@verdict.Label</Badge>
+            </span>
         </ToggleButton>
     };
 
@@ -296,8 +304,8 @@
 
             @if (configurations.Count <= 1)
             {
-                <EmptyState Title="Only one configuration has run this phase"
-                            Description="So there is nothing to compare it with yet. To learn whether it is worth what it costs, run a cheaper one on a few changes through your local overlay; it shows up here beside this one."
+                <EmptyState Title="Not compared: only one configuration has run this phase"
+                            Description="So there is nothing to compare it with yet. To learn whether it is worth what it costs, try a cheaper model or effort on a few changes through your personal overlay (devbook-config:local); it shows up here beside this one."
                             TestId="economics-one-configuration" />
             }
             else if (lesson is not null)
@@ -311,9 +319,10 @@
         </aside>
     };
 
-    /// <summary>One lesson: the headline, both sample sizes, that quality was not
-    /// compared, and — unless it only confirms what is configured now — the request
-    /// to copy into a session, since the app never writes the overlay itself.</summary>
+    /// <summary>One lesson: the headline, both sample sizes, both quality measures, the
+    /// confidence the samples allow, and — unless it points to what is configured now —
+    /// the request to copy into a session, since the app never writes the overlay
+    /// itself.</summary>
     private RenderFragment Lesson(DeliveryLesson lesson) => __builder =>
     {
         <Card CssClass="@(lesson.KeepsNow ? "delivery-economics__lesson delivery-economics__lesson--keep" : "delivery-economics__lesson")"
@@ -324,6 +333,7 @@
                 <p class="delivery-economics__headline" data-testid="economics-lesson-headline">@lesson.Headline</p>
                 <p class="delivery-economics__lede" data-testid="economics-lesson-samples">@lesson.Samples</p>
                 <p class="delivery-economics__lede" data-testid="economics-lesson-quality">@lesson.QualityNote</p>
+                <p class="delivery-economics__lede delivery-economics__confidence" data-testid="economics-lesson-confidence" data-confidence="@lesson.Confidence">@lesson.ConfidenceLine</p>
                 @if (lesson.Estimated)
                 {
                     <p class="delivery-economics__lede">Some of these medians are @CostFigure.EstimatedNote at the Settings prices.</p>
@@ -363,6 +373,16 @@
     };
 
     private static readonly int[] Windows = [30, 90];
+
+    /// <summary>The badge tone a verdict reads in; the word carries the meaning, the
+    /// tone only groups it.</summary>
+    private static string VerdictTone(DeliveryVerdict verdict) => verdict switch
+    {
+        DeliveryVerdict.TryCheaper => "settled",
+        DeliveryVerdict.WorthIt => "live",
+        DeliveryVerdict.NotCompared => "archived",
+        _ => "quiet"
+    };
 
     private const string NoLessonLine =
         "No lesson yet: a lesson needs two configurations of this phase with at least five priced runs each, at different medians.";

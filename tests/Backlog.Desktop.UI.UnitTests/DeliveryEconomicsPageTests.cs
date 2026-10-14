@@ -110,7 +110,12 @@ public sealed class DeliveryEconomicsPageTests
             Assert.StartsWith("Sonnet at high effort runs Implement for $2.00 less than Opus", lesson.QuerySelector("[data-testid='economics-lesson-headline']")!.TextContent, StringComparison.Ordinal);
             Assert.Contains("6 runs", lesson.QuerySelector("[data-testid='economics-lesson-samples']")!.TextContent, StringComparison.Ordinal);
             Assert.Contains("5 runs", lesson.QuerySelector("[data-testid='economics-lesson-samples']")!.TextContent, StringComparison.Ordinal);
-            Assert.Equal("Quality not reported: this compares cost only.", lesson.QuerySelector("[data-testid='economics-lesson-quality']")!.TextContent.Trim());
+            Assert.Equal("Quality measure: Sonnet at high effort not reported · Opus not reported", lesson.QuerySelector("[data-testid='economics-lesson-quality']")!.TextContent.Trim());
+
+            // Five runs on the smaller side: not enough to call.
+            var confidence = lesson.QuerySelector("[data-testid='economics-lesson-confidence']")!;
+            Assert.Equal("NotEnoughToCall", confidence.GetAttribute("data-confidence"));
+            Assert.StartsWith("Not enough to call", confidence.TextContent.Trim(), StringComparison.Ordinal);
 
             // The library's copy button, worded, with its own status line.
             var copy = lesson.QuerySelector("[data-testid='economics-lesson-copy-button']")!;
@@ -136,7 +141,7 @@ public sealed class DeliveryEconomicsPageTests
             Assert.Equal("Copied", page.Find("[data-testid='economics-lesson-copy-result']").TextContent.Trim());
 
             var request = Assert.Single(copy.Invocations).Arguments[0] as string;
-            Assert.StartsWith("Use devbook-config:local to set the Implement phase of flow-code to Sonnet at high effort", request, StringComparison.Ordinal);
+            Assert.StartsWith("Use devbook-config:local to set the Implement phase of flow-code in my personal overlay: its model to sonnet, its effort to high.", request, StringComparison.Ordinal);
         });
     }
 
@@ -169,8 +174,65 @@ public sealed class DeliveryEconomicsPageTests
             var panel = page.Find("[data-testid='economics-panel']");
 
             Assert.Single(panel.QuerySelectorAll("[data-testid='economics-config']"));
-            Assert.Contains("Only one configuration has run this phase", panel.QuerySelector("[data-testid='economics-one-configuration']")!.TextContent, StringComparison.Ordinal);
+            var empty = panel.QuerySelector("[data-testid='economics-one-configuration']")!.TextContent;
+            Assert.Contains("Not compared: only one configuration has run this phase", empty, StringComparison.Ordinal);
+            Assert.Contains("try a cheaper model or effort", empty, StringComparison.Ordinal);
+            Assert.Contains("devbook-config:local", empty, StringComparison.Ordinal);
             Assert.Null(panel.QuerySelector("[data-testid='economics-lesson']"));
+        });
+    }
+
+    [Fact]
+    public void Each_phase_row_carries_its_verdict_with_the_reason_as_its_title()
+    {
+        using var context = Context();
+
+        // Opus alone ran Implement at $3; Review at a cent is under 2% of the run.
+        var page = Render(context, [.. Series("o", 6, 1, Opus, 3m, 0.01m)]);
+
+        page.WaitForAssertion(() =>
+        {
+            var implement = Cell(page, "Implement", "economics-phase-verdict");
+            Assert.Equal("NotCompared", implement.GetAttribute("data-verdict"));
+            Assert.Contains("Not compared", implement.TextContent, StringComparison.Ordinal);
+            Assert.Contains("verdict:", implement.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Only one configuration", implement.QuerySelector(".badge")!.GetAttribute("title"), StringComparison.Ordinal);
+
+            var review = Cell(page, "Review", "economics-phase-verdict");
+            Assert.Equal("NothingToTune", review.GetAttribute("data-verdict"));
+            Assert.Contains("Nothing to tune", review.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_cheaper_configuration_whose_quality_nobody_reported_is_no_call_yet()
+    {
+        using var context = Context();
+        var page = Render(context, Mixed());
+
+        page.WaitForAssertion(() =>
+        {
+            var implement = Cell(page, "Implement", "economics-phase-verdict");
+            Assert.Equal("NoCall", implement.GetAttribute("data-verdict"));
+            Assert.Contains("No call yet", implement.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_dearer_configuration_that_lowers_the_run_cost_reads_worth_it()
+    {
+        using var context = Context();
+
+        // Sonnet saves $2 in Implement, but its runs' Review costs $5 more.
+        var page = Render(context, [.. Series("o", 5, 1, Opus, 3m, 1m), .. Series("s", 5, 10, Sonnet, 1m, 6m)]);
+
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll("[data-testid='economics-phase']").Count));
+        page.Find("[data-testid='economics-phase'][data-phase='Implement']").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal("WorthIt", Cell(page, "Implement", "economics-phase-verdict").GetAttribute("data-verdict"));
+            Assert.Contains("the cheaper phase raises the run's cost", page.Find("[data-testid='economics-lesson-headline']").TextContent, StringComparison.Ordinal);
         });
     }
 
