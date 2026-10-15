@@ -88,5 +88,5 @@ The person sets it on the desktop, on the Tasks page of Settings. The phone has
 no switch of its own and follows the desktop's choice. The choice syncs, so
 every paired device lists the same My Day
 ([ADR 0032](../../arc42/adr/0032-my-day-preferences-ride-the-task-feed.md),
-proposed). Flipping it never rewrites a task, because each device applies it
+accepted). Flipping it never rewrites a task, because each device applies it
 when it reads My Day. A device that never received a choice reads it as on.

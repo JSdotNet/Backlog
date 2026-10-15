@@ -213,8 +213,9 @@ because `TaskViewRow` uses `AgendaTime`. The phone needs no new field, because
 
 The phone applies the rule in `TaskViewRow.IsInMyDay`, `TaskViewProjection.Day`,
 `FocusPage.razor` and `TaskPage.razor`. `TaskViewRow.AgendaTime` shows a slot only
-when the stamp equals today. The edit gate on Focus and the task page admits a
-carried task, so done and Move to tomorrow work on it. `TaskEdits.MoveToTomorrowAsync`
+when the stamp equals today. Focus stays slot-only: a carried task has no slot
+today, so Focus sends it to its own page. The task page admits a carried task, so
+Mark done and Move to tomorrow work on it there. `TaskEdits.MoveToTomorrowAsync`
 stays as it is, because a future stamp leaves today's My Day.
 
 The desktop call sites are those the escalating run already scoped.
