@@ -35,8 +35,11 @@ function stubFetch(respond: (call: Call, calls: Call[]) => Response): { fetch: F
     const calls: Call[] = [];
     const fetch: FetchFn = async (url, init) => {
         const headers = new Headers(init?.headers);
+        // Compared by parsed origin, not by string prefix: a prefix match would also
+        // accept https://sync.test.example.com and record it as one of ours.
+        const target = new URL(url);
         const call: Call = {
-            path: url.startsWith(baseUrl) ? url.slice(baseUrl.length) : url,
+            path: target.origin === new URL(baseUrl).origin ? target.pathname + target.search : url,
             method: init?.method ?? 'GET',
             authorization: headers.get('authorization'),
             body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined
