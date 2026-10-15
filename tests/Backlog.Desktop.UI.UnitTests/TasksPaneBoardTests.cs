@@ -123,6 +123,39 @@ public sealed class TasksPaneBoardTests
         Assert.Empty(pane.FindAll("[data-testid='board-column-add']"));
     }
 
+    /// <summary>By plan the board shows what is still to do: a ticked-off or
+    /// archived entry is no card, a plan with nothing left has no column, and the
+    /// plans drawn are the plans the tag chips offer.</summary>
+    [Fact]
+    public async Task Columns_by_plan_leave_out_finished_work_and_a_plan_with_nothing_left_has_no_column()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var open = await host.WriteEntryAsync("# Build the board\n`task` `!ready` `+task-views` `effort:5`\n");
+        var ticked = await host.WriteEntryAsync("# Sketch the board\n`task` `!in-progress` `+task-views` `effort:3` `completed:2026-10-01`\n");
+        var archived = await host.WriteEntryAsync("# Old swimlanes\n`task` `!archived` `+task-views` `effort:2`\n");
+        var shipped = await host.WriteEntryAsync("# Rotate the key\n`task` `!in-progress` `+sync-hardening` `completed:2026-10-01`\n");
+        var loose = await host.WriteEntryAsync("# Banner copy\n`task` `effort:1`\n");
+        var looseTicked = await host.WriteEntryAsync("# Hours report\n`task` `!in-progress` `completed:2026-10-01`\n");
+
+        var pane = RenderBoard(host, TaskBoardGrouping.Plan);
+
+        Assert.Equal(["+task-views", "No plan"], ColumnTitles(pane));
+        Assert.Equal([open.TaskId], CardIdsIn(pane, "plan:+task-views"));
+        Assert.Equal("1", Text(pane, "plan:+task-views", "board-column-count"));
+        Assert.Equal("5 pts", Text(pane, "plan:+task-views", "board-column-points"));
+        Assert.Equal([loose.TaskId], CardIdsIn(pane, "plan:"));
+
+        foreach (var finished in new[] { ticked, archived, shipped, looseTicked })
+        {
+            Assert.Empty(pane.FindAll($"[data-task-id='{finished.TaskId}']"));
+        }
+
+        // The column agrees with its chip: a plan whose entries are all finished
+        // is on neither.
+        var planChips = host.State.TagFilters.Select(chip => chip.Value).Where(value => value.StartsWith('+')).ToArray();
+        Assert.Equal(planChips, ColumnTitles(pane).Where(title => title.StartsWith('+')).ToArray());
+    }
+
     [Fact]
     public async Task Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones()
     {

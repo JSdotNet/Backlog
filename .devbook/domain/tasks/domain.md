@@ -228,8 +228,10 @@ most one, and a task without one is local work.
 [Task Connector](#task-connector) needs no schema change. A device that does not
 know the id still shows `display_key`. `external_id` is the source's stable id,
 never a number that moves when the item is transferred. `assignee` and
-`source_state` are the source's own values, kept for display and for the
-"Assigned to me" filter. They are not the task's status.
+`source_state` are the source's own values, kept for display. They are not the
+task's status. No screen filters on the assignee: the "Assigned to me" filter
+was removed, so a sync still rewrites the assignee but nothing narrows the list
+by it.
 
 Each sync rewrites the Source Ref. It is held in an additive `source_ref`
 column (local ADR 0006) and travels in the replica payload. A
@@ -963,7 +965,7 @@ A plan may name a task by id and read its progress; it never writes to it.
 ```meta
 type: term
 aliases: [machine, PC]
-related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#owner, .devbook/domain/tasks/domain.md#registration-credential, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/domain.md#owner, .devbook/domain/sync/domain.md#device, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 One machine holding the person's backlog. A device is not a user and not an
@@ -973,73 +975,9 @@ thing that is known and authorized.
 Each device holds its own canonical copy of every task. Two devices are peers:
 neither is the master, and the cloud replica between them is a courier rather
 than an authority. **Paired** describes two devices that share one
-[Owner](#owner). They are joined once: one device issues a
-[Pairing code](#pairing-code) and the other redeems it. Each device keeps its own
-[Registration credential](#registration-credential) and exchanges it for a
-[Device token](#device-token) before every sync call.
-
-### Owner
-
-```meta
-type: term
-aliases: [ownerId, owner id]
-related: [.devbook/domain/tasks/domain.md#device, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity]
-```
-
-The backlog an `ownerId` names. It is not a person's account, since the product
-requires none, but the identifier every device paired together shares. The
-first device to register mints it; every device paired to that device
-afterward registers under the same one. It is the partition every stored task
-and session record carries. The sync service reads it out of a device's
-presented [Device token](#device-token) to decide which partition a call may
-touch.
-
-### Pairing code
-
-```meta
-type: term
-aliases: [pairing code, XXXX-XXXX code]
-related: [.devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
-```
-
-A short, single-use code a first device issues so a second device can join its
-[Owner](#owner). Eight characters from an alphabet that drops visually
-confusable letters and digits, shown to the person as `XXXX-XXXX`. It
-[works for ten minutes](requirements.md#requirement-a-pairing-code-works-for-ten-minutes)
-and [pairs one device](requirements.md#requirement-a-pairing-code-pairs-one-device),
-so a code that leaks unused stops being a way in on its own.
-
-### Registration credential
-
-```meta
-type: term
-aliases: [device credential, credential]
-related: [.devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device-token, .devbook/domain/tasks/domain.md#device]
-```
-
-The long-lived secret a device receives at first registration or at pairing,
-and [is shown once](requirements.md#requirement-the-registration-credential-is-shown-once).
-The device keeps it in its own OS credential store rather than anywhere the
-backlog itself is stored. Before every sync call, a device exchanges it for a
-[Device token](#device-token) rather than presenting the credential itself on
-the wire.
-
-### Device token
-
-```meta
-type: term
-aliases: [access token, device session token, sync token]
-related: [.devbook/domain/tasks/domain.md#registration-credential, .devbook/domain/tasks/domain.md#owner, .devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
-```
-
-The short-lived credential a device actually presents on a sync call. It lasts
-thirty minutes unless the deployment sets a lifetime between 15 and 60, and
-[an expired one is refused](requirements.md#requirement-a-device-token-expires).
-The device obtains it by exchanging its
-[Registration credential](#registration-credential), so the registration
-credential itself never crosses the wire a second time. It names the device and
-the [Owner](#owner) it belongs to, and
-[every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
+[Owner](../sync/domain.md#owner). Pairing, and the credentials a device syncs
+with, are the [Sync](../sync/context.md) context's: see
+[Pairing a device](../sync/features.md#pairing-a-device).
 
 ### Tombstone
 
@@ -1106,9 +1044,21 @@ One outside system seen through the one contract Tasks knows,
 colour token. It fetches the items of a [Connected Target](#connected-target)
 and names each one by a display key. For each item it reports its
 [Source State](#source-state) and whether it is blocked, and why. It also reports
-what the system can do and who the connected account is. It lists the statuses a
-target uses, each with its Source State, so a person can map them; a connector
-with nothing to map lists none.
+what the system can do. A connector a person signs in to names the account
+that is signed in. It lists the statuses a target uses, each with its Source
+State, so a person can map them; a connector with nothing to map lists none. A
+connector that can list its targets offers them by name to pick from, and the
+person types any other target in.
+
+A fetch that fails for a reason the connector recognises fails with a sentence
+the person can act on. The reasons are a target that is not there, an account
+that may not read it, a source Backlog's settings do not name, and nobody
+signed in. Any other failure reads as the source not being reached.
+
+Of what a connector declares it can do, only two things change anything yet:
+whether it can complete an item at the source, and whether a target is a code
+repository. Effort, dependencies, setting a status and commenting are declared
+but drive nothing.
 
 GitHub and spec-manager are the first two. This context never names a
 connector, so the source badge and the Source filter are drawn from the
@@ -1126,18 +1076,25 @@ related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/domain/tasks/
 One GitHub repository or one spec-manager product a person has connected. It
 holds the connector id, whether it is enabled, and these settings:
 
-- whether the first sync skips old items;
-- whether "Assigned to me" is on by default;
-- whether the title follows the source;
-- the sync interval;
-- what Promote to plan does with the original task;
-- whether finishing a task here completes its item at the source;
+- how old an untouched item may be before the first sync skips it, or no
+  limit;
+- whether the title follows the source, on by default;
+- the sync interval, fifteen minutes by default;
+- whether finishing a task here completes its item at the source, off by
+  default and offered only when the connector can complete items;
 - the repository its tasks are filed under, or none to leave it to the
   connector;
 - its status map, from the source's own status names to task statuses, empty
   until the person maps a status.
 
-It never holds credentials.
+It also records how far its sync has got: when the last successful sync
+started, the cut-off the first sync fixed for untouched items, and why and
+when the last sync failed. A failure leaves the last success in place, so the
+next sync still asks from there, and the next success clears it.
+
+It never holds credentials. Disconnecting a target keeps its tasks. The person
+can later delete the tasks a disconnected target left behind, which makes each
+one a [Tombstone](#tombstone).
 
 ### Source State
 

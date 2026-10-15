@@ -179,6 +179,8 @@
         @if (!IsNew)
         {
             <DeleteButton Lead="true"
+                          Busy="@(_pending is PendingWrite.Delete)"
+                          aria-disabled="@Blocked"
                           OnClick="DeleteAsync"
                           TestId="roadmap-editor-delete" />
         }
@@ -225,7 +227,14 @@
             Cancel
         </AppButton>
 
-        <AppButton Variant="ButtonVariant.Primary" OnClick="SaveAsync" TestId="roadmap-editor-save">
+        @* Busy from the press until the band has answered, so a second press is
+           dropped rather than planning the work twice (#busy-actions). *@
+        <AppButton Variant="ButtonVariant.Primary"
+                   Busy="@(_pending is PendingWrite.Save)"
+                   BusyLabel="Saving"
+                   aria-disabled="@Blocked"
+                   OnClick="SaveAsync"
+                   TestId="roadmap-editor-save">
             @(IsNew ? "Plan it" : "Save")
         </AppButton>
     </Footer>
@@ -520,6 +529,8 @@
 
     private async Task SaveAsync()
     {
+        if (_pending is not PendingWrite.None) return;
+
         _titleError = string.IsNullOrWhiteSpace(_title) ? "Give it a title." : null;
         _windowError = null;
         _error = null;
@@ -540,7 +551,7 @@
 
         if (_titleError is not null || _windowError is not null) return;
 
-        await OnSave.InvokeAsync(new RoadmapEditorSubmission(
+        await WriteAsync(PendingWrite.Save, () => OnSave.InvokeAsync(new RoadmapEditorSubmission(
             Item?.Id,
             _title.Trim(),
             start!.Value,
@@ -552,7 +563,42 @@
             string.IsNullOrWhiteSpace(_notes) ? null : _notes,
             // A blank tag says "derive it from the title"; the module does that.
             string.IsNullOrWhiteSpace(_tag) ? null : _tag.Trim(),
-            _knowledge));
+            _knowledge)));
+    }
+
+    /// <summary>The write in flight, if any: one at a time, so a second press of
+    /// either button while the band answers the first is dropped.</summary>
+    private PendingWrite _pending;
+
+    /// <summary>Save and Delete while either runs: aria-disabled rather than the
+    /// native attribute, so the one not pressed keeps its place in the tab order
+    /// (#accessibility); SaveAsync and DeleteAsync drop its press.</summary>
+    private string? Blocked => _pending is PendingWrite.None ? null : "true";
+
+    private enum PendingWrite
+    {
+        None,
+        Save,
+        Delete
+    }
+
+    /// <summary>Marks the pressed button busy, lets that paint, then waits on the
+    /// band. The yield is the acknowledgement before work: the band's write may do
+    /// its own synchronous work before its first await, and without it the busy
+    /// state would only show once that was over (#press-feedback).</summary>
+    private async Task WriteAsync(PendingWrite write, Func<Task> act)
+    {
+        _pending = write;
+
+        try
+        {
+            await Task.Yield();
+            await act();
+        }
+        finally
+        {
+            _pending = PendingWrite.None;
+        }
     }
 
     private async Task OnDependenciesChangedAsync(IReadOnlyList<string> values)
@@ -584,7 +630,10 @@
 
     private async Task DeleteAsync()
     {
-        if (Item is not null) await OnDelete.InvokeAsync(Item.Id);
+        if (Item is { } item && _pending is PendingWrite.None)
+        {
+            await WriteAsync(PendingWrite.Delete, () => OnDelete.InvokeAsync(item.Id));
+        }
     }
 
     private async Task CancelAsync() => await OpenChanged.InvokeAsync(false);

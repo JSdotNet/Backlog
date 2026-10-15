@@ -154,3 +154,14 @@ test("a bad argument exits 2", async () => {
         assert.equal(cli(root, "--nope").status, 2);
     });
 });
+
+test("a demo path outside the repository is reported and never read", async () => {
+    await withRepo({ [PAGE_PATH]: page(), [DEMO_PATH]: demo() }, async (root) => {
+        const outside = `../${path.basename(root)}-outside.demo.html`;
+        const [result] = await syncDemos(root, { files: [outside] });
+        assert.deepEqual(result, { path: outside, changes: [], problems: [`${outside}: resolves outside the repository`] });
+        const run = cli(root, outside);
+        assert.equal(run.status, 1);
+        assert.match(run.stderr, /resolves outside the repository/);
+    });
+});

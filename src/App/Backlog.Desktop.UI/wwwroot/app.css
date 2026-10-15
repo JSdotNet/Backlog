@@ -915,6 +915,15 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
+/* The anchor-shaped icon links — Settings, Back — get the pressed state every
+   button already has from components.css, at the same weight and the same
+   brightness (.devbook/design/interaction-guidelines.md#press-feedback). The
+   button-shaped ones, and every chip, header option and row button in this
+   file, are `<button>`s and are covered there. */
+:where(a.icon-link):active {
+    filter: brightness(0.85);
+}
+
 
 /* --- Backlog split: a list and the entry beside it ----------------------- */
 /*
@@ -1137,6 +1146,19 @@ h1, h2, h3 {
    the column has one rhythm from top to bottom. */
 .backlog-list__scroll > .task-list__completed {
     margin-top: 0;
+}
+
+/* The scroller carries the list's aria-busy, because the rows are what reloads.
+   The bulk bar sticks inside it and is not reloading, so the dim goes on the
+   scroller's other children rather than on the scroller
+   (interaction-guidelines.md#scoped-loading, Scope). */
+.backlog-list__scroll[aria-busy="true"] {
+    opacity: 1;
+}
+
+.backlog-list__scroll[aria-busy="true"]:not(:has(.skeleton)) > :not(.backlog-bulk-bar) {
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
 }
 
 /* The first load's placeholder rows, spaced like the entry rows they stand in for. */
@@ -7652,6 +7674,46 @@ a.pull-request-detail-checks__name:hover {
     color: var(--color-text-secondary);
 }
 
+/* A stage's screenshots and links: lists in the same rhythm as the sub-agents,
+   one scenario per entry with its files indented under it. */
+.sessions-stage__scenarios,
+.sessions-stage__links {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sessions-stage__scenario {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.sessions-stage__scenario-notes {
+    flex-basis: 100%;
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__screenshots {
+    display: grid;
+    flex-basis: 100%;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0 0 0 var(--spacing-md);
+    list-style: none;
+}
+
+.sessions-stage__screenshot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
 /* The figures under the diagram, in as many columns as fit — the run's identity and
    context, its tokens, its tool calls and its servers side by side on a wide pane,
    stacked on a narrow one. */
@@ -9120,6 +9182,23 @@ a.pull-request-detail-checks__name:hover {
     border-radius: var(--border-radius-lg);
     background: color-mix(in srgb, var(--color-background-alt) 86%, var(--color-background));
     box-shadow: var(--shadow-sm);
+}
+
+/* The menu's column: the tree, then the scenario legend under it. The tree takes
+   what the row has and scrolls inside it, as it did when it was the column itself;
+   the legend takes only its own height, so it stays in view below the tree. */
+.devbook-stack__menu-column {
+    display: grid;
+    grid-template-rows: minmax(0, auto) auto;
+    align-content: start;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    min-height: 0;
+    max-height: 100%;
+}
+
+.devbook-stack__scenario-legend {
+    padding: 0 var(--spacing-md);
 }
 
 .devbook-stack__menu-heading {

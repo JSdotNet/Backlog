@@ -116,7 +116,77 @@ public sealed class DocumentDevbookViewRerenderTests : IDisposable
         });
     }
 
-    private Harness CreateHarness()
+    /// <summary>
+    /// The editor saves the chapter as it is typed, and every save reads the chapter
+    /// again. That read is of the file the reader is typing into, and nothing they
+    /// asked for is loading, so it never starts the wait that marks the chapter busy:
+    /// a dimmed field on every autosave, announced as busy, is the flash
+    /// interaction-guidelines.md#timing forbids.
+    /// </summary>
+    [Fact]
+    public async Task An_autosave_of_the_chapter_being_edited_never_marks_it_busy()
+    {
+        var clock = new LoaderDelayClock();
+        await using var harness = CreateHarness(clock);
+
+        var component = harness.Render("backlog", "color-scheme.md");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file-edit']")));
+        await component.InvokeAsync(() => component.Find("[data-testid='design-chapter-file-edit']").Click());
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("textarea")));
+        var reads = harness.Folders.ChapterReads;
+        var waits = clock.LoaderWaits;
+
+        component.Find("textarea").Input("# Colors\n\nTyped, and saved on the way out of the field.\n");
+        component.Find("textarea").Blur();
+
+        component.WaitForAssertion(() => Assert.True(harness.Folders.ChapterReads > reads), TimeSpan.FromSeconds(5));
+        Assert.Equal(waits, clock.LoaderWaits);
+        Assert.Null(component.Find("article.folder-document").GetAttribute("aria-busy"));
+        Assert.NotEmpty(component.FindAll("textarea"));
+    }
+
+    /// <summary>A chapter the reader picked is a load they asked for: it starts the
+    /// wait, and a read that outlasts it marks the chapter busy.</summary>
+    [Fact]
+    public async Task Selecting_another_chapter_starts_the_wait_for_its_loader()
+    {
+        var clock = new LoaderDelayClock();
+        await using var harness = CreateHarness(clock);
+
+        var component = harness.Render("backlog", "color-scheme.md");
+        component.WaitForAssertion(() => Assert.Contains("The palette and how it is applied.", component.Markup, StringComparison.Ordinal));
+        var waits = clock.LoaderWaits;
+
+        harness.Render(component, "backlog", "interaction-guidelines.md");
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains("Every control answers within a frame.", component.Markup, StringComparison.Ordinal);
+            Assert.Equal(waits + 1, clock.LoaderWaits);
+        });
+
+        // The read landed well inside the wait, so the mark never went up.
+        Assert.Null(component.Find("article.folder-document").GetAttribute("aria-busy"));
+        Assert.Empty(component.FindAll("[data-testid='design-chapter-file-refreshing']"));
+    }
+
+    /// <summary>The system clock, counting the waits of exactly the length a region
+    /// loader waits before it shows (interaction-guidelines.md#timing).</summary>
+    private sealed class LoaderDelayClock : TimeProvider
+    {
+        private static readonly TimeSpan LoaderDelay = TimeSpan.FromMilliseconds(300);
+        private int _waits;
+
+        public int LoaderWaits => Volatile.Read(ref _waits);
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            if (dueTime == LoaderDelay) Interlocked.Increment(ref _waits);
+            return System.CreateTimer(callback, state, dueTime, period);
+        }
+    }
+
+    private Harness CreateHarness(TimeProvider? clock = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-document-view-rerender-tests", Guid.NewGuid().ToString("n"));
         _roots.Add(root);
@@ -138,6 +208,7 @@ public sealed class DocumentDevbookViewRerenderTests : IDisposable
         context.Services.AddSingleton<IDevbookFolderSource>(folders);
         context.Services.AddSingleton<DesignDevbookProvider>();
         context.Services.AddSingleton<DevbookChapterWriter>();
+        if (clock is not null) context.Services.AddSingleton(clock);
 
         return new Harness(context, folders, backlog);
     }

@@ -63,8 +63,8 @@ public sealed class HomeDevbookPaneTests
             await state.SelectAsync(row);
         });
 
-        var chip = component.WaitForElement("[data-testid='entry-devbook-reference'] button.devbook-chip__label");
-        await chip.ClickAsync(new());
+        component.WaitForElement(ReferenceChip);
+        await component.ClickAsync(ReferenceChip);
 
         component.WaitForAssertion(() =>
         {
@@ -104,16 +104,17 @@ public sealed class HomeDevbookPaneTests
             await state.SelectAsync(row);
         });
 
-        await component.WaitForElement("[data-testid='entry-devbook-reference'] button.devbook-chip__label").ClickAsync(new());
+        component.WaitForElement(ReferenceChip);
+        await component.ClickAsync(ReferenceChip);
         component.WaitForAssertion(() =>
             Assert.EndsWith("tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent, StringComparison.Ordinal));
 
         // Hidden: pressing its toggle closes it.
-        await component.Find("[data-testid='devbook-pane-option']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='devbook-pane-option']");
 
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-stack']")));
 
-        await component.Find("[data-testid='devbook-pane-option']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='devbook-pane-option']");
 
         // Back, with its menu loaded — the moment a request it was still handed
         // would be followed — and on whatever it opens on by itself.
@@ -131,6 +132,8 @@ public sealed class HomeDevbookPaneTests
                 text => text.EndsWith("tasks/domain.md", StringComparison.Ordinal)),
             TimeSpan.FromSeconds(2)));
     }
+
+    private const string ReferenceChip = "[data-testid='entry-devbook-reference'] button.devbook-chip__label";
 
     private static Harness CreateHarness()
     {
@@ -152,7 +155,7 @@ public sealed class HomeDevbookPaneTests
         var repository = Assert.Single(repositories);
         var configuredRepository = repository with
         {
-            CloneDirectory = FindRepositoryRoot(),
+            CloneDirectory = WriteClone(Path.Combine(root, "clone")),
             DevbookFolders = DevbookFolderSetting.Defaults()
         };
         Assert.Null(gitHubSettings.SetRepositories([configuredRepository]));
@@ -237,7 +240,39 @@ public sealed class HomeDevbookPaneTests
         return new Harness(root, context);
     }
 
-    private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
+    /// <summary>
+    /// A clone holding the one chapter these tests open —
+    /// <c>.devbook/domain/tasks/domain.md</c>, with its <c>Task</c> chapter — beside
+    /// what a pane opens on by itself: instruction files at the root and the
+    /// domain folder's context map.
+    /// <para>
+    /// It used to be this repository's own worktree. The pane then walked the live
+    /// <c>.devbook/</c> — close to two hundred chapters — and drew the fifty-kilobyte
+    /// tasks chapter on the thread pool with no database to read it from, so under
+    /// a loaded suite the first render landed after the wait had given up. The tests
+    /// are about the shell following a reference, not about how large this
+    /// repository's devbook has grown.
+    /// </para>
+    /// </summary>
+    private static string WriteClone(string clone)
+    {
+        WriteFile(clone, "AGENTS.md", "# Agents\n\nHow agents work in this repository.\n");
+        WriteFile(clone, "CLAUDE.md", "# Claude\n\nRead AGENTS.md first.\n");
+        WriteFile(clone, ".devbook/domain/context-map.md", "# Context Map\n\n```meta\nstatus: draft\n```\n\nOne bounded context: tasks.\n");
+        WriteFile(
+            clone,
+            ".devbook/domain/tasks/domain.md",
+            "# Tasks\n\n```meta\ntype: domain\nstatus: draft\n```\n\nThe tasks context's model.\n\n"
+            + "## Task\n\n```meta\ntype: aggregate\nstatus: draft\n```\n\nA refined, actionable item in the personal backlog.\n");
+        return clone;
+    }
+
+    private static void WriteFile(string root, string relativePath, string content)
+    {
+        var path = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+    }
 
     private sealed record Harness(string Root, BunitContext Context) : IAsyncDisposable
     {

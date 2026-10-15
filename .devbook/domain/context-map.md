@@ -31,6 +31,7 @@ status: draft
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
 | Progress | Supporting | It lays sprints over a set of repositories and reports what each set out to do and how it ended, naming tasks by id and plans by tag without owning either. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
+| Sync | Supporting | It keeps one person's data the same across their devices. It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model, but it carries other contexts' documents rather than being what makes the product different. |
 
 ## Context map
 
@@ -49,6 +50,7 @@ flowchart LR
     DevPC[Dev PC Management]
     Sessions[Sessions]
     Progress[Progress]
+    Sync[Sync]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
     %% Inbox -> Tasks is built as an in-process port (IInboxBacklogTarget in
@@ -103,6 +105,14 @@ flowchart LR
     Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary| Progress
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Progress
     Progress -->|Customer/Supplier<br/>Open sprint and goal for the briefs| Monitor
+
+    %% Sync. It carries the documents of the contexts below and reads none of
+    %% their payloads. Each downstream context reaches it through an adapter in
+    %% Backlog.Infrastructure.Sync. See .devbook/domain/sync/context.md.
+    Sync -->|OHS + Published Language<br/>Task replica feed| Tasks
+    Sync -->|OHS + Published Language<br/>Session record replica| Sessions
+    Sync -->|OHS + Published Language<br/>Annotation replica| Brain
+    Sync -->|Customer/Supplier<br/>capture-kind documents for IInboxIntake| Inbox
 ```
 
 ## Published languages and contracts
@@ -121,6 +131,7 @@ flowchart LR
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
+| Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
 ## Strategic rules
 
@@ -169,8 +180,8 @@ flowchart LR
 - `Sessions` is the single owner of the agent-session record. No other context
   models agent sessions. `Monitoring`'s own `copilot_session` signal kind gives way
   to this context once the two are wired together.
-- `Sessions` publishes no bounded-context domain event. It appears in no row of the
-  published-language table above, and its Dev PC Management and Monitoring edges
+- `Sessions` publishes no bounded-context domain event. It owns no row of the
+  published-language table above (it only uses Sync's replica protocol), and its Dev PC Management and Monitoring edges
   stay dashed. Two infrastructure adapters read it directly, as Customer/Supplier
   reads rather than published contracts:
   - for `Productivity`, the
@@ -197,3 +208,12 @@ flowchart LR
   (`.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
   Progress publishes no event, so it has no row in the published-language table;
   its four edges are Customer/Supplier reads.
+- `Sync` carries other contexts' documents without interpreting them.
+  It stores each one whole under its [Owner](sync/domain.md#owner), orders
+  pushed copies by stamp and tombstone
+  ([Change Precedence](sync/domain.md#change-precedence)), and hands them back.
+  It reads no payload field, and the merge into a device's store stays with the
+  document's owner: Tasks, Sessions, Devbook, or the Inbox for a `capture`-kind
+  document. A context that wants its documents on every device conforms to the
+  replica protocol through an adapter in `Backlog.Infrastructure.Sync`; it never
+  reaches into another context's documents on the replica.

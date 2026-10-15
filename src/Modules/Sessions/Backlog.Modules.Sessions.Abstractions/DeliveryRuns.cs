@@ -302,6 +302,24 @@ public sealed record DeliveryRunStage(string Name, string Status, long? Duration
     public IReadOnlyList<DeliveryScenarioEvidence> Evidence { get; init; } = [];
 
     /// <summary>
+    /// The scenarios the stage reported exercising, as its last <c>update_stage</c>
+    /// with <c>scenarios</c> sent them — Verify sends one per scenario page it ran,
+    /// its screenshot paths as the evidence, a failed part's own shot among them as
+    /// <c>fail.&lt;anchor&gt;.png</c> — or empty where the stage reported none. The
+    /// record the surface already writes (<see cref="DeliveryScenario"/>), read back
+    /// as written.
+    /// </summary>
+    public IReadOnlyList<DeliveryScenario> Scenarios { get; init; } = [];
+
+    /// <summary>
+    /// Every link the stage recorded, in the order sent — the application Personal
+    /// Validation started, a review target, a pull request — or empty where it
+    /// recorded none. <see cref="DeliveryRun.References"/> reads the same lists for
+    /// the GitHub items alone; this is the whole list, for the stage's own panel.
+    /// </summary>
+    public IReadOnlyList<DeliveryStageLink> Links { get; init; } = [];
+
+    /// <summary>
     /// The implement ⇄ review round the stage's latest pass worked, counting from 1, as
     /// its <see cref="Execution"/> reported it — Implement and Review send it. Null where
     /// the execution carries none: a run file from before the delivery phases sent it,

@@ -17,7 +17,7 @@
 {
     <PartFrame Title="Roadmap against pace"
                Note="The roadmap's items whose own window overlaps the selected one. The Tasks tab draws them week by week."
-               Busy="Status == MetricStatusKind.Loading"
+               Busy="IsLoading"
                OnRefresh="RefreshAsync"
                TestId="dashboard-overview-roadmap">
         @if (IsReady)

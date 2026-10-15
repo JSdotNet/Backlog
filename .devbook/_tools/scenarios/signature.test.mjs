@@ -102,3 +102,24 @@ test("the CLI prints each page's signature and exits 1 on a path that is not a s
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("the CLI refuses a page outside the root, and a data set outside the data folder reads as missing", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "scenarios-cli-outside-"));
+    const root = path.join(parent, "repo");
+    try {
+        const sample = vector.cases[0];
+        await mkdir(root, { recursive: true });
+        await writeFile(path.join(parent, "outside.md"), sample.markdown);
+        const run = spawnSync(process.execPath, [path.join(here, "signature.mjs"), "--root", root, "../outside.md"], { encoding: "utf8" });
+        assert.equal(run.status, 1);
+        assert.equal(run.stdout, "");
+        assert.match(run.stderr, /^\.\.\/outside\.md: resolves outside the repository/);
+
+        await mkdir(path.join(parent, "secrets"), { recursive: true });
+        await writeFile(path.join(parent, "secrets", "key"), "s3cret");
+        const page = parseScenarioPage(sample.markdown.replace(/^data: .*$/m, "data: [../../../../secrets]"), sample.path);
+        assert.equal(await pageSignature(page, root, ".devbook/scenarios"), signatureOf(page));
+    } finally {
+        await rm(parent, { recursive: true, force: true });
+    }
+});

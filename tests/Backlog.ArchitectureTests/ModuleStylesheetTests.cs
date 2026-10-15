@@ -222,7 +222,7 @@ public class ModuleStylesheetTests
     [InlineData("Dashboard", ".dashboard-timeline__fill", "background: var(--dashboard-timeline-tone); display: block; height: 100%")]
     [InlineData("DevPc", ".tools-panel__header-actions", "align-items: center; display: flex; flex: 0 1 auto; flex-wrap: wrap; gap: var(--spacing-xs) var(--spacing-sm); justify-content: flex-end; min-width: 0")]
     [InlineData("DevPc", ".tools-panel__content", "display: grid; gap: var(--spacing-md); min-width: 0")]
-    [InlineData("DevPc", ".tools-panel__side", "border-top: var(--border-width) solid rgba(242, 193, 78, 0.22); min-width: 0; padding-top: var(--spacing-sm)")]
+    [InlineData("DevPc", ".tools-panel__side", "border-top: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent); min-width: 0; padding-top: var(--spacing-sm)")]
     [InlineData("DevPc", ".tools-panel__log .code-view__body", "max-height: 22rem")]
     public void A_moved_rule_keeps_the_declarations_it_had(string module, string selector, string declarations)
     {
@@ -294,7 +294,7 @@ public class ModuleStylesheetTests
         Assert.Matches(@"@media \(prefers-reduced-motion: reduce\) \{\s*\.tools-run__progress-fill \{", css);
 
         Assert.Equal(
-            "border-inline-start: var(--border-width) solid rgba(242, 193, 78, 0.22); border-top: 0; "
+            "border-inline-start: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent); border-top: 0; "
             + "padding-inline-start: var(--spacing-md); padding-top: 0; position: sticky; top: var(--spacing-sm)",
             Canonical(CssRules.Effective(Body(css, blocks[0]), ".tools-panel__side")));
     }

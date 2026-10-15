@@ -59,8 +59,10 @@
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="ButtonSize.Small"
                        CssClass="integration-action__remedy"
+                       Busy="@_acts.IsRunning(RemedyAct)"
+                       BusyLabel="@remedy"
                        TestId="@RemedyTestId"
-                       OnClick="() => OnRemedy.InvokeAsync(Ready)">@remedy</AppButton>
+                       OnClick="() => _acts.RunAsync(RemedyAct, () => OnRemedy.InvokeAsync(Ready))">@remedy</AppButton>
         }
     }
     else
@@ -89,8 +91,10 @@
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="@Size"
                        CssClass="integration-action__cancel"
+                       Busy="@_acts.IsRunning(CancelAct)"
+                       BusyLabel="Cancel"
                        TestId="@CancelTestId"
-                       OnClick="() => OnCancel.InvokeAsync(Action)">Cancel</AppButton>
+                       OnClick="() => _acts.RunAsync(CancelAct, () => OnCancel.InvokeAsync(Action))">Cancel</AppButton>
         }
 
         @if (Action.State is IntegrationActionState.Succeeded)
@@ -130,8 +134,10 @@
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="@Size"
                        CssClass="integration-action__retry"
+                       Busy="@_acts.IsRunning(RetryAct)"
+                       BusyLabel="Retry"
                        TestId="@RetryTestId"
-                       OnClick="() => OnRetry.InvokeAsync(Action)">Retry</AppButton>
+                       OnClick="() => _acts.RunAsync(RetryAct, () => OnRetry.InvokeAsync(Action))">Retry</AppButton>
         }
     }
 </span>
@@ -142,6 +148,18 @@
     /// with one id would send aria-describedby to whichever the browser saw
     /// first.</summary>
     private readonly string _reasonId = $"integration-reason-{Guid.NewGuid():N}";
+
+    private const string RemedyAct = "remedy";
+    private const string CancelAct = "cancel";
+    private const string RetryAct = "retry";
+
+    /// <summary>The remedy, cancel and retry acts the host awaits. The main act's
+    /// busy state is the host's, through <see cref="IntegrationActionState.Running"/>;
+    /// these three have no state of their own to hand in, so the component keeps
+    /// the busy flag for them.</summary>
+    private readonly PendingAct _acts;
+
+    public IntegrationAction() => _acts = new PendingAct(StateHasChanged);
 
     [Parameter, EditorRequired]
     public IntegrationActionSpec Action { get; set; } = default!;

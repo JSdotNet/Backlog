@@ -147,7 +147,7 @@
                                     Options="@State.RepositoryOptions"
                                     SelectedValues="@draft.SharedRepositories"
                                     SelectedValuesChanged="repos => draft.SetSharedRepositories(repos)"
-                                    Placeholder="No repository"
+                                    Placeholder="@Backlog.SharedKernel.BrainScope.Name"
                                     CssClass="inbox-pane__picker"
                                     TestId="inbox-route-panel-repos-all" />
                 }
@@ -160,7 +160,7 @@
                                         Options="@State.RepositoryOptions"
                                         SelectedValues="@draft.OwnRepositories(item.Id)"
                                         SelectedValuesChanged="repos => draft.SetRepositories(item.Id, repos)"
-                                        Placeholder="No repository"
+                                        Placeholder="@Backlog.SharedKernel.BrainScope.Name"
                                         CssClass="inbox-pane__picker"
                                         TestId="@($"inbox-route-panel-repos-{item.Id:D}")" />
                     }

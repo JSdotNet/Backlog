@@ -892,7 +892,9 @@ public sealed class ToolsPaneTests
         Assert.DoesNotContain("Update", actions, StringComparison.Ordinal);
 
         // What the row does keep: the machine can still say it does not want it.
-        Assert.Contains("Disable", actions, StringComparison.Ordinal);
+        using var context = Context(FakeDevToolService.With(CommandRegisteredServer()));
+        var enabled = context.Render<ToolsPane>().Find("[data-tool-key='mcp:aspire'] [data-testid='tools-row-enabled'] [role='switch']");
+        Assert.Equal("true", enabled.GetAttribute("aria-checked"));
     }
 
     /// <summary>AC4 through the column the reader actually looks at: the command
@@ -929,10 +931,9 @@ public sealed class ToolsPaneTests
     [Fact]
     public void A_marketplace_row_cannot_be_disabled()
     {
-        var actions = ActionsFor(Marketplace(known: true));
+        using var context = Context(FakeDevToolService.With(Marketplace(known: true)));
 
-        Assert.DoesNotContain("Disable", actions, StringComparison.Ordinal);
-        Assert.DoesNotContain("Enable", actions, StringComparison.Ordinal);
+        Assert.Empty(context.Render<ToolsPane>().FindAll("[role='switch']"));
     }
 
     /// <summary>A marketplace Claude has never been told about is the one gap that
@@ -1245,7 +1246,7 @@ public sealed class ToolsPaneTests
         // The trigger says how much is behind it, so a folded group can be read
         // without opening it.
         Assert.Contains("Git configuration", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
-        Assert.Contains("2 rows", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("2 applications", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>A machine that is set up correctly should open this pane to
@@ -2009,6 +2010,9 @@ public sealed class ToolsPaneTests
 
         public string CatalogPath { get; init; } = @"C:\tools\ai-tools.json";
 
+        /// <summary>This machine's choices file, which the Overview footer names.</summary>
+        public string PcConfigPath { get; init; } = @"C:\tools\this-pc\ai-tools.json";
+
         public bool CanEdit { get; init; } = true;
 
         public bool Succeeds { get; init; } = true;
@@ -2069,7 +2073,8 @@ public sealed class ToolsPaneTests
                 CatalogPath,
                 CanEdit)
             {
-                Commands = Commands
+                Commands = Commands,
+                PcConfigPath = PcConfigPath
             };
         }
 
@@ -2113,9 +2118,23 @@ public sealed class ToolsPaneTests
         public Task<DevToolActionResult> UpdateAllWithProgressAsync(IProgress<DevToolRunProgress>? progress, CancellationToken ct = default) =>
             UpdateAllRun?.Invoke(progress) ?? Answer();
 
-        public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) => Answer();
+        /// <summary>Every key the pane asked to switch on, in order.</summary>
+        public List<string> Enabled { get; } = [];
 
-        public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => Answer();
+        /// <summary>Every key the pane asked to switch off, in order.</summary>
+        public List<string> Disabled { get; } = [];
+
+        public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default)
+        {
+            Enabled.Add(key);
+            return Answer();
+        }
+
+        public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default)
+        {
+            Disabled.Add(key);
+            return Answer();
+        }
 
         public Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default)
         {

@@ -448,7 +448,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | AGENTS.md | `AGENTS.md`, imported by `CLAUDE.md` — see [repository instruction files](ai-development.md#repository-instruction-files) |
 | Context pointer | Every `related` and `depends-on` reference, and the standing brief's links into `.agents/rules/` |
 | Progressive disclosure | The design of the whole knowledge convention: a short brief points at scoped instruction files, which point at chapters, which point at each other |
-| Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `flow-*` and `schedule-*` skills, and the `.agents/skills/` procedures and Aspire skills |
+| Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `flow-*` and `schedule-*` skills, and the `.agents/skills/` procedures |
 | Subagent | [Subagents](ai-development.md#subagents) — `architecture:architect`, `csharp-coding:coding`, `qa:qa`, and the rest |
 | Memory system | Not adopted in the repository. Cross-session state is deliberately the checked-in devbook folders and the run record on the delivery surfaces, both of which a human can read. |
 

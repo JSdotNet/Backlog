@@ -127,6 +127,9 @@ jobs:
           if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and -not $requested) {
             throw "workflow_dispatch requires an explicit version."
           }
+          # A nightly is a version this step numbered itself, not one a tag,
+          # a dispatch or Deploy All asked for. Publish keys Latest on it.
+          $nightly = $false
           if ($requested) {
             $raw = $requested
             $tag = "v$raw"
@@ -140,6 +143,7 @@ jobs:
               }
               $raw = '0.1.${{ github.run_number }}'
               $tag = "v$raw"
+              $nightly = $true
             }
           }
           if ($raw -notmatch '^\d+\.\d+\.\d+$') {
@@ -150,7 +154,8 @@ jobs:
           "display=$raw"            >> $env:GITHUB_OUTPUT
           "package=$four"           >> $env:GITHUB_OUTPUT
           "msix=Backlog.Desktop_${four}_x64.msix" >> $env:GITHUB_OUTPUT
-          Write-Output "Tag=$tag Display=$raw Package=$four"
+          "nightly=$($nightly.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Output "Tag=$tag Display=$raw Package=$four Nightly=$nightly"
 
       - name: Check signing configuration
         if: steps.release_gate.outputs.should_release == 'true'
@@ -301,14 +306,45 @@ jobs:
           $msix = '${{ steps.stage.outputs.msix }}'
           $appInstaller = '${{ steps.stage.outputs.appinstaller }}'
           $certificate = '${{ steps.stage.outputs.certificate }}'
+          $nightly = '${{ steps.version.outputs.nightly }}' -eq 'true'
+
+          # Latest is the App Installer update channel (releases/latest/download).
+          # An explicit release always takes it; a nightly takes it only when no
+          # higher version holds it, so it never demotes a real release. A rerun
+          # of the same version keeps it.
+          if (-not $nightly) {
+            $latest = '--latest'
+            $reason = 'an explicit release always takes Latest'
+          }
+          else {
+            $current = (gh release view --json tagName --jq .tagName 2>&1 | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0 -and $current -match 'release not found') {
+              $latest = '--latest'
+              $reason = 'no release holds Latest yet'
+            }
+            elseif ($LASTEXITCODE -ne 0 -or -not ($current -match '^v(\d+\.\d+\.\d+)$')) {
+              $latest = '--latest=false'
+              $reason = "the current Latest release could not be read ($current), so the nightly stays off it"
+            }
+            elseif ([version]'${{ steps.version.outputs.display }}' -ge [version]$Matches[1]) {
+              $latest = '--latest'
+              $reason = "the nightly is not lower than the current Latest, $current"
+            }
+            else {
+              $latest = '--latest=false'
+              $reason = "the current Latest, $current, is a higher version"
+            }
+          }
+          "### Latest release" >> $env:GITHUB_STEP_SUMMARY
+          "``$latest``: $reason." >> $env:GITHUB_STEP_SUMMARY
 
           $exists = gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --target $env:GITHUB_SHA --title $tag --notes "Backlog desktop $tag" --latest $msix $appInstaller $certificate
+            gh release create $tag --target $env:GITHUB_SHA --title $tag --notes "Backlog desktop $tag" $latest $msix $appInstaller $certificate
           }
           else {
             gh release upload $tag $msix $appInstaller $certificate --clobber
-            gh release edit $tag --title $tag --notes "Backlog desktop $tag" --latest
+            gh release edit $tag --title $tag --notes "Backlog desktop $tag" $latest
           }
           if ($LASTEXITCODE -ne 0) { throw "Publishing the release failed." }
 

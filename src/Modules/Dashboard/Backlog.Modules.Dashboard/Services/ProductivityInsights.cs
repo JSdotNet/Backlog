@@ -521,7 +521,9 @@ public sealed class ProductivityInsights(
             PullRequestsSynced = synced.Count,
             PullRequestsWithConflictedSync = synced.Count(pr => pr.HasConflictedSync),
             SyncMerges = synced.Sum(pr => pr.SyncMerges),
-            ConflictedSyncMerges = synced.Sum(pr => pr.ConflictedSyncMerges)
+            ConflictedSyncMerges = synced.Sum(pr => pr.ConflictedSyncMerges),
+            BySize = PullRequestSizes.Cut(scoped.Report.PullRequests),
+            PullRequestsWithoutSize = scoped.Report.PullRequests.Count(pr => !pr.SizeKnown)
         };
     }
 }

@@ -781,13 +781,13 @@ carries several source labels,
 
 ```meta
 type: term
-status: proposed
+status: deprecated
 aliases: [promote, Promote to plan]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/tasks/features.md#promote-to-plan, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-A person's action on one linked task that turns it into a
-[Roadmap Item](#roadmap-item). Tasks hands the item over through
-`IRoadmapPlanIntake`, the port Import uses, so the plan changes because a person
-asked. The item's tag is the task's [Source Label](#source-label) when it has one.
-Its steps come from the source's sub-issues, its checklist, or a generated plan.
+A dropped action that was never built. It was to turn one linked task into a
+[Roadmap Item](#roadmap-item) through `IRoadmapPlanIntake`, the port Import
+uses. No linked task calls that port. A linked task reaches the roadmap only
+through its [Source Label](#source-label), which files it under a tag the
+person places from the [shelf](features.md#laying-out-a-plan-whose-tasks-arrived-first).

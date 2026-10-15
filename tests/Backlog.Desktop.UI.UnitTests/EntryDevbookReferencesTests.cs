@@ -282,18 +282,21 @@ public sealed class EntryDevbookReferencesTests
         pane.WaitForAssertion(() =>
         {
             var list = pane.Find("[data-testid='entry-acceptance']");
-            Assert.Equal("Acceptance", list.GetAttribute("aria-label"));
+            Assert.Equal("Acceptance · scenario parts", list.GetAttribute("aria-label"));
 
             // A part named by its page and by the requirement is one row.
-            Assert.Equal("1 of 3 passing", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
+            Assert.Equal("1 of 3 passing · not proved", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
             Assert.Empty(pane.FindAll("[data-testid='entry-acceptance-proved']"));
 
             var rows = pane.FindAll("[data-testid='entry-acceptance-part']");
             Assert.Equal(["passed", "stale", "never-run"], rows.Select(part => part.GetAttribute("data-state")));
             Assert.Equal("Statuses are set up", rows[0].QuerySelector(".scenario-checklist__part")!.TextContent.Trim());
-            Assert.Equal("Set up and fill the backlog", rows[0].QuerySelector(".scenario-checklist__page")!.TextContent.Trim());
-            Assert.StartsWith("Ran ", rows[0].QuerySelector(".scenario-checklist__run")!.TextContent.Trim(), StringComparison.Ordinal);
-            Assert.Equal("Never run", rows[2].QuerySelector(".scenario-checklist__run")!.TextContent.Trim());
+
+            // The quiet line names the page by its stem — its run folder — and when it ran.
+            var line = rows[0].QuerySelector(".scenario-checklist__run")!.TextContent.Trim();
+            Assert.StartsWith("set-up-and-fill-the-backlog · ", line, StringComparison.Ordinal);
+            Assert.Contains("2026", line, StringComparison.Ordinal);
+            Assert.Equal("set-up-and-fill-the-backlog · Never run", rows[2].QuerySelector(".scenario-checklist__run")!.TextContent.Trim());
             Assert.Equal("Scenario stale", rows[1].QuerySelector(".devbook-scenario-dot")!.GetAttribute("aria-label"));
         });
     }
@@ -316,10 +319,33 @@ public sealed class EntryDevbookReferencesTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal("2 of 2 passing", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
-            Assert.Equal("Proved", pane.Find("[data-testid='entry-acceptance-proved']").TextContent.Trim());
+            Assert.Equal("2 of 2 passing · proved", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
+            Assert.NotNull(pane.Find("[data-testid='entry-acceptance-proved']"));
         });
         Assert.Equal(before, row.Status);
+    }
+
+    /// <summary>A failed part says which step its run stopped on, so the row
+    /// names where it broke without opening the run.</summary>
+    [Fact]
+    public async Task A_failed_part_names_the_step_its_run_stopped_on()
+    {
+        var devbook = new FakeDevbookReferenceResolver()
+            .Scenario(ScenarioPage, "Set up and fill the backlog",
+                Part("statuses-are-set-up", "Statuses are set up", ScenarioPartState.Passed),
+                Part("an-item-is-moved", "An item is moved", ScenarioPartState.Failed) with { FailedStep = 2 });
+        using var host = await TasksPaneHost.CreateAsync(devbook, Repositories);
+        var row = await host.WriteEntryAsync(Entry);
+        await host.State.SetDevbookReferencesAsync(row, [ScenarioPage]);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var rows = pane.FindAll("[data-testid='entry-acceptance-part']");
+            Assert.EndsWith(" · step 2", rows[1].QuerySelector(".scenario-checklist__run")!.TextContent.Trim(), StringComparison.Ordinal);
+            Assert.DoesNotContain("step", rows[0].QuerySelector(".scenario-checklist__run")!.TextContent, StringComparison.Ordinal);
+        });
     }
 
     [Fact]

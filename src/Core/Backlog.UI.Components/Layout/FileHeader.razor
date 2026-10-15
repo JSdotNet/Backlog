@@ -296,6 +296,14 @@
                path. *@
             <p class="file-view__path">@Path</p>
         }
+
+        @if (Refreshing)
+        {
+            @* After the path and before the status: the file shown is being read
+               again, and the header is where a region refreshing in place says so
+               (interaction-guidelines.md#scoped-loading, Refresh). *@
+            <Spinner Size="SpinnerSize.Small" Label="Refreshing" CssClass="file-view__refreshing" TestId="@Suffix("refreshing")" />
+        }
     };
 
     /// <summary>The file's name — the title, and what every control here is named
@@ -522,6 +530,12 @@
     /// <summary>Raised with the baseline a reader picked.</summary>
     [Parameter]
     public EventCallback<FileCompareBaseline> OnSelectBaseline { get; set; }
+
+    /// <summary>The file on screen is being read again: a small spinner on the
+    /// name's line, the content left where it is. The host decides when a wait is
+    /// worth saying so.</summary>
+    [Parameter]
+    public bool Refreshing { get; set; }
 
     /// <summary>The pane's test id, which every control here derives its own
     /// from. Null leaves them all off.</summary>

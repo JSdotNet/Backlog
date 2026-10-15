@@ -99,7 +99,12 @@ public sealed class DevbookPaneBrainConflictTests
         Assert.True(brain.AnswerRead.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
         await component.InvokeAsync(() => { });
 
-        Directory.Delete(harness.BrainFolder, recursive: true);
+        // The pane opens the note on its own, reading it off the renderer's thread,
+        // and a note being read cannot be deleted on Windows: the delete waits for
+        // that read to land, and gives way to any other handle on a file in the
+        // folder — "plan.md is being used by another process" under load.
+        component.WaitForAssertion(() => Assert.Contains("Body.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal));
+        harness.DeleteBrainFolder();
         component.Render(parameters => parameters.Add(pane => pane.RepositoryAlias, string.Empty));
 
         var message = component.WaitForElement("[data-testid='devbook-brain-unavailable']");

@@ -27,10 +27,10 @@
     padding: var(--spacing-lg);
     container-type: inline-size;
     container-name: tools-panel;
-    border: var(--border-width) solid rgba(242, 193, 78, 0.45);
+    border: var(--border-width) solid color-mix(in srgb, var(--color-primary) 45%, transparent);
     border-left: 4px solid var(--color-primary);
     border-radius: var(--border-radius-lg);
-    background: linear-gradient(180deg, rgba(242, 193, 78, 0.16), rgba(242, 193, 78, 0.04) 45%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 16%, transparent), color-mix(in srgb, var(--color-primary) 4%, transparent) 45%, transparent);
     box-shadow: var(--shadow-md);
 }
 
@@ -60,6 +60,20 @@
     align-items: center;
     justify-content: flex-end;
     min-width: 0;
+}
+
+/* Check for updates carries its glyph before the label, on the label's line. */
+.tools-panel__refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The close button is icon-only, so it keeps the 44px target an icon-only
+   control is given (typography-and-layout.md#iconography). */
+.tools-panel__close {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
 }
 
 /* The status line names the catalog's full path, which has no break in it; at a
@@ -115,7 +129,7 @@
    the last block in the pane, separated from the table by a rule above it. */
 .tools-panel__side {
     min-width: 0;
-    border-top: var(--border-width) solid rgba(242, 193, 78, 0.22);
+    border-top: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent);
     padding-top: var(--spacing-sm);
 }
 
@@ -162,7 +176,7 @@
         position: sticky;
         top: var(--spacing-sm);
         border-top: 0;
-        border-inline-start: var(--border-width) solid rgba(242, 193, 78, 0.22);
+        border-inline-start: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent);
         padding-top: 0;
         padding-inline-start: var(--spacing-md);
     }
@@ -283,6 +297,57 @@
 .tools-overview__heading {
     margin: 0;
     font-size: var(--font-size-base);
+}
+
+/* A part's heading and, right of it, the muted line that qualifies it - wrapping
+   under the heading where the column is narrow. */
+.tools-overview__heading-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: baseline;
+    min-width: 0;
+}
+
+.tools-overview__heading-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The Overview's footer: where the catalog and this machine's choices live on the
+   left, the acts that edit the catalog on the right, under a rule. The paths have
+   no break in them, so they break anywhere rather than widen the pane. */
+.tools-overview__footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.tools-overview__footer-paths {
+    flex: 1 1 16rem;
+    min-width: 0;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.tools-overview__path {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.tools-overview__footer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
 }
 
 .tools-overview__tile-note {
@@ -674,7 +739,8 @@
     overflow-wrap: anywhere;
 }
 
-.tools-inventory__run-error {
+.tools-inventory__run-error,
+.tools-overview-need__run-error {
     display: block;
     color: var(--color-error-text);
     font-size: var(--font-size-sm);
@@ -742,6 +808,14 @@
    inside the card rather than widening the pane. */
 .tools-group {
     min-width: 0;
+}
+
+/* The button that shows an open group's rows that match, under the ones that
+   do not. */
+.tools-group__reveal {
+    justify-self: start;
+    min-block-size: 2.75rem;
+    margin-top: var(--spacing-xs);
 }
 
 .tools-group .card__body {
@@ -823,12 +897,12 @@
 }
 
 .tools-inventory .data-table__scroll {
-    border-color: rgba(242, 193, 78, 0.22);
+    border-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
     border-radius: var(--border-radius-sm);
 }
 
 .tools-inventory .data-table__table thead th {
-    background: rgba(242, 193, 78, 0.10);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
     color: var(--color-primary);
     font-weight: 700;
 }
@@ -842,7 +916,7 @@
    and the two version columns are one line each: aligned to the top they sat
    above the name they belong to. */
 .tools-inventory .data-table__table td {
-    border-bottom-color: rgba(242, 193, 78, 0.14);
+    border-bottom-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
     vertical-align: middle;
     white-space: normal;
 }
@@ -917,7 +991,7 @@
     display: inline-block;
     margin-block: 0.15rem;
     padding: 0.05rem 0.4rem;
-    border: var(--border-width) solid rgba(242, 193, 78, 0.28);
+    border: var(--border-width) solid color-mix(in srgb, var(--color-primary) 28%, transparent);
     border-radius: var(--border-radius-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
@@ -1002,6 +1076,20 @@
 
 .tools-inventory__toggle {
     grid-column: 2;
+}
+
+/* The row's enable switch keeps the library's track, which is smaller than the
+   44px a pointer target is given here (accessibility.md). The target grows
+   instead of the track: a transparent box centred on it, 44px each way, takes the
+   press, so the switch looks the same and is as easy to hit as a button. */
+.tools-inventory__switch .toggle__track::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: translate(-50%, -50%);
 }
 
 .tools-inventory__remove {
@@ -1133,7 +1221,7 @@
        stacked row is what has an edge and the cells are lines inside it. */
     .tools-inventory .data-table__row {
         padding: var(--spacing-md) var(--spacing-sm);
-        border-bottom: var(--border-width) solid rgba(242, 193, 78, 0.14);
+        border-bottom: var(--border-width) solid color-mix(in srgb, var(--color-primary) 14%, transparent);
     }
 
     /* The frame already draws the last edge, so the last row's own rule would sit

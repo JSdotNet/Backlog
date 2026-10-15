@@ -33,8 +33,10 @@
         <AppButton Variant="ButtonVariant.Ghost"
                    Size="ButtonSize.Small"
                    CssClass="integration-unavailable__remedy"
+                   Busy="@_acts.IsRunning(RemedyAct)"
+                   BusyLabel="@remedy"
                    TestId="@RemedyTestId"
-                   OnClick="() => OnRemedy.InvokeAsync(Readiness)">@remedy</AppButton>
+                   OnClick="() => _acts.RunAsync(RemedyAct, () => OnRemedy.InvokeAsync(Readiness))">@remedy</AppButton>
     }
 </p>
 
@@ -61,6 +63,14 @@
 
     [Parameter]
     public string? RemedyTestId { get; set; }
+
+    private const string RemedyAct = "remedy";
+
+    /// <summary>A remedy is often a sign-in or an install, which takes a while; the
+    /// button shows it is running and a second press is ignored.</summary>
+    private readonly PendingAct _acts;
+
+    public IntegrationUnavailable() => _acts = new PendingAct(StateHasChanged);
 
     private string Reason => IntegrationStates.ReasonFor(Readiness);
 

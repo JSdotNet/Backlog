@@ -84,13 +84,49 @@ type: requirement
 status: draft
 ```
 
-The system tools pane SHALL draw a catalog group with no entry needing action folded, saying all up to date, and a group with one open.
+The system tools pane SHALL draw a catalog group with no entry needing action folded, saying all up to date, and a group with one open, its fold naming its title, how many entries of the tab's kind it holds and, when any do, how many need action.
 
 #### Scenario: Two groups
 
 - **Given** a Baseline group that is up to date and a Team tools group with a missing application
 - **When** the pane opens on Applications
-- **Then** Baseline is folded and reads All up to date, and Team tools is open
+- **Then** Baseline is folded and reads All up to date with no count needing action, and Team tools is open and its fold says one needs action
+
+### Requirement: The headline counts each kind of outstanding in order
+
+```meta
+type: requirement
+status: draft
+```
+
+The system tools pane SHALL, when the tab on show has more than one kind of outstanding entry, say how many are behind, missing and to confirm, each on its own and in that order, and SHALL keep the "n of m are behind" sentence when only one kind is outstanding.
+
+#### Scenario: Mixed Overview
+
+- **Given** three plugins behind, two applications missing and one unconfirmed checklist item
+- **When** the pane opens on the Overview
+- **Then** the headline reads "Three updates waiting, two tools missing and one item to confirm"
+
+#### Scenario: Kind tab
+
+- **Given** two plugins behind and one missing
+- **When** the reader opens Plugins
+- **Then** the headline reads "Two plugins behind and one missing"
+
+### Requirement: An open group shows its work before what matches
+
+```meta
+type: requirement
+status: draft
+```
+
+Under All, the system tools pane SHALL list an open group's entries needing action first, hold its matching entries behind one control that says how many, show them after the work once pressed and keep them shown across a re-check; under Needs action it SHALL hold nothing back.
+
+#### Scenario: Reveal
+
+- **Given** a Plugins group with two plugins behind and three that match
+- **When** the reader opens Plugins
+- **Then** the two behind show with "3 more up to date — show", and pressing it adds the three under them
 
 ### Requirement: The tab and the host filter are remembered on this machine
 
@@ -175,7 +211,7 @@ type: requirement
 status: draft
 ```
 
-The Overview SHALL list one card per entry needing action, updates first, then missing entries, then unconfirmed checklist items, then the stale cache, each carrying exactly one control — Update, Install, a link to the download page for an entry installed by hand, Done here for a checklist item, or Clear for the stale cache.
+The Overview SHALL list one card per entry needing action, updates first, then missing entries, then unconfirmed checklist items, then the stale cache, each carrying exactly one control — Update, Install, a link to the download page for an entry installed by hand, Done here for a checklist item, or Clear for the stale cache, and SHALL say under the detail of a card whose step failed in the last Update all why it failed, until the next run starts.
 
 #### Scenario: Order
 
@@ -188,6 +224,12 @@ The Overview SHALL list one card per entry needing action, updates first, then m
 - **Given** a catalog whose every entry matches
 - **When** the pane opens
 - **Then** Needs you says everything matches the catalog and lists nothing
+
+#### Scenario: A failed step
+
+- **Given** an Update all whose step for one plugin failed with "network unreachable"
+- **When** the run ends
+- **Then** that plugin's card reads "Update all failed here: network unreachable" and still carries one control
 
 ### Requirement: The host filter narrows every Overview figure
 
@@ -239,3 +281,18 @@ The tab strip SHALL offer "Last run transcript" whenever this machine has a last
 - **Given** a machine with a last finished run, and an app just restarted with no command run since
 - **When** the reader presses Last run transcript
 - **Then** that run's whole transcript opens
+
+### Requirement: The footer names where the setup comes from
+
+```meta
+type: requirement
+status: draft
+```
+
+The Overview SHALL name at its foot the catalog this machine reads and, where the host names one, the file this machine's own choices are kept in, and SHALL offer Add tool and Import there only where the host can write the catalog.
+
+#### Scenario: Read-only host
+
+- **Given** a host that only reads the catalog
+- **When** the pane opens
+- **Then** the footer names the catalog and offers neither Add tool nor Import

@@ -48,6 +48,7 @@
          project for its adapter under issue #738 and say so in their namespace. -->
     <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
     <Using Include="Backlog.Infrastructure.Devbook.Instructions" />
+    <Using Include="Backlog.Infrastructure.Devbook.Documents" />
     <!-- Roadmap Planning now has a domain module, so its feature key and its DTOs
          come from the abstractions project like every other context's; the .UI
          namespace is still imported for the band and the view that maps a plan onto
@@ -135,6 +136,12 @@
     <Compile Include="..\Shared\TestDoubles\StubAzureFoundryChatClient.cs" Link="Shared\TestDoubles\StubAzureFoundryChatClient.cs" />
     <Compile Include="..\Shared\TestDoubles\StubGitHubClient.cs" Link="Shared\TestDoubles\StubGitHubClient.cs" />
     <Compile Include="..\Shared\TestDoubles\StubProbe.cs" Link="Shared\TestDoubles\StubProbe.cs" />
+  </ItemGroup>
+
+  <!-- bUnit's default wait for this process, set before any test runs; the file
+       says why. Linked per project because only the bUnit projects reference bUnit. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\BunitWaitTimeout.cs" Link="Shared\BunitWaitTimeout.cs" />
   </ItemGroup>
 
   <!-- What Claude Code posted to an OTLP logs endpoint, scrubbed, for ClaudeCodeOtlpLogsTests
