@@ -27,6 +27,15 @@ internal sealed class InMemorySprintSeriesRepository : ISprintSeriesRepository
         _all.Add(series);
         return Task.CompletedTask;
     }
+
+    public int Deletes { get; private set; }
+
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        Deletes++;
+        _all.RemoveAll(existing => existing.Id == id);
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Tasks as the adapter over Tasks would answer them: an id in any repository,

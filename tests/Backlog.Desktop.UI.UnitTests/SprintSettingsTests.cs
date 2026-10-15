@@ -7,6 +7,7 @@ using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.SharedKernel;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -220,6 +221,69 @@ public sealed class SprintSettingsTests : IDisposable
         Assert.Equal(80, card.Goal.Share);
     }
 
+    /// <summary>Delete series…, confirmed, takes the card away and puts its repositories
+    /// back under Not in a sprint, where Add another sprint can start a series over them
+    /// (<c>.devbook/domain/progress/requirements.md#requirement-a-deleted-series-frees-its-repositories</c>).</summary>
+    [Fact]
+    public async Task A_confirmed_delete_removes_the_card_and_frees_its_repositories()
+    {
+        _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var ct = TestContext.Current.CancellationToken;
+        var core = await CreateAsync("backlog", "docs");
+        var other = await CreateAsync("tools");
+        await Planning.StartSprintAsync(core.Id, new DateOnly(2026, 10, 12), "Ship it", ct);
+        var page = _context.Render<SprintSettings>();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll($"[data-testid='{Card(core)}']")));
+
+        await page.Find($"[data-testid='{Card(core)}-delete']").ClickAsync(new MouseEventArgs());
+        page.WaitForAssertion(() => Assert.Contains("Its one sprint is deleted with it", page.Markup, StringComparison.Ordinal));
+        await page.Find($"[data-testid='{Card(core)}-delete-confirm']").ClickAsync(new MouseEventArgs());
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll($"[data-testid='{Card(core)}']")));
+        Assert.Single(page.FindAll($"[data-testid='{Card(other)}']"));
+        Assert.Equal(
+            ["backlog", "docs"],
+            page.FindAll("[data-testid='sprint-settings-free-repositories'] .tag-chip__label").Select(chip => chip.TextContent));
+        Assert.Equal([other.Id], (await Planning.ListSeriesAsync(ct)).Value.Select(series => series.Id));
+    }
+
+    /// <summary>The series went while the confirmation was open — a pull from another
+    /// desktop deleted it — so confirming finds it gone: the card goes with nothing said,
+    /// since that is what the person asked for.</summary>
+    [Fact]
+    public async Task Confirming_a_delete_another_desktop_already_made_removes_the_card_quietly()
+    {
+        _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var core = await CreateAsync("backlog");
+        var page = _context.Render<SprintSettings>();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll($"[data-testid='{Card(core)}']")));
+
+        await page.Find($"[data-testid='{Card(core)}-delete']").ClickAsync(new MouseEventArgs());
+        // Straight to the store: the planning port would raise Changed and the page would
+        // drop the card on its own. This is the delete the page has not heard of yet.
+        await _store.DeleteAsync(core.Id, TestContext.Current.CancellationToken);
+        await page.Find($"[data-testid='{Card(core)}-delete-confirm']").ClickAsync(new MouseEventArgs());
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll($"[data-testid='{Card(core)}']")));
+        Assert.Empty(page.FindAll("[data-testid='sprint-settings-error']"));
+        Assert.Contains("backlog", page.FindAll("[data-testid='sprint-settings-free-repositories'] .tag-chip__label").Select(chip => chip.TextContent));
+    }
+
+    [Fact]
+    public async Task A_cancelled_delete_keeps_the_series()
+    {
+        _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var core = await CreateAsync("backlog");
+        var page = _context.Render<SprintSettings>();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll($"[data-testid='{Card(core)}']")));
+
+        await page.Find($"[data-testid='{Card(core)}-delete']").ClickAsync(new MouseEventArgs());
+        await page.Find($"[data-testid='{Card(core)}-delete-cancel']").ClickAsync(new MouseEventArgs());
+
+        Assert.Single(page.FindAll($"[data-testid='{Card(core)}']"));
+        Assert.True((await Planning.GetSeriesAsync(core.Id, TestContext.Current.CancellationToken)).IsSuccess);
+    }
+
     public void Dispose() => _context.Dispose();
 
     private sealed class Store : ISprintSeriesRepository
@@ -248,6 +312,12 @@ public sealed class SprintSettingsTests : IDisposable
             }
 
             if (!_all.Contains(series)) _all.Add(series);
+        }
+
+        public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            _all.RemoveAll(series => series.Id == id);
+            return Task.CompletedTask;
         }
     }
 

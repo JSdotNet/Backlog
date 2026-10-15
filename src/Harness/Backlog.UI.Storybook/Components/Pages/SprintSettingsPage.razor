@@ -80,6 +80,22 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
         </div>
     </Story>
 
+    <Story Name="Deleting a series"
+           Description="Delete series… sits last on the card, apart from the settings, because it is the one act there that cannot be taken back. It asks first, naming how many sprints go with the series and which repositories it frees; Cancel, Escape and the backdrop all keep the series. Confirm, and the host deletes it — here the card is replaced by what the page would then say."
+           Code="@DeleteCode">
+        <div class="sb-menu-wide">
+            @if (_deleted)
+            {
+                <p data-testid="sprint-deleted">Deleted. innovadis-dev/Fincent and JSdotNet/devbook-marketplace are in no sprint.</p>
+                <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" TestId="sprint-deleted-again" OnClick="() => _deleted = false">Show the card again</AppButton>
+            }
+            else
+            {
+                <SprintSeriesCard Model="@Fincent" TestId="sprint-delete" OnDelete="() => _deleted = true" />
+            }
+        </div>
+    </Story>
+
     <Story Name="The page"
            Description="A sketch of what Settings › Sprints draws around the cards, in the library's parts alone: a card per series, then the repositories in no series on a Card of their own — they keep the In progress view they have today, and each can join one series — and Add another sprint, which starts a series over the repository it is given. The page itself lives in the Progress module and lays these out with its own classes."
            Code="@PageCode">
@@ -241,5 +257,11 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
             @foreach (var alias in free) { <TagChip Text="@alias" /> }
         </Card>
         <AppButton OnClick="AddSeriesAsync">Add another sprint</AppButton>
+        """;
+
+    private bool _deleted;
+
+    private const string DeleteCode = """
+        <SprintSeriesCard Model="@series" OnDelete="() => DeleteAsync(series.Id)" />
         """;
 }

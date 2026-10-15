@@ -46,6 +46,9 @@ public sealed class RootedSqliteSprintSeriesRepository(Func<string> currentRootD
     public Task SaveAsync(SprintSeries series, CancellationToken cancellationToken = default) =>
         Current.SaveAsync(series, cancellationToken);
 
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Current.DeleteAsync(id, cancellationToken);
+
     public Task<IReadOnlyList<SprintSeriesReplicaCopyDto>> ReadAllAsync(CancellationToken cancellationToken = default) =>
         Current.ReadAllAsync(cancellationToken);
 

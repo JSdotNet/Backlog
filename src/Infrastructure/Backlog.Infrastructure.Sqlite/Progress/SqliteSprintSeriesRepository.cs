@@ -110,10 +110,50 @@ public sealed class SqliteSprintSeriesRepository : ISprintSeriesRepository, ISpr
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Replaces the series' row with its tombstone (<see cref="SprintSeriesDocument.Tombstone"/>):
+    /// every sprint it held is gone, <see cref="ListAsync"/> and <see cref="GetAsync"/>
+    /// skip it, and the row is stamped later than it was, as a save is — so the next push
+    /// carries the deletion, and an older copy of the series is refused on its stamp. The
+    /// row is kept rather than removed because a removed row would take a pulled copy
+    /// of the series as one this device never held. An id with no row writes nothing.
+    /// </summary>
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        var name = string.Empty;
+        await using (var read = connection.CreateCommand())
+        {
+            read.CommandText = "SELECT document FROM progress_series WHERE id = $id;";
+            read.Parameters.AddWithValue("$id", Key(id));
+            if (await read.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not string stored) return;
+
+            name = ParseDocument(stored)?.Name ?? string.Empty;
+        }
+
+        var stamp = DateTimeOffset.UtcNow;
+        if (await StampAsync(connection, id, cancellationToken).ConfigureAwait(false) is { } held && stamp <= held)
+        {
+            stamp = held.AddTicks(1);
+        }
+
+        var tombstone = JsonSerializer.Serialize(SprintSeriesDocument.Tombstone(id, name, stamp), SprintSeriesDocument.JsonOptions);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE progress_series SET document = $document, updated_at = $updated_at WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", Key(id));
+        command.Parameters.AddWithValue("$document", tombstone);
+        command.Parameters.AddWithValue("$updated_at", stamp.ToString("O", CultureInfo.InvariantCulture));
+
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     // --- The replicated documents (the arrangement of local ADR 0018) -------
 
     /// <summary>Every row's document and stamp exactly as stored, in the order the
-    /// series were created. A blank document is nothing to send and is left out.</summary>
+    /// series were created — a deleted series' tombstone included, since the deletion has
+    /// to travel. A blank document is nothing to send and is left out.</summary>
     public async Task<IReadOnlyList<SprintSeriesReplicaCopyDto>> ReadAllAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
@@ -154,14 +194,15 @@ public sealed class SqliteSprintSeriesRepository : ISprintSeriesRepository, ISpr
     /// Refused, with nothing written, when the text is not a series this build can read,
     /// or is a series under another id than the copy claims: a row is never overwritten
     /// with something <see cref="GetAsync"/> would skip, nor with another series. A
-    /// series this device never held is added, created at the stamp it arrived with.
+    /// series this device never held is added, created at the stamp it arrived with. A
+    /// tombstone is a copy like any other: written here, it deletes the series here.
     /// </para>
     /// </summary>
     public async Task<bool> TryWriteAsync(SprintSeriesReplicaCopyDto copy, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(copy);
 
-        if (Parse(copy.Content) is not { } series || series.Id != copy.Id) return false;
+        if (ParseDocument(copy.Content) is not { } document || document.Id != copy.Id) return false;
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
@@ -192,18 +233,31 @@ public sealed class SqliteSprintSeriesRepository : ISprintSeriesRepository, ISpr
 
         return new SprintSeriesReplicaCopyDto(
             key,
-            Parse(document)?.Name ?? string.Empty,
+            ParseDocument(document)?.Name ?? string.Empty,
             document,
             DateTimeOffset.Parse(stamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
     }
 
-    private static SprintSeries? Parse(string document)
+    /// <summary>The series a row holds, or null for a tombstone and for a document this
+    /// build cannot read.</summary>
+    private static SprintSeries? Parse(string document) =>
+        ParseDocument(document) is { IsTombstone: false } parsed ? parsed.ToSeries() : null;
+
+    /// <summary>The stored document — a series or a tombstone — or null for one this build
+    /// cannot read.</summary>
+    private static SprintSeriesDocument? ParseDocument(string document)
     {
         if (string.IsNullOrWhiteSpace(document)) return null;
 
         try
         {
-            return JsonSerializer.Deserialize<SprintSeriesDocument>(document, SprintSeriesDocument.JsonOptions)?.ToSeries();
+            var parsed = JsonSerializer.Deserialize<SprintSeriesDocument>(document, SprintSeriesDocument.JsonOptions);
+            if (parsed is null) return null;
+
+            // Read through once, as a series, so a document that will not load is
+            // refused here as it always was, not discovered on the next ListAsync.
+            if (!parsed.IsTombstone) _ = parsed.ToSeries();
+            return parsed;
         }
         catch (JsonException)
         {

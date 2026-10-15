@@ -206,6 +206,104 @@ public sealed class SprintSyncBetweenDevicesTests : IDisposable
         Assert.Equal("progress.repository_in_other_series", refused.Error.Code);
     }
 
+    /// <summary>A deletes a series B holds too; once both have synced neither holds it,
+    /// its repository is free on B, and the tombstone both keep is the same document at
+    /// the same stamp
+    /// (<c>.devbook/domain/progress/requirements.md#requirement-a-deleted-series-is-deleted-on-every-desktop</c>).</summary>
+    [Fact]
+    public async Task A_series_deleted_on_one_desktop_is_deleted_on_the_other()
+    {
+        var (a, b) = await PairAsync();
+        var core = await a.CreateAsync("Core");
+        var docs = await a.CreateAsync("Docs", "docs");
+        await a.Plan(planning => planning.StartSprintAsync(core, Monday, "Ship sync", Cancellation));
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.Equal(2, (await b.ListAsync()).Count);
+
+        await a.DeleteAsync(core);
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        var pulled = await b.SyncAsync();
+
+        Assert.True(pulled.IsSuccess);
+        foreach (var desktop in new[] { a, b })
+        {
+            Assert.Equal([docs], (await desktop.ListAsync()).Select(series => series.Id));
+            Assert.Null(await desktop.FindAsync("backlog"));
+        }
+
+        Assert.Equal(await a.CopyAsync(core), await b.CopyAsync(core));
+        Assert.NotEqual(Guid.Empty, await b.CreateAsync("Main", "backlog"));
+    }
+
+    /// <summary>B writes a note into a series before it hears that A deleted it later.
+    /// Whichever syncs first, the deletion is the newer change and wins on both: B's note
+    /// goes with the series, and no sync brings the series back.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_change_older_than_the_deletion_does_not_bring_the_series_back(bool editorSyncsFirst)
+    {
+        var (a, b) = await PairAsync();
+        var task = Guid.NewGuid();
+        var core = await a.CreateAsync("Core");
+        await a.Plan(planning => planning.StartSprintAsync(core, Monday, "Ship sync", Cancellation));
+        await a.Plan(planning => planning.AddTaskAsync(core, 1, task, Cancellation));
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True((await b.SyncAsync()).IsSuccess);
+
+        await b.Plan(planning => planning.SetNoteAsync(core, 1, task, "Written on B before the delete", Cancellation));
+        var edit = (await b.CopyAsync(core))!;
+        await a.DeleteAsync(core);
+        Assert.True((await a.CopyAsync(core))!.UpdatedAt > edit.UpdatedAt);
+
+        var order = editorSyncsFirst ? new[] { b, a } : [a, b];
+        for (var round = 0; round < 2; round++)
+        {
+            foreach (var desktop in order) Assert.True((await desktop.SyncAsync()).IsSuccess);
+        }
+
+        foreach (var desktop in new[] { a, b })
+        {
+            Assert.Empty(await desktop.ListAsync());
+            Assert.Equal("progress.series_not_found", (await desktop.TryPlan(planning => planning.GetSeriesAsync(core, Cancellation))).Error.Code);
+        }
+
+        Assert.Equal(await a.CopyAsync(core), await b.CopyAsync(core));
+    }
+
+    /// <summary>B, not yet told of A's deletion, writes a note after it. The note is the
+    /// newer change, so once both have synced the series is back on both, note and all
+    /// (<c>.devbook/domain/progress/features.md#syncing-sprints-between-devices</c>).</summary>
+    [Fact]
+    public async Task A_change_saved_after_the_deletion_brings_the_series_back_on_both()
+    {
+        var (a, b) = await PairAsync();
+        var task = Guid.NewGuid();
+        var core = await a.CreateAsync("Core");
+        await a.Plan(planning => planning.StartSprintAsync(core, Monday, "Ship sync", Cancellation));
+        await a.Plan(planning => planning.AddTaskAsync(core, 1, task, Cancellation));
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True((await b.SyncAsync()).IsSuccess);
+
+        await a.DeleteAsync(core);
+        var tombstone = (await a.CopyAsync(core))!;
+        await b.Plan(planning => planning.SetNoteAsync(core, 1, task, "Written on B after the delete", Cancellation));
+        Assert.True((await b.CopyAsync(core))!.UpdatedAt > tombstone.UpdatedAt);
+
+        for (var round = 0; round < 2; round++)
+        {
+            Assert.True((await a.SyncAsync()).IsSuccess);
+            Assert.True((await b.SyncAsync()).IsSuccess);
+        }
+
+        foreach (var desktop in new[] { a, b })
+        {
+            var back = await desktop.GetAsync(core);
+            Assert.Equal("Written on B after the delete", Assert.Single(Assert.Single(back.Sprints).Items).Note);
+        }
+    }
+
     private static string Json(SprintSeriesDto series) => JsonSerializer.Serialize(series, Web);
 
     private async Task<(Desktop A, Desktop B)> PairAsync(DateTimeOffset? aNow = null, DateTimeOffset? bNow = null)
@@ -300,6 +398,13 @@ public sealed class SprintSyncBetweenDevicesTests : IDisposable
         public async Task<SprintSeriesReplicaCopyDto?> CopyAsync(Guid id) =>
             (await _provider.GetRequiredService<ISprintSeriesReplication>().ReadAllAsync(Cancellation))
                 .SingleOrDefault(copy => copy.Id == id);
+
+        public async Task DeleteAsync(Guid id)
+        {
+            using var scope = _provider.CreateScope();
+            var deleted = await scope.ServiceProvider.GetRequiredService<ISprintSeriesPlanning>().DeleteSeriesAsync(id, Cancellation);
+            Assert.True(deleted.IsSuccess, deleted.IsFailure ? deleted.Error.Code : null);
+        }
 
         public Task<Result<TaskSyncSummary>> SyncAsync() => _session.SyncAsync(Cancellation);
 

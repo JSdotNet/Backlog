@@ -62,6 +62,28 @@ internal sealed record SprintSeriesDocument
     /// <summary>Why the system switched the series off, or absent.</summary>
     public string? OffReason { get; init; }
 
+    /// <summary>When a person deleted the series, or absent while it exists. A document
+    /// carrying it is a <b>tombstone</b>: the series' id and name and nothing it held, kept
+    /// so the deletion travels as the series' last change and no older copy brings the
+    /// series back (<c>.devbook/domain/progress/domain.md#sprint-series</c>). It is written
+    /// switched off with no repository, so a build that does not know the field shows
+    /// at most an empty series that is off, never one holding a repository.</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
+
+    /// <summary>Whether this document is a deleted series' tombstone.</summary>
+    [JsonIgnore]
+    public bool IsTombstone => DeletedAt is not null;
+
+    /// <summary>The tombstone a deleted series leaves.</summary>
+    public static SprintSeriesDocument Tombstone(Guid id, string name, DateTimeOffset deletedAt) =>
+        new()
+        {
+            Id = id,
+            Name = name,
+            IsOn = false,
+            DeletedAt = deletedAt
+        };
+
     public static SprintSeriesDocument From(SprintSeries series) =>
         new()
         {

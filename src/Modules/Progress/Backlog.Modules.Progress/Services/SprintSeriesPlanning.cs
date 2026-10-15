@@ -122,6 +122,12 @@ public sealed class SprintSeriesPlanning(
     public Task<Result<SprintProgressDto>> ReadAsync(Guid seriesId, int? number = null, CancellationToken cancellationToken = default) =>
         Gate(() => progress.Handle(new ReadSprintProgressQuery(seriesId, number), cancellationToken));
 
+    public Task<Result> DeleteSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default) =>
+        Gate(() => configure.Handle(new DeleteSeriesCommand(seriesId), cancellationToken));
+
     private Task<Result<T>> Gate<T>(Func<Task<Result<T>>> call) =>
         IsOn ? call() : Task.FromResult(Result.Failure<T>(ProgressErrors.Off()));
+
+    private Task<Result> Gate(Func<Task<Result>> call) =>
+        IsOn ? call() : Task.FromResult(Result.Failure(ProgressErrors.Off()));
 }

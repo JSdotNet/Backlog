@@ -29,6 +29,10 @@ public sealed record SwitchSeriesCommand(Guid SeriesId, bool On);
 /// <summary>Chooses the goal rules and the share of goal tasks that meets the goal.</summary>
 public sealed record SetGoalRulesCommand(Guid SeriesId, IReadOnlyList<GoalRuleDto> Rules, int GoalShare);
 
+/// <summary>Deletes a series with every sprint it recorded, on or off; its repositories
+/// are in no series from then on, and no task changes.</summary>
+public sealed record DeleteSeriesCommand(Guid SeriesId);
+
 public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
     : ICommandHandler<AddRepositoryCommand, Result<SprintSeriesDto>>,
       ICommandHandler<RemoveRepositoryCommand, Result<SprintSeriesDto>>,
@@ -36,7 +40,8 @@ public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
       ICommandHandler<RenameSeriesCommand, Result<SprintSeriesDto>>,
       ICommandHandler<ShowInBriefsCommand, Result<SprintSeriesDto>>,
       ICommandHandler<SwitchSeriesCommand, Result<SprintSeriesDto>>,
-      ICommandHandler<SetGoalRulesCommand, Result<SprintSeriesDto>>
+      ICommandHandler<SetGoalRulesCommand, Result<SprintSeriesDto>>,
+      ICommandHandler<DeleteSeriesCommand, Result>
 {
     public Task<Result<SprintSeriesDto>> Handle(AddRepositoryCommand command, CancellationToken cancellationToken = default)
     {
@@ -103,5 +108,11 @@ public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
         }
 
         return changes.ChangeAsync(command.SeriesId, series => series.SetGoalRules(rules, command.GoalShare), cancellationToken);
+    }
+
+    public Task<Result> Handle(DeleteSeriesCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return changes.DeleteAsync(command.SeriesId, cancellationToken);
     }
 }

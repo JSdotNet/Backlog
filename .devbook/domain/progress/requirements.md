@@ -72,6 +72,33 @@ The system SHALL treat the repositories of a switched-off series as in no series
 - **When** the person adds `backlog` to the series "Docs"
 - **Then** the change is refused and `backlog` stays in "Core"
 
+### Requirement: A deleted series frees its repositories
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL, once the person confirms deleting a series, remove the series and every sprint it recorded, leave every task as it was, and treat its repositories as in no series.
+
+#### Scenario: Deleting a series with sprints
+
+- **Given** the series "Core" over `backlog` and `docs`, with Sprint 4 open
+- **When** the person deletes "Core" and confirms
+- **Then** "Core" and its four sprints are gone, every task of Sprint 4 is unchanged, and `backlog` and `docs` show under "Not in a sprint"
+
+#### Scenario: Cancelling the delete
+
+- **Given** the series "Core" over `backlog`
+- **When** the person deletes "Core" and cancels
+- **Then** "Core" stays as it was
+
+#### Scenario: A freed repository joins another series
+
+- **Given** the series "Core" over `backlog` was deleted
+- **When** the person adds `backlog` to the series "Docs"
+- **Then** `backlog` belongs to "Docs"
+
 ### Requirement: A sprint is named by the pattern
 
 ```meta
@@ -451,6 +478,27 @@ The system SHALL send no series from a desktop that never set one up.
 - **Given** the series "Core" on A, and B newly paired with no series
 - **When** B syncs
 - **Then** B holds "Core" as A has it, and A still holds its own "Core"
+
+### Requirement: A deleted series is deleted on every desktop
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL remove a series from every paired desktop once one desktop deleted it and both have synced, unless the series was changed on another desktop after the deletion.
+
+#### Scenario: Deleted on one desktop
+
+- **Given** the series "Core" on A and B
+- **When** the person deletes "Core" on A, and A and then B sync
+- **Then** neither desktop holds "Core", and its repositories are in no series on both
+
+#### Scenario: A change older than the deletion
+
+- **Given** the series "Core" on A and B
+- **When** the person writes a note on B, then deletes "Core" on A, and both sync
+- **Then** neither desktop holds "Core"
 
 ### Requirement: A repository two desktops gave to two series stays in the first
 

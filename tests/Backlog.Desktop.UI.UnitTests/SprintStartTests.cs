@@ -181,6 +181,12 @@ public sealed class SprintStartTests : IDisposable
             if (!_all.Contains(series)) _all.Add(series);
             return Task.CompletedTask;
         }
+
+        public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            _all.RemoveAll(series => series.Id == id);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class NoTasks : ISprintTaskSource

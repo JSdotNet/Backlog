@@ -20898,6 +20898,22 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
+/* Delete series…, last on the card and set apart from the settings above it:
+   the one act on the card that cannot be taken back, so it asks first. */
+.sprint-card__foot {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+/* Scoped by the foot so it outranks the ghost button's own hover colour: the
+   control keeps its red at the moment it is about to be pressed. */
+.sprint-card__foot .sprint-card__delete,
+.sprint-card__foot .sprint-card__delete:hover {
+    color: var(--color-error-text);
+}
+
 @media (max-width: 640px) {
     .sprint-card__field {
         grid-template-columns: minmax(0, 1fr);

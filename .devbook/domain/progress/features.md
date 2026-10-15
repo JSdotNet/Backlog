@@ -71,6 +71,23 @@ Switch one series off without losing it. Its repositories show the In progress
 view again, and it keeps everything it holds until it is switched back on. A
 repository of a switched-off series still cannot join another series.
 
+### Deleting a series
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#sprint-series, .devbook/domain/progress/requirements.md#requirement-a-deleted-series-frees-its-repositories]
+```
+
+Delete a series made by mistake, or one no longer worked to. Any series can be
+deleted, on or off, with or without sprints. "Delete series…" on its card asks
+first, naming the series, how many sprints go with it and which repositories
+it frees. Cancel changes nothing. Once confirmed, the series and every sprint it
+recorded are gone, and its repositories show under "Not in a sprint", free to
+join another series. No task changes, and the series is deleted on every paired
+desktop. Nothing offers to bring it back: to keep its sprints, switch it off
+instead.
+
 ### The Sprints settings page
 
 ```meta
@@ -82,7 +99,7 @@ related: [.devbook/domain/progress/context.md#progress-area]
 Settings › Sprints is where a series is set up, offered while the Progress area is
 on. It draws one card per series: its switch, its repositories, its length, start
 weekday and name pattern with the next sprint's name, its goal rules and when the
-goal is met, and which briefs show it. "Add repository" offers only the
+goal is met, which briefs show it, and "Delete series…". "Add repository" offers only the
 repositories in no series. A "Not in a sprint" card lists those repositories, and
 "Add another sprint" starts a series over the one picked. Every change is saved as
 it is made, and a refused change is said on its card in the module's words. Done
@@ -475,6 +492,12 @@ have both changed one series since they last synced, the **newer change wins on
 every device** and the older one is lost. Two different series are two documents,
 so a change to one never displaces a change to the other. A device that has **never
 set up a series has nothing to send**.
+
+A **deleted series is deleted on every desktop**. The deletion travels as the
+series' last change, so the newer-change rule decides it like any other. A change
+made to the series on another desktop before that desktop heard of the deletion
+is older and is lost with it. A change saved after the deletion is newer and
+brings the series back on every desktop.
 
 Two desktops that each set up a series for the same repository while offline both
 keep theirs. Once both have synced, **the repository works to the series set up

@@ -11,7 +11,8 @@
     Every change goes through ISprintSeriesPlanning as it is made and the card is drawn
     again from what the port answers, so the page shows what the series holds rather
     than what was typed. A refused change keeps the series as it was and says why on
-    its card, in the module's own words.
+    its card, in the module's own words. Delete series… is the one change a card asks
+    about first; once confirmed the card goes and its repositories are free.
 
     A series saved anywhere else - pulled from another desktop by the sync, or changed
     from the sprint view or a task - raises ISprintSeriesPlanning.Changed, and the page
@@ -60,7 +61,8 @@
                               OnNamePatternChanged="pattern => ChangeAsync(series.Id, ct => Planning.RenameAsync(series.Id, series.Name, pattern, ct))"
                               OnGoalChanged="goal => ChangeAsync(series.Id, ct => Planning.SetGoalRulesAsync(series.Id, RulesOf(goal), goal.Share, ct))"
                               OnShowInChanged="briefs => ChangeAsync(series.Id, ct => Planning.ShowInBriefsAsync(series.Id, briefs.Daily, briefs.Weekly, ct))"
-                              OnStartSprint="() => OpenStart(series)" />
+                              OnStartSprint="() => OpenStart(series)"
+                              OnDelete="() => DeleteAsync(series.Id)" />
         }
 
         @if (_starting is { } starting)
@@ -116,6 +118,9 @@
     /// <summary>The page's one fixed card - what its
     /// <c>SettingsSection.CardTitles</c> declares; a series card is titled by its series.</summary>
     public const string FreeRepositoriesCardTitle = "Not in a sprint";
+
+    /// <summary>The module's code for a series that is not there.</summary>
+    private const string SeriesNotFoundCode = "progress.series_not_found";
 
     private readonly Dictionary<Guid, string> _errors = [];
 
@@ -304,6 +309,42 @@
         var index = _series.FindIndex(series => series.Id == seriesId);
         if (index >= 0) _series[index] = changed.Value;
         else await LoadAsync();
+        RefreshFree();
+    }
+
+    /// <summary>
+    /// Deletes a series the person confirmed on its card. Once it is gone its card goes
+    /// and its repositories join the Not in a sprint card, free for another series. A
+    /// refusal, or a store that could not be written, is said on the card, which the
+    /// page reads again so it shows what is stored.
+    /// </summary>
+    private async Task DeleteAsync(Guid seriesId)
+    {
+        global::Backlog.SharedKernel.Results.Result deleted;
+        try
+        {
+            deleted = await Planning.DeleteSeriesAsync(seriesId);
+        }
+        catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
+        {
+            _errors[seriesId] = $"The series could not be deleted: {exception.Message}";
+            await LoadAsync();
+            return;
+        }
+
+        // A series already gone — most often deleted by a pull from another desktop
+        // while the confirmation was open — is what the person asked for: the card goes.
+        if (deleted.IsFailure && deleted.Error.Code != SeriesNotFoundCode)
+        {
+            _errors[seriesId] = deleted.Error.Message;
+            await LoadAsync();
+            return;
+        }
+
+        _errors.Remove(seriesId);
+        _cadence.Remove(seriesId);
+        if (_starting?.Id == seriesId) CloseStart(false);
+        _series.RemoveAll(series => series.Id == seriesId);
         RefreshFree();
     }
 
