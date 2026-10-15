@@ -667,8 +667,8 @@ the one way to narrow to them (local ADR 0027).
 
 The repository scope is remembered on this device in the order it was chosen.
 The app reopens on the same repositories with the first one chosen still first,
-and with Brain in its place when it was pressed. The Devbook beside them is then
-offered straight away, with no chip to press. A repository that is no longer
+and with Brain in its place when it was pressed. The Devbook is then offered on
+them straight away, with no chip to press. A repository that is no longer
 configured is dropped when the scope comes back, and a scope with none left is
 every repository. The scope is remembered as it stands after any narrowing, so a
 scope narrowed back to one comes back as that one. Where an

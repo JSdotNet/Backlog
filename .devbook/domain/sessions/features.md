@@ -21,7 +21,7 @@ The list opens from **Sessions** in the header's work in progress group. It sits
 between [In progress](#in-progress-by-task) and **Pull requests**, the open pull
 requests the sessions shipped. Each of the two lists takes the whole screen while it
 is open. Escape, its close button or a second press of its option returns to the view
-and the side panes that were showing before. In progress, first in the group, is a
+that was showing before. In progress, first in the group, is a
 view instead: it sits with the two lists because it summarises them.
 
 One list rather than one per agent, because the question is about the work and not

@@ -190,7 +190,7 @@ start of its tab strip. The switch sits right after the title, so it stays in
 place as the badge and the path come and go.
 
 The pane's own width decides its layout, not the window's. Narrower than a menu
-beside a readable column, as at the side pane's minimum, the menu sits above the
+beside a readable column, as in a narrow window, the menu sits above the
 note, capped so the note still starts on screen, and a note's title wraps above
 its path rather than ending in an ellipsis.
 
@@ -376,9 +376,9 @@ by the repository's own folder for that subject. Tasks are not an area. They are
 their own workspace section, read and written rather than browsed, so a
 repository's backlog folder is not a knowledge area.
 
-Areas are browsed from a side pane beside the task list, so knowledge and work
-stay in view together. The pane's width is adjustable, because the two compete for
-the same screen.
+Areas are browsed in the Devbook, which takes the whole screen in place of the
+task list and keeps it underneath, so one press moves between knowledge and work
+(local ADR 0022, amendment of 2026-10-15).
 
 ### Area selection and scope
 
