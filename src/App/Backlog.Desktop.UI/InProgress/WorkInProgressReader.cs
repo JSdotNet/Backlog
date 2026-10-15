@@ -267,6 +267,10 @@ public sealed class WorkInProgressReader(
     /// pull request, or one deleted — by key. Not asked about again.</summary>
     private readonly HashSet<string> _missing = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Pull requests read by <see cref="ReadPullRequestAsync"/> that no read of
+    /// the linked pull requests has yet been asked about, by key.</summary>
+    private readonly Dictionary<string, GitHubLinkedPullRequest> _byReference = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// One read by number of the linked pull requests the open read did not list and
     /// that are not known merged or missing, kept only if no read started after it has
@@ -323,13 +327,81 @@ public sealed class WorkInProgressReader(
         }
 
         var linkedKeys = links.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        LinkedPullRequests =
+
+        // A pull request read by reference since this read asked for its links was linked
+        // after that list was taken, so this read knows nothing of it: it is kept as that
+        // read found it until a read whose links include it reads it in its own right.
+        foreach (var known in _byReference.Keys.Where(linkedKeys.Contains).ToList()) _byReference.Remove(known);
+
+        List<GitHubLinkedPullRequest> read =
         [
             .. _merged.Where(merged => linkedKeys.Contains(merged.Key) && !listed.Contains(merged.Key)).Select(merged => merged.Value),
             .. listing.PullRequests.Where(pull => pull.State is not GitHubItemState.Merged)
         ];
+        var readKeys = read.Select(pull => InProgressProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        LinkedPullRequests = [.. read, .. _byReference.Where(added => !readKeys.Contains(added.Key) && !listed.Contains(added.Key)).Select(added => added.Value)];
 
         if (wanted.Count > 0) Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// One pull request, read by number whatever its state — what "Link a session or
+    /// pull request…" asks before it records a pull request named by number or URL.
+    /// <para>
+    /// Through the same read by number the linked pull requests are read with, and into
+    /// the same cache: one found merged is kept for the life of the reader and never read
+    /// again, and the rest join <see cref="LinkedPullRequests"/> until the next read of
+    /// the open list reads them again — so the link carries the state GitHub gave here,
+    /// for a reader that counts what merged, rather than waiting for that read. The card
+    /// still draws the task list's record, as it does for every linked pull request.
+    /// </para>
+    /// </summary>
+    /// <returns>The pull request; else null and why not — no GitHub, the repository's
+    /// refusal, or no pull request by that number.</returns>
+    public async Task<(GitHubLinkedPullRequest? PullRequest, string? Failure)> ReadPullRequestAsync(
+        GitHubPullRequestReference reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+
+        var key = Key(reference);
+        if (_merged.TryGetValue(key, out var known)) return (known, null);
+
+        if (!ReadsPullRequests || gitHub is not { IsConfigured: true } configured)
+        {
+            return (null, "GitHub is not set up here, so there is no pull request to read.");
+        }
+
+        GitHubLinkedPullRequestListing listing;
+        try
+        {
+            listing = await configured.ListLinkedPullRequestsAsync([reference]);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return (null, exception.Message);
+        }
+
+        if (listing.PullRequests.FirstOrDefault(pull =>
+                pull.Number == reference.Number
+                && string.Equals(pull.RepositoryFullName, reference.RepositoryFullName.Trim(), StringComparison.OrdinalIgnoreCase)) is not { } found)
+        {
+            return listing.Failures.FirstOrDefault() is { } failure
+                ? (null, $"GitHub would not read {failure.RepositoryFullName}: {failure.Message}")
+                : (null, $"{reference.RepositoryFullName.Trim()} has no pull request #{reference.Number}.");
+        }
+
+        _missing.Remove(key);
+        if (found.State is GitHubItemState.Merged) _merged[key] = found;
+        _byReference[key] = found;
+
+        LinkedPullRequests =
+        [
+            .. LinkedPullRequests.Where(pull => !string.Equals(InProgressProjection.Key(pull.RepositoryFullName, pull.Number), key, StringComparison.OrdinalIgnoreCase)),
+            found
+        ];
+        Changed?.Invoke();
+
+        return (found, null);
     }
 
     private static string Key(GitHubPullRequestReference link) => InProgressProjection.Key(link.RepositoryFullName.Trim(), link.Number);
