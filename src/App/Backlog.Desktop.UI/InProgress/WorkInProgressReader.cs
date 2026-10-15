@@ -30,6 +30,12 @@ namespace Backlog.Desktop.UI.InProgress;
 /// open one is read again with the next read of the open list, at most once per
 /// <see cref="FreshFor"/> like the open list itself.
 /// </para>
+/// <para>
+/// That read goes through <see cref="GitHubIntegration.ReadLinkedPullRequestsAsync"/>,
+/// the cache Progress's sprint reader reads through too: an answer read since this read
+/// of the open list began — by the sprint view, say, on the same Refresh — or a read of
+/// it still out that began since, is taken rather than asked for again.
+/// </para>
 /// </summary>
 /// <param name="linked">The pull requests the tasks link, asked at the start of every
 /// read of the pull requests; null reads none by number. A read that starts before the
@@ -229,6 +235,7 @@ public sealed class WorkInProgressReader(
         // Asked before the first await, on the caller's dispatcher, which is where the
         // task list's rows may be read.
         GitHubPullRequestReference[] links = linked is null ? [] : [.. linked()];
+        var startedAt = _clock.GetUtcNow();
 
         GitHubPullRequestListing listing;
         try
@@ -252,7 +259,7 @@ public sealed class WorkInProgressReader(
 
         // After the open read has landed and not as part of it: the open list is what
         // the view draws, and nothing it draws waits on a read it does not draw from.
-        LinkedRead = ReadLinkedAsync(configured, links, listing.PullRequests, generation);
+        LinkedRead = ReadLinkedAsync(configured, links, listing.PullRequests, generation, startedAt);
     }
 
     /// <summary>The read by number that followed the last read of the open list —
@@ -283,7 +290,8 @@ public sealed class WorkInProgressReader(
         GitHubIntegration configured,
         IReadOnlyCollection<GitHubPullRequestReference> links,
         IReadOnlyList<GitHubOpenPullRequest> open,
-        int generation)
+        int generation,
+        DateTimeOffset startedAt)
     {
         var listed = open.Select(pull => InProgressProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var wanted = links
@@ -296,7 +304,9 @@ public sealed class WorkInProgressReader(
         {
             try
             {
-                listing = await configured.ListLinkedPullRequestsAsync(wanted);
+                // Fresh means read since this read began: what the sprint view asked
+                // on the same Refresh, not what an earlier one left behind.
+                listing = await configured.ReadLinkedPullRequestsAsync(wanted, _clock.GetUtcNow() - startedAt);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

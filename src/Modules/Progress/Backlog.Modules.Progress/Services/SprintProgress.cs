@@ -127,7 +127,7 @@ public static class SprintProgress
     }
 
     /// <summary>The earliest-linked plan that brings <paramref name="task"/> in, or null.</summary>
-    private static PlanLink? BroughtByPlan(SprintSeries series, Sprint sprint, SprintTaskDto task)
+    internal static PlanLink? BroughtByPlan(SprintSeries series, Sprint sprint, SprintTaskDto task)
     {
         if (!task.RepositoryAliases.Any(series.HasRepository)) return null;
 
