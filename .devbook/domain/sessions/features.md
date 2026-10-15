@@ -1618,12 +1618,24 @@ date for a reader that counts what merged and whose it was; no card shows them y
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_side_panel_section_links_a_session_or_pull_request_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.An_in_progress_title_opens_the_entry_in_the_tasks_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_side_panel_section_links_a_session_or_pull_request_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_typed_by_number_is_linked_whatever_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_merged_pull_request_linked_by_its_link_is_kept_by_the_reader, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_in_a_repository_not_registered_is_refused_under_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_number_GitHub_does_not_know_is_refused_and_nothing_is_recorded, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_no_registered_repository_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_two_repositories_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_listed_pull_request_that_merged_before_it_was_chosen_is_still_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.An_in_progress_title_opens_the_entry_in_the_tasks_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to]
 ```
 
 A task's side panel carries the same cards under "Sessions and pull requests", with
 "Link a session or pull request…" and "Open in In progress". With one of the two
-features off, the heading and the link action name only the kind left. A task's title on
+features off, the heading and the link action name only the kind left.
+
+Under the list of what no task claims, the link action takes a pull request by its
+number or its link, whatever its state: open, draft, merged or closed. Work that merged
+before its task was linked is linked this way, and a sprint member is then
+[done](../progress/domain.md#done) by it. A bare number is the task's own repository's, and a task with two has to be given the link;
+a link or `owner/name#123` names one, and it must be registered in Settings. The pull
+request is read by number before anything is recorded, so one GitHub does not know is
+refused under the field and nothing is written. A merged one is kept from that read for
+as long as the app runs. A pull request the list offered as open that merged before it
+was chosen is linked too, not refused as no longer open.
+
+A task's title on
 the view opens it in the Tasks view. A session or a pull request opens the session list
 or the pull requests list on that item. A pull request that has merged or closed is not
 on the pull requests list's open read. So it is read by number and drawn in the open list

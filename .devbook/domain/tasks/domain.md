@@ -469,7 +469,11 @@ emitted yet; see [Occurrence Spawning](#occurrence-spawning) for why this contex
 publishes none.
 
 A `Projection Ref` recorded by hand, such as a session or pull request linked to
-a task, can be taken off again. What unlinking does is held by the task:
+a task, records the work whatever state it is in: a pull request that merged or
+closed before its task was linked is linked as an open one is, from a repository
+registered in Settings; see
+[From a task's side panel](../sessions/features.md#from-a-tasks-side-panel). It
+can be taken off again. What unlinking does is held by the task:
 [it removes every reference to the named artifact](domain.invariants.md#invariant-unlinking-removes-every-reference-to-the-named-artifact),
 [leaves the task's repositories as they are](domain.invariants.md#invariant-unlinking-leaves-the-tasks-repositories-as-they-are),
 and

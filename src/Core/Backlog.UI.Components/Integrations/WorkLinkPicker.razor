@@ -7,6 +7,13 @@
     host says what the choices are and what the dialog is called; choosing one
     closes the dialog and hands the choice back. Nothing to choose says so, in the
     host's sentence, rather than drawing an empty list.
+
+    A host that can also take one by what a person types — a pull request's number
+    or link, whatever its state — sets `ReferenceLabel` and listens on
+    `OnReference`: a field and a Link button are drawn under the list, Enter or the
+    button hands the text over, and the host's sentence for a refusal is drawn under
+    the field as its error. The host closes the dialog when the link is made; a
+    refused reference leaves it open with the text still in the field.
 *@
 <Modal Open="Open"
        OpenChanged="OpenChanged"
@@ -43,6 +50,33 @@
             }
         </ul>
     }
+
+    @if (!string.IsNullOrWhiteSpace(ReferenceLabel))
+    {
+        <form class="work-link-picker__reference"
+              data-testid="work-link-picker-reference"
+              @onsubmit="SubmitReferenceAsync"
+              @onsubmit:preventDefault="true">
+            @* The label sits above the row rather than inside the field, so the Link
+               button lines up with the input however the label wraps. *@
+            <p class="work-link-picker__reference-label" aria-hidden="true">@ReferenceLabel</p>
+            <TextField AriaLabel="@ReferenceLabel"
+                       Value="@_reference"
+                       ValueChanged="text => _reference = text"
+                       Placeholder="@ReferencePlaceholder"
+                       HelpText="@ReferenceHelp"
+                       ErrorMessage="@ReferenceError"
+                       CssClass="work-link-picker__reference-field"
+                       TestId="work-link-picker-reference-field" />
+            <AppButton Type="submit"
+                       Variant="ButtonVariant.Secondary"
+                       Busy="ReferenceBusy"
+                       BusyLabel="Linking"
+                       Disabled="@string.IsNullOrWhiteSpace(_reference)"
+                       CssClass="work-link-picker__reference-link"
+                       TestId="work-link-picker-reference-link">Link</AppButton>
+        </form>
+    }
 </Modal>
 
 @code {
@@ -73,6 +107,50 @@
 
     [Parameter]
     public string? TestId { get; set; } = "work-link-picker";
+
+    /// <summary>The label of the field that takes a choice by what is typed — a pull
+    /// request's number or link. Unset, no field is drawn.</summary>
+    [Parameter]
+    public string? ReferenceLabel { get; set; }
+
+    [Parameter]
+    public string? ReferencePlaceholder { get; set; }
+
+    [Parameter]
+    public string? ReferenceHelp { get; set; }
+
+    /// <summary>The host's sentence for the last reference it refused, drawn as the
+    /// field's error; null while there is none.</summary>
+    [Parameter]
+    public string? ReferenceError { get; set; }
+
+    /// <summary>Whether the host is still working on the last reference handed over.</summary>
+    [Parameter]
+    public bool ReferenceBusy { get; set; }
+
+    /// <summary>Raised with the typed text, trimmed, on Enter or Link. The dialog stays
+    /// open: the host closes it once the link is made.</summary>
+    [Parameter]
+    public EventCallback<string> OnReference { get; set; }
+
+    private string? _reference;
+    private bool _wasOpen;
+
+    protected override void OnParametersSet()
+    {
+        // A fresh field each time the dialog opens: what was typed into it last time was
+        // either linked or given up on.
+        if (Open && !_wasOpen) _reference = null;
+        _wasOpen = Open;
+    }
+
+    private async Task SubmitReferenceAsync()
+    {
+        var text = _reference?.Trim();
+        if (string.IsNullOrEmpty(text) || ReferenceBusy) return;
+
+        await OnReference.InvokeAsync(text);
+    }
 
     private async Task ChooseAsync(WorkLinkOption option)
     {

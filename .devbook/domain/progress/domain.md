@@ -323,6 +323,10 @@ A member is done in a sprint when its task's status is Done, or when every pull
 request linked to the task is merged. Either is enough. A task with no linked pull
 request is done only by its status. An archived task is not done by its status.
 
+A pull request counts from the moment it is linked, whenever it merged. Work that
+merged before its task was linked is linked by its number or its link from the task's
+side panel, and the member is then done by it like any other.
+
 ### Added after the start
 
 ```meta

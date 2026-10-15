@@ -19755,6 +19755,42 @@ select.field__input {
     font-size: var(--font-size-xs);
 }
 
+/* The field under the list that takes a pull request by number or link: its label
+   across the top, then the field growing and the Link button beside its input, the
+   two tops aligned so they line up however the label wraps. */
+.work-link-picker__reference {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--spacing-sm);
+    row-gap: var(--spacing-2xs);
+    align-items: start;
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.work-link-picker__reference-label {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-link-picker__reference-field {
+    min-width: 0;
+}
+
+/* The input set in the button's size: the two then share padding, border and line
+   height, and so their height. */
+.work-link-picker__reference-field .field__input {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.work-link-picker__reference-link {
+    line-height: var(--line-height-normal);
+}
+
 /* --- In progress, by task -------------------------------------------------------
    InProgressBoard: the header with its two toggles, then one section per rule —
    Needs you, Moving, and last Not linked to a task — each a dot, a name, a count
