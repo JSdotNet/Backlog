@@ -69,6 +69,8 @@
         @if (!IsNew)
         {
             <DeleteButton Lead="true"
+                          Busy="@(_pending is PendingWrite.Delete)"
+                          aria-disabled="@Blocked"
                           OnClick="DeleteAsync"
                           TestId="roadmap-milestone-editor-delete" />
         }
@@ -77,7 +79,13 @@
             Cancel
         </AppButton>
 
-        <AppButton Variant="ButtonVariant.Primary" OnClick="SaveAsync" TestId="roadmap-milestone-editor-save">
+        @* Busy from the press until the band has answered, as the item editor's. *@
+        <AppButton Variant="ButtonVariant.Primary"
+                   Busy="@(_pending is PendingWrite.Save)"
+                   BusyLabel="Saving"
+                   aria-disabled="@Blocked"
+                   OnClick="SaveAsync"
+                   TestId="roadmap-milestone-editor-save">
             @(IsNew ? "Add it" : "Save")
         </AppButton>
     </Footer>
@@ -200,6 +208,8 @@
 
     private async Task SaveAsync()
     {
+        if (_pending is not PendingWrite.None) return;
+
         _titleError = string.IsNullOrWhiteSpace(_title) ? "Give the date a name." : null;
         _dateError = null;
         _error = null;
@@ -209,13 +219,45 @@
 
         if (_titleError is not null || _dateError is not null) return;
 
-        await OnSave.InvokeAsync(new RoadmapMilestoneSubmission(
+        await WriteAsync(PendingWrite.Save, () => OnSave.InvokeAsync(new RoadmapMilestoneSubmission(
             Milestone?.Id,
             _title.Trim(),
             on!.Value,
             Enum.TryParse<MilestoneKind>(_kind, out var kind) ? kind : MilestoneKind.Release,
             _repositories,
-            _planWide));
+            _planWide)));
+    }
+
+    /// <summary>The write in flight, if any: one at a time, so a second press of
+    /// either button while the band answers the first is dropped.</summary>
+    private PendingWrite _pending;
+
+    /// <summary>Save and Delete while either runs, as the item editor's.</summary>
+    private string? Blocked => _pending is PendingWrite.None ? null : "true";
+
+    private enum PendingWrite
+    {
+        None,
+        Save,
+        Delete
+    }
+
+    /// <summary>Marks the pressed button busy, lets that paint, then waits on the
+    /// band — the acknowledgement before work (#press-feedback), for the reason
+    /// the item editor gives.</summary>
+    private async Task WriteAsync(PendingWrite write, Func<Task> act)
+    {
+        _pending = write;
+
+        try
+        {
+            await Task.Yield();
+            await act();
+        }
+        finally
+        {
+            _pending = PendingWrite.None;
+        }
     }
 
     private async Task OnDependenciesChangedAsync(IReadOnlyList<string> values)
@@ -240,7 +282,10 @@
 
     private async Task DeleteAsync()
     {
-        if (Milestone is not null) await OnDelete.InvokeAsync(Milestone.Id);
+        if (Milestone is { } milestone && _pending is PendingWrite.None)
+        {
+            await WriteAsync(PendingWrite.Delete, () => OnDelete.InvokeAsync(milestone.Id));
+        }
     }
 
     private async Task CancelAsync() => await OpenChanged.InvokeAsync(false);

@@ -29,10 +29,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Cached on the lock files, like the pull request run; a run here on main
+      # also fills the cache pull request runs read.
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
 
       # DevbookBuilderParityTests needs node:sqlite; see the pull request workflow.
       - name: Setup Node.js
@@ -40,8 +44,9 @@ jobs:
         with:
           node-version: '24.x'
 
+      # Locked, as in the pull request workflow, which says why.
       - name: Restore dependencies
-        run: dotnet restore Backlog.WithoutAppHeads.slnf
+        run: dotnet restore Backlog.WithoutAppHeads.slnf --locked-mode
 
       - name: Build
         run: >

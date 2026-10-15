@@ -1,3 +1,4 @@
+@using global::Backlog.UI.Components.Icons
 @*
     The frame every part of the dashboard wears: a title, an optional note saying
     what the figures do and do not cover — behind an info mark, not on the face,
@@ -8,7 +9,9 @@
     of them re-deciding what a heading is. There is nothing configurable on it —
     no fold, no hide, no reorder — because the dashboard's composition is fixed;
     its own control is refresh, which changes what is shown rather than which
-    parts exist. A part may put a control of its own on the heading's line through
+    parts exist. Beside it, where the shell can answer, is Ask AI, which opens the
+    assistant on the Dashboard with a question naming the part (DashboardAskAi).
+    A part may put a control of its own on the heading's line through
     Actions — the volume chart's measure — and that too only changes what the part
     draws, never which parts exist.
 
@@ -43,17 +46,45 @@
             </div>
         }
 
+        @if (AskAi is not null)
+        {
+            @* Opens the shell's Ask AI panel on the Dashboard with a question that
+               names this part. Only while the pane cascades a handler — the shell
+               offers one when the assistant is on and has a Dashboard source — so a
+               frame never shows a control that leads nowhere. Before refresh, so the
+               control that changes nothing on the part sits apart from the one that
+               does. *@
+            <IconButton AriaLabel="@($"Ask AI about {Title}")"
+                        Title="Ask AI"
+                        CssClass="btn--ghost dashboard-part__ask"
+                        TestId="@(TestId is null ? null : TestId + "-ask-ai")"
+                        OnClick="() => AskAi.AskAsync(Title)"><SparklesIcon Size="14" /></IconButton>
+        }
+
         @* A refresh while one is already in flight would only cancel and restart
-           it, so the control reports the wait rather than offering to duplicate it. *@
+           it, so the control reports the wait rather than offering to duplicate it:
+           its glyph turns into a spinner and a press is dropped. It is blocked with
+           aria-disabled rather than the native attribute, so the focus a press put
+           on it survives the refresh (interaction-guidelines.md#accessibility). *@
         <IconButton AriaLabel="@($"Refresh {Title}")"
                     Title="@(Busy ? "Refreshing" : "Refresh")"
                     CssClass="btn--ghost"
-                    Disabled="Busy"
+                    aria-disabled="@(Busy ? "true" : null)"
+                    aria-busy="@(Busy ? "true" : null)"
                     TestId="@(TestId is null ? null : TestId + "-refresh")"
-                    OnClick="() => OnRefresh.InvokeAsync()">↻</IconButton>
+                    OnClick="RefreshAsync">
+            @if (Busy)
+            {
+                <Spinner Size="SpinnerSize.Small" Label="Refreshing" />
+            }
+            else
+            {
+                @("↻")
+            }
+        </IconButton>
     </header>
 
-    <div class="dashboard-part__content">
+    <div class="dashboard-part__content" aria-busy="@(Busy ? "true" : null)">
         @ChildContent
     </div>
 </section>
@@ -84,6 +115,13 @@
     [Parameter]
     public string? CssClass { get; set; }
 
+    /// <summary>The pane's Ask AI handler, or null where nobody can answer — see
+    /// <see cref="DashboardAskAi"/>.</summary>
+    [CascadingParameter]
+    public DashboardAskAi? AskAi { get; set; }
+
     [Parameter]
     public string? TestId { get; set; }
+
+    private Task RefreshAsync() => Busy ? Task.CompletedTask : OnRefresh.InvokeAsync();
 }

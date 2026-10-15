@@ -21,6 +21,7 @@ public sealed class ShowArchivedRepositoriesTests : IDisposable
         Assert.False(store.ShowArchivedRepositories);
 
         store.SetShowArchivedRepositories(true);
+        store.Flush();
 
         Assert.True(new ShellNavigationStore(ShellPath).ShowArchivedRepositories);
         Assert.Contains("\"showArchivedRepositories\": true", File.ReadAllText(ShellPath), StringComparison.Ordinal);
@@ -35,6 +36,7 @@ public sealed class ShowArchivedRepositoriesTests : IDisposable
         store.SetShowArchivedRepositories(true);
 
         store.SetShowArchivedRepositories(false);
+        store.Flush();
 
         Assert.DoesNotContain("showArchivedRepositories", File.ReadAllText(ShellPath), StringComparison.Ordinal);
         Assert.False(new ShellNavigationStore(ShellPath).ShowArchivedRepositories);

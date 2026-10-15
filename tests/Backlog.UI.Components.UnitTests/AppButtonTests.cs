@@ -51,11 +51,69 @@ public sealed class AppButtonTests
     {
         using var context = new BunitContext();
 
+        var clicks = 0;
+        var button = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.Busy, true)
+            .Add(b => b.OnClick, () => clicks++));
+        var element = button.Find("button");
+
+        element.Click();
+
+        Assert.Equal("true", element.GetAttribute("aria-busy"));
+        Assert.Equal("true", element.GetAttribute("aria-disabled"));
+        Assert.Equal(0, clicks);
+    }
+
+    /// <summary>The native attribute takes a button out of the tab order and the
+    /// focus off it, so a keyboard reader who pressed Save would land on the body
+    /// mid-act (interaction-guidelines.md#accessibility). Busy blocks the click
+    /// itself instead.</summary>
+    [Fact]
+    public void Busy_keeps_the_button_out_of_the_native_disabled_state()
+    {
+        using var context = new BunitContext();
+
         var button = context.Render<AppButton>(parameters => parameters.Add(b => b.Busy, true));
         var element = button.Find("button");
 
-        Assert.Equal("true", element.GetAttribute("aria-busy"));
+        Assert.False(element.HasAttribute("disabled"));
+        Assert.Null(element.GetAttribute("tabindex"));
+    }
+
+    [Fact]
+    public void Disabled_is_still_the_native_attribute()
+    {
+        using var context = new BunitContext();
+        var clicks = 0;
+
+        var button = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.Disabled, true)
+            .Add(b => b.Busy, true)
+            .Add(b => b.OnClick, () => clicks++));
+        var element = button.Find("button");
+
+        element.Click();
+
         Assert.True(element.HasAttribute("disabled"));
+        Assert.False(element.HasAttribute("aria-disabled"));
+        Assert.Equal(0, clicks);
+    }
+
+    [Fact]
+    public void A_button_that_is_not_busy_raises_its_click_and_carries_no_aria_disabled()
+    {
+        using var context = new BunitContext();
+        var clicks = 0;
+
+        var button = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.OnClick, () => clicks++));
+        var element = button.Find("button");
+
+        element.Click();
+
+        Assert.Equal(1, clicks);
+        Assert.False(element.HasAttribute("aria-disabled"));
+        Assert.False(element.HasAttribute("disabled"));
     }
 
     [Fact]

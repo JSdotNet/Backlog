@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Backlog.Infrastructure.AzureFoundry;
@@ -36,6 +37,14 @@ public sealed class AzureFoundrySettings
 /// <summary>
 /// Per-user Azure Foundry settings. The API key deliberately lives outside the
 /// backlog folder so synced or committed content never carries credentials.
+/// <para>
+/// The key is a bearer secret that works from anywhere, so it is not written in
+/// the clear either (local ADR 0030): <c>apiKey</c> holds a DPAPI envelope sealed
+/// under the signed-in Windows user, and every other field stays legible. A key an
+/// earlier release wrote in plaintext is read as it is and sealed straight away;
+/// one this user cannot open reads as no key, which the Settings page shows as an
+/// empty key field to fill in again.
+/// </para>
 /// </summary>
 public sealed class AzureFoundrySettingsStore
 {
@@ -111,33 +120,68 @@ public sealed class AzureFoundrySettingsStore
     {
         Current = Normalize(settings);
 
-        string? error = null;
-        try
-        {
-            File.WriteAllText(_path, JsonSerializer.Serialize(Current, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            error = "Changed, but the Azure Foundry settings couldn't be saved for next time.";
-        }
+        var error = Write(Current) ? null : "Changed, but the Azure Foundry settings couldn't be saved for next time.";
 
         Changed?.Invoke();
         return error;
     }
 
+    /// <summary>Writes the settings with the key sealed. False when the file could
+    /// not be written.</summary>
+    private bool Write(AzureFoundrySettings settings)
+    {
+        try
+        {
+            var stored = new AzureFoundrySettings
+            {
+                Endpoint = settings.Endpoint,
+                Deployment = settings.Deployment,
+                ApiKey = SecretEnvelope.Seal(settings.ApiKey),
+                ApiVersion = settings.ApiVersion,
+                CostScope = settings.CostScope
+            };
+
+            File.WriteAllText(_path, JsonSerializer.Serialize(stored, JsonOptions));
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
+        {
+            return false;
+        }
+    }
+
     private AzureFoundrySettings Read()
     {
+        AzureFoundrySettings settings;
+        bool wasPlaintext;
+
         try
         {
             if (!File.Exists(_path)) return new AzureFoundrySettings();
 
-            var settings = JsonSerializer.Deserialize<AzureFoundrySettings>(File.ReadAllText(_path), JsonOptions);
-            return Normalize(settings ?? new AzureFoundrySettings());
+            var stored = JsonSerializer.Deserialize<AzureFoundrySettings>(File.ReadAllText(_path), JsonOptions)
+                ?? new AzureFoundrySettings();
+
+            settings = Normalize(new AzureFoundrySettings
+            {
+                Endpoint = stored.Endpoint,
+                Deployment = stored.Deployment,
+                ApiKey = SecretEnvelope.Open(stored.ApiKey, out wasPlaintext),
+                ApiVersion = stored.ApiVersion,
+                CostScope = stored.CostScope
+            });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             return new AzureFoundrySettings();
         }
+
+        // A key an earlier release left in the clear is sealed now rather than at
+        // the next save, which may be months away. A write that fails leaves it as
+        // it was, to be tried again on the next start.
+        if (wasPlaintext) _ = Write(settings);
+
+        return settings;
     }
 
     private static AzureFoundrySettings Normalize(AzureFoundrySettings settings) => new()

@@ -112,6 +112,107 @@ public partial class AgentContextPointerTests
         Assert.True(offenders.Count == 0, $"'{pointer}' names nothing in the repository, but appears in: " + string.Join(", ", offenders));
     }
 
+    /// <summary>
+    /// A procedure under <c>.agents/skills/</c> is reached through its
+    /// <c>.claude/skills/&lt;name&gt;/SKILL.md</c> wrapper; one without a wrapper is
+    /// never loaded and goes stale unread, as the five vendored Aspire skills did.
+    /// A procedure is a <c>*.md</c> file or a folder holding a <c>SKILL.md</c>.
+    /// </summary>
+    [Fact]
+    public void Every_agents_skill_has_a_claude_skills_wrapper_that_names_its_path()
+    {
+        var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, ".agents", "skills"));
+        Assert.True(root.Exists, ".agents/skills/ is missing.");
+
+        var procedures = root.EnumerateFiles("*.md")
+            .Select(file => (Name: Path.GetFileNameWithoutExtension(file.Name), Path: $".agents/skills/{file.Name}"))
+            .Concat(root.EnumerateDirectories()
+                .Where(folder => File.Exists(Path.Combine(folder.FullName, "SKILL.md")))
+                .Select(folder => (Name: folder.Name, Path: $".agents/skills/{folder.Name}/")))
+            .ToList();
+
+        Assert.NotEmpty(procedures);
+
+        var unwrapped = procedures
+            .Where(procedure =>
+            {
+                var wrapper = Path.Combine(Repository.Root.FullName, ".claude", "skills", procedure.Name, "SKILL.md");
+                return !File.Exists(wrapper) || !File.ReadAllText(wrapper).Contains(procedure.Path, StringComparison.Ordinal);
+            })
+            .Select(procedure => procedure.Path)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            unwrapped.Count == 0,
+            "No .claude/skills/<name>/SKILL.md wrapper names: " + string.Join(", ", unwrapped)
+            + ". Add a wrapper that reads it, or delete the procedure.");
+    }
+
+    /// <summary>
+    /// The multi-account design document was retired into local ADR 0031, and its
+    /// <c>.claude/design/</c> folder with it; a design kept beside the agent context
+    /// files is read by nothing and drifts from what was built.
+    /// </summary>
+    [Fact]
+    public void No_design_document_folder_sits_under_dot_claude()
+    {
+        Assert.False(
+            Directory.Exists(Path.Combine(Repository.Root.FullName, ".claude", "design")),
+            ".claude/design/ exists; a decision belongs in .devbook/arc42/adr/, not beside the agent context files.");
+    }
+
+    /// <summary>
+    /// Pointers retired in the same change as what they named: the vendored Aspire
+    /// skills, deleted for the Aspire CLI's own help and the Aspire MCP docs tools,
+    /// and the multi-account design document, retired into local ADR 0031. Checked
+    /// in the devbook chapters and the Copilot files too, since both named them.
+    /// </summary>
+    [Theory]
+    [InlineData("skills/aspire")]
+    [InlineData("Aspire skills")]
+    [InlineData("multi-account-settings")]
+    public void No_context_file_or_devbook_chapter_names_a_retired_pointer(string pointer)
+    {
+        var offenders = AgentContextFiles()
+            .Concat(MarkdownUnder(".github"))
+            .Concat(MarkdownUnder(".devbook").Where(file => !IsGenerated(file)))
+            .Where(file => File.ReadAllText(file.FullName).Contains(pointer, StringComparison.Ordinal))
+            .Select(file => Path.GetRelativePath(Repository.Root.FullName, file.FullName).Replace('\\', '/'))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(offenders.Count == 0, $"'{pointer}' names something retired, but appears in: " + string.Join(", ", offenders));
+    }
+
+    /// <summary>
+    /// The <c>run</c> procedure is where a flow learns the Aspire CLI; with the
+    /// vendored skills gone it points at the CLI's own help and the Aspire MCP docs
+    /// tools, which answer for the pinned version.
+    /// </summary>
+    [Fact]
+    public void The_run_procedure_points_at_the_aspire_cli_help_and_the_mcp_docs_tools()
+    {
+        var run = Read(".claude/skills/run-backlog/SKILL.md");
+
+        Assert.Contains("aspire <command> --help", run, StringComparison.Ordinal);
+        Assert.Contains("search_docs", run, StringComparison.Ordinal);
+        Assert.Contains("get_doc", run, StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<FileInfo> MarkdownUnder(string folder)
+    {
+        var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, folder));
+        return root.Exists ? root.EnumerateFiles("*.md", SearchOption.AllDirectories) : [];
+    }
+
+    /// <summary>The devbook's generated and installed parts, which no chapter edit reaches.</summary>
+    private static bool IsGenerated(FileInfo file)
+    {
+        var path = file.FullName.Replace('\\', '/');
+        return path.Contains("/_meta/", StringComparison.Ordinal) || path.Contains("/_tools/", StringComparison.Ordinal);
+    }
+
     private static IEnumerable<FileInfo> AgentContextFiles()
     {
         yield return new FileInfo(RepositoryRoot.File("CLAUDE.md"));

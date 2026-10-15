@@ -621,8 +621,9 @@
     min-width: 0;
 }
 
-/* The Productivity tab's middle row: the volume chart takes the room, the scores
-   keep their own width beside it, and the two stack where there is no room for both. */
+/* The Productivity tab's middle row: a main column - the volume chart, then size and
+   rework - takes the room, the scores keep their own width beside it, and the two stack
+   where there is no room for both. The column is .dashboard-overview__main's shape. */
 .dashboard-productivity__split {
     display: flex;
     flex-wrap: wrap;
@@ -631,9 +632,24 @@
     min-width: 0;
 }
 
-.dashboard-productivity__split > .dashboard-part--volume {
+.dashboard-productivity__main {
     flex: 999 1 36rem;
+    display: grid;
+    gap: var(--spacing-md);
     min-width: 0;
+}
+
+/* Under the size tiles, how many merged pull requests had no size read. */
+.dashboard-size {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-size__unsized {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .dashboard-productivity__split > .dashboard-part--score {
@@ -1059,6 +1075,17 @@
     gap: var(--spacing-sm);
     margin-left: auto;
     min-width: 0;
+}
+
+/* Ask AI sits beside refresh, so it takes the push the header's space-between would
+   otherwise spend between the two; behind a control of the part's own, that control
+   has already taken it. */
+.dashboard-part__ask {
+    margin-left: auto;
+}
+
+.dashboard-part__actions + .dashboard-part__ask {
+    margin-left: 0;
 }
 
 .dashboard-part__title {

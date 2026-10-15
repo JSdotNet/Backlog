@@ -115,18 +115,50 @@ public sealed class IntegrationActionTests
     public void Running_is_AppButtons_own_busy_state_and_keeps_the_button()
     {
         // Not a second loading button. AppButton already embeds the spinner, sets
-        // aria-busy and disables without removing the control from the tab order.
+        // aria-busy and blocks the click without removing the control from the
+        // tab order — aria-disabled, never the native attribute.
         using var context = new BunitContext();
+        var invoked = 0;
 
         var action = context.Render<IntegrationAction>(parameters => parameters
             .Add(a => a.Action, CreateIssue with { State = IntegrationActionState.Running })
+            .Add(a => a.OnInvoke, _ => invoked++)
             .Add(a => a.ButtonTestId, "act"));
 
         var button = action.Find("[data-testid='act']");
+        button.Click();
 
         Assert.Equal("true", button.GetAttribute("aria-busy"));
-        Assert.True(button.HasAttribute("disabled"));
+        Assert.Equal("true", button.GetAttribute("aria-disabled"));
+        Assert.False(button.HasAttribute("disabled"));
+        Assert.Equal(0, invoked);
         Assert.Single(action.FindAll(".spinner"));
+    }
+
+    [Fact]
+    public async Task Retry_is_busy_until_the_host_has_finished_and_a_second_press_is_ignored()
+    {
+        using var context = new BunitContext();
+        var retried = 0;
+        var host = new TaskCompletionSource();
+
+        var action = context.Render<IntegrationAction>(parameters => parameters
+            .Add(a => a.Action, CreateIssue with { State = IntegrationActionState.Failed })
+            .Add(a => a.OnRetry, _ => { retried++; return host.Task; })
+            .Add(a => a.RetryTestId, "retry"));
+
+        _ = action.Find("[data-testid='retry']").ClickAsync(new MouseEventArgs());
+
+        action.WaitForAssertion(() =>
+            Assert.Equal("true", action.Find("[data-testid='retry']").GetAttribute("aria-busy")));
+
+        await action.Find("[data-testid='retry']").ClickAsync(new MouseEventArgs());
+        Assert.Equal(1, retried);
+
+        await action.InvokeAsync(host.SetResult);
+
+        action.WaitForAssertion(() =>
+            Assert.False(action.Find("[data-testid='retry']").HasAttribute("aria-busy")));
     }
 
     [Fact]

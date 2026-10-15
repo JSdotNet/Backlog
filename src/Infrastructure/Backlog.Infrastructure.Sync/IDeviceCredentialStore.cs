@@ -24,10 +24,17 @@ public interface IDeviceCredentialStore
     DeviceCredential? Current { get; }
 
     /// <summary>Records the credential, replacing anything already stored, and
-    /// raises <see cref="Changed"/>. A store that cannot record it throws, and
-    /// leaves <see cref="Current"/> alone and <see cref="Changed"/> unraised —
-    /// a device that half-paired is a state nothing on screen could explain.</summary>
-    void Save(DeviceCredential credential);
+    /// raises <see cref="Changed"/>. A store that cannot record it throws — from
+    /// the call or through the returned task — and leaves <see cref="Current"/>
+    /// alone and <see cref="Changed"/> unraised: a device that half-paired is a
+    /// state nothing on screen could explain.
+    /// <para>
+    /// Asynchronous because the platform stores are: MAUI's SecureStorage writes
+    /// through a task, and the pairing screen that saves must not be held while
+    /// it does. A store with nothing to wait for — DPAPI, memory — completes
+    /// synchronously.
+    /// </para></summary>
+    Task SaveAsync(DeviceCredential credential, CancellationToken cancellationToken = default);
 
     /// <summary>Forgets the credential, and raises <see cref="Changed"/>. The
     /// device is unpaired afterwards as far as this head is concerned; the
@@ -38,6 +45,6 @@ public interface IDeviceCredentialStore
     /// Never the credential itself.</summary>
     string StorePath { get; }
 
-    /// <summary>Raised after <see cref="Save"/> and <see cref="Clear"/>.</summary>
+    /// <summary>Raised after <see cref="SaveAsync"/> and <see cref="Clear"/>.</summary>
     event Action? Changed;
 }

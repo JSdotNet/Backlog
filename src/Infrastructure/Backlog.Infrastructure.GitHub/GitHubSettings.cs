@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -568,6 +569,18 @@ public sealed record RepositoryRemoval(string Id, DateTimeOffset At);
 /// The registry and the account identities also travel between paired devices as
 /// two stamped documents (local ADR 0021); the replica half of this class is in
 /// <c>GitHubSettingsStore.Replica.cs</c>.
+/// </para>
+/// <para>
+/// The two secrets <c>github.json</c> holds — an account's pasted personal access
+/// token and a repository's token — are bearer credentials that work from
+/// anywhere, so they are not written in the clear (local ADR 0030). Each
+/// <c>token</c> value is a DPAPI envelope sealed under the signed-in Windows user,
+/// and every other field stays legible. A token an earlier release wrote in
+/// plaintext, the legacy global one included, is read as it is and sealed on that
+/// first read; one this user cannot open reads as no token, which Settings shows as
+/// an empty token field to fill in again. The envelope is the local file's alone:
+/// neither shared document carries a token in any form, and sealing one is not an
+/// identity change, so it never restamps the accounts.
 /// </para>
 /// </summary>
 public sealed partial class GitHubSettingsStore
@@ -1513,7 +1526,9 @@ public sealed partial class GitHubSettingsStore
         {
             var dto = new SettingsDto
             {
-                Repositories = rows,
+                // Sealed copies: the rows themselves stay as this store holds them
+                // in memory, which is what a later write preserves from.
+                Repositories = [.. rows.Select(row => row.Sealed())],
                 AccountsUpdatedAt = _accountsStamp,
                 Accounts =
                 [
@@ -1526,9 +1541,10 @@ public sealed partial class GitHubSettingsStore
                         // Belt and braces on the one invariant this file must never
                         // break. A gh-sourced token is fetched per call and held in
                         // memory; the normalizer already drops it, and this makes
-                        // the rule true at the point of writing too.
+                        // the rule true at the point of writing too. A pasted one
+                        // is sealed (local ADR 0030).
                         Token = account.Credential is GitHubCredentialKind.PersonalAccessToken
-                            ? account.Token
+                            ? SecretEnvelope.Seal(account.Token)
                             : null,
                         Host = account.Host,
                         ApiEndpoint = account.ApiEndpoint
@@ -1546,7 +1562,7 @@ public sealed partial class GitHubSettingsStore
             _localRows = rows;
             return null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
         {
             return SaveFailed;
         }
@@ -1709,7 +1725,11 @@ public sealed partial class GitHubSettingsStore
             ?? (composed.Accounts.Count > 0 ? local.LastWrite : null);
         _accountsSignature = AccountsSignature(composed.Accounts);
 
-        if (carriedOver) _ = WriteLocal(composed);
+        // A token an earlier release left in the clear is sealed now rather than at
+        // the next save (local ADR 0030). Not after a carry-over that failed: the
+        // reduced write would drop the legacy identity fields that attempt still
+        // needs, and the next start seals it once the carry-over has gone through.
+        if (carriedOver || (local.HoldsPlaintextSecret && !carryOverAttempted)) _ = WriteLocal(composed);
 
         return composed;
     }
@@ -2034,15 +2054,30 @@ public sealed partial class GitHubSettingsStore
             var dto = JsonSerializer.Deserialize<SettingsDto>(File.ReadAllText(_path), JsonOptions);
             if (dto is null) return new LocalFile();
 
+            // Every token opened here, once, so nothing past this point ever sees
+            // an envelope (local ADR 0030).
+            var plaintext = false;
+
+            string? Open(string? stored)
+            {
+                var token = SecretEnvelope.Open(stored, out var wasPlaintext);
+                plaintext |= wasPlaintext;
+                return token;
+            }
+
+            foreach (var row in dto.Repositories) row.Token = Open(row.Token);
+            foreach (var account in dto.Accounts) account.Token = Open(account.Token);
+
             return new LocalFile
             {
                 Rows = dto.Repositories,
                 Accounts = dto.Accounts,
                 AccountsUpdatedAt = dto.AccountsUpdatedAt,
                 LastWrite = LastWriteOf(_path),
-                Token = dto.Token,
+                Token = Open(dto.Token),
                 ApiEndpoint = dto.ApiEndpoint,
-                ShowRepositoryColours = dto.ShowRepositoryColours
+                ShowRepositoryColours = dto.ShowRepositoryColours,
+                HoldsPlaintextSecret = plaintext
             };
         }
         catch (Exception)
@@ -2343,6 +2378,10 @@ public sealed partial class GitHubSettingsStore
         public string? Token { get; init; }
         public string? ApiEndpoint { get; init; }
         public bool ShowRepositoryColours { get; init; }
+
+        /// <summary>Whether any token was in the clear, as an earlier release wrote
+        /// it — the cue to write the file back sealed (local ADR 0030).</summary>
+        public bool HoldsPlaintextSecret { get; init; }
     }
 
     private sealed class RegistryDto
@@ -2488,6 +2527,9 @@ public sealed partial class GitHubSettingsStore
     {
         public string? Id { get; set; }
         public string? CloneDirectory { get; set; }
+
+        /// <summary>Held in the clear in memory and written sealed — see
+        /// <see cref="Sealed"/> (local ADR 0030).</summary>
         public string? Token { get; set; }
 
         /// <summary>Nullable so that "absent" is distinguishable from "empty":
@@ -2538,6 +2580,15 @@ public sealed partial class GitHubSettingsStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public int? Colour { get; set; }
+
+        /// <summary>This row as it is written: the same fields, with the token
+        /// sealed.</summary>
+        public RepositoryDto Sealed()
+        {
+            var sealedRow = (RepositoryDto)MemberwiseClone();
+            sealedRow.Token = SecretEnvelope.Seal(Token);
+            return sealedRow;
+        }
     }
 
     /// <summary>
@@ -2550,9 +2601,10 @@ public sealed partial class GitHubSettingsStore
     /// </para>
     /// <para>
     /// <see cref="Token"/> is only ever written for
-    /// <see cref="GitHubCredentialKind.PersonalAccessToken"/>. A token the
-    /// <c>gh</c> CLI produced is never written down at all — it is rotated by
-    /// <c>gh</c>, so a copy here would be a stale secret in a file.
+    /// <see cref="GitHubCredentialKind.PersonalAccessToken"/>, and sealed when it
+    /// is (local ADR 0030). A token the <c>gh</c> CLI produced is never written
+    /// down at all — it is rotated by <c>gh</c>, so a copy here would be a stale
+    /// secret in a file.
     /// </para>
     /// </summary>
     private sealed class AccountDto

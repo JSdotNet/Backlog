@@ -33,16 +33,15 @@ public sealed partial class ModuleUiIoTests
         // Devbook: the readers, writers and walkers #738 has not moved yet. The
         // index reader and its parse cache, the chapter readers and writers, and
         // the instruction-source readers (with the instructions panel's file read)
-        // went to Backlog.Infrastructure.Devbook in its first three slices; the
-        // later slices move the rest.
+        // went to Backlog.Infrastructure.Devbook in its first three slices, and the
+        // design/ai document provider with the sync reader and writer in its
+        // fourth; the later slices move the rest.
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/Arc42Devbook.cs",
         // Also starts the Archify CLI through Process.
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/ArchifyDiagramArtifacts.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/C4Devbook.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DevbookAtlas.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DevbookFolderOpenService.cs",
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DevbookMarkdownSyncWriter.cs",
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DocumentDevbook.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DomainDevbookStore.cs",
         // Only by name: it has a private Directory(path) helper of its own, which
         // the pattern cannot tell from System.IO.Directory.

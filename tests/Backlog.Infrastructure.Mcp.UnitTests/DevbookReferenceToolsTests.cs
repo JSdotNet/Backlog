@@ -204,6 +204,51 @@ public class DevbookReferenceToolsTests
         Assert.Empty(entries.DevbookReferenceWrites);
     }
 
+    /// <summary>Each part answers in its own state, and a failed one says which
+    /// step its run stopped on, so a caller can name where it broke without
+    /// opening the run.</summary>
+    [Fact]
+    public async Task Listing_answers_every_part_state_and_the_failed_step()
+    {
+        var id = Guid.NewGuid();
+        var resolver = new FakeDevbookReferenceResolver(
+            new ResolvedDevbookReference(ScenarioPage, ScenarioPage, null, DevbookReferenceState.Page, "Set up and fill the backlog", null, "domain")
+            {
+                ScenarioParts =
+                [
+                    Part("statuses-are-set-up", "Statuses are set up", ScenarioPartState.Passed),
+                    Part("an-item-is-moved", "An item is moved", ScenarioPartState.Failed) with { FailedStep = 2 },
+                    Part("an-item-is-archived", "An item is archived", ScenarioPartState.Stale),
+                    Part("an-item-is-restored", "An item is restored", ScenarioPartState.NeverRun) with { LastRun = null }
+                ]
+            });
+        var tools = Tools(new FakeTaskItems(Entries.Entry("The one", id: id, devbookReferences: [ScenarioPage])), resolver);
+
+        var answer = await tools.ListDevbookReferencesAsync(id, "JSdotNet/Backlog", TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [("passed", (int?)null), ("failed", 2), ("stale", null), ("never-run", null)],
+            Assert.Single(answer.References).Parts!.Select(part => (part.State, part.FailedStep)));
+        Assert.Equal(new AcceptancePayload(1, 4, false, "1 of 4 passing"), answer.Acceptance);
+    }
+
+    [Fact]
+    public async Task Setting_a_part_on_a_scenario_page_answers_its_failed_step()
+    {
+        var id = Guid.NewGuid();
+        var reference = $"{ScenarioPage}#an-item-is-moved";
+        var resolver = new FakeDevbookReferenceResolver(
+            new ResolvedDevbookReference(reference, ScenarioPage, "an-item-is-moved", DevbookReferenceState.Chapter, "An item is moved", null, "domain")
+            {
+                ScenarioParts = [Part("an-item-is-moved", "An item is moved", ScenarioPartState.Failed) with { FailedStep = 1 }]
+            });
+
+        var answer = await Tools(new FakeTaskItems(Entries.Entry("The one", id: id)), resolver)
+            .SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [reference], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, Assert.Single(Assert.Single(answer.References).Parts!).FailedStep);
+    }
+
     [Fact]
     public async Task References_that_stand_for_no_scenario_part_carry_no_acceptance()
     {

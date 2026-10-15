@@ -60,6 +60,17 @@ list with the search above it (52 px rows, chevrons), a row opens its page alone
 *Back to all settings*, and that link returns to the list. It writes nothing, and runs in
 the Brain tests' collection so their harness restart cannot cut it off.
 
+`ScenarioEvidenceTests` — a repository's scenario evidence on the desktop harness at
+1440 × 900. Each test registers `tests/Fixtures/scenario-repository` — one scenario page,
+`place-an-order.md`, with a committed run whose first part passed and whose second failed
+on step 1 — and removes it again:
+
+| Test | Proves |
+| --- | --- |
+| `The_tree_marks_the_scenario_page_and_the_legend_names_the_four_states` | The page's row in the Domain tree carries the failed dot, named *Scenario failed*, and the legend under the tree lists Passed, Failed, Stale and Never run with their dots. |
+| `A_task_referencing_the_parts_shows_the_acceptance_checklist` | `set_devbook_references` on the parts answers passed and failed with `failedStep` 1; the task's checklist is headed *Acceptance · scenario parts*, counts *1 of 2 passing · not proved*, and each row reads *place-an-order · date*, the failed one ending *· step 1*. |
+| `A_verify_stage_shows_its_scenario_evidence_and_screenshots` | A run whose Verify stage sent `evidence` and `scenarios` counts *1 of 2 passing* on the stage, and its panel lists the parts and, under Screenshots, the scenario as Failed with `cart-filled.png` and `fail.the-order-is-placed.png`, the second marked *Failure screenshot*. |
+
 ## Running
 
 Start this worktree's AppHost and wait for it to be healthy. The Cosmos emulator takes about
@@ -102,7 +113,9 @@ dotnet test --project tests\Backlog.EndToEndTests -- --filter-class Backlog.EndT
 
 Each run writes `.qa-workspace/e2e/conference-day/<yyyyMMdd-HHmmss>/`, each Brain test
 `.qa-workspace/e2e/brain-<scenario>/<yyyyMMdd-HHmmss>/` and the Settings test
-`.qa-workspace/e2e/settings/<yyyyMMdd-HHmmss>/` with its screenshots; git ignores them.
+`.qa-workspace/e2e/settings/<yyyyMMdd-HHmmss>/` and each scenario-evidence test
+`.qa-workspace/e2e/scenarios-<tree|checklist|run>/<yyyyMMdd-HHmmss>/` with its screenshots;
+git ignores them.
 It holds:
 
 - one **viewport** screenshot per checkpoint, numbered in order. There is no full-page
@@ -146,6 +159,22 @@ It holds:
   test set it. `The_scope_survives_a_restart_with_the_brain_as_its_anchor` stops and
   starts `desktop-web-harness` once. The class runs in a collection of its own with
   parallelization off, so no other test drives the harness meanwhile.
+
+- **`ScenarioEvidenceTests` register a repository** in the shared registry, the way a
+  person does: the alias `scenarios-e2e` for `JSdotNet/backlog-scenarios-e2e` is typed
+  into Settings › Repositories, its clone directory set to a copy of the fixture under
+  `%TEMP%\backlog-e2e-scenarios\`, and it is removed again with *Remove repository*, pass
+  or fail — and first, should a crashed run have left it. The registry is never written
+  by hand. A removal is kept in the registry, and travels to paired devices, as any
+  person's would.
+- **The checklist test files a task** through the harness's `/mcp` (`create_item`,
+  `set_devbook_references`) titled `Place an order <token>`, and deletes it with its
+  own Delete afterwards.
+- **The run test turns on *Sessions*** (kept per worktree) and starts a run through
+  `/mcp` (`start_run`, `update_stage`) for the fixture copy's folder. The surface files
+  it under `~/.claude/backlog/<folder>-<hash>/`; the test deletes that folder afterwards,
+  pass or fail — its name starts with the copy's own, so no other worktree's runs are
+  touched.
 
 ## Known behaviour it works around
 

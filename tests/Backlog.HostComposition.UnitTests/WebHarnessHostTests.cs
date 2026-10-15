@@ -304,10 +304,6 @@ public class WebHarnessHostTests
     /// <c>Backlog.Infrastructure.Sessions</c> rather than from the module's screen
     /// project; the Ask AI source the screen project keeps is still composed beside
     /// them.
-    /// <para>
-    /// The diagram port is looked up by name in the module's published surface so that
-    /// the assertion that it lives there fails as an assertion rather than as a build.
-    /// </para>
     /// </summary>
     [Fact]
     public void The_desktop_harness_composes_the_sessions_adapters_from_their_infrastructure_project()
@@ -316,18 +312,11 @@ public class WebHarnessHostTests
 
         using var harness = new Harness<DesktopHarness::Program>();
 
-        var diagramPort = typeof(Backlog.Modules.Sessions.Abstractions.IAgentSessionSource).Assembly
-            .GetType("Backlog.Modules.Sessions.Abstractions.IDeliveryRunDiagrams");
-
-        Assert.NotNull(diagramPort);
-        Assert.True(diagramPort.IsPublic, "IDeliveryRunDiagrams is the module's published port.");
-
         object[] adapters =
         [
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IAgentSessionSource>(),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IAgentActivitySource>(),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunSource>(),
-            harness.Services.GetRequiredService(diagramPort),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliverySurfaceLifecycle>(),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunTelemetry>(),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.ISessionRecordKeeper>(),

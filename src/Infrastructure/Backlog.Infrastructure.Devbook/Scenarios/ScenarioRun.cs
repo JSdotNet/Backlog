@@ -37,7 +37,18 @@ public sealed record ScenarioRun(
 /// <summary>One part's outcome in a run.</summary>
 /// <param name="FailureShot">The failure screenshot's file, relative to the run's
 /// folder, for a failed part.</param>
-public sealed record ScenarioRunPart(string Title, string Anchor, ScenarioOutcome Outcome, long? DurationMs, string? FailureShot);
+public sealed record ScenarioRunPart(string Title, string Anchor, ScenarioOutcome Outcome, long? DurationMs, string? FailureShot)
+{
+    /// <summary>The 1-based step the part stopped on, as a version 2 run's
+    /// <c>failure.step</c> records it for a failed part. Null when the part did not
+    /// fail, when the failure came before any step — the reporter writes
+    /// <c>step: null</c> then — and always for a version 1 run, which records no step.</summary>
+    public int? FailureStep { get; init; }
+
+    /// <summary>What the failure said, from <c>failure.message</c>; null where
+    /// <see cref="FailureStep"/> has no failure to come from.</summary>
+    public string? FailureMessage { get; init; }
+}
 
 /// <summary>The screenshot a label captured: its file relative to the run's folder,
 /// the part it sits in, and when it was captured — which can be an earlier run than
@@ -98,7 +109,11 @@ public static class ScenarioRunReader
                         _ => ScenarioOutcome.NotRun
                     },
                     Number(part, "durationMs"),
-                    Text(part, "failureShot")));
+                    Text(part, "failureShot"))
+                {
+                    FailureStep = Failure(part) is { } failure && Number(failure, "step") is { } step and > 0 and <= int.MaxValue ? (int)step : null,
+                    FailureMessage = Failure(part) is { } failed ? Text(failed, "message") : null
+                });
             }
         }
 
@@ -156,6 +171,11 @@ public static class ScenarioRunReader
 
         return new ScenarioRun(1, null, ranAt, null, parts, shots);
     }
+
+    /// <summary>A version 2 part's <c>failure</c> object, or null — the reporter writes
+    /// one only on a failed part, so its absence is the common case, not an error.</summary>
+    private static JsonElement? Failure(JsonElement part) =>
+        part.TryGetProperty("failure", out var failure) && failure.ValueKind == JsonValueKind.Object ? failure : null;
 
     private static string? Text(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;

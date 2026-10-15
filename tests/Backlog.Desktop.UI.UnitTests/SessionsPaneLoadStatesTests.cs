@@ -100,6 +100,114 @@ public sealed class SessionsPaneLoadStatesTests
             Assert.Equal("status", pane.Find("[data-testid='sessions-focus-missing']").GetAttribute("role")));
     }
 
+    /// <summary>A refresh of a populated list keeps its rows and marks the region busy,
+    /// and Refresh is busy rather than disabled, so focus stays on it; a second press
+    /// while the read is out sends no second read (Scoped Loading, Busy Actions).</summary>
+    [Fact]
+    public void A_refresh_keeps_the_rows_and_refresh_is_busy_until_the_read_lands()
+    {
+        var sessions = new GatedSessionSource();
+        using var context = Context(sessions, new CountingRunSource());
+
+        var pane = context.Render<SessionsPane>();
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-row']")));
+
+        var gate = sessions.HoldNextRead();
+        pane.Find("[data-testid='sessions-refresh']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var refresh = pane.Find("[data-testid='sessions-refresh']");
+            Assert.Equal("true", refresh.GetAttribute("aria-busy"));
+            Assert.Equal("true", refresh.GetAttribute("aria-disabled"));
+            Assert.False(refresh.HasAttribute("disabled"));
+            Assert.Contains("Refresh", refresh.TextContent, StringComparison.Ordinal);
+
+            Assert.Equal("true", pane.Find("#sessions-content").GetAttribute("aria-busy"));
+            Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-loading']"));
+        });
+
+        pane.Find("[data-testid='sessions-refresh']").Click();
+        gate.SetResult();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Null(pane.Find("[data-testid='sessions-refresh']").GetAttribute("aria-busy"));
+            Assert.Null(pane.Find("#sessions-content").GetAttribute("aria-busy"));
+        });
+        Assert.Equal(2, sessions.Reads);
+    }
+
+    /// <summary>Update records pressed while a Refresh is out does not lose its own
+    /// read: the Refresh may have started before the records were written, so one more
+    /// read is queued behind it rather than dropped or raced.</summary>
+    [Fact]
+    public void Update_records_during_a_refresh_reads_again_after_it()
+    {
+        var sessions = new GatedSessionSource();
+        var keeper = new ScriptedKeeper();
+        using var context = Context(sessions, new CountingRunSource());
+        context.Services.AddSingleton<ISessionRecordKeeper>(keeper);
+
+        var pane = context.Render<SessionsPane>();
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
+            Assert.Null(pane.Find("[data-testid='sessions-refresh']").GetAttribute("aria-busy"));
+        });
+
+        var gate = sessions.HoldNextRead();
+        pane.Find("[data-testid='sessions-refresh']").Click();
+        pane.WaitForAssertion(() => Assert.Equal(2, sessions.Reads));
+
+        pane.Find("[data-testid='sessions-update-records']").Click();
+
+        // The keeper answers on the pool and the pane asks for its read back on the
+        // dispatcher, which no render reports while the Refresh is held — so wait for
+        // the keeper, then give the continuation its turn before the Refresh lands.
+        Assert.True(SpinWait.SpinUntil(() => keeper.Everything > 0, TimeSpan.FromSeconds(5)));
+        Thread.Sleep(200);
+        Assert.Equal(2, sessions.Reads);
+
+        gate.SetResult();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(3, sessions.Reads);
+            Assert.Null(pane.Find("[data-testid='sessions-refresh']").GetAttribute("aria-busy"));
+            Assert.Null(pane.Find("[data-testid='sessions-update-records']").GetAttribute("aria-busy"));
+            Assert.Equal("status", pane.Find("[data-testid='sessions-records-updated']").GetAttribute("role"));
+        });
+    }
+
+    /// <summary>A record folder that cannot be written is said as a failure and the
+    /// button comes back, rather than the page's error boundary taking the screen
+    /// (Busy Actions, Failure).</summary>
+    [Fact]
+    public void An_update_that_cannot_write_the_records_says_so_and_restores_the_button()
+    {
+        var keeper = new ScriptedKeeper { Fails = new IOException("The folder is read-only.") };
+        using var context = Context(new GatedSessionSource(), new CountingRunSource());
+        context.Services.AddSingleton<ISessionRecordKeeper>(keeper);
+
+        var pane = context.Render<SessionsPane>();
+        pane.WaitForAssertion(() => Assert.Null(pane.Find("[data-testid='sessions-refresh']").GetAttribute("aria-busy")));
+
+        pane.Find("[data-testid='sessions-update-records']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var notice = pane.Find("[data-testid='sessions-records-updated']");
+            Assert.Equal("alert", notice.GetAttribute("role"));
+            Assert.Contains("The folder is read-only.", notice.TextContent, StringComparison.Ordinal);
+
+            var update = pane.Find("[data-testid='sessions-update-records']");
+            Assert.Null(update.GetAttribute("aria-busy"));
+            Assert.Null(update.GetAttribute("aria-disabled"));
+        });
+    }
+
     private static BunitContext Context(IAgentSessionSource sessions, IDeliveryRunSource runs)
     {
         var context = new BunitContext();
@@ -153,6 +261,52 @@ public sealed class SessionsPaneLoadStatesTests
 
             IReadOnlyList<string> unreadable = Reads <= unreadableReads ? ["Copilot"] : [];
             return Task.FromResult(new AgentSessionCatalog([Session()], unreadable, 1));
+        }
+    }
+
+    /// <summary>A source that answers at once until told to hold its next read.</summary>
+    private sealed class GatedSessionSource : IAgentSessionSource
+    {
+        private TaskCompletionSource? _gate;
+        private int _reads;
+
+        public int Reads => Volatile.Read(ref _reads);
+
+        public TaskCompletionSource HoldNextRead() =>
+            _gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
+
+        public async Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _reads);
+
+            if (_gate is { } gate) await gate.Task;
+
+            return new AgentSessionCatalog([Session()], [], 1);
+        }
+    }
+
+    /// <summary>A keeper that answers the opening's small update at once, counts the
+    /// button's, and fails the button's when told to.</summary>
+    private sealed class ScriptedKeeper : ISessionRecordKeeper
+    {
+        private int _everything;
+
+        public int Everything => Volatile.Read(ref _everything);
+
+        public Exception? Fails { get; init; }
+
+        public Task<SessionRecordUpdate> UpdateAsync(bool everything, CancellationToken cancellationToken = default)
+        {
+            if (!everything) return Task.FromResult(SessionRecordUpdate.None);
+
+            Interlocked.Increment(ref _everything);
+
+            return Fails is { } failure
+                ? Task.FromException<SessionRecordUpdate>(failure)
+                : Task.FromResult(new SessionRecordUpdate(0, 1));
         }
     }
 

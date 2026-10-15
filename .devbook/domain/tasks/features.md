@@ -114,6 +114,7 @@ is.
 type: sub-feature
 status: draft
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
 A task can point at the parts of a scenario page that prove it. A scenario page is
@@ -124,11 +125,16 @@ every part, or at a requirement, which stands for the parts its `Proved by:` lin
 name. A part reached two ways counts once.
 
 The open task lists these parts under its Devbook references as an acceptance
-checklist. Each row shows the part's dot, the part, the page it belongs to and when
-it last ran, and the list says how many of them pass, as "2 of 3 passing". A part
-reads as passed only when its last run passed on the page as it stands now. A part
-that passed before the page was edited is stale, because the run proved a different
-page.
+checklist headed "Acceptance · scenario parts". Each row shows the part's dot and the
+part. A quieter line under it names the page by its stem, the file name that also
+names the run folder, and says when the page last ran, as
+"place-an-order · 14 Oct 2026 09:30". A part that never ran says "Never run" there
+instead. A failed part whose run recorded the step it stopped on adds that step, as
+"· step 2". The list says how many parts pass and whether that proves the task, as
+"2 of 3 passing · not proved" or "3 of 3 passing · proved". A part reads as passed
+only when its last run passed on the page as it stands now. A part that passed before
+the page was edited is stale, because the run proved a different page. A stale part
+shows no step, because the step numbers an older text of the page.
 
 Pressing a part opens its scenario page in the Devbook pane at that part. The part is
 marked as the one asked for and scrolled into view, and it stays marked until the
@@ -147,7 +153,8 @@ It is resolved against the repository the task's Devbook references open in. Any
 other image in a task shows as it always has.
 
 The same answer reaches a coding session. Listing a task's Devbook references gives
-each part with its state and last run, and a count with whether the task is proved.
+each part with its state and last run, the step a failed part stopped on, and a count
+with whether the task is proved.
 
 ## Bulk editing
 
@@ -1138,7 +1145,7 @@ app; the sync itself does that now.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/requirements.md#multi-device-sync]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/requirements.md#multi-device-sync, .devbook/domain/sync/features.md#syncing-between-devices]
 depends-on: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
@@ -1160,53 +1167,13 @@ This is deliberate, and it does lose the other edit. Merging field by field woul
 domain rule for reconciling two different priorities or two different statuses,
 and the domain has none. What the person sees is one task with one status.
 
-Both halves are built. [Pairing a device](#pairing-a-device) gives each device
-its identity, and the sync service refuses any call that does not carry a valid
-token. The task change feed is pushed and pulled through the sync service, which
+Both halves are built. [Pairing a device](../sync/features.md#pairing-a-device),
+in the [Sync](../sync/context.md) context, gives each device its identity, and
+the sync service refuses any call that does not carry a valid token. The task change feed is pushed and pulled through the sync service, which
 keeps devices, pairing codes and the task replica in Azure Cosmos DB. The
 desktop's replica merge applies the later-edit-wins rule to each pulled copy.
 How the feed moves is
 [Task Sync](../../arc42/08-crosscutting-concepts.md#task-sync).
-
-### Pairing a device
-
-```meta
-type: sub-feature
-related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/domain.md#device, .devbook/domain/tasks/requirements.md#pairing-a-device]
-depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
-```
-
-Join a second machine to the same backlog by entering a short pairing code shown
-on the first, once. There is no account and no sign-in: personal use requires no
-login (`.devbook/arc42/02-constraints.md`), so devices are paired to each other rather
-than to an identity.
-
-```mermaid
-sequenceDiagram
-    participant First as First device
-    participant Second as Second device
-    participant Sync as Sync service
-    First->>Sync: Register, naming a new owner
-    Sync-->>First: Registration credential, shown once
-    First->>Sync: Ask for a pairing code
-    Sync-->>First: Pairing code
-    Note over First,Second: The person enters the code on the second device
-    Second->>Sync: Redeem the code
-    Sync-->>Second: Its own registration credential, same owner
-    Second->>Sync: Exchange credential for a device token
-    Sync-->>Second: Short-lived device token
-```
-
-The [Owner](domain.md#owner), [Pairing code](domain.md#pairing-code),
-[Registration credential](domain.md#registration-credential) and
-[Device token](domain.md#device-token) terms give each step's rules. A
-registration credential is never stored anywhere in the clear. Neither device
-ever holds the other's credential.
-
-A paired device can therefore reach exactly one owner's tasks and no one else's.
-The sync service enforces that boundary by reading the owner out of the presented
-token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
-The cloud store does not enforce it on its own.
 
 ## Backup to a repository
 

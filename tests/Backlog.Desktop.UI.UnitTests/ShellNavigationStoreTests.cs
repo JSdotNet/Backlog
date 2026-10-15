@@ -81,7 +81,7 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastPanes(["Devbook"]);
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.False(document.RootElement.TryGetProperty("lastPinnedPanes", out _));
         }
         finally
@@ -269,7 +269,7 @@ public sealed class ShellNavigationStoreTests
             store.SetLastSurface("Tools");
             store.SetLastPanes(["Backlog", "Devbook"]);
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
 
             Assert.Equal("Tools", document.RootElement.GetProperty("lastSurface").GetString());
             Assert.Equal(
@@ -298,7 +298,7 @@ public sealed class ShellNavigationStoreTests
             Assert.True(store.RoadmapHoursShown);
 
             store.SetLastSurface("Tools");
-            using (var on = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var on = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(on.RootElement.TryGetProperty("roadmapHoursShown", out _));
             }
@@ -333,13 +333,13 @@ public sealed class ShellNavigationStoreTests
             Assert.False(store.CalendarPlansShown);
 
             store.SetLastSurface("Tools");
-            using (var off = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var off = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(off.RootElement.TryGetProperty("calendarPlansShown", out _));
             }
 
             store.SetCalendarPlansShown(true);
-            using (var on = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var on = JsonDocument.Parse(Written(path)))
             {
                 Assert.True(on.RootElement.GetProperty("calendarPlansShown").GetBoolean());
             }
@@ -397,7 +397,7 @@ public sealed class ShellNavigationStoreTests
             Assert.Empty(store.RoadmapCollapsedGroups);
 
             store.SetLastSurface("Tools");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
             }
@@ -410,7 +410,7 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetRoadmapCollapsedGroups([]);
             Assert.Empty(new ShellNavigationStore(path).RoadmapCollapsedGroups);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
         }
         finally
@@ -431,7 +431,7 @@ public sealed class ShellNavigationStoreTests
             store.SetLastView("Roadmap");
 
             Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
         }
         finally
@@ -456,7 +456,7 @@ public sealed class ShellNavigationStoreTests
             Assert.Equal("Status", store.BoardColumns);
 
             store.SetLastView("Board");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("boardColumns", out _));
             }
@@ -469,7 +469,7 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetBoardColumns("Status");
             Assert.Equal("Status", new ShellNavigationStore(path).BoardColumns);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("boardColumns", out _));
         }
         finally
@@ -493,13 +493,13 @@ public sealed class ShellNavigationStoreTests
             Assert.Equal("Month", store.CalendarRange);
 
             store.SetLastView("Calendar");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("calendarRange", out _));
             }
 
             store.SetCalendarRange("Week");
-            using (var week = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var week = JsonDocument.Parse(Written(path)))
             {
                 Assert.Equal("Week", week.RootElement.GetProperty("calendarRange").GetString());
             }
@@ -510,7 +510,7 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetCalendarRange("Month");
             Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("calendarRange", out _));
         }
         finally
@@ -536,7 +536,7 @@ public sealed class ShellNavigationStoreTests
             Assert.False(store.InProgressIncludeFinishedToday);
 
             store.SetLastView("InProgress");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
                 Assert.False(none.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
@@ -544,7 +544,7 @@ public sealed class ShellNavigationStoreTests
 
             store.SetInProgressNeedsYouFirst(false);
             store.SetInProgressIncludeFinishedToday(true);
-            using (var changed = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var changed = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(changed.RootElement.GetProperty("inProgressNeedsYouFirst").GetBoolean());
                 Assert.True(changed.RootElement.GetProperty("inProgressIncludeFinishedToday").GetBoolean());
@@ -560,7 +560,7 @@ public sealed class ShellNavigationStoreTests
             var restartedAgain = new ShellNavigationStore(path);
             Assert.True(restartedAgain.InProgressNeedsYouFirst);
             Assert.False(restartedAgain.InProgressIncludeFinishedToday);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
             Assert.False(cleared.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
         }
@@ -586,13 +586,13 @@ public sealed class ShellNavigationStoreTests
             Assert.Empty(store.RepositoryScope);
 
             store.SetLastSurface("Tools");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("repositoryScope", out _));
             }
 
             store.SetRepositoryScope(["docs", "backlog"]);
-            using (var scoped = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var scoped = JsonDocument.Parse(Written(path)))
             {
                 Assert.Equal(
                     ["docs", "backlog"],
@@ -604,7 +604,7 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetRepositoryScope([]);
             Assert.Empty(new ShellNavigationStore(path).RepositoryScope);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("repositoryScope", out _));
         }
         finally
@@ -627,7 +627,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
             store.SetRepositoryScope([BrainScope.Value, "backlog"]);
 
-            using (var scoped = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var scoped = JsonDocument.Parse(Written(path)))
             {
                 Assert.Equal(
                     ["", "backlog"],
@@ -668,7 +668,7 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastView("Board");
 
-            Assert.DoesNotContain("noRepositoryOnly", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.DoesNotContain("noRepositoryOnly", Written(path), StringComparison.Ordinal);
             Assert.Equal([BrainScope.Value], new ShellNavigationStore(path).RepositoryScope);
         }
         finally
@@ -728,7 +728,7 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastPanes([]);
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.False(document.RootElement.TryGetProperty("calendarRange", out _));
             Assert.False(document.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
             Assert.False(document.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
@@ -883,7 +883,7 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastPanes(["Devbook"]);
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
             Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
         }
@@ -908,7 +908,7 @@ public sealed class ShellNavigationStoreTests
 
             Assert.Equal("Workspace", store.LastSurface);
             Assert.Equal("Roadmap", store.LastView);
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
         }
         finally
@@ -997,7 +997,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
             store.SetLastView("Calendar");
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Inbox", document.RootElement.GetProperty("lastSurface").GetString());
             Assert.Equal(
                 ["Devbook"],
@@ -1045,7 +1045,7 @@ public sealed class ShellNavigationStoreTests
             Assert.Null(store.ToolsHostFilter);
 
             store.SetLastSurface("Tools");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("toolsTab", out _));
                 Assert.False(none.RootElement.TryGetProperty("toolsHostFilter", out _));
@@ -1063,6 +1063,72 @@ public sealed class ShellNavigationStoreTests
         {
             DeleteSettingsDirectory(path);
         }
+    }
+
+    /// <summary>
+    /// The setters are on the click path, so the file is written off it, and a
+    /// burst of presses — the view options pressed in quick succession — still
+    /// leaves the last one on disk, never an earlier one that finished later.
+    /// </summary>
+    [Fact]
+    public void A_burst_of_choices_leaves_the_last_one_written()
+    {
+        var path = NewSettingsPath();
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            string[] views = ["Board", "Calendar", "Roadmap", "InProgress", "Tasks", "Board", "Calendar"];
+
+            foreach (var view in views)
+            {
+                store.SetLastView(view);
+                Assert.Equal(view, store.LastView);
+            }
+
+            store.Flush();
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("Calendar", document.RootElement.GetProperty("lastView").GetString());
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>A shell that remounts — Settings and back — or a second store on
+    /// the same file reads the choice just made, even while its write is still
+    /// in the pool's hands.</summary>
+    [Fact]
+    public void A_store_opened_on_the_path_reads_the_choice_just_made()
+    {
+        var path = NewSettingsPath();
+        try
+        {
+            var store = new ShellNavigationStore(path);
+
+            for (var press = 0; press < 20; press++)
+            {
+                var surface = press % 2 == 0 ? "Sessions" : "Dashboard";
+                store.SetLastSurface(surface);
+
+                Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
+            }
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The file as written once every queued write has landed. The
+    /// setters return before the write, so a test that reads the file rather than
+    /// the properties waits for it first.</summary>
+    internal static string Written(string path)
+    {
+        ShellNavigationStore.WaitForPendingWrites(path);
+        return File.ReadAllText(path);
     }
 
     private static string NewSettingsPath() =>

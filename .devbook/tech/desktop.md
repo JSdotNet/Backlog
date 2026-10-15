@@ -121,18 +121,24 @@ status: adopted
 type: package
 version: "10.0.11"
 depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-runtime"]
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/domain/tasks/features.md#pairing-a-device", ".devbook/domain/tasks/domain.md#registration-credential"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/domain/sync/features.md#pairing-a-device", ".devbook/domain/sync/domain.md#registration-credential"]
 ```
 
 The .NET wrapper over Windows DPAPI.
 
-- **Used for** — `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync`
-  encrypts the device's registration credential at rest under `CurrentUser`
-  scope. On the desktop head the credential lives at
-  `%LOCALAPPDATA%\Backlog\device-credential.json`. Each web harness keeps its own
-  copy under its own path, so the two harnesses register as distinct devices.
+- **Used for** — every credential the app stores, under `CurrentUser` scope:
+  - `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync` seals the
+    device's registration credential. On the desktop head it lives at
+    `%LOCALAPPDATA%\Backlog\device-credential.json`. Each web harness keeps its own
+    copy under its own path, so the two harnesses register as distinct devices.
+  - `DpapiSpecManagerTokenStore` in `Backlog.Infrastructure.SpecManager` seals the
+    spec-manager sign-in tokens.
+  - `SecretEnvelope` seals the token and key values in `github.json`,
+    `claude.json` and `azure-foundry.json`. The GitHub adapter holds it, and the
+    Claude and Azure Foundry adapters compile it in.
 - **Why** — it is the OS credential store local ADR 0005's Identity section names
-  for Windows. The app has no key of its own to generate, rotate, or leak.
+  for Windows, and local ADR 0030 makes it the rule for every stored credential.
+  The app has no key of its own to generate, rotate, or leak.
 
 ## Model Context Protocol C# SDK
 
@@ -250,8 +256,9 @@ sequenceDiagram
   the same mechanism through `PackageManager`.
 - **How** — `build/New-AppInstaller.ps1` generates it from
   `build/Backlog.Desktop.appinstaller.template` during the release workflow. Its
-  own `Uri` points at the `latest` release download, which is stable.
-  `MainPackage/@Uri` points at the tagged release asset. `Name`, `Publisher`,
+  own `Uri` points at the `latest` release download, which is stable. A tag,
+  dispatch or Deploy All release takes Latest; a scheduled nightly takes it only
+  when no higher-versioned release holds it. `MainPackage/@Uri` points at the tagged release asset. `Name`, `Publisher`,
   and `ProcessorArchitecture` are kept identical to the signed MSIX.
 - **Version name** — `PackageManager` only answers whether an update exists. The
   app therefore reads the manifest back through `AppInstallerManifest` to name

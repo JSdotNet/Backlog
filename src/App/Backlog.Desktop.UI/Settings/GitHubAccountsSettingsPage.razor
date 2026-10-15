@@ -254,6 +254,8 @@
         <div class="setting__actions">
             <AppButton Variant="ButtonVariant.None"
                        TestId="gh-cli-accounts-refresh-button"
+                       Busy="@Screen.IsLoadingCliAccounts"
+                       BusyLabel="Looking"
                        OnClick="Screen.RefreshCliAccountsAsync">
                 Look again
             </AppButton>

@@ -139,6 +139,30 @@
     @* One refresh fan-out for the pane: a part's refresh reaches every part that reads
        the same insight, so a refresh moves every figure it could have changed. *@
     <CascadingValue Value="_refreshes" IsFixed="true">
+    @* Every part's Ask AI, cascaded only while the shell can answer one; a frame with
+       nothing cascaded draws no control. Fixed, so a render of the pane does not
+       re-render every frame under it: the handler is made once and reads the
+       callback when pressed. With no handler there is no cascade at all rather than
+       a null one. The two branches render the same sections, so they are one
+       fragment. The Overview's five tiles are not frames and carry none; the brief's
+       blocks neither. *@
+    @if (AskAi is { } askAi)
+    {
+        <CascadingValue Value="askAi" IsFixed="true">
+            @Sections
+        </CascadingValue>
+    }
+    else
+    {
+        @Sections
+    }
+    </CascadingValue>
+</section>
+
+@code {
+    /// <summary>The brief or the tabs — the pane's body under the header, rendered
+    /// with or without the Ask AI cascade around it.</summary>
+    private RenderFragment Sections => @<text>
         @if (_showBrief)
         {
             <WeeklyBrief Scope="_scope" OnOpenOverview="OpenOverview" OnOpenTab="OpenTabFromBrief" />
@@ -194,12 +218,17 @@
 
                     <TabPanel Id="dashboard-productivity" Title="Productivity" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-productivity" TestId="dashboard-productivity">
-                        @* The throughput row, then the volume chart with the scores beside
-                           it — the chart taking the room, the scores their own width — then
-                           rework across the whole tab. *@
+                        @* The throughput row, then a main column - the volume chart, and
+                           size and rework under it - with the scores beside it, the column
+                           taking the room and the scores their own width; then rework across
+                           the whole tab. The size part fills what the taller score card used
+                           to leave empty under the chart. *@
                         <HeadlinePart Scope="_scope" />
                         <div class="dashboard-productivity__split">
-                            <TrendPart Scope="_scope" />
+                            <div class="dashboard-productivity__main" data-testid="dashboard-productivity-main">
+                                <TrendPart Scope="_scope" />
+                                <SizeReworkPart Scope="_scope" />
+                            </div>
                             <ScorePart Scope="_scope" />
                         </div>
                         <ReworkPart Scope="_scope" />
@@ -234,11 +263,16 @@
                     @* The devbook against the code: what the sync sweeps last said about each
                        unit, by the direction it goes, and the drift issues they left open. The
                        repository chips narrow it; the window and the machine do not, and the
-                       part says so. The tab carries the open issues' count the part reports. *@
+                       part says so. The tab carries the open issues' count the part reports.
+
+                       The Devbook and Cost tabs wear the DEV flag on their own while the rest of
+                       the dashboard is released. The tooltip mirrors AppFeatureStatusBadge in
+                       Desktop.UI, which owns that wording and which this module cannot reference. *@
                     <TabPanel Id="dashboard-devbook" Title="Devbook" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-devbook" TestId="dashboard-devbook-section">
                         <TitleContent>
                             Devbook
+                            <FeatureStatusBadge Status="dev" Title="In development — not usable yet." TestId="dashboard-tab-devbook-feature-status" />
                             @if (_openDriftIssues is > 0)
                             {
                                 <span class="dashboard-tabs__badge" aria-hidden="true" data-testid="dashboard-tab-devbook-badge">@MetricFormat.Compact(_openDriftIssues.Value)</span>
@@ -252,15 +286,21 @@
 
                     <TabPanel Id="dashboard-cost" Title="Cost" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-cost" TestId="dashboard-cost">
-                        <SpendThisMonthPart Scope="_scope" />
-                        <SpendTrendPart Scope="_scope" />
-                        <SpendByModelPart Scope="_scope" />
+                        <TitleContent>
+                            Cost
+                            <FeatureStatusBadge Status="dev" Title="In development — not usable yet." TestId="dashboard-tab-cost-feature-status" />
+                        </TitleContent>
+                        <ChildContent>
+                            <SpendThisMonthPart Scope="_scope" />
+                            <SpendTrendPart Scope="_scope" />
+                            <SpendByModelPart Scope="_scope" />
+                        </ChildContent>
                     </TabPanel>
                 </ChildContent>
             </Tabs>
         }
-    </CascadingValue>
-</section>
+    </text>;
+}
 
 @code {
     /// <summary>The four windows on offer. A closed set, because an arbitrary one
@@ -378,6 +418,23 @@
     /// </summary>
     [Parameter]
     public Func<string?, int?>? RepositoryColour { get; set; }
+
+    /// <summary>
+    /// Raised by a part's Ask AI with the part's title. Opening the assistant on the
+    /// Dashboard is the shell's move — it owns the panel and knows whether anything can
+    /// answer — so with nobody listening no part draws the control.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnAskAi { get; set; }
+
+    /// <summary>The handler the parts' frames are cascaded, made once so the cascade
+    /// does not change identity on every render; it reads <see cref="OnAskAi"/> when
+    /// pressed, so a callback the shell replaces is the one that answers.</summary>
+    private DashboardAskAi? _askAi;
+
+    private DashboardAskAi? AskAi => OnAskAi.HasDelegate
+        ? _askAi ??= new DashboardAskAi(title => OnAskAi.InvokeAsync(title))
+        : null;
 
     /// <summary>
     /// Takes the repositories the shell handed in into the scope. On every parameter

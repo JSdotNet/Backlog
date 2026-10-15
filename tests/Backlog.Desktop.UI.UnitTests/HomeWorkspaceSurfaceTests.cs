@@ -1039,7 +1039,7 @@ public sealed class HomeWorkspaceSurfaceTests
             component.Find("[data-testid='dashboard-toggle-button']").Click();
             component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
 
-            Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
             Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
         }
         finally
@@ -1308,7 +1308,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 again.WaitForAssertion(() => Assert.Equal(ShellNavigationStore.DefaultCalendarRange, reopenedNavigation.CalendarRange));
             }
 
-            Assert.DoesNotContain("calendarRange", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.DoesNotContain("calendarRange", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
         }
         finally
         {
@@ -1374,7 +1374,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 });
             }
 
-            var written = File.ReadAllText(path);
+            var written = ShellNavigationStoreTests.Written(path);
             Assert.DoesNotContain("inProgressNeedsYouFirst", written, StringComparison.Ordinal);
             Assert.DoesNotContain("inProgressIncludeFinishedToday", written, StringComparison.Ordinal);
         }
@@ -1917,8 +1917,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>A released feature is the ordinary case and the header stays quiet
     /// about it — otherwise the flag would be wallpaper rather than a warning.
-    /// Devbook and Roadmap are the released ones of the four enabled here; the
-    /// other two are Dev and are the control group.</summary>
+    /// Devbook, Roadmap and Dashboard are the released ones of the four enabled
+    /// here; Tools is Dev and is the control group.</summary>
     [Fact]
     public void A_released_feature_adds_no_flag_to_the_header()
     {
@@ -1932,11 +1932,12 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='devbook-feature-status']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view-option']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-feature-status']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-feature-status']"));
 
             // Present and flagged — proving the absence above is the status
             // talking rather than the badge being broken everywhere.
             Assert.Single(component.FindAll("[data-testid='tools-feature-status']"));
-            Assert.Single(component.FindAll("[data-testid='dashboard-feature-status']"));
         });
     }
 
@@ -2441,6 +2442,125 @@ public sealed class HomeWorkspaceSurfaceTests
         component.Find("[data-testid='ai-toggle-button']").Click();
 
         component.WaitForAssertion(() => Assert.Equal("Kept for later", component.Find("[data-testid='ai-question-input']").GetAttribute("value")));
+    }
+
+    /// <summary>The question a dashboard part's Ask AI begins.</summary>
+    private const string ThroughputPrefix = "About the \"Throughput\" chart: ";
+
+    /// <summary>
+    /// A dashboard part's Ask AI opens the panel on the Dashboard with a question
+    /// that names the part, takes focus to the box, and the question asked goes to
+    /// the Dashboard's source.
+    /// </summary>
+    [Fact]
+    public void A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+        harness.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='dashboard-headline-ask-ai']");
+        Assert.Empty(component.FindAll("[data-testid='ai-assistant-panel']"));
+
+        component.Find("[data-testid='dashboard-headline-ask-ai']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
+            Assert.Equal("Answers from the Dashboard content.", component.Find(".ai-panel__body").TextContent.Trim());
+            Assert.Equal(ThroughputPrefix, component.Find("[data-testid='ai-question-input']").GetAttribute("value"));
+            Assert.Contains(
+                harness.Context.JSInterop.Invocations["backlogFocus"],
+                invocation => Equals(invocation.Arguments[0], "ai-question-input"));
+        });
+
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var request = Assert.Single(harness.FoundryChat.Requests);
+            Assert.Equal(ThroughputPrefix, request.Question);
+            Assert.StartsWith("Dashboard (", request.Content, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>An answer already in the panel was to another question, so a part's
+    /// Ask AI clears it as it begins the new one.</summary>
+    [Fact]
+    public void A_dashboard_parts_ask_ai_clears_an_earlier_answer()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+        harness.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='dashboard-headline-ask-ai']");
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForElement("[data-testid='ai-question-input']").Input("What changed?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+        component.WaitForElement("[data-testid='ai-answer']");
+
+        component.Find("[data-testid='dashboard-headline-ask-ai']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='ai-answer']"));
+            Assert.Equal(ThroughputPrefix, component.Find("[data-testid='ai-question-input']").GetAttribute("value"));
+        });
+    }
+
+    /// <summary>An ask still in flight ends when a part's Ask AI is pressed: its
+    /// answer would otherwise land under the new question and read as the answer to
+    /// it. The Ask button is offered again at once.</summary>
+    [Fact]
+    public void A_dashboard_parts_ask_ai_ends_an_ask_in_flight()
+    {
+        var hanging = new HangingSource("dashboard", "Dashboard");
+        using var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.AiAssistant, true),
+            configureServices: services => services.AddScoped<IAiContentSource>(_ => hanging));
+        var component = Render(harness);
+        harness.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='dashboard-headline-ask-ai']");
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForElement("[data-testid='ai-question-input']").Input("What changed?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.True(hanging.Started.Task.IsCompleted);
+            Assert.True(component.Find("[data-testid='ai-ask-button']").HasAttribute("disabled"));
+        });
+
+        component.Find("[data-testid='dashboard-headline-ask-ai']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.True(hanging.Started.Task.Result.IsCancellationRequested);
+            Assert.False(component.Find("[data-testid='ai-ask-button']").HasAttribute("disabled"));
+            Assert.Equal(ThroughputPrefix, component.Find("[data-testid='ai-question-input']").GetAttribute("value"));
+        });
+        Assert.Empty(harness.FoundryChat.Requests);
+    }
+
+    /// <summary>With the assistant switched off nothing could answer, so no part
+    /// offers Ask AI.</summary>
+    [Fact]
+    public void No_dashboard_part_offers_ask_ai_while_the_assistant_is_off()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='dashboard-headline-refresh']");
+
+        Assert.Empty(component.FindAll("[data-testid$='-ask-ai']"));
     }
 
     /// <summary>A session opened from the pull requests list is the session list on
@@ -3033,6 +3153,14 @@ public sealed class HomeWorkspaceSurfaceTests
             sp.GetRequiredService<IActivitySource>(),
             sp.GetRequiredService<IRepositoryDirectory>(),
             sp.GetRequiredService<DashboardScopeInView>(),
+            new DashboardInsightPorts(
+                sp.GetRequiredService<IProductivityInsights>(),
+                sp.GetRequiredService<ITaskInsights>(),
+                sp.GetRequiredService<ISessionInsights>(),
+                sp.GetRequiredService<IHoursWorkedInsights>(),
+                sp.GetRequiredService<IDriftInsights>(),
+                sp.GetRequiredService<ICostInsights>(),
+                sp.GetRequiredService<IAttentionInsights>()),
             TimeProvider.System));
         context.Services.AddScoped<IAiContentSource, SessionsAiContentSource>();
         context.Services.AddToolsAiContentSource();
@@ -3080,6 +3208,24 @@ public sealed class HomeWorkspaceSurfaceTests
 
         public Task<AiContent> ComposeAsync(AiContentRequest request, CancellationToken cancellationToken = default) =>
             throw new IOException("The plan file is locked.");
+    }
+
+    /// <summary>A source that never finishes composing until its ask is cancelled,
+    /// and hands over that ask's token once it has started.</summary>
+    private sealed class HangingSource(string areaKey, string areaTitle) : IAiContentSource
+    {
+        public TaskCompletionSource<CancellationToken> Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public string AreaKey => areaKey;
+
+        public string AreaTitle => areaTitle;
+
+        public async Task<AiContent> ComposeAsync(AiContentRequest request, CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult(cancellationToken);
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new InvalidOperationException("Unreachable: the delay only ends by cancellation.");
+        }
     }
 
     private sealed class FixedSource(string areaKey, string areaTitle) : IAiContentSource

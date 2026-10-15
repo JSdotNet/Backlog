@@ -45,6 +45,49 @@ public sealed class PaneInitialLoadTests : IDisposable
         });
     }
 
+    /// <summary>
+    /// Settings and back remounts the shell, which reads the backlog again over the
+    /// rows already in memory. Those rows stay on screen, marked busy, rather than
+    /// giving way to placeholders: a skeleton is for a list that has nothing yet
+    /// (.devbook/design/interaction-guidelines.md#scoped-loading).
+    /// </summary>
+    [Fact]
+    public async Task A_reload_over_a_populated_backlog_keeps_its_rows_and_marks_the_list_busy()
+    {
+        var inner = TasksTestHost.EntriesFor(Store());
+        await inner.SaveFromTextAsync(null, "# Kept on screen\n`task`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
+        var entries = new HeldTaskItems(inner);
+        using var context = TasksContext(entries, out var state);
+        entries.Release();
+        await state.InitializeAsync();
+        Assert.NotEmpty(state.Rows);
+
+        entries.Hold();
+        var reloading = state.InitializeAsync();
+        var remounted = context.Render<TasksPane>();
+
+        Assert.Empty(remounted.FindAll("[data-testid='backlog-loading']"));
+        // The rows are what reload, so the busy mark is on the scroller that holds
+        // them and not on the filter bar above; the bar carries the spinner that
+        // says so (held invisible by CSS for its first 300 ms or so).
+        Assert.Null(remounted.Find(".backlog-list").GetAttribute("aria-busy"));
+        var rows = remounted.Find("[data-testid='backlog-list-scroll']");
+        Assert.Contains("Kept on screen", rows.TextContent, StringComparison.Ordinal);
+        Assert.Equal("true", rows.GetAttribute("aria-busy"));
+        var spinner = remounted.Find(".filter-bar [data-testid='backlog-refreshing']");
+        Assert.Contains("region-refresh", spinner.ClassList);
+
+        entries.Release();
+        await reloading;
+
+        remounted.WaitForAssertion(() =>
+        {
+            Assert.Null(remounted.Find("[data-testid='backlog-list-scroll']").GetAttribute("aria-busy"));
+            Assert.Empty(remounted.FindAll("[data-testid='backlog-refreshing']"));
+            Assert.Contains("Kept on screen", remounted.Find(".backlog-list").TextContent, StringComparison.Ordinal);
+        });
+    }
+
     [Fact]
     public void A_tasks_pane_nobody_is_loading_is_not_a_skeleton()
     {
@@ -80,6 +123,50 @@ public sealed class PaneInitialLoadTests : IDisposable
             Assert.Empty(pane.FindAll("[data-testid='inbox-loading']"));
             Assert.NotEmpty(pane.FindAll($"[data-testid='inbox-item-{item.Id:D}']"));
         });
+    }
+
+    /// <summary>Shown again, the Inbox reads its snapshot again behind the rows
+    /// from last time: they stay, and the list says it is busy until the new
+    /// snapshot lands.</summary>
+    [Fact]
+    public async Task A_reopened_inbox_keeps_its_rows_and_is_busy_until_the_reload_lands()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton(new GitHubSettingsStore(Path.Combine(Root(), "github.json")));
+        TasksTestHost.AddToastChannel(context.Services);
+        var inbox = InboxTestHost.AddInboxState(context.Services);
+        var item = inbox.Seed("Captured last time");
+        var state = context.Services.GetRequiredService<InboxDesktopState>();
+        var pane = context.Render<InboxPane>();
+        await pane.InvokeAsync(state.InitializeAsync);
+        pane.WaitForAssertion(() =>
+            Assert.Null(pane.Find("[data-testid='inbox-pane-list']").GetAttribute("aria-busy")));
+
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        inbox.BeforeSnapshot = () => held.Task;
+        var reopening = pane.InvokeAsync(state.OpenedAsync);
+
+        pane.WaitForAssertion(() =>
+        {
+            // The rows are marked busy, not the column with its pills; the toolbar
+            // carries the spinner.
+            Assert.Null(pane.Find("[data-testid='inbox-pane-column-list']").GetAttribute("aria-busy"));
+            Assert.Equal("true", pane.Find("[data-testid='inbox-pane-list']").GetAttribute("aria-busy"));
+            Assert.Contains("region-refresh", pane.Find(".inbox-pane__toolbar [data-testid='inbox-refreshing']").ClassList);
+            Assert.NotEmpty(pane.FindAll($"[data-testid='inbox-item-{item.Id:D}']"));
+            Assert.Empty(pane.FindAll("[data-testid='inbox-loading']"));
+        });
+
+        held.SetResult();
+        await reopening;
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Null(pane.Find("[data-testid='inbox-pane-list']").GetAttribute("aria-busy"));
+            Assert.Empty(pane.FindAll("[data-testid='inbox-refreshing']"));
+        });
+        Assert.False(state.Reopening);
     }
 
     private BunitContext TasksContext(ITaskItems entries, out TasksDesktopState state)
@@ -132,9 +219,12 @@ public sealed class PaneInitialLoadTests : IDisposable
     /// <see cref="Release"/>. Everything else delegates.</summary>
     private sealed class HeldTaskItems(ITaskItems inner) : ITaskItems
     {
-        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void Release() => _release.TrySetResult();
+
+        /// <summary>Holds the next load as the first one was held.</summary>
+        public void Hold() => _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public async Task<Result<int>> ReconcileRepositoryIdsAsync(CancellationToken cancellationToken = default)
         {

@@ -447,9 +447,31 @@ public sealed class InboxDesktopState : IDisposable
     /// reader could notice the difference.</summary>
     public async Task OpenedAsync()
     {
-        await ResurfaceDueItemsAsync();
-        await ReloadAsync();
+        // The list on screen is the one from when the pane was last open, and is
+        // left there while the sweep and the reload are out rather than blanked
+        // (interaction-guidelines.md#scoped-loading, Refresh); Reopening is what
+        // marks it busy meanwhile. A second opening while the first is out is the
+        // same refresh, and the flag stays up until the last of them is back.
+        _reopenings++;
+        Changed?.Invoke();
+
+        try
+        {
+            await ResurfaceDueItemsAsync();
+            await ReloadAsync();
+        }
+        finally
+        {
+            _reopenings--;
+            Changed?.Invoke();
+        }
     }
+
+    private int _reopenings;
+
+    /// <summary>Whether the pane is reading the inbox again after being shown
+    /// again: the rows on screen are last time's until it lands.</summary>
+    public bool Reopening => _reopenings > 0;
 
     /// <summary>Returns every deferred item whose review date has been reached
     /// to the queue, and says so on a toast when any did — an item appearing in
