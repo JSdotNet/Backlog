@@ -50,6 +50,9 @@ public class ContinuousIntegrationWorkflowTests
         ["deploy-all.yml"] = 60,
     };
 
+    /// <summary>The desktop release, whose Latest badge is the App Installer update channel.</summary>
+    private const string DesktopReleaseWorkflow = "release-desktop.yml";
+
     /// <summary>The workflows whose <c>setup-node</c> steps must agree on one version.</summary>
     private static readonly string[] NodeWorkflows =
         ["pull-request.yml", "devbook-metadata.yml", NightlyWorkflow];
@@ -166,6 +169,46 @@ public class ContinuousIntegrationWorkflowTests
         Assert.Contains("GITHUB_STEP_SUMMARY", summary, StringComparison.Ordinal);
         Assert.Contains("if: always()", summary, StringComparison.Ordinal);
         Assert.Contains("Line coverage", summary, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The desktop version step says whether its version came from the
+    /// <c>0.1.&lt;run_number&gt;</c> fallback (issue #751), as mobile's
+    /// <c>mobile_only</c> does. The publish step keys its Latest decision on this,
+    /// not on <c>github.ref_type</c>: Deploy All and a dispatch release from a
+    /// branch ref with an explicit version.
+    /// </summary>
+    [Fact]
+    public void The_desktop_version_step_says_whether_the_release_is_a_nightly()
+    {
+        var version = Step(Workflow(DesktopReleaseWorkflow), "Derive version numbers");
+
+        Assert.Contains("nightly=", version, StringComparison.Ordinal);
+        Assert.Matches(new Regex(@"\$nightly\s*=\s*\$true"), version);
+    }
+
+    /// <summary>
+    /// A nightly desktop release never demotes a higher-versioned release from
+    /// the Latest badge (issue #751). Latest is the App Installer update channel, so
+    /// a nightly still takes it when it is the highest version; an explicit
+    /// release always takes it. Both <c>gh release create</c> and
+    /// <c>gh release edit</c> pass one computed flag, and the decision lands on
+    /// the run summary.
+    /// </summary>
+    [Fact]
+    public void A_nightly_desktop_release_takes_latest_only_from_a_lower_version()
+    {
+        var publish = Step(Workflow(DesktopReleaseWorkflow), "Publish GitHub Release");
+
+        Assert.DoesNotMatch(new Regex(@"--latest\s+\$msix"), publish);
+        Assert.DoesNotMatch(new Regex(@"gh release edit .*--latest\s*$", RegexOptions.Multiline), publish);
+        Assert.Contains("steps.version.outputs.nightly", publish, StringComparison.Ordinal);
+        Assert.Matches(new Regex(@"gh release create .*\$latest \$msix"), publish);
+        Assert.Matches(new Regex(@"gh release edit .*\$latest\s*$", RegexOptions.Multiline), publish);
+        Assert.Contains("gh release view --json tagName", publish, StringComparison.Ordinal);
+        Assert.Contains("[version]", publish, StringComparison.Ordinal);
+        Assert.Contains("'--latest=false'", publish, StringComparison.Ordinal);
+        Assert.Contains("GITHUB_STEP_SUMMARY", publish, StringComparison.Ordinal);
     }
 
     /// <summary>

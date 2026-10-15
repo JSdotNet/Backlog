@@ -250,8 +250,9 @@ sequenceDiagram
   the same mechanism through `PackageManager`.
 - **How** — `build/New-AppInstaller.ps1` generates it from
   `build/Backlog.Desktop.appinstaller.template` during the release workflow. Its
-  own `Uri` points at the `latest` release download, which is stable.
-  `MainPackage/@Uri` points at the tagged release asset. `Name`, `Publisher`,
+  own `Uri` points at the `latest` release download, which is stable. A tag,
+  dispatch or Deploy All release takes Latest; a scheduled nightly takes it only
+  when no higher-versioned release holds it. `MainPackage/@Uri` points at the tagged release asset. `Name`, `Publisher`,
   and `ProcessorArchitecture` are kept identical to the signed MSIX.
 - **Version name** — `PackageManager` only answers whether an update exists. The
   app therefore reads the manifest back through `AppInstallerManifest` to name
