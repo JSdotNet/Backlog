@@ -9,7 +9,7 @@ related: [.devbook/domain/progress/features.md]
 > What this context's features guarantee, one chapter per feature. Each
 > requirement is one SHALL sentence with the scenarios that prove it.
 
-Progress is not built yet, so no requirement names a test. The scenarios use a
+Progress is partly built: a requirement names its tests where it has them. The scenarios use a
 series over the repositories `backlog` and `docs`, with two-week sprints starting
 on a Monday. Sprint 4 runs from Monday 12 October to Sunday 25 October 2026.
 
@@ -322,6 +322,7 @@ The system SHALL close a sprint only once every unfinished member has an outcome
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.Closing_starts_the_next_sprint_with_only_the_carried_task_and_leaves_every_task_alone, unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.Closing_early_starts_the_next_sprint_after_the_closed_ones_window_not_after_today, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Before_its_first_working_day_an_open_sprint_reads_when_it_starts_and_how_many_working_days_it_has]
 ```
 
 The system SHALL start the next sprint when it closes one, with the next goal given at closing and every carried task as a member.

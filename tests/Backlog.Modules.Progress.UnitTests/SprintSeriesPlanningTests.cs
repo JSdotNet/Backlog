@@ -210,6 +210,38 @@ public sealed class SprintSeriesPlanningTests : IDisposable
         Assert.Equal(SprintTaskStatus.InProgress, _tasks.Tasks.Single(task => task.Id == drop.Id).Status);
     }
 
+    // Thursday 15 October is the day that tells the two apart: a next sprint started after
+    // today would begin Monday 19 October. Monday 19 October is the scenario's own day.
+    [Theory]
+    [InlineData(15)]
+    [InlineData(19)]
+    public async Task Closing_early_starts_the_next_sprint_after_the_closed_ones_window_not_after_today(int octoberDay)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        _time.SetUtcNow(new DateTimeOffset(2026, 10, octoberDay, 9, 0, 0, TimeSpan.Zero));
+
+        var closed = (await Planning.CloseSprintAsync(series.Id, new Dictionary<Guid, CloseOutcome>(), "Next", ct)).Value;
+
+        var first = closed.Sprints.Single(sprint => sprint.Number == 1);
+        Assert.False(first.IsOpen);
+        Assert.Equal(new DateOnly(2026, 10, 12), first.Start);
+        Assert.Equal(new DateOnly(2026, 10, 25), first.End);
+        var next = closed.OpenSprint!;
+        Assert.Equal(new DateOnly(2026, 10, 26), next.Start);
+        Assert.Equal(new DateOnly(2026, 11, 8), next.End);
+
+        var reading = (await Progress.ReadAsync(series.Id, cancellationToken: ct)).Value;
+        Assert.True(reading.IsOpen);
+        Assert.Equal(new DateOnly(2026, 10, 26), reading.Start);
+        Assert.Equal(10, reading.WorkingDays);
+        Assert.Equal(0, reading.WorkingDaysElapsed);
+
+        _time.SetUtcNow(new DateTimeOffset(2026, 10, 26, 9, 0, 0, TimeSpan.Zero));
+        var onTheFirstDay = (await Progress.ReadAsync(series.Id, cancellationToken: ct)).Value;
+        Assert.Equal(1, onTheFirstDay.WorkingDaysElapsed);
+    }
+
     [Fact]
     public async Task A_new_series_is_on()
     {
