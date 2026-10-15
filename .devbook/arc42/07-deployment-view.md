@@ -80,7 +80,10 @@ Microsoft Store listing and no custom update server.
   it, as the flowchart below shows.
 - **Release automation** — `.github/workflows/release-desktop.yml` builds, signs
   (from repository secrets), generates the `.appinstaller`, and uploads both
-  artifacts to the GitHub Release on a `v*` tag.
+  artifacts to the GitHub Release on a `v*` tag, a dispatch, a Deploy All run,
+  or the nightly schedule (`v0.1.<run_number>`). Latest is the update channel:
+  a tag, dispatch or Deploy All release takes it, and a nightly takes it only
+  when no higher-versioned release holds it.
 
 ```mermaid
 flowchart TB
