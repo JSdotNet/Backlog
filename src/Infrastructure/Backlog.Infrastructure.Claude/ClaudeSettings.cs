@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -35,6 +36,15 @@ public sealed record ClaudeSettings
 /// Reads and writes <see cref="ClaudeSettings"/> in the per-user application
 /// folder. The admin keys deliberately live outside the backlog folder so synced
 /// or committed content never carries credentials.
+/// <para>
+/// An admin key reads an organization's usage and cost from anywhere, so it is not
+/// written in the clear either (local ADR 0030): each account's
+/// <c>adminApiKey</c> holds a DPAPI envelope sealed under the signed-in Windows
+/// user, and every other field stays legible. A key an earlier release wrote in
+/// plaintext — the flat file from before accounts included — is read as it is and
+/// sealed straight away; one this user cannot open reads as no key, which the
+/// Settings card shows as an empty key field to fill in again.
+/// </para>
 /// </summary>
 public sealed class ClaudeSettingsStore
 {
@@ -132,34 +142,68 @@ public sealed class ClaudeSettingsStore
     {
         Current = Normalize(settings);
 
-        string? error = null;
-        try
-        {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new SettingsFile { Accounts = [.. Current.Accounts] }, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            error = "Changed, but the Claude settings couldn't be saved for next time.";
-        }
+        var error = Write(Current) ? null : "Changed, but the Claude settings couldn't be saved for next time.";
 
         Changed?.Invoke();
         return error;
     }
 
+    /// <summary>Writes the accounts with each key sealed. False when the file
+    /// could not be written.</summary>
+    private bool Write(ClaudeSettings settings)
+    {
+        try
+        {
+            var accounts = settings.Accounts
+                .Select(account => account with { AdminApiKey = SecretEnvelope.Seal(account.AdminApiKey) })
+                .ToList();
+
+            File.WriteAllText(_path, JsonSerializer.Serialize(new SettingsFile { Accounts = accounts }, JsonOptions));
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
+        {
+            return false;
+        }
+    }
+
     private ClaudeSettings Read()
     {
+        ClaudeSettings settings;
+        var anyPlaintext = false;
+
         try
         {
             if (!File.Exists(_path)) return Normalize(new ClaudeSettings());
 
             var file = JsonSerializer.Deserialize<SettingsFile>(File.ReadAllText(_path), JsonOptions);
-            return Normalize(file?.ToSettings() ?? new ClaudeSettings());
+            var stored = file?.ToSettings() ?? new ClaudeSettings();
+
+            settings = Normalize(stored with
+            {
+                Accounts =
+                [
+                    .. stored.Accounts.Select(account =>
+                    {
+                        var key = SecretEnvelope.Open(account.AdminApiKey, out var wasPlaintext);
+                        anyPlaintext |= wasPlaintext;
+                        return account with { AdminApiKey = key };
+                    })
+                ]
+            });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             // A corrupt settings file must never stop the app from opening.
             return Normalize(new ClaudeSettings());
         }
+
+        // A key an earlier release left in the clear is sealed now rather than at
+        // the next save, which may be months away. A write that fails leaves it as
+        // it was, to be tried again on the next start.
+        if (anyPlaintext) _ = Write(settings);
+
+        return settings;
     }
 
     /// <summary>

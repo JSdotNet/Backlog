@@ -45,6 +45,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- DPAPI, for SecretEnvelope (local ADR 0030): the tokens in github.json are
+         sealed under the signed-in Windows user rather than written in the clear. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
 
   <ItemGroup>

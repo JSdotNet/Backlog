@@ -167,7 +167,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/domain/sync/features.md#pairing-a-device"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/domain/sync/features.md#pairing-a-device"]
 ```
 
 The desktop app is the local-first Windows client, and the one channel that serves
@@ -453,7 +453,11 @@ distinct devices. Its parts:
 - `SyncTokenProvider` exchanges the credential for a device token and caches it.
   It refreshes within two minutes of expiry and never retries a 401.
 - `SyncAuthenticationHandler` attaches the token to outbound requests.
-- `DevicePairingClient` drives the pairing calls.
+- `DevicePairingClient` drives the pairing calls. It awaits the store's
+  `SaveAsync`, so the Android store never blocks the pairing screen.
+
+The GitHub, Claude and Azure Foundry settings stores seal their keys with the same
+DPAPI scope, one value at a time (local ADR 0030).
 
 On the desktop the Sync Client also carries the capture path. `TaskReplicaMerge`
 hands every `capture`-kind replica document to the Inbox's `IInboxIntake` port

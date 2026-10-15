@@ -203,6 +203,26 @@ public sealed class DevicePairingClientTests
         Assert.Null(store.Current);
     }
 
+    /// <summary>
+    /// The pairing client awaits the store's save rather than firing it: a write
+    /// that fails only once it has been handed off — the Keystore refusing after
+    /// the call returned — is still a failed pairing, never a success reported
+    /// ahead of a write that then did not land.
+    /// </summary>
+    [Fact]
+    public async Task A_credential_whose_save_fails_after_it_was_handed_off_is_a_failed_pairing()
+    {
+        var store = new UnwritableDeviceCredentialStore { FailsLater = true };
+        using var fixture = Fixture.Create(store, (_, _) => Registration());
+
+        var result = await fixture.Client.PairAsync("K7MN-9PQR", "Phone", TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DevicePairingClient.CredentialStoreFailedCode, result.Error.Code);
+        Assert.Equal(1, store.Saves);
+        Assert.Null(store.Current);
+    }
+
     private static HttpResponseMessage Registration() => StubHttpMessageHandler.Json(
         HttpStatusCode.Created,
         $$"""{"ownerId":"{{Owner}}","deviceId":"{{Device}}","credential":"a-registration-credential"}""");
@@ -218,7 +238,21 @@ public sealed class DevicePairingClientTests
 
         public string StorePath => "nowhere";
 
-        public void Save(DeviceCredential credential) => throw new IOException("There is not enough space on the disk.");
+        /// <summary>Fails through the returned task, after yielding, rather than
+        /// by throwing from the call.</summary>
+        public bool FailsLater { get; init; }
+
+        public int Saves { get; private set; }
+
+        public async Task SaveAsync(DeviceCredential credential, CancellationToken cancellationToken = default)
+        {
+            Saves++;
+
+            if (!FailsLater) throw new IOException("There is not enough space on the disk.");
+
+            await Task.Yield();
+            throw new IOException("The secure store refused the write.");
+        }
 
         public void Clear() => Changed?.Invoke();
     }

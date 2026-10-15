@@ -296,7 +296,8 @@
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )"
+          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
       "backlog.infrastructure.capture": {
@@ -310,7 +311,8 @@
       "backlog.infrastructure.claude": {
         "type": "Project",
         "dependencies": {
-          "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )"
+          "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
       "backlog.infrastructure.copilot": {
@@ -359,7 +361,8 @@
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )"
+          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
       "backlog.infrastructure.mcp": {
