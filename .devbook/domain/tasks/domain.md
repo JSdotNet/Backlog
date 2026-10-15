@@ -963,7 +963,7 @@ A plan may name a task by id and read its progress; it never writes to it.
 ```meta
 type: term
 aliases: [machine, PC]
-related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#owner, .devbook/domain/tasks/domain.md#registration-credential, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/domain.md#owner, .devbook/domain/sync/domain.md#device, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 One machine holding the person's backlog. A device is not a user and not an
@@ -973,73 +973,9 @@ thing that is known and authorized.
 Each device holds its own canonical copy of every task. Two devices are peers:
 neither is the master, and the cloud replica between them is a courier rather
 than an authority. **Paired** describes two devices that share one
-[Owner](#owner). They are joined once: one device issues a
-[Pairing code](#pairing-code) and the other redeems it. Each device keeps its own
-[Registration credential](#registration-credential) and exchanges it for a
-[Device token](#device-token) before every sync call.
-
-### Owner
-
-```meta
-type: term
-aliases: [ownerId, owner id]
-related: [.devbook/domain/tasks/domain.md#device, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity]
-```
-
-The backlog an `ownerId` names. It is not a person's account, since the product
-requires none, but the identifier every device paired together shares. The
-first device to register mints it; every device paired to that device
-afterward registers under the same one. It is the partition every stored task
-and session record carries. The sync service reads it out of a device's
-presented [Device token](#device-token) to decide which partition a call may
-touch.
-
-### Pairing code
-
-```meta
-type: term
-aliases: [pairing code, XXXX-XXXX code]
-related: [.devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
-```
-
-A short, single-use code a first device issues so a second device can join its
-[Owner](#owner). Eight characters from an alphabet that drops visually
-confusable letters and digits, shown to the person as `XXXX-XXXX`. It
-[works for ten minutes](requirements.md#requirement-a-pairing-code-works-for-ten-minutes)
-and [pairs one device](requirements.md#requirement-a-pairing-code-pairs-one-device),
-so a code that leaks unused stops being a way in on its own.
-
-### Registration credential
-
-```meta
-type: term
-aliases: [device credential, credential]
-related: [.devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device-token, .devbook/domain/tasks/domain.md#device]
-```
-
-The long-lived secret a device receives at first registration or at pairing,
-and [is shown once](requirements.md#requirement-the-registration-credential-is-shown-once).
-The device keeps it in its own OS credential store rather than anywhere the
-backlog itself is stored. Before every sync call, a device exchanges it for a
-[Device token](#device-token) rather than presenting the credential itself on
-the wire.
-
-### Device token
-
-```meta
-type: term
-aliases: [access token, device session token, sync token]
-related: [.devbook/domain/tasks/domain.md#registration-credential, .devbook/domain/tasks/domain.md#owner, .devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
-```
-
-The short-lived credential a device actually presents on a sync call. It lasts
-thirty minutes unless the deployment sets a lifetime between 15 and 60, and
-[an expired one is refused](requirements.md#requirement-a-device-token-expires).
-The device obtains it by exchanging its
-[Registration credential](#registration-credential), so the registration
-credential itself never crosses the wire a second time. It names the device and
-the [Owner](#owner) it belongs to, and
-[every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
+[Owner](../sync/domain.md#owner). Pairing, and the credentials a device syncs
+with, are the [Sync](../sync/context.md) context's: see
+[Pairing a device](../sync/features.md#pairing-a-device).
 
 ### Tombstone
 
