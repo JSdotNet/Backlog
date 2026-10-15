@@ -529,7 +529,8 @@ own priority, My Day, area, sub-items and notes alone.
 
 Every linked task shows a source badge on its row, in the editor header and in
 My Day, and the badge opens the item at the source. The Tasks pane filters by
-source and by "Assigned to me". A label written `+slug` at the source files the
+source. It has no filter on the assignee: "Assigned to me" was removed, though
+each sync still keeps the assignee. A label written `+slug` at the source files the
 task under that plan. It then appears on the roadmap's
 [shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first)
 without a step in Backlog.
@@ -552,21 +553,67 @@ with two settings that decide where its tasks land:
 A changed status applies to new tasks at once, and to an existing task when its
 item next moves at the source.
 
-### Promote to plan
+The card also holds the target's other settings: how old an untouched item may
+be before the first sync skips it, whether the title follows the source, the
+sync interval, and "Complete at the source" for a connector that can complete
+items. A connector that can list its targets offers them to pick by name, so a
+spec-manager product is picked rather than typed.
+
+### Syncing a target
 
 ```meta
 type: sub-feature
 status: proposed
-related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-Turn one linked task that is really a body of work spanning several tasks into
-a Roadmap Item. The person picks Promote to plan, and the item is created under
-the issue's plan tag. Its steps come from the issue's sub-issues, its checklist,
-or a plan generated from its body and imported. The
-[Connected Target](domain.md#connected-target)'s setting then decides what
-happens to the original task. It is either archived, or kept as the one task
-that stands for the whole of the work.
+The desktop syncs each enabled target on its own timer, every fifteen minutes
+unless the target sets another interval. **Sync now** on the target's card in
+Settings → Connectors runs one at once and says on the card how it went. The
+Tasks pane has no sync button.
+
+A sync that fails writes nothing, and the card shows why in a sentence the
+person can act on, with when it happened. The next sync still asks for what
+changed since the last one that succeeded, and its success clears the message.
+Each successful sync writes one line to the log with how many items it fetched,
+created, updated and archived.
+
+A spec-manager product is read whole on every sync: the open backlog has no
+"changed since" question, so only its archived items are asked for by date.
+
+### Deleting the tasks of a disconnected source
+
+```meta
+type: sub-feature
+status: proposed
+related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#requirement-a-deleted-linked-task-is-never-made-again]
+```
+
+Disconnecting a target keeps its tasks on the list as they are. Settings →
+Connectors lists each source that left tasks behind under **Disconnected
+sources**, with how many tasks it left. **Delete tasks** asks first and then
+makes every one of them a [Tombstone](domain.md#tombstone), whatever its status.
+
+The confirmation says that the items at the source stay untouched and that the
+deletion reaches the other devices. It also says that connecting the target
+again does not bring the tasks back, and how many other tasks will wait on a
+missing one. A source connected again before the delete runs is refused,
+because its tasks belong to the sync again.
+
+### Promote to plan
+
+```meta
+type: sub-feature
+status: deprecated
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+Dropped and never built. It was to turn one linked task that stands for a body
+of work into a Roadmap Item, with its steps taken from the issue's sub-issues,
+its checklist or a generated plan. The owner decided against it, and the
+target setting for what happened to the original task was removed. A linked
+task reaches the roadmap only through its [plan label](../roadmap/domain.md#source-label),
+and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-never-creates-a-roadmap-item).
 
 ## Search, filter and organize
 

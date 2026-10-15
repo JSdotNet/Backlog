@@ -228,8 +228,10 @@ most one, and a task without one is local work.
 [Task Connector](#task-connector) needs no schema change. A device that does not
 know the id still shows `display_key`. `external_id` is the source's stable id,
 never a number that moves when the item is transferred. `assignee` and
-`source_state` are the source's own values, kept for display and for the
-"Assigned to me" filter. They are not the task's status.
+`source_state` are the source's own values, kept for display. They are not the
+task's status. No screen filters on the assignee: the "Assigned to me" filter
+was removed, so a sync still rewrites the assignee but nothing narrows the list
+by it.
 
 Each sync rewrites the Source Ref. It is held in an additive `source_ref`
 column (local ADR 0006) and travels in the replica payload. A
@@ -1106,9 +1108,21 @@ One outside system seen through the one contract Tasks knows,
 colour token. It fetches the items of a [Connected Target](#connected-target)
 and names each one by a display key. For each item it reports its
 [Source State](#source-state) and whether it is blocked, and why. It also reports
-what the system can do and who the connected account is. It lists the statuses a
-target uses, each with its Source State, so a person can map them; a connector
-with nothing to map lists none.
+what the system can do. A connector a person signs in to names the account
+that is signed in. It lists the statuses a target uses, each with its Source
+State, so a person can map them; a connector with nothing to map lists none. A
+connector that can list its targets offers them by name to pick from, and the
+person types any other target in.
+
+A fetch that fails for a reason the connector recognises fails with a sentence
+the person can act on. The reasons are a target that is not there, an account
+that may not read it, a source Backlog's settings do not name, and nobody
+signed in. Any other failure reads as the source not being reached.
+
+Of what a connector declares it can do, only two things change anything yet:
+whether it can complete an item at the source, and whether a target is a code
+repository. Effort, dependencies, setting a status and commenting are declared
+but drive nothing.
 
 GitHub and spec-manager are the first two. This context never names a
 connector, so the source badge and the Source filter are drawn from the
@@ -1126,18 +1140,25 @@ related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/domain/tasks/
 One GitHub repository or one spec-manager product a person has connected. It
 holds the connector id, whether it is enabled, and these settings:
 
-- whether the first sync skips old items;
-- whether "Assigned to me" is on by default;
-- whether the title follows the source;
-- the sync interval;
-- what Promote to plan does with the original task;
-- whether finishing a task here completes its item at the source;
+- how old an untouched item may be before the first sync skips it, or no
+  limit;
+- whether the title follows the source, on by default;
+- the sync interval, fifteen minutes by default;
+- whether finishing a task here completes its item at the source, off by
+  default and offered only when the connector can complete items;
 - the repository its tasks are filed under, or none to leave it to the
   connector;
 - its status map, from the source's own status names to task statuses, empty
   until the person maps a status.
 
-It never holds credentials.
+It also records how far its sync has got: when the last successful sync
+started, the cut-off the first sync fixed for untouched items, and why and
+when the last sync failed. A failure leaves the last success in place, so the
+next sync still asks from there, and the next success clears it.
+
+It never holds credentials. Disconnecting a target keeps its tasks. The person
+can later delete the tasks a disconnected target left behind, which makes each
+one a [Tombstone](#tombstone).
 
 ### Source State
 
