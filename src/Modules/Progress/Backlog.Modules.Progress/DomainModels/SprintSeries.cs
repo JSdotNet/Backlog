@@ -31,7 +31,9 @@ public sealed class SprintSeries
         List<GoalRule> goalRules,
         GoalThreshold threshold,
         List<Sprint> sprints,
-        bool isOn)
+        bool isOn,
+        DateTimeOffset? createdAt,
+        string? offReason)
     {
         Id = id;
         Name = name;
@@ -44,6 +46,8 @@ public sealed class SprintSeries
         Threshold = threshold;
         _sprints = sprints;
         IsOn = isOn;
+        CreatedAt = createdAt;
+        OffReason = isOn || string.IsNullOrWhiteSpace(offReason) ? null : offReason.Trim();
     }
 
     public Guid Id { get; }
@@ -76,6 +80,16 @@ public sealed class SprintSeries
     /// asks which series a repository works to passes it by.</summary>
     public bool IsOn { get; private set; }
 
+    /// <summary>When the series was set up, on the desktop that set it up. It travels
+    /// with the series, so every desktop orders two series alike when syncing left one
+    /// repository in both (<c>.devbook/domain/progress/domain.invariants.md#invariant-a-synced-repository-keeps-to-the-series-set-up-first</c>).
+    /// Null for a series stored before the moment was kept.</summary>
+    public DateTimeOffset? CreatedAt { get; }
+
+    /// <summary>Why the system switched the series off, as one line a person reads; null
+    /// while it is on and when a person switched it off.</summary>
+    public string? OffReason { get; private set; }
+
     /// <summary>A new series over <paramref name="repositories"/>, with no sprint yet.
     /// Refused without a repository (<c>progress.series_without_repository</c>).</summary>
     public static Result<SprintSeries> Create(
@@ -87,7 +101,8 @@ public sealed class SprintSeries
         string? namePattern = null,
         BriefVisibility? briefs = null,
         IEnumerable<GoalRule>? goalRules = null,
-        int goalShare = 100)
+        int goalShare = 100,
+        DateTimeOffset? createdAt = null)
     {
         var aliases = Clean(repositories);
         if (aliases.Count == 0) return ProgressErrors.SeriesWithoutRepository();
@@ -113,7 +128,9 @@ public sealed class SprintSeries
             rules,
             threshold.Value,
             [],
-            isOn: true);
+            isOn: true,
+            createdAt,
+            offReason: null);
     }
 
     /// <summary>Rehydration from storage. Trusted, as every stored aggregate is: the
@@ -129,7 +146,9 @@ public sealed class SprintSeries
         IEnumerable<(GoalRuleKind Kind, IReadOnlyList<string> Choices)> goalRules,
         int goalShare,
         IEnumerable<Sprint> sprints,
-        bool isOn = true) =>
+        bool isOn = true,
+        DateTimeOffset? createdAt = null,
+        string? offReason = null) =>
         new(
             id,
             name,
@@ -141,7 +160,9 @@ public sealed class SprintSeries
             [.. goalRules.Select(rule => GoalRule.Restore(rule.Kind, rule.Choices))],
             GoalThreshold.Create(goalShare).TryGetValue(out var threshold) ? threshold : GoalThreshold.EveryGoalTask,
             [.. sprints.OrderBy(sprint => sprint.Number)],
-            isOn);
+            isOn,
+            createdAt,
+            offReason);
 
     public bool HasRepository(string alias) =>
         _repositories.Contains(alias.Trim(), StringComparer.OrdinalIgnoreCase);
@@ -199,8 +220,22 @@ public sealed class SprintSeries
     public void ShowInBriefs(bool daily, bool weekly) => Briefs = new BriefVisibility(daily, weekly);
 
     /// <summary>Switches the series on or off. Nothing it holds changes either way, so
-    /// switching it back on finds it as it was.</summary>
-    public void Switch(bool on) => IsOn = on;
+    /// switching it back on finds it as it was. A person's switch clears any
+    /// <see cref="OffReason"/>. Whether another series has one of its repositories is
+    /// <see cref="Services.SeriesAssignment.SwitchOn"/>'s to check.</summary>
+    public void Switch(bool on)
+    {
+        IsOn = on;
+        OffReason = null;
+    }
+
+    /// <summary>Switches the series off for the reason given, keeping everything it
+    /// holds.</summary>
+    internal void SwitchOff(string reason)
+    {
+        IsOn = false;
+        OffReason = reason;
+    }
 
     public Result SetGoalRules(IEnumerable<GoalRule> rules, int goalShare)
     {

@@ -20,6 +20,8 @@ namespace Backlog.UI.Components.Progress;
 /// <param name="Goal">How the series picks its goal tasks and when the goal is met.</param>
 /// <param name="ShowInDaily">Whether the open sprint shows in the daily brief.</param>
 /// <param name="ShowInWeekly">Whether the open sprint shows in the weekly brief.</param>
+/// <param name="OffReason">Why the system switched the series off, one line the card
+/// shows under its title while it is off; null when a person switched it off.</param>
 public sealed record SprintSeriesCardModel(
     string Id,
     string Name,
@@ -32,7 +34,8 @@ public sealed record SprintSeriesCardModel(
     int NextNumber,
     SprintGoalSettings Goal,
     bool ShowInDaily,
-    bool ShowInWeekly)
+    bool ShowInWeekly,
+    string? OffReason = null)
 {
     /// <summary>The marker a pattern carries for the sprint's number.</summary>
     public const string NumberMarker = "{n}";

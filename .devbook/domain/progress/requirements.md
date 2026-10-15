@@ -423,7 +423,7 @@ The system SHALL, when syncing leaves a repository in two switched-on series, ke
 
 - **Given** A and B are both offline, A sets up the series "Core" over `backlog`, and later B sets up the series "Main" over `backlog`
 - **When** A and B both sync, in either order
-- **Then** both desktops show `backlog` working to "Core", and "Main" switched off with the line "Switched off: `backlog` already works to "Core", which was set up first.", and "Main" keeps every sprint it recorded
+- **Then** both desktops show `backlog` working to "Core", and "Main" switched off with the line `Switched off: backlog already works to "Core", which was set up first.`, and "Main" keeps every sprint it recorded
 
 #### Scenario: The switched-off series cannot be switched back on
 

@@ -195,8 +195,8 @@ In progress view until it is switched back on, and nothing it holds changed in
 between.
 
 A series the system switched off carries an **Off Reason**: one line saying why,
-such as "Switched off: `backlog` already works to "Core", which was set up
-first." Switching the series on clears it. A series a person switched off has
+such as `Switched off: backlog already works to "Core", which was set up
+first.` Switching the series on clears it. A series a person switched off has
 none.
 
 ### Goal Rule
