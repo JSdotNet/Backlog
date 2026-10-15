@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { labelsOf, listScenarioPages, listSpecs, parseScenarioPage, parseSpecHeader, readProfiles, specLabels, specParts } from "./parse.mjs";
+import { dataFolder, labelsOf, listScenarioPages, listSpecs, OUTSIDE_ROOT, parseScenarioPage, parseSpecHeader, readProfiles, resolveInside, specLabels, specParts } from "./parse.mjs";
 
 const F = "```";
 const PAGE = `# Set up and fill the backlog
@@ -165,6 +165,30 @@ test("reads profiles.json, and says when it is missing or broken", async () => {
         assert.match((await readProfiles(root)).error, /does not parse/);
         await writeFile(path.join(root, ".devbook/scenarios/profiles.json"), '{ "default": { "tenant": "demo" } }');
         assert.deepEqual(await readProfiles(root), { map: { default: { tenant: "demo" } } });
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("resolveInside keeps a path inside the root and refuses one that leaves it", () => {
+    const root = path.resolve(tmpdir(), "repo");
+    assert.equal(resolveInside(root, ".devbook/domain/x.md"), path.join(root, ".devbook/domain/x.md"));
+    assert.equal(resolveInside(root, ""), root);
+    assert.equal(resolveInside(root, "a/../b.md"), path.join(root, "b.md"));
+    assert.equal(resolveInside(root, "..not-a-climb.md"), path.join(root, "..not-a-climb.md"));
+    assert.equal(resolveInside(root, path.join(root, "e2e/x.spec.ts")), path.join(root, "e2e/x.spec.ts"));
+    for (const given of ["..", "../secret", "a/../../secret", path.resolve(root, "../repo-sibling/x.md"), path.parse(root).root]) {
+        assert.throws(() => resolveInside(root, given), (error) => error.code === OUTSIDE_ROOT && /resolves outside the repository/.test(error.message), given);
+    }
+});
+
+test("a data set or a profile file outside the repository is never read", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "scenarios-outside-"));
+    try {
+        assert.equal(dataFolder(root, ".devbook/scenarios", "webshop"), path.join(root, ".devbook/scenarios/data/webshop"));
+        assert.equal(dataFolder(root, ".devbook/scenarios", "../profiles"), null);
+        assert.equal(dataFolder(root, "../elsewhere", "webshop"), null);
+        assert.deepEqual(await readProfiles(root, "../elsewhere"), { error: "resolves outside the repository" });
     } finally {
         await rm(root, { recursive: true, force: true });
     }

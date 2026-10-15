@@ -8,7 +8,7 @@ to `.devbook/_tools/scenarios/` where `domain/` is adopted. Edit the plugin, nev
 
 | File | Does |
 | --- | --- |
-| `parse.mjs` | Reads a page's setup fields, parts, steps, and `shot:` labels; a spec's header, `shot()` calls, and part titles; `profiles.json` |
+| `parse.mjs` | Reads a page's setup fields, parts, steps, and `shot:` labels; a spec's header, `shot()` calls, and part titles; `profiles.json`. Its `resolveInside` refuses a path that resolves outside the repository, and every tool here reads through it |
 | `signature.mjs` | The page signature: sha256 over the normalized setup fields, part headings, steps, and labels, first 8 hex. The canonical form is at the top of the file. As a CLI, `node signature.mjs <page.md>…` prints the signature a spec's header takes |
 | `scenario-page.vector.json` | The shared vector every implementation of the signature is tested against |
 | `setup.mjs`, `setup.ts` | The runner a derived spec imports: effective configuration, the setup hook, one browser context per portal, `start` |

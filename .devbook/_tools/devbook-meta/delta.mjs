@@ -64,6 +64,7 @@ import {
 import { loadStatusLadder } from "./statuses.mjs";
 import { demoFileIssues, demoReader } from "./demo.mjs";
 import { regionProblem } from "./demo-template.mjs";
+import { resolveInside } from "./paths.mjs";
 import { scenarioProblems } from "./scenario.mjs";
 
 const FENCE = /^\s*(`{3,}|~{3,})/;
@@ -483,9 +484,10 @@ async function exists(absolute) {
 
 /** Read a file by its repository-relative path, refusing one that resolves outside the repository. */
 async function readInRepo(repoRoot, relPath) {
-    const root = path.resolve(repoRoot);
-    const absolute = path.resolve(root, relPath);
-    if (path.relative(root, absolute).startsWith("..") || path.isAbsolute(path.relative(root, absolute))) {
+    let absolute;
+    try {
+        absolute = resolveInside(repoRoot, relPath);
+    } catch {
         throw new Error(`${relPath} resolves outside the repository.`);
     }
     return readFile(absolute, "utf8");
