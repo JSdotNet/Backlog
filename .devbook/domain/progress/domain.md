@@ -30,6 +30,7 @@ The cadence a set of repositories works to, and the consistency boundary for
 every sprint in it. A series holds:
 
 - its `name`, which defaults to its repositories' aliases;
+- the moment it was set up, which travels with it to every desktop;
 - its [Series Repositories](#series-repositories);
 - its [Sprint Length](#sprint-length) and the weekday its sprints start on;
 - its [Name Pattern](#name-pattern);
@@ -193,6 +194,11 @@ against every other series. Its repositories read as in no series: they show the
 In progress view until it is switched back on, and nothing it holds changed in
 between.
 
+A series the system switched off carries an **Off Reason**: one line saying why,
+such as "Switched off: `backlog` already works to "Core", which was set up
+first." Switching the series on clears it. A series a person switched off has
+none.
+
 ### Goal Rule
 
 ```meta
@@ -262,6 +268,11 @@ Gives a repository to a series, and holds the one rule that spans series: a
 repository belongs to at most one. It is a service because no single series can
 see the others. Its rules are in
 [its invariants](domain.invariants.md#series-assignment).
+
+A person can only break the rule on two desktops at once, offline, so it is also
+what a synced series is held to: when a repository arrives in two switched-on
+series, it keeps the repository in the one set up first and switches the other
+off with its [Off Reason](#series-switch).
 
 ## Sprint Progress
 

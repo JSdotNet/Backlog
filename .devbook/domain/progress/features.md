@@ -426,6 +426,13 @@ every device** and the older one is lost. Two different series are two documents
 so a change to one never displaces a change to the other. A device that has **never
 set up a series has nothing to send**.
 
+Two desktops that each set up a series for the same repository while offline both
+keep theirs. Once both have synced, **the repository works to the series set up
+first**, and the other is switched off with a line saying why. It keeps every sprint
+it recorded, and once the person takes the repository out of it, it can be switched
+back on. Every desktop decides this the same way, from the series alone, and asks
+nobody.
+
 Series travel whether the [Progress area](context.md#progress-area) is on or off,
 because the series recorded while it is off are kept. The phone keeps no sprints and
 lists none.
