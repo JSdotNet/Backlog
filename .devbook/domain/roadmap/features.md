@@ -267,7 +267,7 @@ and still be read one project at a time.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Group the plan into one [band](domain.md#band) per repository, with the person's
@@ -285,16 +285,23 @@ with one empty "Planned" lane when nothing is filed there. That lane is where th
 person plans the next project before it has a repository, by double-clicking or
 dragging on it.
 
+An [archived repository](../repository-management/domain.md#archived-repository)
+is still configured, so its work never falls into that last band. How its own
+band is drawn is set by
+[its requirements](../repository-management/requirements.md#archiving-a-repository).
+
 ### Surviving a repository that is no longer configured
 
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/domain.md#repository-scope-resolution]
+related: [.devbook/domain/roadmap/domain.md#repository-scope-resolution, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 The alias an item named is kept as written and reads as unresolved. Nothing the
-person typed is deleted because a registry changed underneath it.
+person typed is deleted because a registry changed underneath it. An
+[archived repository](../repository-management/domain.md#archived-repository) is
+not this case, because the registry still holds it.
 
 ## Reading and rescheduling on a timeline
 

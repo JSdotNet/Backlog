@@ -20,6 +20,10 @@ It consumes baselines from
 [Technology Stack](../technology-stack/domain.md#technology-registry). The
 registry is built; scanning and health scoring are planned.
 
+No feature flag gates [archiving a repository](features.md#archiving-a-repository).
+It is a registry edit like a rename, so it is there wherever the repository list
+is.
+
 Outside it: what a baseline says and which versions are approved, which
 Technology Stack answers, and the work items a finding turns into, which
 [Tasks](../tasks/domain.md#task) answers.

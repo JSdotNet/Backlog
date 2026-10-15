@@ -1560,24 +1560,29 @@
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(TasksFeatures.AdditionalRepositories);
 
-    /// <summary>The repositories an entry may be filed against. Without the
-    /// additional-repositories feature there is only ever the first one.</summary>
+    /// <summary>The repositories an entry may be filed against: the ones the scope
+    /// offers, so an archived repository only while show archived is on. Without the
+    /// additional-repositories feature there is only ever the default one, the
+    /// first active repository (local ADR 0029).</summary>
     private IReadOnlyList<GitHubRepositoryRef> DevbookRepositories
     {
         get
         {
-            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
+            if (AdditionalRepositoriesEnabled) return State.Repositories;
 
-            var repository = GitHub.Repositories.FirstOrDefault();
+            var repository = GitHub.DefaultRepository;
             return repository is null ? [] : [repository];
         }
     }
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
-        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
+        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.DefaultRepository;
 
+    /// <summary>The repository picker's options. An archived one, offered while show
+    /// archived is on, says so in its label: a native list draws no hint.</summary>
     private IReadOnlyList<SelectorOption> RepositoryOptions() =>
-        [.. DevbookRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
+        [.. DevbookRepositories.Select(repository =>
+            new SelectorOption(repository.Alias, ArchivedRepositoryLabel.Of(repository.Alias, repository.Archived)))];
 
     /// <summary>The split's classes, and with nothing selected the modifier that
     /// gives the list the whole width. A class rather than a different component:
@@ -1812,7 +1817,7 @@
                 @* The same list, the same resolve and the same write the panel's
                    picker uses, so the additional-repositories feature is honoured
                    here by construction rather than by a second reading of it. *@
-                <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                     Options="@RepositoryOptions()"
                                     Label="@($"Change repository of {title}")"
                                     TestId="row-repo-badge"
@@ -3630,7 +3635,7 @@
 
                 @if (DevbookRepositories.Count > 0)
                 {
-                    <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                    <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                         Options="@RepositoryOptions()"
                                         Label="Change repository"
                                         TestId="repo-badge"

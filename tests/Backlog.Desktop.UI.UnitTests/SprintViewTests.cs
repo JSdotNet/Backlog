@@ -10,6 +10,7 @@ using Backlog.UI.Components.Progress;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -392,6 +393,41 @@ public sealed class SprintViewTests : IDisposable
             client.ReadByNumber.Clear();
             await reader.ReadAsync([new("JSdotNet/Backlog", "4"), new("JSdotNet/Backlog", "6")], TestContext.Current.CancellationToken);
             Assert.Empty(client.ReadByNumber);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    /// <summary>An archived repository is not read from GitHub (local ADR 0029): its pull
+    /// requests are not asked about, and an answer already known is kept rather than
+    /// overwritten as unknown once it goes stale. The sprint keeps the repository; only
+    /// the read is skipped.</summary>
+    [Fact]
+    public async Task The_reader_skips_an_archived_repository_and_keeps_what_it_already_knew()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-sprint-pulls", Guid.NewGuid().ToString("n"));
+        try
+        {
+            var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
+            var (parsed, _) = GitHubSettings.ParseText("JSdotNet/Backlog\nJSdotNet/Archify");
+            Assert.Null(settings.SetRepositories(parsed));
+            var client = new TasksPaneHost.FakeGitHubClient();
+            client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(5, "u", "t", "JSdotNet/Archify", GitHubItemState.Open, "octo", null));
+            var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero));
+            var reader = new GitHubSprintPullRequests(() => new GitHubIntegration(settings, client, new ConnectedProbe()), clock);
+
+            Assert.Equal(LinkedPullRequestState.Open, Assert.Single(await reader.ReadAsync([new("JSdotNet/Archify", "5")], TestContext.Current.CancellationToken)).State);
+
+            Assert.Null(settings.SetRepositoryArchived("archify", archived: true));
+            clock.Advance(GitHubSprintPullRequests.FreshFor + TimeSpan.FromMinutes(1));
+            client.ReadByNumber.Clear();
+
+            var answer = await reader.ReadAsync([new("JSdotNet/Archify", "5"), new("JSdotNet/Archify", "6")], TestContext.Current.CancellationToken);
+
+            Assert.Empty(client.ReadByNumber);
+            Assert.Equal([LinkedPullRequestState.Open, LinkedPullRequestState.Unknown], answer.Select(pull => pull.State));
         }
         finally
         {

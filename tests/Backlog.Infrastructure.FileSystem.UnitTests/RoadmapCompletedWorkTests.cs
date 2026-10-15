@@ -89,6 +89,36 @@ public class RoadmapCompletedWorkTests
         Assert.Equal(2, work.AliasesById.Count);
     }
 
+    /// <summary>Finished work of an archived repository still counts toward history and
+    /// pace (local ADR 0029; <c>repository-management/requirements.md#finished-work-of-an-archived-repository-still-counts</c>):
+    /// archiving a repository changes neither what is counted over a past range nor the
+    /// alias it is counted under, and the repository is still offered for its own pace.</summary>
+    [Fact]
+    public void Archiving_a_repository_leaves_the_work_counted_over_a_past_range_unchanged()
+    {
+        TaskItemDto[] backlog =
+        [
+            Entry("backlog work", Since.AddDays(2), 3, "JSdotNet/Backlog"),
+            Entry("site work", Since.AddDays(5), 5, "JSdotNet/Site"),
+            Entry("both", Since.AddDays(9), 2, "JSdotNet/Site", "JSdotNet/Backlog")
+        ];
+        TasksRepositoryRef[] archived = [Configured[0], Configured[1] with { IsArchived = true }];
+
+        var before = RoadmapCompletedWork.Completed(backlog, Since, Configured);
+        var after = RoadmapCompletedWork.Completed(backlog, Since, archived);
+
+        Assert.Equal(
+            before.Select(entry => (entry.CompletedOn, entry.Effort, string.Join(',', entry.RepositoryAliases))),
+            after.Select(entry => (entry.CompletedOn, entry.Effort, string.Join(',', entry.RepositoryAliases))));
+        Assert.Equal(["site", "backlog"], after[2].RepositoryAliases);
+
+        var work = new RoadmapCompletedWork(
+            () => throw new InvalidOperationException("The backlog is not read for this."),
+            () => new FixedDirectory(archived));
+        Assert.Equal(["backlog", "site"], work.Repositories);
+        Assert.Equal("site", work.AliasesById["JSdotNet/Site"]);
+    }
+
     private static TaskItemDto Entry(string title, DateOnly? completedOn, int? effort, params string[] repoIds) =>
         new(Guid.NewGuid(), title, string.Empty, EntryType.Task, Priority.Medium,
             completedOn is null ? EntryStatus.Ready : EntryStatus.Done,

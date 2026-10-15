@@ -109,6 +109,24 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
         Assert.Empty(read.Issues);
     }
 
+    /// <summary>An archived repository is not read from GitHub (local ADR 0029), and
+    /// leaving it out is no failure: the read stays complete.</summary>
+    [Fact]
+    public async Task An_archived_repository_is_not_read_and_is_no_failure()
+    {
+        var client = new ScriptedClient { ["Backlog"] = [Issue(913, "devbook-drift")] };
+        client.Failing["spec-manager"] = "Not Found";
+        var settings = Settings();
+        Assert.Null(settings.SetRepositoryArchived("specs", archived: true));
+
+        var read = await new GitHubDriftIssueSource(client, settings).GetOpenAsync([Backlog, Specs], TestContext.Current.CancellationToken);
+
+        Assert.Equal([("Backlog", "devbook-drift")], client.Asked);
+        Assert.True(read.Complete);
+        Assert.Null(read.Failure);
+        Assert.Single(read.Issues);
+    }
+
     private GitHubSettingsStore Settings()
     {
         var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));

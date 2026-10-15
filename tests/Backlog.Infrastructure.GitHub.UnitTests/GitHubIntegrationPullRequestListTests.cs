@@ -582,6 +582,92 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         Assert.Equal(GitHubItemState.Merged, listing.PullRequests[0].State);
     }
 
+    // --- Archived (local ADR 0029) ----------------------------------------------
+
+    /// <summary>An archived repository is not read from GitHub at all, so a retired
+    /// repository GitHub refuses no longer puts a "Couldn't read" line on every refresh:
+    /// no request goes out for it and no failure names it.</summary>
+    [Fact]
+    public async Task An_archived_repository_is_not_read_for_open_pull_requests_and_is_no_failure()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", List(Node(1, "2026-10-01T08:00:00Z")))
+            .Refuses("graphql#JSdotNet/Archify", "gh: Could not resolve to a Repository with the name 'JSdotNet/Archify'.");
+
+        var listing = await ArchivingIntegration(transport).ListOpenPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
+        Assert.Empty(listing.Failures);
+        Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task An_archived_repository_is_not_read_for_merged_pull_requests_and_is_no_failure()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", MergedList(Merged(1, "2026-10-01T08:00:00Z")))
+            .Refuses("graphql#JSdotNet/Archify", "gh: Could not resolve to a Repository with the name 'JSdotNet/Archify'.");
+
+        var listing = await ArchivingIntegration(transport).ListMergedPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
+        Assert.Empty(listing.Failures);
+        Assert.Empty(listing.Truncated);
+        Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_pin_in_an_archived_repository_is_not_read_and_is_no_failure()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "OPEN", "2026-10-01T08:00:00Z"))))
+            .Refuses("graphql#JSdotNet/Archify", "gh: Could not resolve to a Repository with the name 'JSdotNet/Archify'.");
+
+        var listing = await ArchivingIntegration(transport).ListPinnedPullRequestsAsync(
+            [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("jsdotnet/archify", 2)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
+        Assert.Empty(listing.Failures);
+        Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task A_link_into_an_archived_repository_is_not_read_and_is_no_failure()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "MERGED", "2026-10-01T08:00:00Z"))))
+            .Refuses("graphql#JSdotNet/Archify", "gh: Could not resolve to a Repository with the name 'JSdotNet/Archify'.");
+
+        var listing = await ArchivingIntegration(transport).ListLinkedPullRequestsAsync(
+            [new GitHubPullRequestReference("JSdotNet/Backlog", 1), new GitHubPullRequestReference("JSdotNet/Archify", 2)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
+        Assert.Empty(listing.Failures);
+        Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The integration answers which repositories it reads: the configured ones
+    /// that are not archived, in their configured order.</summary>
+    [Fact]
+    public void The_active_repositories_leave_the_archived_ones_out()
+    {
+        var integration = ArchivingIntegration(new RoutingTransport());
+
+        Assert.Equal(["backlog", "archify"], integration.Repositories.Select(r => r.Alias));
+        Assert.Equal(["backlog"], integration.ActiveRepositories.Select(r => r.Alias));
+    }
+
+    /// <summary>Backlog and Archify configured, Archify archived.</summary>
+    private GitHubIntegration ArchivingIntegration(RoutingTransport transport)
+    {
+        var integration = Integration(transport);
+        Assert.Null(integration.Settings.SetRepositories([Backlog, Archify]));
+        Assert.Null(integration.Settings.SetRepositoryArchived("archify", archived: true));
+        return integration;
+    }
+
     private static string Pinned(params (string Alias, string Node)[] pulls) => $$"""
         { "data": { "repository": {
             "mergeCommitAllowed": true, "squashMergeAllowed": true, "rebaseMergeAllowed": true,

@@ -224,6 +224,21 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
                          TestId="parts" />
     </Story>
 
+    <Story Name="An archived band, kept as history"
+           Description="A group handed `Archived` is history rather than current work. It is drawn greyed, neutral whatever `Color` it was handed, with a dashed edge, and the word Archived sits beside its name, so the grey is never the only thing saying it. Every row in it says `(archived)` after the band's name to a screen reader, because the tag sits in the hidden names column.
+
+What the band holds is the host's choice. The app hands an archived repository's band only its finished work in the drawn window, and its open work too once show archived is on."
+           Code="@ArchivedCode">
+        <RoadmapTimeline Groups="@ArchivedPlan"
+                         Bars="@ArchivedBars"
+                         Title="An archived repository"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         ShowFilters="false"
+                         ShowSteps="false"
+                         TestId="archived" />
+    </Story>
+
     <Story Name="A band with a control of its own"
            Description="`GroupContent` puts something of the host's under a band's name, in the sidebar's one column — in the app, each repository's pace. A band asks for room by giving `ContentRows`, the rows its name and content need, and nothing with a name is ever under the content: empty rows are put in before the band's first named lane until it starts that far down. The band's unnamed lane can sit beside the content, having nothing to cover, so budget below keeps its lane on the first row and gets its room after it, and specs keeps its unnamed lane beside the control and starts Review below it.
 
@@ -805,6 +820,28 @@ Every action is a real button named for its plan, and the shelf is a region name
         // One stored plan, one bar per repository, each with that repository's tasks as steps
         new RoadmapBar("conventions@budgetbeheer", "budgetbeheer::planned", "Devbook conventions", start, end, Steps: budgetbeheerTasks),
         new RoadmapBar("conventions@spec-manager", "spec-manager::planned", "Devbook conventions", start, end, Steps: specManagerTasks),
+        """;
+
+    // --- An archived band ------------------------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> ArchivedPlan =>
+    [
+        new("spec-manager", "specs", [new("spec-manager::planned", string.Empty)], "var(--color-band-2)"),
+        new("budgetbeheer", "budget", [new("budgetbeheer::planned", string.Empty)], "var(--color-band-1)", Archived: true)
+    ];
+
+    private static readonly RoadmapBar[] ArchivedBars =
+    [
+        new("rollout", "spec-manager::planned", "Roll out", On(4, 6), On(5, 29), 2),
+        new("close-books", "budgetbeheer::planned", "Close the books", On(2, 2), On(3, 13), 1,
+            Detail: "finished, drawn where the work ran", Locked: true)
+    ];
+
+    private const string ArchivedCode = """
+        <RoadmapTimeline Groups="@groups" Bars="@bars" />
+
+        // Greyed and tagged Archived; the colour it is handed is not drawn.
+        new RoadmapGroup("budgetbeheer", "budget", rows, "var(--color-band-1)", Archived: true)
         """;
 
     /// <summary>The parts plan again, each repository asking for room for its control,

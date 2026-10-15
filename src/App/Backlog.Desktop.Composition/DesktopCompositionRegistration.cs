@@ -326,6 +326,10 @@ public static class DesktopCompositionRegistration
         // navigation file beside the surface it reopens on.
         services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
             new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
+        // Show archived (local ADR 0029, §3): whether the archived repositories are
+        // offered in the scope, the Board and the pickers, kept per device in the same file.
+        services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>
+            new ShowArchivedRepositories(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 
