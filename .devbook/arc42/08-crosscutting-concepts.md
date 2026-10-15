@@ -446,7 +446,7 @@ references, they stay node attributes and produce no edges in the knowledge grap
 ## Authentication and Authorization
 
 ```meta
-related: [".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md"]
 ```
 
 - **No account required** for personal use in standalone mode.
@@ -461,6 +461,11 @@ related: [".devbook/arc42/09-architecture-decisions.md"]
 
   [Task Sync](#task-sync) has the pairing flow that issues the token.
 - The current architecture assumes a single personal user and does not include team-oriented authorization roles.
+- **Credentials at rest are sealed by the OS.** Every third-party key or token the
+  app stores is sealed under the signed-in Windows user with DPAPI, or in the
+  platform secure store on Android. The settings files seal only the secret value
+  and stay legible otherwise. The MCP server's loopback token is the one stated
+  exception. Local ADR 0030 has the threat model.
 
 For the cloud service specifically, the inherited identity, authorization, and
 error-contract decisions apply — `.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md`,

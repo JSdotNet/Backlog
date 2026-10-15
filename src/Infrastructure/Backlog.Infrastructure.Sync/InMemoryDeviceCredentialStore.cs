@@ -37,6 +37,15 @@ public sealed class InMemoryDeviceCredentialStore : IDeviceCredentialStore
         Changed?.Invoke();
     }
 
+    /// <summary>The port's save: <see cref="Save"/> under a completed task.</summary>
+    public Task SaveAsync(DeviceCredential credential, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        Save(credential);
+        return Task.CompletedTask;
+    }
+
     public void Clear()
     {
         Current = null;

@@ -64,8 +64,12 @@ public class RepositoryRegistrySplitTests : IDisposable
 
         var local = File.ReadAllText(store.SettingsPath);
         Assert.Contains("\"id\": \"JSdotNet/Backlog\"", local, StringComparison.Ordinal);
-        Assert.Contains("ghp_secret", local, StringComparison.Ordinal);
+        Assert.Contains("\"token\"", local, StringComparison.Ordinal);
         Assert.Contains("cloneDirectory", local, StringComparison.Ordinal);
+
+        // The token is in this file, sealed rather than in the clear (local ADR 0030).
+        if (OperatingSystem.IsWindows()) Assert.DoesNotContain("ghp_secret", local, StringComparison.Ordinal);
+        Assert.Equal("ghp_secret", Store().Current.Find("backlog")!.Token);
 
         // And the identity is stated once, in the file that is the authority on it.
         Assert.DoesNotContain("\"alias\"", local, StringComparison.Ordinal);
@@ -494,9 +498,21 @@ public class RepositoryRegistrySplitTests : IDisposable
         // repositories exist.
         Assert.Null(store.SetApiEndpoint("https://github.example/api/v3"));
 
+        // Both tokens are still there, sealed by the read that found them in the
+        // clear (local ADR 0030), so a restart reads them back.
         var local = File.ReadAllText(store.SettingsPath);
-        Assert.Contains("ghp_one", local, StringComparison.Ordinal);
-        Assert.Contains("ghp_two", local, StringComparison.Ordinal);
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.DoesNotContain("ghp_one", local, StringComparison.Ordinal);
+            Assert.DoesNotContain("ghp_two", local, StringComparison.Ordinal);
+        }
+
+        WriteRegistryFile("""
+            { "repositories": [ { "id": "JSdotNet/Backlog", "alias": "backlog" }, { "id": "JSdotNet/Docs", "alias": "docs" } ] }
+            """);
+        var repaired = Store();
+        Assert.Equal("ghp_one", repaired.Current.Find("backlog")!.Token);
+        Assert.Equal("ghp_two", repaired.Current.Find("docs")!.Token);
     }
 
     /// <summary>Today's contract, verbatim: the change takes effect for this
@@ -534,7 +550,7 @@ public class RepositoryRegistrySplitTests : IDisposable
         // stated in one file rather than two.
         var local = File.ReadAllText(store.SettingsPath);
         Assert.Contains("\"id\": \"JSdotNet/Backlog\"", local, StringComparison.Ordinal);
-        Assert.Contains("ghp_secret", local, StringComparison.Ordinal);
+        if (OperatingSystem.IsWindows()) Assert.DoesNotContain("ghp_secret", local, StringComparison.Ordinal);
         Assert.DoesNotContain("\"alias\"", local, StringComparison.Ordinal);
         Assert.DoesNotContain("\"owner\"", local, StringComparison.Ordinal);
         Assert.DoesNotContain("\"colour\"", local, StringComparison.Ordinal);

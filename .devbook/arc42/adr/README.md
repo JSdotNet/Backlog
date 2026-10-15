@@ -55,6 +55,7 @@ between inherited ADRs 0005 and 0009.
 - **[0026 — The Brain is a personal devbook, one folder per user outside any repository](0026-the-brain-is-a-personal-devbook-outside-any-repository.md)** *(proposed, not yet built; builds on 0004, 0015 and 0016)*
 - **[0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](0027-the-brain-is-a-scope-beside-the-repositories.md)** *(proposed, not yet built; builds on 0026, amends 0022)*
 - **[0028 — Progress is its own boundary, and Tasks knows no sprints](0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md)** *(proposed, not yet built)*
+- **[0030 — Every stored credential goes through the OS-protected envelope](0030-stored-credentials-go-through-the-os-protected-envelope.md)** *(proposed, built; the MCP token of 0012 is its one exception)*
 
 ## Inherited decisions
 
