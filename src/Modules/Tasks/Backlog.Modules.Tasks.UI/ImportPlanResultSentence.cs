@@ -54,6 +54,16 @@ public static class ImportPlanResultSentence
             parts.Add($"Unresolved after: {string.Join(", ", unresolved.Select(dependency => $"{dependency.Entry} → {dependency.After}"))}.");
         }
 
+        // Filed there all the same, and the repository is left archived (local ADR
+        // 0029): this sentence is the only place the reader learns the work went
+        // somewhere Backlog no longer reads.
+        if (result.ArchivedRepositories is { Count: > 0 } archived)
+        {
+            parts.Add(archived.Count == 1
+                ? $"Filed under an archived repository, which stays archived: {archived[0]}."
+                : $"Filed under archived repositories, which stay archived: {string.Join(", ", archived)}.");
+        }
+
         return string.Join(" ", parts);
     }
 

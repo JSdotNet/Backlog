@@ -47,6 +47,18 @@ public sealed class GitHubSettings
 
     public bool HasRepositoryToken => Repositories.Any(r => !string.IsNullOrWhiteSpace(r.Token));
 
+    /// <summary>The repositories that are not <see cref="GitHubRepositoryRef.Archived"/>,
+    /// in the order they were configured: the ones Backlog reads from GitHub.</summary>
+    public IReadOnlyList<GitHubRepositoryRef> ActiveRepositories => [.. Repositories.Where(r => !r.Archived)];
+
+    /// <summary>
+    /// The repository a single-repository setup falls back to: the first one in the
+    /// registry's order that is not archived, never an archived one (local ADR 0029).
+    /// Null only when nothing is configured: the store refuses every change that would
+    /// leave configured repositories with no active one.
+    /// </summary>
+    public GitHubRepositoryRef? DefaultRepository => Repositories.FirstOrDefault(r => !r.Archived);
+
     /// <summary>
     /// Whether the repository identity hues are drawn at all.
     /// <para>
@@ -735,6 +747,7 @@ public sealed partial class GitHubSettingsStore
         if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
 
         var next = NormalizeRepositories([.. repositories.Select(PreserveExistingRepositorySettings)]);
+        if (LeavesNoActiveRepository(next)) return LastActiveRepository;
 
         // A line dropped from the list is a removal, remembered like one from
         // the card; a line kept or added again is spent by Save.
@@ -879,6 +892,10 @@ public sealed partial class GitHubSettingsStore
         if (string.Equals(parsed.FullName, target.FullName, StringComparison.OrdinalIgnoreCase)) return RenameUnchanged;
 
         var into = Current.Repositories.FirstOrDefault(r => !IsSame(r, target) && IsSame(r, parsed));
+        if (into is not null && LeavesNoActiveRepository([.. Current.Repositories.Where(r => !IsSame(r, target))]))
+        {
+            return LastActiveRepository;
+        }
 
         // Recorded under the id the registry will state, so a merge names the
         // kept row's own spelling rather than however the new name was typed.
@@ -937,6 +954,7 @@ public sealed partial class GitHubSettingsStore
     {
         if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
         if (Find(alias) is not { } target) return NotConfigured;
+        if (LeavesNoActiveRepository([.. Current.Repositories.Where(r => !IsSame(r, target))])) return LastActiveRepository;
 
         RememberRemoved([target]);
 
@@ -1281,6 +1299,51 @@ public sealed partial class GitHubSettingsStore
         });
     }
 
+    /// <summary>
+    /// Archives a repository, or brings an archived one back (local ADR 0029). Follows
+    /// the house rule of no save button: the choice is persisted as it is made.
+    /// <para>
+    /// Changes the flag and nothing else, so Unarchive restores everything only
+    /// because Archive never touched it. A shared write, like
+    /// <see cref="SetPullRequestLabels"/>: the flag is in the registry row, so it is
+    /// refused while the registry is unreadable. Archiving the last active repository
+    /// is refused too, because the default repository and every single-repository
+    /// setup need one to fall back to.
+    /// </para>
+    /// </summary>
+    /// <param name="alias">The repository's alias or its <c>owner/name</c>.</param>
+    public string? SetRepositoryArchived(string alias, bool archived)
+    {
+        if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
+        if (Find(alias) is not { } target) return NotConfigured;
+
+        if (archived && !target.Archived
+            && LeavesNoActiveRepository([.. Current.Repositories.Select(r => IsSame(r, target) ? r with { Archived = true } : r)]))
+        {
+            return LastActiveRepository;
+        }
+
+        return Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories.Select(r => IsSame(r, target) ? r with { Archived = archived } : r)],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
+        });
+    }
+
+    /// <summary>Why a change was refused that would leave configured repositories with
+    /// no active one. Public because the settings screen says it on the last active
+    /// repository's card before anyone tries.</summary>
+    public const string LastActiveRepository = "One repository must stay active.";
+
+    /// <summary>Whether a list would hold repositories but no active one: the state the
+    /// last-active invariant forbids (local ADR 0029), however the last active
+    /// repository would go — archived, removed, dropped from the list, or merged into
+    /// an archived one. An empty list is not refused; there is nothing to default to.</summary>
+    private static bool LeavesNoActiveRepository(IReadOnlyCollection<GitHubRepositoryRef> next) =>
+        next.Count > 0 && next.All(r => r.Archived);
+
     /// <summary>Labels as they are stored: trimmed, blanks dropped, one per name
     /// without regard to case, in the order given.</summary>
     private static List<string> CleanLabels(IEnumerable<string?>? labels) =>
@@ -1444,7 +1507,8 @@ public sealed partial class GitHubSettingsStore
             Colour = r.Colour,
             Account = r.Account,
             DevbookBranch = r.DevbookBranch,
-            PullRequestLabels = r.PullRequestLabels.Count == 0 ? null : [.. r.PullRequestLabels]
+            PullRequestLabels = r.PullRequestLabels.Count == 0 ? null : [.. r.PullRequestLabels],
+            Archived = r.Archived ? true : null
         })
     ];
 
@@ -1680,7 +1744,8 @@ public sealed partial class GitHubSettingsStore
             Colour = row.Colour,
             Account = row.Account,
             DevbookBranch = row.DevbookBranch,
-            PullRequestLabels = row.PullRequestLabels is { Count: > 0 } labels ? [.. labels] : null
+            PullRequestLabels = row.PullRequestLabels is { Count: > 0 } labels ? [.. labels] : null,
+            Archived = row.Archived ? true : null
         })
     ];
 
@@ -1779,6 +1844,11 @@ public sealed partial class GitHubSettingsStore
                         // Shared too: the registry row is where a repository's pull
                         // request label filter lives, so it travels with the row.
                         PullRequestLabels = identity.PullRequestLabels ?? [],
+
+                        // Shared as well (local ADR 0029). While the registry is
+                        // unreadable the identities are the legacy local ones, which
+                        // state no flag, so every repository reads as active.
+                        Archived = identity.Archived,
 
                         // Machine-local, and absent stays absent rather than
                         // becoming false. Null is what lets DevbookSource read an
@@ -2079,7 +2149,12 @@ public sealed partial class GitHubSettingsStore
             // re-typed list would otherwise clear every repository's filter.
             PullRequestLabels = repository.PullRequestLabels.Count > 0
                 ? CleanLabels(repository.PullRequestLabels)
-                : existing.PullRequestLabels
+                : existing.PullRequestLabels,
+
+            // The grammar has no flag either, so a re-typed list would otherwise
+            // unarchive every repository (local ADR 0029). Only SetRepositoryArchived
+            // changes it.
+            Archived = repository.Archived || existing.Archived
         };
     }
 
@@ -2240,11 +2315,12 @@ public sealed partial class GitHubSettingsStore
         int? Colour,
         string? Account,
         string? DevbookBranch = null,
-        IReadOnlyList<string>? PullRequestLabels = null)
+        IReadOnlyList<string>? PullRequestLabels = null,
+        bool Archived = false)
     {
         public static RegistryRow? From(RegistryRepositoryDto dto) =>
             From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.DevbookBranch ?? dto.KnowledgeBranch) is { } row
-                ? row with { PullRequestLabels = CleanLabels(dto.PullRequestLabels) }
+                ? row with { PullRequestLabels = CleanLabels(dto.PullRequestLabels), Archived = dto.Archived is true }
                 : null;
 
         /// <summary>
@@ -2392,6 +2468,13 @@ public sealed partial class GitHubSettingsStore
         /// field a newer build adds).</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string>? PullRequestLabels { get; set; }
+
+        /// <summary>Whether the repository is archived (local ADR 0029). Written as
+        /// <c>true</c> or not at all, never <c>false</c>, so a workspace nobody archived
+        /// anything in writes the file it always wrote. A build from before the flag
+        /// drops it on its next write, which local ADR 0021 accepts.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? Archived { get; set; }
     }
 
     private sealed class SettingsDto

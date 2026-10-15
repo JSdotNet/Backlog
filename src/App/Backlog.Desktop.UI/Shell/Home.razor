@@ -152,15 +152,22 @@
                         var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
                         var anchor = selected && State.SelectedRepositoryAliases.Count > 1
                             && string.Equals(State.AnchorRepositoryAlias, repository.Alias, StringComparison.Ordinal);
+                        @* An archived repository is only here while show archived is on,
+                           and then says so in words, not by a shade alone (local ADR 0029). *@
                         <ToggleButton BaseClass="chip chip--scope"
-                                      CssClass="@RepositoryScopeChipClass(repository.Alias, anchor)"
+                                      CssClass="@RepositoryScopeChipClass(repository, anchor)"
                                       PressedCssClass="chip--active"
                                       Pressed="selected"
                                       TestId="repository-filter-option"
                                       Title="@RepositoryScopeChipTitle(repository, selected, anchor)"
                                       aria-current="@(anchor ? "true" : null)"
+                                      data-archived="@(repository.Archived ? "true" : null)"
                                       OnClick="args => ScopeRepository(repository.Alias, args)">
                             @repository.Alias
+                            @if (repository.Archived)
+                            {
+                                <span class="app-header__scope-archived">@ArchivedRepositoryLabel.Suffix</span>
+                            }
                         </ToggleButton>
                     }
                 </ButtonGroup>
@@ -202,6 +209,25 @@
                             TestId="repository-colours-toggle"
                             Checked="State.RepositoryColoursVisible"
                             CheckedChanged="ShowRepositoryColours" />
+                }
+
+                @* Show archived (local ADR 0029, §3): whether the archived repositories
+                   are offered in the scope, the Board's columns and the pickers, and
+                   their tasks in the list. A switch beside Colors for the reason Colors
+                   is one: it answers "is this layer on" and narrows nothing itself.
+                   Kept per device, and read from that choice on every render, so a
+                   shell the Router built afresh draws what was left. Only while a
+                   repository is archived: with none there is nothing for it to show. *@
+                if (State.HasArchivedRepositories)
+                {
+                    <Toggle CssClass="header-switch"
+                            LabelCssClass="header-switch__label"
+                            ControlCssClass="toggle__track header-switch__track"
+                            Label="Show archived"
+                            Id="show-archived-repositories-switch"
+                            TestId="show-archived-toggle"
+                            Checked="State.ShowArchivedRepositories"
+                            CheckedChanged="State.SetShowArchivedRepositories" />
                 }
             }
         </div>
@@ -2280,6 +2306,8 @@
         Repositories: [.. State.Repositories.Select(repository => (repository.Alias, repository.FullName))],
         Colours: [.. State.RepositoryColours.OrderBy(colour => colour.Key, StringComparer.Ordinal).Select(colour => (colour.Key, colour.Value))],
         ColoursVisible: State.RepositoryColoursVisible,
+        ShowArchived: State.ShowArchivedRepositories,
+        HasArchived: State.HasArchivedRepositories,
         GitHubSyncOffered: GitHubSyncOffered,
         GitHubSyncing: State.GitHubSyncing,
         DevbookOptionVisible: DevbookPaneOptionVisible,
@@ -2304,6 +2332,8 @@
         (string Alias, string FullName)[] Repositories,
         (string Alias, int Colour)[] Colours,
         bool ColoursVisible,
+        bool ShowArchived,
+        bool HasArchived,
         bool GitHubSyncOffered,
         bool GitHubSyncing,
         bool DevbookOptionVisible,
@@ -2317,6 +2347,8 @@
             && Repositories.SequenceEqual(drawn.Repositories)
             && Colours.SequenceEqual(drawn.Colours)
             && ColoursVisible == drawn.ColoursVisible
+            && ShowArchived == drawn.ShowArchived
+            && HasArchived == drawn.HasArchived
             && GitHubSyncOffered == drawn.GitHubSyncOffered
             && GitHubSyncing == drawn.GitHubSyncing
             && DevbookOptionVisible == drawn.DevbookOptionVisible
@@ -3030,18 +3062,29 @@
     }
 
     /// <summary>The identity mark, plus the anchor's own class while there is a
-    /// second chip for it to be distinct from.</summary>
-    private string? RepositoryScopeChipClass(string alias, bool anchor)
+    /// second chip for it to be distinct from, and the archived one while an archived
+    /// repository is offered.</summary>
+    private string? RepositoryScopeChipClass(GitHubRepositoryRef repository, bool anchor)
     {
-        var mark = RepositoryMarkClass(alias);
-        if (!anchor) return mark;
+        string?[] classes =
+        [
+            RepositoryMarkClass(repository.Alias),
+            anchor ? "chip--anchor" : null,
+            repository.Archived ? "chip--archived" : null
+        ];
 
-        return mark is null ? "chip--anchor" : mark + " chip--anchor";
+        var joined = string.Join(' ', classes.OfType<string>());
+        return joined.Length == 0 ? null : joined;
     }
 
     /// <summary>What the chip does next, since the modifier is the one thing about
     /// the strip nothing on screen shows.</summary>
-    private string RepositoryScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor)
+    private string RepositoryScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor) =>
+        repository.Archived
+            ? $"Archived. {ScopeChipTitle(repository, selected, anchor)}"
+            : ScopeChipTitle(repository, selected, anchor);
+
+    private string ScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor)
     {
         // Nothing to show several in, no modifier to name: the chip says what a
         // single select says.

@@ -240,7 +240,7 @@ public sealed class WorkInProgressReader(
         GitHubPullRequestListing listing;
         try
         {
-            listing = await configured.ListOpenPullRequestsAsync(configured.Repositories);
+            listing = await configured.ListOpenPullRequestsAsync(configured.ActiveRepositories);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -301,6 +301,12 @@ public sealed class WorkInProgressReader(
         var wanted = links
             .Where(link => link.Number > 0 && !string.IsNullOrWhiteSpace(link.RepositoryFullName))
             .Where(link => !listed.Contains(Key(link)) && !_merged.ContainsKey(Key(link)) && !_missing.Contains(Key(link)))
+
+            // An archived repository is not read (local ADR 0029). Left out here rather
+            // than asked: the integration would drop it unanswered, and an unanswered
+            // link is taken for a missing one and never asked about again — so
+            // Unarchive would not bring the read back.
+            .Where(link => configured.ResolveRepository(link.RepositoryFullName.Trim()) is not { Archived: true })
             .ToList();
 
         var listing = GitHubLinkedPullRequestListing.Empty;

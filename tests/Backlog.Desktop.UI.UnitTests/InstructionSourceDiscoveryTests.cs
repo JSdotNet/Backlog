@@ -172,6 +172,44 @@ public sealed class InstructionSourceDiscoveryTests : IDisposable
         Assert.Contains("turned off", result.Message);
     }
 
+    /// <summary>An archived repository's clone reads as before, but no edit is offered
+    /// (local ADR 0029 §4): the instructions area asks the folder port the same
+    /// question every other devbook area asks.</summary>
+    [Fact]
+    public void An_archived_repositorys_clone_reads_its_instructions_without_offering_an_edit()
+    {
+        Write("CLAUDE.md", "# Claude");
+        var repository = new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog") { CloneDirectory = _root };
+
+        var result = Assert.Single(new InstructionSourceDiscovery().Discover([repository], new ArchivedCloneSource(_root)));
+
+        Assert.Equal(["CLAUDE.md"], result.Documents.Select(document => document.RelativePath));
+        Assert.False(result.CanEdit);
+    }
+
+    /// <summary>The folder port answering the instructions area from the clone of an
+    /// archived repository, the way <c>DevbookFolderSource</c> marks it.</summary>
+    private sealed class ArchivedCloneSource(string root) : IDevbookFolderSource
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public void NotifyContentChanged()
+        {
+        }
+
+        public string StorageDirectory => root;
+
+        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => DevbookFolderSetting.Defaults();
+
+        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null) =>
+            new(key, true, null, "JSdotNet/Backlog", null, root, root, "JSdotNet/Backlog", "backlog",
+                DevbookSourceKind.LocalFolder, RepositoryArchived: true);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))

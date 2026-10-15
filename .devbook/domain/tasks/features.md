@@ -534,7 +534,7 @@ instantly and offline.
 ```meta
 type: feature
 status: proposed
-related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Connect a GitHub repository or a spec-manager product, and every open item in it
@@ -637,7 +637,7 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#brain-scope]
+related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key]
 ```
 
@@ -671,7 +671,10 @@ and with Brain in its place when it was pressed. The Devbook beside them is then
 offered straight away, with no chip to press. A repository that is no longer
 configured is dropped when the scope comes back, and a scope with none left is
 every repository. The scope is remembered as it stands after any narrowing, so a
-scope narrowed back to one comes back as that one.
+scope narrowed back to one comes back as that one. Where an
+[archived repository](../repository-management/domain.md#archived-repository)
+appears in the scope, the Board and the pickers is set by
+[its requirements](../repository-management/requirements.md#archiving-a-repository).
 
 The filtered tasks can be read three ways, picked in the header's view switch:
 **Tasks**, the list with the open task beside it; the
@@ -703,7 +706,7 @@ order, independent of recency or priority. Where a task nobody ranked lands is
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag]
+related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_plan_leave_out_finished_work_and_a_plan_with_nothing_left_has_no_column]
 ```
 

@@ -30,6 +30,17 @@ public sealed record TasksRepositoryRef(string Alias, string Owner, string Name)
     /// </para>
     /// </summary>
     public string Id => $"{Owner}/{Name}";
+
+    /// <summary>
+    /// Whether the repository is archived (local ADR 0029). An init property rather
+    /// than a positional one, so every existing construction still reads as active.
+    /// <para>
+    /// The directory still lists and resolves an archived repository: finished work
+    /// filed against it keeps counting, and the reconcile pass must not re-register
+    /// or orphan its id. Each picker hides it on its own.
+    /// </para>
+    /// </summary>
+    public bool IsArchived { get; init; }
 }
 
 /// <summary>

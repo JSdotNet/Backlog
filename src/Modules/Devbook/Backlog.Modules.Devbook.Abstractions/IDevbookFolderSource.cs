@@ -111,6 +111,13 @@ public interface IDevbookFolderSource
 /// <see cref="IDevbookFolderSource.Changed"/> rather than telling anybody to fix
 /// anything.
 /// </para>
+/// <para>
+/// <see cref="RepositoryArchived"/> is true when the repository the folder
+/// belongs to is archived (local ADR 0029 §4). Its devbook still reads, from its
+/// clone or its snapshot as it is, but nothing is written into it — no edit and no
+/// new remark — so a caller that refuses a remark asks this rather than
+/// <see cref="CanEdit"/>, which a branch snapshot also answers false.
+/// </para>
 /// </summary>
 public sealed record DevbookFolderLocation(
     string Key,
@@ -123,7 +130,8 @@ public sealed record DevbookFolderLocation(
     string? ScopeLabel = null,
     string? RepositoryAlias = null,
     DevbookSourceKind Source = DevbookSourceKind.LocalFolder,
-    bool Pending = false)
+    bool Pending = false,
+    bool RepositoryArchived = false)
 {
     /// <summary>
     /// Whether a caller may write to what it just resolved.
@@ -135,8 +143,12 @@ public sealed record DevbookFolderLocation(
     /// <c>DevbookChapterEditor</c> already applies to a chapter it could not
     /// place on disk.
     /// </para>
+    /// <para>
+    /// Only a clone of an active repository is editable (local ADR 0029 §4): an
+    /// archived repository's clone reads as before, with every edit refused.
+    /// </para>
     /// </summary>
-    public bool CanEdit => Source is DevbookSourceKind.LocalFolder;
+    public bool CanEdit => Source is DevbookSourceKind.LocalFolder && !RepositoryArchived;
 
     public static DevbookFolderLocation Unavailable(
         string key,
@@ -148,8 +160,9 @@ public sealed record DevbookFolderLocation(
         string? scopeLabel = null,
         string? repositoryAlias = null,
         DevbookSourceKind source = DevbookSourceKind.LocalFolder,
-        bool pending = false) =>
-        new(key, false, message, repositoryFullName, folder, fullPath, rootPath, scopeLabel, repositoryAlias, source, pending);
+        bool pending = false,
+        bool repositoryArchived = false) =>
+        new(key, false, message, repositoryFullName, folder, fullPath, rootPath, scopeLabel, repositoryAlias, source, pending, repositoryArchived);
 }
 
 /// <summary>

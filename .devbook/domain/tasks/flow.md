@@ -22,7 +22,18 @@ stateDiagram-v2
     Ready --> Draft : Revision needed
     InProgress --> Ready : Paused
     Done --> InProgress : Reopened
+    Draft --> Archived : Dropped with its archived repository
+    Ready --> Archived : Dropped with its archived repository
+    InProgress --> Archived : Dropped with its archived repository
 ```
+
+- The edges from `Draft`, `Ready` and `InProgress` to `Archived` are
+  [dropping an archived repository's open tasks](../repository-management/requirements.md#archiving-a-repository).
+  `RefileRepositoryTasksCommand` sets each open task filed under that
+  repository to `Archived` through `TaskItem.SetStatus`, outside the
+  lifecycle's own transitions, as a person's `!archived` edit does. The task
+  keeps its filing and nothing is deleted. `Done` and `Archived` tasks are left
+  alone.
 
 - The `Ready → InProgress` transition would emit `TaskProjected`, and `Done`
   would emit `TaskCompleted`. Both are documented, not yet emitted; see

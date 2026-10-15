@@ -22,7 +22,9 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// answer is older than <see cref="FreshFor"/>. A pull request GitHub could not be asked
 /// about — no GitHub configured, a repository that refused, a number that is not a pull
 /// request — answers <see cref="LinkedPullRequestState.Unknown"/> with no author, the
-/// module's own answer, so a member is then done by its task's status alone. It never
+/// module's own answer, so a member is then done by its task's status alone. A pull
+/// request in an archived repository (local ADR 0029) is not asked about: it answers
+/// whatever that cache last kept for it, stale or not, and unread otherwise. It never
 /// throws for GitHub's sake.
 /// </para>
 /// </summary>
@@ -39,6 +41,7 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : 
     {
         ArgumentNullException.ThrowIfNull(pullRequests);
 
+        var configured = gitHub() is { IsConfigured: true } integration ? integration : null;
         var wanted = pullRequests
             .Select(Reference)
             .OfType<GitHubPullRequestReference>()
@@ -46,51 +49,34 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : 
             .ToList();
 
         var answers = new Dictionary<string, LinkedPullRequestDto>(StringComparer.OrdinalIgnoreCase);
-        if (wanted.Count > 0 && gitHub() is { IsConfigured: true } configured)
+        if (wanted.Count > 0 && configured is not null)
         {
-            try
+            // An archived repository is not read from GitHub (local ADR 0029). Left out of
+            // the question rather than asked and answered empty, which the shared cache
+            // would keep as answered without and so overwrite an answer already known with
+            // Unknown; the sprint keeps the repository and whatever was last read for it.
+            var archived = wanted
+                .Where(reference => configured.ResolveRepository(reference.RepositoryFullName) is { Archived: true })
+                .ToList();
+            var active = wanted.Except(archived).ToList();
+
+            if (archived.Count > 0)
             {
-                var listing = await configured.ReadLinkedPullRequestsAsync(wanted, FreshFor, cancellationToken).ConfigureAwait(false);
-                var refused = listing.Failures.Select(failure => failure.RepositoryFullName.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                var whole = refused.Contains("GitHub");
-
-                foreach (var reference in wanted)
-                {
-                    // The one in its own repository, or — renamed since it was linked —
-                    // the only one with its number.
-                    var pull = listing.PullRequests.FirstOrDefault(candidate =>
-                            candidate.Number == reference.Number
-                            && string.Equals(candidate.RepositoryFullName, reference.RepositoryFullName, StringComparison.OrdinalIgnoreCase))
-                        ?? (listing.PullRequests.Count(candidate => candidate.Number == reference.Number) == 1
-                            ? listing.PullRequests.Single(candidate => candidate.Number == reference.Number)
-                            : null);
-
-                    if (pull is not null)
-                    {
-                        answers[Key(reference)] = new LinkedPullRequestDto(
-                            reference.RepositoryFullName,
-                            reference.Number.ToString(CultureInfo.InvariantCulture),
-                            State(pull.State),
-                            pull.MergedAt is { } merged ? DateOnly.FromDateTime(merged.ToLocalTime().Date) : null,
-                            string.IsNullOrWhiteSpace(pull.AuthorLogin) ? null : pull.AuthorLogin,
-                            pull.CreatedAt is { } opened ? DateOnly.FromDateTime(opened.ToLocalTime().Date) : null);
-                    }
-                    else if (!whole && !refused.Contains(reference.RepositoryFullName.Trim()))
-                    {
-                        // Answered without it — not a pull request, or deleted.
-                        answers[Key(reference)] = new LinkedPullRequestDto(
-                            reference.RepositoryFullName,
-                            reference.Number.ToString(CultureInfo.InvariantCulture),
-                            LinkedPullRequestState.Unknown,
-                            null,
-                            null);
-                    }
-                }
+                Answer(answers, archived, configured.KeptLinkedPullRequests(archived), answeredWithout: false);
             }
-            catch (Exception exception) when (exception is not OperationCanceledException)
+
+            if (active.Count > 0)
             {
-                // GitHub not answering is the module's Unknown, not a failed sprint: what
-                // was not read is asked about again on the next reading.
+                try
+                {
+                    var listing = await configured.ReadLinkedPullRequestsAsync(active, FreshFor, cancellationToken).ConfigureAwait(false);
+                    Answer(answers, active, listing, answeredWithout: true);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // GitHub not answering is the module's Unknown, not a failed sprint: what
+                    // was not read is asked about again on the next reading.
+                }
             }
         }
 
@@ -99,6 +85,52 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : 
         return [.. pullRequests.Select(pull => answers.TryGetValue(Key(pull), out var answer)
             ? answer with { Repository = pull.Repository, Number = pull.Number }
             : LinkedPullRequestDto.Unread(pull))];
+    }
+
+    /// <summary>Puts <paramref name="listing"/>'s answer to each of <paramref name="asked"/>
+    /// into <paramref name="answers"/>. With <paramref name="answeredWithout"/>, a link its
+    /// repository answered without — not a pull request, or deleted — answers Unknown; a
+    /// listing of what was kept, which asked nothing, leaves such a link unread.</summary>
+    private static void Answer(
+        Dictionary<string, LinkedPullRequestDto> answers,
+        IReadOnlyList<GitHubPullRequestReference> asked,
+        GitHubLinkedPullRequestListing listing,
+        bool answeredWithout)
+    {
+        var refused = listing.Failures.Select(failure => failure.RepositoryFullName.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var whole = refused.Contains("GitHub");
+
+        foreach (var reference in asked)
+        {
+            // The one in its own repository, or — renamed since it was linked — the only
+            // one with its number.
+            var pull = listing.PullRequests.FirstOrDefault(candidate =>
+                    candidate.Number == reference.Number
+                    && string.Equals(candidate.RepositoryFullName, reference.RepositoryFullName, StringComparison.OrdinalIgnoreCase))
+                ?? (listing.PullRequests.Count(candidate => candidate.Number == reference.Number) == 1
+                    ? listing.PullRequests.Single(candidate => candidate.Number == reference.Number)
+                    : null);
+
+            if (pull is not null)
+            {
+                answers[Key(reference)] = new LinkedPullRequestDto(
+                    reference.RepositoryFullName,
+                    reference.Number.ToString(CultureInfo.InvariantCulture),
+                    State(pull.State),
+                    pull.MergedAt is { } merged ? DateOnly.FromDateTime(merged.ToLocalTime().Date) : null,
+                    string.IsNullOrWhiteSpace(pull.AuthorLogin) ? null : pull.AuthorLogin,
+                    pull.CreatedAt is { } opened ? DateOnly.FromDateTime(opened.ToLocalTime().Date) : null);
+            }
+            else if (answeredWithout && !whole && !refused.Contains(reference.RepositoryFullName.Trim()))
+            {
+                answers[Key(reference)] = new LinkedPullRequestDto(
+                    reference.RepositoryFullName,
+                    reference.Number.ToString(CultureInfo.InvariantCulture),
+                    LinkedPullRequestState.Unknown,
+                    null,
+                    null);
+            }
+        }
     }
 
     private static GitHubPullRequestReference? Reference(PullRequestRefDto pull) =>

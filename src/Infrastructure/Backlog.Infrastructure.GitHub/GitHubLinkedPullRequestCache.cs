@@ -99,6 +99,29 @@ internal sealed class GitHubLinkedPullRequestCache(
             [.. answers.Where(answer => answer.Failure is not null).Select(answer => answer.Failure!).Distinct()]);
     }
 
+    /// <summary>
+    /// What is kept for <paramref name="links"/>, however old, and nothing read: the
+    /// answer for a link whose repository is no longer read (an archived one, local
+    /// ADR 0029), so a reader keeps what it last knew rather than forgetting it.
+    /// </summary>
+    public GitHubLinkedPullRequestListing Kept(IEnumerable<GitHubPullRequestReference> links)
+    {
+        ArgumentNullException.ThrowIfNull(links);
+
+        lock (_gate)
+        {
+            return new GitHubLinkedPullRequestListing(
+                [
+                    .. links
+                        .Where(link => link.Number > 0 && !string.IsNullOrWhiteSpace(link.RepositoryFullName))
+                        .Select(link => _answers.GetValueOrDefault(Key(link))?.PullRequest)
+                        .OfType<GitHubLinkedPullRequest>()
+                        .Distinct()
+                ],
+                []);
+        }
+    }
+
     private async Task ReadAndKeepAsync(IReadOnlyList<GitHubPullRequestReference> ask, Pending started)
     {
         var answers = new Dictionary<string, Answer>(StringComparer.OrdinalIgnoreCase);

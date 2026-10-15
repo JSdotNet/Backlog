@@ -1282,7 +1282,7 @@ session where they can see it happen.
 
 ```meta
 type: feature
-related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
 ```
 
@@ -1522,7 +1522,7 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-related: [.devbook/domain/sessions/features.md#open-on-the-session-a-task-names]
+related: [.devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.In_progress_is_a_main_view_that_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_sessions_and_pull_requests_off_there_is_no_in_progress_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_card_draws_what_its_entry_links_and_the_rest_is_not_linked_to_a_task, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_no_repository_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_feature_that_is_off_draws_no_column_in_the_view_or_the_side_panel, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_feature_that_is_off_draws_no_column_and_no_count]
 ```
 
