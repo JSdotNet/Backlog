@@ -68,15 +68,187 @@ public sealed class DashboardProductivityTabTests
         Assert.Contains("Lines changed is not part of volume", part.Markup, StringComparison.Ordinal);
     }
 
-    private static BunitContext Context(int? reviewed = null)
+    /// <summary>Size and rework draws merged per bucket as columns, XS to XL, and
+    /// each bucket's came-back share as a tile.</summary>
+    [Fact]
+    public void Size_and_rework_charts_merged_by_size_and_tiles_each_buckets_share()
+    {
+        using var context = Context(rework: InsightResult<ReworkInsight>.Ready(Sized()));
+
+        var part = context.Render<SizeReworkPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() =>
+        {
+            var rows = part.FindAll("[data-testid='dashboard-size-bars'] tbody tr")
+                .Select(row => (row.Children[0].TextContent.Trim(), row.Children[1].TextContent.Trim()))
+                .ToList();
+            Assert.Equal([("XS", "8"), ("S", "12"), ("M", "0"), ("L", "4"), ("XL", "3")], rows);
+
+            var small = Squashed(part.Find("[data-testid='dashboard-size-s']").TextContent);
+            Assert.Contains("S · 10–49 lines", small, StringComparison.Ordinal);
+            Assert.Contains("25%", small, StringComparison.Ordinal);
+
+            // The share stands alone on its line and the count goes under it: side by
+            // side in a narrow tile the share broke mid-number ("33.3" / "%").
+            Assert.Equal("25%", Squashed(part.Find("[data-testid='dashboard-size-s'] .metric-tile__value").TextContent));
+            Assert.Equal("of 8 reviewed", Squashed(part.Find("[data-testid='dashboard-size-s'] .metric-tile__footnote").TextContent));
+
+            Assert.Contains("under 10 lines", part.Find("[data-testid='dashboard-size-xs']").TextContent, StringComparison.Ordinal);
+            Assert.Contains("400+ lines", part.Find("[data-testid='dashboard-size-xl']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>A bucket whose pull requests nobody reviewed has no share: "—", as the
+    /// headline's "Came back after review" tile reads, never "0%".</summary>
+    [Fact]
+    public void A_size_bucket_nobody_reviewed_shows_a_dash_rather_than_zero()
+    {
+        using var context = Context(rework: InsightResult<ReworkInsight>.Ready(Sized()));
+
+        var part = context.Render<SizeReworkPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() =>
+        {
+            var large = part.Find("[data-testid='dashboard-size-l']").TextContent;
+            Assert.Contains("—", large, StringComparison.Ordinal);
+            Assert.Equal("—", Squashed(part.Find("[data-testid='dashboard-size-l'] .metric-tile__value").TextContent));
+            Assert.Equal("none reviewed", Squashed(part.Find("[data-testid='dashboard-size-l'] .metric-tile__footnote").TextContent));
+            Assert.DoesNotContain("0%", large, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Size_and_rework_says_how_many_merges_had_no_size_read()
+    {
+        using var context = Context(rework: InsightResult<ReworkInsight>.Ready(Sized() with { PullRequestsWithoutSize = 3 }));
+
+        var part = context.Render<SizeReworkPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() => Assert.Contains(
+            "3 merged pull requests have no size read",
+            part.Find("[data-testid='dashboard-size-unknown']").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Size_and_rework_says_nothing_about_unsized_merges_when_there_are_none()
+    {
+        using var context = Context(rework: InsightResult<ReworkInsight>.Ready(Sized()));
+
+        var part = context.Render<SizeReworkPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() => Assert.NotEmpty(part.FindAll("[data-testid='dashboard-size-bars']")));
+        Assert.Empty(part.FindAll("[data-testid='dashboard-size-unknown']"));
+    }
+
+    [Fact]
+    public void A_truncated_window_makes_every_size_figure_a_floor()
+    {
+        using var context = Context(rework: InsightResult<ReworkInsight>.Ready(Sized() with { Complete = false }));
+
+        var part = context.Render<SizeReworkPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() => Assert.Contains(
+            "Some of this window could not be read, so every figure here is a floor.",
+            part.Markup,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Size_and_rework_shows_the_sources_reason_when_it_cannot_answer()
+    {
+        using var context = Context(rework: InsightResult<ReworkInsight>.Unavailable("GitHub is not signed in."));
+
+        var part = context.Render<SizeReworkPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() => Assert.Contains(
+            "GitHub is not signed in.",
+            part.Find("[data-testid='dashboard-size-status']").TextContent,
+            StringComparison.Ordinal));
+        Assert.Empty(part.FindAll("[data-testid='dashboard-size-bars']"));
+    }
+
+    [Fact]
+    public void Size_and_rework_is_empty_when_no_merge_had_its_size_read()
+    {
+        var unsized = new ReworkInsight(0, 0, 0, 0, 0, true, [])
+        {
+            BySize =
+            [
+                new ReworkSize("XS", 0, 10, 0, 0, 0),
+                new ReworkSize("S", 10, 50, 0, 0, 0),
+                new ReworkSize("M", 50, 200, 0, 0, 0),
+                new ReworkSize("L", 200, 400, 0, 0, 0),
+                new ReworkSize("XL", 400, null, 0, 0, 0)
+            ],
+            PullRequestsWithoutSize = 4
+        };
+        using var context = Context(rework: InsightResult<ReworkInsight>.Ready(unsized));
+
+        var part = context.Render<SizeReworkPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() => Assert.Contains(
+            "had its size read",
+            part.Find("[data-testid='dashboard-size-status']").TextContent,
+            StringComparison.Ordinal));
+        Assert.Empty(part.FindAll("[data-testid='dashboard-size-bars']"));
+    }
+
+    /// <summary>A window that merged nothing is not a size read that failed: the empty
+    /// line says nothing merged rather than sending the reader looking for a fault.</summary>
+    [Fact]
+    public void Size_and_rework_says_nothing_merged_when_the_window_merged_nothing()
+    {
+        var nothingMerged = new ReworkInsight(0, 0, 0, 0, 0, true, [])
+        {
+            BySize =
+            [
+                new ReworkSize("XS", 0, 10, 0, 0, 0),
+                new ReworkSize("S", 10, 50, 0, 0, 0),
+                new ReworkSize("M", 50, 200, 0, 0, 0),
+                new ReworkSize("L", 200, 400, 0, 0, 0),
+                new ReworkSize("XL", 400, null, 0, 0, 0)
+            ]
+        };
+        using var context = Context(rework: InsightResult<ReworkInsight>.Ready(nothingMerged));
+
+        var part = context.Render<SizeReworkPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() =>
+        {
+            var status = part.Find("[data-testid='dashboard-size-status']").TextContent;
+            Assert.Contains("No pull request merged in this window", status, StringComparison.Ordinal);
+            Assert.DoesNotContain("size read", status, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>Five buckets with every shape a tile has to say: an empty bucket, one
+    /// whose pull requests nobody reviewed, and a share of a quarter.</summary>
+    private static ReworkInsight Sized() =>
+        new(6, 22, 12, 2, 9, true, [])
+        {
+            BySize =
+            [
+                new ReworkSize("XS", 0, 10, 8, 6, 0),
+                new ReworkSize("S", 10, 50, 12, 8, 2),
+                new ReworkSize("M", 50, 200, 0, 0, 0),
+                new ReworkSize("L", 200, 400, 4, 0, 0),
+                new ReworkSize("XL", 400, null, 3, 2, 1)
+            ]
+        };
+
+    private static string Squashed(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static BunitContext Context(int? reviewed = null, InsightResult<ReworkInsight>? rework = null)
     {
         var context = new BunitContext();
         _ = context.Services.AddUnavailableDashboard("backlog");
-        context.Services.AddSingleton<IProductivityInsights>(new Productivity(reviewed));
+        context.Services.AddSingleton<IProductivityInsights>(new Productivity(reviewed, rework));
         return context;
     }
 
-    private sealed class Productivity(int? reviewed) : IProductivityInsights
+    private sealed class Productivity(int? reviewed, InsightResult<ReworkInsight>? rework) : IProductivityInsights
     {
         public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ProductivityHeadline>.Ready(new ProductivityHeadline(
@@ -94,7 +266,7 @@ public sealed class DashboardProductivityTabTests
             Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable("Not used."));
 
         public Task<InsightResult<ReworkInsight>> GetReworkAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<ReworkInsight>.Unavailable("Not used."));
+            Task.FromResult(rework ?? InsightResult<ReworkInsight>.Unavailable("Not used."));
 
         public void Invalidate(DashboardScope scope)
         {

@@ -1,0 +1,122 @@
+@*
+    Size and rework: the window's merged pull requests cut by changed lines, XS to XL,
+    and what share of each bucket came back after review.
+
+    Rework cut a new way rather than a figure of its own, so it is the rework answer's
+    own buckets (ReworkInsight.BySize) and costs no fetch beside the rework part. The
+    share has the rework rate's denominator: the bucket's pull requests that were
+    reviewed at all. A bucket nobody reviewed has no share and reads "—", never "0%",
+    which would claim clean work nobody looked at.
+
+    The column chart carries how many merged in each bucket, all five always, so an
+    empty bucket is a reading rather than a gap; the tiles under it carry the share
+    as text. A pull request whose size was not read is in no bucket, and the part says
+    how many it leaves out rather than letting the buckets read as the whole window.
+
+    "of N reviewed" is the tile's footnote, not its unit: as a unit it sat on the
+    value's line, and where the two did not fit side by side the share broke
+    mid-number ("33.3" / "%"). Alone on its line the share fits the headline's 11rem;
+    a narrower panel drops a column instead.
+*@
+@inherits DashboardPartBase<ReworkInsight>
+@inject IProductivityInsights Insights
+
+<PartFrame Title="Size and rework"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-size">
+    @if (IsReady)
+    {
+        <div class="dashboard-size">
+            <MetricBars Points="@Points"
+                        Label="Merged pull requests by lines changed"
+                        BucketHeading="Size"
+                        ValueHeading="Merged"
+                        FormatValue="MetricFormat.Compact"
+                        Height="7rem"
+                        TestId="dashboard-size-bars" />
+
+            <MetricGrid Label="Came back after review, by size" MinColumnWidth="11rem" TestId="dashboard-size-tiles">
+                @foreach (var size in Value!.BySize)
+                {
+                    <MetricTile Label="@($"{size.Label} · {RangeOf(size)}")"
+                                Value="@(size.Rate is { } rate ? MetricFormat.Percent(rate) : "—")"
+                                Footnote="@(size.PullRequestsReviewed == 0 ? "none reviewed" : $"of {MetricFormat.Compact(size.PullRequestsReviewed)} reviewed")"
+                                TestId="@($"dashboard-size-{size.Label.ToLowerInvariant()}")" />
+                }
+            </MetricGrid>
+
+            @if (Value!.PullRequestsWithoutSize > 0)
+            {
+                <p class="dashboard-size__unsized" data-testid="dashboard-size-unknown">
+                    @UnsizedSentence(Value!.PullRequestsWithoutSize)
+                </p>
+            }
+        </div>
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-size-status" />
+    }
+</PartFrame>
+
+@code {
+    protected override DashboardSources Sources => DashboardSources.Productivity;
+
+    private string Note
+    {
+        get
+        {
+            var basis = "Merged pull requests by lines changed, and the share of the reviewed ones"
+                + " that came back after review.";
+
+            // The same truncation sentence as the rework part: the buckets are cut from
+            // the same report, so when it stopped early they are floors too.
+            if (IsReady && !Value!.Complete)
+            {
+                basis += " Some of this window could not be read, so every figure here is a floor.";
+            }
+
+            return basis;
+        }
+    }
+
+    private IReadOnlyList<MetricPoint> Points =>
+        IsReady
+            ? [.. Value!.BySize.Select(size => new MetricPoint(size.Label, size.PullRequestsMerged))]
+            : [];
+
+    /// <summary>"under 10 lines", "10–49 lines", "400+ lines" — read off the bucket's own
+    /// edges, so the label cannot say something the cut does not do.</summary>
+    private static string RangeOf(ReworkSize size) =>
+        size switch
+        {
+            { MinLines: 0, MaxLinesExclusive: { } ceiling } => $"under {ceiling} lines",
+            { MaxLinesExclusive: { } ceiling } => $"{size.MinLines}–{ceiling - 1} lines",
+            _ => $"{size.MinLines}+ lines"
+        };
+
+    private static string UnsizedSentence(int count) =>
+        count == 1
+            ? "1 merged pull request has no size read, so it is in no bucket."
+            : $"{MetricFormat.Compact(count)} merged pull requests have no size read, so they are in no bucket.";
+
+    protected override Task<InsightResult<ReworkInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetReworkAsync(Scope, cancellationToken);
+
+    /// <summary>Empty when no bucket holds a merge: nothing merged, or nothing merged had
+    /// its size read. A bucket of zero beside a full one is a reading; five of them is
+    /// nothing to draw.</summary>
+    protected override bool IsEmpty(ReworkInsight value) =>
+        value.BySize.All(size => size.PullRequestsMerged == 0);
+
+    /// <summary>Which of the two empties this is: a window that merged nothing is not a
+    /// size read that failed, and saying so would send a reader looking for a fault.</summary>
+    protected override string EmptyMessage =>
+        Value is { PullRequestsWithoutSize: > 0 }
+            ? "No merged pull request in this window had its size read, so there is nothing to cut by size."
+            : "No pull request merged in this window, so there is nothing to cut by size.";
+
+    protected override void InvalidateSource() => Insights.Invalidate(Scope);
+}

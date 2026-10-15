@@ -2568,7 +2568,15 @@ public class DashboardPaneTests
                     PullRequestsSynced = 14,
                     PullRequestsWithConflictedSync = 3,
                     SyncMerges = 21,
-                    ConflictedSyncMerges = 4
+                    ConflictedSyncMerges = 4,
+                    BySize =
+                    [
+                        new ReworkSize("XS", 0, 10, 8, 6, 0),
+                        new ReworkSize("S", 10, 50, 12, 10, 2),
+                        new ReworkSize("M", 50, 200, 9, 8, 2),
+                        new ReworkSize("L", 200, 400, 4, 4, 1),
+                        new ReworkSize("XL", 400, null, 3, 2, 1)
+                    ]
                 }) with
                 {
                     Complete = score.Complete,
@@ -2610,11 +2618,12 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The Productivity tab as the board lays it out: the throughput row, the volume
-    /// chart with the scores beside it, then rework across the tab.
+    /// The Productivity tab as the board lays it out: the throughput row, a main column
+    /// of the volume chart and size and rework under it with the scores beside it, then
+    /// rework across the tab.
     /// </summary>
     [Fact]
-    public void The_productivity_tab_lays_out_throughput_then_volume_beside_score_then_rework()
+    public void The_productivity_tab_lays_out_throughput_then_volume_and_size_beside_score_then_rework()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
@@ -2624,8 +2633,13 @@ public class DashboardPaneTests
 
         var split = panel.QuerySelector(".dashboard-productivity__split")!;
         Assert.Equal(
-            ["dashboard-trend", "dashboard-score"],
+            ["dashboard-productivity-main", "dashboard-score"],
             split.Children.Select(child => child.GetAttribute("data-testid")));
+
+        var main = split.QuerySelector("[data-testid='dashboard-productivity-main']")!;
+        Assert.Equal(
+            ["dashboard-trend", "dashboard-size"],
+            main.Children.Select(child => child.GetAttribute("data-testid")));
 
         var order = panel.QuerySelectorAll("[data-testid='dashboard-headline'], .dashboard-productivity__split, [data-testid='dashboard-rework']")
             .Select(element => element.GetAttribute("data-testid") ?? "split")
@@ -2880,10 +2894,10 @@ public class DashboardPaneTests
         Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(4, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
-        // Fourteen parts across the five section tabs — the Tasks tab's figures row among
+        // Fifteen parts across the five section tabs — the Tasks tab's figures row among
         // them — and the Overview's five framed blocks; its tiles are figures, not parts,
         // and carry only a "try again" while unavailable.
-        Assert.Equal(19, pane.FindAll("[data-testid$='-refresh']").Count);
+        Assert.Equal(20, pane.FindAll("[data-testid$='-refresh']").Count);
         // The tabs show and hide what is already there; they arrange nothing. No fold
         // is left on the pane itself — the More folds' parts are shown in their tabs,
         // and the sessions part's own More is inside the figures it would fold, which
@@ -2891,18 +2905,18 @@ public class DashboardPaneTests
         Assert.Equal(6, pane.FindAll("[data-testid='dashboard-tablist'] [role='tab']").Count);
         Assert.Empty(pane.FindAll(".fold__trigger"));
         // The info marks open a caption; they change nothing.
-        Assert.Equal(19, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
+        Assert.Equal(20, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, four window buttons, nineteen refreshes, six
-        // tabs, nineteen info marks, the "Read as brief" link, which opens a view
+        // One close, one filter select, four window buttons, twenty refreshes, six
+        // tabs, twenty info marks, the "Read as brief" link, which opens a view
         // and configures nothing, and a "try again" on each of the five headline tiles,
         // which read again and only appear while a tile is unavailable, as every one is
         // here. Needs you draws a link per item, and there are none here.
         Assert.Equal(5, pane.FindAll("[data-testid$='-retry']").Count);
-        Assert.Equal(1 + 1 + 4 + 19 + 6 + 19 + 1 + 5, controls.Count);
+        Assert.Equal(1 + 1 + 4 + 20 + 6 + 20 + 1 + 5, controls.Count);
     }
 
     /// <summary>
