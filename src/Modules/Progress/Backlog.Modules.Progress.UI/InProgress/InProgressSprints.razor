@@ -36,6 +36,11 @@
     ISprintSeriesPlanning, and the sprint is read again once it lands. A closed sprint
     draws no menu and no Add.
 
+    Open, a SprintViewRequest from the host — the weekly brief's "Open Sprint n"
+    (.devbook/domain/progress/features.md#sprints-in-the-briefs) — opens the sprint view
+    on that series and that sprint, whichever series the scope would pick first; OnOpened
+    tells the host it was taken, so it is not taken again when the tab is drawn anew.
+
     A series switched on with no sprint yet carries the switch too, named for the sprint
     it will start — "Sprint 1" — and its sprint side says no sprint has started and offers
     "Start Sprint 1…" (.devbook/domain/progress/features.md#starting-the-first-sprint):
@@ -225,6 +230,18 @@ else
     [Parameter]
     public Func<IReadOnlyList<SprintCandidate>>? Candidates { get; set; }
 
+    /// <summary>Open the sprint view on this sprint of this series. Taken once per
+    /// request; a series switched off, gone, or without that sprint leaves the tab as
+    /// it is.</summary>
+    [Parameter]
+    public SprintViewRequest? Open { get; set; }
+
+    /// <summary><see cref="Open"/> was taken: the host lets the request go.</summary>
+    [Parameter]
+    public EventCallback OnOpened { get; set; }
+
+    private SprintViewRequest? _opened;
+
     private IAppFeatureSettings? _features;
     private ISprintSeriesPlanning? _notices;
     private bool _on;
@@ -342,6 +359,36 @@ else
             _scopeKey = key;
             await FindSeriesAsync();
         }
+
+        if (Open is { } request && !ReferenceEquals(request, _opened))
+        {
+            _opened = request;
+            await OpenSprintAsync(request);
+            await OnOpened.InvokeAsync();
+        }
+    }
+
+    /// <summary>The sprint view on <paramref name="request"/>'s sprint, when Progress is
+    /// on and its series is switched on and holds that sprint.</summary>
+    private async Task OpenSprintAsync(SprintViewRequest request)
+    {
+        if (!_on || Planning is not { } planning) return;
+
+        // A look for the scope's series still under way would put its own series back.
+        var generation = ++_findGeneration;
+        var listed = await planning.ListSeriesAsync();
+        if (generation != _findGeneration || listed.IsFailure) return;
+
+        var series = listed.Value.FirstOrDefault(candidate => candidate.Id == request.SeriesId && candidate.IsOn);
+        if (series is null || series.Sprints.All(sprint => sprint.Number != request.Number)) return;
+
+        _series = series;
+        _number = request.Number;
+        _sprint = true;
+        Clear();
+
+        await OnRead.InvokeAsync(false);
+        await ReadSprintAsync();
     }
 
     /// <summary>The first series switched on, holding a scoped repository, with a

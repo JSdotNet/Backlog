@@ -651,7 +651,8 @@
             <DashboardPane OnClose="CloseSurface"
                            RepositoryAliases="@State.SelectedRepositoryAliases"
                            RepositoryColour="@RepositoryColourFor"
-                           OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)" />
+                           OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)"
+                           OnOpenSprint="@(InProgressViewOffered ? EventCallback.Factory.Create<Backlog.Modules.Dashboard.Abstractions.Services.SprintBriefSprint>(this, OpenSprintFromBrief) : default)" />
         </main>
     }
     else if (SessionsVisible)
@@ -742,7 +743,9 @@
                                        NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
                                        NeedsYouFirstChanged="OnNeedsYouFirstChanged"
                                        IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
-                                       IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
+                                       IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged"
+                                       OpenSprint="_sprintRequest"
+                                       OnSprintOpened="() => _sprintRequest = null" />
                     </div>
                 }
                 else
@@ -1306,6 +1309,17 @@
     /// <summary>Whether a view's option reads pressed: it is the view on screen.
     /// During a takeover no view is on screen, so none reads pressed.</summary>
     private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;
+
+    /// <summary>The weekly brief's "Open Sprint n": In progress, on that series' sprint
+    /// view, on that sprint (.devbook/domain/progress/features.md#sprints-in-the-briefs).
+    /// The request stays until the sprint view takes it.</summary>
+    private Backlog.Modules.Progress.UI.InProgress.SprintViewRequest? _sprintRequest;
+
+    private void OpenSprintFromBrief(Backlog.Modules.Dashboard.Abstractions.Services.SprintBriefSprint sprint)
+    {
+        _sprintRequest = new Backlog.Modules.Progress.UI.InProgress.SprintViewRequest(sprint.SeriesId, sprint.Number);
+        ShowView(ShellView.InProgress);
+    }
 
     /// <summary>
     /// A press on a view's option: that view becomes the workspace's main view, and

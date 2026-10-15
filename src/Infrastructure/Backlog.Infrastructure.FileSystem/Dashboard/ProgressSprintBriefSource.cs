@@ -72,6 +72,13 @@ public sealed class ProgressSprintBriefSource(
     private static SprintBriefSprint Map(SprintSeriesDto series, SprintProgressDto sprint)
     {
         var goal = sprint.GoalTaskIds.ToHashSet();
+        var goalPlans = sprint.GoalRules
+            .Where(rule => rule.Kind is GoalRuleKind.InPlans)
+            .SelectMany(rule => rule.Choices)
+            .Select(Bare)
+            .Where(plan => plan.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         return new SprintBriefSprint(
             series.Id,
@@ -102,6 +109,23 @@ public sealed class ProgressSprintBriefSource(
                         LinkedPullRequestState.Closed => SprintBriefPullRequestState.Closed,
                         _ => SprintBriefPullRequestState.Unknown
                     },
-                    pull.MergedOn))]))]);
+                    pull.MergedOn))])
+            {
+                IsInProgress = member.State == SprintWorkState.InProgress,
+                Repository = member.Repository,
+                Owners = member.Owners,
+                Note = member.Note,
+                OpenQuestion = member.OpenQuestion
+            })])
+        {
+            GoalPlans = goalPlans
+        };
+    }
+
+    /// <summary>A plan tag without its sigil, as the sprint view's board reads it.</summary>
+    private static string Bare(string tag)
+    {
+        var trimmed = tag.Trim();
+        return trimmed.StartsWith('+') ? trimmed[1..].Trim() : trimmed;
     }
 }

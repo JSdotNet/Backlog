@@ -528,7 +528,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/progress/context.md#progress-area
 related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/productivity/features.md#the-weekly-brief, .devbook/domain/progress/requirements.md#sprints-in-the-briefs]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintWeekBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.ProgressSprintBriefSourceTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintWeekBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.ProgressSprintBriefSourceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintBriefTableTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests]
 ```
 
 Read the open sprint of a series in the daily and the weekly brief, for a series
@@ -549,7 +549,13 @@ The block holds:
 - "Shipped, by plan": the members done that week, under their plan, each with the
   pull requests it merged, linked to GitHub;
 - "Into week n", or "Into next week" in the sprint's last week: the items still open,
-  the blocked among them, and the pull requests waiting on review.
+  the blocked among them, and the pull requests waiting on review;
+- **Copy as table**, which copies the sprint the way the sprint view does
+  ([Copying a sprint as a table](#copying-a-sprint-as-a-table)): every item of the
+  block's sprint, whatever week the brief shows;
+- **Open Sprint n**, which opens In progress on that series' sprint view, on that
+  sprint, whichever series the repository scope would show first. Where In progress
+  is not offered there is no such button.
 
 The even pace is the share of the sprint's items that would be done by the week's end
 at the same rate every working day, Monday to Friday. Blocked, added and removed are

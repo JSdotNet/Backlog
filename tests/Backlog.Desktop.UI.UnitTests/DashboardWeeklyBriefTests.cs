@@ -231,6 +231,77 @@ public class DashboardWeeklyBriefTests
             pane.Find($"[data-testid='dashboard-brief-sprint-figure-{figure}'] dd").TextContent;
     }
 
+    /// <summary>
+    /// The block ends with Copy as table: the sprint view's own table, over every member
+    /// of the block's sprint — not only what shipped that week — as HTML and plain text
+    /// together.
+    /// </summary>
+    [Fact]
+    public async Task Copy_as_table_puts_the_blocks_sprint_on_the_clipboard_as_the_sprint_view_does()
+    {
+        var copy = new List<(string Html, string Text)>();
+        var sprint = SprintFixtures.Sprint42();
+        using var context = Context(sprints: new SprintSource([sprint]));
+        context.JSInterop.Setup<bool>("backlogClipboard.copyRich", invocation =>
+        {
+            copy.Add(((string)invocation.Arguments[0]!, (string)invocation.Arguments[1]!));
+            return true;
+        }).SetResult(true);
+        var brief = context.Render<WeeklyBrief>();
+
+        var button = brief.Find("[data-testid='dashboard-brief-sprint-copy-table-button']");
+        Assert.Equal("Copy as table", button.TextContent.Trim());
+
+        await button.ClickAsync(new());
+
+        var (html, text) = Assert.Single(copy);
+        var expected = SprintBriefTable.Build(sprint);
+        Assert.Equal(expected.Html, html);
+        Assert.Equal(expected.Text, text);
+        Assert.Equal(1 + sprint.Members.Count, text.Split("\r\n").Length);
+        brief.WaitForAssertion(() => Assert.Equal("Copied", brief.Find("[data-testid='dashboard-brief-sprint-copy-table-status']").TextContent));
+    }
+
+    /// <summary>
+    /// "Open Sprint n" hands the host the block's sprint — its series and number — and
+    /// sits after Copy as table, as on the Weekly artboard. With no host listening, there
+    /// is no In progress to open and the button is not drawn.
+    /// </summary>
+    [Fact]
+    public async Task Open_sprint_hands_the_host_the_blocks_series_and_sprint()
+    {
+        SprintBriefSprint? opened = null;
+        using var context = Context(sprints: new SprintSource([SprintFixtures.Sprint42()]));
+        var pane = context.Render<DashboardPane>(parameters => parameters
+            .Add(component => component.OnOpenSprint, (SprintBriefSprint sprint) => opened = sprint));
+
+        pane.Find("[data-testid='dashboard-brief-link']").Click();
+
+        Assert.Equal(
+            ["dashboard-brief-sprint-copy-table", "dashboard-brief-sprint-open"],
+            pane.Find("[data-testid='dashboard-brief-sprint-actions']").Children.Select(child => child.GetAttribute("data-testid")));
+        var open = pane.Find("[data-testid='dashboard-brief-sprint-open']");
+        Assert.Equal("Open Sprint 42", open.TextContent.Trim());
+
+        await open.ClickAsync(new());
+
+        Assert.NotNull(opened);
+        Assert.Equal(SprintFixtures.SeriesId, opened.SeriesId);
+        Assert.Equal(42, opened.Number);
+    }
+
+    [Fact]
+    public void With_no_host_listening_the_block_draws_no_open_sprint()
+    {
+        using var context = Context(sprints: new SprintSource([SprintFixtures.Sprint42()]));
+        var pane = context.Render<DashboardPane>();
+
+        pane.Find("[data-testid='dashboard-brief-link']").Click();
+
+        Assert.Single(pane.FindAll("[data-testid='dashboard-brief-sprint-copy-table']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-brief-sprint-open']"));
+    }
+
     /// <summary>With no series shown — Progress off, or none marked — the port answers
     /// with no sprint and the brief is exactly the one it was.</summary>
     [Fact]

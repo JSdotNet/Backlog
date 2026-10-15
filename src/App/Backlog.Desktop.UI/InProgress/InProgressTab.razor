@@ -18,6 +18,8 @@
     the switch it is given.
     With no series in scope, or Progress off, the switch is null and the Now view is
     exactly what it was.
+    OpenSprint, the weekly brief's "Open Sprint n", is handed on as InProgressSprints'
+    Open request.
 *@
 <InProgressSprints Repositories="@State.SelectedRepositoryAliases"
                    Outside="OutsideOf"
@@ -25,7 +27,9 @@
                    Revision="_revision"
                    OnOpenTask="OnOpenTask"
                    OnOpenPullRequest="OnOpenPullRequest"
-                   OnRead="Read">
+                   OnRead="Read"
+                   Open="OpenSprint"
+                   OnOpened="OnSprintOpened">
     <Now Context="viewSwitch">
         <InProgressView Reader="Reader"
                         ViewSwitch="viewSwitch"
@@ -72,6 +76,14 @@
 
     [Parameter]
     public EventCallback<bool> IncludeFinishedTodayChanged { get; set; }
+
+    /// <summary>Open the sprint view on this sprint — the weekly brief's "Open Sprint
+    /// n" — until <see cref="OnSprintOpened"/> says it was taken.</summary>
+    [Parameter]
+    public SprintViewRequest? OpenSprint { get; set; }
+
+    [Parameter]
+    public EventCallback OnSprintOpened { get; set; }
 
     private int _revision;
     private TimeProvider _clock = TimeProvider.System;

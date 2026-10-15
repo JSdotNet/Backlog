@@ -62,6 +62,43 @@ public class ProgressSprintBriefSourceTests
         Assert.True(sprint.Members[2].Removed);
     }
 
+    /// <summary>
+    /// What the block's Copy as table needs crosses too, so the Dashboard builds the
+    /// sprint view's table without naming a Progress type: each member's in-progress
+    /// state, repository, owners, note and open question, and the plans an "in these
+    /// plans" goal rule names, bare and once each.
+    /// </summary>
+    [Fact]
+    public async Task Carries_what_the_sprint_table_needs()
+    {
+        var shown = Series("Fincent team", weekly: true, Sprint(42, From, new DateOnly(2026, 10, 18)))
+            with { GoalRules = [GoalRuleDto.InPlans("+rekeningen", "specs", "Rekeningen"), GoalRuleDto.MarkedAsGoal()] };
+        var progress = new FakeProgress([shown]);
+        progress.Read[(shown.Id, 42)] = Progress(shown, 42, [],
+            Member(Guid.NewGuid(), "Overzicht", SprintWorkState.InProgress, "rekeningen", null)
+                with { Owners = ["jo"], Note = "Waits on design", OpenQuestion = true },
+            Member(Guid.NewGuid(), "Kern", SprintWorkState.NotStarted, null, null));
+
+        var source = new ProgressSprintBriefSource(progress, progress, new Features(on: true));
+
+        var sprint = Assert.Single(await source.ReadAsync(From, To, TestContext.Current.CancellationToken));
+
+        Assert.Equal(["rekeningen", "specs"], sprint.GoalPlans);
+
+        var working = sprint.Members[0];
+        Assert.True(working.IsInProgress);
+        Assert.Equal("Fincent", working.Repository);
+        Assert.Equal(["jo"], working.Owners);
+        Assert.Equal("Waits on design", working.Note);
+        Assert.True(working.OpenQuestion);
+
+        var waiting = sprint.Members[1];
+        Assert.False(waiting.IsInProgress);
+        Assert.Empty(waiting.Owners);
+        Assert.Null(waiting.Note);
+        Assert.False(waiting.OpenQuestion);
+    }
+
     [Fact]
     public async Task Leaves_out_a_series_that_is_switched_off()
     {
