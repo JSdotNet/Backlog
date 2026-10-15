@@ -34,6 +34,36 @@ const LIST_ITEM = /^( {0,3})(?:[-*+]|\d+[.)])\s+(.*)$/;
 // `.claude/` — as the devbook checker skips them. A root may itself be a dot-folder (`.test`).
 const SKIP_DIRS = new Set(["node_modules", "bin", "obj", "dist", "build", "out", "coverage", "test-results", "playwright-report"]);
 
+/** The `code` of the error `resolveInside` throws. */
+export const OUTSIDE_ROOT = "EOUTSIDE";
+
+/**
+ * `given` resolved against `root`, or a thrown error with code `OUTSIDE_ROOT`
+ * when it resolves outside `root`; `root` itself counts as inside. Every read
+ * these tools make of a path taken from an argument, a page, a spec header, or
+ * a scanned tree goes through it. `../devbook-meta/paths.mjs` is the checker's copy.
+ */
+export function resolveInside(root, given) {
+    const base = path.resolve(root);
+    const file = path.resolve(base, given);
+    const rel = path.relative(base, file);
+    if (rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+        const error = new Error(`${String(given).replace(/\\/g, "/")} resolves outside the repository`);
+        error.code = OUTSIDE_ROOT;
+        throw error;
+    }
+    return file;
+}
+
+/** A data set's folder, `<scenarioFolder>/data/<name>/`, or null when either resolves outside the repository. */
+export function dataFolder(repoRoot, scenarioFolder, name) {
+    try {
+        return resolveInside(resolveInside(repoRoot, `${scenarioFolder}/data`), name);
+    } catch {
+        return null;
+    }
+}
+
 /**
  * The GitHub anchor of a heading — the same algorithm the devbook checker
  * uses, so a part's anchor here is the one `Proved by:` and `related` name.
@@ -306,7 +336,7 @@ async function markdownUnder(repoRoot, folder) {
     async function walk(rel) {
         let entries;
         try {
-            entries = await readdir(path.join(repoRoot, rel), { withFileTypes: true });
+            entries = await readdir(resolveInside(repoRoot, rel), { withFileTypes: true });
         } catch {
             return;
         }
@@ -328,7 +358,7 @@ async function markdownUnder(repoRoot, folder) {
 export async function listScenarioPages(repoRoot) {
     const pages = [];
     for (const relPath of await markdownUnder(repoRoot, DOMAIN_FOLDER)) {
-        const page = parseScenarioPage(await readFile(path.join(repoRoot, relPath), "utf8"), relPath);
+        const page = parseScenarioPage(await readFile(resolveInside(repoRoot, relPath), "utf8"), relPath);
         if (page.isScenario) pages.push(page);
     }
     return pages;
@@ -349,7 +379,7 @@ export async function listSpecs(repoRoot, roots = [""]) {
     async function walk(rel) {
         let entries;
         try {
-            entries = await readdir(path.join(repoRoot, rel), { withFileTypes: true });
+            entries = await readdir(resolveInside(repoRoot, rel), { withFileTypes: true });
         } catch {
             return;
         }
@@ -365,7 +395,7 @@ export async function listSpecs(repoRoot, roots = [""]) {
     for (const root of roots) await walk(String(root).replace(/\\/g, "/").replace(/\/$/, ""));
     const specs = [];
     for (const file of [...new Set(files)].sort()) {
-        const source = await readFile(path.join(repoRoot, file), "utf8");
+        const source = await readFile(resolveInside(repoRoot, file), "utf8");
         const header = parseSpecHeader(source);
         if (header.page) specs.push({ path: file, ...header, page: normalizePath(header.page), source });
     }
@@ -374,12 +404,19 @@ export async function listSpecs(repoRoot, roots = [""]) {
 
 /**
  * The repository's profiles: `{ map }` when the file parses, `{ missing: true }`
- * when there is none, `{ error }` when it does not parse.
+ * when there is none, `{ error }` when it does not parse or the scenario
+ * folder resolves outside the repository.
  */
 export async function readProfiles(repoRoot, scenarioFolder = SCENARIO_FOLDER) {
+    let file;
+    try {
+        file = resolveInside(repoRoot, `${scenarioFolder}/${PROFILES_FILE}`);
+    } catch {
+        return { error: "resolves outside the repository" };
+    }
     let text;
     try {
-        text = await readFile(path.join(repoRoot, scenarioFolder, PROFILES_FILE), "utf8");
+        text = await readFile(file, "utf8");
     } catch {
         return { missing: true };
     }

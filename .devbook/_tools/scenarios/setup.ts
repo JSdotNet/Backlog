@@ -24,7 +24,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from '@playwright/test';
-import { listScenarioPages, normalizePath, parseSpecHeader, readProfiles, SCENARIO_FOLDER } from './parse.mjs';
+import { dataFolder, listScenarioPages, normalizePath, parseSpecHeader, readProfiles, resolveInside, SCENARIO_FOLDER } from './parse.mjs';
 import { playwrightTest } from './playwright.mjs';
 import { effectiveConfig, findRepoRoot, resolveEnv, runSetup } from './setup.mjs';
 import { failureShot, shot } from './shot';
@@ -103,14 +103,19 @@ export function scenario(stem: string, body: (api: { part: Part }) => void): voi
       const config = effectiveConfig(page, profiles.map, { override: process.env.SCENARIO_PROFILE });
       portals = config.portals;
 
-      const hookPath = path.resolve(root, scenarioHook);
+      let hookPath: string;
+      try {
+        hookPath = resolveInside(root, scenarioHook);
+      } catch {
+        throw new Error(`the scenario setup hook ${scenarioHook} resolves outside the repository; set scenarioHook under use in the Playwright config`);
+      }
       await readFile(hookPath).catch(() => {
         throw new Error(`the scenario setup hook ${scenarioHook} does not exist; set scenarioHook under use in the Playwright config`);
       });
       const loaded = await import(pathToFileURL(hookPath).href);
       const hook = loaded.default ?? loaded;
 
-      await runSetup({ hook, config, open, dataFolder: (name: string) => path.join(root, scenarioFolder, 'data', name) });
+      await runSetup({ hook, config, open, dataFolder: (name: string) => dataFolder(root, scenarioFolder, name) });
       if (config.start) {
         current = await open(config.start.portal);
         await current.goto(config.start.route);
