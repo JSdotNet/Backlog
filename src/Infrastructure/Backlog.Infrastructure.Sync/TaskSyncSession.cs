@@ -5,6 +5,7 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.SharedKernel.Results;
 
@@ -64,6 +65,7 @@ public sealed class TaskSyncSession
     private readonly IGitHubSettingsReplication? _github;
     private readonly IInboxNoteReplication? _notes;
     private readonly ISprintSeriesReplication? _sprints;
+    private readonly IMyDayPreferencesReplication? _myDay;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -83,6 +85,9 @@ public sealed class TaskSyncSession
     /// settings. Optional for the same reason.</param>
     /// <param name="sprints">Where every sprint series is read from for the push, or
     /// null on a head without Progress. Optional for the same reason.</param>
+    /// <param name="myDay">Where the My Day preferences are read from for the push
+    /// (local ADR 0032), or null on a head that keeps none. Optional for the same
+    /// reason.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -95,7 +100,8 @@ public sealed class TaskSyncSession
         IRoadmapReplication? roadmap = null,
         IGitHubSettingsReplication? github = null,
         IInboxNoteReplication? notes = null,
-        ISprintSeriesReplication? sprints = null)
+        ISprintSeriesReplication? sprints = null,
+        IMyDayPreferencesReplication? myDay = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -116,6 +122,7 @@ public sealed class TaskSyncSession
         _github = github;
         _notes = notes;
         _sprints = sprints;
+        _myDay = myDay;
     }
 
     /// <summary>
@@ -151,7 +158,9 @@ public sealed class TaskSyncSession
         var state = _state.Current;
         if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
 
-        _state.Save(new TaskSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
+        // The feed replays are kept: starting over reads the new owner's feed from the
+        // start anyway, so each is as done for it as it was for the old one.
+        _state.Save(new TaskSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId) { FeedReplays = state.FeedReplays });
     }
 
     /// <summary>
@@ -329,8 +338,35 @@ public sealed class TaskSyncSession
             refused += documents.Value.Refused;
         }
 
+        if (_myDay is not null)
+        {
+            var documents = await PushMyDayPreferencesAsync(_myDay, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
         return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
+
+    /// <summary>
+    /// Sends the My Day preferences as one whole document when their stamp is later
+    /// than the one this device last had accepted (local ADR 0032, §3) — on the terms
+    /// <see cref="PushRoadmapAsync"/> gives for the roadmap's, the kind token as the
+    /// mark. A device that never set the switch has no document and sends nothing, so a
+    /// newly paired desktop takes the other's choice rather than the default.
+    /// </summary>
+    private Task<Result<(int Pushed, int Refused)>> PushMyDayPreferencesAsync(
+        IMyDayPreferencesReplication myDay,
+        CancellationToken cancellationToken) =>
+        PushWholeDocumentsAsync(
+            new[] { MyDayReplicaDocuments.PreferencesType },
+            async _ => await myDay.ReadAsync(cancellationToken).ConfigureAwait(false) is { } copy
+                ? MyDayReplicaDocuments.ToChange(copy)
+                : null,
+            SyncItemKind.MyDayPreferences,
+            cancellationToken);
 
     /// <summary>
     /// Sends the roadmap plan and the planning pace, each as one whole document, when

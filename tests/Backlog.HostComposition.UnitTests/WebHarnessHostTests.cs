@@ -369,6 +369,27 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// The desktop harness carries the Tasks page — Clear My Day overnight — through
+    /// the shared composition, and the switch it draws is the one store both sync
+    /// ports read (local ADR 0032).
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_tasks_settings_section_over_the_my_day_preferences()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        var tasks = Assert.Single(sections, section => section.Id == "tasks");
+        Assert.Equal("Tasks", tasks.Title);
+        Assert.Equal(["My Day"], tasks.CardTitles!);
+        Assert.Same(
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferences>(),
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferencesReplication>());
+    }
+
+    /// <summary>
     /// The desktop harness carries the Dashboard's settings section too, without a
     /// line of its own: the shared composition's <c>AddDashboardUi()</c> registers it.
     /// </summary>
