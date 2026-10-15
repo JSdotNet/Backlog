@@ -158,7 +158,8 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog-ide");
 
-        Assert.Contains(productivity.Scopes, scope => scope.Repositories.Contains("backlog-ide") && !scope.IsAllRepositories);
+        pane.WaitForAssertion(() =>
+            Assert.Contains(productivity.Scopes, scope => scope.Repositories.Contains("backlog-ide") && !scope.IsAllRepositories));
     }
 
     /// <summary>
@@ -177,9 +178,13 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog-ide", "backlog");
 
-        var focus = productivity.Scopes[^1].Repositories;
-        Assert.Equal(["backlog-ide", "backlog"], focus.Aliases);
-        Assert.Equal("backlog-ide", focus.Anchor);
+        // A filter moved is a press, and the part answers it before it fetches.
+        pane.WaitForAssertion(() =>
+        {
+            var focus = productivity.Scopes[^1].Repositories;
+            Assert.Equal(["backlog-ide", "backlog"], focus.Aliases);
+            Assert.Equal("backlog-ide", focus.Anchor);
+        });
     }
 
     /// <summary>
@@ -198,7 +203,7 @@ public class DashboardPaneTests
         FocusRepository(pane, "backlog-ide");
         FocusRepository(pane);
 
-        Assert.True(productivity.Scopes[^1].IsAllRepositories);
+        pane.WaitForAssertion(() => Assert.True(productivity.Scopes[^1].IsAllRepositories));
     }
 
     /// <summary>
@@ -1462,10 +1467,12 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        var breakdown = pane.Find("[data-testid='dashboard-sessions-breakdown']");
-
-        Assert.Contains("Assistant", breakdown.TextContent, StringComparison.Ordinal);
-        Assert.DoesNotContain("Machine", breakdown.TextContent, StringComparison.Ordinal);
+        pane.WaitForAssertion(() =>
+        {
+            var breakdown = pane.Find("[data-testid='dashboard-sessions-breakdown']");
+            Assert.Contains("Assistant", breakdown.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("Machine", breakdown.TextContent, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>
@@ -1894,12 +1901,14 @@ public class DashboardPaneTests
 
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog");
-        pane.Find("[data-testid='dashboard-sessions-cut-repository']").Click();
+        pane.WaitForElement("[data-testid='dashboard-sessions-cut-repository']").Click();
 
-        var text = Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent);
-
-        Assert.Contains("Narrowed to the header's repository scope", text, StringComparison.Ordinal);
-        Assert.Contains("are out of it", text, StringComparison.Ordinal);
+        pane.WaitForAssertion(() =>
+        {
+            var text = Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent);
+            Assert.Contains("Narrowed to the header's repository scope", text, StringComparison.Ordinal);
+            Assert.Contains("are out of it", text, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>An axis or nothing, on the sessions chart's rule: a series that arrived

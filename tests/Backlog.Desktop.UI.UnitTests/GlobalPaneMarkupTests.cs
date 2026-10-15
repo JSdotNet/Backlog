@@ -1027,7 +1027,7 @@ public sealed class GlobalPaneMarkupTests
         // Markup order: the filter bar, then the scroller, then the bulk bar and
         // the rows inside it.
         var filterBar = tasks.IndexOf("<div class=\"filter-bar\">", StringComparison.Ordinal);
-        var scroll = tasks.IndexOf("<div class=\"backlog-list__scroll\" data-testid=\"backlog-list-scroll\">", StringComparison.Ordinal);
+        var scroll = tasks.IndexOf("<div class=\"backlog-list__scroll\"", StringComparison.Ordinal);
         var bulkBar = tasks.IndexOf("<SelectionBar", StringComparison.Ordinal);
         var rows = tasks.IndexOf("<TaskListView", StringComparison.Ordinal);
         Assert.True(filterBar >= 0 && scroll > filterBar, "The scroller follows the filter bar.");

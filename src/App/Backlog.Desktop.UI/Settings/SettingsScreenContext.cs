@@ -105,6 +105,8 @@ public sealed class SettingsScreenContext
     /// </summary>
     public async Task LoadCliAccountsAsync()
     {
+        IsLoadingCliAccounts = true;
+
         try
         {
             CliAccounts = await _gitHub.ListCliAccountsAsync();
@@ -115,17 +117,40 @@ public sealed class SettingsScreenContext
             // to manual entry rather than blocking the panel.
             CliAccounts = [];
         }
+        finally
+        {
+            IsLoadingCliAccounts = false;
+        }
 
         _redraw();
     }
 
+    /// <summary>True while the CLI's logins are being read again: from the press
+    /// of <see cref="RefreshCliAccountsAsync"/> to its last answer, and while
+    /// <see cref="LoadCliAccountsAsync"/> waits on <c>gh</c>.</summary>
+    public bool IsLoadingCliAccounts { get; private set; }
+
     /// <summary>Asks again, so a <c>gh auth login</c> in another window is noticed
     /// without restarting the app. The connection probe is what forgets the CLI's
-    /// previous answer, so it is re-asked first.</summary>
+    /// previous answer, so it is re-asked first. Ignored while the logins are
+    /// already being read.</summary>
     public async Task RefreshCliAccountsAsync()
     {
-        await CheckConnectionAsync();
-        await LoadCliAccountsAsync();
+        if (IsLoadingCliAccounts) return;
+
+        // Set before the probe, so the button is busy for the whole round trip
+        // and not only for its second half.
+        IsLoadingCliAccounts = true;
+
+        try
+        {
+            await CheckConnectionAsync();
+            await LoadCliAccountsAsync();
+        }
+        finally
+        {
+            IsLoadingCliAccounts = false;
+        }
     }
 
     /// <summary>

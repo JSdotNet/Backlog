@@ -303,6 +303,24 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         </div>
     </Story>
 
+    <Story Name="A row whose act is still running"
+           Description="An act a row starts can take a while — the Tasks bulk bar's My Day writes every selected task. While it runs the row is `Busy`: a spinner in place of the icon, `aria-busy`, and a press dropped, with the label, the place and the focus kept. The rows beside it are `Blocked`: they read as disabled and drop a press too, but stay in the tab order, which the native `disabled` would not."
+           Code="@BusyCode">
+        <div class="sb-side-panel">
+            <TaskActionPane>
+                <Groups>
+                    <TaskActionGroup Label="Today">
+                        <TaskAction Icon="☀" Label="My Day" Set="true" Prominent="true" Busy="true" BusyLabel="Adding to My Day"
+                                    OnSet="() => { }" OnClear="() => { }" TestId="panel-busy-myday" />
+                    </TaskActionGroup>
+                    <TaskActionGroup Label="Scheduling">
+                        <TaskAction Icon="🗓" Label="Scheduling" Blocked="true" OnSet="() => { }" TestId="panel-blocked-scheduling" />
+                    </TaskActionGroup>
+                </Groups>
+            </TaskActionPane>
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -312,6 +330,7 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         new("typography-and-layout.md#metadata-lines", "How the facts set on a task are laid out beside it."),
         new("typography-and-layout.md#density", "How tight two columns of detail rows may be."),
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why nothing in the pane has a save button."),
+        new("interaction-guidelines.md#busy-actions", "What a row shows while the act it started is still running, and what the rows beside it do meanwhile."),
         new("content-editing.md#task-structure", "What a step, a tag and a body are in the file behind the pane.")
     ];
 
@@ -753,5 +772,14 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         @* No tags, no details, no body, and nobody listening — a heading, and that
            is all it is. *@
         <TaskPanel Title="@task.Title" />
+        """;
+
+    private const string BusyCode = """
+        @* The act this row started is running; the row beside it waits. *@
+        <TaskAction Icon="☀" Label="My Day" Set="true" Prominent="true"
+                    Busy="@running" BusyLabel="Adding to My Day"
+                    OnSet="SetMyDayAsync" OnClear="ClearMyDayAsync" />
+        <TaskAction Icon="🗓" Label="Scheduling" Blocked="@running"
+                    OnSet="OpenScheduling" />
         """;
 }

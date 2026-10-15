@@ -436,12 +436,21 @@ public sealed class WorkspaceSettingsStore
     /// somewhere else, and the wrong thing for taking this one along — which
     /// is what <see cref="TryMoveRoot"/> does.
     /// </para></summary>
-    public string? TryUseRoot(string? path)
-    {
-        var error = ResolveRoot(path, out var full);
-        if (error is not null) return error;
+    public string? TryUseRoot(string? path) => CommitRoot(PrepareUseRoot(path)).Error;
 
-        return IsCurrentRoot(full) ? null : PointAt(full);
+    /// <summary>The disk half of <see cref="TryUseRoot"/>: resolves the folder
+    /// and makes it usable, and changes nothing the app reads. Safe off the UI
+    /// thread; <see cref="CommitRoot"/> is the half that repoints.</summary>
+    public PreparedRoot PrepareUseRoot(string? path)
+    {
+        var source = RootDirectory;
+
+        var error = ResolveRoot(path, out var full);
+        if (error is not null) return PreparedRoot.Done(source, RootMove.Failed(error));
+
+        return IsCurrentRoot(source, full)
+            ? PreparedRoot.Done(source, RootMove.Pointed)
+            : new PreparedRoot(source, full, RootMove.Pointed);
     }
 
     /// <summary>Takes the backlog along to a different folder: copies the
@@ -464,46 +473,139 @@ public sealed class WorkspaceSettingsStore
     /// the error points at <see cref="TryUseRoot"/> as the way to open that
     /// one instead.
     /// </para></summary>
-    public RootMove TryMoveRoot(string? path)
+    public RootMove TryMoveRoot(string? path) => CommitRoot(PrepareMoveRoot(path));
+
+    /// <summary>
+    /// The disk half of <see cref="TryMoveRoot"/>: resolves the folder and copies
+    /// the backlog into it, and changes nothing the app reads - no repoint, no
+    /// save, no <see cref="RootChanged"/>. Safe off the UI thread, which is the
+    /// point of it: the copy is the slow part, and a screen that ran it on the
+    /// dispatcher froze for its length.
+    /// <para>
+    /// <see cref="CommitRoot"/> is the other half, run where the listeners of
+    /// <see cref="RootChanged"/> expect to be called, because they replace state
+    /// a renderer reads.
+    /// </para>
+    /// </summary>
+    public PreparedRoot PrepareMoveRoot(string? path)
     {
+        var source = RootDirectory;
+
         var error = ResolveRoot(path, out var full);
-        if (error is not null) return RootMove.Failed(error);
+        if (error is not null) return PreparedRoot.Done(source, RootMove.Failed(error));
 
-        if (IsCurrentRoot(full)) return RootMove.Pointed;
+        if (IsCurrentRoot(source, full)) return PreparedRoot.Done(source, RootMove.Pointed);
 
-        var sourceDatabase = DatabasePath;
+        var sourceDatabase = SqliteTaskRepository.DatabasePathFor(source);
         var targetDatabase = SqliteTaskRepository.DatabasePathFor(full);
 
         // Nothing written yet means nothing to carry: the move is a plain
         // repoint, and whatever the folder holds is what the app reads next.
-        if (!File.Exists(sourceDatabase))
-        {
-            var pointError = PointAt(full);
-            return RootMove.Pointed with { Error = pointError };
-        }
+        if (!File.Exists(sourceDatabase)) return new PreparedRoot(source, full, RootMove.Pointed);
 
         if (File.Exists(targetDatabase))
         {
-            return RootMove.Failed(
+            return PreparedRoot.Done(source, RootMove.Failed(
                 "That folder already holds a backlog, so nothing was moved. "
-                + "Move its backlog.db aside first, or switch without moving to use that backlog instead.");
+                + "Move its backlog.db aside first, or switch without moving to use that backlog instead."));
         }
+
+        // A journal with no database beside it is what is left of somebody's
+        // backlog, and SQLite would replay it into the copy. Refused like the
+        // database itself, which also keeps the cleanup below honest: every
+        // journal file it may remove is one this copy made.
+        if (File.Exists(targetDatabase + "-wal") || File.Exists(targetDatabase + "-journal"))
+        {
+            return PreparedRoot.Done(source, RootMove.Failed(
+                "That folder holds what is left of a backlog (a backlog.db journal without its database), so nothing was moved. "
+                + "Move the backlog.db-wal or backlog.db-journal aside first."));
+        }
+
+        // Marked before the copy, so a write that lands any time after this -
+        // during the copy or between it and the commit - is seen at the commit.
+        SourceMarker marker;
+        var written = new List<string>();
+
+        // Only the files the copy brings into being are its to remove; a stray
+        // -shm already there is somebody else's.
+        var journalsBefore = DatabaseFiles(targetDatabase).Where(File.Exists).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         try
         {
+            marker = MarkSource(source);
             SqliteDatabaseFile.CopyTo(sourceDatabase, targetDatabase);
-            CopyOwnedRootFolders(RootDirectory, full);
+            written.AddRange(DatabaseFiles(targetDatabase).Where(path => !journalsBefore.Contains(path)));
+            CopyOwnedRootFolders(source, full, written);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or SqliteException)
         {
-            return RootMove.Failed($"Couldn't move the backlog: {ex.Message}");
+            // A database copied without its folders is a backlog half moved, and
+            // it would refuse the retry as "already holds a backlog".
+            RemoveWritten(written);
+            return PreparedRoot.Done(source, RootMove.Failed($"Couldn't move the backlog: {ex.Message}"));
         }
 
-        var saveError = PointAt(full);
+        return new PreparedRoot(source, full, RootMove.Copied) { Marker = marker, Written = written };
+    }
+
+    /// <summary>
+    /// Points the app at a folder <see cref="PrepareMoveRoot"/> or
+    /// <see cref="PrepareUseRoot"/> made ready, saves the choice, and raises
+    /// <see cref="RootChanged"/> on the calling thread. A preparation that
+    /// ended in a refusal, or found nothing to change, is answered as it was.
+    /// <para>
+    /// Refused when the app has moved folders since the preparation began:
+    /// the copy was taken of a backlog the app no longer reads, and pointing
+    /// at it would quietly drop whatever the other change brought. Refused too
+    /// when the old folder was written to during the copy. Either way the files
+    /// the preparation created are removed, and the old folder is untouched.
+    /// </para>
+    /// </summary>
+    public RootMove CommitRoot(PreparedRoot prepared)
+    {
+        ArgumentNullException.ThrowIfNull(prepared);
+
+        if (prepared.Target is null) return prepared.Outcome;
+
+        if (!IsCurrentRoot(prepared.Source, RootDirectory))
+        {
+            RemoveWritten(prepared.Written);
+            return RootMove.Failed(
+                "The backlog folder changed while this one was being prepared, so nothing was switched. Try again.");
+        }
+
+        // The copy is a snapshot taken while the old folder stayed live. A task
+        // edited, an item captured or a sync applied after it would be in the
+        // folder the app is about to stop reading and nowhere else - so the
+        // move is refused rather than made without it, and the copy taken back
+        // out so the retry starts clean.
+        if (prepared.Marker is { } marker)
+        {
+            SourceMarker now;
+            try
+            {
+                now = MarkSource(prepared.Source);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                RemoveWritten(prepared.Written);
+                return RootMove.Failed(
+                    $"Couldn't check the backlog was unchanged after copying it ({ex.Message}), so nothing was moved and the copy was removed. Try again.");
+            }
+
+            if (now != marker)
+            {
+                RemoveWritten(prepared.Written);
+                return RootMove.Failed(
+                    "The backlog changed while it was being moved, so nothing was moved. Try again.");
+            }
+        }
+
         // A save failure here is the same one PointAt reports: the move happened
         // and only remembering it did not, so the answer is the success with
         // that message attached rather than a failure that undoes nothing.
-        return RootMove.Copied with { Error = saveError };
+        var saveError = PointAt(prepared.Target);
+        return prepared.Outcome with { Error = saveError };
     }
 
     /// <summary>Returns the app to its default per-user folder.</summary>
@@ -548,9 +650,9 @@ public sealed class WorkspaceSettingsStore
         return null;
     }
 
-    private bool IsCurrentRoot(string full) =>
+    private static bool IsCurrentRoot(string root, string full) =>
         string.Equals(Path.TrimEndingDirectorySeparator(full),
-            Path.TrimEndingDirectorySeparator(RootDirectory),
+            Path.TrimEndingDirectorySeparator(root),
             StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The repoint itself, once the folder is known to be usable and
@@ -573,6 +675,9 @@ public sealed class WorkspaceSettingsStore
         return null;
     }
 
+    /// <summary>See <see cref="MarkSource"/>.</summary>
+    internal readonly record struct SourceMarker(long Files, long Bytes, DateTime LatestWriteUtc);
+
     /// <summary>Copies the app's own folders — <see cref="OwnedRootFolders"/>,
     /// each one whole — from one root into another, and nothing else. The
     /// database is not among them: it goes through the backup API, and a raw
@@ -585,25 +690,30 @@ public sealed class WorkspaceSettingsStore
     /// Internal rather than private because the packaged app's first start
     /// after this convention has the same copy to make — from the folder its
     /// installer used to redirect writes into — and should make it the same way.
+    /// </para>
+    /// <para>
+    /// <paramref name="written"/>, when given, collects every file and folder
+    /// this call created, in creation order - exactly what may be taken back out
+    /// again without touching anything that was there before.
     /// </para></summary>
-    internal static void CopyOwnedRootFolders(string source, string destination)
+    internal static void CopyOwnedRootFolders(string source, string destination, List<string>? written = null)
     {
         foreach (var name in OwnedRootFolders)
         {
             var folder = Path.Combine(source, name);
             if (!Directory.Exists(folder)) continue;
 
-            CopyFolderContents(folder, Path.Combine(destination, name));
+            CopyFolderContents(folder, Path.Combine(destination, name), written);
         }
     }
 
-    private static void CopyFolderContents(string source, string destination)
+    private static void CopyFolderContents(string source, string destination, List<string>? written)
     {
-        Directory.CreateDirectory(destination);
+        CreateFolder(destination, written);
 
         foreach (var folder in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
         {
-            Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, folder)));
+            CreateFolder(Path.Combine(destination, Path.GetRelativePath(source, folder)), written);
         }
 
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
@@ -612,7 +722,93 @@ public sealed class WorkspaceSettingsStore
             if (File.Exists(target)) continue;
 
             File.Copy(file, target);
+            written?.Add(target);
         }
+    }
+
+    private static void CreateFolder(string path, List<string>? written)
+    {
+        if (Directory.Exists(path)) return;
+
+        Directory.CreateDirectory(path);
+        written?.Add(path);
+    }
+
+    /// <summary>The database file and the journals SQLite keeps beside it.</summary>
+    private static IEnumerable<string> DatabaseFiles(string databasePath) =>
+        [databasePath, databasePath + "-wal", databasePath + "-shm", databasePath + "-journal"];
+
+    /// <summary>
+    /// Takes back out what a move's preparation wrote into the target, newest
+    /// first, so a refused or failed move leaves the folder as it found it and
+    /// trying again is not met by "already holds a backlog". Only what the
+    /// preparation itself created: a file or folder that was there before is
+    /// never on the list. Best effort - a file something else has opened in the
+    /// meantime stays, and the refusal the caller reports still stands.
+    /// </summary>
+    private static void RemoveWritten(IReadOnlyList<string> written)
+    {
+        for (var i = written.Count - 1; i >= 0; i--)
+        {
+            var path = written[i];
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+                else if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any())
+                {
+                    Directory.Delete(path);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Left behind; see the summary.
+            }
+        }
+    }
+
+    /// <summary>
+    /// A fingerprint of everything a move copies out of <paramref name="root"/>:
+    /// the database and its write-ahead log, and every file under the owned
+    /// folders - how many, how many bytes, and the newest write. Taken before the
+    /// copy and again at the commit; a difference means something was written to
+    /// the old folder while the copy was being made, and the copy is missing it.
+    /// The <c>-shm</c> index is left out: readers touch it too, and a read is
+    /// not a change.
+    /// <para>
+    /// Limitation: it leans on the write time. NTFS keeps it to 100 ns, so any
+    /// write shows; FAT32 keeps it to 2 s and exFAT to 10 ms, so on a backlog
+    /// folder on such a drive an in-place write of the same length inside that
+    /// window could go unseen. A WAL append usually changes the length too, but
+    /// after a checkpoint SQLite rewrites the WAL at the same length, so on such
+    /// a drive that case relies on the write time alone.
+    /// </para>
+    /// </summary>
+    private static SourceMarker MarkSource(string root)
+    {
+        var database = SqliteTaskRepository.DatabasePathFor(root);
+        IEnumerable<string> files = [database, database + "-wal"];
+        foreach (var name in OwnedRootFolders)
+        {
+            var folder = Path.Combine(root, name);
+            if (Directory.Exists(folder)) files = files.Concat(Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories));
+        }
+
+        long count = 0, bytes = 0;
+        var latest = DateTime.MinValue;
+        foreach (var file in files)
+        {
+            var info = new FileInfo(file);
+            if (!info.Exists) continue;
+
+            count++;
+            bytes += info.Length;
+            if (info.LastWriteTimeUtc > latest) latest = info.LastWriteTimeUtc;
+        }
+
+        return new SourceMarker(count, bytes, latest);
     }
 
     /// <summary>Asks the probe about the root the store is now pointing at.

@@ -35,15 +35,18 @@
     </Story>
 
     <Story Name="Disabled and busy"
-           Description="Busy disables the button and swaps the label for a spinner, so a slow action cannot be fired twice."
+           Description="Busy puts a spinner where the icon goes, keeps the label so the button does not change width, and ignores a second press, so a slow act cannot be fired twice. It is not the native `disabled`: a busy button stays in the tab order and keeps the focus, and says so with `aria-disabled` and `aria-busy`. Press the third one and Tab away and back — the focus was never lost. Disabled is a standing state and is the native attribute.
+
+Every button here, in every variant, also darkens while it is held down. That pressed state is the acknowledgement a press gets within one frame, before any work behind it; it is a brightness change and not a movement, so it is the same under reduced motion."
            Code="@BusyCode">
         <div class="sb-row">
             <AppButton Variant="ButtonVariant.Primary" Disabled="true">Disabled</AppButton>
             <AppButton Variant="ButtonVariant.Primary" Busy="true" BusyLabel="Saving">Save</AppButton>
-            <AppButton Variant="ButtonVariant.Primary" Busy="_busy" OnClick="RunBusyAsync">
-                @(_busy ? "Working" : "Run for two seconds")
+            <AppButton Variant="ButtonVariant.Primary" Busy="_busy" BusyLabel="Running" OnClick="RunBusyAsync" TestId="buttons-busy-run">
+                Run for two seconds
             </AppButton>
         </div>
+        <p class="sb-state" data-testid="buttons-busy-runs">Runs finished: @_busyRuns</p>
     </Story>
 
     <Story Name="A button that opens a page"
@@ -254,7 +257,9 @@ The fourth hands over HTML beside the text: Html puts text/html on the clipboard
         new("accessibility.md#focus-visibility", "What a focused control has to show."),
         new("typography-and-layout.md#iconography", "When a button is an icon, and what the icon may be."),
         new("design-principles.md#keyboard-first", "Why every act needs a key as well as a click."),
-        new("interaction-guidelines.md#motion-and-reduced-motion", "How long a confirmation flash lasts, what it may animate, and what it does instead when motion is unwelcome.")
+        new("interaction-guidelines.md#motion-and-reduced-motion", "How long a confirmation flash lasts, what it may animate, and what it does instead when motion is unwelcome."),
+        new("interaction-guidelines.md#press-feedback", "Why every button shows a pressed state, before any work behind it."),
+        new("interaction-guidelines.md#busy-actions", "When a button goes busy, and why it keeps its focus and its label while it is.")
     ];
 
     private const string CopyButtonCode = """
@@ -380,12 +385,20 @@ The fourth hands over HTML beside the text: Html puts text/html on the clipboard
 
     private void Count() => _clicks++;
 
+    private int _busyRuns;
+
     private async Task RunBusyAsync()
     {
         _busy = true;
-        await Task.Delay(TimeSpan.FromSeconds(2));
-        _busy = false;
-        _clicks++;
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            _busyRuns++;
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private const string VariantCode = """
@@ -404,7 +417,16 @@ The fourth hands over HTML beside the text: Html puts text/html on the clipboard
         """;
 
     private const string BusyCode = """
-        <AppButton Variant="ButtonVariant.Primary" Busy="@_saving" BusyLabel="Saving">Save</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Busy="@_saving" BusyLabel="Saving" OnClick="SaveAsync">Save</AppButton>
+
+        @code {
+            private async Task SaveAsync()
+            {
+                _saving = true;
+                try { await Store.SaveAsync(); }
+                finally { _saving = false; }
+            }
+        }
         """;
 
     private const string HrefCode = """

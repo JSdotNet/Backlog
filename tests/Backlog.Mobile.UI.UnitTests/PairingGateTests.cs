@@ -139,7 +139,8 @@ public sealed class PairingGateTests
         {
             var button = app.Find("[data-testid='pairing-submit']");
             Assert.Equal("true", button.GetAttribute("aria-busy"));
-            Assert.True(button.HasAttribute("disabled"));
+            // Blocked, but still in the tab order: aria-disabled, not the native attribute.
+            Assert.Equal("true", button.GetAttribute("aria-disabled"));
             // The visible words change, not only the spinner's hidden label, and the
             // two say different things so a screen reader does not hear one twice.
             var spinnerLabel = button.QuerySelector(".spinner .sr-only")?.TextContent;

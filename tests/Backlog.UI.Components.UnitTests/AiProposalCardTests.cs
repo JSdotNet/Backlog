@@ -175,6 +175,37 @@ public sealed class AiProposalCardTests
     }
 
     [Fact]
+    public async Task Use_this_is_busy_while_the_host_applies_it_and_discard_waits()
+    {
+        using var context = new BunitContext();
+        var accepted = 0;
+        var rejected = 0;
+        var applying = new TaskCompletionSource();
+
+        var card = context.Render<AiProposalCard>(parameters => parameters
+            .Add(c => c.Proposal, Rewrite)
+            .Add(c => c.OnAccept, _ => { accepted++; return applying.Task; })
+            .Add(c => c.OnReject, _ => rejected++)
+            .Add(c => c.AcceptTestId, "accept")
+            .Add(c => c.RejectTestId, "reject"));
+
+        _ = card.Find("[data-testid='accept']").ClickAsync(new MouseEventArgs());
+
+        card.WaitForAssertion(() =>
+            Assert.Equal("true", card.Find("[data-testid='accept']").GetAttribute("aria-busy")));
+
+        await card.Find("[data-testid='reject']").ClickAsync(new MouseEventArgs());
+        await card.Find("[data-testid='accept']").ClickAsync(new MouseEventArgs());
+        Assert.Equal(1, accepted);
+        Assert.Equal(0, rejected);
+
+        await card.InvokeAsync(applying.SetResult);
+
+        card.WaitForAssertion(() =>
+            Assert.False(card.Find("[data-testid='accept']").HasAttribute("aria-busy")));
+    }
+
+    [Fact]
     public void Both_decisions_report_the_whole_proposal()
     {
         using var context = new BunitContext();

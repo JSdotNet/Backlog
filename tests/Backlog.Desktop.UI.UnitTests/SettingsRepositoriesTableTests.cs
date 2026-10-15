@@ -49,7 +49,7 @@ public sealed class SettingsRepositoriesTableTests
     }
 
     [Fact]
-    public void A_clone_with_a_devbook_is_counted_and_named_in_its_row()
+    public async Task A_clone_with_a_devbook_is_counted_and_named_in_its_row()
     {
         using var settings = SettingsRepositoryColourTests.RenderSettings();
         var clone = Path.Combine(settings.Root, "clone");
@@ -57,8 +57,11 @@ public sealed class SettingsRepositoriesTableTests
         Directory.CreateDirectory(Path.Combine(clone, ".devbook", "domain"));
 
         SettingsMenu.OpenRepository(settings.Component, "backlog");
-        settings.Component.Find("[data-testid='repo-clone-directory-input']").Input(clone);
-        settings.Component.Find("[data-testid='repo-clone-directory-input']").Change(clone);
+
+        // Found and raised on the renderer's thread: the folder typed is checked
+        // with git in the background, and that answer re-renders the card.
+        await settings.Component.InvokeAsync(() => settings.Component.Find("[data-testid='repo-clone-directory-input']").Input(clone));
+        await settings.Component.InvokeAsync(() => settings.Component.Find("[data-testid='repo-clone-directory-input']").Change(clone));
 
         settings.Component.WaitForAssertion(() =>
         {
@@ -67,6 +70,30 @@ public sealed class SettingsRepositoriesTableTests
                 settings.Component.Find("[data-testid='settings-headline']").TextContent.Trim());
             Assert.Equal(".devbook", settings.Component.Find("[data-testid='repo-table-devbook']").TextContent.Trim());
             Assert.Equal(clone, settings.Component.Find("[data-testid='repo-table-folder']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// The clone folder's status is a git question, asked once per folder off
+    /// the render rather than three times inside every render, and the answer
+    /// lands on the card when it arrives - with the Clone button following it.
+    /// </summary>
+    [Fact]
+    public async Task The_clone_status_arrives_from_the_background_and_wakes_the_clone_button()
+    {
+        using var settings = SettingsRepositoryColourTests.RenderSettings();
+        var target = Path.Combine(settings.Root, "fresh-clone");
+
+        SettingsMenu.OpenRepository(settings.Component, "backlog");
+        await settings.Component.InvokeAsync(() => settings.Component.Find("[data-testid='repo-clone-directory-input']").Input(target));
+        await settings.Component.InvokeAsync(() => settings.Component.Find("[data-testid='repo-clone-directory-input']").Change(target));
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Contains($"Not cloned yet: {target}", settings.Component.Find("[data-testid='repo-clone-status']").TextContent, StringComparison.Ordinal);
+            var clone = settings.Component.Find("[data-testid='repo-clone-button']");
+            Assert.False(clone.HasAttribute("disabled"));
+            Assert.Equal("Clone repository", clone.TextContent.Trim());
         });
     }
 

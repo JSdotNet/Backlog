@@ -1,7 +1,9 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -30,6 +32,10 @@ internal sealed class TaskStoreCalls
     /// state's writes is still on its way to the store.</summary>
     public Action<string>? Before { get; set; }
 
+    /// <summary>While set, every save waits for it before it reaches the store: for a
+    /// test that has to look at the pane while a batch is still being written.</summary>
+    public TaskCompletionSource? HoldSaves { get; set; }
+
     /// <summary>The same use cases, with every call through them counted.</summary>
     public ITaskItems Watch(ITaskItems inner)
     {
@@ -56,6 +62,11 @@ internal sealed class TaskStoreCalls
             Calls.Record();
             Calls.Before?.Invoke(targetMethod.Name);
 
+            if (Calls.HoldSaves is { } hold && targetMethod.Name == nameof(ITaskItems.SaveFromTextAsync))
+            {
+                return HeldAsync(hold.Task, () => (Task<Result<SavedTaskDto>>)targetMethod.Invoke(Inner, args)!);
+            }
+
             try
             {
                 return targetMethod.Invoke(Inner, args);
@@ -65,6 +76,12 @@ internal sealed class TaskStoreCalls
                 ExceptionDispatchInfo.Throw(exception.InnerException);
                 throw;
             }
+        }
+
+        private static async Task<Result<SavedTaskDto>> HeldAsync(Task hold, Func<Task<Result<SavedTaskDto>>> save)
+        {
+            await hold;
+            return await save();
         }
     }
 }
