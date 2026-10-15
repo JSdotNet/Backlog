@@ -1558,22 +1558,27 @@
     }
 
     /// <summary>
-    /// A roadmap item's "Open in Tasks": the Tasks view on screen, filtered to the
-    /// item's plan and scoped to the repositories the roadmap named.
+    /// A roadmap item's "Open in Tasks": the Tasks view on screen, listing every entry
+    /// the roadmap gathers under the item — its linked task and whatever wears its tag —
+    /// across every repository.
     /// <para>
-    /// The view first, then the filter. Switching the view narrows a scope of several to
-    /// its anchor wherever only one fits, and the scope set after it is the one the
-    /// reader asked for — several repositories while the list is on screen. Narrowed
-    /// again after, in case the list is not what the Tasks view shows: the same rule
-    /// every path that changes what is on screen follows. The scope is remembered through
-    /// the state's change, as a press on a chip is.
+    /// The request's repositories are the bar's, and are not used to scope the list: the
+    /// roadmap gathers an item's work wherever it is filed, so the only scope that cannot
+    /// hide some of what the bar counted is every repository
+    /// (<see cref="TasksDesktopState.ShowPlan"/>).
+    /// </para>
+    /// <para>
+    /// The view first, then the filter, then the same narrowing every path that changes
+    /// what is on screen follows — a no-op on the empty scope the plan leaves, kept so
+    /// this path cannot drift from the others. The scope is remembered through the
+    /// state's change, as a press on a chip is.
     /// </para>
     /// </summary>
     private void OpenPlanTasks(RoadmapTasksRequest request)
     {
         ShowView(ShellView.Tasks);
 
-        State.ShowPlan(request.PlanTag, request.RepositoryAliases);
+        State.ShowPlan(request.PlanTag, request.LinkedTaskId);
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
 
