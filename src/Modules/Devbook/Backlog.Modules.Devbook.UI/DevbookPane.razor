@@ -266,19 +266,30 @@
         <div class="devbook-stack__body @(ShowMenu ? string.Empty : "devbook-stack__body--without-menu")">
             @if (ShowMenu)
             {
-                <DevbookMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Devbook")"
-                                       RootFolder="ActiveMenuRoot"
-                                       ShowOpenButton="@CanOpenActiveFolder"
-                                       Nodes="ActiveMenuNodes"
-                                       IsLoading="_menuLoading"
-                                       OpenErrorMessage="@_folderOpenError"
-                                       IsNodeSelected="IsMenuNodeSelected"
-                                       IsNodeExpanded="IsMenuNodeExpanded"
-                                       NodeClass="MenuNodeClass"
-                                       NodeMark="MenuNodeMark"
-                                       IsFolderOpening="IsFolderOpening"
-                                       OnNodeSelected="SelectMenuNode"
-                                       OnOpenFolder="OpenFolderAsync" />
+                @* The tree and, under it, the key to its scenario dots: one column
+                   of the body, so the legend stays below the tree however far the
+                   tree scrolls. The legend only where a dot can be — a repository
+                   whose domain folder holds a scenario page; a Brain's catalog is
+                   always empty, so it never shows one. *@
+                <div class="devbook-stack__menu-column">
+                    <DevbookMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Devbook")"
+                                           RootFolder="ActiveMenuRoot"
+                                           ShowOpenButton="@CanOpenActiveFolder"
+                                           Nodes="ActiveMenuNodes"
+                                           IsLoading="_menuLoading"
+                                           OpenErrorMessage="@_folderOpenError"
+                                           IsNodeSelected="IsMenuNodeSelected"
+                                           IsNodeExpanded="IsMenuNodeExpanded"
+                                           NodeClass="MenuNodeClass"
+                                           NodeMark="MenuNodeMark"
+                                           IsFolderOpening="IsFolderOpening"
+                                           OnNodeSelected="SelectMenuNode"
+                                           OnOpenFolder="OpenFolderAsync" />
+                    @if (ShowsScenarioLegend)
+                    {
+                        <ScenarioStateLegend CssClass="devbook-stack__scenario-legend" TestId="devbook-scenario-legend" />
+                    }
+                </div>
             }
 
             @if (VisibleAreas.Count == 0)
@@ -821,6 +832,11 @@
         _scenarios = catalog;
         _scenarioImages.Catalog = catalog;
     }
+
+    /// <summary>Whether the tree's scenario dots need their key: a repository whose
+    /// catalog holds at least one scenario page. Never in a Brain, whose catalog
+    /// <see cref="LoadScenariosAsync"/> keeps empty.</summary>
+    private bool ShowsScenarioLegend => !BrainMode && _scenarios.Scenarios.Count > 0;
 
     private void OnScenariosChanged()
     {

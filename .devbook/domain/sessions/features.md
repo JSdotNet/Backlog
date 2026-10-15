@@ -629,7 +629,7 @@ about matches no chapter.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Update_stage_passes_the_verify_evidence_through_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliverySurfaceLifecycleTests.A_verify_stage_keeps_its_scenario_evidence_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_scenario_evidence_is_read_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_verify_stage_shows_its_scenario_evidence_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_run_with_no_evidence_draws_no_evidence_list]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Update_stage_passes_the_verify_evidence_through_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliverySurfaceLifecycleTests.A_verify_stage_keeps_its_scenario_evidence_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_scenario_evidence_is_read_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_verify_stage_shows_its_scenario_evidence_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_run_with_no_evidence_draws_no_evidence_list, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_scenarios_are_read_with_their_screenshots, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_links_are_read_as_recorded, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_link_that_is_not_http_https_or_file_is_left_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunStagesTests.A_stage_s_scenarios_list_their_screenshots_in_its_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunStagesTests.A_stage_s_links_are_drawn_in_its_panel, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_verify_stage_shows_its_scenario_evidence_and_screenshots]
 ```
 
 A run's verify stage can say which parts of which scenario pages it ran. It reports
@@ -643,6 +643,23 @@ lists them under "Scenario evidence", one row per part with the part's dot. A pa
 there opens nothing: the run only says what the stage ran. A run is evidence and not
 a task, so it never says proved. A stage that reported no evidence shows nothing for
 it, and neither does a run.
+
+A verify stage also reports the scenarios it exercised, each with its status, its
+notes and the screenshots it took. For a scenario page those are the page's label
+screenshots, and a failed part adds the screenshot taken where it failed, named
+`fail.<part>.png`. The stage's panel lists them under "Screenshots": each scenario
+with its name and status, then each screenshot by its file name. The file's full
+path, as the stage sent it, is its tooltip. A failure screenshot is marked as one in
+words, so its meaning never rests on colour.
+
+A stage's links show in its panel too, under "Links". Personal Validation sends them
+for the application it started and for each review target. Each link shows its label
+and opens its address, and its description is the tooltip. A link without a label
+shows its address instead. Only a web or file address is shown. A run is written by an
+agent, so a link to anything else, such as a script, is left out rather than offered.
+
+The scope and implement stages report no evidence of either kind. Their output is the
+text they wrote into the run folder, and the panel draws nothing extra for them.
 
 ### What a run cost, reported by the session itself
 

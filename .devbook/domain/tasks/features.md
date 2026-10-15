@@ -114,6 +114,7 @@ is.
 type: sub-feature
 status: draft
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
 A task can point at the parts of a scenario page that prove it. A scenario page is
@@ -124,11 +125,16 @@ every part, or at a requirement, which stands for the parts its `Proved by:` lin
 name. A part reached two ways counts once.
 
 The open task lists these parts under its Devbook references as an acceptance
-checklist. Each row shows the part's dot, the part, the page it belongs to and when
-it last ran, and the list says how many of them pass, as "2 of 3 passing". A part
-reads as passed only when its last run passed on the page as it stands now. A part
-that passed before the page was edited is stale, because the run proved a different
-page.
+checklist headed "Acceptance · scenario parts". Each row shows the part's dot and the
+part. A quieter line under it names the page by its stem, the file name that also
+names the run folder, and says when the page last ran, as
+"place-an-order · 14 Oct 2026 09:30". A part that never ran says "Never run" there
+instead. A failed part whose run recorded the step it stopped on adds that step, as
+"· step 2". The list says how many parts pass and whether that proves the task, as
+"2 of 3 passing · not proved" or "3 of 3 passing · proved". A part reads as passed
+only when its last run passed on the page as it stands now. A part that passed before
+the page was edited is stale, because the run proved a different page. A stale part
+shows no step, because the step numbers an older text of the page.
 
 Pressing a part opens its scenario page in the Devbook pane at that part. The part is
 marked as the one asked for and scrolled into view, and it stays marked until the
@@ -147,7 +153,8 @@ It is resolved against the repository the task's Devbook references open in. Any
 other image in a task shows as it always has.
 
 The same answer reaches a coding session. Listing a task's Devbook references gives
-each part with its state and last run, and a count with whether the task is proved.
+each part with its state and last run, the step a failed part stopped on, and a count
+with whether the task is proved.
 
 ## Bulk editing
 
