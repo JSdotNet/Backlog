@@ -267,6 +267,37 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         Assert.Equal(clone, Device("b").Store.Current.Find("JSdotNet/Old")!.CloneDirectory);
     }
 
+    /// <summary>Archiving is a registry write (local ADR 0029), so it travels in the
+    /// registry document with no sync code of its own, and so does the Unarchive that
+    /// follows it — with this device's machine half left where it was.</summary>
+    [Fact]
+    public async Task An_archive_and_its_unarchive_on_one_device_reach_the_other()
+    {
+        var a = Device("a");
+        var b = Device("b");
+
+        Assert.Null(a.Store.SetRepositories(Parse("JSdotNet/Backlog", "JSdotNet/Archify")));
+        await Carry(a, b, GitHubReplicaDocument.Registry);
+        var clone = Path.Combine(_root, "b-clone");
+        Assert.Null(b.Store.SetCloneDirectory("archify", clone));
+
+        a.Clock.Advance(TimeSpan.FromMinutes(5));
+        b.Clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Null(a.Store.SetRepositoryArchived("archify", archived: true));
+        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+
+        Assert.True(b.Store.Current.Find("archify")!.Archived);
+        Assert.True(Device("b").Store.Current.Find("archify")!.Archived);
+        Assert.Equal(clone, Device("b").Store.Current.Find("archify")!.CloneDirectory);
+
+        a.Clock.Advance(TimeSpan.FromMinutes(5));
+        b.Clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Null(a.Store.SetRepositoryArchived("archify", archived: false));
+        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+
+        Assert.False(Device("b").Store.Current.Find("archify")!.Archived);
+    }
+
     // --- Verification 7: a new device sends nothing --------------------------------
 
     [Fact]

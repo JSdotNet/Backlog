@@ -26,6 +26,8 @@
 
     A last sync that failed is shown under the head, in the sync's own sentence,
     until a sync succeeds: a target that stopped syncing says why on its own card.
+    So does a target the host says is paused, in the host's sentence, while its
+    switch keeps what the person set.
     What the host's answer to this card's Sync now was is shown on this card too,
     so two cards syncing at once never read each other's answer.
 *@
@@ -50,6 +52,11 @@
            Role="status"
            CssClass="connected-target__error"
            TestId="@Suffix("error")" />
+
+    <Alert Message="@Options.PausedReason"
+           Role="status"
+           CssClass="connected-target__paused"
+           TestId="@Suffix("paused")" />
 
     <div class="connected-target__options">
         <Toggle Label="Sync this target"

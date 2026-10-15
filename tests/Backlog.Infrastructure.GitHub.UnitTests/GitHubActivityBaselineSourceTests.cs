@@ -119,6 +119,30 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
         Assert.False(baseline.Complete);
     }
 
+    /// <summary>An archived repository is not read from GitHub (local ADR 0029): it is
+    /// left out of the query rather than reported as a shortfall.</summary>
+    [Fact]
+    public async Task An_archived_repository_is_left_out_of_the_query()
+    {
+        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        Assert.Null(settings.SetRepositories(
+        [
+            new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
+            new GitHubRepositoryRef("budget", "innovadis-dev", "Budgetbeheer")
+        ]));
+        Assert.Null(settings.SetRepositoryArchived("budget", archived: true));
+
+        var client = new ScriptedBaselineClient { ["jsdotnet"] = (Merged: 4, Closed: 1) };
+
+        var baseline = await new GitHubActivityBaselineSource(client, new SignedIn("jsdotnet"), settings).GetBaselineAsync(
+            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("budget", "innovadis-dev/Budgetbeheer")],
+            [new ActivityWindow(Now.AddDays(-28), Now)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(["JSdotNet/Backlog"], client.RepositoriesAskedFor("jsdotnet"));
+        Assert.True(baseline.Complete);
+    }
+
     private sealed class SignedIn(string login) : IGitHubIdentityClient
     {
         public Task<string?> GetLoginAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(login);

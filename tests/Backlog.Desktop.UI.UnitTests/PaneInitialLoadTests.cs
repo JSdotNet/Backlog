@@ -169,6 +169,9 @@ public sealed class PaneInitialLoadTests : IDisposable
         public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
             inner.RenameRepositoryAsync(oldId, newId, cancellationToken);
 
+        public Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default) =>
+            inner.RefileRepositoryTasksAsync(repositoryId, moveToId, drop, cancellationToken);
+
         public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
             string rawText,
             string? defaultRepo = null,

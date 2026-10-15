@@ -119,6 +119,36 @@ public sealed class GitHubActivitySourceTests : IDisposable
         Assert.True(report.Complete);
     }
 
+    /// <summary>An archived repository is not read from GitHub (local ADR 0029), and
+    /// leaving it out is no shortfall: the report stays complete.</summary>
+    [Fact]
+    public async Task An_archived_repository_is_not_read_and_the_report_stays_complete()
+    {
+        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        Assert.Null(settings.SetRepositories(
+        [
+            new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
+            new GitHubRepositoryRef("budget", "innovadis-dev", "Budgetbeheer")
+        ]));
+        Assert.Null(settings.SetRepositoryArchived("budget", archived: true));
+
+        var client = new ScriptedActivityClient
+        {
+            ["JSdotNet/Backlog"] = new GitHubRepositoryActivity("JSdotNet/Backlog", [MergedPullRequest(7)], []),
+            ["innovadis-dev/Budgetbeheer"] = new GitHubException("Not Found")
+        };
+
+        var report = await new GitHubActivitySource(client, new SignedIn("jsdotnet"), settings).GetActivityAsync(
+            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("budget", "innovadis-dev/Budgetbeheer")],
+            From,
+            To,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(7, Assert.Single(report.PullRequests).Number);
+        Assert.True(report.Complete);
+        Assert.False(client.WasAsked("innovadis-dev/Budgetbeheer"));
+    }
+
     private static GitHubReviewedPullRequest MergedPullRequest(int number) => new(
         number,
         $"https://github.com/JSdotNet/Backlog/pull/{number}",
@@ -157,6 +187,9 @@ public sealed class GitHubActivitySourceTests : IDisposable
 
         /// <summary>The author the last call for one repository was filtered to.</summary>
         public string AuthorAskedFor(string fullName) => _authors[fullName];
+
+        /// <summary>Whether any call was made for one repository.</summary>
+        public bool WasAsked(string fullName) => _authors.ContainsKey(fullName);
 
         public Task<GitHubActivityAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new GitHubActivityAvailability(true, string.Empty));

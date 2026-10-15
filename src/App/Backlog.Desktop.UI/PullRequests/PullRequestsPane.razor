@@ -675,7 +675,7 @@
         {
             // Both in flight together: GitHub and the session folders are two
             // readers that need nothing from each other until both are in.
-            var listing = gitHub.ListOpenPullRequestsAsync(gitHub.Repositories);
+            var listing = gitHub.ListOpenPullRequestsAsync(gitHub.ActiveRepositories);
             var pinned = ReadPinnedAsync();
             var sessions = ReadSessionsAsync();
 
@@ -708,7 +708,7 @@
 
         try
         {
-            var merged = gitHub.ListMergedPullRequestsAsync(gitHub.Repositories);
+            var merged = gitHub.ListMergedPullRequestsAsync(gitHub.ActiveRepositories);
             var sessions = ReadSessionsAsync();
 
             var listing = await merged;

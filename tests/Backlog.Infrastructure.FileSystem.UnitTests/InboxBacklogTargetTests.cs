@@ -911,6 +911,9 @@ public sealed class InboxBacklogTargetTests
         public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success(0));
 
+        public Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result.Success(0));
+
         private static TaskItemDto Entry(Guid id, string title) =>
             new(id, title, string.Empty, EntryType.Task, Priority.Medium, EntryStatus.Draft, null, [], 0, 0, 0, []);
     }

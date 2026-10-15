@@ -62,7 +62,7 @@ public sealed class Arc42DevbookStore : IDisposable
         var rootPath = location.RootPath;
         var catalog = await Task.Run(() => Arc42DevbookReader.LoadFolder(folderPath, rootPath, _documents)).ConfigureAwait(false);
 
-        return catalog with { CanEdit = location.CanEdit };
+        return catalog with { CanEdit = location.CanEdit, RepositoryArchived = location.RepositoryArchived };
     }
 
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
@@ -325,7 +325,11 @@ public static class Arc42DevbookReader
 /// <param name="CanEdit">Whether these documents may be written to. False for a
 /// branch snapshot; the panel then leaves out the status selector and renders
 /// the chapter read-only.</param>
-public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IReadOnlyList<DevbookDocument> Documents, bool CanEdit = true)
+/// <param name="RepositoryArchived">Whether the repository these documents
+/// belong to is archived (local ADR 0029 §4). The panel then takes no new
+/// remark, which <paramref name="CanEdit"/> alone does not decide: a branch
+/// snapshot of an active repository still takes remarks.</param>
+public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IReadOnlyList<DevbookDocument> Documents, bool CanEdit = true, bool RepositoryArchived = false)
 {
     public static Arc42DevbookCatalog Missing(string rootDirectory) => new(rootDirectory, false, []);
 

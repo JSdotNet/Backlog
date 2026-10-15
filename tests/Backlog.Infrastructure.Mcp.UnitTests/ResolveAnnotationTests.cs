@@ -122,6 +122,26 @@ public sealed class ResolveAnnotationTests
     }
 
     [Fact]
+    public void A_note_on_an_archived_repository_is_refused()
+    {
+        // Local ADR 0029 §4: no annotation fence is written into an archived
+        // devbook, so no note there can have been answered the way this tool's
+        // contract requires, and resolving one would lose the remark.
+        var note = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 2, body: "Does this still hold?");
+        var store = new FakeDevbookAnnotationStore([note]);
+        var tools = new DevbookTools(
+            new FakeDevbookFolderSource(Path.GetTempPath(), new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+            store,
+            new FakeRepositoryDirectory([Backlog with { IsArchived = true }]));
+
+        var failure = Assert.Throws<McpException>(() => tools.ResolveAnnotationFor("JSdotNet/Backlog", note.Id));
+
+        Assert.Contains("repository.archived", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("archived", failure.Message.Split(':', 2)[1], StringComparison.Ordinal);
+        Assert.Empty(store.Resolved);
+    }
+
+    [Fact]
     public void A_repository_the_directory_does_not_know_is_refused()
     {
         var note = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 2);

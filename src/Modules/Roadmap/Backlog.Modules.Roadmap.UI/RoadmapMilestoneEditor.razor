@@ -117,6 +117,11 @@
     [Parameter]
     public IReadOnlyList<PlannedRepository> Repositories { get; set; } = [];
 
+    /// <summary>Whether this device shows archived repositories: only then is an
+    /// archived one offered to put a date on (local ADR 0029, §3).</summary>
+    [Parameter]
+    public bool ShowArchived { get; set; }
+
     [Parameter]
     public IReadOnlyList<SelectorOption> DependencyOptions { get; set; } = [];
 
@@ -143,7 +148,7 @@
     ];
 
     private IReadOnlyList<SelectorOption> RepositoryOptions =>
-        [.. Repositories.Select(repository => new SelectorOption(repository.Alias, repository.Title))];
+        PlannedRepositoryOptions.For(Repositories, ShowArchived, Milestone?.RepositoryAliases ?? []);
 
     protected override void OnParametersSet()
     {

@@ -45,6 +45,7 @@
 @inject IRoadmapWorkChanges WorkChanges
 @inject IRoadmapActualHours ActualHours
 @inject IRoadmapViewPreferences ViewPreferences
+@inject IServiceProvider Services
 @inject ILogger<RoadmapBand> Log
 
 <section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
@@ -87,6 +88,7 @@
                                  Links="@_view.Links"
                                  Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                                  Graduated="true"
+                                 WeekStart="RoadmapPlanView.WeekStart"
                                  PlannedHoursOn="@PlannedOn"
                                  IsOverridden="@IsOverridden"
                                  ActualHoursByDate="@_actual"
@@ -157,6 +159,7 @@
                        CanUseForecast="@UseForecastOffered"
                        CanOpenTasks="@OnOpenTasks.HasDelegate"
                        Repositories="@Configured()"
+                       ShowArchived="@(_showArchived?.Shown ?? false)"
                        DependencyOptions="@DependencyOptions()"
                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                        OnSave="SaveAsync"
@@ -171,6 +174,7 @@
                             Milestone="@_editedDate"
                             PlacedOn="@_placedOn"
                             Repositories="@Configured()"
+                            ShowArchived="@(_showArchived?.Shown ?? false)"
                             DependencyOptions="@DependencyOptions()"
                             Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                             OnSave="SaveDateAsync"
@@ -219,6 +223,10 @@
     /// <summary>The Hours switch on the toolbar (local ADR 0019, §4): whether the heads
     /// carry their hours line. Read from this device's preferences when the band opens.</summary>
     private bool _hoursShown = true;
+
+    /// <summary>Show archived on this device, or null where the host composes none. The
+    /// port, not its answer: <see cref="Load"/> asks it every time.</summary>
+    private global::Backlog.SharedKernel.IShowArchivedRepositories? _showArchived;
 
     /// <summary>Whether the Days off dialog is open.</summary>
     private bool _daysOffOpen;
@@ -368,6 +376,14 @@
         Paces.Changed += OnPaceSettingsChanged;
         _hoursShown = ViewPreferences.HoursShown;
 
+        // Show archived (local ADR 0029, §3), the device's choice the header's switch
+        // makes. Resolved optionally: a host that composes none draws archived bands
+        // as with the switch off. Read from the port on every load, never held here, so
+        // a remount reads what was left.
+        _showArchived = Services.GetService(typeof(global::Backlog.SharedKernel.IShowArchivedRepositories))
+            as global::Backlog.SharedKernel.IShowArchivedRepositories;
+        if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
+
         // Opening the roadmap is one of the two moments the keep-up projection stores
         // what it moved; the plan is read after it, so the bars are the stored windows.
         await KeepUpWithWorkAsync();
@@ -409,7 +425,7 @@
         if (!_loaded || !_view.HasAnythingToDraw || !_hoursShown) return;
 
         var today = Today ?? DateOnly.FromDateTime(DateTime.Today);
-        var range = (RoadmapWindow.GraduatedWeeksFrom(today, DayOfWeek.Monday), today);
+        var range = (RoadmapWindow.GraduatedWeeksFrom(today, RoadmapPlanView.WeekStart), today);
         if (_actualAskedFor == range) return;
 
         _actualAskedFor = range;
@@ -484,6 +500,7 @@
         Planning.Changed -= OnPlanChanged;
         WorkChanges.Changed -= OnWorkChanged;
         Paces.Changed -= OnPaceSettingsChanged;
+        if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
     }
 
     private async Task Load()
@@ -513,7 +530,9 @@
             Today ?? DateOnly.FromDateTime(DateTime.Today),
             paces);
 
-        _view = RoadmapPlanView.From(_plan, configured, rollups, forecast);
+        // An archived repository's band holds only its finished work in the drawn window
+        // unless show archived is on (local ADR 0029; RoadmapPlanView.WithoutHiddenArchivedWork).
+        _view = RoadmapPlanView.From(_plan, configured, rollups, forecast, _showArchived?.Shown ?? false);
 
         _imported = await ImportedPlans.ListAsync();
         _unplanned = Unplanned(_imported, _plan);
@@ -654,7 +673,8 @@
                 new PlannedRepository(
                     repository.Alias,
                     repository.FullName,
-                    colours.TryGetValue(repository.Alias, out var colour) ? colour : null))
+                    colours.TryGetValue(repository.Alias, out var colour) ? colour : null,
+                    repository.Archived))
         ];
     }
 
@@ -954,7 +974,7 @@
         // the pin then draws the part that ends latest to it.
         var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
         var rescheduled = bar is { Locked: true, EndResizable: true }
-            ? await Planning.PinItemEndAsync(itemId.Value, RoadmapPlanView.PinnedEndFor(_view.Bars, bar, change))
+            ? await Planning.PinItemEndAsync(itemId.Value, RoadmapPlanView.PinnedEndFor(_view.MeasuredBars, bar, change))
             : await RescheduleAsync(change, itemId.Value);
 
         // Reload either way. On success the plan is the truth; on failure the
@@ -980,8 +1000,8 @@
         var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
         if (bar is { Locked: true, EndResizable: true })
         {
-            var drawnStart = RoadmapPlanView.ItemWindowFor(_view.Bars, bar, change with { Start = bar.Start }).Start;
-            return (drawnStart, RoadmapPlanView.PinnedEndFor(_view.Bars, bar, change));
+            var drawnStart = RoadmapPlanView.ItemWindowFor(_view.MeasuredBars, bar, change with { Start = bar.Start }).Start;
+            return (drawnStart, RoadmapPlanView.PinnedEndFor(_view.MeasuredBars, bar, change));
         }
 
         return ItemWindowFor(change, itemId.Value);
@@ -1063,7 +1083,7 @@
 
         return bar is null || RoadmapPlanView.NodeIdOf(bar.Id) != itemId
             ? (change.Start, change.End)
-            : RoadmapPlanView.ItemWindowFor(_view.Bars, bar, change);
+            : RoadmapPlanView.ItemWindowFor(_view.MeasuredBars, bar, change);
     }
 
     /// <summary>
@@ -1101,6 +1121,10 @@
         await Load();
         StateHasChanged();
     });
+
+    /// <summary>Show archived moved in the header: an archived band is drawn whole, or
+    /// back down to its finished work, at once.</summary>
+    private void OnShowArchivedChanged() => OnRepositoriesChanged();
 
     /// <summary>
     /// The plan changed somewhere else — Import in the Tasks pane, an MCP tool — while

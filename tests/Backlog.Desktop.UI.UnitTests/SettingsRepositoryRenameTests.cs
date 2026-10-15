@@ -69,7 +69,8 @@ public sealed class SettingsRepositoryRenameTests
     }
 
     /// <summary>The Rename control sits before Remove: the one that keeps
-    /// everything, then the one that keeps nothing.</summary>
+    /// everything, then the one that keeps nothing — with Archive, which keeps
+    /// everything and stops reading it, between them (local ADR 0029).</summary>
     [Fact]
     public void Rename_sits_before_Remove_on_the_card()
     {
@@ -78,7 +79,7 @@ public sealed class SettingsRepositoryRenameTests
 
         var buttons = settings.Component.FindAll(".repo-card__actions button");
 
-        Assert.Equal(["Rename", "Remove repository"], buttons.Select(button => button.TextContent.Trim()));
+        Assert.Equal(["Rename", "Archive", "Remove repository"], buttons.Select(button => button.TextContent.Trim()));
     }
 
     /// <summary>
@@ -314,6 +315,9 @@ public sealed class SettingsRepositoryRenameTests
                 ? Result.Failure<int>(Error.Unexpected("tasks.rename", "Entries could not follow the rename."))
                 : Result.Success(moved));
         }
+
+        public Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TaskItemDto>>([]);

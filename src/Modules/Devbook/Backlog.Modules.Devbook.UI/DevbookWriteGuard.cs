@@ -31,6 +31,12 @@ internal static class DevbookWriteGuard
         if (!location.Available) throw new InvalidOperationException(location.Message ?? $"{areaLabel} is unavailable.");
         if (location.FullPath is null) throw new InvalidOperationException($"{areaLabel} folder path is unavailable.");
 
+        if (location.RepositoryArchived)
+        {
+            throw new InvalidOperationException(
+                $"{areaLabel} is read-only because its repository is archived. Unarchive it in Settings to make changes.");
+        }
+
         if (!location.CanEdit)
         {
             throw new InvalidOperationException(

@@ -812,6 +812,25 @@ h1, h2, h3 {
     text-underline-offset: 0.2em;
 }
 
+/*
+   An archived repository, offered only while show archived is on (local ADR 0029).
+   A dashed edge rather than a colour, so it reads in every theme and beside any
+   identity rule, and the word "(archived)" after the alias for whoever cannot see
+   the edge. The word drops to the secondary text colour until the chip is pressed.
+*/
+.chip--scope.chip--archived {
+    border-style: dashed;
+}
+
+.app-header__scope-archived {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.chip--scope.chip--active .app-header__scope-archived {
+    color: inherit;
+}
+
 /* Room for the repository identity rule, added to the chip's own leading padding so
    a coloured chip is exactly as wide as an uncoloured one beside it. The mark itself
    is the shared .repo-mark utility in components.css. */
@@ -3082,6 +3101,14 @@ h1, h2, h3 {
 
 .repo-table__alias {
     font-weight: 500;
+}
+
+/* Archived, or GitHub's hint, after the alias: the row says it without being
+   opened (local ADR 0029). The badge's own tone carries the meaning; this only
+   spaces it off the name. */
+.repo-table__flag {
+    margin-left: var(--spacing-xs);
+    font-weight: normal;
 }
 
 /* The repository's band colour, as a 10px square before its alias. The hue comes
