@@ -337,3 +337,52 @@ The system SHALL show for each week in the dashboard's window the sum of its day
 - **Given** in week 41 the person worked from 16:00 to 19:00 on Thursday 8 October and from 10:00 to 12:00 on Friday 9 October, which they blocked, and worked no other stretch
 - **When** the dashboard shows week 41 in the Hours worked part
 - **Then** it shows 1.5 hours inside office hours and 3.5 hours outside, against 34 hours planned
+
+## Asking AI about a part
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/productivity/features.md#asking-ai-about-a-part]
+```
+
+> The requirements of a dashboard part's Ask AI control. The feature chapter says
+> what the assistant reads; this says what the control begins and when it is shown.
+
+### Requirement: A part's Ask AI begins a question naming the part
+
+```meta
+type: requirement
+status: draft
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_clears_an_earlier_answer, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_ends_an_ask_in_flight, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests]
+```
+
+The system SHALL open the assistant on the Dashboard with the question begun `About the "<part>" chart: ` when the person presses a dashboard part's Ask AI.
+
+#### Scenario: Asking about the Throughput part
+
+- **Given** the assistant is switched on and the dashboard is open
+- **When** the person presses Ask AI on the Throughput part
+- **Then** the assistant opens on the Dashboard with the question `About the "Throughput" chart: ` for the person to finish
+
+#### Scenario: An answer from an earlier question is on screen
+
+- **Given** the assistant shows an answer to an earlier question
+- **When** the person presses Ask AI on the Throughput part
+- **Then** the earlier answer is cleared and the question begins `About the "Throughput" chart: `
+
+### Requirement: No part offers Ask AI while the assistant is off
+
+```meta
+type: requirement
+status: draft
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.No_dashboard_part_offers_ask_ai_while_the_assistant_is_off, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests.Without_a_handler_cascaded_the_frame_draws_no_ask_ai]
+```
+
+The system SHALL show no Ask AI control on any dashboard part while the AI assistant is switched off.
+
+#### Scenario: The assistant is switched off
+
+- **Given** the AI assistant is switched off
+- **When** the person opens the dashboard
+- **Then** no part shows an Ask AI control
