@@ -2943,7 +2943,7 @@ public class DashboardPaneTests
         var first = context.Render<DashboardPane>();
         first.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        productivity.Scopes.Clear();
+        productivity.ClearScopes();
 
         var second = context.Render<DashboardPane>();
         _ = second;
@@ -3486,15 +3486,35 @@ public class DashboardPaneTests
 
     private sealed class RecordingProductivityInsights : IProductivityInsights
     {
-        public List<DashboardScope> Scopes { get; } = [];
+        private readonly List<DashboardScope> _scopes = [];
 
-        public int Invalidations { get; private set; }
+        private int _invalidations;
+
+        /// <summary>A snapshot, taken under the lock: the pane loads each region on
+        /// its own, so a load can still be recording while a test reads the calls,
+        /// and enumerating the live list then throws "Collection was modified".</summary>
+        public IReadOnlyList<DashboardScope> Scopes
+        {
+            get { lock (_scopes) return [.. _scopes]; }
+        }
+
+        public int Invalidations => Volatile.Read(ref _invalidations);
+
+        private void Record(DashboardScope scope)
+        {
+            lock (_scopes) _scopes.Add(scope);
+        }
+
+        public void ClearScopes()
+        {
+            lock (_scopes) _scopes.Clear();
+        }
 
         public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ProductivityHeadline>.Unavailable("Not configured."));
         }
 
@@ -3502,7 +3522,7 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable("Not configured."));
         }
 
@@ -3510,11 +3530,11 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ReworkInsight>.Unavailable("Not configured."));
         }
 
-        public void Invalidate(DashboardScope scope) => Invalidations++;
+        public void Invalidate(DashboardScope scope) => Interlocked.Increment(ref _invalidations);
     }
 
     /// <summary>
