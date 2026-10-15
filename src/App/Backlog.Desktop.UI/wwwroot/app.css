@@ -2939,6 +2939,24 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
+/* At phone width the three tiles stacked into about 700px of boxes before the
+   first switch. Three short figures still read side by side, so they stay one
+   row, tighter. Asked of the settings frame's width, as its own phone rules are. */
+@container settings-frame (width < 50.25rem) {
+    .feature-board__tiles {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--spacing-xs);
+    }
+
+    .feature-board__tiles .metric-tile {
+        padding: var(--spacing-sm);
+    }
+
+    .feature-board__tiles .metric-tile__value {
+        font-size: var(--font-size-xl);
+    }
+}
+
 /* The always-available tile holds names rather than a count, and a list of
    names has to wrap where a number never does. */
 .feature-board__names .metric-tile__value {
@@ -2948,6 +2966,8 @@ h1, h2, h3 {
 /* The filter's chips are pills, and the chosen one is filled. Three classes so
    the fill outranks .btn--toggle's own pressed and hover rules. */
 .radio-group.feature-filter .feature-filter__option {
+    min-height: 44px;
+    padding-inline: var(--spacing-md);
     border-radius: var(--border-radius-full);
 }
 
@@ -2970,7 +2990,32 @@ h1, h2, h3 {
    neither could be read at. */
 .feature-flags {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: 0;
+}
+
+/* Inside a section card the rows are the card's own lines, as the design
+   canvas's Features board draws them: flat, a divider between, no box of their
+   own. A bordered box per row put a fourth frame inside the card. The shared
+   .feature-flag keeps its box for the hosts that list flags on a bare page. */
+.feature-flags > .feature-flag {
+    padding: var(--spacing-md) 0;
+    border: 0;
+    border-top: var(--border-width) solid color-mix(in srgb, var(--color-border) 60%, transparent);
+    border-radius: 0;
+    background: none;
+}
+
+/* A locked row is told by its "Always available" mark, not by a tint, so its
+   name reads as every other row's name does. */
+.feature-flags > .feature-flag--locked {
+    color: var(--color-text-primary);
+}
+
+.feature-flags .feature-flag__status {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 400;
 }
 
 /* The note the usage-metrics flag brings with it sits directly under that
@@ -3117,6 +3162,17 @@ h1, h2, h3 {
     border-radius: var(--border-radius-none);
     background: var(--repo-mark-color, var(--color-border));
     vertical-align: baseline;
+}
+
+/* A clone path cut to the column (see the folder cell's note in the page): a
+   block with a max width is what a table cell's content respects, where a max
+   width on the cell itself is not. */
+.repo-table__folder {
+    display: block;
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .repo-table__edit,
