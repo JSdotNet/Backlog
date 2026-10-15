@@ -121,7 +121,7 @@ status: adopted
 type: package
 version: "10.0.11"
 depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-runtime"]
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/domain/tasks/features.md#pairing-a-device", ".devbook/domain/tasks/domain.md#registration-credential"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/domain/sync/features.md#pairing-a-device", ".devbook/domain/sync/domain.md#registration-credential"]
 ```
 
 The .NET wrapper over Windows DPAPI.
