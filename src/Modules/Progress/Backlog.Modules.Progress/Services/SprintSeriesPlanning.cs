@@ -19,6 +19,11 @@ namespace Backlog.Modules.Progress.Services;
 /// <see cref="ProgressFeatures.Progress"/> switch: while it is off every call answers
 /// <see cref="ProgressErrors.Off"/> and nothing is read or written. A host that composed
 /// no feature settings has Progress off, as it ships.
+/// <para>
+/// <see cref="Changed"/> is held on <see cref="SeriesSaved"/>, the singleton every save
+/// raises — a person's change made through any scope, and a copy the sync took from the
+/// replica — so a screen holding this scoped port hears a series saved elsewhere.
+/// </para>
 /// </summary>
 public sealed class SprintSeriesPlanning(
     GetSeriesQueryHandler series,
@@ -29,9 +34,22 @@ public sealed class SprintSeriesPlanning(
     MarkSprintItemCommandHandler mark,
     CloseSprintCommandHandler close,
     ReadSprintProgressQueryHandler progress,
-    IAppFeatureSettings? features = null)
+    IAppFeatureSettings? features = null,
+    SeriesSaved? saved = null)
     : ISprintSeriesPlanning, ISprintProgress
 {
+    public event Action? Changed
+    {
+        add
+        {
+            if (saved is not null) saved.Changed += value;
+        }
+        remove
+        {
+            if (saved is not null) saved.Changed -= value;
+        }
+    }
+
     private bool IsOn => features?.IsEnabled(ProgressFeatures.Progress) ?? false;
 
     public async Task<Result<IReadOnlyList<SprintSeriesDto>>> ListSeriesAsync(CancellationToken cancellationToken = default) =>

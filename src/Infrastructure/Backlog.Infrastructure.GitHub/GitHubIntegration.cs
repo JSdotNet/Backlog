@@ -329,6 +329,26 @@ public sealed partial class GitHubIntegration(
             [.. answers.Where(answer => answer.Failure is not null).Select(answer => answer.Failure!)]);
     }
 
+    /// <summary>
+    /// <see cref="ListLinkedPullRequestsAsync"/> through the one cache every reader of
+    /// linked pull requests shares (<see cref="GitHubLinkedPullRequestCache"/>): a merged
+    /// one and a number GitHub answered without are kept for good, any other answer while
+    /// it is younger than <paramref name="freshFor"/>, and a read of it still out that
+    /// started inside that time is waited for rather than sent again. The shell's In
+    /// progress reader and Progress's sprint reader both read through it, so one refresh
+    /// asks GitHub about a pull request once. A read that throws is said as a failure of
+    /// <c>GitHub</c>, not thrown.
+    /// </summary>
+    public Task<GitHubLinkedPullRequestListing> ReadLinkedPullRequestsAsync(
+        IEnumerable<GitHubPullRequestReference> links,
+        TimeSpan freshFor,
+        CancellationToken cancellationToken = default) =>
+        LazyInitializer
+            .EnsureInitialized(ref _linkedCache, () => new GitHubLinkedPullRequestCache(ListLinkedPullRequestsAsync, time))
+            .ReadAsync(links, freshFor, cancellationToken);
+
+    private GitHubLinkedPullRequestCache? _linkedCache;
+
     private async Task<(IReadOnlyList<GitHubLinkedPullRequest> PullRequests, GitHubRepositoryFailure? Failure)> ReadLinkedAsync(
         string repositoryFullName,
         IReadOnlyCollection<int> numbers,

@@ -107,11 +107,14 @@ sprint, or linking a plan, changes nothing on the task.
 type: sub-feature
 status: draft
 related: [.devbook/domain/progress/domain.md#sprint-item]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.A_removed_task_no_plan_brings_in_comes_back_without_its_old_marks, unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.A_removed_task_a_linked_plan_still_brings_in_keeps_its_marks]
 ```
 
 Add one task to the open sprint by its id. Any task in the series' repositories
 can be added, whatever its status. Removing it again takes it out of the sprint
-and leaves the task as it was.
+and leaves the task as it was. What the sprint recorded on it — its goal mark,
+note and open question — goes with it, unless a linked plan still brings the
+task in ([Sprint Item](domain.md#sprint-item)).
 
 ### Linking a plan
 
@@ -252,7 +255,8 @@ The sprint side opens on the open sprint and steps to the previous and next one.
 shows:
 
 - the series' name, how many repositories it has and the sprint's dates;
-- a filter to one of the series' repositories, and grouping by plan or none;
+- a filter to one of the series' repositories, drawn only when the series has more
+  than one, and grouping by plan or none;
 - the goal card: the goal in words, the goal tasks done of their total with a bar by
   status, the goal rules that counted them, then all the sprint's work done of its
   total, how much is outside the goal and how much was added after the start;
@@ -420,6 +424,7 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
 related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md, .devbook/domain/progress/domain.md#sprint-series, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/domain/progress/requirements.md#syncing-sprints-between-devices]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesReplicationTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.SprintSyncRefreshTests]
 ```
 
 Keep every sprint series the same on every desktop the person has paired. A series
@@ -446,6 +451,17 @@ nobody.
 Series travel whether the [Progress area](context.md#progress-area) is on or off,
 because the series recorded while it is off are kept. The phone keeps no sprints and
 lists none.
+
+A series that arrives from another desktop **shows at once** on every screen that draws
+it — [the Sprints settings page](#the-sprints-settings-page),
+[the sprint view](#the-sprint-view), a task's
+[Sprint section](#planning-from-a-task) and the weekly brief's
+[Sprint block](#sprints-in-the-briefs) — without the person moving away or pressing
+Refresh, as a task pulled by sync shows in the Tasks pane. What the person has open
+keeps what they put in it: the Close dialog keeps its choices and next goal and lists
+any item that turned unfinished, a note being written keeps its text, and a sprint
+name held back for want of `{n}` stays in its field. The Close dialog closes only when
+the sprint it would close was closed on the other desktop.
 
 ## Sprints in the briefs
 
