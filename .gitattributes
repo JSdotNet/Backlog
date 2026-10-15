@@ -24,7 +24,7 @@ tests/**/Fixtures/** binary
 
 # GitHub's language bar (Linguist) counts bytes per language. The vendored
 # Archify examples are sample input, not this repository's code. The rendered
-# Archify pages used to be marked generated here too; local ADR 0029 stopped
+# Archify pages used to be marked generated here too; local ADR 0033 stopped
 # committing them, and .gitignore keeps them out.
 tools/archify/examples/** linguist-documentation
 

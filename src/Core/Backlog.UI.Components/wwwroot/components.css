@@ -1337,6 +1337,7 @@ button.badge:hover {
 }
 
 .connected-target__error,
+.connected-target__paused,
 .connected-target__sync-message {
     margin: var(--spacing-xs) 0 0;
 }
@@ -14253,8 +14254,43 @@ select.field__input {
     overflow: hidden;
 }
 
-.roadmap-timeline__group-name + .roadmap-timeline__lane-name::before {
+.roadmap-timeline__group-name + .roadmap-timeline__lane-name::before,
+.roadmap-timeline__group-tag + .roadmap-timeline__lane-name::before {
     content: "· ";
+}
+
+/*
+  An archived band (RoadmapGroup.Archived): history, kept rather than current. The
+  component already draws it neutral, whatever colour it was handed; here its edge
+  is dashed, as an archived scope chip's is, its name steps back to secondary ink,
+  and the word Archived sits beside it — so the grey is never the only thing saying
+  it. The word is the library's archived status badge; the tag rule below only
+  places it in the narrow sidebar, giving up the status column's fixed width.
+*/
+.roadmap-timeline__group--archived {
+    border-left-style: dashed;
+}
+
+.roadmap-timeline__group--archived .roadmap-timeline__group-name {
+    color: var(--color-text-secondary);
+}
+
+.roadmap-timeline__group-tag {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    margin-left: 0;
+    padding: 0 var(--spacing-2xs);
+    /* Drawn before the name, not after it. A host may keep room at the end of the
+       name for a mark of its own in the band's corner (the roadmap's pace hint);
+       a tag after the name was pushed past that room, under the mark. In front,
+       it leaves the name's end and the room after it as they were. */
+    order: -1;
+    /* The smallest type and no tracking, so the tag takes as little of the narrow
+       sidebar from the band's name as it can while still saying the word. */
+    font-size: var(--font-size-2xs);
+    letter-spacing: 0;
 }
 
 /*
@@ -14283,6 +14319,16 @@ select.field__input {
 
 .roadmap-timeline__group--collapsible .roadmap-timeline__group-name {
     padding-left: 1.125rem;
+}
+
+/* An archived band's tag is drawn before its name, so the room for the toggle
+   moves from the name to the tag. */
+.roadmap-timeline__group--collapsible .roadmap-timeline__group-tag {
+    margin-left: 1.125rem;
+}
+
+.roadmap-timeline__group--collapsible .roadmap-timeline__group-name:has(+ .roadmap-timeline__group-tag) {
+    padding-left: var(--spacing-2xs);
 }
 
 .roadmap-timeline__group-toggle {

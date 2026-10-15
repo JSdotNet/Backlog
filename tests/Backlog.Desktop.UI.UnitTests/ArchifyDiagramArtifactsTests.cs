@@ -71,7 +71,7 @@ public sealed class ArchifyDiagramArtifactsTests
     }
 
     /// <summary>
-    /// The case local ADR 0029 is about. The clone carries the specification and
+    /// The case local ADR 0033 is about. The clone carries the specification and
     /// the index entry and no rendered HTML, because renders are no longer
     /// committed. The synchronous lookup says a picture can be drawn; the
     /// asynchronous one draws it into the app's devbook cache; and from then on the
@@ -1019,7 +1019,7 @@ file sealed class ArchifyWorkspace : IDisposable
     /// <summary>The state a clone carries for one rendered diagram: a
     /// specification and an index entry filed under the hash of the fence it was
     /// authored from and naming the chapter it belongs to. No HTML — renders are
-    /// not committed (local ADR 0029), so the picture is the renderer's to draw.
+    /// not committed (local ADR 0033), so the picture is the renderer's to draw.
     /// The stem is built the way the adapter builds it, so the fixture cannot
     /// disagree with production about what a specification beside a chapter is
     /// called.</summary>

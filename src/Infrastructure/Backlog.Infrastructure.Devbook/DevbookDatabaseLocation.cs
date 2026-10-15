@@ -52,7 +52,7 @@ public static class DevbookDatabaseLocation
 
     /// <summary>The folder beside <see cref="DatabasesFolderName"/> that holds the
     /// Archify artifacts the app draws on demand from committed specifications
-    /// (local ADR 0029). Underscore-prefixed for the same reason: no snapshot
+    /// (local ADR 0033). Underscore-prefixed for the same reason: no snapshot
     /// folder can be called that.</summary>
     public const string ArchifyRendersFolderName = "_archify-renders";
 

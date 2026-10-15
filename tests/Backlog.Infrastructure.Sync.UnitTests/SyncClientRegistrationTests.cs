@@ -116,6 +116,41 @@ public class SyncClientRegistrationTests
     }
 
     /// <summary>
+    /// The My Day preferences port needs no registration of its own in the sync client
+    /// (local ADR 0032, §3): a host that registers it has the merge the container builds
+    /// hand it the document, and the session and the loop compose with it as well.
+    /// </summary>
+    [Fact]
+    public async Task A_host_that_keeps_my_day_preferences_has_the_merge_hand_them_over()
+    {
+        var myDay = new RecordingMyDayPreferencesReplication();
+        var services = new ServiceCollection();
+        services.AddSingleton<IDeviceCredentialStore>(new InMemoryDeviceCredentialStore());
+        services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
+        services.AddSingleton<ITaskRepository>(new InMemoryTaskStore());
+        services.AddSingleton<ITaskSyncStateStore>(new InMemoryTaskSyncStateStore());
+        services.AddSingleton<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferencesReplication>(myDay);
+        services.AddSyncClient(SyncAddress);
+        services.AddTaskSyncClient(SyncAddress);
+
+        using var provider = Build(services);
+
+        var sent = new Backlog.Modules.Tasks.Abstractions.DataTransferObjects.MyDayPreferencesCopyDto(
+            """{"clearsOvernight":false}""", new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [TaskChanges.Record(MyDayReplicaDocuments.ToChange(sent), Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        Assert.Equal(sent, Assert.Single(myDay.Offered));
+        Assert.NotNull(provider.GetRequiredService<TaskSyncSession>());
+
+        using var worker = provider.GetRequiredService<TaskSyncWorker>();
+        Assert.True(myDay.HasListeners);
+    }
+
+    /// <summary>
     /// Opting in without choosing a sync-state store leaves both the session and
     /// the loop registered and unconstructable — the case Settings'
     /// <c>ResolveTaskSync</c> guard exists for. It is pinned here so that guard

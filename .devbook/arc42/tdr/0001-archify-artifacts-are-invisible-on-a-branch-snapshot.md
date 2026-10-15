@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-09-16
-related: [".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0029-archify-renders-are-generated-on-demand-not-committed.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
+related: [".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0033-archify-renders-are-generated-on-demand-not-committed.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
 ```
 
 ## Status
@@ -14,8 +14,8 @@ a workspace reads a repository it does not build (see *Severity*).
 TDR lifecycle: identified → planned → in-progress → resolved.
 
 > **Decision recorded 2026-10-15: renders are generated on demand (local ADR
-> 0029).** Issue #752 asked for the choice between drawing the renders on demand
-> and keeping them committed in Git LFS to be recorded against this debt. ADR 0029
+> 0033).** Issue #752 asked for the choice between drawing the renders on demand
+> and keeping them committed in Git LFS to be recorded against this debt. ADR 0033
 > chose on demand. The rendered HTML is no longer committed: the app draws each
 > artifact from its specification into its own cache. `_archify/` now holds
 > only the specifications and `index.json`, a few kilobytes per diagram.
@@ -106,7 +106,7 @@ dependencies, because then most readers never see a rendered diagram at all.
 
 ## Remediation options
 
-### Option A — fetch `_archify` lazily per diagram (preferred before local ADR 0029)
+### Option A — fetch `_archify` lazily per diagram (preferred before local ADR 0033)
 
 When a diagram's chapter was resolved through a `Branch` location,
 `ArchifyDiagramArtifacts` asks `PrepareContentAsync(key, alias, [paths])` for the
@@ -133,14 +133,14 @@ only the `.html` excluded, and fetch the `.html` on demand as in A.
 - *Con:* still needs the async edge for the `.html`; the exclusion rule grows a
   second clause.
 
-### Option C — drop the exclusion (preferred since local ADR 0029)
+### Option C — drop the exclusion (preferred since local ADR 0033)
 
 Fetch `_archify/` with the folder again.
 
 - *Pro:* smallest change; restores the pre-amendment behaviour.
 - *Con:* reintroduces exactly the cost the amendment removed. Rejected unless
   measurement shows the cost was never the artifacts.
-- *Since local ADR 0029:* the cost was the artifacts, and they are gone. The
+- *Since local ADR 0033:* the cost was the artifacts, and they are gone. The
   folder is small JSON, so the con no longer applies. The renderer draws the
   picture from the fetched specification with the generator bundled beside the
   app.

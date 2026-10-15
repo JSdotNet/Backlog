@@ -397,7 +397,7 @@ public sealed class DiagramArtifactViewTests
 
     /// <summary>
     /// A specification whose index entry matches but which has not been drawn on
-    /// this machine yet (local ADR 0029). The reader gets the mermaid at once and a
+    /// this machine yet (local ADR 0033). The reader gets the mermaid at once and a
     /// line saying the Archify picture is on its way, and no Render button: the
     /// drawing is already happening, and a second press would only start it twice.
     /// When the render lands, the artifact replaces the mermaid with no

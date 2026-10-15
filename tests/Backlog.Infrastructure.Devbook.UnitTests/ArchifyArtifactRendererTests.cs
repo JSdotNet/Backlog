@@ -5,7 +5,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 
 /// <summary>
 /// A chapter's Archify artifact is drawn on demand from its committed
-/// specification and kept in the app's devbook cache folder (local ADR 0029).
+/// specification and kept in the app's devbook cache folder (local ADR 0033).
 /// What is worth pinning is the cache: where it writes, what it is keyed on, that
 /// a hit never starts Node, and that a failure is never remembered.
 /// <para>

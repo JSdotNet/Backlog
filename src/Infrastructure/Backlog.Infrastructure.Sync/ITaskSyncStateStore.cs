@@ -67,6 +67,28 @@ public sealed record TaskSyncState(
 
         return this with { DocumentWatermarks = marks };
     }
+
+    /// <summary>
+    /// The kind tokens this device has read the whole feed again for, once, after it
+    /// learned to take them (local ADR 0032, Consequences; Verification 10).
+    /// <para>
+    /// A build that skipped a kind still moved its cursor past every document of it, so
+    /// an upgrade alone would see such a document only when it next changed. The loop
+    /// forgets the cursor once per token missing here and records the token, and the
+    /// re-read folds to what the device already holds for everything else — a replayed
+    /// page writes nothing. Additive: a file written before it has made no replay.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string>? FeedReplays { get; init; }
+
+    /// <summary>Whether this device has replayed the feed for <paramref name="kind"/>.</summary>
+    public bool HasReplayedFeedFor(string kind) =>
+        FeedReplays is { } replays && replays.Contains(kind, StringComparer.Ordinal);
+
+    /// <summary>This state with <paramref name="kind"/>'s replay recorded, every other
+    /// one kept.</summary>
+    public TaskSyncState WithFeedReplay(string kind) =>
+        HasReplayedFeedFor(kind) ? this : this with { FeedReplays = [.. FeedReplays ?? [], kind] };
 }
 
 /// <summary>

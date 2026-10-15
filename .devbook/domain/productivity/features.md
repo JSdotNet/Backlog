@@ -160,7 +160,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/productivity/context.md#dashboard
 setting: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/productivity/context.md#weekly-usage-reset, .devbook/domain/productivity/context.md#monthly-spend-budget]
-related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md]
+related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Expose productivity trends as personal insight rather than team performance

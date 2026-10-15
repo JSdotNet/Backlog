@@ -60,7 +60,7 @@ public static class DevbookModuleRegistration
         // answers — the flag, which clone the chapters came from, whether a CLI can
         // be started — is the host's to know, which is why the library only asks.
         // The renders are drawn on demand from the committed specifications, into
-        // the devbook cache folder beside the databases (local ADR 0029), with the
+        // the devbook cache folder beside the databases (local ADR 0033), with the
         // clone's own generator or the one bundled beside the app.
         services.AddSingleton(_ => ArchifyArtifactRenderer.ForApplication());
         services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramArtifacts(

@@ -115,6 +115,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// host that composes none. See <see cref="OnTaskWritten"/>.</summary>
     private readonly ITaskChangeSignal? _taskWrites;
 
+    /// <summary>Show archived, per device (local ADR 0029, §3); null in a host that
+    /// composes none, where <see cref="_showArchivedHere"/> holds it for this instance.</summary>
+    private readonly IShowArchivedRepositories? _showArchived;
+    private bool _showArchivedHere;
+    /// <summary>The person's Clear My Day overnight switch, which decides how a
+    /// <c>myday:</c> stamp from an earlier day reads (local ADR 0032, §5).
+    /// <see cref="DefaultMyDayPreferences"/> in a host that keeps none, which reads
+    /// every stamp the way the list always has. See <see cref="IsInMyDay"/>.</summary>
+    private readonly IMyDayPreferences _myDayPreferences;
+
     /// <summary>Set inside the asynchronous flow of each write this list makes,
     /// so the signal that write raises can be told from one raised by somebody
     /// else. See <see cref="SelfAttributedTaskItems"/>.</summary>
@@ -215,7 +225,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         TimeProvider? timeProvider = null,
         IDevbookReferenceResolver? devbookReferences = null,
         LinkedTaskSources? linkedSources = null,
-        ILinkedSessionStates? sessionStates = null)
+        ILinkedSessionStates? sessionStates = null,
+        IShowArchivedRepositories? showArchived = null,
+        IMyDayPreferences? myDayPreferences = null)
     {
         // First, so it runs before any component's handler can queue a render
         // that reads the index — see DependencyIndex.
@@ -238,6 +250,51 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         LinkedSources = linkedSources ?? LinkedTaskSources.None;
         _sessionStates = sessionStates;
+
+        _showArchived = showArchived;
+        if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
+        _myDayPreferences = myDayPreferences ?? DefaultMyDayPreferences.Instance;
+        _myDayPreferences.Changed += OnMyDayPreferencesChanged;
+    }
+
+    /// <summary>Whether a task stamped for an earlier day has left My Day: the
+    /// person's Clear My Day overnight switch, on unless they turned it off.</summary>
+    public bool ClearsMyDayOvernight => _myDayPreferences.ClearsOvernight;
+
+    /// <summary>
+    /// Whether <paramref name="row"/> is in the My Day of <paramref name="today"/>,
+    /// under the one rule both heads read (<see cref="MyDay.Includes"/>, local ADR
+    /// 0032 §5): stamped today, or — with Clear My Day overnight off — stamped
+    /// earlier and either unfinished or finished today.
+    /// <para>
+    /// The caller says what today is, for the reason <see cref="MyDayOn"/> gives:
+    /// the clock is the pane's. The My Day scope, <see cref="Reveal"/>, the chip's
+    /// count, the row's sun and the detail pane all ask this, so none of them can
+    /// disagree about a carried task.
+    /// </para>
+    /// </summary>
+    public bool IsInMyDay(EntryRow row, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return MyDay.Includes(row.PreviewInMyDayOn, row.PreviewCompletedOn, today, _myDayPreferences.ClearsOvernight);
+    }
+
+    /// <summary>
+    /// The switch moved — here, or in a copy a sync pull took from another desktop.
+    /// The My Day scope is drawn again under the new reading.
+    /// <para>
+    /// Raised on whichever thread changed it, the sync loop's for a pulled copy, as
+    /// <see cref="OnRootChanged"/> is; the pane's <see cref="Changed"/> handler
+    /// marshals the render onto its dispatcher. Nothing is written: the switch
+    /// changes how a stamp reads, never the stamp.
+    /// </para>
+    /// </summary>
+    private void OnMyDayPreferencesChanged()
+    {
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        ApplyFilter();
+        Changed?.Invoke();
     }
 
     /// <summary>The installed connectors and connected targets the source badge
@@ -546,7 +603,96 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     public List<TagFilterOption> TagFilters { get; private set; } = [];
 
-    public IReadOnlyList<GitHubRepositoryRef> Repositories => _gitHub.Repositories;
+    /// <summary>
+    /// The repositories the scope chips, the Board's columns and the pickers offer, in
+    /// the configured order: every one while <see cref="ShowArchivedRepositories"/> is
+    /// on, the active ones otherwise (local ADR 0029, §3). An archived one stays
+    /// configured either way: its tasks still resolve, wear its hue and count. It is
+    /// only not offered.
+    /// </summary>
+    public IReadOnlyList<GitHubRepositoryRef> Repositories =>
+        ShowArchivedRepositories ? _gitHub.Repositories : _gitHub.ActiveRepositories;
+
+    /// <summary>Whether any configured repository is archived: the show archived switch
+    /// has something to show only then.</summary>
+    public bool HasArchivedRepositories => _gitHub.Repositories.Any(repository => repository.Archived);
+
+    /// <summary>
+    /// Show archived (local ADR 0029, §3): whether the archived repositories, and the
+    /// tasks filed only under them, are offered where they are otherwise hidden. Read
+    /// from the device's choice on every access rather than held, so a shell the Router
+    /// built afresh draws what was left.
+    /// </summary>
+    public bool ShowArchivedRepositories => _showArchived?.Shown ?? _showArchivedHere;
+
+    /// <summary>
+    /// Turns show archived on or off on this device. Turning it off takes an archived
+    /// repository out of the scope (<see cref="ForgetStaleRepositoryScope"/>) and the
+    /// tasks filed only under it out of the list, the Board and the Calendar.
+    /// </summary>
+    public void SetShowArchivedRepositories(bool shown)
+    {
+        if (shown == ShowArchivedRepositories) return;
+
+        if (_showArchived is not null)
+        {
+            // The port announces the change, and OnShowArchivedChanged applies it.
+            _showArchived.SetShown(shown);
+            return;
+        }
+
+        _showArchivedHere = shown;
+        OnShowArchivedChanged();
+    }
+
+    private void OnShowArchivedChanged()
+    {
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Whether <paramref name="repository"/> is offered right now: active, or
+    /// archived while <see cref="ShowArchivedRepositories"/> is on.</summary>
+    public bool IsRepositoryShown(GitHubRepositoryRef repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        return !repository.Archived || ShowArchivedRepositories;
+    }
+
+    /// <summary>The first of the row's repositories that is offered right now, which is
+    /// the column the Board's by-repository layout files it in; null when it names
+    /// none.</summary>
+    public GitHubRepositoryRef? ShownRepositoryFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return row.PreviewRepoIds
+            .Select(_gitHub.ResolveRepository)
+            .FirstOrDefault(repository => repository is not null && IsRepositoryShown(repository));
+    }
+
+    /// <summary>
+    /// Whether the row is filed only under archived repositories while show archived is
+    /// off. Such a task leaves the list, the Board and the Calendar with its repository
+    /// (local ADR 0029; the person's answer on the task list). A row that also names an
+    /// active repository stays, under that one; a row that resolves to none is the
+    /// Brain's.
+    /// </summary>
+    private bool RowHiddenWithArchivedRepository(EntryRow row)
+    {
+        if (ShowArchivedRepositories) return false;
+
+        var resolved = false;
+        foreach (var target in row.PreviewRepoIds)
+        {
+            if (_gitHub.ResolveRepository(target) is not { } repository) continue;
+            if (!repository.Archived) return false;
+
+            resolved = true;
+        }
+
+        return resolved;
+    }
 
     /// <summary>Which identity hue each configured repository wears, keyed by alias,
     /// and empty while the visualization is off. Read from the settings store rather
@@ -1191,6 +1337,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // remembered scope until it can be resolved.
         if (!RepositoryRegistryReadable) return;
 
+        // A repository archived since is dropped the same way while show archived is
+        // off (local ADR 0029, §3): there is no chip for it to be pressed on.
         var restored = repositoryAliases
             .Select(member => BrainScope.Is(member) ? BrainScope.Value : ResolveAliasOrNull(member))
             .OfType<string>()
@@ -1217,11 +1365,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private string ResolveAlias(string? repositoryAlias) => ResolveAliasOrNull(repositoryAlias) ?? string.Empty;
 
     /// <summary>The configured spelling of an alias, or null when nothing is
-    /// configured under it — never the Brain's empty value, which no alias is.</summary>
+    /// configured under it, or when what is configured under it is archived and not
+    /// shown, since there is no chip for it then. Never the Brain's empty value, which
+    /// no alias is.</summary>
     private string? ResolveAliasOrNull(string? repositoryAlias) =>
         string.IsNullOrEmpty(repositoryAlias)
             ? null
-            : _gitHub.Settings.Current.Find(repositoryAlias)?.Alias;
+            : _gitHub.Settings.Current.Find(repositoryAlias) is { } repository && IsRepositoryShown(repository)
+                ? repository.Alias
+                : null;
 
     /// <summary>Turns the "ready in a plan" scope on or off. See
     /// <see cref="ReadyInPlanOnly"/> for what it keeps.</summary>
@@ -1362,7 +1514,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             widened = true;
         }
 
-        if (MyDayOn is { } myDay && row.PreviewInMyDayOn != myDay)
+        if (MyDayOn is { } myDay && !IsInMyDay(row, myDay))
         {
             MyDayOn = null;
             widened = true;
@@ -2539,7 +2691,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ArgumentNullException.ThrowIfNull(row);
 
         var chosen = string.IsNullOrWhiteSpace(repositoryAlias) ? null : repositoryAlias.Trim();
-        var shown = RepositoryFor(row);
+
+        // The repository the picker shows, which is the one a pick replaces: the first
+        // one offered right now, so an archived repository hidden by show archived is
+        // kept rather than silently swapped out (local ADR 0029, §3).
+        var shown = ShownRepositoryFor(row) ?? RepositoryFor(row);
 
         var targets = new List<string>();
         var replaced = false;
@@ -3122,6 +3278,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         _store.RootChanged -= OnRootChanged;
         if (_taskWrites is not null) _taskWrites.Changed -= OnTaskWritten;
+        if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
+        _myDayPreferences.Changed -= OnMyDayPreferencesChanged;
 
         _lifetime.Cancel();
 
@@ -5197,22 +5355,35 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         IEnumerable<EntryRow> rows = Rows;
 
+        // Before every scope: a task filed only under an archived repository is out of
+        // view while show archived is off, whatever the chips hold (local ADR 0029).
+        if (!ShowArchivedRepositories)
+        {
+            rows = rows.Where(row => !RowHiddenWithArchivedRepository(row));
+        }
+
+        // The scope is pruned before the rows are filtered by it, never after: turning
+        // show archived off, or a repository removed or archived in Settings, can empty
+        // it, and rows filtered by the old scope would sit under chips that say every
+        // repository until the next filter change.
+        ForgetStaleRepositoryScope();
+
         if (_selectedRepositoryAliases.Count > 0)
         {
             rows = rows.Where(RowInRepositoryScope);
         }
 
         var repositoryScopedRows = rows.ToList();
-        ForgetStaleRepositoryScope();
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
         // My Day narrows what the repository scope and status have already left in
         // view rather than replacing either: it is a decision about today taken on
-        // top of wherever the reader is looking, so all three compose.
+        // top of wherever the reader is looking, so all three compose. In My Day by
+        // the one rule, so a task carried over with Clear My Day overnight off is in.
         if (MyDayOn is { } myDay)
         {
-            rows = rows.Where(x => x.PreviewInMyDayOn == myDay);
+            rows = rows.Where(x => IsInMyDay(x, myDay));
         }
 
         // And the "ready in a plan" scope, on the same terms again.
@@ -5357,9 +5528,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// The Brain (<see cref="BrainScope.Value"/>) is never stale: it names no
     /// repository, so there is nothing settings can take away from it.
     /// </para>
+    /// <para>
+    /// An archived repository leaves it the same way while show archived is off (local
+    /// ADR 0029, §3), since its chip is gone too. Turning the switch off therefore takes
+    /// it out of the live scope as well, which is intended.
+    /// </para>
     /// </summary>
     private void ForgetStaleRepositoryScope() =>
-        _selectedRepositoryAliases.RemoveAll(alias => !BrainScope.Is(alias) && _gitHub.Settings.Current.Find(alias) is null);
+        _selectedRepositoryAliases.RemoveAll(alias =>
+            !BrainScope.Is(alias)
+            && (_gitHub.Settings.Current.Find(alias) is not { } repository || !IsRepositoryShown(repository)));
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group

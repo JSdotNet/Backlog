@@ -30,7 +30,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// </para>
 /// <para>
 /// The picture itself is the one thing Node does draw, and only once per
-/// specification per machine (local ADR 0029): the renders are not committed, so
+/// specification per machine (local ADR 0033): the renders are not committed, so
 /// a diagram whose index entry matches its fence is drawn from its specification
 /// by <see cref="ArchifyArtifactRenderer"/> into the app's devbook cache, and
 /// every lookup after that is answered from the cache without starting anything.
@@ -211,7 +211,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         // this fence's hash is either the displaced one or not rendered yet, and
         // drawing it would be the drift this whole design exists to prevent. The
         // picture comes from the app's cache and never from an HTML file beside
-        // the specification: renders are not committed (local ADR 0029), and one
+        // the specification: renders are not committed (local ADR 0033), and one
         // lying there is a local preview that may be of an older specification.
         var request = entry is not null && specExists
             ? new ArchifyRenderRequest(specFile, type, quality, diagram.RootPath)
@@ -722,7 +722,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// lookup stops reading a JSON file per folder — and the file itself when there
     /// is no database. The specifications stay on disk either way; only the pointer
     /// moved, and the picture is drawn from the specification (local ADR
-    /// 0029).</para>
+    /// 0033).</para>
     ///
     /// <para>Read per call rather than cached, which is what it did before. The
     /// artifact index changes underneath this while the app is running — that is

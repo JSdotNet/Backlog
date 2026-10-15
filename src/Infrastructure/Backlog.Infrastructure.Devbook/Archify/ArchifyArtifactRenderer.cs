@@ -19,7 +19,7 @@ public sealed record ArchifyRender(string? Html, string? ArtifactPath, string? F
 /// <summary>
 /// Draws a chapter diagram's Archify artifact from its committed specification,
 /// into the app's devbook cache folder, beside the databases (local ADRs 0015 and
-/// 0029).
+/// 0033).
 /// <para>
 /// The renders used to be committed beside their specifications, roughly 700 KB
 /// each and more than half the tracked tree. What makes drawing them on demand

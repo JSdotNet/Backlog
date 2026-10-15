@@ -518,6 +518,67 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         Assert.Equal(DecisionPath, stored.ChapterPath);
     }
 
+    // --- An archived repository (local ADR 0029 §4) ---------------------------
+
+    /// <summary>
+    /// "A clone of an archived repository": the chapter reads, and no edit,
+    /// status or remark control is offered. The remark is refused on the
+    /// repository being archived, not on the folder being read-only, so a branch
+    /// snapshot keeps the remarks it has always had.
+    /// </summary>
+    [Fact]
+    public async Task An_archived_repositorys_chapter_reads_with_no_edit_and_no_remark()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, withAnnotations: true, archived: true);
+
+        var component = harness.Render(DecisionPath);
+
+        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-edit']"));
+        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-']"));
+    }
+
+    /// <summary>
+    /// A remark kept from before the archive stays readable and nothing more: no
+    /// resolve, edit or delete control, since each writes to the replicated store
+    /// (local ADR 0029 §4, "with every edit refused"). A draft nobody typed into
+    /// is not shown at all — it was never said, and the view would open it in an
+    /// editor.
+    /// </summary>
+    [Fact]
+    public async Task An_archived_repositorys_kept_remark_reads_with_no_resolve_edit_or_delete()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, withAnnotations: true, archived: true);
+        var store = harness.Annotations!;
+        var kept = store.Add(harness.RepositoryAlias, DecisionPath, 0, "someone");
+        store.Edit(kept.Id, "Kept from before the archive.");
+        store.Add(harness.RepositoryAlias, DecisionPath, 0, "someone");
+
+        var component = harness.Render(DecisionPath);
+
+        component.WaitForAssertion(() => Assert.Contains("Kept from before the archive.", component.Markup, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-resolve-']"));
+        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-edit-']"));
+        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-delete-']"));
+        Assert.Empty(component.FindAll(".md-comment__edit"));
+        Assert.Single(component.FindAll("[data-testid^='markdown-comment-body-']"));
+    }
+
+    /// <summary>"Unarchived again": the same clone is editable again, and takes
+    /// remarks again, with nothing re-entered.</summary>
+    [Fact]
+    public async Task Unarchiving_gives_the_chapter_its_edit_and_its_remarks_back()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, withAnnotations: true, archived: true);
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
+
+        await component.InvokeAsync(() => Assert.Null(harness.GitHub.SetRepositoryArchived(harness.RepositoryAlias, archived: false)));
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+        Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']"));
+    }
+
     /// <summary>
     /// Deletes the temp folders once every test has awaited its harness away, so
     /// nothing this class rendered can still be writing into one of them. The
@@ -554,11 +615,15 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// chapter the way every other device names it. Left out, the panel falls back
     /// to a session store of its own with no folder source, which is what every
     /// other test here renders against.</param>
+    /// <param name="archived">Whether the repository is archived, with a second,
+    /// active repository configured after it — one repository must stay
+    /// active.</param>
     private Harness CreateHarness(
         bool withArc42Folder,
         string? configuredPath = null,
         bool withIndex = true,
-        bool withAnnotations = false)
+        bool withAnnotations = false,
+        bool archived = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -602,10 +667,10 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
-        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        var (repositories, errors) = GitHubSettings.ParseText(archived ? "JSdotNet/Backlog\nJSdotNet/Other" : "JSdotNet/Backlog");
         Assert.Empty(errors);
 
-        var repository = Assert.Single(repositories) with
+        var repository = repositories[0] with
         {
             CloneDirectory = root,
             DevbookFolders =
@@ -616,7 +681,8 @@ public sealed class Arc42DevbookPanelTests : IDisposable
                         : folder)
             ]
         };
-        Assert.Null(gitHub.SetRepositories([repository]));
+        Assert.Null(gitHub.SetRepositories([repository, .. repositories.Skip(1)]));
+        if (archived) Assert.Null(gitHub.SetRepositoryArchived(repository.Alias, archived: true));
 
         var context = new BunitContext();
 
@@ -636,7 +702,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         var annotations = withAnnotations ? new SessionDevbookAnnotationStore(folders: folders) : null;
         if (annotations is not null) context.Services.AddSingleton<IDevbookAnnotationStore>(annotations);
 
-        return new Harness(root, context, repository.Alias, folders, annotations);
+        return new Harness(root, context, repository.Alias, folders, annotations, gitHub);
     }
 
     private sealed record Harness(
@@ -644,7 +710,8 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         BunitContext Context,
         string RepositoryAlias,
         RecordingDevbookFolderSource Folders,
-        SessionDevbookAnnotationStore? Annotations) : IAsyncDisposable
+        SessionDevbookAnnotationStore? Annotations,
+        GitHubSettingsStore GitHub) : IAsyncDisposable
     {
         public IRenderedComponent<Arc42DevbookPanel> Render(string? selectedPath) =>
             Context.Render<Arc42DevbookPanel>(parameters => parameters

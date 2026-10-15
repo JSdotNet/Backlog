@@ -449,7 +449,7 @@ A JSON-IR diagram renderer, vendored under `tools/archify/`.
   repository render at the `standard` profile instead of `showcase`, and say so
   in their filename.
 - **What is committed** — the specifications and `_archify/index.json` only
-  (local ADR 0029). The desktop app draws each artifact on demand from its
+  (local ADR 0033). The desktop app draws each artifact on demand from its
   specification, with the clone's `tools/archify` or the copy bundled beside the
   app, into `_archify-renders/` under the devbook cache folder. The cache key
   covers the specification, its type and quality, and the generator's content,

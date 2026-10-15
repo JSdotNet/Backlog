@@ -86,6 +86,12 @@ public sealed class DesktopCompositionOptions
     /// <see cref="WorkingHoursSettingsStore"/>.</summary>
     public required Func<IServiceProvider, PlanningVelocitySettingsStore> PlanningVelocitySettings { get; init; }
 
+    /// <summary>The person's My Day preferences — Clear My Day overnight — which the
+    /// Tasks screens read and the task feed carries between desktops (local ADR 0032).
+    /// The per-user file in the installed app; one under the content root in the
+    /// harness, so a switch flipped there is not the installed app's.</summary>
+    public required Func<IServiceProvider, MyDayPreferencesStore> MyDayPreferences { get; init; }
+
     /// <summary>Which surface the shell was last showing.</summary>
     public required Func<IServiceProvider, ShellNavigationStore> ShellNavigation { get; init; }
 

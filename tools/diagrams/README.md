@@ -15,7 +15,7 @@ unchanged, and mermaid is still what renders a knowledge diagram.
 The feature is behind the `archify-diagrams` flag on the settings screen, off by
 default.
 
-**Only the specifications and the index are committed** (local ADR 0029). The
+**Only the specifications and the index are committed** (local ADR 0033). The
 desktop app draws each artifact itself, on demand, from its specification, into
 `_archify-renders/` under its devbook cache folder, beside the devbook databases.
 It uses the clone's own `tools/archify` first and the copy bundled beside the app
