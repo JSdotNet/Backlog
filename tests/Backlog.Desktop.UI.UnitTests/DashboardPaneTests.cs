@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
@@ -313,7 +314,7 @@ public class DashboardPaneTests
         Assert.Equal("tablist", list.GetAttribute("role"));
         Assert.Equal(
             ["Overview", "Productivity", "Tasks", "Sessions", "Devbook", "Cost"],
-            tabs.Select(tab => tab.TextContent.Trim()).ToArray());
+            tabs.Select(TabLabel).ToArray());
 
         var overview = pane.Find("[data-testid='dashboard-tab-overview']");
         Assert.Equal("true", overview.GetAttribute("aria-selected"));
@@ -489,7 +490,7 @@ public class DashboardPaneTests
             var pane = unread.Render<DashboardPane>();
 
             Assert.Empty(pane.FindAll("[data-testid='dashboard-tab-devbook-badge']"));
-            Assert.Equal("Devbook", pane.Find("[data-testid='dashboard-tab-devbook']").TextContent.Trim());
+            Assert.Equal("Devbook", TabLabel(pane.Find("[data-testid='dashboard-tab-devbook']")));
         }
 
         var none = new DriftInsight([], [], IssuesNote: null);
@@ -499,6 +500,59 @@ public class DashboardPaneTests
         var read = context.Render<DashboardPane>();
 
         Assert.Empty(read.FindAll("[data-testid='dashboard-tab-devbook-badge']"));
+    }
+
+    /// <summary>
+    /// The dashboard is released, but its Devbook and Cost tabs are not usable yet: each
+    /// wears the DEV flag inside its own tab, and the other four wear none.
+    /// </summary>
+    [Fact]
+    public void The_devbook_and_cost_tabs_wear_the_dev_flag_and_the_others_none()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+
+        foreach (var id in new[] { "devbook", "cost" })
+        {
+            var tab = pane.Find($"[data-testid='dashboard-tab-{id}']");
+            var flag = Assert.Single(tab.QuerySelectorAll(".badge--feature-dev"));
+            Assert.Equal($"dashboard-tab-{id}-feature-status", flag.GetAttribute("data-testid"));
+            Assert.Equal("In development — not usable yet.", flag.GetAttribute("title"));
+        }
+
+        foreach (var id in new[] { "overview", "productivity", "tasks", "sessions" })
+        {
+            var tab = pane.Find($"[data-testid='dashboard-tab-{id}']");
+            Assert.Empty(tab.QuerySelectorAll(".badge--feature"));
+        }
+    }
+
+    /// <summary>
+    /// The DEV flag and the open drift count sit side by side on the Devbook tab: the
+    /// flag does not displace the count, nor its spoken phrase.
+    /// </summary>
+    [Fact]
+    public void The_devbook_tab_wears_the_dev_flag_beside_the_drift_count()
+    {
+        var drift = new DriftInsight(
+            [],
+            [new DriftIssue("backlog", 11, "Drift in domain/sync", "https://github.com/o/r/issues/11", SyncFailed: false)],
+            IssuesNote: null);
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IDriftInsights>(new ReadyDriftInsights(drift)));
+
+        var pane = context.Render<DashboardPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tab = pane.Find("[data-testid='dashboard-tab-devbook']");
+            Assert.Single(tab.QuerySelectorAll("[data-testid='dashboard-tab-devbook-feature-status']"));
+            Assert.Equal("1", pane.Find("[data-testid='dashboard-tab-devbook-badge']").TextContent.Trim());
+            Assert.Contains("1 open drift issue", tab.QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
+            Assert.Equal("Devbook", TabLabel(tab));
+        });
     }
 
     /// <summary>
@@ -2835,6 +2889,12 @@ public class DashboardPaneTests
 
     private static string Squashed(string text) =>
         string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    /// <summary>A tab's own label: the text the tab button holds directly, without
+    /// what sits beside it in elements - the DEV flag, the drift count and its
+    /// spoken phrase.</summary>
+    private static string TabLabel(IElement tab) =>
+        Squashed(string.Concat(tab.ChildNodes.OfType<IText>().Select(text => text.Data)));
 
     [Fact]
     public void The_window_can_be_narrowed_to_four_weeks()
