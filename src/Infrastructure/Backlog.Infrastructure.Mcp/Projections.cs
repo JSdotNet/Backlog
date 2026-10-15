@@ -62,7 +62,10 @@ internal static class Projections
         part.Anchor,
         part.Title,
         part.State.ToWire(),
-        part.LastRun);
+        part.LastRun)
+    {
+        FailedStep = part.FailedStep
+    };
 
     internal static AcceptancePayload? Acceptance(ScenarioAcceptance acceptance) =>
         acceptance.Total == 0 ? null : new AcceptancePayload(acceptance.Passing, acceptance.Total, acceptance.IsProved, acceptance.Summary);

@@ -3165,16 +3165,40 @@ button.devbook-chip__label:focus-visible {
 
 .scenario-checklist__count { color: var(--color-text-secondary); }
 
-.badge--scenario-proved {
-    background: var(--color-success);
-    color: var(--color-success-text);
+/* The key to the scenario dot: one entry per state, wrapping to the width it is
+   given — under a tree column that is narrow, so two to a line there. */
+.scenario-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
-/* One grid for the list and a subgrid per row, so the columns line up from
-   row to row and the last run keeps the width it needs. */
+.scenario-legend__entry {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The verdict after the count. Proved takes the success text colour, not a
+   badge: it is the end of the count's sentence, and the word carries the meaning
+   without the colour. */
+.scenario-checklist__verdict--proved {
+    color: var(--color-success-text);
+    font-weight: 600;
+}
+
+/* One grid for the list and a subgrid per row: the dot in the first column,
+   the part and its quiet line stacked in the second. The line is a line, so it
+   wraps rather than ellipsising — its end is the step a failed part stopped on. */
 .scenario-checklist__list {
     display: grid;
-    grid-template-columns: auto minmax(0, 3fr) minmax(0, 2fr) max-content;
+    grid-template-columns: auto minmax(0, 1fr);
     gap: var(--spacing-xs) var(--spacing-sm);
     margin: 0;
     padding: 0;
@@ -3185,15 +3209,26 @@ button.devbook-chip__label:focus-visible {
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: subgrid;
-    align-items: center;
+    align-items: start;
+    min-width: 0;
+}
+
+/* The dot sits on the part's first line, not at the top of the stack. */
+.scenario-checklist__row > .devbook-scenario-dot {
+    margin-top: 0.35em;
+}
+
+.scenario-checklist__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
     min-width: 0;
 }
 
 .scenario-checklist__part {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .scenario-checklist__part--link {
@@ -3209,14 +3244,12 @@ button.devbook-chip__label:focus-visible {
 .scenario-checklist__part--link:hover,
 .scenario-checklist__part--link:focus-visible { text-decoration: underline; }
 
-.scenario-checklist__page,
 .scenario-checklist__run {
-    min-width: 0;
-    overflow: hidden;
+    max-width: 100%;
     color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
     font-variant-numeric: tabular-nums;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 /* The run above an open scenario page. */

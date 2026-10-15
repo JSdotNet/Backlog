@@ -4144,7 +4144,7 @@
                 {
                     <div class="entry-doc__acceptance">
                         <ScenarioPartChecklist Parts="@ChecklistParts(acceptance)"
-                                               Heading="Acceptance"
+                                               Heading="Acceptance · scenario parts"
                                                ShowProved="true"
                                                OnOpen="@AcceptanceOpener(row)"
                                                TestId="entry-acceptance" />
@@ -4324,15 +4324,19 @@
             _ => null
         };
 
-    /// <summary>The acceptance checklist's rows: part, state, page, last run.</summary>
+    /// <summary>The acceptance checklist's rows: part, state, the page's stem, last
+    /// run and — for a failed part — the step it stopped on. The stem rather than the
+    /// page title: it is the name the run folder, the spec and every screenshot path
+    /// carry, so the row reads the same as the evidence behind it.</summary>
     private static IReadOnlyList<ScenarioChecklistPart> ChecklistParts(ScenarioAcceptance acceptance) =>
         [
             .. acceptance.Parts.Select(part => new ScenarioChecklistPart(
                 part.Title,
                 part.State.ToWire(),
-                part.PageTitle,
-                part.LastRun is { } ranAt ? $"Ran {ranAt.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)}" : null,
-                part.Reference))
+                part.Stem,
+                part.LastRun is { } ranAt ? ranAt.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture) : null,
+                part.Reference,
+                part.FailedStep))
         ];
 
     /// <summary>Opens a checklist part in the Devbook pane, at the part — or
