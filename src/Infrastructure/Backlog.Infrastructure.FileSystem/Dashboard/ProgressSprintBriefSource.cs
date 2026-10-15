@@ -28,6 +28,20 @@ public sealed class ProgressSprintBriefSource(
     ISprintProgress? progress,
     IAppFeatureSettings? features) : ISprintBriefSource
 {
+    /// <summary>Progress's own series notice, passed through: a series saved here or
+    /// pulled from another device. Nothing is raised where Progress is not composed.</summary>
+    public event Action? Changed
+    {
+        add
+        {
+            if (planning is not null) planning.Changed += value;
+        }
+        remove
+        {
+            if (planning is not null) planning.Changed -= value;
+        }
+    }
+
     public async Task<IReadOnlyList<SprintBriefSprint>> ReadAsync(
         DateOnly from,
         DateOnly to,
