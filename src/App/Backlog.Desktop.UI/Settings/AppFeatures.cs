@@ -131,7 +131,7 @@ public static class AppFeatures
             "Pull requests",
             "Open the full-screen list of your open pull requests across every registered repository, and update, ready or merge them from there.",
             Status: AppFeatureStatus.Dev),
-        new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost.", Status: AppFeatureStatus.Dev),
+        new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost."),
         new(
             SyncFeatures.Sync,
             "Sync",

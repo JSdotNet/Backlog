@@ -123,9 +123,12 @@ public sealed class AppFeatureSettingsStoreTests
     /// a feature is meant to be one of them at a time. C4 and Archify diagrams were
     /// judged finished on 2026-09-16 and lost their badge, but stay opt-in until
     /// somebody decides otherwise; Sync moved one step, from not usable to worth
-    /// trying. Pinned so that the next graduation is a deliberate edit here too,
-    /// not a side effect of tidying the catalog.</summary>
+    /// trying. The Dashboard was released on 2026-10-15 and stays on by default; its
+    /// Devbook and Cost tabs carry the DEV flag on their own. Pinned so that the next
+    /// graduation is a deliberate edit here too, not a side effect of tidying the
+    /// catalog.</summary>
     [Theory]
+    [InlineData(DashboardFeatures.Dashboard, AppFeatureStatus.Released, true)]
     [InlineData(DevbookFeatures.C4Diagrams, AppFeatureStatus.Released, false)]
     [InlineData(DevbookFeatures.ArchifyDiagrams, AppFeatureStatus.Released, false)]
     [InlineData(SyncFeatures.Sync, AppFeatureStatus.Beta, false)]
