@@ -327,6 +327,8 @@ public class TaskInsightsTests
     /// </summary>
     [Theory]
     [InlineData(true, false, 10, 4, 7, "2026-09-30", PlanOutlook.Finished, "2026-09-20")]
+    // Finished with nothing sized and its window past: a task-less item completed by hand.
+    [InlineData(true, false, 0, 0, 7, "2026-09-23", PlanOutlook.Finished, "2026-09-20")]
     [InlineData(false, true, 10, 0, 7, "2026-09-26", PlanOutlook.PlacedByEffort, "2026-09-26")]
     [InlineData(false, false, 0, 0, 7, "2026-09-30", PlanOutlook.Unsized, null)]
     [InlineData(false, false, 5, 0, 0, "2026-09-30", PlanOutlook.NoPace, null)]

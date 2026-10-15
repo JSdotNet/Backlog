@@ -299,13 +299,13 @@ public static class RoadmapItemRollupBuilder
     /// up is a person: <c>@release-q4</c> names somebody, and only the <c>+</c> is
     /// lifted before the compare so it stays a mismatch.
     /// </para>
+    /// <para>
+    /// The rule itself is <see cref="PlanTagMatch.Carries"/>, which the Tasks list's
+    /// "Open in Tasks" asks too, so the list under a bar cannot miss work this rollup
+    /// counted. Kept here by name because the gathering invariant is enforced at it.
+    /// </para>
     /// </summary>
-    private static bool CarriesPlanTag(string candidate, string slug)
-    {
-        var bare = candidate.StartsWith('+') ? candidate[1..] : candidate;
-
-        return string.Equals(bare, slug, StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool CarriesPlanTag(string candidate, string slug) => PlanTagMatch.Carries(candidate, slug);
 
     private static RollupOrigin Origin(bool direct, bool tagged) =>
         direct && tagged ? RollupOrigin.Both : direct ? RollupOrigin.Direct : RollupOrigin.Tag;

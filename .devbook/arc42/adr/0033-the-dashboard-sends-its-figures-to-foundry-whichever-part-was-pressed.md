@@ -27,7 +27,7 @@ PR #1316 (merge `9a87218c`) widened `DashboardAiContentSource` and added
 Personal Validation, because the change widens what leaves the machine.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
-means the local one. Numbers 0029 and 0032 are taken by pull requests still open.
+means the local one.
 
 ## Context
 

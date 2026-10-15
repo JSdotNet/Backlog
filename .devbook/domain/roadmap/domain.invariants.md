@@ -339,6 +339,94 @@ Only an import that creates the item anew sets the value, so once a person has p
 
 Enforced at: `PlaceByImport()`; `AddImportedItem()` is the only other operation that sets the value
 
+### Invariant: Gathered tasks outrank a completion by hand
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.OnceTasksCarryTheItem_TheirProgressWins_OverTheHandSetDay, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.WhenTasksCarryTheItemAndAreAllDone_ItEndsWhenTheLastTaskWasTickedOff, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.OnceTasksCarryTheItem_TheLayoutFollowsTheTasks_NotTheHandSetDay]
+```
+
+While an item gathers at least one task, it is finished only when every gathered task is done, and its `completed_on` is kept but not read.
+The day is kept rather than cleared, so it reads again if every task leaves the item.
+
+Enforced at: `RoadmapItemCompletion.IsFinished()`, `IsCompletedByHand()` and `FinishedOn()`, the one reading the layout, keep-up, the roadmap's bars and the dashboard share
+
+### Invariant: A knowledge chapter does not carry an item
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.AKnowledgeChapter_IsNoTask_SoTheHandSetDayStillCounts, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.AnItemWhoseWorkWasNotRead_ReadsAsHavingGatheredNothing]
+```
+
+An item that gathered only knowledge chapters is an item no task carries, so its completion by hand counts.
+A chapter registers no progress, so it cannot say the work is over.
+
+Enforced at: `RoadmapItemCompletion.HasTasks()`, which counts gathered backlog entries only
+
+### Invariant: A completion day is not after today
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.TheCompleteCommand_RefusesADayAfterToday_AndSavesNothing, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.TheCompleteCommand_TakesToday]
+```
+
+Completing an item on a day after today is refused and leaves the item as it was (`roadmap.completed_in_future`).
+Finished work cannot end in the future.
+
+Enforced at: `CompleteItemCommandHandler`, against today on its clock
+
+### Invariant: Completing again replaces the completion day
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.CompleteItem_AgainOnAnotherDay_MovesTheDay
+```
+
+Completing an item that is already completed keeps only the newest day.
+
+Enforced at: `RoadmapPlan.CompleteItem()`
+
+### Invariant: Reopening clears the completion day
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.ReopenItem_ClearsTheDay, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.ReopenItem_OnAnOpenItem_LeavesItOpen]
+```
+
+Reopening an item clears its `completed_on`, and reopening an open item changes nothing.
+
+Enforced at: `RoadmapPlan.ReopenItem()`
+
+### Invariant: Completing leaves the window where it was planned
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.CompleteItem_RecordsTheDay_AndLeavesTheWindowWhereItWasPlanned
+```
+
+Completing or reopening an item changes its `completed_on` and nothing else, its Planned Window included.
+
+Enforced at: `RoadmapPlan.CompleteItem()` and `ReopenItem()`
+
+### Invariant: Moving or editing a completed item keeps it completed
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.MovingOrEditingACompletedItem_KeepsItCompleted
+```
+
+A reschedule, a pinned or unpinned end, a new priority or an edit of a completed item leaves its `completed_on` as it was.
+Only Reopen opens it again.
+
+Enforced at: `Reschedule()`, `PinEnd()`, `UnpinEnd()`, `Prioritise()` and `UpdateItem()`, none of which writes `completed_on`
+
 ## Plan Sequencing
 
 ```meta

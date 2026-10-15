@@ -662,6 +662,13 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
+        // A moved filter acknowledges the press before it fetches (DashboardPartBase
+        // yields first), so Change() can return before the part has asked. Wait on the
+        // stub itself.
+        SpinWait.SpinUntil(
+            () => sessions.Scopes.Any(scope => scope.MachineId == DashboardTestHost.MachineId),
+            TimeSpan.FromSeconds(5));
+
         Assert.Contains(DashboardTestHost.MachineId, sessions.Scopes.Select(scope => scope.MachineId));
     }
 
@@ -1940,6 +1947,11 @@ public class DashboardPaneTests
 
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog");
+
+        // The same yield before the fetch as a moved machine filter.
+        SpinWait.SpinUntil(
+            () => sessions.Scopes.Any(scope => scope.Repositories.Contains("backlog")),
+            TimeSpan.FromSeconds(5));
 
         Assert.Contains(sessions.Scopes, scope => scope.Repositories.Contains("backlog"));
     }
@@ -3635,16 +3647,26 @@ public class DashboardPaneTests
     }
 
     /// <summary>Sessions that remembers every scope it was asked for, so a test can say
-    /// which filters reached it and which did not.</summary>
+    /// which filters reached it and which did not. A moved filter's fetch runs after the
+    /// part's <c>Task.Yield</c>, off the test thread, so the list is read as a locked
+    /// snapshot.</summary>
     private sealed class RecordingSessionInsights : ISessionInsights
     {
-        public List<DashboardScope> Scopes { get; } = [];
+        private readonly List<DashboardScope> _scopes = [];
+
+        public IReadOnlyList<DashboardScope> Scopes
+        {
+            get
+            {
+                lock (_scopes) return [.. _scopes];
+            }
+        }
 
         public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            lock (_scopes) _scopes.Add(scope);
             return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
         }
 

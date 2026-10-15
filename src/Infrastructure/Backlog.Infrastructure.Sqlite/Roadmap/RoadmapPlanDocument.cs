@@ -163,6 +163,16 @@ internal sealed record RoadmapItemDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool EndPinned { get; init; }
 
+    /// <summary>The day a person completed this item by hand, written as a plain
+    /// <c>yyyy-MM-dd</c>; omitted while it is open, so an ordinary item costs no key. The
+    /// name is spelled out for the reason <see cref="EndPinned"/>'s is: it is persisted and
+    /// synced, and a renamed property would silently reopen every completed item. Additive,
+    /// absent means open — an older document completed nothing — so no version bump, per
+    /// ADR 0006.</summary>
+    [JsonPropertyName("completedOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public DateOnly? CompletedOn { get; init; }
+
     internal static RoadmapItemDocument From(RoadmapItem item) => new()
     {
         Id = item.Id.ToString(),
@@ -178,7 +188,8 @@ internal sealed record RoadmapItemDocument
         DependsOn = [.. item.Dependencies.All.Select(id => id.ToString())],
         Notes = item.Notes,
         PlacedByImport = item.PlacedByImport is { } placement ? RoadmapWire.ToWire(placement) : null,
-        EndPinned = item.EndPinned
+        EndPinned = item.EndPinned,
+        CompletedOn = item.CompletedOn
     };
 
     /// <summary>The item, or null when the block does not describe one. A block
@@ -209,7 +220,8 @@ internal sealed record RoadmapItemDocument
             string.IsNullOrWhiteSpace(Tag) ? null : PlanningTag.Of(Tag),
             KnowledgeReferences.Of(Knowledge),
             RoadmapWire.ParsePlacement(PlacedByImport),
-            EndPinned);
+            EndPinned,
+            CompletedOn);
     }
 }
 

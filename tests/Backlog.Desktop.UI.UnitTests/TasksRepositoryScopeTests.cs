@@ -458,48 +458,34 @@ public class TasksRepositoryScopeTests
 
     // --- A plan opened from the roadmap ------------------------------------------
     //
-    // "Open in Tasks" scopes the list to the repositories the roadmap item names, in
-    // its order, replacing what the scope held.
+    // "Open in Tasks" scopes the list to every repository, whatever the scope held:
+    // the roadmap gathers an item's work wherever it is filed, so any narrower scope
+    // could hide some of it (roadmap/domain.md#roadmap-item-gathering).
 
     [Fact]
-    public async Task Showing_a_plan_scopes_to_its_repositories_in_order()
+    public async Task Showing_a_plan_scopes_to_every_repository_from_any_scope()
     {
         using var host = await TasksPaneHost.CreateAsync(
             "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "site = JSdotNet/Site");
-        host.State.SetRepositoryFilter("site");
+        host.State.RestoreRepositoryScope(["site", "docs"]);
 
-        host.State.ShowPlan("+plan-a", ["docs", "backlog"]);
+        host.State.ShowPlan("+plan-a");
 
-        Assert.Equal(["docs", "backlog"], host.State.SelectedRepositoryAliases);
-        Assert.Equal("docs", host.State.AnchorRepositoryAlias);
+        Assert.Empty(host.State.SelectedRepositoryAliases);
     }
 
-    /// <summary>No repository to scope to is every repository — not the Brain, which
-    /// is the work filed under none and would hide the plan's own tasks.</summary>
+    /// <summary>Every repository — not the Brain, which is the work filed under none
+    /// and would hide the plan's filed tasks.</summary>
     [Fact]
-    public async Task Showing_a_plan_with_no_repository_scopes_to_every_repository()
+    public async Task Showing_a_plan_from_the_brain_scopes_to_every_repository()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
         host.State.SetBrainFilter();
 
-        host.State.ShowPlan("+plan-a", []);
+        host.State.ShowPlan("+plan-a");
 
         Assert.Empty(host.State.SelectedRepositoryAliases);
         Assert.False(host.State.BrainInScope);
-    }
-
-    [Fact]
-    public async Task Showing_a_plan_drops_a_repository_nothing_is_configured_under()
-    {
-        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
-
-        host.State.ShowPlan("+plan-a", ["retired", "docs"]);
-
-        Assert.Equal(["docs"], host.State.SelectedRepositoryAliases);
-
-        host.State.ShowPlan("+plan-a", ["retired"]);
-
-        Assert.Empty(host.State.SelectedRepositoryAliases);
     }
 
     [Fact]
@@ -507,10 +493,11 @@ public class TasksRepositoryScopeTests
     {
         using var host = await TasksPaneHost.CreateAsync(
             "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "site = JSdotNet/Site");
+        host.State.RestoreRepositoryScope(["backlog", "docs", "site"]);
         var changes = 0;
         host.State.Changed += () => changes++;
 
-        host.State.ShowPlan("+plan-a", ["backlog", "docs", "site"]);
+        host.State.ShowPlan("+plan-a");
 
         Assert.Equal(1, changes);
     }

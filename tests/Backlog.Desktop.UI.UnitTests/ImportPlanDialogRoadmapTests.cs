@@ -132,6 +132,21 @@ public sealed class ImportPlanDialogRoadmapTests
         Assert.EndsWith("Roadmap: nothing laid out — That dependency would make a cycle. The tasks were kept.", sentence);
     }
 
+    /// <summary>An import that filed entries under an archived repository says so,
+    /// and says the repository stays archived (local ADR 0029).</summary>
+    [Fact]
+    public void An_import_filed_under_an_archived_repository_says_it_stays_archived()
+    {
+        var sentence = ImportPlanResultSentence.Describe(new ImportPlanResultDto(
+            3, 0, 0, 0, 0, [],
+            ArchivedRepositories: ["innovadis-dev/Budgetbeheer"]));
+
+        Assert.Equal(
+            "Imported: 3 created, 0 replaced, 0 updated, 0 skipped, 0 removed. "
+                + "Filed under an archived repository, which stays archived: innovadis-dev/Budgetbeheer.",
+            sentence);
+    }
+
     private static string Preview(IRenderedComponent<ImportPlanDialog> component) =>
         component.Find("[data-testid='import-plan-preview']").TextContent;
 

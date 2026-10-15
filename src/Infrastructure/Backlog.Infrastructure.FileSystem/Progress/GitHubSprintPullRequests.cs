@@ -40,13 +40,20 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub, Ti
         ArgumentNullException.ThrowIfNull(pullRequests);
 
         var now = _clock.GetUtcNow();
+        var configured = gitHub() is { IsConfigured: true } integration ? integration : null;
+
+        // An archived repository is not read from GitHub (local ADR 0029). Left out of
+        // the question rather than asked and answered empty, which would overwrite an
+        // answer already known with Unknown; the sprint keeps the repository and
+        // whatever was last read for it.
         var wanted = pullRequests
             .Where(pull => !IsKnown(pull, now) && Reference(pull) is not null)
             .Select(pull => Reference(pull)!)
+            .Where(reference => configured?.ResolveRepository(reference.RepositoryFullName) is not { Archived: true })
             .DistinctBy(Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (wanted.Count > 0 && gitHub() is { IsConfigured: true } configured)
+        if (wanted.Count > 0 && configured is not null)
         {
             try
             {

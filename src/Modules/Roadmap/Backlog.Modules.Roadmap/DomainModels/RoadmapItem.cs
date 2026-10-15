@@ -6,9 +6,11 @@ namespace Backlog.Modules.Roadmap.DomainModels;
 /// One piece of planned work inside a <see cref="RoadmapPlan"/>.
 /// <para>
 /// It has no status and no percentage. Both are questions about execution, and
-/// execution belongs to Tasks: an item that names an entry shows that
-/// entry's progress, and an item that names none shows that it is planned and
-/// nothing more.
+/// execution belongs to Tasks: an item that gathers entries shows their progress.
+/// An item that gathers none has no execution to read, so a person may record the
+/// day its work was done — <see cref="CompletedOn"/> — and reopen it again. That
+/// date is read only while nothing is gathered: once tasks carry the item, their
+/// progress wins and the date is ignored, never cleared.
 /// </para>
 /// <para>
 /// Every mutator is <c>internal</c> on purpose. An item is not a consistency
@@ -36,7 +38,8 @@ public sealed class RoadmapItem
         PlanningTag? tag = null,
         KnowledgeReferences? knowledgeRefs = null,
         ImportPlacement? placedByImport = null,
-        bool endPinned = false)
+        bool endPinned = false,
+        DateOnly? completedOn = null)
     {
         Id = id;
         Title = title;
@@ -55,6 +58,7 @@ public sealed class RoadmapItem
         KnowledgeRefs = knowledgeRefs ?? KnowledgeReferences.Empty;
         PlacedByImport = placedByImport;
         EndPinned = endPinned;
+        CompletedOn = completedOn;
     }
 
     /// <summary>Stable across every reschedule. That is what makes it safe for a
@@ -103,6 +107,12 @@ public sealed class RoadmapItem
     /// person's date is theirs until they say otherwise.</summary>
     public bool EndPinned { get; private set; }
 
+    /// <summary>The day a person said this item's work was done, or null while it is open.
+    /// Only meaningful for an item no task carries: gathered tasks outrank it wherever the
+    /// plan is read, so it is kept rather than cleared when tasks arrive, and reads again
+    /// if they all go.</summary>
+    public DateOnly? CompletedOn { get; private set; }
+
     internal void Rename(string title) => Title = title;
 
     /// <summary>Moves the item in time on a person's say-so. The lane is only changed
@@ -134,6 +144,13 @@ public sealed class RoadmapItem
     /// <summary>Hands the end back to the forecast. The stored end stays where it is: it
     /// is only read again if the item is not started.</summary>
     internal void UnpinEnd() => EndPinned = false;
+
+    /// <summary>Records the day the work was done. Completing a completed item moves the
+    /// day: the person's latest word is the one kept.</summary>
+    internal void Complete(DateOnly on) => CompletedOn = on;
+
+    /// <summary>Opens the item again. The window stays where it was planned.</summary>
+    internal void Reopen() => CompletedOn = null;
 
     /// <summary>The importer places the window, and records by which rule.</summary>
     internal void PlaceByImport(PlannedWindow window, ImportPlacement placement)

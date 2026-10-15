@@ -199,6 +199,28 @@ public sealed class RoadmapPlan
         return Result.Success(item);
     }
 
+    /// <summary>Records the day an item's work was done, for work no task carries. The
+    /// plan cannot see whether tasks carry it — that is Tasks' answer — so it records the
+    /// day either way and the readers decide: gathered tasks outrank it.</summary>
+    public Result<RoadmapItem> CompleteItem(Guid itemId, DateOnly on)
+    {
+        var item = FindItem(itemId);
+        if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
+
+        item.Complete(on);
+        return Result.Success(item);
+    }
+
+    /// <summary>Opens a completed item again. An open item stays open.</summary>
+    public Result<RoadmapItem> ReopenItem(Guid itemId)
+    {
+        var item = FindItem(itemId);
+        if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
+
+        item.Reopen();
+        return Result.Success(item);
+    }
+
     public Result<RoadmapItem> Prioritise(Guid itemId, PlanningPriority priority)
     {
         var item = FindItem(itemId);

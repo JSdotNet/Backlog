@@ -25,8 +25,9 @@ chapter where a reviewer will find it, and mark the remark answered.
 1. **Place.** Read `owner/name` off the git remote — every Backlog call carries it as
    `repository`. Confirm the checkout is the repository whose notes are being answered.
 2. **Read the inbox.** `list_annotations` for the repository. Without a reachable Backlog
-   there is no inbox and nothing to do: say so and stop. Take the open notes only — a
-   resolved one is already answered, and a draft was never sent.
+   there is no inbox and nothing to do: say so and stop. When it answers `archived: true`,
+   the repository is archived and its devbook read-only: write nothing, say so and stop. Take
+   the open notes only — a resolved one is already answered, and a draft was never sent.
 3. **Answer each note.** Read the chapter and whatever the remark is actually about — the
    code, the decision, the neighbouring chapters. Work out the answer before writing
    anything. A remark you cannot answer stays open; say which and why.
@@ -51,3 +52,4 @@ chapter where a reviewer will find it, and mark the remark answered.
 - Write a fence with anything but `annotations.mjs` — no hand-edited block, no regex of
   your own.
 - Resolve a note whose answer is not in the chapter, or invent an answer to close one.
+- Write a fence into, or resolve a note of, an archived repository.

@@ -583,6 +583,7 @@ takes its values from.
 ### Badge and chip tones
 
 ```meta
+related: [".devbook/domain/roadmap/requirements.md#requirement-a-bar-whose-window-ended-with-its-work-open-is-drawn-as-an-alert"]
 ```
 
 A badge is a value with a class on it, and the class is what says which family
@@ -598,7 +599,7 @@ is the authority on what any of them may look like.
 | `quiet` | Nothing has happened to it yet — draft, proposed, unset | `color-secondary` ink on `color-background-alt` |
 | `live` | In progress, and the product may act on it | `color-primary-light` ink, `color-primary-dark` edge |
 | `alert` | Wants attention, but is not a fault | `color-warning` as a **surface** |
-| `fault` | Failed, blocked, or contradicted | `color-error` as a **surface** |
+| `fault` | Failed, blocked, contradicted, or overdue | `color-error` as a **surface** |
 | `settled` | Finished, and correct — done, merged, adopted | `color-success` as a **surface** |
 | `archived` | Out of force, and spends no colour: a transparent surface inside a border | `color-border-strong` edge only |
 
@@ -611,10 +612,17 @@ Rules:
   filled surfaces; everything else is outlined, so a filled chip in a list is
   always the one to look at. A state that is merely information MUST NOT be
   filled.
+- **Overdue is a fault, not an alert.** Work still open after its committed
+  window has ended is a broken commitment the reader must act on, so it takes
+  `fault`. `alert` stays for what wants attention while nothing has been missed
+  yet.
 - A filled chip takes `color-border-strong` as its boundary rather than a mix of
   its own surface. The semantic tokens are 1.04:1 to 1.31:1 against the raised
   surface, so as boundaries they are invisible. [Integration roles](#integration-roles)
-  records the same finding for state chips.
+  records the same finding for state chips. The one exception is a `fault` chip,
+  which may take its own ink, `color-error-text`, as its boundary: the ink
+  already clears its surroundings, and the red edge keeps the chip loud where it
+  sits on a coloured surface such as a roadmap bar.
 - A badge's text is small, so it MUST clear the 4.5:1 that
   `#contrast-rules-wcag-aa-minimum` sets for supporting text. `color-text-disabled`
   is **not** available to a badge: an out-of-force value is information, not a
