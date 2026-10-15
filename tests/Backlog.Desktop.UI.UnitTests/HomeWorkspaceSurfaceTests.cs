@@ -2840,6 +2840,39 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>AC3: the same plan opened from the action at the end of its bar, with no
+    /// editor in between.</summary>
+    [Fact]
+    public async Task Open_in_tasks_from_a_roadmap_bar_shows_its_plan_in_the_task_list()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
+        var navigation = new ShellNavigationStore(Path.Combine(root, "shell-navigation.json"));
+        using var harness = CreateHarness(
+            shellNavigation: navigation,
+            seed: "# Wire the importer +plan-a\n`task` `!ready` `repo:backlog`\n");
+        var planning = harness.Context.Services.GetRequiredService<IRoadmapPlanning>();
+        var added = await planning.AddItemAsync(
+            "Plan A",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"],
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(added.IsSuccess);
+
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        OpenTheRoadmap(component);
+
+        component.WaitForElement("[data-roadmap-action='open']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal("+plan-a", state.SelectedPlan);
+            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+        });
+    }
+
     /// <summary>Presses the roadmap's option in the view switch and waits for it to
     /// show — through the same affordance the reader has, rather than by reaching
     /// into shell state.</summary>

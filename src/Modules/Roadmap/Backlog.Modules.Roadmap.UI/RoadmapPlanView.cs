@@ -34,16 +34,29 @@ public sealed record PlannedRepository(string Alias, string Title, int? Colour =
 /// left in an item is divided by — the same pace its window was placed at.</param>
 public sealed record RoadmapForecast(DateOnly Today, PacesInUseDto Paces);
 
-/// <summary>Everything <c>RoadmapTimeline</c> needs, in the four shapes it takes.</summary>
+/// <summary>Everything <c>RoadmapTimeline</c> needs, in the four shapes it takes, and what
+/// each item offers beside its bars.</summary>
+/// <param name="ItemStates">Whether tasks carry each item and whether a person completed it,
+/// by item id; empty when the plan was read without its gathered work, because then neither
+/// can be answered.</param>
 public sealed record RoadmapTimelineModel(
     IReadOnlyList<RoadmapGroup> Groups,
     IReadOnlyList<RoadmapBar> Bars,
     IReadOnlyList<RoadmapMilestone> Milestones,
-    IReadOnlyList<RoadmapLink> Links)
+    IReadOnlyList<RoadmapLink> Links,
+    IReadOnlyDictionary<Guid, RoadmapItemState>? ItemStates = null)
 {
     public static RoadmapTimelineModel Empty { get; } = new([], [], [], []);
 
     public bool HasAnythingToDraw => Groups.Count > 0;
+
+    /// <summary>What the item behind a bar offers - any of its parts answers for the whole
+    /// item - or <c>null</c> for a bar the view did not build, a milestone, or a plan read
+    /// without its gathered work.</summary>
+    public RoadmapItemState? StateOf(string? barId) =>
+        RoadmapPlanView.NodeIdOf(barId) is { } id && ItemStates is not null && ItemStates.TryGetValue(id, out var state)
+            ? state
+            : null;
 
     /// <summary>The parts of an archived repository taken off the chart while show
     /// archived is off (local ADR 0029). Never drawn; kept so an item is still measured
@@ -55,6 +68,41 @@ public sealed record RoadmapTimelineModel(
     /// the drawn bars and the hidden ones, so whether show archived is on never changes
     /// what a drag stores.</summary>
     public IEnumerable<RoadmapBar> MeasuredBars => Bars.Concat(HiddenBars);
+}
+
+/// <summary>What a person may do to a roadmap item from its bar.</summary>
+public enum RoadmapItemAction
+{
+    /// <summary>Nothing: a task-less item already completed. Reopening it is left to the
+    /// editor.</summary>
+    None,
+
+    /// <summary>Show the tasks that carry it, in Tasks.</summary>
+    OpenInTasks,
+
+    /// <summary>Complete it by hand: no task carries it, so nothing else will.</summary>
+    Complete
+}
+
+/// <summary>
+/// Whether tasks carry a roadmap item and whether a person completed it by hand - what decides
+/// the actions it offers, on its bar and in its editor (<see cref="RoadmapItemCompletion"/>).
+/// </summary>
+/// <param name="HasTasks">It gathered at least one backlog entry. A knowledge chapter is no
+/// task.</param>
+/// <param name="CompletedOn">The day a person completed it, read only while no task carries
+/// it; <c>null</c> while it is open, and always once tasks carry it.</param>
+public sealed record RoadmapItemState(bool HasTasks, DateOnly? CompletedOn)
+{
+    /// <summary>A person completed it and no task outranks that.</summary>
+    public bool IsCompletedByHand => !HasTasks && CompletedOn is not null;
+
+    /// <summary>The one action its bar offers: Open in Tasks while tasks carry it, Complete
+    /// while nothing does and nobody completed it, and nothing once somebody has.</summary>
+    public RoadmapItemAction BarAction =>
+        HasTasks ? RoadmapItemAction.OpenInTasks
+        : IsCompletedByHand ? RoadmapItemAction.None
+        : RoadmapItemAction.Complete;
 }
 
 /// <summary>
@@ -154,7 +202,7 @@ public static class RoadmapPlanView
             .Select(item => (Item: item, Layout: layouts[item.Id]))
             .OrderBy(entry => entry.Layout.Start)
             .ThenBy(entry => entry.Item.Title, StringComparer.CurrentCulture)
-            .SelectMany(entry => PartsOf(entry.Item, entry.Layout))
+            .SelectMany(entry => PartsOf(entry.Item, entry.Layout, rollups?.GetValueOrDefault(entry.Item.Id)))
             // Again by start once split, so a part late in its item's window is
             // stacked after work that begins before it — first-fit needs the order.
             .OrderBy(part => part.Start)
@@ -193,7 +241,9 @@ public static class RoadmapPlanView
                 stacked.RowOf[part.BarId],
                 contradicting,
                 configured,
-                HasNoTask(part.Item, rollups),
+                // A task-less item a person completed is done, not intent: it is not drawn
+                // as untouched work.
+                HasNoTask(part.Item, rollups) && part.DrawnFrom?.CompletedOn is null,
                 IsOverdue(part, forecast)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
@@ -220,10 +270,86 @@ public static class RoadmapPlanView
             .SelectMany(part => (part.WaitsForParts ?? []).Select(before => new RoadmapLink(before, part.BarId)))
             .Where(link => bars.Any(bar => bar.Id == link.FromId));
 
-        return new RoadmapTimelineModel(groups, bars, markers, [.. Links(plan, placed, segmented), .. handOvers])
+        return new RoadmapTimelineModel(groups, bars, markers, [.. Links(plan, placed, segmented), .. handOvers], States(plan, rollups))
         {
             HiddenBars = [.. hidden.Select(part => new RoadmapBar(part.BarId, string.Empty, part.Item.Title, part.Start, part.End))]
         };
+    }
+
+    /// <summary>
+    /// What <paramref name="item"/> offers, given what it gathered: whether tasks carry it,
+    /// and the day a person completed it while none does (<see cref="RoadmapItemCompletion"/>).
+    /// For the editor, which reads one item and its rollup rather than the whole plan.
+    /// </summary>
+    public static RoadmapItemState StateOf(RoadmapItemDto item, RoadmapItemRollupDto? rollup)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return new RoadmapItemState(
+            RoadmapItemCompletion.HasTasks(rollup),
+            RoadmapItemCompletion.IsCompletedByHand(item, rollup) ? item.CompletedOn : null);
+    }
+
+    /// <summary>
+    /// <paramref name="view"/> with each item's action on its bar (<see cref="RoadmapItemState.BarAction"/>):
+    /// Open in Tasks while tasks carry it and the host can show them, Complete while nothing
+    /// carries it and nobody completed it, and nothing otherwise.
+    /// <para>
+    /// On one bar per item, the one that ends last — the action sits at the bar's end, and
+    /// the end of the item's work is where finishing it is read. Two parts ending together
+    /// give it to the later in the chart. Every other part is left without, so an item
+    /// split over three bands is not three buttons for one act.
+    /// </para>
+    /// </summary>
+    /// <param name="canOpenTasks">Whether the host can show an item's plan in the task list.
+    /// Without it, an item tasks carry offers nothing on its bar.</param>
+    public static RoadmapTimelineModel WithActions(RoadmapTimelineModel view, bool canOpenTasks)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+
+        var carriers = view.Bars
+            .Select((bar, index) => (Bar: bar, Index: index, Node: NodeIdOf(bar.Id)))
+            .Where(entry => entry.Node is not null)
+            .GroupBy(entry => entry.Node!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(entry => entry.Bar.End).ThenBy(entry => entry.Index).Last().Bar.Id);
+
+        List<RoadmapBar> bars =
+        [
+            .. view.Bars.Select(bar =>
+            {
+                if (NodeIdOf(bar.Id) is not { } node || carriers[node] != bar.Id) return bar;
+
+                var action = view.StateOf(bar.Id)?.BarAction switch
+                {
+                    RoadmapItemAction.OpenInTasks when canOpenTasks =>
+                        new RoadmapBarAction(RoadmapBarActionKind.Open, $"Open {bar.Title} in Tasks"),
+                    RoadmapItemAction.Complete =>
+                        new RoadmapBarAction(RoadmapBarActionKind.Complete, $"Complete {bar.Title}"),
+                    _ => null
+                };
+
+                return action is null ? bar : bar with { Action = action };
+            })
+        ];
+
+        return view with { Bars = bars };
+    }
+
+    /// <summary>Every item's state, by id - none when the plan was read without its gathered
+    /// work, because whether tasks carry an item is then unknown and claiming either answer
+    /// would offer the wrong action.</summary>
+    private static Dictionary<Guid, RoadmapItemState> States(
+        RoadmapPlanDto plan,
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups)
+    {
+        var states = new Dictionary<Guid, RoadmapItemState>();
+        if (rollups is null) return states;
+
+        foreach (var item in plan.Items) states.TryAdd(item.Id, StateOf(item, rollups.GetValueOrDefault(item.Id)));
+
+        return states;
     }
 
     /// <summary>What separates an item's id from its band in the id of one of its
@@ -406,10 +532,13 @@ public static class RoadmapPlanView
     /// business, drawn in its steps.
     /// </para>
     /// </summary>
-    private static IEnumerable<ItemPart> PartsOf(RoadmapItemDto item, RoadmapItemLayout layout)
+    private static IEnumerable<ItemPart> PartsOf(RoadmapItemDto item, RoadmapItemLayout layout, RoadmapItemRollupDto? rollup)
     {
         var parts = layout.Parts;
         var finished = layout.Placement is PartsPlacement.WhereItRan;
+
+        // Finished by a person's hand rather than by tasks: drawn where it was planned.
+        var completedByHand = finished && RoadmapItemCompletion.IsCompletedByHand(item, rollup) ? item.CompletedOn : null;
         var inFlight = layout.Placement is PartsPlacement.FromWork;
 
         string GroupOf(RoadmapItemPart part) => part.Band ?? NoRepositoryGroupId;
@@ -442,7 +571,7 @@ public static class RoadmapPlanView
                 layout.HandsOver,
                 waitsFor,
                 finished
-                    ? new DrawnFrom(Finished: true)
+                    ? new DrawnFrom(Finished: true, CompletedOn: completedByHand)
                     : inFlight
                         ? new DrawnFrom(Finished: false, Ran: part.Ran, Pinned: Pinned(item, part), part.Forecast, part.Pace, Begun: part.Begun, Empty: part.Empty)
                         : null);
@@ -771,7 +900,10 @@ public static class RoadmapPlanView
             // drawn where its work ran is history, and stays put.
             EndResizable: part.DrawnFrom is { Finished: false, Ran: false },
             Tentative: noTask,
-            Overdue: overdue);
+            Overdue: overdue,
+            // Only a whole item that is over: a part that ran inside work still in flight
+            // is history, but the item it belongs to is not done.
+            Done: part.DrawnFrom is { Finished: true });
 
     /// <summary>
     /// Whether a part's drawn window has passed with its work still open: it ended before
@@ -844,6 +976,8 @@ public static class RoadmapPlanView
     /// what it waits on, and is not drawn from work that began in another part.</param>
     /// <param name="Empty">A repository the item names that holds none of its tasks, drawn
     /// over the window the other parts make.</param>
+    /// <param name="CompletedOn">The day a person completed an item no task carries: finished,
+    /// and drawn where it was planned, because no task says where the work ran.</param>
     private sealed record DrawnFrom(
         bool Finished,
         bool Ran = false,
@@ -851,7 +985,8 @@ public static class RoadmapPlanView
         DateOnly? Forecast = null,
         decimal? Pace = null,
         bool Begun = false,
-        bool Empty = false);
+        bool Empty = false,
+        DateOnly? CompletedOn = null);
 
     /// <summary>
     /// The item's gathered tasks as the steps drawn inside its bar (ADR 0013,
@@ -987,6 +1122,9 @@ public static class RoadmapPlanView
             // make this one in progress (features.md#forecasting-work-in-flight).
             parts.Add(drawnFrom switch
             {
+                { CompletedOn: { } completed } => string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Completed {completed:d MMM yyyy}, drawn where it was planned"),
                 { Finished: true } or { Ran: true } => "finished, drawn where the work ran",
                 { Begun: true, Pinned: true } => "in progress, drawn from when the work began to the end you pinned",
                 { Begun: true } => "in progress, drawn from when the work began to when what is left should be done",

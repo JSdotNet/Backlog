@@ -427,6 +427,9 @@
                                                         OnToggle="Toggle"
                                                         ToggleId="@ToggleButtonId(bar.Id)"
                                                         OnActivate="Activate"
+                                                        ShowAction="@OnBarAction.HasDelegate"
+                                                        OnAction="BarAction"
+                                                        ActionBusy="@Is(BusyActionId, bar.Id)"
                                                         OnKeyDown="args => Key(bar, args)"
                                                         TestId="@Suffix($"bar-{Slug(bar.Id)}")" />
                                 }
@@ -764,6 +767,37 @@
     /// </summary>
     [Parameter]
     public EventCallback<RoadmapLink> OnLinkCreated { get; set; }
+
+    /// <summary>
+    /// A bar's own action was used: the small button at its end that a bar carrying a
+    /// <see cref="RoadmapBar.Action"/> draws. Names the bar; what the act does is the
+    /// host's. Never raised together with <see cref="OnBarSelected"/>: using the action
+    /// does not open the bar.
+    /// <para>
+    /// Left unset, no bar draws its action.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnBarAction { get; set; }
+
+    /// <summary>The bar whose action the host is still answering, if any. Its action shows
+    /// busy and drops a second press.</summary>
+    [Parameter]
+    public string? BusyActionId { get; set; }
+
+    /// <summary>
+    /// Raises the action, then puts the focus on the bar itself. An action usually changes
+    /// what the bar offers — a completed bar has none left — so the button the focus was on
+    /// may not be drawn again, and the focus would fall to the page. On the bar it stays
+    /// where the reader was.
+    /// </summary>
+    private async Task BarAction(string id)
+    {
+        await OnBarAction.InvokeAsync(id);
+
+        _refocusId = id;
+        StateHasChanged();
+    }
 
     /// <summary>
     /// An empty place on a row the reader double-clicked or dragged across, to put
