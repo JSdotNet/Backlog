@@ -2774,8 +2774,17 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// A roadmap item's "Open in Tasks" puts the Tasks view on screen with the item's
-    /// plan chip pressed and the list scoped to its repository — remembered, as a press
-    /// on a scope chip is. The roadmap raises the request and the shell answers it.
+    /// plan chip pressed and every entry the roadmap gathers under the item listed — the
+    /// task it links, and whatever wears its tag with or without the <c>+</c>, wherever
+    /// it is filed (roadmap/domain.md#roadmap-item-gathering). The list is scoped to
+    /// every repository, remembered as a press on a scope chip is. The roadmap raises the
+    /// request and the shell answers it.
+    /// <para>
+    /// The defect this pins: an item filed under <c>backlog</c> opened onto "Nothing
+    /// matches these filters" when its task wore the bare <c>#plan-a</c>, because the list
+    /// asked only for <c>+plan-a</c> inside the bar's repository while the roadmap counted
+    /// by its own wider rule.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task Open_in_tasks_from_a_roadmap_item_shows_its_plan_in_the_task_list()
@@ -2784,18 +2793,34 @@ public sealed class HomeWorkspaceSurfaceTests
         var navigation = new ShellNavigationStore(Path.Combine(root, "shell-navigation.json"));
         using var harness = CreateHarness(
             shellNavigation: navigation,
-            seed: "# Wire the importer +plan-a\n`task` `!ready` `repo:backlog`\n");
+            seed: "# Wire the importer +plan-a\n`task` `!ready` `repo:backlog`\n",
+            moreSeeds:
+            [
+                "# Map the fields\n`task` `!ready` `#plan-a` `repo:backlog`\n",
+                "# Sketch the flow +plan-a\n`task` `!ready`\n",
+                "# Plan the cutover\n`task` `!ready` `repo:backlog`\n",
+                "# Tidy the docs\n`task` `!ready` `#other` `repo:backlog`\n",
+            ]);
+
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForAssertion(() => Assert.Equal(5, state.Rows.Count(row => row.IsPersisted)));
+        var linked = state.Rows.Single(row => row.PreviewTitle.StartsWith("Plan the cutover", StringComparison.Ordinal)).Id;
+        Assert.NotNull(linked);
+
+        // Linked to the untagged task, and filed under backlog alone — the bar the reader
+        // opens names that one repository.
         var planning = harness.Context.Services.GetRequiredService<IRoadmapPlanning>();
         var added = await planning.AddItemAsync(
             "Plan A",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["backlog"],
+            taskId: linked,
+            tag: "plan-a",
             cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(added.IsSuccess);
 
-        var component = Render(harness);
-        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
         OpenTheRoadmap(component);
 
         component.WaitForElement(".roadmap-bar__body").Click();
@@ -2806,9 +2831,12 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
             Assert.Equal("+plan-a", state.SelectedPlan);
-            Assert.StartsWith("Wire the importer", Assert.Single(state.FilteredRows).PreviewTitle, StringComparison.Ordinal);
-            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
-            Assert.Equal(["backlog"], navigation.RepositoryScope);
+            Assert.Equal(
+                new[] { "Map the fields", "Plan the cutover", "Sketch the flow", "Wire the importer" },
+                state.FilteredRows.Select(row => row.PreviewTitle.Split(" +")[0]).Order(StringComparer.Ordinal));
+            Assert.DoesNotContain(state.FilteredRows, row => row.PreviewTitle.StartsWith("Tidy the docs", StringComparison.Ordinal));
+            Assert.Empty(state.SelectedRepositoryAliases);
+            Assert.Empty(navigation.RepositoryScope);
         });
     }
 

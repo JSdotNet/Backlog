@@ -1247,7 +1247,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         // Any press in the plan group is the reader taking the plan back, so a plan
         // ShowPlan held on the bar is held no longer.
-        if (IsPlanFilter(tag)) _shownPlan = null;
+        if (IsPlanFilter(tag)) LetGoOfShownPlan();
 
         if (!_selectedTags.Remove(tag))
         {
@@ -1264,16 +1264,31 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Shows one plan's work: <paramref name="planTag"/> becomes the one plan chip
-    /// pressed, and the scope becomes <paramref name="repositoryAliases"/> — what a
-    /// roadmap item's "Open in Tasks" asks for.
+    /// pressed, and the list shows every entry the roadmap gathers under the item — what
+    /// a roadmap item's "Open in Tasks" asks for.
+    /// <para>
+    /// Gathered by the roadmap's own rule
+    /// (<c>.devbook/domain/roadmap/domain.md#roadmap-item-gathering</c>): the task the
+    /// item links, <paramref name="linkedTaskId"/>, and every entry wearing the plan's
+    /// tag with or without its <c>+</c> (<see cref="PlanTagMatch.Carries"/>). The chip
+    /// alone asks only for <c>+slug</c>, so while the list kept that narrower rule an
+    /// entry wearing the bare slug, or the linked task carrying no tag, was counted on
+    /// the bar and missing from the list opened off it — "Nothing matches these filters"
+    /// under a bar that said it had tasks (<see cref="InShownPlan"/>).
+    /// </para>
+    /// <para>
+    /// Every other scope that could hide some of that work is let go: the repository
+    /// scope becomes every repository — never the Brain, which would hide the plan's
+    /// filed work — because repository plays no part in what the roadmap gathers; and
+    /// My Day, Ready in a plan, the source, the type and the status go back to all,
+    /// the same treatment <see cref="Reveal"/> gives a scope in the way of a row. People
+    /// and general tags stay pressed, as a plan chip's press leaves them: the tag group
+    /// is a union, so they can add rows beside the plan's but never hide one of them.
+    /// The list has no search text of its own to clear.
+    /// </para>
     /// <para>
     /// Not a <see cref="ToggleTagFilter"/>: asking for the plan already shown leaves it
-    /// shown rather than letting go of it. Any other plan pressed before is let go, and
-    /// people and general tags stay, as a plan chip's press leaves them. The scope is
-    /// replaced in the order handed, so the first is the anchor; an alias nothing is
-    /// configured under is dropped, and nothing left means every repository — never the
-    /// Brain, which would hide the plan's filed work. Search, status, My Day and Ready
-    /// in a plan are left as they are.
+    /// shown rather than letting go of it. Any other plan pressed before is let go.
     /// </para>
     /// <para>
     /// One decision, so the list is filtered once and the change announced once.
@@ -1288,11 +1303,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </para>
     /// </summary>
     /// <param name="planTag">The plan tag with its <c>+</c>, as a chip's value.</param>
-    /// <param name="repositoryAliases">The repositories to scope to; empty for all.</param>
-    public void ShowPlan(string planTag, IReadOnlyList<string> repositoryAliases)
+    /// <param name="linkedTaskId">The task the roadmap item links, when it links one;
+    /// listed whether or not it carries the tag.</param>
+    public void ShowPlan(string planTag, Guid? linkedTaskId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(planTag);
-        ArgumentNullException.ThrowIfNull(repositoryAliases);
 
         if (TagText.Kind(planTag) is not TagKind.Plan)
         {
@@ -1300,17 +1315,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         _shownPlan = planTag.ToLowerInvariant();
+        _shownPlanTask = linkedTaskId;
         _selectedTags.RemoveWhere(IsPlanFilter);
         _selectedTags.Add(_shownPlan);
 
-        var scope = repositoryAliases
-            .Select(ResolveAliasOrNull)
-            .OfType<string>()
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-
         _selectedRepositoryAliases.Clear();
-        _selectedRepositoryAliases.AddRange(scope);
+        MyDayOn = null;
+        ReadyInPlanOnly = false;
+        SelectedSource = null;
+        SelectedType = null;
+        SelectedStatusFilterWire = string.Empty;
 
         ApplyFilter();
         Changed?.Invoke();
@@ -5437,25 +5451,59 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>The plan <see cref="ShowPlan"/> asked for, held on the bar while it is
-    /// still pressed; null once the reader lets go of it or presses another plan.</summary>
+    /// still pressed; null once the reader lets go of it or presses another plan. While
+    /// held, its chip lists what the roadmap gathers under the item rather than only
+    /// what wears this spelling — see <see cref="InShownPlan"/>.</summary>
     private string? _shownPlan;
 
-    /// <summary>The chip for the plan <see cref="ShowPlan"/> holds, when nothing open
-    /// carries it: nothing open to count, and its finished work counted as every
-    /// other chip counts it — a finished plan's chip is not "0" over a list of its
-    /// finished tasks.</summary>
-    private static TagFilterOption ShownPlanChip(string plan, IReadOnlyList<EntryRow> scopedRows) =>
-        new(
+    /// <summary>The task the roadmap item behind <see cref="_shownPlan"/> links, listed
+    /// under the plan whether or not it carries the tag. Held and let go with it, never
+    /// apart: a chip the reader pressed themselves knows no linked task.</summary>
+    private Guid? _shownPlanTask;
+
+    private void LetGoOfShownPlan()
+    {
+        _shownPlan = null;
+        _shownPlanTask = null;
+    }
+
+    /// <summary>
+    /// Whether the plan <see cref="ShowPlan"/> holds gathers <paramref name="row"/>, by
+    /// the roadmap's rule rather than the chip's: the item's linked task, or any tag that
+    /// is the slug with or without its <c>+</c> (<see cref="PlanTagMatch.Carries"/>). A
+    /// person tag spelling the slug is not it.
+    /// <para>
+    /// The one question the list, the held chip's count and <see cref="Reveal"/> all ask
+    /// of the shown plan, so the bar cannot count a row the list leaves out, nor Reveal
+    /// let go of the plan to show a row the plan already lists.
+    /// </para>
+    /// </summary>
+    private bool InShownPlan(EntryRow row) =>
+        _shownPlan is { } shown
+        && ((_shownPlanTask is { } linked && row.Id == linked)
+            || row.PreviewTags.Any(tag => PlanTagMatch.Carries(tag, shown[1..])));
+
+    /// <summary>The chip for the plan <see cref="ShowPlan"/> holds, counted by what it
+    /// gathers rather than by who wears its spelling — the bare slug and the linked task
+    /// are under it as the <c>+</c> is, so a plan whose work wears only those does not
+    /// read "0" over a list of it. Open and finished split as on every other chip, so a
+    /// finished plan's chip is not "0" over a list of its finished tasks either.</summary>
+    private TagFilterOption ShownPlanChip(string plan, IReadOnlyList<EntryRow> scopedRows)
+    {
+        var gathered = scopedRows.Where(InShownPlan).ToList();
+
+        return new(
             TagText.Display(plan),
             plan,
-            0,
-            scopedRows.Count(row => IsFinished(row) && row.PreviewTags.Contains(plan, StringComparer.OrdinalIgnoreCase)));
+            gathered.Count(row => !IsFinished(row)),
+            gathered.Count(IsFinished));
+    }
 
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
     {
         // Held only while it is still pressed: a widening that cleared the selection
         // let go of it as surely as a press would.
-        if (_shownPlan is not null && !_selectedTags.Contains(_shownPlan)) _shownPlan = null;
+        if (_shownPlan is not null && !_selectedTags.Contains(_shownPlan)) LetGoOfShownPlan();
 
         var live = scopedRows.Where(row => !IsFinished(row)).ToList();
 
@@ -5547,15 +5595,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // moved up — and while nothing open carries it, it is held there, pressed at 0,
         // rather than being let go below with no chip to say why the list it asked for
         // is not the list on screen. A plan the reader pressed keeps its place: a chip does not
-        // jump out from under the pointer that pressed it.
+        // jump out from under the pointer that pressed it. Counted by what the plan gathers
+        // rather than by who wears its spelling, so the number on it is the list under it.
         if (_shownPlan is { } shown)
         {
             var at = options.FindIndex(option => string.Equals(option.Value, shown, StringComparison.OrdinalIgnoreCase));
-            var chip = at < 0 ? ShownPlanChip(shown, scopedRows) : options[at];
 
             if (at >= 0) options.RemoveAt(at);
 
-            options.Insert(0, chip);
+            options.Insert(0, ShownPlanChip(shown, scopedRows));
         }
 
         TagFilters = options;
@@ -5581,11 +5629,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.PreviewTags.Any(tag => TagText.Kind(tag) is TagKind.Plan);
 
     /// <summary>The union the tag group asks for: a row wearing any pressed tag, or
-    /// matching a pressed sentinel.</summary>
+    /// matching a pressed sentinel, or gathered by the plan <see cref="ShowPlan"/> holds
+    /// (<see cref="InShownPlan"/>).</summary>
     private bool MatchesSelectedTags(EntryRow row) =>
         (row.PreviewTags.Count == 0 && _selectedTags.Contains(UntaggedTag))
         || (_selectedTags.Contains(NoPlanTag) && !HasPlan(row))
-        || row.PreviewTags.Any(_selectedTags.Contains);
+        || row.PreviewTags.Any(_selectedTags.Contains)
+        || InShownPlan(row);
 
     private static string StatusWire(EntryStatus status) => status switch
     {
