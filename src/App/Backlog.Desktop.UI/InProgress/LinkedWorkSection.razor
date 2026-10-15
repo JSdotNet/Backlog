@@ -40,6 +40,12 @@
                 Options="@Options"
                 EmptyTitle="Nothing unlinked to choose"
                 OnChosen="LinkAsync"
+                ReferenceLabel="@(ShowPullRequests ? "Or a pull request by number or link" : null)"
+                ReferencePlaceholder="1214 or https://github.com/owner/name/pull/1214"
+                ReferenceHelp="Open, merged or closed, from a repository registered in Settings."
+                ReferenceError="@_referenceError"
+                ReferenceBusy="_linkingReference"
+                OnReference="LinkReferenceAsync"
                 TestId="entry-link-picker" />
 
 @code {
@@ -134,6 +140,7 @@
         _offered = Projection.Loose([])
             .Where(loose => loose.Session is null ? ShowPullRequests : ShowSessions)
             .ToDictionary(loose => loose.Key, StringComparer.OrdinalIgnoreCase);
+        _referenceError = null;
         _picking = true;
     }
 
@@ -143,6 +150,28 @@
         if (!_offered.TryGetValue(option.Id, out var loose)) return;
 
         await WorkLinker.LinkAsync(State, _toasts, Projection, Row, loose);
+    }
+
+    private string? _referenceError;
+    private bool _linkingReference;
+
+    /// <summary>A pull request typed by number or link, whatever its state: read by
+    /// number, then linked. Linked, the dialog closes; refused, it stays open with the
+    /// reason under the field.</summary>
+    private async Task LinkReferenceAsync(string reference)
+    {
+        _linkingReference = true;
+        _referenceError = null;
+        try
+        {
+            _referenceError = await WorkLinker.LinkPullRequestAsync(State, _toasts, Reader, Row, reference);
+        }
+        finally
+        {
+            _linkingReference = false;
+        }
+
+        if (_referenceError is null) _picking = false;
     }
 
     /// <summary>"Unlink" beside a card: off this task through the entries module's

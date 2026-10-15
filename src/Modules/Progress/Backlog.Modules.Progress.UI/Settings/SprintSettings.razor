@@ -33,6 +33,7 @@
 @using global::Backlog.UI.Components.Selects
 @inject ISprintSeriesPlanning Planning
 @inject ISprintRepositories RepositoryList
+@inject IServiceProvider Services
 @implements IDisposable
 
 <ProgressOnly>
@@ -58,7 +59,21 @@
                               OnStartWeekdayChanged="day => ChangeCadenceAsync(series.Id, null, day)"
                               OnNamePatternChanged="pattern => ChangeAsync(series.Id, ct => Planning.RenameAsync(series.Id, series.Name, pattern, ct))"
                               OnGoalChanged="goal => ChangeAsync(series.Id, ct => Planning.SetGoalRulesAsync(series.Id, RulesOf(goal), goal.Share, ct))"
-                              OnShowInChanged="briefs => ChangeAsync(series.Id, ct => Planning.ShowInBriefsAsync(series.Id, briefs.Daily, briefs.Weekly, ct))" />
+                              OnShowInChanged="briefs => ChangeAsync(series.Id, ct => Planning.ShowInBriefsAsync(series.Id, briefs.Daily, briefs.Weekly, ct))"
+                              OnStartSprint="() => OpenStart(series)" />
+        }
+
+        @if (_starting is { } starting)
+        {
+            <SprintStartDialog Open="true"
+                               OpenChanged="CloseStart"
+                               SprintName="@FirstSprintName(starting)"
+                               SeriesName="@starting.Name"
+                               StartWeekday="@starting.StartWeekday"
+                               DefaultStart="@SprintStartRules.DefaultStart(Today, starting.StartWeekday)"
+                               Busy="_startBusy"
+                               Error="@_startError"
+                               OnStart="start => StartAsync(starting.Id, start)" />
         }
 
         <Card Title="@FreeRepositoriesCardTitle" TestId="sprint-settings-free">
@@ -117,6 +132,67 @@
     /// page did not ask for, so a series pulled from another desktop does not wipe it.</summary>
     private string? _pageError;
     private bool _adding;
+    private SprintSeriesDto? _starting;
+    private bool _startBusy;
+    private string? _startError;
+
+    /// <summary>Today by the host's clock, the day the Start dialog counts its default
+    /// from — the module's own TimeProvider, so a test can set it.</summary>
+    private DateOnly Today =>
+        DateOnly.FromDateTime(((Services.GetService(typeof(TimeProvider)) as TimeProvider) ?? TimeProvider.System).GetLocalNow().DateTime);
+
+    /// <summary>The name a series' first sprint will carry, from its pattern.</summary>
+    public static string FirstSprintName(SprintSeriesDto series) =>
+        SprintSeriesCardModel.NextName(series.NamePattern, NextNumberOf(series)) ?? "the first sprint";
+
+    private void OpenStart(SprintSeriesDto series)
+    {
+        _startError = null;
+        _starting = series;
+    }
+
+    private void CloseStart(bool open)
+    {
+        if (open || _startBusy) return;
+        _starting = null;
+        _startError = null;
+    }
+
+    /// <summary>
+    /// Starts the series' first sprint through the module
+    /// (.devbook/domain/progress/features.md#starting-the-first-sprint) and draws the
+    /// card from its answer, which then names the sprint running. A refusal stays in the
+    /// dialog in the module's words.
+    /// </summary>
+    private async Task StartAsync(Guid seriesId, SprintStart start)
+    {
+        if (_startBusy) return;
+
+        _startBusy = true;
+        try
+        {
+            var started = await Planning.StartSprintAsync(seriesId, start.On, start.Goal);
+            if (started.IsFailure)
+            {
+                _startError = started.Error.Message;
+                return;
+            }
+
+            _startError = null;
+            _starting = null;
+            _errors.Remove(seriesId);
+            var index = _series.FindIndex(series => series.Id == seriesId);
+            if (index >= 0) _series[index] = started.Value;
+        }
+        catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
+        {
+            _startError = $"The sprint could not be started: {exception.Message}";
+        }
+        finally
+        {
+            _startBusy = false;
+        }
+    }
 
     /// <summary>Changes handed to the port and not yet answered.</summary>
     private int _saving;

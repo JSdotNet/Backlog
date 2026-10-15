@@ -72,6 +72,25 @@
                         Options="@IntegrationFixtures.LinkTaskOptions"
                         OnChosen="Link" />
     </Story>
+
+    <Story Name="Linking a pull request by number or link"
+           Description="With `ReferenceLabel` set and `OnReference` listened to, `WorkLinkPicker` draws a field and a `Link` button under its list: a pull request typed by number or pasted as its link, whatever its state — open, merged or closed — so work that merged before its task was linked can still be linked. Enter or `Link` hands the text to the host, which reads it and links it, then closes the dialog; a refusal is the host's sentence under the field, with the text kept. This sample refuses anything that is not a number or a GitHub pull request link."
+           Code="@ReferenceCode">
+        <AppButton OnClick="() => { _referenceError = null; _pickingReference = true; }" TestId="work-link-reference-open">Link a session or pull request…</AppButton>
+        <p class="sb-state" data-testid="work-link-reference-last">Last: @(_referenceLinked ?? "(none)")</p>
+        <WorkLinkPicker Open="_pickingReference"
+                        OpenChanged="open => _pickingReference = open"
+                        Title="Link a session or pull request"
+                        Description="Running sessions and your open pull requests that no task links yet."
+                        Options="@IntegrationFixtures.LinkTaskOptions"
+                        OnChosen="option => _referenceLinked = option.Label"
+                        ReferenceLabel="Or a pull request by number or link"
+                        ReferencePlaceholder="1214 or https://github.com/owner/name/pull/1214"
+                        ReferenceHelp="Open, merged or closed, from a repository registered in Settings."
+                        ReferenceError="@_referenceError"
+                        OnReference="LinkReference"
+                        TestId="work-link-reference-picker" />
+    </Story>
 </StoryPage>
 
 @code {
@@ -96,6 +115,43 @@
     private void UnlinkPullRequest(WorkPullRequest pull) => _opened = $"unlinked {pull.Key}";
 
     private void Link(WorkLinkOption option) => _opened = $"Linked to {option.Label}";
+
+    private bool _pickingReference;
+    private string? _referenceError;
+    private string? _referenceLinked;
+
+    private void LinkReference(string reference)
+    {
+        var digits = reference.TrimStart('#');
+        var link = reference.Split("/pull/", 2);
+        var number = int.TryParse(digits, out var bare) ? bare
+            : link.Length == 2 && int.TryParse(link[1].Split('/', '?', '#')[0], out var linked) ? linked
+            : 0;
+
+        if (number <= 0)
+        {
+            _referenceError = "Type a pull request's number, or paste its link.";
+            return;
+        }
+
+        _referenceError = null;
+        _referenceLinked = $"#{number}";
+        _pickingReference = false;
+    }
+
+    private const string ReferenceCode = """
+        <WorkLinkPicker Open="_picking"
+                        OpenChanged="open => _picking = open"
+                        Title="Link a session or pull request"
+                        Options="@loose"
+                        OnChosen="LinkAsync"
+                        ReferenceLabel="Or a pull request by number or link"
+                        ReferencePlaceholder="1214 or https://github.com/owner/name/pull/1214"
+                        ReferenceHelp="Open, merged or closed, from a repository registered in Settings."
+                        ReferenceError="@referenceError"
+                        ReferenceBusy="linking"
+                        OnReference="LinkReferenceAsync" />
+        """;
 
     private const string SessionCode = """
         <WorkSessionCard Session="@(new WorkSession("4a1c9e02", "Extract TaskCard",

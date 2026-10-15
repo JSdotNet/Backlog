@@ -41,6 +41,13 @@
     on that series and that sprint, whichever series the scope would pick first; OnOpened
     tells the host it was taken, so it is not taken again when the tab is drawn anew.
 
+    A series switched on with no sprint yet carries the switch too, named for the sprint
+    it will start — "Sprint 1" — and its sprint side says no sprint has started and offers
+    "Start Sprint 1…" (.devbook/domain/progress/features.md#starting-the-first-sprint):
+    SprintStartDialog, then one StartSprintAsync. The open sprint's goal card offers
+    "Edit goal" (.devbook/domain/progress/features.md#writing-the-sprint-goal):
+    SprintGoalDialog, then one SetSprintGoalAsync.
+
     "Close sprint…" sits beside them on the open sprint
     (.devbook/domain/progress/features.md#closing-a-sprint): SprintCloseDialog over the
     last reading, written by SprintCloseMapper, and one CloseSprintAsync through
@@ -67,6 +74,8 @@
                the error or a spinner under it. *@
             <SprintBoard Model="_model"
                          Error="@_error"
+                         Empty="@(NotStarted ? NotStartedState(series, sprintName) : null)"
+                         OnEditGoal="@(Writable is null ? default : EventCallback.Factory.Create(this, OpenGoal))"
                          Outside="@OutsideWork"
                          ViewSwitch="viewSwitch"
                          OnPrevious="() => StepAsync(-1)"
@@ -82,45 +91,67 @@
                     }
                 </Daily>
                 <Actions>
-                    @if (Writable is not null && Candidates is not null)
+                    @if (!NotStarted)
                     {
-                        <AppButton Variant="ButtonVariant.Secondary"
+                        if (Writable is not null && Candidates is not null)
+                        {
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Size="ButtonSize.Small"
+                                       TestId="in-progress-sprint-add"
+                                       OnClick="OpenPicker">Add to sprint…</AppButton>
+                        }
+                        if (Writable is not null)
+                        {
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Size="ButtonSize.Small"
+                                       TestId="in-progress-sprint-close"
+                                       Disabled="@(_model is null || _writing)"
+                                       OnClick="OpenClose">Close sprint…</AppButton>
+                        }
+                        @* The whole sprint as a table for PowerPoint and mail
+                           (.devbook/domain/progress/features.md#copying-a-sprint-as-a-table):
+                           every item, whatever the board's filter shows. Refused while
+                           there is no sprint read to copy. *@
+                        <CopyButton Text="@Table.Text"
+                                    Html="@Table.Html"
+                                    Label="Copy as table"
+                                    Disabled="@(_model is null)"
+                                    DisabledReason="The sprint is still being read"
+                                    ButtonBaseClass="btn btn--ghost btn--small"
+                                    StatusCssClass="copy-button__status"
+                                    TestId="in-progress-sprint-copy-table"
+                                    ButtonTestId="in-progress-sprint-copy-table-button"
+                                    StatusTestId="in-progress-sprint-copy-table-status">Copy as table</CopyButton>
+                        <AppButton Variant="ButtonVariant.Ghost"
                                    Size="ButtonSize.Small"
-                                   TestId="in-progress-sprint-add"
-                                   OnClick="OpenPicker">Add to sprint…</AppButton>
+                                   TestId="in-progress-sprint-refresh"
+                                   Busy="_reading"
+                                   BusyLabel="Reading"
+                                   OnClick="RefreshAsync">Refresh</AppButton>
                     }
-                    @if (Writable is not null)
-                    {
-                        <AppButton Variant="ButtonVariant.Secondary"
-                                   Size="ButtonSize.Small"
-                                   TestId="in-progress-sprint-close"
-                                   Disabled="@(_model is null || _writing)"
-                                   OnClick="OpenClose">Close sprint…</AppButton>
-                    }
-                    @* The whole sprint as a table for PowerPoint and mail
-                       (.devbook/domain/progress/features.md#copying-a-sprint-as-a-table):
-                       every item, whatever the board's filter shows. Refused while
-                       there is no sprint read to copy. *@
-                    <CopyButton Text="@Table.Text"
-                                Html="@Table.Html"
-                                Label="Copy as table"
-                                Disabled="@(_model is null)"
-                                DisabledReason="The sprint is still being read"
-                                ButtonBaseClass="btn btn--ghost btn--small"
-                                StatusCssClass="copy-button__status"
-                                TestId="in-progress-sprint-copy-table"
-                                ButtonTestId="in-progress-sprint-copy-table-button"
-                                StatusTestId="in-progress-sprint-copy-table-status">Copy as table</CopyButton>
-                    <AppButton Variant="ButtonVariant.Ghost"
-                               Size="ButtonSize.Small"
-                               TestId="in-progress-sprint-refresh"
-                               Busy="_reading"
-                               BusyLabel="Reading"
-                               OnClick="RefreshAsync">Refresh</AppButton>
                 </Actions>
             </SprintBoard>
+            @if (NotStarted)
+            {
+                <SprintStartDialog Open="_startOpen"
+                                   OpenChanged="CloseStart"
+                                   SprintName="@sprintName"
+                                   SeriesName="@series.Name"
+                                   StartWeekday="@series.StartWeekday"
+                                   DefaultStart="@SprintStartRules.DefaultStart(Today, series.StartWeekday)"
+                                   Busy="_writing"
+                                   Error="@_startError"
+                                   OnStart="StartSprintAsync" />
+            }
             @if (Writable is { } open)
             {
+                <SprintGoalDialog Open="_goalOpen"
+                                  OpenChanged="CloseGoal"
+                                  SprintName="@open.Name"
+                                  Current="@open.Goal"
+                                  Busy="_writing"
+                                  Error="@_goalError"
+                                  OnSave="SaveGoalAsync" />
                 <SprintAddPicker Open="_picking"
                                  OpenChanged="value => _picking = value"
                                  SprintName="@open.Name"
@@ -396,11 +427,13 @@ else
         var listed = await planning.ListSeriesAsync();
         if (listed.IsFailure) return null;
 
-        var candidates = listed.Value.Where(series => series.IsOn && series.Sprints.Count > 0).ToList();
+        // A series with no sprint yet counts too: its sprint side offers to start the
+        // first. Among every repository, one that runs a sprint comes first.
+        var candidates = listed.Value.Where(series => series.IsOn).ToList();
         var scope = Repositories.Select(alias => alias.Trim()).Where(alias => alias.Length > 0).ToList();
 
         // Every repository is in scope when none is chosen: the first series that runs.
-        if (Repositories.Count == 0) return candidates.FirstOrDefault();
+        if (Repositories.Count == 0) return candidates.FirstOrDefault(series => series.Sprints.Count > 0) ?? candidates.FirstOrDefault();
 
         foreach (var alias in scope)
         {
@@ -422,6 +455,128 @@ else
         _noteFor = null;
         _closing = null;
         _closeError = null;
+        _startOpen = false;
+        _startError = null;
+        _goalOpen = false;
+        _goalError = null;
+    }
+
+    // ---- Starting the first sprint and wording the goal ---------------------------------
+
+    private bool _startOpen;
+    private string? _startError;
+    private bool _goalOpen;
+    private string? _goalError;
+
+    /// <summary>The series in scope has not started its first sprint: its sprint side
+    /// offers to start one rather than reading a sprint.</summary>
+    private bool NotStarted => _series is { Sprints.Count: 0 };
+
+    /// <summary>Today by the module's clock, which the Start dialog counts its default
+    /// day from.</summary>
+    private DateOnly Today =>
+        DateOnly.FromDateTime(((Services.GetService(typeof(TimeProvider)) as TimeProvider) ?? TimeProvider.System).GetLocalNow().DateTime);
+
+    private RenderFragment NotStartedState(SprintSeriesDto series, string sprintName) =>
+        @<EmptyState Title="No sprint has started yet"
+                     Description="@NotStartedLine(series)"
+                     TestId="in-progress-sprint-not-started">
+            <Action>
+                <AppButton Variant="ButtonVariant.Primary"
+                           TestId="in-progress-sprint-start"
+                           OnClick="OpenStart">Start @sprintName…</AppButton>
+            </Action>
+        </EmptyState>;
+
+    private static string NotStartedLine(SprintSeriesDto series) =>
+        $"{series.Name} runs {(series.Length == SprintLength.OneWeek ? "one-week" : "two-week")} sprints from a {series.StartWeekday}. Start the first to plan into it.";
+
+    private void OpenStart()
+    {
+        _startError = null;
+        _startOpen = true;
+    }
+
+    private void CloseStart(bool open)
+    {
+        if (open || _writing) return;
+        _startOpen = false;
+        _startError = null;
+    }
+
+    /// <summary>Starts the series' first sprint through the module and opens the view on
+    /// it. A refusal stays in the dialog in the module's words.</summary>
+    private async Task StartSprintAsync(SprintStart start)
+    {
+        if (_series is not { } series || !NotStarted || Planning is not { } planning || _writing) return;
+
+        _number = null;
+        Result<SprintSeriesDto> started;
+        try
+        {
+            started = await WriteAsync(() => planning.StartSprintAsync(series.Id, start.On, start.Goal));
+        }
+        catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
+        {
+            _startError = $"The sprint could not be started: {exception.Message}";
+            return;
+        }
+
+        if (started.IsFailure)
+        {
+            _startError = started.Error.Message;
+            return;
+        }
+
+        _startError = null;
+        _startOpen = false;
+    }
+
+    private void OpenGoal()
+    {
+        if (Writable is null) return;
+        _goalError = null;
+        _goalOpen = true;
+    }
+
+    private void CloseGoal(bool open)
+    {
+        if (open || _writing) return;
+        _goalOpen = false;
+        _goalError = null;
+    }
+
+    /// <summary>Writes the open sprint's goal through the module; the goal card shows it
+    /// once the sprint is read again. A refusal stays in the dialog.</summary>
+    private async Task SaveGoalAsync(string goal)
+    {
+        if (_series is not { } series || Writable is not { } open || Planning is not { } planning || _writing) return;
+
+        if (string.Equals(goal, open.Goal ?? string.Empty, StringComparison.Ordinal))
+        {
+            _goalOpen = false;
+            return;
+        }
+
+        Result<SprintSeriesDto> written;
+        try
+        {
+            written = await WriteAsync(() => planning.SetSprintGoalAsync(series.Id, open.Number, goal));
+        }
+        catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
+        {
+            _goalError = $"The goal could not be saved: {exception.Message}";
+            return;
+        }
+
+        if (written.IsFailure)
+        {
+            _goalError = written.Error.Message;
+            return;
+        }
+
+        _goalError = null;
+        _goalOpen = false;
     }
 
     // ---- Planning the open sprint -------------------------------------------------------
@@ -627,6 +782,8 @@ else
     /// open one, or the last one the series ran.</summary>
     private string? SwitchName(SprintSeriesDto series)
     {
+        if (series.Sprints.Count == 0) return SprintSeriesCardModel.NextName(series.NamePattern, 1) ?? "Sprint 1";
+
         var sprint = _number is { } number
             ? series.Sprints.FirstOrDefault(candidate => candidate.Number == number)
             : series.OpenSprint ?? series.Sprints.LastOrDefault();
@@ -676,6 +833,17 @@ else
     private async Task ReadSprintAsync()
     {
         if (_series is not { } series) return;
+        if (series.Sprints.Count == 0)
+        {
+            // Nothing to read before the first sprint: the side offers to start one.
+            _generation++;
+            _progress = null;
+            _model = null;
+            _daily = null;
+            _error = null;
+            _reading = false;
+            return;
+        }
         if (Services.GetService(typeof(ISprintProgress)) is not ISprintProgress progress)
         {
             _progress = null;
