@@ -15,7 +15,53 @@ type: invariants
 related: [.devbook/domain/repository-management/domain.md#repository-registry]
 ```
 
-> The rules the Repository Registry will hold its health scoring to. Scanning and health scoring are planned and not built.
+> The rules the Repository Registry holds every registry edit to, and the rules it will hold its health scoring to. Scanning and health scoring are planned and not built.
+
+### Invariant: Archiving keeps the repository's identity and settings
+
+```meta
+status: draft
+type: invariant
+```
+
+Archiving or unarchiving a repository changes only whether it is [archived](domain.md#archived-repository): its `RepositoryId`, alias, clone directory, colour, account, token, knowledge folder settings and pull request labels stay as they were.
+Unarchive restores everything only because Archive never touched it.
+
+Enforced at: SetRepositoryArchived() (GitHubSettingsStore)
+
+### Invariant: The last active repository cannot be archived
+
+```meta
+status: draft
+type: invariant
+```
+
+A registry that holds at least one repository holds at least one [active repository](domain.md#active-repository) (`last-active-repository`).
+The default repository and every single-repository setup need a repository to fall back to.
+
+Enforced at: SetRepositoryArchived() (GitHubSettingsStore)
+
+### Invariant: The default repository is the first active one
+
+```meta
+status: draft
+type: invariant
+```
+
+The default repository is the first repository in the registry's order that is not archived, never an archived one.
+
+Enforced at: GitHubSettings, wherever it answers the default repository
+
+### Invariant: A rename or merge keeps the repository archived
+
+```meta
+status: draft
+type: invariant
+```
+
+A rename leaves an archived repository archived, and a merge leaves the repository it keeps archived or active as it was.
+
+Enforced at: RenameRepository() (GitHubSettingsStore)
 
 ### Invariant: Only a registered repository is scored
 
