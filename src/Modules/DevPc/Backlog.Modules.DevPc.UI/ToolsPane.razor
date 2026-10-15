@@ -1894,14 +1894,22 @@
             return;
         }
 
-        _cacheRemoval = null;
-        if (removal.Cached is { } cached)
+        // Closed after the delete, as the catalog Remove is: the dialog shows the
+        // delete is still running, and the status line says how it went.
+        try
         {
-            await RunCatalogEditAsync($"{removal.Tool.Key}|{cached.Version}", () => DevTools.RemoveCachedVersionAsync(removal.Tool.Key, cached.Version));
+            if (removal.Cached is { } cached)
+            {
+                await RunCatalogEditAsync($"{removal.Tool.Key}|{cached.Version}", () => DevTools.RemoveCachedVersionAsync(removal.Tool.Key, cached.Version));
+            }
+            else
+            {
+                await RunCatalogEditAsync(ClearCacheKey, () => RecordRunAsync(DevToolRunKind.ClearStaleCache, () => DevTools.RemoveStaleCacheAsync()));
+            }
         }
-        else
+        finally
         {
-            await RunCatalogEditAsync(ClearCacheKey, () => RecordRunAsync(DevToolRunKind.ClearStaleCache, () => DevTools.RemoveStaleCacheAsync()));
+            _cacheRemoval = null;
         }
     }
 
@@ -2821,8 +2829,17 @@
             return;
         }
 
-        _removing = null;
-        await RunCatalogEditAsync(tool.Key, () => DevTools.RemoveAsync(tool.Key));
+        // Closed after the edit rather than before it, so the dialog stays up with
+        // Remove busy while the port works (interaction-guidelines.md#busy-actions).
+        // A failure still closes it: the status line under the catalog says why.
+        try
+        {
+            await RunCatalogEditAsync(tool.Key, () => DevTools.RemoveAsync(tool.Key));
+        }
+        finally
+        {
+            _removing = null;
+        }
     }
 
     /// <summary>

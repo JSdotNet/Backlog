@@ -19,7 +19,7 @@
 
 <PartFrame Title="Last verdict per unit"
            Note="@Note"
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-drift">
     @if (IsReady)

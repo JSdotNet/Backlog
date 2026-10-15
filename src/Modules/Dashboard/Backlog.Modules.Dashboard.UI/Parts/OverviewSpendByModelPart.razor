@@ -12,7 +12,7 @@
 
 <PartFrame Title="Spend by model"
            Note="Your own usage this month, across every provider. No provider reports spend per repository, so the repository filter does not change it. The Cost tab breaks it down with tokens."
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-overview-spend-model">
     @if (IsReady)

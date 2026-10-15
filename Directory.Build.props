@@ -54,6 +54,27 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!--
+      Every project commits a packages.lock.json, and the pull request and
+      nightly runs restore Backlog.WithoutAppHeads.slnf with locked-mode, so a
+      package that resolves differently from the committed file fails the run
+      rather than building (issue #748). A local restore still rewrites the
+      files: commit them with the package change that moved them.
+
+      The exception is the two MAUI heads, Backlog.Desktop and Backlog.Mobile,
+      which opt out in their own project files: their restore graph changes
+      with the runtime identifier each workflow passes. A known constraint:
+      the Aspire AppHost's lock file names no runtime identifier only because
+      the AppHost sets AspireUseCliBundle. With it off, the AppHost SDK adds
+      Aspire.Dashboard.Sdk and Aspire.Hosting.Orchestration packages for the
+      restoring machine's own runtime identifier, and the lock file would then
+      match only machines of that kind (win-x64 for the windows-latest runners
+      and the developer machines).
+    -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <Company>JSdotNet</Company>
     <Product>Backlog</Product>
     <Copyright>Copyright © JSdotNet 2026</Copyright>

@@ -183,6 +183,74 @@ public sealed class CaptureTests
     }
 
     [Fact]
+    public async Task A_retry_in_flight_shows_it_and_a_second_tap_does_not_send_twice()
+    {
+        using var context = Context();
+        var retries = 0;
+        var sending = new TaskCompletionSource();
+
+        var stuck = context.Render<CaptureRow>(parameters => parameters
+            .Add(p => p.Title, "Keynote notes")
+            .Add(p => p.State, CaptureSyncState.Stuck)
+            .Add(p => p.OnRetry, () => { retries++; return sending.Task; })
+            .Add(p => p.TestId, "stuck"));
+
+        _ = stuck.Find("[data-testid='stuck-retry']").ClickAsync(new MouseEventArgs());
+
+        stuck.WaitForAssertion(() =>
+            Assert.Equal("true", stuck.Find("[data-testid='stuck-retry']").GetAttribute("aria-busy")));
+
+        await stuck.Find("[data-testid='stuck-retry']").ClickAsync(new MouseEventArgs());
+        Assert.Equal(1, retries);
+
+        await stuck.InvokeAsync(sending.SetResult);
+
+        stuck.WaitForAssertion(() =>
+            Assert.False(stuck.Find("[data-testid='stuck-retry']").HasAttribute("aria-busy")));
+    }
+
+    /// <summary>A send that fails after it has gone to the network — the usual
+    /// shape — must not leave the button drawn busy and refusing taps.</summary>
+    [Fact]
+    public async Task A_retry_that_fails_after_an_await_can_be_tapped_again()
+    {
+        using var context = Context();
+        var retries = 0;
+        var sending = new TaskCompletionSource();
+
+        var stuck = context.Render<CaptureRow>(parameters => parameters
+            .Add(p => p.Title, "Keynote notes")
+            .Add(p => p.State, CaptureSyncState.Stuck)
+            .Add(p => p.OnRetry, () => { retries++; return sending.Task; })
+            .Add(p => p.TestId, "stuck"));
+
+        var click = stuck.Find("[data-testid='stuck-retry']").ClickAsync(new MouseEventArgs());
+
+        stuck.WaitForAssertion(() =>
+            Assert.Equal("true", stuck.Find("[data-testid='stuck-retry']").GetAttribute("aria-busy")));
+
+        await stuck.InvokeAsync(() => sending.SetException(new HttpRequestException("503")));
+
+        try
+        {
+            await click;
+        }
+        catch (HttpRequestException)
+        {
+            // The host's failure goes on past the row; that is not under test here.
+        }
+
+        var retry = stuck.Find("[data-testid='stuck-retry']");
+        Assert.False(retry.HasAttribute("aria-busy"));
+        Assert.False(retry.HasAttribute("aria-disabled"));
+
+        sending = new TaskCompletionSource();
+        sending.SetResult();
+        await retry.ClickAsync(new MouseEventArgs());
+        Assert.Equal(2, retries);
+    }
+
+    [Fact]
     public void A_row_opens_on_a_tap_and_shows_its_first_line()
     {
         using var context = Context();

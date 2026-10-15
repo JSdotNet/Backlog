@@ -62,16 +62,29 @@
         }
 
         @* A refresh while one is already in flight would only cancel and restart
-           it, so the control reports the wait rather than offering to duplicate it. *@
+           it, so the control reports the wait rather than offering to duplicate it:
+           its glyph turns into a spinner and a press is dropped. It is blocked with
+           aria-disabled rather than the native attribute, so the focus a press put
+           on it survives the refresh (interaction-guidelines.md#accessibility). *@
         <IconButton AriaLabel="@($"Refresh {Title}")"
                     Title="@(Busy ? "Refreshing" : "Refresh")"
                     CssClass="btn--ghost"
-                    Disabled="Busy"
+                    aria-disabled="@(Busy ? "true" : null)"
+                    aria-busy="@(Busy ? "true" : null)"
                     TestId="@(TestId is null ? null : TestId + "-refresh")"
-                    OnClick="() => OnRefresh.InvokeAsync()">↻</IconButton>
+                    OnClick="RefreshAsync">
+            @if (Busy)
+            {
+                <Spinner Size="SpinnerSize.Small" Label="Refreshing" />
+            }
+            else
+            {
+                @("↻")
+            }
+        </IconButton>
     </header>
 
-    <div class="dashboard-part__content">
+    <div class="dashboard-part__content" aria-busy="@(Busy ? "true" : null)">
         @ChildContent
     </div>
 </section>
@@ -109,4 +122,6 @@
 
     [Parameter]
     public string? TestId { get; set; }
+
+    private Task RefreshAsync() => Busy ? Task.CompletedTask : OnRefresh.InvokeAsync();
 }

@@ -309,3 +309,34 @@ test("the reporter records a failed part's step and message in run.json, and a p
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("a run folder or a page outside the repository is never written or read", async () => {
+    const root = await repo();
+    const errors = [];
+    const original = console.error;
+    console.error = (message) => errors.push(message);
+    try {
+        const page = parseScenarioPage(PAGE, PAGE_PATH);
+        await assert.rejects(
+            writeRun({ repoRoot: root, scenarioFolder: `../${path.basename(root)}-escape`, page, signature: "1234abcd", ranAt: "2026-10-08T08:30:00.000Z", profile: "tenant-acme", effectiveConfig: null }),
+            /resolves outside the repository/
+        );
+        assert.equal(existsSync(`${root}-escape`), false);
+
+        const outside = `${path.basename(root)}-page.md`;
+        await writeFile(path.join(root, "..", outside), PAGE);
+        await writeFile(path.join(root, "e2e/tests/set-up-and-fill-the-backlog.spec.ts"), SPEC.replace(PAGE_PATH, `../${outside}`));
+        await report(root, fakeRun(root, {
+            results: {
+                "Statuses are set up": [{ status: "passed", duration: 1, attachments: [] }],
+                "An item is moved": [{ status: "passed", duration: 1, attachments: [] }],
+            },
+        }));
+        await rm(path.join(root, "..", outside));
+        assert.deepEqual(await readdir(path.join(root, ".devbook/scenarios")), ["profiles.json"]);
+        assert.deepEqual(errors, []);
+    } finally {
+        console.error = original;
+        await rm(root, { recursive: true, force: true });
+    }
+});

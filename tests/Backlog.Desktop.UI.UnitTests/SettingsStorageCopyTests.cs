@@ -147,7 +147,7 @@ public sealed class SettingsStorageCopyTests
     /// the root is changed": the warning follows the root the screen just
     /// applied, with no restart in between.</summary>
     [Fact]
-    public void Applying_a_synced_folder_warns_without_a_restart()
+    public async Task Applying_a_synced_folder_warns_without_a_restart()
     {
         using var settings = RenderSettings(ProviderFolderNamed("OneDrive"));
         OpenStorageTab(settings.Component);
@@ -155,7 +155,7 @@ public sealed class SettingsStorageCopyTests
         Assert.Empty(settings.Component.FindAll(SyncWarning));
 
         var synced = Path.Combine(settings.Root, "OneDrive", "backlog");
-        Commit(settings.Component, synced);
+        await Commit(settings.Component, synced);
 
         Assert.Contains("OneDrive", settings.Component.Find(SyncWarning).TextContent, StringComparison.Ordinal);
 
@@ -167,7 +167,7 @@ public sealed class SettingsStorageCopyTests
 
         // And moving back out of it leaves the tab as it was, rather than
         // warning about a folder the app no longer uses.
-        Commit(settings.Component, Path.Combine(settings.Root, "local", "backlog"));
+        await Commit(settings.Component, Path.Combine(settings.Root, "local", "backlog"));
 
         Assert.Empty(settings.Component.FindAll(SyncWarning));
     }
@@ -178,11 +178,12 @@ public sealed class SettingsStorageCopyTests
 
     /// <summary>Types a folder in and moves to it, the way the screen is
     /// wired: the value follows every keystroke and the button is what
-    /// applies it.</summary>
-    private static void Commit(IRenderedComponent<Settings> component, string path)
+    /// applies it. Awaited, because the move yields once to show its busy
+    /// button before it starts.</summary>
+    private static Task Commit(IRenderedComponent<Settings> component, string path)
     {
         component.Find(StoragePathInput).Input(path);
-        component.Find("[data-testid='move-storage-path']").Click();
+        return component.Find("[data-testid='move-storage-path']").ClickAsync(new());
     }
 
     /// <summary>A fake provider that claims any folder named after it, so a test

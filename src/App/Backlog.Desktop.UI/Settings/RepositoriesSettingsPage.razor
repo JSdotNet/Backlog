@@ -155,7 +155,20 @@
                 <span class="repo-table__mark @($"repo-swatch--{ColourOf(repository)}")" aria-hidden="true"></span>
                 <span>@repository.Alias</span>
             </th>
-            <td class="data-table__mono" data-testid="repo-table-folder">@(string.IsNullOrWhiteSpace(repository.CloneDirectory) ? "Not set" : repository.CloneDirectory)</td>
+            @* The folder is the one column that holds an unbounded value: a full
+               clone path pushed the account and the Edit button behind the box's
+               sideways scroll at a desktop width. It is cut to the column with an
+               ellipsis and carried whole in the tooltip; the editor shows it in full. *@
+            <td class="data-table__mono" data-testid="repo-table-folder">
+                @if (string.IsNullOrWhiteSpace(repository.CloneDirectory))
+                {
+                    <span>Not set</span>
+                }
+                else
+                {
+                    <span class="repo-table__folder" title="@repository.CloneDirectory">@repository.CloneDirectory</span>
+                }
+            </td>
             <td data-testid="repo-table-devbook">
                 @if (DevbookFolderSummary(repository) is { } devbook)
                 {
@@ -251,6 +264,8 @@
                     <div class="setting__actions">
                         <AppButton Variant="ButtonVariant.None"
                                    data-testid="repo-rename-apply"
+                                   Busy="@_renaming"
+                                   BusyLabel="Renaming"
                                    OnClick="() => ApplyRenameAsync(activeRepo)">
                             Rename repository
                         </AppButton>
@@ -378,7 +393,17 @@
                                @onkeydown="e => OnClonePathKeyDown(e, activeRepo)" />
                     <p class="setting__status" data-testid="repo-clone-status" role="status">
                         @{ var cloneStatus = CloneStatus(activeRepo); }
-                        @if (cloneStatus.IsCloned)
+                        @if (cloneStatus is null)
+                        {
+                            @* Nothing until the answer is late, so a quick one
+                               does not flash a loader. *@
+                            @if (CloneCheckIsSlow(activeRepo))
+                            {
+                                <Spinner Size="SpinnerSize.Small" Label="Checking the local clone" />
+                                <span>Checking the local clone…</span>
+                            }
+                        }
+                        else if (cloneStatus.IsCloned)
                         {
                             <span>Local clone: <code>@cloneStatus.CloneDirectory</code></span>
                         }
@@ -388,11 +413,14 @@
                         }
                     </p>
                     <div class="setting__actions">
+                        @{ var cloning = _cloningRepositories.Contains(activeRepo.Alias); }
                         <AppButton Variant="ButtonVariant.None"
                                    data-testid="repo-clone-button"
-                                   Disabled="@(!CanClone(activeRepo))"
+                                   Disabled="@(!cloning && cloneStatus?.CanClone != true)"
+                                   Busy="@cloning"
+                                   BusyLabel="Cloning"
                                    OnClick="() => CloneRepositoryAsync(activeRepo)">
-                            @CloneButtonText(activeRepo)
+                            @(cloneStatus?.IsCloned == true ? "Already cloned" : "Clone repository")
                         </AppButton>
                     </div>
 
@@ -448,9 +476,10 @@
                         <div class="setting__actions">
                             <AppButton Variant="ButtonVariant.None"
                                        data-testid="repo-devbook-branches-button"
-                                       Disabled="@_loadingBranches"
+                                       Busy="@_loadingBranches"
+                                       BusyLabel="Loading branches"
                                        OnClick="() => LoadBranchesAsync(activeRepo)">
-                                @(_loadingBranches ? "Loading branches..." : "Load branches")
+                                Load branches
                             </AppButton>
                         </div>
                         <Alert Message="@_branchError" TestId="repo-devbook-branches-error" />
@@ -514,6 +543,8 @@
                             <div class="setting__actions">
                                 <AppButton Variant="ButtonVariant.None"
                                            data-testid="github-recheck-button"
+                                           Busy="@Screen.IsCheckingConnection"
+                                           BusyLabel="Checking"
                                            OnClick="Screen.CheckConnectionAsync">
                                     Check the connection
                                 </AppButton>
@@ -721,7 +752,13 @@
         EnsureExpandedRepository();
     }
 
-    public void Dispose() => Screen.FeaturesChanged -= OnFeaturesChanged;
+    public void Dispose()
+    {
+        _disposed = true;
+        _closing.Cancel();
+        _closing.Dispose();
+        Screen.FeaturesChanged -= OnFeaturesChanged;
+    }
 
     /// <summary>The frame's headline: how many repositories, and how many of them
     /// carry a devbook a reader would find.</summary>
@@ -745,6 +782,10 @@
     private void ToggleRepository(GitHubRepositoryRef repository)
     {
         _expandedId = IsExpanded(repository) ? null : repository.FullName;
+
+        // Opening a card asks about its clone again: the folder may have been
+        // cloned, emptied or moved since the card was last open.
+        _cloneChecks.Remove(repository.Alias);
 
         // A rename form left open belongs to the card it was opened on, so it
         // closes with it rather than reappearing the next time that row opens.
@@ -882,30 +923,48 @@
     /// </summary>
     private async Task ApplyRenameAsync(GitHubRepositoryRef repository)
     {
-        if (_renamingAlias != repository.Alias) return;
+        if (_renamingAlias != repository.Alias || _renaming) return;
 
-        var error = GitHub.Settings.RenameRepository(repository.Alias, _renameDraft, out var rename);
-        if (rename is null)
+        // Busy from the press, so Enter pressed again while the entries and
+        // inbox items are being carried across applies nothing twice.
+        _renaming = true;
+        try
         {
-            _renameError = error;
-            return;
+            var error = GitHub.Settings.RenameRepository(repository.Alias, _renameDraft, out var rename);
+            if (rename is null)
+            {
+                _renameError = error;
+                return;
+            }
+
+            _repoError = error;
+            _draftRepos = RepositorySettingsText();
+            SyncRepositoryDrafts();
+
+            // The open row follows the repository to its new id. A merge leaves no
+            // row under the renamed one, so the note goes on the repository it was
+            // folded into, and that row is the one left open.
+            var kept = GitHub.Settings.Current.Find(rename.NewId);
+            var merged = kept is not null && kept.Alias != repository.Alias;
+            _expandedId = kept?.FullName;
+
+            // The form closes once the entries and inbox items have followed,
+            // not before: until then its button is what says the rename is
+            // still under way.
+            _renameNote = await FollowRenameAsync(rename, merged);
+            _renameNoteAlias = kept?.Alias ?? repository.Alias;
+
+            // Only this rename's form: another card may have been opened, and a
+            // rename started on it, while this one's entries were following.
+            if (_renamingAlias == repository.Alias) CancelRename();
         }
-
-        _repoError = error;
-        _draftRepos = RepositorySettingsText();
-        SyncRepositoryDrafts();
-        CancelRename();
-
-        // The open row follows the repository to its new id. A merge leaves no
-        // row under the renamed one, so the note goes on the repository it was
-        // folded into, and that row is the one left open.
-        var kept = GitHub.Settings.Current.Find(rename.NewId);
-        var merged = kept is not null && kept.Alias != repository.Alias;
-        _expandedId = kept?.FullName;
-
-        _renameNote = await FollowRenameAsync(rename, merged);
-        _renameNoteAlias = kept?.Alias ?? repository.Alias;
+        finally
+        {
+            _renaming = false;
+        }
     }
+
+    private bool _renaming;
 
     /// <summary>
     /// Re-points the entries and inbox items that named the renamed repository
@@ -1145,28 +1204,139 @@
         _forgottenActivity.Add(repository.Alias);
     }
 
-    private LocalGitRepositoryStatus CloneStatus(GitHubRepositoryRef repository) =>
-        LocalGit.GetStatus(repository, CloneDirectoryDraft(repository));
+    /// <summary>
+    /// What the open card knows about its clone, per alias: the question asked
+    /// (which repository, which folder), the answer once it is in, and whether
+    /// it has been long enough coming to show a loader.
+    /// <para>
+    /// Asked off the UI thread and kept, because the answer is a git process
+    /// (<c>git remote get-url origin</c>) and this screen used to ask it during
+    /// render, three times per render - every keystroke anywhere on the card
+    /// froze the window for as long as git took.
+    /// </para>
+    /// <para>
+    /// The question names the repository as well as the folder, because the
+    /// answer depends on both: a clone is "ready" only when its origin is the
+    /// repository the row names, and a rename, or a registry edit that points an
+    /// alias at another repository, keeps the alias and the folder and changes
+    /// that. The folder is the stored one, not the field's draft: it is asked
+    /// when the field is left or Enter pressed, not on every keystroke.
+    /// </para>
+    /// </summary>
+    private readonly Dictionary<string, CloneCheck> _cloneChecks = new(StringComparer.Ordinal);
 
-    private bool CanClone(GitHubRepositoryRef repository) =>
-        !_cloningRepositories.Contains(repository.Alias) && CloneStatus(repository).CanClone;
-
-    private string CloneButtonText(GitHubRepositoryRef repository)
+    private sealed class CloneCheck(string fullName, string directory)
     {
-        if (_cloningRepositories.Contains(repository.Alias)) return "Cloning...";
+        public string FullName { get; } = fullName;
 
-        var status = CloneStatus(repository);
-        return status.IsCloned ? "Already cloned" : "Clone repository";
+        public string Directory { get; } = directory;
+
+        public LocalGitRepositoryStatus? Status { get; set; }
+
+        /// <summary>The answer has taken longer than
+        /// <see cref="CloneCheckLoaderDelay"/>, so the loader shows.</summary>
+        public bool Slow { get; set; }
+
+        public bool Asks(string fullName, string directory) =>
+            string.Equals(FullName, fullName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(Directory, directory, StringComparison.Ordinal);
+    }
+
+    /// <summary>How long a check runs before "Checking" shows, per the
+    /// guideline's region-loader threshold: the usual answer is two
+    /// filesystem checks, and a loader for that would be a flash.</summary>
+    private static readonly TimeSpan CloneCheckLoaderDelay = TimeSpan.FromMilliseconds(300);
+
+    private bool _disposed;
+
+    /// <summary>Cancels the loader delay of a clone check still out when the page closes.</summary>
+    private readonly CancellationTokenSource _closing = new();
+
+    private static string StoredCloneDirectory(GitHubRepositoryRef repository) =>
+        repository.CloneDirectory ?? string.Empty;
+
+    /// <summary>The check for the repository's current question, or null when
+    /// none has been asked yet.</summary>
+    private CloneCheck? CurrentCloneCheck(GitHubRepositoryRef repository) =>
+        _cloneChecks.TryGetValue(repository.Alias, out var check)
+        && check.Asks(repository.FullName, StoredCloneDirectory(repository))
+            ? check
+            : null;
+
+    /// <summary>The clone status for the stored folder, or null while it is
+    /// still being worked out. No folder is answered at once: the service says
+    /// "none configured" without touching the disk or git, and asking it in the
+    /// background would only cost the card a second render.</summary>
+    private LocalGitRepositoryStatus? CloneStatus(GitHubRepositoryRef repository)
+    {
+        var directory = StoredCloneDirectory(repository);
+        if (string.IsNullOrWhiteSpace(directory)) return LocalGit.GetStatus(repository, directory);
+
+        return CurrentCloneCheck(repository)?.Status;
+    }
+
+    private bool CloneCheckIsSlow(GitHubRepositoryRef repository) => CurrentCloneCheck(repository)?.Slow == true;
+
+    /// <summary>Asks about the open card's clone after the render that drew the
+    /// card, so the card is on screen before git is. The loader shows only once
+    /// the answer is late; an answer to a question no longer asked - another
+    /// folder, another repository, a closed card - is dropped on arrival.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var open = VisibleRepositories.FirstOrDefault(IsExpanded);
+        if (open is null) return;
+
+        var directory = StoredCloneDirectory(open);
+        if (string.IsNullOrWhiteSpace(directory) || CurrentCloneCheck(open) is not null) return;
+
+        var check = new CloneCheck(open.FullName, directory);
+        _cloneChecks[open.Alias] = check;
+
+        var probe = Task.Run(() => ProbeClone(open, directory));
+        if (await Task.WhenAny(probe, Task.Delay(CloneCheckLoaderDelay, _closing.Token)) != probe && IsCurrent(open.Alias, check))
+        {
+            check.Slow = true;
+            StateHasChanged();
+        }
+
+        var status = await probe;
+        if (!IsCurrent(open.Alias, check)) return;
+
+        check.Status = status;
+        StateHasChanged();
+    }
+
+    private bool IsCurrent(string alias, CloneCheck check) =>
+        !_disposed && _cloneChecks.TryGetValue(alias, out var current) && ReferenceEquals(current, check);
+
+    /// <summary>The status, or a sentence saying why there is none. Everything is
+    /// caught: a status line that cannot be worked out is still a status line,
+    /// and a probe that threw out of a render callback would take the whole
+    /// Settings screen to the error boundary over one sentence.</summary>
+    private LocalGitRepositoryStatus ProbeClone(GitHubRepositoryRef repository, string directory)
+    {
+        try
+        {
+            return LocalGit.GetStatus(repository, directory);
+        }
+        catch (Exception ex)
+        {
+            return new LocalGitRepositoryStatus(directory, IsCloned: false, CanClone: false,
+                Summary: $"Couldn't check the local clone: {ex.Message}");
+        }
     }
 
     private async Task CloneRepositoryAsync(GitHubRepositoryRef repository)
     {
-        _cloningRepositories.Add(repository.Alias);
+        if (!_cloningRepositories.Add(repository.Alias)) return;
         _repoError = null;
 
         try
         {
-            var result = await LocalGit.CloneAsync(repository, CloneDirectoryDraft(repository));
+            // Run whole on the pool: CloneAsync settles the folder's status with
+            // git before its own first await.
+            var directory = CloneDirectoryDraft(repository);
+            var result = await Task.Run(() => LocalGit.CloneAsync(repository, directory));
             if (result.Success && result.CloneDirectory is not null)
             {
                 _repoError = GitHub.Settings.SetCloneDirectory(repository.Alias, result.CloneDirectory);
@@ -1178,9 +1348,18 @@
 
             SyncRepositoryDrafts();
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or System.ComponentModel.Win32Exception)
+        {
+            // Making the parent folder (a missing drive, a protected folder) or
+            // starting git can throw; the button comes back and the card says why.
+            _repoError = $"Couldn't clone {repository.FullName}: {ex.Message}";
+        }
         finally
         {
             _cloningRepositories.Remove(repository.Alias);
+
+            // The folder is a clone now, or half of one: asked again.
+            _cloneChecks.Remove(repository.Alias);
         }
     }
 

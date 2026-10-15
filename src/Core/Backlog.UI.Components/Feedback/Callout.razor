@@ -1,0 +1,119 @@
+@*
+    A callout: a note set apart from the content around it — an optional glyph, a
+    headline, a sentence or two of why, and at most one thing a reader can do about
+    it. The Sessions pane's delivery-run insight is the case that asked for it: what
+    a run cost against its usual, the stage that explains it, and a way into the page
+    that compares configurations.
+
+    Not an Alert. An alert is a live region announcing something that just happened
+    or went wrong, a line in the flow; a callout is standing content a reader comes
+    to, so it is a note (role="note") and announces nothing on render. It also holds
+    blocks an alert's paragraph cannot: a headline and a separate paragraph of why.
+
+    The glyph slot is the host's. A decorative glyph hides itself — every icon in
+    this library is aria-hidden — and a glyph that means something, the stage mark
+    for instance, names itself; the callout adds no semantics of its own to either.
+
+    Two tones: quiet, the default, on the raised surface inside the ordinary strong
+    edge; and warning, the same surface inside the color-warning edge. Not the badge
+    scale's words (color-scheme.md#badge-and-chip-tones): a callout is not a badge,
+    and the scale's alert is a filled surface, which this never draws.
+*@
+@if (!string.IsNullOrWhiteSpace(Heading) || ChildContent is not null)
+{
+    <div class="@ClassValue" role="@Role" data-testid="@TestId" data-tone="@ToneSlug" @attributes="AdditionalAttributes">
+        @if (Icon is not null)
+        {
+            <span class="@(Part("icon"))">@Icon</span>
+        }
+        <div class="@(Part("body"))">
+            @if (!string.IsNullOrWhiteSpace(Heading))
+            {
+                <p class="@(Part("heading"))" data-testid="@(TestId is null ? null : TestId + "-heading")">@Heading</p>
+            }
+            @if (ChildContent is not null)
+            {
+                <div class="@(Part("text"))" data-testid="@(TestId is null ? null : TestId + "-text")">@ChildContent</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(ActionLabel) && OnAction.HasDelegate)
+            {
+                <AppButton BaseClass="@(Part("action"))"
+                           Variant="ButtonVariant.None"
+                           TestId="@ActionTestId"
+                           id="@ActionId"
+                           title="@ActionTitle"
+                           OnClick="() => OnAction.InvokeAsync()">@ActionLabel</AppButton>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>The headline, set in the heavier weight.</summary>
+    [Parameter]
+    public string? Heading { get; set; }
+
+    /// <summary>The why, under the headline in the secondary ink.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The glyph in front of the text. Decorative or self-naming; the
+    /// callout adds nothing to it.</summary>
+    [Parameter]
+    public RenderFragment? Icon { get; set; }
+
+    /// <summary><c>quiet</c> (the default) or <c>warning</c>, the edge it is drawn
+    /// inside; any other word draws quiet.</summary>
+    [Parameter]
+    public string? Tone { get; set; }
+
+    /// <summary>The one thing a reader can do about it, drawn as a link-weight
+    /// button under the text. Both this and <see cref="OnAction"/> or nothing.</summary>
+    [Parameter]
+    public string? ActionLabel { get; set; }
+
+    [Parameter]
+    public EventCallback OnAction { get; set; }
+
+    /// <summary>The action's id, so a host can return the focus to it.</summary>
+    [Parameter]
+    public string? ActionId { get; set; }
+
+    [Parameter]
+    public string? ActionTitle { get; set; }
+
+    [Parameter]
+    public string? ActionTestId { get; set; }
+
+    [Parameter]
+    public string Role { get; set; } = "note";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>callout</c> as the class the callout carries, and every
+    /// child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "callout";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ToneSlug => string.Equals(Tone, "warning", StringComparison.OrdinalIgnoreCase) ? "warning" : "quiet";
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue
+    {
+        get
+        {
+            var tone = $" {BaseClass}--{ToneSlug}";
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"{BaseClass}{tone}{extra}";
+        }
+    }
+}

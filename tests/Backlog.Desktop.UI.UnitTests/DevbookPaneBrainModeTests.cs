@@ -106,7 +106,7 @@ public sealed class DevbookPaneBrainModeTests
     }
 
     /// <summary>None of what a repository devbook carries — a version to check, a
-    /// sync verdict, a scenario mark, the editor launch — is drawn, and the
+    /// sync verdict, a scenario mark or its legend, the editor launch — is drawn, and the
     /// repository source behind them is not even asked. Search is drawn: it asks
     /// the Brain and every repository at once, so it is the same search on either
     /// side. The atlas is offered, as the Brain's own map. Drawing either toggle
@@ -130,6 +130,7 @@ public sealed class DevbookPaneBrainModeTests
         Assert.Single(component.FindAll("[data-testid='devbook-atlas-toggle']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-atlas-all']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-scenario-mark']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-scenario-legend']"));
         Assert.Empty(component.FindComponents<DevbookSyncVerdictBadges>());
         Assert.Empty(component.FindAll("[data-testid='devbook-open-vscode-button']"));
         Assert.Equal(0, harness.RepositoryFolders.Calls);

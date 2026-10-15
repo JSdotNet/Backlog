@@ -1039,7 +1039,7 @@ public sealed class HomeWorkspaceSurfaceTests
             component.Find("[data-testid='dashboard-toggle-button']").Click();
             component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
 
-            Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
             Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
         }
         finally
@@ -1308,7 +1308,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 again.WaitForAssertion(() => Assert.Equal(ShellNavigationStore.DefaultCalendarRange, reopenedNavigation.CalendarRange));
             }
 
-            Assert.DoesNotContain("calendarRange", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.DoesNotContain("calendarRange", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
         }
         finally
         {
@@ -1374,7 +1374,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 });
             }
 
-            var written = File.ReadAllText(path);
+            var written = ShellNavigationStoreTests.Written(path);
             Assert.DoesNotContain("inProgressNeedsYouFirst", written, StringComparison.Ordinal);
             Assert.DoesNotContain("inProgressIncludeFinishedToday", written, StringComparison.Ordinal);
         }
@@ -1917,8 +1917,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>A released feature is the ordinary case and the header stays quiet
     /// about it — otherwise the flag would be wallpaper rather than a warning.
-    /// Devbook and Roadmap are the released ones of the four enabled here; the
-    /// other two are Dev and are the control group.</summary>
+    /// Devbook, Roadmap and Dashboard are the released ones of the four enabled
+    /// here; Tools is Dev and is the control group.</summary>
     [Fact]
     public void A_released_feature_adds_no_flag_to_the_header()
     {
@@ -1932,11 +1932,12 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='devbook-feature-status']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view-option']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-feature-status']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-feature-status']"));
 
             // Present and flagged — proving the absence above is the status
             // talking rather than the badge being broken everywhere.
             Assert.Single(component.FindAll("[data-testid='tools-feature-status']"));
-            Assert.Single(component.FindAll("[data-testid='dashboard-feature-status']"));
         });
     }
 

@@ -23,7 +23,7 @@
 
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { collapse, FAILURE_ATTACHMENT, labelsOf, normalizePath, parseScenarioPage, parseSpecHeader, readProfiles, SCENARIO_FOLDER, SHOT_ATTACHMENT, specParts } from "./parse.mjs";
+import { collapse, FAILURE_ATTACHMENT, labelsOf, normalizePath, parseScenarioPage, parseSpecHeader, readProfiles, resolveInside, SCENARIO_FOLDER, SHOT_ATTACHMENT, specParts } from "./parse.mjs";
 import { effectiveConfig, findRepoRoot, recordedConfig } from "./setup.mjs";
 
 export const RUN_VERSION = 2;
@@ -129,9 +129,10 @@ const isImage = (image) => Boolean(image?.body || image?.path);
  * relative to the page's run folder.
  */
 export async function writeRun({ repoRoot, scenarioFolder = SCENARIO_FOLDER, page, signature, ranAt, profile, effectiveConfig: config, parts = {}, captured = {}, failures = {} }) {
-    const folder = path.join(repoRoot, scenarioFolder, page.stem);
+    const folder = resolveInside(resolveInside(repoRoot, scenarioFolder), page.stem);
+    const runFile = resolveInside(folder, RUN_FILE);
     await mkdir(folder, { recursive: true });
-    const previous = await readJson(path.join(folder, RUN_FILE));
+    const previous = await readJson(runFile);
     let existing = [];
     try {
         existing = await readdir(folder);
@@ -152,7 +153,7 @@ export async function writeRun({ repoRoot, scenarioFolder = SCENARIO_FOLDER, pag
 
     for (const entry of runParts) {
         if (!entry.failureShot) continue;
-        await putImage(failures[entry.anchor], path.join(folder, entry.failureShot));
+        await putImage(failures[entry.anchor], resolveInside(folder, entry.failureShot));
         written.push(entry.failureShot);
         keep.add(entry.failureShot);
     }
@@ -162,7 +163,7 @@ export async function writeRun({ repoRoot, scenarioFolder = SCENARIO_FOLDER, pag
     for (const label of labelsOf(page)) {
         const file = `${label}.png`;
         if (isImage(captured[label])) {
-            await putImage(captured[label], path.join(folder, file));
+            await putImage(captured[label], resolveInside(folder, file));
             written.push(file);
             keep.add(file);
             shots[label] = { file, part: partOf.get(label), ranAt, signature: signature ?? null };
@@ -176,12 +177,12 @@ export async function writeRun({ repoRoot, scenarioFolder = SCENARIO_FOLDER, pag
     const pruned = [];
     for (const name of existing) {
         if (keep.has(name) || !name.toLowerCase().endsWith(".png")) continue;
-        await rm(path.join(folder, name), { force: true });
+        await rm(resolveInside(folder, name), { force: true });
         pruned.push(name);
     }
 
     const run = { version: RUN_VERSION, page: page.path, signature, ranAt, profile, effectiveConfig: config, parts: runParts, shots };
-    await writeFile(path.join(folder, RUN_FILE), `${JSON.stringify(run, null, 2)}\n`, "utf8");
+    await writeFile(runFile, `${JSON.stringify(run, null, 2)}\n`, "utf8");
     written.push(RUN_FILE);
     return { folder, written, pruned };
 }
@@ -258,7 +259,7 @@ export default class ScenarioReporter {
         const titles = byProject.get(project);
         let source;
         try {
-            source = await readFile(file, "utf8");
+            source = await readFile(resolveInside(repoRoot, file), "utf8");
         } catch {
             return;
         }
@@ -267,7 +268,7 @@ export default class ScenarioReporter {
         const pagePath = normalizePath(header.page);
         let page;
         try {
-            page = parseScenarioPage(await readFile(path.join(repoRoot, pagePath), "utf8"), pagePath);
+            page = parseScenarioPage(await readFile(resolveInside(repoRoot, pagePath), "utf8"), pagePath);
         } catch {
             return;
         }

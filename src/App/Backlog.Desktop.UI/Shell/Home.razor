@@ -480,17 +480,27 @@
                nothing when GitHub cannot be reached.
 
                Only while the task list is on screen — the list is what a check
-               refreshes, and the dashboard fetches from GitHub on its own. *@
+               refreshes, and the dashboard fetches from GitHub on its own.
+
+               AppButton rather than IconButton for its Busy: a check takes as long
+               as GitHub does, so the glyph gives way to a spinner and the button
+               stays focusable and ignores a second press while it runs, rather
+               than dropping out of the tab order under the native disabled
+               (interaction-guidelines.md#busy-actions). *@
             @if (GitHubSyncOffered)
             {
-                <IconButton BaseClass="icon-link"
-                            id="github-sync-button"
-                            TestId="github-sync-button"
-                            Disabled="@State.GitHubSyncing"
-                            AriaLabel="Check GitHub for issue and pull request updates"
-                            OnClick="() => State.SyncGitHubAsync()">
-                    @(State.GitHubSyncing ? "…" : "⟳")
-                </IconButton>
+                <AppButton BaseClass="icon-link"
+                           Variant="ButtonVariant.None"
+                           IconAlone="true"
+                           id="github-sync-button"
+                           TestId="github-sync-button"
+                           Busy="@State.GitHubSyncing"
+                           BusyLabel="Checking GitHub"
+                           aria-label="Check GitHub for issue and pull request updates"
+                           title="Check GitHub for issue and pull request updates"
+                           OnClick="() => State.SyncGitHubAsync()">
+                    <Icon>⟳</Icon>
+                </AppButton>
             }
         </div>
 
