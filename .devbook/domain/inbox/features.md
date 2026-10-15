@@ -278,7 +278,8 @@ From the top down the screen holds:
   edge](../../design/color-scheme.md#the-identity-edge). The boxes start from
   the repositories the AI card answer named, marked **AI**, else from the
   item's own; ticking one writes the item's repositories. The hint says what
-  **r** makes: "one entry", "n linked entries", or "one entry, no repository".
+  **r** makes: "one entry", "n linked entries", or "one entry, in the Brain". With no
+  repository ticked, the pickers read **Brain**, where the entry is filed.
   Picking more than one makes one task per repository, linked to each other
   ([Route to Tasks](#route-to-tasks)).
 - **The decisions** as large buttons, each naming its key: Move to

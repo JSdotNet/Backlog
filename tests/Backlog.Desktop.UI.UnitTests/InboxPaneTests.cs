@@ -2365,6 +2365,32 @@ public sealed class InboxPaneTests
     }
 
     [Fact]
+    public async Task An_empty_repository_picker_names_the_Brain_it_files_into()
+    {
+        // ADR 0027: no repository ticked routes the item into the Brain, so the
+        // empty picker says where the task goes rather than what it lacks.
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        foreach (var item in items)
+        {
+            Assert.Equal(
+                BrainScope.Name,
+                pane.Find($"[data-testid='inbox-route-panel-repos-{item.Id:D}'] input.tag-select__input").GetAttribute("placeholder"));
+        }
+
+        await pane.Find("[data-testid='inbox-route-panel-one-for-all'] [role='switch']").ClickAsync(new());
+
+        Assert.Equal(
+            BrainScope.Name,
+            pane.Find("[data-testid='inbox-route-panel-repos-all'] input.tag-select__input").GetAttribute("placeholder"));
+    }
+
+    [Fact]
     public async Task Cancel_closes_the_panel_and_changes_nothing()
     {
         using var harness = Harness.Create();

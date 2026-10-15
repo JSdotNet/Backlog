@@ -114,6 +114,8 @@ means everything.
 
 The scope is remembered with Brain in its place, so a fresh shell reopens on it.
 The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows.
+With the Brain and repositories pressed together, each row's repository badge
+says where the task is filed: **Brain** for no repository, else the alias.
 Until a Brain folder is set up, the chip reads **Set up your Brain**, still
 scopes the tasks, and its tooltip points to Settings › Storage.
 
