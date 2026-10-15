@@ -16,8 +16,9 @@ the registry reads it. Unarchive restores everything.
 ```meta
 ```
 
-Proposed, 2026-10-15, by the flow-spec run that drafted it. Not yet built. It
-awaits acceptance at that run's Personal Validation gate.
+Proposed, 2026-10-15, by the flow-spec run that drafted it. Built, proposed: the
+implementing flow-code run built it, and the record awaits acceptance at a
+Personal Validation gate.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -113,15 +114,20 @@ fail as not found.
 | Remove | No | No | No | The name only; they show no repository | No |
 | Archive | Yes | Yes | Yes | Yes | No |
 
-The last active repository cannot be archived. The default repository is the
+The last active repository cannot be archived. No other edit may leave the
+repository list with no active repository either: Remove, retyping the list and
+a merge into an archived repository are refused the same way, with "One
+repository must stay active." Removing every repository stays allowed, because
+an empty list has nothing to default to. The default repository is the
 first entry that is not archived. That entry is also the fallback while
 [Additional repositories](../../domain/repository-management/context.md#additional-repositories)
 is off.
 
 At Archive, Backlog offers to move the repository's open tasks to another
 repository or to drop them. Dropping sets each open task's status to `archived`,
-the status a dropped linked item already takes, and deletes nothing. The same
-offer stays on the archived row for later.
+the status a dropped linked item already takes, and deletes nothing. Open tasks
+move only to another active repository, and a refused move leaves the
+repository active. The same offer stays on the archived row for later.
 
 An import or an inbox triage that names an archived repository files under it.
 The repository stays archived, and the import report says so.
@@ -136,8 +142,8 @@ archived" is a per-device switch, remembered on that device and never synced.
 
 | Consumer | While archived | With "show archived" on |
 |---|---|---|
-| [Tasks](../../domain/tasks/features.md#search-filter-and-organize): scope chips, [board columns](../../domain/tasks/features.md#board-view), repository pickers | Hidden. A remembered scope that names it drops it on restore. | Shown. |
-| [Roadmap](../../domain/roadmap/features.md#reading-the-plan-by-repository) | The band stays drawn, greyed and tagged Archived, showing only finished work, while the visible range holds some. Its open work is hidden, never folded into the "No repository" band. Finished work still counts toward history and pace. | The whole band, open work included. |
+| [Tasks](../../domain/tasks/features.md#search-filter-and-organize): scope chips, [board columns](../../domain/tasks/features.md#board-view), repository pickers, task list and Calendar | Hidden. A task leaves the list and the Calendar only when every repository it names is archived. A remembered scope that names it drops it on restore. | Shown. |
+| [Roadmap](../../domain/roadmap/features.md#reading-the-plan-by-repository) | The band stays drawn, greyed and tagged Archived, showing only finished work, while the timeline's whole drawn window holds some. The window is the one the rest of the plan sets, not where the person has scrolled. Its open work is hidden, never folded into the "No repository" band. Finished work still counts toward history and pace. | The whole band, open work included. |
 | [Devbook](../../domain/devbook/features.md#area-selection-and-scope) | Browsable and read-only, per §4. | The repository is offered in the repository switch. |
 | GitHub reads: [Pull requests](../../domain/sessions/features.md#pull-request-readiness), [In progress](../../domain/sessions/features.md#in-progress-by-task), [dashboard activity](../../domain/productivity/features.md#personal-productivity-dashboard), [Progress sprint pull requests and series](../../domain/progress/features.md#following-a-sprint) | Not read. No "Couldn't read" line names it. | Still not read. |
 | [Linked-task sync](../../domain/tasks/features.md#linked-tasks) | Paused, per §5. | Still paused. |
@@ -158,10 +164,14 @@ before, with every edit refused.
 - **No automatic snapshot fetch.** The snapshot on disk is served as it is.
   The devbook database still builds when the devbook is opened.
 - **No "bring the clone up to date" offer.**
-- **No new remarks.** Remarks on a chapter
+- **Remarks are read-only.** Remarks on a chapter
   ([ADR 0011](0011-devbook-annotations-are-a-third-replica-container.md)) cannot
-  be added in the app, and the `handle-remarks` skill refuses to write
-  `annotation` fences there. Remarks already kept stay readable.
+  be added, resolved, edited or deleted in the app. Remarks already kept stay
+  readable. The `handle-remarks` skill refuses to write `annotation` fences
+  there, and the MCP `resolve_annotation` tool refuses with
+  `repository.archived`.
+- **The Instructions area is read-only too.** It reads the clone's instruction
+  files as before and offers no edit.
 
 ### 5. A linked-task target pauses by derivation
 

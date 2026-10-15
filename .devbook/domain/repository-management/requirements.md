@@ -27,6 +27,7 @@ related: [.devbook/domain/repository-management/features.md#archiving-a-reposito
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_a_repository_keeps_its_row_marks_it_archived_and_offers_Unarchive, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.The_last_active_repository_cannot_be_archived_and_says_one_must_stay_active]
 ```
 
 The system SHALL offer Archive on the row of an active repository and Unarchive on the row of an archived one, in the repository list in Settings.
@@ -48,6 +49,7 @@ The system SHALL offer Archive on the row of an active repository and Unarchive 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.A_repository_GitHub_reports_archived_suggests_Archive_and_stays_active, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.A_repository_GitHub_cannot_find_says_so_and_suggests_Archive, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubRepositoryStateTests]
 ```
 
 The system SHALL suggest Archive on a repository's row when GitHub reports the repository archived or cannot find it, and leave the repository active until the person chooses Archive.
@@ -69,6 +71,7 @@ The system SHALL suggest Archive on a repository's row when GitHub reports the r
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.An_archived_repository_is_not_read_and_names_no_failure, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_link_into_an_archived_repository_is_read_again_once_it_is_unarchived, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.The_reader_skips_an_archived_repository_and_keeps_what_it_already_knew]
 ```
 
 The system SHALL read nothing from GitHub for an archived repository in the Pull requests pane, the In progress view, the dashboard's activity and the sprint views, and report no failure for it there.
@@ -97,9 +100,10 @@ The system SHALL read nothing from GitHub for an archived repository in the Pull
 type: requirement
 status: draft
 related: [.devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/domain/tasks/features.md#board-view]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.An_archived_repository_has_no_scope_chip_while_show_archived_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Turning_show_archived_on_offers_the_archived_repository_marked_and_remembers_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksArchivedRepositoryTests]
 ```
 
-The system SHALL leave an archived repository out of the repository scope, the Board's by-repository columns and every repository picker while show archived is off.
+The system SHALL leave an archived repository out of the repository scope, the Board's by-repository columns and every repository picker while show archived is off, and leave a task out of the task list and the Calendar while every repository it names is archived.
 
 #### Scenario: The repository scope
 
@@ -119,11 +123,19 @@ The system SHALL leave an archived repository out of the repository scope, the B
 - **When** the person lays the Board out by repository
 - **Then** no column is titled `budgetbeheer`, and the task is in no other column
 
+#### Scenario: The task list and the Calendar
+
+- **Given** a task with a due date filed only against `budgetbeheer`, which is archived, another filed against `budgetbeheer` and `backlog`, and show archived is off
+- **When** the person opens the task list and the Calendar
+- **Then** the first task is in neither, and the second is listed
+- **And** once show archived is on, the first task is back in both
+
 ### Requirement: Show archived is remembered on this device
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ShowArchivedRepositoriesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Show_archived_left_on_comes_back_on_with_a_fresh_shell]
 ```
 
 The system SHALL remember whether show archived is on for this device, and not carry the choice to another device.
@@ -146,6 +158,7 @@ The system SHALL remember whether show archived is on for this device, and not c
 type: requirement
 status: draft
 related: [.devbook/domain/tasks/features.md#search-filter-and-organize]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_drops_a_repository_archived_since_while_show_archived_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_keeps_an_archived_repository_while_show_archived_is_on]
 ```
 
 The system SHALL drop an archived repository from a remembered scope when the scope comes back while show archived is off.
@@ -168,6 +181,7 @@ The system SHALL drop an archived repository from a remembered scope when the sc
 type: requirement
 status: draft
 related: [.devbook/domain/tasks/features.md#linked-tasks, .devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.LinkedTaskSyncWorkerTests.A_tick_skips_a_target_whose_repository_is_archived_until_it_is_unarchived, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_target_whose_repository_is_archived_is_paused_with_no_fetch_and_nothing_written]
 ```
 
 The system SHALL not sync a [Connected Target](../tasks/domain.md#connected-target) while the repository it is filed under is archived, and leave the target's settings and its enabled state as they were.
@@ -190,9 +204,10 @@ The system SHALL not sync a [Connected Target](../tasks/domain.md#connected-targ
 type: requirement
 status: draft
 related: [.devbook/domain/tasks/domain.md#task-status]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_asks_about_the_open_tasks_and_moving_them_files_them_under_the_other_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.The_open_tasks_can_only_move_to_another_active_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_and_dropping_the_open_tasks_drops_them_and_archives, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Keeping_the_open_tasks_archives_and_the_archived_row_offers_the_choice_later, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.A_refused_move_leaves_the_repository_active_and_says_why, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RefileRepositoryTasksTests]
 ```
 
-The system SHALL offer to move an archived repository's open tasks to another repository or to drop them, when the repository is archived and afterwards from its archived row.
+The system SHALL offer to move an archived repository's open tasks to another active repository or to drop them, when the repository is archived and afterwards from its archived row, and leave the repository active when the move or drop is refused.
 
 #### Scenario: Moving the open tasks
 
@@ -212,27 +227,41 @@ The system SHALL offer to move an archived repository's open tasks to another re
 - **When** the person archives `budgetbeheer` and declines both
 - **Then** the three tasks are unchanged, and the archived row offers the same choice later
 
+#### Scenario: Only an active repository takes them
+
+- **Given** `budgetbeheer` has open tasks, `backlog` is active and `old` is archived
+- **When** the person archives `budgetbeheer` and chooses where to move its open tasks
+- **Then** `backlog` is offered and `old` is not
+
+#### Scenario: The tasks cannot be refiled
+
+- **Given** `budgetbeheer` has open tasks
+- **When** the person archives `budgetbeheer`, chooses to move or drop its open tasks, and the tasks cannot be refiled
+- **Then** `budgetbeheer` stays active, and the dialog says the tasks could not be refiled
+
 ### Requirement: The roadmap keeps an archived repository's past in view
 
 ```meta
 type: requirement
 status: draft
 related: [.devbook/domain/roadmap/features.md#reading-the-plan-by-repository]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Finished_work_in_the_drawn_window_draws_the_archived_band_marked_archived, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Finished_work_before_the_drawn_window_draws_no_band_until_the_window_reaches_back_to_it]
 ```
 
-The system SHALL draw the band of an archived repository, greyed and tagged Archived with only its finished work, while the timeline's visible range holds finished work of it.
+The system SHALL draw the band of an archived repository, greyed and tagged Archived with only its finished work, while the timeline's whole drawn window holds finished work of it. The rest of the plan sets that window, not where the person has scrolled.
 
-#### Scenario: Finished work in range
+#### Scenario: Finished work in the drawn window
 
-- **Given** `budgetbeheer` is archived, has finished work last month and show archived is off
-- **When** the person reads the roadmap over last month
+- **Given** `budgetbeheer` is archived, has finished work last month, the drawn window reaches back to last month, and show archived is off
+- **When** the person reads the roadmap
 - **Then** a greyed band tagged Archived shows the finished work of `budgetbeheer`
 
-#### Scenario: Scrolled past it
+#### Scenario: Finished work before the drawn window
 
-- **Given** `budgetbeheer` is archived and all its finished work lies before the visible range
+- **Given** `budgetbeheer` is archived and all its finished work lies before the drawn window
 - **When** the person reads the roadmap
-- **Then** no band of `budgetbeheer` is drawn, and scrolling back to its finished work draws it again
+- **Then** no band of `budgetbeheer` is drawn
+- **And** once the rest of the plan widens the window back to that work, the band is drawn again
 
 ### Requirement: The roadmap hides an archived repository's open work
 
@@ -240,6 +269,7 @@ The system SHALL draw the band of an archived repository, greyed and tagged Arch
 type: requirement
 status: draft
 related: [.devbook/domain/roadmap/features.md#reading-the-plan-by-repository]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Open_work_of_an_archived_repository_is_drawn_in_no_band_and_not_under_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Show_archived_draws_the_whole_band_with_its_open_work, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandArchivedTests.Show_archived_on_draws_the_whole_band_greyed_and_tagged_archived]
 ```
 
 The system SHALL hide the open work that names only an archived repository while show archived is off, and never draw it in the No repository band.
@@ -261,6 +291,7 @@ The system SHALL hide the open work that names only an archived repository while
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapCompletedWorkTests.Archiving_a_repository_leaves_the_work_counted_over_a_past_range_unchanged
 ```
 
 The system SHALL count the finished work of an archived repository toward history and pace, as it counted while the repository was active.
@@ -277,6 +308,7 @@ The system SHALL count the finished work of an archived repository toward histor
 type: requirement
 status: draft
 related: [.devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/domain/devbook/features.md#the-devbook-on-the-repositorys-latest-version, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.An_archived_repositorys_chapter_reads_with_no_edit_and_no_remark, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.Unarchiving_gives_the_chapter_its_edit_and_its_remarks_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookUpdateServiceTests.An_archived_repositorys_clone_is_not_offered_an_update_until_it_is_unarchived, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookFolderSourceBranchTests.An_archived_repositorys_clone_reads_and_is_not_editable_until_it_is_unarchived]
 ```
 
 The system SHALL open the devbook of an archived repository for reading only, with no edit, no remark and no offer to bring its clone up to date.
@@ -298,6 +330,7 @@ The system SHALL open the devbook of an archived repository for reading only, wi
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookFolderSourceBranchTests.Preparing_an_archived_repositorys_snapshot_fetches_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookFolderSourceBranchTests.An_archived_repositorys_snapshot_is_served_as_it_is_and_nothing_is_fetched, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookFolderSourceBranchTests.An_archived_repository_with_no_snapshot_says_it_is_archived_and_fetches_nothing]
 ```
 
 The system SHALL fetch no devbook snapshot of an archived repository on its own.
@@ -314,9 +347,10 @@ The system SHALL fetch no devbook snapshot of an archived repository on its own.
 type: requirement
 status: draft
 related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ResolveAnnotationTests.A_note_on_an_archived_repository_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookToolsTests.Annotations_of_an_archived_repository_still_list_and_say_it_is_archived]
 ```
 
-The handle-remarks skill SHALL refuse to write an annotation into the devbook of an archived repository.
+The handle-remarks skill SHALL refuse to write an annotation into the devbook of an archived repository, and the MCP `resolve_annotation` tool SHALL refuse to resolve a remark on it.
 
 #### Scenario: A remark waits on an archived devbook
 
@@ -324,11 +358,19 @@ The handle-remarks skill SHALL refuse to write an annotation into the devbook of
 - **When** the person asks the skill to handle the remarks of `budgetbeheer`
 - **Then** the skill writes nothing and says the repository is archived
 
+#### Scenario: An agent resolves a remark over MCP
+
+- **Given** `budgetbeheer` is archived and a remark on one of its chapters is unresolved
+- **When** an agent calls `resolve_annotation` for that remark
+- **Then** the call is refused with `repository.archived`, and the remark stays unresolved
+- **And** `list_annotations` still lists the remark and says the repository is archived
+
 ### Requirement: Filing under an archived repository keeps it archived
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.ImportPlanTests.An_import_naming_an_archived_repository_files_under_it_leaves_it_archived_and_reports_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.ImportPlanDialogRoadmapTests.An_import_filed_under_an_archived_repository_says_it_stays_archived]
 ```
 
 The system SHALL file an imported or triaged item that names an archived repository under that repository, leave the repository archived, and say so in the import report.
@@ -344,6 +386,7 @@ The system SHALL file an imported or triaged item that names an archived reposit
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Unarchiving_brings_the_repository_back_and_offers_Archive_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Unarchiving_the_repository_resumes_the_sync, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandArchivedTests.Unarchiving_the_repository_brings_its_band_back_as_an_active_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.Unarchiving_gives_the_chapter_its_edit_and_its_remarks_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_link_into_an_archived_repository_is_read_again_once_it_is_unarchived]
 ```
 
 The system SHALL return an unarchived repository to every place it held while active, with the settings, tasks and linked-task targets it had when it was archived.
@@ -360,6 +403,7 @@ The system SHALL return an unarchived repository to every place it held while ac
 type: requirement
 status: draft
 related: [.devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md]
+tests: unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubSettingsReplicationTests.An_archive_and_its_unarchive_on_one_device_reach_the_other
 ```
 
 The system SHALL carry whether a repository is archived to every paired device with the repository registry.
