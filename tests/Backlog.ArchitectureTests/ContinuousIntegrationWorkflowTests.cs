@@ -264,7 +264,85 @@ public class ContinuousIntegrationWorkflowTests
         }
     }
 
+    /// <summary>
+    /// The two jobs that restore <c>Backlog.WithoutAppHeads.slnf</c> on Windows x64
+    /// — the solution minus the heads, which is exactly the set of projects with a
+    /// lock file — restore in locked mode, so a package that resolved differently
+    /// from the committed lock file fails the run instead of building.
+    /// </summary>
+    [Theory]
+    [InlineData(PullRequestWorkflow, "dotnet")]
+    [InlineData(NightlyWorkflow, "dotnet")]
+    public void The_solution_filter_restores_in_locked_mode(string workflow, string job)
+    {
+        var restore = Step(JobText(workflow, job), "Restore dependencies");
+
+        Assert.Matches(new Regex(@"^\s+run: dotnet restore Backlog\.WithoutAppHeads\.slnf [^\r\n]*--locked-mode\b", RegexOptions.Multiline), restore);
+    }
+
+    /// <summary>
+    /// The app-heads restores pass <c>-r win-x64</c> and
+    /// <c>RuntimeIdentifierOverride</c>, global properties that flow into every
+    /// project the heads reference. Those projects' lock files were written without
+    /// them, so a locked restore there would fail on a graph nobody changed.
+    /// </summary>
+    [Fact]
+    public void The_app_heads_restore_without_locked_mode()
+    {
+        var heads = string.Join(
+            '\n',
+            JobText(PullRequestWorkflow, "app-heads").Split('\n').Where(line => !line.TrimStart().StartsWith('#')));
+
+        Assert.Contains("dotnet restore", heads, StringComparison.Ordinal);
+        Assert.DoesNotContain("--locked-mode", heads, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The pull request and nightly runs cache the NuGet packages folder keyed on
+    /// the lock files; the nightly run fills it on main, where pull request runs can
+    /// read it. The release and deploy runs stay uncached, so a signed artifact is
+    /// always built from packages fetched for it.
+    /// </summary>
+    [Fact]
+    public void The_test_runs_cache_nuget_packages_and_the_release_runs_do_not()
+    {
+        foreach (var workflow in new[] { PullRequestWorkflow, NightlyWorkflow })
+        {
+            var steps = SetupDotnetSteps(Workflow(workflow));
+            Assert.NotEmpty(steps);
+            Assert.All(steps, step =>
+            {
+                Assert.Matches(new Regex(@"^\s+cache: true\s*$", RegexOptions.Multiline), step);
+                Assert.Matches(new Regex(@"^\s+cache-dependency-path: '\*\*/packages\.lock\.json'\s*$", RegexOptions.Multiline), step);
+            });
+        }
+
+        Assert.Equal(2, SetupDotnetSteps(Workflow(PullRequestWorkflow)).Count);
+
+        foreach (var workflow in new[] { "release-desktop.yml", "release-mobile.yml", "deploy-sync.yml" })
+        {
+            var steps = SetupDotnetSteps(Workflow(workflow));
+            Assert.NotEmpty(steps);
+            Assert.All(steps, step => Assert.DoesNotMatch(new Regex(@"^\s+cache(-dependency-path)?:", RegexOptions.Multiline), step));
+        }
+    }
+
     private sealed record Job(string Name, List<string> Lines);
+
+    /// <summary>One job's body as text, so <see cref="Step"/> can find a step that
+    /// shares its name with a step of another job.</summary>
+    private static string JobText(string workflow, string job) =>
+        string.Join('\n', Assert.Single(Jobs(File.ReadAllLines(WorkflowPath(workflow))), j => j.Name == job).Lines);
+
+    /// <summary>Every step that uses <c>actions/setup-dotnet</c>, as its text.</summary>
+    private static List<string> SetupDotnetSteps(string workflow) =>
+        Regex.Matches(
+                workflow.Replace("\r\n", "\n", StringComparison.Ordinal),
+                @"^      - name: .*?(?=^      - name: |^  \S|\z)",
+                RegexOptions.Multiline | RegexOptions.Singleline)
+            .Select(match => match.Value)
+            .Where(step => step.Contains("uses: actions/setup-dotnet@", StringComparison.Ordinal))
+            .ToList();
 
     private static string[] WorkflowFiles() =>
         Directory.GetFiles(RepositoryRoot.Directory(WorkflowFolder), "*.yml")
