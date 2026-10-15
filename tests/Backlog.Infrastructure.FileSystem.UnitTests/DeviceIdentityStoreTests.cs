@@ -121,6 +121,83 @@ public sealed class DeviceIdentityStoreTests : IDisposable
     }
 
     /// <summary>
+    /// An empty file nobody has touched for a long time is not a write in flight: it is
+    /// one a crash cut off between creating the file and filling it. Waited for, it would
+    /// cost every later start the whole adoption window and still leave each run on an id
+    /// nobody wrote down, so it is replaced — there is no id in it for anything to be
+    /// paired to.
+    /// </summary>
+    [Fact]
+    public void An_empty_file_left_long_ago_is_replaced_with_an_identity()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(IdentityPath, string.Empty);
+        File.SetLastWriteTimeUtc(IdentityPath, DateTime.UtcNow.AddHours(-1));
+
+        var store = new DeviceIdentityStore(IdentityPath, "DEV-TOWER");
+
+        Assert.NotEqual(Guid.Empty, store.Current.Id);
+        Assert.Equal(store.Current.Id.ToString(), Stored().Id);
+    }
+
+    /// <summary>
+    /// Another host holding the file for a moment — a rename being moved over the top,
+    /// a virus scanner, a backup agent — is waited out, and the id on disk is the one
+    /// this host comes away with. Three hundred milliseconds is what a starved machine
+    /// can take over a rename, and it is longer than the fixed handful of retries the
+    /// store once gave up after: past that, the host ran on an id nobody wrote down and
+    /// every session it stamped was orphaned.
+    /// </summary>
+    [Fact]
+    public async Task A_file_held_open_by_another_host_for_a_moment_is_waited_for_and_adopted()
+    {
+        var onDisk = new DeviceIdentityStore(IdentityPath, "DEV-TOWER").Current.Id;
+
+        DeviceIdentityStore store;
+
+        await using (var held = new FileStream(IdentityPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var releasing = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(300), TestContext.Current.CancellationToken);
+                await held.DisposeAsync();
+            }, TestContext.Current.CancellationToken);
+
+            store = new DeviceIdentityStore(IdentityPath, "DEV-TOWER");
+
+            await releasing;
+        }
+
+        Assert.Equal(onDisk, store.Current.Id);
+        Assert.Equal(onDisk.ToString(), Stored().Id);
+    }
+
+    /// <summary>
+    /// The wait has an end. A file still held when the window closes gets this run an
+    /// identity of its own, written nowhere, and the file is left exactly as it was —
+    /// the deliberate fallback, only reached later than it used to be. A short window
+    /// stands in for the default so the fact does not spend two seconds proving it.
+    /// </summary>
+    [Fact]
+    public void A_file_still_held_when_the_window_closes_gets_an_identity_for_this_run_and_is_left_alone()
+    {
+        var onDisk = new DeviceIdentityStore(IdentityPath, "DEV-TOWER").Current.Id;
+        var before = File.ReadAllText(IdentityPath);
+
+        DeviceIdentityStore store;
+
+        using (new FileStream(IdentityPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            // A different name too, so a rename written on the way out would show.
+            store = new DeviceIdentityStore(IdentityPath, "DEV-STUDIO", TimeSpan.FromMilliseconds(50));
+        }
+
+        Assert.NotEqual(Guid.Empty, store.Current.Id);
+        Assert.NotEqual(onDisk, store.Current.Id);
+        Assert.Equal(before, File.ReadAllText(IdentityPath));
+    }
+
+    /// <summary>
     /// Readers arriving while the name is being rewritten. Every one of them has to come
     /// away with the one id on disk: seeing half a file, calling it rubbish and minting
     /// over it is how a machine loses the identity its sessions are stamped with.
