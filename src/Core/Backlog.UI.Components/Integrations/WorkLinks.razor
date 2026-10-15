@@ -41,7 +41,10 @@
                                    aria-label="@($"Unlink the session {session.Title}")"
                                    title="@($"Unlink the session {session.Title} from this task")"
                                    data-unlink="@session.Id"
-                                   OnClick="() => OnUnlinkSession.InvokeAsync(session)">Unlink</AppButton>
+                                   Busy="@_acts.IsRunning(SessionAct(session))"
+                                   aria-disabled="@Blocked"
+                                   BusyLabel="Unlinking"
+                                   OnClick="() => _acts.RunAsync(SessionAct(session), () => OnUnlinkSession.InvokeAsync(session))">Unlink</AppButton>
                     </div>
                 }
                 else
@@ -72,7 +75,10 @@
                                    aria-label="@($"Unlink pull request #{pull.Number}")"
                                    title="@($"Unlink pull request #{pull.Number} from this task")"
                                    data-unlink="@pull.Key"
-                                   OnClick="() => OnUnlinkPullRequest.InvokeAsync(pull)">Unlink</AppButton>
+                                   Busy="@_acts.IsRunning(PullRequestAct(pull))"
+                                   aria-disabled="@Blocked"
+                                   BusyLabel="Unlinking"
+                                   OnClick="() => _acts.RunAsync(PullRequestAct(pull), () => OnUnlinkPullRequest.InvokeAsync(pull))">Unlink</AppButton>
                     </div>
                 }
                 else
@@ -127,6 +133,22 @@
 
     [Parameter]
     public string? TestId { get; set; } = "work-links";
+
+    /// <summary>An unlink rewrites the task file. The pressed one shows it is
+    /// running, and every other Unlink is ignored until it is done.</summary>
+    private readonly PendingAct _acts;
+
+    public WorkLinks() => _acts = new PendingAct(StateHasChanged);
+
+    /// <summary>Every Unlink says it is blocked while one runs, so a press on
+    /// another does not look lost. The running one is busy as well, which already
+    /// says the same thing; repeating it here keeps a null from this splat
+    /// clearing the attribute AppButton set.</summary>
+    private string? Blocked => _acts.IsAnyRunning ? "true" : null;
+
+    private static string SessionAct(WorkSession session) => $"session:{session.Id}";
+
+    private static string PullRequestAct(WorkPullRequest pull) => $"pull:{pull.Key}";
 
     private string ClassValue
     {

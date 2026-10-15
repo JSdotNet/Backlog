@@ -194,12 +194,17 @@
 
                     <TabPanel Id="dashboard-productivity" Title="Productivity" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-productivity" TestId="dashboard-productivity">
-                        @* The throughput row, then the volume chart with the scores beside
-                           it — the chart taking the room, the scores their own width — then
-                           rework across the whole tab. *@
+                        @* The throughput row, then a main column - the volume chart, and
+                           size and rework under it - with the scores beside it, the column
+                           taking the room and the scores their own width; then rework across
+                           the whole tab. The size part fills what the taller score card used
+                           to leave empty under the chart. *@
                         <HeadlinePart Scope="_scope" />
                         <div class="dashboard-productivity__split">
-                            <TrendPart Scope="_scope" />
+                            <div class="dashboard-productivity__main" data-testid="dashboard-productivity-main">
+                                <TrendPart Scope="_scope" />
+                                <SizeReworkPart Scope="_scope" />
+                            </div>
                             <ScorePart Scope="_scope" />
                         </div>
                         <ReworkPart Scope="_scope" />
@@ -208,17 +213,18 @@
                     @* The backlog's side of the same question the productivity tab asks of
                        GitHub, and the roadmap's plan held against it. The repository chips
                        narrow all three; the machine filter does not, because neither a task
-                       nor a plan records a machine — every part says so. The roadmap leads —
-                       its tiles, then its timeline of the window's weeks — and the two
-                       weekly task charts sit side by side under it, on the same weeks. *@
+                       nor a plan records a machine — every part says so. The figures lead,
+                       then the two weekly task charts side by side, then the roadmap's
+                       timeline on the same weeks. The charts sit above it because the
+                       timeline grows a row per plan and pushed them off the screen. *@
                     <TabPanel Id="dashboard-tasks" Title="Tasks" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-tasks" TestId="dashboard-tasks-section">
                         <TaskFiguresPart Scope="_scope" />
-                        <RoadmapPart Scope="_scope" />
                         <div class="dashboard-section__split">
                             <CompletedTasksPart Scope="_scope" />
                             <TaskEffortPart Scope="_scope" />
                         </div>
+                        <RoadmapPart Scope="_scope" />
                     </TabPanel>
 
                     <TabPanel Id="dashboard-sessions" Title="Sessions" Eager="true"

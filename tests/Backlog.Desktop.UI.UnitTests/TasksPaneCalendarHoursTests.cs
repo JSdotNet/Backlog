@@ -47,10 +47,11 @@ public sealed class TasksPaneCalendarHoursTests
         var text = row.RawText;
         var pane = RenderCalendar(host);
 
-        pane.Find($"[data-testid='task-calendar-day-{Iso(Day)}-add-hours']").Click();
-        pane.Find("[data-testid='task-calendar-hours-editor-pick'] select").Change(row.TaskId);
-        pane.Find("[data-testid='task-calendar-hours-editor-hours'] input").Input("3");
-        pane.Find("[data-testid='task-calendar-hours-editor-save']").Click();
+        await pane.ClickAsync($"[data-testid='task-calendar-day-{Iso(Day)}-add-hours']");
+        pane.WaitForElement("[data-testid='task-calendar-hours-editor-pick'] select");
+        await pane.ChangeAsync("[data-testid='task-calendar-hours-editor-pick'] select", row.TaskId);
+        await pane.InputAsync("[data-testid='task-calendar-hours-editor-hours'] input", "3");
+        await pane.ClickAsync("[data-testid='task-calendar-hours-editor-save']");
 
         pane.WaitForAssertion(() =>
         {
@@ -72,16 +73,20 @@ public sealed class TasksPaneCalendarHoursTests
         await host.State.SetPlannedHoursAsync(row, Day, 3m);
         var pane = RenderCalendar(host);
 
-        pane.Find($"[data-testid='{BlockTestId(row, Day)}']").Click();
-        pane.Find("[data-testid='task-calendar-hours-editor-hours'] input").Input("5");
-        pane.Find("[data-testid='task-calendar-hours-editor-save']").Click();
+        await pane.ClickAsync($"[data-testid='{BlockTestId(row, Day)}']");
+        pane.WaitForElement("[data-testid='task-calendar-hours-editor-hours'] input");
+        await pane.InputAsync("[data-testid='task-calendar-hours-editor-hours'] input", "5");
+        await pane.ClickAsync("[data-testid='task-calendar-hours-editor-save']");
 
         pane.WaitForAssertion(() => Assert.Contains("5h", pane.Find($"[data-testid='{BlockTestId(row, Day)}']").TextContent, StringComparison.Ordinal));
         Assert.Equal([new PlannedHoursDto(Day, 5m)], await StoredAsync(host, row));
 
+        // The reload above re-renders the calendar under new handler ids; the chip
+        // found before that render landed named a handler that was gone.
         pane.Render();
-        pane.Find($"[data-testid='{BlockTestId(row, Day)}']").Click();
-        pane.Find("[data-testid='task-calendar-hours-editor-remove']").Click();
+        await pane.ClickAsync($"[data-testid='{BlockTestId(row, Day)}']");
+        pane.WaitForElement("[data-testid='task-calendar-hours-editor-remove']");
+        await pane.ClickAsync("[data-testid='task-calendar-hours-editor-remove']");
 
         pane.WaitForAssertion(() => Assert.Empty(pane.FindAll(".task-calendar__block")));
         Assert.Empty(await StoredAsync(host, row));
@@ -98,8 +103,9 @@ public sealed class TasksPaneCalendarHoursTests
         var calendar = pane.FindComponent<TaskCalendar>();
 
         await calendar.InvokeAsync(() => calendar.Instance.HoldOnDay(undated.TaskId, Iso(Day)));
-        pane.Find("[data-testid='task-calendar-hours-editor-hours'] input").Input("2");
-        pane.Find("[data-testid='task-calendar-hours-editor-save']").Click();
+        pane.WaitForElement("[data-testid='task-calendar-hours-editor-hours'] input");
+        await pane.InputAsync("[data-testid='task-calendar-hours-editor-hours'] input", "2");
+        await pane.ClickAsync("[data-testid='task-calendar-hours-editor-save']");
 
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll($"[data-testid='{BlockTestId(undated, Day)}']")));
         Assert.Null(undated.PreviewDueOn);
@@ -118,19 +124,19 @@ public sealed class TasksPaneCalendarHoursTests
         var section = pane.Find("[data-testid='entry-planned-hours']");
         Assert.Contains("Planned hours", section.TextContent, StringComparison.Ordinal);
 
-        pane.Find("[data-testid='entry-planned-hours-editor-add-day'] input").Input(Iso(Day));
-        pane.Find("[data-testid='entry-planned-hours-editor-add-hours'] input").Input("4");
-        pane.Find("[data-testid='entry-planned-hours-editor-add']").Click();
+        await pane.InputAsync("[data-testid='entry-planned-hours-editor-add-day'] input", Iso(Day));
+        await pane.InputAsync("[data-testid='entry-planned-hours-editor-add-hours'] input", "4");
+        await pane.ClickAsync("[data-testid='entry-planned-hours-editor-add']");
 
         pane.WaitForAssertion(() => Assert.Equal(
             "4",
             pane.Find($"[data-testid='entry-planned-hours-editor-hours-{Iso(Day)}'] input").GetAttribute("value")));
         Assert.Equal([new PlannedHoursDto(Day, 4m)], row.PlannedHours);
 
-        pane.Find($"[data-testid='entry-planned-hours-editor-hours-{Iso(Day)}'] input").Change("1.5");
+        await pane.ChangeAsync($"[data-testid='entry-planned-hours-editor-hours-{Iso(Day)}'] input", "1.5");
         pane.WaitForAssertion(() => Assert.Equal([new PlannedHoursDto(Day, 1.5m)], row.PlannedHours));
 
-        pane.Find($"[data-testid='entry-planned-hours-editor-remove-{Iso(Day)}']").Click();
+        await pane.ClickAsync($"[data-testid='entry-planned-hours-editor-remove-{Iso(Day)}']");
         pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='entry-planned-hours-editor-row']")));
         Assert.Empty(await StoredAsync(host, row));
     }
@@ -201,7 +207,7 @@ public sealed class TasksPaneCalendarHoursTests
         var pane = RenderCalendar(host);
         Assert.NotEmpty(pane.FindAll($"[data-testid='{BlockTestId(task, Day)}']"));
 
-        pane.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
+        await pane.ClickAsync("[data-testid='type-filter-option'][data-type='prompt']");
 
         pane.WaitForAssertion(() =>
         {

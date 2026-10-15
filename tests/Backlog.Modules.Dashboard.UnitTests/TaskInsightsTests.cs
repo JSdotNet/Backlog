@@ -531,6 +531,20 @@ public class TaskInsightsTests
         Assert.Equal(new DateOnly(2026, 11, 20), result.Value.TimelineTo);
     }
 
+    /// <summary>A finished item ends where its last entry landed, so its planned end
+    /// later on does not stretch the axis past the items still running.</summary>
+    [Fact]
+    public async Task A_finished_item_planned_to_end_later_does_not_stretch_the_timeline()
+    {
+        var plan = new StubPlanSource(
+            Item("Running", end: new DateOnly(2026, 10, 15)),
+            Item("Landed early", end: new DateOnly(2026, 12, 31), totalEffort: 5, doneEffort: 5, finished: true, lastCompletedOn: new DateOnly(2026, 9, 20)));
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 10, 15), result.Value!.TimelineTo);
+    }
+
     [Fact]
     public async Task The_timeline_never_ends_before_today()
     {

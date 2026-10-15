@@ -89,7 +89,9 @@
     </Story>
 
     <Story Name="ConfirmDialog"
-           Description="One question, two answers, and the outcome recorded below so it is visible which callback ran."
+           Description="One question, two answers, and the outcome recorded below so it is visible which callback ran.
+
+Confirm stays open with its button busy until the host's OnConfirm has finished, and closes after: Archive here takes a second and a half, the way a real archive writes a file. While it runs, a second press, Cancel, Escape and the backdrop all do nothing, and the header's ✕ is disabled through Modal's `CloseDisabled`, because the act can no longer be taken back. If OnConfirm fails, the dialog stays open with Confirm usable again."
            Code="@ConfirmCode">
         <div class="sb-row">
             <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _confirmOpen = true" TestId="open-confirm">
@@ -190,7 +192,8 @@
         new("interaction-guidelines.md#focus-and-selection", "Where focus goes when a dialog opens and closes."),
         new("interaction-guidelines.md#motion-and-reduced-motion", "How a dialog may appear, and what it does under reduced motion."),
         new("typography-and-layout.md#z-index-scale", "What is allowed to sit above what."),
-        new("accessibility.md#keyboard-navigation", "Escape, the focus trap, and the return path.")
+        new("accessibility.md#keyboard-navigation", "Escape, the focus trap, and the return path."),
+        new("interaction-guidelines.md#busy-actions", "Why a confirmed act keeps its dialog open, busy, until it has finished.")
     ];
 
     private bool _modalOpen;
@@ -224,7 +227,11 @@
     // button — but not for the footer actions, which set their own result first.
     private void OnModalClosed() => _modalResult ??= "closed";
 
-    private void ConfirmArchive() => _confirmResult = "archive confirmed";
+    private async Task ConfirmArchive()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        _confirmResult = "archive confirmed";
+    }
 
     private void CancelArchive() => _confirmResult = "archive cancelled";
 

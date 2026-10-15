@@ -32,7 +32,7 @@
 
 <PartFrame Title="Spend this month"
            Note="Your own usage, across everything — Anthropic, Copilot, and the Azure AI Foundry resource in Settings. No provider reports spend per repository, so the repository filter does not change these figures."
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-spend-month">
     @if (IsReady)

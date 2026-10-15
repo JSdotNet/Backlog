@@ -9,6 +9,7 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 > - auto-save, since there are no save buttons;
 > - drag-and-drop reordering of items and chapters, with mandatory keyboard
 >   equivalents;
+> - responsiveness: press feedback, busy actions and scoped loading;
 > - feedback and toasts, motion and reduced motion;
 > - the empty, loading and error state patterns;
 > - the desktop shell's header, panes and group shapes;
@@ -230,6 +231,97 @@ both items and chapters.
 | Undoable | A reorder MUST be a single undo step (see `#undo-and-history`). |
 | Failure | If persistence fails, the order MUST visibly revert and surface the `Error` save state. |
 
+## Responsiveness
+
+```meta
+related: [".devbook/design/interaction-guidelines.md#loading-states", ".devbook/design/interaction-guidelines.md#error-states", ".devbook/design/interaction-guidelines.md#motion-and-reduced-motion", ".devbook/design/accessibility.md#screen-reader--announcements", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
+```
+
+A press is answered at once, whatever the work behind it costs. The control the
+reader pressed shows that it heard them, and a slow act shows that it is still
+working. A part of the screen that reloads shows its own loader, and the rest of
+the screen stays usable.
+
+```mermaid
+flowchart LR
+    P[Press] --> A[Pressed state, within one frame]
+    A --> Q{Work over ~300 ms?}
+    Q -- no --> R[Result shown]
+    Q -- yes --> B[Trigger busy, region loader]
+    B --> R
+    B --> E[Error toast or inline error, control restored]
+```
+
+### Press Feedback
+
+```meta
+```
+
+| Rule | Requirement |
+|---|---|
+| One frame | Every pressable control MUST acknowledge a press within one frame (≤ 100 ms) through its own visual state, independent of the work the press starts. |
+| Pressed state everywhere | Every button variant, chip, toggle and pressable card MUST have an `:active` pressed state. A press that changes nothing visible still shows it. |
+| Acknowledge before work | A click handler MUST render its acknowledgement before any slow work. In Blazor, set the state and yield (`await Task.Yield()`), or make the IO asynchronous or move it to `Task.Run`, before any file, git, `gh`, network or process work. |
+| No synchronous IO on the UI thread | A click handler MUST NOT do synchronous IO on the UI thread. |
+| No double fire | A press repeated while the act is busy MUST be ignored. The act runs once. |
+
+### Busy Actions
+
+```meta
+```
+
+| Rule | Requirement |
+|---|---|
+| When | An act whose work can take longer than ~300 ms MUST put its trigger into the busy state. |
+| Busy state | The trigger uses `AppButton`'s `Busy`: a spinner replaces the icon, `aria-busy="true"` is set, and clicks are blocked. The control stays focusable, and its label stays so its width does not jump. |
+| Set and clear | Busy MUST be set synchronously on the press and cleared in a `finally`, so no outcome leaves the control stuck. |
+| Failure | A failed act MUST restore the control and raise an error toast, per the *Action* row of `#error-states`. |
+| Success | A success that nothing else on screen shows MUST get an inline confirmation, per `#feedback-and-toasts`. |
+| Stays in place | A busy act MUST NOT move while it runs, per *A running act is exempt* in `#action-density-and-overflow`. |
+
+### Scoped Loading
+
+```meta
+```
+
+| Rule | Requirement |
+|---|---|
+| Scope | A loader MUST cover exactly the region whose data is reloading, nothing larger. A dashboard card, section or widget gets its own loader, a pane gets its own, and a whole page gets one only when the whole page reloads. |
+| Independent regions | Regions MUST load independently. One slow region never holds back the others, and the rest of the page stays interactive. |
+| First load | An empty region loading for the first time shows a content-shaped `Skeleton`. |
+| Refresh | A populated region that refreshes MUST keep its content and show a small `Spinner` in its header. It MAY dim the content and MUST NOT blank it. |
+| Frame first | A navigation or takeover MUST open its frame at once (header, title, close control) and load its body inside it. It never waits on data before switching the screen. |
+| Every region resolves | Each region ends in content, an empty state (`#empty-states`), or an inline section error with **Retry** (`#error-states`). |
+
+### Timing
+
+```meta
+```
+
+| Moment | Threshold | Why |
+|---|---|---|
+| Acknowledgement | ≤ 100 ms | Feels instant, per `#press-feedback`. |
+| Region loader appears | After ~300 ms of waiting | A loader for a fast load is a flash. |
+| Region loader stays | ≥ ~500 ms once shown | A loader that vanishes at once is a flicker. |
+| Give up | > ~10 s | The region moves to its error with **Retry**, per `#loading-states`. |
+| Reduced motion | Always | Spinners stop spinning, per `#motion-and-reduced-motion`. |
+
+The 300 ms delay applies to a region loader that replaces or covers content. A
+button's busy state MAY be set immediately, because it is the acknowledgement
+itself.
+
+### Accessibility
+
+```meta
+```
+
+| Rule | Requirement |
+|---|---|
+| Busy region | A region MUST carry `aria-busy="true"` while it loads. |
+| Announce on request | When a load the reader asked for finishes, such as a **Refresh**, the region SHOULD make one polite announcement. A background refresh announces nothing. How a live region speaks is `accessibility.md#screen-reader--announcements`'s. |
+| Focus stays | Focus MUST stay on the trigger through the busy state. |
+| Tab order | A control blocked while busy MUST stay in the tab order. It is never removed with the native `disabled` attribute. |
+
 ## Feedback and Toasts
 
 ```meta
@@ -330,11 +422,14 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 ```meta
 ```
 
+Which region shows a loader, and when it appears, is `#scoped-loading`'s and
+`#timing`'s. This table covers what the loader looks like.
+
 | Rule | Requirement |
 |---|---|
 | Skeletons | Use content-shaped skeletons for lists/cards/tables; subtle 2 s pulse, disabled under reduced motion; fall back to error after ~10 s. |
 | Spinner | Use for action-triggered ops and page-level loads with no layout preview; never as a content placeholder where a skeleton fits. |
-| Stale refresh | When refreshing an already-populated view, keep content visible and show a subtle `icon-sm` spinner in the header — do not blank the view. |
+| Stale refresh | When refreshing an already-populated view, keep content visible and show a subtle `icon-sm` spinner in the header — do not blank the view. See *Refresh* in `#scoped-loading`. |
 | Local-first | Because data is local-first, most views SHOULD render instantly from local storage; loading states are the exception, not the norm. |
 
 ### Error States
@@ -628,6 +723,7 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
+| Press feedback, busy actions, scoped loading | In `src/Core/Backlog.UI.Components`: `AppButton` (`Busy` keeps the button focusable through `aria-disabled`), `TaskAction` (`Busy`, `Blocked`), `ConfirmDialog` (busy until its act lands), `Modal.CloseDisabled`, `FileView.Refreshing`, `Spinner` and `Skeleton`; the generic `:active` and `[aria-busy]` rules in `components.css`. Hosts copy the dashboard's pattern: each part loads on its own, and a refresh keeps its figures under the frame's busy mark | Storybook → *Buttons*, *Overlays*, *Feedback* → **A region refreshing in place**, *File view* |
 | Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The edge autoscroll is one frame loop for every pointer drag: the Board's card drag and the month calendar's drag (a tray item, a chip, a shelf plan) hand themselves to it, the calendar through `window.backlogDragAutoscroll`, rather than each carrying its own edge zones and speed cap. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse**; *Task calendar*, for a drag to a day scrolled out of view |
 
 Known gaps:
@@ -657,3 +753,16 @@ Known gaps:
   up to a cap. The timeline's own gesture, `backlogRoadmapTimeline`, carries no
   scroll logic at all, so a bar cannot be dragged past the edge of what the
   timeline is showing. The rule is unmet there, not misstated here.
+- **A dashboard part's first load does not yield.** `DashboardPartBase` yields
+  before a fetch a press started (a refresh, a filter change), but not on a
+  part's first load. A provider that does synchronous work before its first await
+  would therefore hold the takeover's frame, against *Frame first* in
+  `#scoped-loading`. No provider is known to do so.
+- **Some acts still close their dialog before the work.** The device and sync
+  forget/reset confirmations in Settings run synchronously and close at once, so
+  they show no busy state. They are quick, but they are not built to the
+  *Busy Actions* rules.
+- **A move's change check relies on write times.** Moving the storage folder
+  copies in the background and refuses the move if the backlog changed during
+  the copy. On FAT32 or exFAT, write times are coarse enough that a same-length
+  write inside that window could go unseen.

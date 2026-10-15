@@ -22,7 +22,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { labelsOf, listDevbookMarkdown, listScenarioPages, listSpecs, PROFILES_FILE, readProfiles, SCENARIO_FOLDER, specLabels } from "./parse.mjs";
+import { labelsOf, listDevbookMarkdown, listScenarioPages, listSpecs, PROFILES_FILE, readProfiles, resolveInside, SCENARIO_FOLDER, specLabels } from "./parse.mjs";
 import { pageSignature } from "./signature.mjs";
 
 /** Every coverage finding in a repository, each `{ check, where, what, fix }`. */
@@ -86,7 +86,7 @@ export async function coverage({ repoRoot, scenarioFolder = SCENARIO_FOLDER, spe
     }
 
     for (const relPath of await listDevbookMarkdown(repoRoot)) {
-        const lines = (await readFile(path.join(repoRoot, relPath), "utf8")).split(/\r?\n/);
+        const lines = (await readFile(resolveInside(repoRoot, relPath), "utf8")).split(/\r?\n/);
         let fence = null;
         lines.forEach((line, index) => {
             const marker = /^\s*(`{3,}|~{3,})/.exec(line);

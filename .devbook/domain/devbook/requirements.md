@@ -351,6 +351,22 @@ The system SHALL flip the pane between the Brain and the repository with the `Br
 - **When** the reader picks `backlog` on the pane's switch
 - **Then** the pane shows the devbook of `backlog` and the task list is unchanged
 
+### Requirement: The Brain carries no repository chrome
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.The_repository_only_chrome_is_absent_and_its_services_are_not_asked, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.On_the_repository_the_same_harness_draws_the_repository_only_chrome]
+```
+
+The system SHALL leave branch updates, sync verdicts and scenario marks out of the pane while it shows the Brain.
+
+#### Scenario: The same devbook content, Brain against repository
+
+- **Given** a devbook with a scenario page and sync verdicts for its chapters
+- **When** the pane shows it for a repository, and then shows the Brain
+- **Then** the repository view draws the update action, the verdict badges and the scenario mark, and the Brain view draws none of them
+
 ### Requirement: The header toggle names what the pane shows
 
 ```meta

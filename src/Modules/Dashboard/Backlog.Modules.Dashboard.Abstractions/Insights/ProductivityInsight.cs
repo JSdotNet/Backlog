@@ -182,6 +182,21 @@ public sealed record ReworkInsight(
     /// whose message is silent reads as clean.</summary>
     public int ConflictedSyncMerges { get; init; }
 
+    /// <summary>
+    /// The window's sized merges cut by changed lines, XS to XL. Empty by default;
+    /// ProductivityInsights always derives all five, in that order — an empty bucket is a
+    /// reading, not a gap. Rework cut a new way, on
+    /// <see cref="ByRepository"/>'s precedent, so it rides the same activity read.
+    /// </summary>
+    public IReadOnlyList<ReworkSize> BySize { get; init; } = [];
+
+    /// <summary>
+    /// Merged pull requests whose size was not read, and so sit in no bucket of
+    /// <see cref="BySize"/>. Counted rather than dropped, so a part can say how many
+    /// the buckets leave out instead of letting them read as the whole window.
+    /// </summary>
+    public int PullRequestsWithoutSize { get; init; }
+
     public static ReworkInsight Empty { get; } = new(0, 0, 0, 0, 0, true, []);
 
     /// <summary>Churned pull requests as a fraction of those that were reviewed
@@ -199,6 +214,33 @@ public sealed record ReworkInsight(
 /// <param name="PullRequestsWithChurn">Its reviewed pull requests that came back.</param>
 /// <param name="PullRequestsReviewed">Its pull requests that were reviewed at all.</param>
 public sealed record ReworkRepository(string Alias, int PullRequestsWithChurn, int PullRequestsReviewed);
+
+/// <summary>
+/// One size bucket of <see cref="ReworkInsight.BySize"/>: how many merged pull requests
+/// changed this many lines, and how many of the reviewed ones came back after review.
+/// </summary>
+/// <param name="Label">The bucket's name, XS to XL.</param>
+/// <param name="MinLines">The fewest changed lines a pull request in it has.</param>
+/// <param name="MaxLinesExclusive">The line count the next bucket starts at, or null for
+/// the last bucket, which has no ceiling.</param>
+/// <param name="PullRequestsMerged">Every sized merge in the bucket, reviewed or not.</param>
+/// <param name="PullRequestsReviewed">Of those, the ones that were reviewed at all — the
+/// denominator of <see cref="Rate"/>, as it is of <see cref="ReworkInsight.Rate"/>.</param>
+/// <param name="PullRequestsWithChurn">Of the reviewed ones, those that came back.</param>
+public sealed record ReworkSize(
+    string Label,
+    int MinLines,
+    int? MaxLinesExclusive,
+    int PullRequestsMerged,
+    int PullRequestsReviewed,
+    int PullRequestsWithChurn)
+{
+    /// <summary>The share of the reviewed pull requests that came back, or null when
+    /// none was reviewed. Null rather than <see cref="ReworkInsight.Rate"/>'s zero,
+    /// because a bucket shows "—" for no share and "0%" would claim clean work nobody
+    /// looked at.</summary>
+    public decimal? Rate => PullRequestsReviewed == 0 ? null : (decimal)PullRequestsWithChurn / PullRequestsReviewed;
+}
 
 /// <summary>
 /// Where full marks came from: the reader's own busiest block of recent history.

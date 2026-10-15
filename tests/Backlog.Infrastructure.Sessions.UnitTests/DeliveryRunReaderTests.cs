@@ -531,6 +531,106 @@ public sealed class DeliveryRunReaderTests : IDisposable
         Assert.Empty(run.Stages[1].Evidence);
     }
 
+    /// <summary>The scenarios a stage reported are read with their screenshot paths,
+    /// as the surface stored them; an entry that is not an object, or has no name,
+    /// is skipped, and a path that is not text is dropped from its list.</summary>
+    [Fact]
+    public async Task A_stage_s_scenarios_are_read_with_their_screenshots()
+    {
+        GivenRun("backlog", "Backlog-43b9057e", "run-scenarios.json", """
+            {
+              "id": "run-scenarios",
+              "skillId": "flow-code",
+              "status": "in_progress",
+              "stages": [
+                { "name": "Verify", "status": "done", "scenarios": [
+                  { "name": "set-up-and-fill-the-backlog", "status": "fail", "notes": "An item is moved failed on step 1",
+                    "evidence": [".devbook/scenarios/set-up-and-fill-the-backlog/statuses-set-up.png", 7,
+                                 ".devbook/scenarios/set-up-and-fill-the-backlog/fail.an-item-is-moved.png"] },
+                  "not an object",
+                  { "status": "pass" },
+                  { "name": "Sessions pane", "status": "pass" }
+                ] },
+                { "name": "Spec Check", "status": "pending", "scenarios": "none" }
+              ]
+            }
+            """);
+
+        var run = Assert.Single((await ReadAsync()).Runs);
+
+        Assert.Equal(
+            [
+                ("set-up-and-fill-the-backlog", "fail", "An item is moved failed on step 1",
+                    ".devbook/scenarios/set-up-and-fill-the-backlog/statuses-set-up.png|.devbook/scenarios/set-up-and-fill-the-backlog/fail.an-item-is-moved.png"),
+                ("Sessions pane", "pass", null, "")
+            ],
+            run.Stages[0].Scenarios.Select(scenario => (scenario.Name, scenario.Status, scenario.Notes, string.Join('|', scenario.Evidence ?? []))));
+        Assert.Empty(run.Stages[1].Scenarios);
+    }
+
+    /// <summary>Every link a stage recorded is read, not only the pull requests the
+    /// run's references are drawn from — the app a validation started is one too.
+    /// A link without a url has nowhere to go and is skipped.</summary>
+    [Fact]
+    public async Task A_stage_s_links_are_read_as_recorded()
+    {
+        GivenRun("backlog", "Backlog-43b9057e", "run-links.json", """
+            {
+              "id": "run-links",
+              "skillId": "flow-code",
+              "status": "in_progress",
+              "stages": [
+                { "name": "Personal Validation", "status": "in_progress", "links": [
+                  { "label": "Desktop harness", "url": "https://localhost:7101/", "description": "The app, started for review" },
+                  { "label": "No target" },
+                  "not an object",
+                  { "url": "https://github.com/JSdotNet/Backlog/pull/1301" }
+                ] },
+                { "name": "Summary", "status": "pending" }
+              ]
+            }
+            """);
+
+        var run = Assert.Single((await ReadAsync()).Runs);
+
+        Assert.Equal(
+            [
+                new DeliveryStageLink("Desktop harness", "https://localhost:7101/", "The app, started for review"),
+                new DeliveryStageLink(null, "https://github.com/JSdotNet/Backlog/pull/1301", null)
+            ],
+            run.Stages[0].Links);
+        Assert.Empty(run.Stages[1].Links);
+    }
+
+    /// <summary>A run file is an agent's writing and each link becomes an anchor, so
+    /// an address that would run script or carry its own content is left out, as is
+    /// one that is not absolute; http, https and file are kept.</summary>
+    [Fact]
+    public async Task A_stage_link_that_is_not_http_https_or_file_is_left_out()
+    {
+        GivenRun("backlog", "Backlog-43b9057e", "run-unsafe-links.json", """
+            {
+              "id": "run-unsafe-links",
+              "skillId": "flow-code",
+              "status": "in_progress",
+              "stages": [
+                { "name": "Personal Validation", "status": "in_progress", "links": [
+                  { "label": "Looks harmless", "url": "javascript:alert(document.cookie)" },
+                  { "label": "Spaced", "url": "  JavaScript:alert(1)" },
+                  { "label": "Inline", "url": "data:text/html,<script>alert(1)</script>" },
+                  { "label": "Relative", "url": "/settings" },
+                  { "label": "Screenshot", "url": "file:///C:/shots/fail.the-order-is-placed.png" },
+                  { "label": "App", "url": "http://localhost:5100/" }
+                ] }
+              ]
+            }
+            """);
+
+        var run = Assert.Single((await ReadAsync()).Runs);
+
+        Assert.Equal(["Screenshot", "App"], run.Stages[0].Links.Select(link => link.Label));
+    }
+
     [Fact]
     public async Task Both_dashboards_are_read_and_say_which_they_are()
     {

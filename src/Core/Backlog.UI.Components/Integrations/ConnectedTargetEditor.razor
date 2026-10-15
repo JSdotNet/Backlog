@@ -133,10 +133,11 @@
         {
             <AppButton Size="ButtonSize.Small"
                        Disabled="@(!Options.Enabled)"
-                       Busy="@Syncing"
+                       Busy="@(Syncing || _acts.IsRunning(SyncAct))"
+                       aria-disabled="@(Syncing ? "true" : Blocked)"
                        BusyLabel="Syncing"
                        TestId="@Suffix("sync")"
-                       OnClick="() => OnSyncNow.InvokeAsync(Options)">
+                       OnClick="() => _acts.RunAsync(SyncAct, () => OnSyncNow.InvokeAsync(Options))">
                 Sync now
             </AppButton>
         }
@@ -144,8 +145,11 @@
         {
             <AppButton Variant="ButtonVariant.Danger"
                        Size="ButtonSize.Small"
+                       Busy="@_acts.IsRunning(RemoveAct)"
+                       aria-disabled="@Blocked"
+                       BusyLabel="Disconnecting"
                        TestId="@Suffix("remove")"
-                       OnClick="() => OnRemove.InvokeAsync(Options)">
+                       OnClick="() => _acts.RunAsync(RemoveAct, () => OnRemove.InvokeAsync(Options))">
                 Disconnect
             </AppButton>
         }
@@ -252,6 +256,22 @@
     /// files under itself, any other under none.</summary>
     private string RepositoryEmptyLabel =>
         Options.TargetIsRepository ? $"Its own repository ({Options.Target})" : "None";
+
+    private const string SyncAct = "sync";
+    private const string RemoveAct = "remove";
+
+    /// <summary>Sync now and Disconnect while the host awaits them. <see cref="Syncing"/>
+    /// still says a sync is running when the host started it some other way; this
+    /// covers the press itself, before the host has said anything.</summary>
+    private readonly PendingAct _acts;
+
+    public ConnectedTargetEditor() => _acts = new PendingAct(StateHasChanged);
+
+    /// <summary>Sync now and Disconnect say they are blocked while either runs,
+    /// so a press on the other does not look lost. The running one is busy as
+    /// well; repeating it here keeps a null from this splat clearing the
+    /// attribute AppButton set.</summary>
+    private string? Blocked => _acts.IsAnyRunning ? "true" : null;
 
     private Task ChangeAsync(ConnectedTargetOptions changed) => OnChange.InvokeAsync(changed);
 

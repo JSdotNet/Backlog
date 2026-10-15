@@ -263,6 +263,23 @@ Tab through this one and then the arbitration story above. A supplied body gives
         </div>
     </Story>
 
+    <Story Name="The file, being read again"
+           Description="A pane that reads its file again while the file is on screen keeps the file there and says so on the name's line: `Refreshing` puts a small spinner after the path. The host decides when a wait is worth it — the Devbook chapter view raises it only after ~300 ms, and never for the re-read that follows its own autosave."
+           Code="@RefreshingCode">
+        <div class="sb-stack" data-testid="file-view-refreshing">
+            <FileView Name="shared.md"
+                      Kind="Technology stack"
+                      Path=".devbook/tech/shared.md"
+                      Body="@FileFixtures.TwoLevelFile"
+                      MaxHeight="16rem"
+                      RenderDevbookMetadata="true"
+                      RenderDevbookMetadataFields="false"
+                      DevbookFolder="DevbookFolder.Tech"
+                      Refreshing="true"
+                      TestId="file-view-refreshing-pane" />
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -272,7 +289,8 @@ Tab through this one and then the arbitration story above. A supplied body gives
         new("content-editing.md#raw-markdown-escape-hatch", "When a file is shown as source rather than as a rendering."),
         new("color-scheme.md#syntax-highlighting-tokens", "The colours a file read as code is drawn with."),
         new("design-principles.md#low-chrome-content-first", "How much of a file view may be header and actions."),
-        new("typography-and-layout.md#layout-grid-and-breakpoints", "The measure a file's contents are read at.")
+        new("typography-and-layout.md#layout-grid-and-breakpoints", "The measure a file's contents are read at."),
+        new("interaction-guidelines.md#scoped-loading", "What a file pane shows while it reads the file on screen again.")
     ];
 
     // What the header's record reported. The file below is a constant, so nothing
@@ -282,6 +300,14 @@ Tab through this one and then the arbitration story above. A supplied body gives
     private string? _fileStatus;
 
     private void HearFileStatus(DevbookStatusChange change) => _fileStatus = change.Status;
+
+    private const string RefreshingCode = """
+        @* The file stays; the name's line says it is being read again. *@
+        <FileView Name="@file.Name"
+                  Path="@file.Path"
+                  Body="@file.Text"
+                  Refreshing="@reading" />
+        """;
 
     private const string FileMetadataCode = """
         @* One opt-in, two placements: the pane reads the file once and knows which

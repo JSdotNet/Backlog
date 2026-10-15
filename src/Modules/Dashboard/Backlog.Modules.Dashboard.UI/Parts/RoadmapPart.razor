@@ -33,7 +33,7 @@
 {
     <PartFrame Title="Roadmap"
                Note="@Note"
-               Busy="Status == MetricStatusKind.Loading"
+               Busy="IsLoading"
                OnRefresh="RefreshAsync"
                TestId="dashboard-roadmap">
         @if (IsReady)
@@ -43,8 +43,9 @@
                 @* The roadmap's figures are the Tasks tab's joined row now (TaskFiguresPart),
                    so the pace, the items and the effort are said once on the tab. *@
                 @* The timeline: one column per ISO week of the window, one row per item,
-                   and a bar from the week the item starts in to the week it ends in,
-                   clipped to the window. The weeks are the window the insight was read
+                   and a bar from the week the item starts in to the week it ends in —
+                   for a finished item, the week its work landed — clipped to the
+                   window. The weeks are the window the insight was read
                    for, so a bar never contradicts which items the window kept. It
                    scrolls sideways inside the card rather than squeezing the weeks
                    below the width a label fits in. *@
@@ -83,7 +84,7 @@
                                 aria-label="@($"Roadmap items overlapping the last {Scope.Weeks} weeks")">
                                 @foreach (var row in Value!.Items)
                                 {
-                                    var bar = Place(row.Item, weeks);
+                                    var bar = Place(row, weeks);
                                     <li @key="row.Item.Id" class="dashboard-timeline__row" data-testid="dashboard-roadmap-row">
                                         <span class="dashboard-timeline__item">
                                             <span class="dashboard-timeline__name">@row.Item.Title</span>
@@ -101,7 +102,7 @@
                                             <span class="@BarClass(row, placed)"
                                                   style="@($"grid-column: {placed.First + 2} / {placed.Last + 3}")"
                                                   role="img"
-                                                  aria-label="@($"{row.Item.Title}, {DashboardFormat.Span(row.Item.Start, row.Item.End)}")"
+                                                  aria-label="@($"{row.Item.Title}, {DashboardFormat.Span(row.DrawnStart, row.DrawnEnd)}")"
                                                   title="@Sentence(row)"
                                                   data-testid="dashboard-roadmap-bar">
                                                 <span class="dashboard-timeline__fill"
@@ -176,8 +177,8 @@
 
     /// <summary>
     /// The Monday of every ISO week the axis shows, oldest first: from the window's first
-    /// week — the weeks the task charts below bucket into — through the latest end of an
-    /// item it shows (<see cref="PlanInsight.TimelineTo"/>), never past
+    /// week — the weeks the task charts below bucket into — through the latest drawn end
+    /// of an item it shows (<see cref="PlanInsight.TimelineTo"/>), never past
     /// <see cref="FurthestAheadDays"/> beyond today. An insight built without a window
     /// falls back to the items' own stretch.
     /// </summary>
@@ -205,14 +206,14 @@
     }
 
     /// <summary>The first and last day the axis covers. Public to the tests through the
-    /// rendered weeks only; the rule is the window to the latest item end, capped.</summary>
+    /// rendered weeks only; the rule is the window to the latest drawn item end, capped.</summary>
     private static (DateOnly From, DateOnly To) Axis(PlanInsight plan)
     {
         if (plan.WindowFrom == default)
         {
             return plan.Items.Count == 0
                 ? (default, default)
-                : (plan.Items.Min(row => row.Item.Start), plan.Items.Max(row => row.Item.End));
+                : (plan.Items.Min(row => row.DrawnStart), plan.Items.Max(row => row.DrawnEnd));
         }
 
         var to = plan.TimelineTo == default ? plan.WindowTo : plan.TimelineTo;
@@ -247,22 +248,27 @@
         "W" + ISOWeek.GetWeekOfYear(monday.ToDateTime(TimeOnly.MinValue)).ToString("00", CultureInfo.InvariantCulture);
 
     /// <summary>Where an item's bar sits, as week indexes into <see cref="Weeks"/>, and
-    /// whether either end was cut off by the window. Null when the item falls outside
-    /// the axis altogether, which a window-narrowed reading never hands over.</summary>
+    /// whether either end was cut off by the window. The bar spans the item's drawn days,
+    /// so a finished one stops where its work landed. The window keeps an item by its
+    /// planned days, so one that landed before the window opened is still handed over: it
+    /// is drawn in the first week, cut off there, rather than left as an empty lane. Null
+    /// only when the item starts past the axis.</summary>
     private readonly record struct Placement(int First, int Last, bool ClippedStart, bool ClippedEnd);
 
-    private static Placement? Place(PlanItemProgress item, IReadOnlyList<DateOnly> weeks)
+    private static Placement? Place(PlanItemInsight row, IReadOnlyList<DateOnly> weeks)
     {
         if (weeks.Count == 0) return null;
 
+        var (start, end) = (row.DrawnStart, row.DrawnEnd);
         var axisStart = weeks[0];
         var axisEnd = weeks[^1].AddDays(6);
-        if (item.End < axisStart || item.Start > axisEnd) return null;
+        if (start > axisEnd) return null;
+        if (end < axisStart) end = axisStart;
 
-        var first = (Monday(item.Start < axisStart ? axisStart : item.Start).DayNumber - axisStart.DayNumber) / 7;
-        var last = (Monday(item.End > axisEnd ? axisEnd : item.End).DayNumber - axisStart.DayNumber) / 7;
+        var first = (Monday(start < axisStart ? axisStart : start).DayNumber - axisStart.DayNumber) / 7;
+        var last = (Monday(end > axisEnd ? axisEnd : end).DayNumber - axisStart.DayNumber) / 7;
 
-        return new Placement(first, Math.Max(first, last), item.Start < axisStart, item.End > axisEnd);
+        return new Placement(first, Math.Max(first, last), start < axisStart, end > axisEnd);
     }
 
     /// <summary>The tone the bar is drawn in. Behind and overdue share the behind tone —

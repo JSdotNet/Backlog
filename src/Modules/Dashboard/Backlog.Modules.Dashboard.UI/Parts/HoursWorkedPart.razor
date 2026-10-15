@@ -32,7 +32,7 @@
 
 <PartFrame Title="Hours worked"
            Note="@Note"
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-hours-worked">
     @if (IsReady)

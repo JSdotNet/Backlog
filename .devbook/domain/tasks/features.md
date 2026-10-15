@@ -114,6 +114,7 @@ is.
 type: sub-feature
 status: draft
 related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
 A task can point at the parts of a scenario page that prove it. A scenario page is
@@ -124,11 +125,16 @@ every part, or at a requirement, which stands for the parts its `Proved by:` lin
 name. A part reached two ways counts once.
 
 The open task lists these parts under its Devbook references as an acceptance
-checklist. Each row shows the part's dot, the part, the page it belongs to and when
-it last ran, and the list says how many of them pass, as "2 of 3 passing". A part
-reads as passed only when its last run passed on the page as it stands now. A part
-that passed before the page was edited is stale, because the run proved a different
-page.
+checklist headed "Acceptance · scenario parts". Each row shows the part's dot and the
+part. A quieter line under it names the page by its stem, the file name that also
+names the run folder, and says when the page last ran, as
+"place-an-order · 14 Oct 2026 09:30". A part that never ran says "Never run" there
+instead. A failed part whose run recorded the step it stopped on adds that step, as
+"· step 2". The list says how many parts pass and whether that proves the task, as
+"2 of 3 passing · not proved" or "3 of 3 passing · proved". A part reads as passed
+only when its last run passed on the page as it stands now. A part that passed before
+the page was edited is stale, because the run proved a different page. A stale part
+shows no step, because the step numbers an older text of the page.
 
 Pressing a part opens its scenario page in the Devbook pane at that part. The part is
 marked as the one asked for and scrolled into view, and it stays marked until the
@@ -147,7 +153,8 @@ It is resolved against the repository the task's Devbook references open in. Any
 other image in a task shows as it always has.
 
 The same answer reaches a coding session. Listing a task's Devbook references gives
-each part with its state and last run, and a count with whether the task is proved.
+each part with its state and last run, the step a failed part stopped on, and a count
+with whether the task is proved.
 
 ## Bulk editing
 
@@ -529,7 +536,8 @@ own priority, My Day, area, sub-items and notes alone.
 
 Every linked task shows a source badge on its row, in the editor header and in
 My Day, and the badge opens the item at the source. The Tasks pane filters by
-source and by "Assigned to me". A label written `+slug` at the source files the
+source. It has no filter on the assignee: "Assigned to me" was removed, though
+each sync still keeps the assignee. A label written `+slug` at the source files the
 task under that plan. It then appears on the roadmap's
 [shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first)
 without a step in Backlog.
@@ -552,21 +560,67 @@ with two settings that decide where its tasks land:
 A changed status applies to new tasks at once, and to an existing task when its
 item next moves at the source.
 
-### Promote to plan
+The card also holds the target's other settings: how old an untouched item may
+be before the first sync skips it, whether the title follows the source, the
+sync interval, and "Complete at the source" for a connector that can complete
+items. A connector that can list its targets offers them to pick by name, so a
+spec-manager product is picked rather than typed.
+
+### Syncing a target
 
 ```meta
 type: sub-feature
 status: proposed
-related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-Turn one linked task that is really a body of work spanning several tasks into
-a Roadmap Item. The person picks Promote to plan, and the item is created under
-the issue's plan tag. Its steps come from the issue's sub-issues, its checklist,
-or a plan generated from its body and imported. The
-[Connected Target](domain.md#connected-target)'s setting then decides what
-happens to the original task. It is either archived, or kept as the one task
-that stands for the whole of the work.
+The desktop syncs each enabled target on its own timer, every fifteen minutes
+unless the target sets another interval. **Sync now** on the target's card in
+Settings → Connectors runs one at once and says on the card how it went. The
+Tasks pane has no sync button.
+
+A sync that fails writes nothing, and the card shows why in a sentence the
+person can act on, with when it happened. The next sync still asks for what
+changed since the last one that succeeded, and its success clears the message.
+Each successful sync writes one line to the log with how many items it fetched,
+created, updated and archived.
+
+A spec-manager product is read whole on every sync: the open backlog has no
+"changed since" question, so only its archived items are asked for by date.
+
+### Deleting the tasks of a disconnected source
+
+```meta
+type: sub-feature
+status: proposed
+related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#requirement-a-deleted-linked-task-is-never-made-again]
+```
+
+Disconnecting a target keeps its tasks on the list as they are. Settings →
+Connectors lists each source that left tasks behind under **Disconnected
+sources**, with how many tasks it left. **Delete tasks** asks first and then
+makes every one of them a [Tombstone](domain.md#tombstone), whatever its status.
+
+The confirmation says that the items at the source stay untouched and that the
+deletion reaches the other devices. It also says that connecting the target
+again does not bring the tasks back, and how many other tasks will wait on a
+missing one. A source connected again before the delete runs is refused,
+because its tasks belong to the sync again.
+
+### Promote to plan
+
+```meta
+type: sub-feature
+status: deprecated
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+Dropped and never built. It was to turn one linked task that stands for a body
+of work into a Roadmap Item, with its steps taken from the issue's sub-issues,
+its checklist or a generated plan. The owner decided against it, and the
+target setting for what happened to the original task was removed. A linked
+task reaches the roadmap only through its [plan label](../roadmap/domain.md#source-label),
+and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-never-creates-a-roadmap-item).
 
 ## Search, filter and organize
 
@@ -640,14 +694,17 @@ order, independent of recency or priority. Where a task nobody ranked lands is
 type: sub-feature
 status: draft
 related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_plan_leave_out_finished_work_and_a_plan_with_nothing_left_has_no_column]
 ```
 
 The same filtered tasks laid out as columns of cards, under the same filters
 and beside the same open task. The columns can be:
 
 - by status, the default: Draft, Ready, In progress and Done;
-- by plan: one per [Roadmap Tag](domain.md#roadmap-tag) in view, then the tasks
-  in no plan;
+- by plan: one per [Roadmap Tag](domain.md#roadmap-tag) with work left in view,
+  then the tasks in no plan. Only what is still to do is shown: a ticked-off or
+  archived task is no card here, so a plan with nothing left draws no column,
+  the way its tag chip leaves ticked-off tasks out of its count;
 - by repository, with the tasks filed against no repository in a column titled
   **Brain**, the name the scope gives them;
 - by [Priority](domain.md#priority).
@@ -1085,7 +1142,7 @@ app; the sync itself does that now.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/requirements.md#multi-device-sync]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/requirements.md#multi-device-sync, .devbook/domain/sync/features.md#syncing-between-devices]
 depends-on: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
@@ -1107,53 +1164,13 @@ This is deliberate, and it does lose the other edit. Merging field by field woul
 domain rule for reconciling two different priorities or two different statuses,
 and the domain has none. What the person sees is one task with one status.
 
-Both halves are built. [Pairing a device](#pairing-a-device) gives each device
-its identity, and the sync service refuses any call that does not carry a valid
-token. The task change feed is pushed and pulled through the sync service, which
+Both halves are built. [Pairing a device](../sync/features.md#pairing-a-device),
+in the [Sync](../sync/context.md) context, gives each device its identity, and
+the sync service refuses any call that does not carry a valid token. The task change feed is pushed and pulled through the sync service, which
 keeps devices, pairing codes and the task replica in Azure Cosmos DB. The
 desktop's replica merge applies the later-edit-wins rule to each pulled copy.
 How the feed moves is
 [Task Sync](../../arc42/08-crosscutting-concepts.md#task-sync).
-
-### Pairing a device
-
-```meta
-type: sub-feature
-related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/domain.md#device, .devbook/domain/tasks/requirements.md#pairing-a-device]
-depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
-```
-
-Join a second machine to the same backlog by entering a short pairing code shown
-on the first, once. There is no account and no sign-in: personal use requires no
-login (`.devbook/arc42/02-constraints.md`), so devices are paired to each other rather
-than to an identity.
-
-```mermaid
-sequenceDiagram
-    participant First as First device
-    participant Second as Second device
-    participant Sync as Sync service
-    First->>Sync: Register, naming a new owner
-    Sync-->>First: Registration credential, shown once
-    First->>Sync: Ask for a pairing code
-    Sync-->>First: Pairing code
-    Note over First,Second: The person enters the code on the second device
-    Second->>Sync: Redeem the code
-    Sync-->>Second: Its own registration credential, same owner
-    Second->>Sync: Exchange credential for a device token
-    Sync-->>Second: Short-lived device token
-```
-
-The [Owner](domain.md#owner), [Pairing code](domain.md#pairing-code),
-[Registration credential](domain.md#registration-credential) and
-[Device token](domain.md#device-token) terms give each step's rules. A
-registration credential is never stored anywhere in the clear. Neither device
-ever holds the other's credential.
-
-A paired device can therefore reach exactly one owner's tasks and no one else's.
-The sync service enforces that boundary by reading the owner out of the presented
-token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
-The cloud store does not enforce it on its own.
 
 ## Backup to a repository
 

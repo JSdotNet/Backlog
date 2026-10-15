@@ -156,7 +156,8 @@ public sealed class ToolsPaneTabsTests
     }
 
     /// <summary>The toolbar's toggle starts on All and narrows the tab to the rows that
-    /// need action when asked; groups left with nothing drop out.</summary>
+    /// need action when asked; groups left with nothing drop out. Under All the row
+    /// that matches sits behind the group's reveal until it is pressed.</summary>
     [Fact]
     public void Needs_action_narrows_the_tab_to_the_rows_that_need_it()
     {
@@ -168,11 +169,13 @@ public sealed class ToolsPaneTabsTests
 
         Assert.Equal("true", pane.Find("[data-testid='tools-needs-all']").GetAttribute("aria-checked"));
         Assert.Equal("Needs action (1)", pane.Find("[data-testid='tools-needs-action']").TextContent.Trim());
+        pane.Find("[data-testid='tools-plugins'] [data-testid='tools-group-reveal']").Click();
         Assert.Equal(2, pane.FindAll("[data-testid='tools-plugins'] [data-tool-key]").Count);
 
         pane.Find("[data-testid='tools-needs-action']").Click();
 
         Assert.Equal(["plugin:behind"], pane.FindAll("[data-testid='tools-plugins'] [data-tool-key]").Select(row => row.GetAttribute("data-tool-key")));
+        Assert.Empty(pane.FindAll("[data-testid='tools-plugins'] [data-testid='tools-group-reveal']"));
 
         pane.Find("[data-testid='tools-needs-all']").Click();
 
@@ -358,24 +361,28 @@ public sealed class ToolsPaneTabsTests
     }
 
     /// <summary>Every panel is drawn, but the toolbar only in the one on show, so each
-    /// of its controls exists once — on Overview too, where only the catalog's acts are.</summary>
+    /// of its controls exists once. The Overview has no toolbar: its catalog acts are
+    /// in its footer, and they too exist once.</summary>
     [Fact]
-    public void The_toolbar_exists_once_and_overview_keeps_the_catalog_acts()
+    public void The_toolbar_exists_once_and_overview_keeps_the_catalog_acts_in_its_footer()
     {
         using var context = Context(HostMix());
         var pane = context.Render<ToolsPane>();
 
-        Assert.Single(pane.FindAll("[data-testid='tools-kind-toolbar']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-kind-toolbar']"));
+        var footer = pane.Find("[data-testid='tools-overview'] [data-testid='tools-overview-footer']");
+        Assert.NotNull(footer.QuerySelector("[data-testid='tools-add-open']"));
+        Assert.NotNull(footer.QuerySelector("[data-testid='tools-import-open']"));
+        Assert.Single(pane.FindAll("[data-testid='tools-add-open']"));
+        Assert.Single(pane.FindAll("[data-testid='tools-import-open']"));
 
         pane.Find("[data-testid='tools-tab-mcp-servers']").Click();
         Assert.Single(pane.FindAll("[data-testid='tools-kind-toolbar']"));
-        Assert.NotNull(pane.Find("[data-testid='tools-mcp-servers'] [data-testid='tools-kind-toolbar']"));
-
-        pane.Find("[data-testid='tools-tab-overview']").Click();
-        var toolbar = pane.Find("[data-testid='tools-kind-toolbar']");
+        var toolbar = pane.Find("[data-testid='tools-mcp-servers'] [data-testid='tools-kind-toolbar']");
         Assert.NotNull(toolbar.QuerySelector("[data-testid='tools-add-open']"));
         Assert.NotNull(toolbar.QuerySelector("[data-testid='tools-import-open']"));
-        Assert.Null(toolbar.QuerySelector("[data-testid='tools-needs-filter']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-overview-footer']"));
+        Assert.Single(pane.FindAll("[data-testid='tools-add-open']"));
     }
 
     [Fact]
@@ -393,7 +400,7 @@ public sealed class ToolsPaneTabsTests
             Plugin("plugin:b", DevToolHosts.Default, behind: true)));
         var mixedPane = mixed.Render<ToolsPane>();
         OpenPlugins(mixedPane);
-        Assert.Equal("Two of two plugins need action", mixedPane.Find("#installed-tools-title").TextContent.Trim());
+        Assert.Equal("One plugin behind and one missing", mixedPane.Find("#installed-tools-title").TextContent.Trim());
     }
 
     /// <summary>A tab the host filter has emptied says so, rather than claiming the

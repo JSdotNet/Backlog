@@ -22,7 +22,7 @@
 
 <PartFrame Title="Spend over time"
            Note="@Note"
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-spend-trend">
     @if (IsReady)

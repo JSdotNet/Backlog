@@ -1039,7 +1039,7 @@ public sealed class HomeWorkspaceSurfaceTests
             component.Find("[data-testid='dashboard-toggle-button']").Click();
             component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
 
-            Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
             Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
         }
         finally
@@ -1308,7 +1308,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 again.WaitForAssertion(() => Assert.Equal(ShellNavigationStore.DefaultCalendarRange, reopenedNavigation.CalendarRange));
             }
 
-            Assert.DoesNotContain("calendarRange", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.DoesNotContain("calendarRange", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
         }
         finally
         {
@@ -1374,7 +1374,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 });
             }
 
-            var written = File.ReadAllText(path);
+            var written = ShellNavigationStoreTests.Written(path);
             Assert.DoesNotContain("inProgressNeedsYouFirst", written, StringComparison.Ordinal);
             Assert.DoesNotContain("inProgressIncludeFinishedToday", written, StringComparison.Ordinal);
         }

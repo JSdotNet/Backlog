@@ -158,7 +158,8 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog-ide");
 
-        Assert.Contains(productivity.Scopes, scope => scope.Repositories.Contains("backlog-ide") && !scope.IsAllRepositories);
+        pane.WaitForAssertion(() =>
+            Assert.Contains(productivity.Scopes, scope => scope.Repositories.Contains("backlog-ide") && !scope.IsAllRepositories));
     }
 
     /// <summary>
@@ -177,9 +178,13 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog-ide", "backlog");
 
-        var focus = productivity.Scopes[^1].Repositories;
-        Assert.Equal(["backlog-ide", "backlog"], focus.Aliases);
-        Assert.Equal("backlog-ide", focus.Anchor);
+        // A filter moved is a press, and the part answers it before it fetches.
+        pane.WaitForAssertion(() =>
+        {
+            var focus = productivity.Scopes[^1].Repositories;
+            Assert.Equal(["backlog-ide", "backlog"], focus.Aliases);
+            Assert.Equal("backlog-ide", focus.Anchor);
+        });
     }
 
     /// <summary>
@@ -198,7 +203,7 @@ public class DashboardPaneTests
         FocusRepository(pane, "backlog-ide");
         FocusRepository(pane);
 
-        Assert.True(productivity.Scopes[^1].IsAllRepositories);
+        pane.WaitForAssertion(() => Assert.True(productivity.Scopes[^1].IsAllRepositories));
     }
 
     /// <summary>
@@ -1462,10 +1467,12 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        var breakdown = pane.Find("[data-testid='dashboard-sessions-breakdown']");
-
-        Assert.Contains("Assistant", breakdown.TextContent, StringComparison.Ordinal);
-        Assert.DoesNotContain("Machine", breakdown.TextContent, StringComparison.Ordinal);
+        pane.WaitForAssertion(() =>
+        {
+            var breakdown = pane.Find("[data-testid='dashboard-sessions-breakdown']");
+            Assert.Contains("Assistant", breakdown.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("Machine", breakdown.TextContent, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>
@@ -1894,12 +1901,14 @@ public class DashboardPaneTests
 
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog");
-        pane.Find("[data-testid='dashboard-sessions-cut-repository']").Click();
+        pane.WaitForElement("[data-testid='dashboard-sessions-cut-repository']").Click();
 
-        var text = Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent);
-
-        Assert.Contains("Narrowed to the header's repository scope", text, StringComparison.Ordinal);
-        Assert.Contains("are out of it", text, StringComparison.Ordinal);
+        pane.WaitForAssertion(() =>
+        {
+            var text = Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent);
+            Assert.Contains("Narrowed to the header's repository scope", text, StringComparison.Ordinal);
+            Assert.Contains("are out of it", text, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>An axis or nothing, on the sessions chart's rule: a series that arrived
@@ -2568,7 +2577,15 @@ public class DashboardPaneTests
                     PullRequestsSynced = 14,
                     PullRequestsWithConflictedSync = 3,
                     SyncMerges = 21,
-                    ConflictedSyncMerges = 4
+                    ConflictedSyncMerges = 4,
+                    BySize =
+                    [
+                        new ReworkSize("XS", 0, 10, 8, 6, 0),
+                        new ReworkSize("S", 10, 50, 12, 10, 2),
+                        new ReworkSize("M", 50, 200, 9, 8, 2),
+                        new ReworkSize("L", 200, 400, 4, 4, 1),
+                        new ReworkSize("XL", 400, null, 3, 2, 1)
+                    ]
                 }) with
                 {
                     Complete = score.Complete,
@@ -2610,11 +2627,12 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The Productivity tab as the board lays it out: the throughput row, the volume
-    /// chart with the scores beside it, then rework across the tab.
+    /// The Productivity tab as the board lays it out: the throughput row, a main column
+    /// of the volume chart and size and rework under it with the scores beside it, then
+    /// rework across the tab.
     /// </summary>
     [Fact]
-    public void The_productivity_tab_lays_out_throughput_then_volume_beside_score_then_rework()
+    public void The_productivity_tab_lays_out_throughput_then_volume_and_size_beside_score_then_rework()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
@@ -2624,8 +2642,13 @@ public class DashboardPaneTests
 
         var split = panel.QuerySelector(".dashboard-productivity__split")!;
         Assert.Equal(
-            ["dashboard-trend", "dashboard-score"],
+            ["dashboard-productivity-main", "dashboard-score"],
             split.Children.Select(child => child.GetAttribute("data-testid")));
+
+        var main = split.QuerySelector("[data-testid='dashboard-productivity-main']")!;
+        Assert.Equal(
+            ["dashboard-trend", "dashboard-size"],
+            main.Children.Select(child => child.GetAttribute("data-testid")));
 
         var order = panel.QuerySelectorAll("[data-testid='dashboard-headline'], .dashboard-productivity__split, [data-testid='dashboard-rework']")
             .Select(element => element.GetAttribute("data-testid") ?? "split")
@@ -2880,10 +2903,10 @@ public class DashboardPaneTests
         Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(4, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
-        // Fourteen parts across the five section tabs — the Tasks tab's figures row among
+        // Fifteen parts across the five section tabs — the Tasks tab's figures row among
         // them — and the Overview's five framed blocks; its tiles are figures, not parts,
         // and carry only a "try again" while unavailable.
-        Assert.Equal(19, pane.FindAll("[data-testid$='-refresh']").Count);
+        Assert.Equal(20, pane.FindAll("[data-testid$='-refresh']").Count);
         // The tabs show and hide what is already there; they arrange nothing. No fold
         // is left on the pane itself — the More folds' parts are shown in their tabs,
         // and the sessions part's own More is inside the figures it would fold, which
@@ -2891,18 +2914,18 @@ public class DashboardPaneTests
         Assert.Equal(6, pane.FindAll("[data-testid='dashboard-tablist'] [role='tab']").Count);
         Assert.Empty(pane.FindAll(".fold__trigger"));
         // The info marks open a caption; they change nothing.
-        Assert.Equal(19, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
+        Assert.Equal(20, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, four window buttons, nineteen refreshes, six
-        // tabs, nineteen info marks, the "Read as brief" link, which opens a view
+        // One close, one filter select, four window buttons, twenty refreshes, six
+        // tabs, twenty info marks, the "Read as brief" link, which opens a view
         // and configures nothing, and a "try again" on each of the five headline tiles,
         // which read again and only appear while a tile is unavailable, as every one is
         // here. Needs you draws a link per item, and there are none here.
         Assert.Equal(5, pane.FindAll("[data-testid$='-retry']").Count);
-        Assert.Equal(1 + 1 + 4 + 19 + 6 + 19 + 1 + 5, controls.Count);
+        Assert.Equal(1 + 1 + 4 + 20 + 6 + 20 + 1 + 5, controls.Count);
     }
 
     /// <summary>
@@ -3151,6 +3174,64 @@ public class DashboardPaneTests
     }
 
     /// <summary>
+    /// A finished item is drawn to the day its last entry landed, never on to the end it
+    /// was planned for: work that is done cannot run past today. One that landed before
+    /// its planned start is drawn from the day it landed, and one that landed before the
+    /// window opened in the window's first week.
+    /// </summary>
+    [Fact]
+    public void A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end()
+    {
+        var plan = new PlanInsight(
+            RoadmapEnabled: true,
+            new PlanPace(12m, PlanPaceBasis.LastFourWeeks),
+            [
+                new PlanItemInsight(
+                    PlanItem("Landed early", new DateOnly(2026, 9, 14), new DateOnly(2026, 11, 27), total: 8, done: 8, finished: true, landed: new DateOnly(2026, 9, 23)),
+                    PlanOutlook.Finished,
+                    new DateOnly(2026, 9, 23)),
+                new PlanItemInsight(
+                    PlanItem("Landed before it was due to start", new DateOnly(2026, 10, 19), new DateOnly(2026, 10, 30), total: 5, done: 5, finished: true, landed: new DateOnly(2026, 9, 30)),
+                    PlanOutlook.Finished,
+                    new DateOnly(2026, 9, 30)),
+                new PlanItemInsight(
+                    PlanItem("Still running", new DateOnly(2026, 9, 28), new DateOnly(2026, 10, 30), total: 10, done: 3),
+                    PlanOutlook.OnTrack,
+                    new DateOnly(2026, 10, 28)),
+                new PlanItemInsight(
+                    PlanItem("Landed before the window", new DateOnly(2026, 6, 1), new DateOnly(2026, 10, 30), total: 3, done: 3, finished: true, landed: new DateOnly(2026, 7, 1)),
+                    PlanOutlook.Finished,
+                    new DateOnly(2026, 7, 1))
+            ])
+        { WindowFrom = new DateOnly(2026, 7, 16), WindowTo = new DateOnly(2026, 10, 8), TimelineTo = new DateOnly(2026, 10, 30) };
+        using var context = Context(configure: services =>
+            services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(plan)));
+
+        var pane = context.Render<DashboardPane>();
+
+        var bars = pane.FindAll("[data-testid='dashboard-roadmap-bar']");
+        Assert.Equal(4, bars.Count);
+
+        // 14 Sep is W38, the tenth week; it landed 23 Sep in W39 — not 27 Nov in W48.
+        Assert.Equal("grid-column: 11 / 13", bars[0].GetAttribute("style"));
+        Assert.DoesNotContain("dashboard-timeline__bar--clipped-end", bars[0].ClassList);
+        Assert.Equal("Landed early, 14 Sep – 23 Sep", bars[0].GetAttribute("aria-label"));
+
+        // Landed 30 Sep in W40, three weeks before the 19 Oct it was planned to start.
+        Assert.Equal("grid-column: 13 / 14", bars[1].GetAttribute("style"));
+        Assert.Equal("Landed before it was due to start, 30 Sep – 30 Sep", bars[1].GetAttribute("aria-label"));
+
+        // An item still running keeps its planned window.
+        Assert.Equal("grid-column: 13 / 18", bars[2].GetAttribute("style"));
+
+        // Kept by its planned days, it landed 1 Jul, before the window's first week: drawn
+        // in that week and cut off there, rather than an empty lane.
+        Assert.Equal("grid-column: 2 / 3", bars[3].GetAttribute("style"));
+        Assert.Contains("dashboard-timeline__bar--clipped-start", bars[3].ClassList);
+        Assert.DoesNotContain("dashboard-timeline__bar--clipped-end", bars[3].ClassList);
+    }
+
+    /// <summary>
     /// The axis names ISO weeks, so a window that crosses the turn of the year runs
     /// W52, W53, W01 — 2026 has 53 of them — and a bar across the turn spans them.
     /// </summary>
@@ -3179,11 +3260,12 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The Tasks tab leads with its six figures in one row, then the roadmap's timeline,
-    /// and lays the two weekly task charts side by side under it (entry 16).
+    /// The Tasks tab leads with its six figures in one row, then the two weekly task
+    /// charts side by side, then the roadmap's timeline — under the charts, because it
+    /// grows a row per plan and pushed them off the screen.
     /// </summary>
     [Fact]
-    public void The_tasks_tab_puts_the_roadmap_first_and_the_two_task_charts_side_by_side_under_it()
+    public void The_tasks_tab_puts_the_two_task_charts_side_by_side_above_the_roadmap()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(Plan())));
@@ -3194,11 +3276,11 @@ public class DashboardPaneTests
         var children = tab.Children.ToList();
         Assert.Equal(3, children.Count);
         Assert.Equal("dashboard-tasks-figures", children[0].GetAttribute("data-testid"));
-        Assert.Equal("dashboard-roadmap", children[1].GetAttribute("data-testid"));
-        Assert.Contains("dashboard-section__split", children[2].ClassList);
+        Assert.Contains("dashboard-section__split", children[1].ClassList);
+        Assert.Equal("dashboard-roadmap", children[2].GetAttribute("data-testid"));
         Assert.Equal(
             ["dashboard-tasks-completed", "dashboard-tasks-effort"],
-            children[2].Children.Select(part => part.GetAttribute("data-testid")));
+            children[1].Children.Select(part => part.GetAttribute("data-testid")));
 
         Assert.Equal(
             [
@@ -3207,7 +3289,7 @@ public class DashboardPaneTests
             ],
             children[0].QuerySelectorAll("[data-testid='dashboard-tasks-figures-tiles'] > *").Select(tile => tile.GetAttribute("data-testid")));
 
-        var timeline = children[1].QuerySelector("[data-testid='dashboard-roadmap-timeline']")!;
+        var timeline = children[2].QuerySelector("[data-testid='dashboard-roadmap-timeline']")!;
         Assert.NotNull(timeline.QuerySelector(".dashboard-timeline__scroll > .dashboard-timeline__grid"));
     }
 
@@ -3328,7 +3410,7 @@ public class DashboardPaneTests
 
     /// <summary>An item in one repository at one pace, for the tests that only care
     /// where its bar sits and what tone it wears.</summary>
-    private static PlanItemProgress PlanItem(string title, DateOnly start, DateOnly end, int total, int done, bool finished = false) =>
+    private static PlanItemProgress PlanItem(string title, DateOnly start, DateOnly end, int total, int done, bool finished = false, DateOnly? landed = null) =>
         new(
             Guid.NewGuid(),
             title,
@@ -3341,7 +3423,7 @@ public class DashboardPaneTests
             DoneEffort: done,
             Unestimated: 0,
             IsFinished: finished,
-            LastCompletedOn: finished ? end : null,
+            LastCompletedOn: finished ? landed ?? end : null,
             Parts: [new PlanPartProgress("backlog", total - done, 8m, [])],
             PlacedByEffort: false);
 

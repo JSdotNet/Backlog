@@ -279,6 +279,24 @@ public sealed class ToolsInventoryLayoutTests
             "These files still name the retired tools grid:\n" + string.Join('\n', offenders));
     }
 
+    /// <summary>The row's enable switch keeps the library's smaller track and
+    /// takes a press over 44px each way, centred on it.</summary>
+    [Fact]
+    public void The_row_switch_takes_a_press_over_a_44px_target()
+    {
+        var hitArea = Block(Css(), ".tools-inventory__switch .toggle__track::before {");
+
+        Assert.Contains("width: 2.75rem;", hitArea, StringComparison.Ordinal);
+        Assert.Contains("height: 2.75rem;", hitArea, StringComparison.Ordinal);
+        Assert.Contains("position: absolute;", hitArea, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_group_reveal_is_at_least_44px_tall()
+    {
+        Assert.Contains("min-block-size: 2.75rem;", Block(Css(), ".tools-group__reveal {"), StringComparison.Ordinal);
+    }
+
     private const string RemLength = @"(\d+(?:\.\d+)?)rem";
 
     /// <summary>A column's floor, as its own rule declares it.</summary>

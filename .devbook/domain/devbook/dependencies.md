@@ -14,6 +14,7 @@ status: draft
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | [Tasks](../tasks/domain.md#task) | Partnership | Id-based cross-link and read-side embedding | `.devbook/domain/devbook/domain.md#cross-linking` | Notes link to and embed tasks; a note can spawn a task when an action is identified. |
+| [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | `AnnotationSyncWorker` in `Backlog.Infrastructure.Sync` pushes and pulls remarks through the sync service's third replica container; `AnnotationReplicaMerge` applies each pulled one to the annotation store | `AnnotationChange` and `AnnotationPayload` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#change-precedence`; local ADR 0011 | A [Remark](domain.md#remark) made on one desktop reaches the person's other desktops on a task's terms: whole, and never moved backwards by a push. Sync stores it without reading it; where a remark anchors, and what it says, stay with Devbook. |
 
 ## Inbound dependents (known)
 

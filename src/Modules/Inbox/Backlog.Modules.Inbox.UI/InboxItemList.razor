@@ -44,7 +44,11 @@
     detail. Only the rows: the bulk bar above them has fields of its own.
 *@
 
-<div class="inbox-pane__column inbox-pane__column--list" data-testid="inbox-pane-column-list">
+@* Busy while the first snapshot is on its way; the skeleton is what shows. A
+   reopening marks only the rows busy — see the list below. *@
+<div class="inbox-pane__column inbox-pane__column--list"
+     data-testid="inbox-pane-column-list"
+     aria-busy="@(!State.Loaded ? "true" : null)">
     @if (!State.Loaded)
     {
         @* Local-first, so this is usually on screen for a frame — but the snapshot
@@ -118,6 +122,18 @@
                                   Title="@(State.SelectionMode ? "Stop picking items" : "Pick items to act on together (x)")"
                                   TestId="inbox-select-toggle">Select <kbd class="inbox-pane__key" aria-hidden="true">X</kbd></ToggleButton>
                 </div>
+
+                @* Shown again, the pane reads the inbox again behind last time's
+                   rows: they stay, dimmed by the list's aria-busy, and the toolbar
+                   says so once the wait is worth a loader
+                   (interaction-guidelines.md#scoped-loading, Refresh; #timing). *@
+                @if (State.Reopening)
+                {
+                    <Spinner Size="SpinnerSize.Small"
+                             Label="Refreshing the inbox"
+                             CssClass="region-refresh"
+                             TestId="inbox-refreshing" />
+                }
             </div>
         }
 
@@ -177,7 +193,7 @@
                run a reader steps through with j and k, and one landmark named
                after the slice. The Deferred slice runs in the order its items
                come back, so it has no age headings. *@
-            <ul class="inbox-pane__list" aria-label="@State.SliceName" data-testid="inbox-pane-list" @onkeydown="OnShortcutKeyAsync">
+            <ul class="inbox-pane__list" aria-label="@State.SliceName" data-testid="inbox-pane-list" aria-busy="@(State.Reopening ? "true" : null)" @onkeydown="OnShortcutKeyAsync">
                 @foreach (var group in groups)
                 {
                     @if (!State.DeferredSelected)

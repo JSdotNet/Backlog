@@ -152,3 +152,14 @@ test("the CLI exits 0 when clean and 1 with findings", async () => {
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("a spec folder or a scenario folder outside the repository is never read", async () => {
+    const root = await repo({});
+    try {
+        const result = await coverage({ repoRoot: root, specRoots: [".."], scenarioFolder: "../elsewhere" });
+        assert.deepEqual(result.map((finding) => finding.check), ["page-without-spec", "unknown-profile"]);
+        assert.match(result[1].what, /\.\.\/elsewhere\/profiles\.json resolves outside the repository/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
