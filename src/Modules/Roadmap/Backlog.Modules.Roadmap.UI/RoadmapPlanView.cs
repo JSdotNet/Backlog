@@ -101,11 +101,15 @@ public static class RoadmapPlanView
     /// keep-up projection does (<see cref="Layouts"/>): work sized by its effort part by
     /// part from today, work in flight from the work itself. Left unset, only finished
     /// items are drawn from their work and everything else where it was planned.</param>
+    /// <param name="hideFinished">Leave out every item whose work is all done — the
+    /// roadmap's Completed switch turned off. Hidden before anything is stacked, so the
+    /// lanes close up, and an arrow to a hidden item goes with it.</param>
     public static RoadmapTimelineModel From(
         RoadmapPlanDto? plan,
         IReadOnlyList<PlannedRepository>? repositories,
         IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups = null,
-        RoadmapForecast? forecast = null)
+        RoadmapForecast? forecast = null,
+        bool hideFinished = false)
     {
         if (plan is null || plan.IsEmpty) return RoadmapTimelineModel.Empty;
 
@@ -128,6 +132,7 @@ public static class RoadmapPlanView
         // it. Two runs over the same plan must draw the same picture.
         var items = filed
             .Select(item => (Item: item, Layout: layouts[item.Id]))
+            .Where(entry => !hideFinished || entry.Layout.Placement is not PartsPlacement.WhereItRan)
             .OrderBy(entry => entry.Layout.Start)
             .ThenBy(entry => entry.Item.Title, StringComparer.CurrentCulture)
             .SelectMany(entry => PartsOf(entry.Item, entry.Layout))

@@ -819,6 +819,28 @@ public class RoadmapPlanViewTests
         new(key, key.ToUpperInvariant(), 1, RollupOrigin.Tag, progress, StartedOn: started, CompletedOn: completed, CreatedOn: created);
 
     [Fact]
+    public void WithFinishedWorkHidden_AFinishedItemIsNotDrawn_NorTheArrowToIt()
+    {
+        var finished = Item("Shipped", repositories: ["backlog"]);
+        var open = Item("Next", startDay: 12, endDay: 16, repositories: ["backlog"], dependsOn: [finished.Id]);
+        var rollups = new Dictionary<Guid, RoadmapItemRollupDto>
+        {
+            [finished.Id] = new([Worked("a", RoadmapProgress.Done, started: new DateOnly(2026, 1, 5), completed: new DateOnly(2026, 1, 8))], []),
+            [open.Id] = new([Worked("b", RoadmapProgress.Planned)], [])
+        };
+
+        var shown = RoadmapPlanView.From(Plan([finished, open]), Configured, rollups);
+        var hidden = RoadmapPlanView.From(Plan([finished, open]), Configured, rollups, hideFinished: true);
+
+        Assert.Equal(2, shown.Bars.Count);
+        Assert.Single(shown.Links);
+
+        Assert.Equal(open.Id.ToString(), Assert.Single(hidden.Bars).Id);
+        Assert.Empty(hidden.Links);
+        Assert.True(hidden.HasAnythingToDraw);
+    }
+
+    [Fact]
     public void AFinishedItem_IsDrawnFromItsFirstStartToItsLastCompletion_AndLocked()
     {
         // Planned 5–9 January; the work actually ran 12 December to 20 January.

@@ -319,6 +319,38 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
+    /// The roadmap's Completed switch shows finished work until somebody turns it off,
+    /// and off survives a restart. Like Hours, the key is written only while it is off.
+    /// </summary>
+    [Fact]
+    public void The_roadmap_completed_switch_is_on_until_turned_off_and_off_survives_a_restart()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.True(store.RoadmapCompletedShown);
+
+            store.SetLastSurface("Tools");
+            using (var on = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(on.RootElement.TryGetProperty("roadmapCompletedShown", out _));
+            }
+
+            store.SetRoadmapCompletedShown(false);
+            Assert.False(new ShellNavigationStore(path).RoadmapCompletedShown);
+
+            store.SetRoadmapCompletedShown(true);
+            Assert.True(new ShellNavigationStore(path).RoadmapCompletedShown);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// The Calendar's "Show plans" box is off on a device that never chose, and the key
     /// is written only while it is on — so a missing setting reads as off.
     /// </summary>

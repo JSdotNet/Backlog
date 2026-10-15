@@ -13,7 +13,7 @@
     repositories is drawn in each of their bands, as that repository's part. The
     chart shows plans and not their tasks: a bar carries its progress fill, and the
     tasks themselves stay in the task list. The chart owns its own scrollbar, so
-    the heading and the filters above it stay put.
+    the heading and the switches above it stay put.
 
     What the band never does is edit the plan it was handed. RoadmapTimeline
     proposes a placement when something is dragged or moved with the keyboard;
@@ -52,10 +52,11 @@
        there is a chart to head.
 
        With a plan, it is handed to RoadmapTimeline as its own heading. The chart's
-       header is already a row with a heading at one end and the filter controls at
-       the other, so giving it this one puts "Roadmap" and the filters on the same
-       line, and a chart heading of its own would have been a second title saying
-       the same thing.
+       header is already a row with the heading in it, so giving it this one puts
+       "Roadmap" and its controls on the chart's own header line, and a chart heading
+       of its own would have been a second title saying the same thing. The chart's
+       facet filters are off: the Completed switch is the one narrowing the roadmap
+       offers.
 
        With nothing planned there is no chart, so the view carries its own header
        above the empty state. Either way the h2 keeps the id this section's
@@ -96,6 +97,7 @@
                                  TitleContent="@BandHeading"
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
+                                 ShowFilters="false"
                                  Collapsible="true"
                                  CollapsedGroups="@ViewPreferences.CollapsedGroups"
                                  OnCollapsedChanged="ViewPreferences.SetCollapsedGroups"
@@ -220,6 +222,15 @@
     /// carry their hours line. Read from this device's preferences when the band opens.</summary>
     private bool _hoursShown = true;
 
+    /// <summary>The Completed switch on the toolbar: whether finished plans are drawn.
+    /// Read from this device's preferences when the band opens.</summary>
+    private bool _completedShown = true;
+
+    /// <summary>What the chart was last drawn from, so the Completed switch redraws it
+    /// without reading the plan again.</summary>
+    private IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? _rollups;
+    private RoadmapForecast? _forecast;
+
     /// <summary>Whether the Days off dialog is open.</summary>
     private bool _daysOffOpen;
 
@@ -287,8 +298,8 @@
             <h2 id="roadmap-band-title" class="roadmap-band__title">Roadmap</h2>
         </div>
 
-        @* Beside the heading rather than out at the end with the filters: these add to
-           the plan, and the filters only change what is shown of it. *@
+        @* Beside the heading: these add to the plan, where the switches further along
+           only change what is shown of it. *@
         <AppButton Variant="ButtonVariant.Secondary"
                    Size="ButtonSize.Small"
                    OnClick="PlanSomething"
@@ -325,6 +336,14 @@
                     CheckedChanged="ShowHours"
                     CssClass="roadmap-band__hours"
                     TestId="roadmap-band-hours" />
+
+            @* Finished plans stay on the chart, where the work ran, until this is
+               turned off; off, the lanes close up over what is left to do. *@
+            <Toggle Label="Completed"
+                    Checked="@_completedShown"
+                    CheckedChanged="ShowCompleted"
+                    CssClass="roadmap-band__completed"
+                    TestId="roadmap-band-completed" />
         }
     </text>;
 
@@ -367,6 +386,7 @@
         WorkChanges.Changed += OnWorkChanged;
         Paces.Changed += OnPaceSettingsChanged;
         _hoursShown = ViewPreferences.HoursShown;
+        _completedShown = ViewPreferences.CompletedShown;
 
         // Opening the roadmap is one of the two moments the keep-up projection stores
         // what it moved; the plan is read after it, so the bars are the stored windows.
@@ -478,6 +498,17 @@
         if (!shown) _actual = null;
     }
 
+    /// <summary>The Completed switch moved: the chart is drawn again from what it was
+    /// last drawn from, with or without the finished plans, and the choice is kept on
+    /// this device.</summary>
+    private void ShowCompleted(bool shown)
+    {
+        _completedShown = shown;
+        ViewPreferences.SetCompletedShown(shown);
+
+        _view = RoadmapPlanView.From(_plan, Configured(), _rollups, _forecast, hideFinished: !shown);
+    }
+
     public void Dispose()
     {
         Repositories.Changed -= OnRepositoriesChanged;
@@ -513,7 +544,8 @@
             Today ?? DateOnly.FromDateTime(DateTime.Today),
             paces);
 
-        _view = RoadmapPlanView.From(_plan, configured, rollups, forecast);
+        (_rollups, _forecast) = (rollups, forecast);
+        _view = RoadmapPlanView.From(_plan, configured, rollups, forecast, hideFinished: !_completedShown);
 
         _imported = await ImportedPlans.ListAsync();
         _unplanned = Unplanned(_imported, _plan);

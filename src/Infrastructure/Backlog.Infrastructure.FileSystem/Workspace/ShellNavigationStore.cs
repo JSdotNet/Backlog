@@ -106,6 +106,7 @@ public sealed class ShellNavigationStore
         (LastSurface, LastView) = Normalize(dto?.LastSurface, dto?.LastView);
         (LastSurface, LastEnabledPanes) = MigrateInboxPane(dto?.LastSurface, LastSurface, dto?.LastEnabledPanes ?? Empty);
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
+        RoadmapCompletedShown = dto?.RoadmapCompletedShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
@@ -141,6 +142,10 @@ public sealed class ShellNavigationStore
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
     /// the reader turns the Hours switch off on this device.</summary>
     public bool RoadmapHoursShown { get; private set; }
+
+    /// <summary>Whether the roadmap draws finished plans: on until the reader turns the
+    /// Completed switch off on this device.</summary>
+    public bool RoadmapCompletedShown { get; private set; }
 
     /// <summary>The roadmap bands, by group id, the reader folded to one lane on this
     /// device. Empty until one is folded.</summary>
@@ -273,6 +278,14 @@ public sealed class ShellNavigationStore
         if (shown == RoadmapHoursShown) return;
 
         RoadmapHoursShown = shown;
+        Save();
+    }
+
+    public void SetRoadmapCompletedShown(bool shown)
+    {
+        if (shown == RoadmapCompletedShown) return;
+
+        RoadmapCompletedShown = shown;
         Save();
     }
 
@@ -588,6 +601,7 @@ public sealed class ShellNavigationStore
                 LastEnabledPanes = [.. LastEnabledPanes],
                 // Left out while on, so a file from before the switch keeps its shape.
                 RoadmapHoursShown = RoadmapHoursShown ? null : false,
+                RoadmapCompletedShown = RoadmapCompletedShown ? null : false,
                 // Likewise left out while no band is folded.
                 RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
                 // Likewise left out while the columns are the default ones.
@@ -638,6 +652,9 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? RoadmapHoursShown { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? RoadmapCompletedShown { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RoadmapCollapsedGroups { get; init; }
