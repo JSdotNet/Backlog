@@ -2230,13 +2230,20 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         Select(pane, "JSdotNet/Backlog#10");
         pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#10", Detail(pane).GetAttribute("data-pull-request")));
+        // Each read is held at the gate, so nothing renders once the stub records it and
+        // a WaitForAssertion would check once, maybe before the pool got there, and never
+        // again. Wait on the stub itself.
+        string[] Asked() { lock (client.PinnedListed) return [.. client.PinnedListed]; }
+
         pane.Find("[data-testid='pull-request-pin']").Click();
-        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog 10"], client.PinnedListed));
+        Assert.True(SpinWait.SpinUntil(() => Asked().Length == 1, TimeSpan.FromSeconds(5)));
+        Assert.Equal(["JSdotNet/Backlog 10"], Asked());
 
         Select(pane, "JSdotNet/Backlog#11");
         pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#11", Detail(pane).GetAttribute("data-pull-request")));
         pane.Find("[data-testid='pull-request-pin']").Click();
-        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog 10", "JSdotNet/Backlog 10,11"], client.PinnedListed));
+        Assert.True(SpinWait.SpinUntil(() => Asked().Length == 2, TimeSpan.FromSeconds(5)));
+        Assert.Equal(["JSdotNet/Backlog 10", "JSdotNet/Backlog 10,11"], Asked());
 
         pane.InvokeAsync(newer.SetResult);
         pane.InvokeAsync(older.SetResult);
