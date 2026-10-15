@@ -15,6 +15,20 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 /// </summary>
 public interface ISprintSeriesPlanning
 {
+    /// <summary>
+    /// Raised after a series was stored on this machine, whoever stored it: a person's
+    /// change through any screen or scope, or a copy the sync took from another device
+    /// (<see cref="ISprintSeriesReplication.ApplyAsync"/>). Every screen that draws a
+    /// series reads it again on this, the way the Tasks pane re-reads a task pulled by
+    /// sync. A refused change stored nothing and raises nothing.
+    /// <para>
+    /// Heard across scopes, on the terms the roadmap's plan notice is: a screen holds the
+    /// port from its own scope while the sync applies copies from another. It may arrive
+    /// on any thread.
+    /// </para>
+    /// </summary>
+    event Action? Changed;
+
     /// <summary>Every series, in the order they were created.</summary>
     Task<Result<IReadOnlyList<SprintSeriesDto>>> ListSeriesAsync(CancellationToken cancellationToken = default);
 

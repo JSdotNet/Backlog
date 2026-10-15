@@ -180,6 +180,30 @@ public sealed class SprintSeriesReplicationTests : IDisposable
         Assert.Equal(0, heard);
     }
 
+    /// <summary>The planning port's notice is the screens' one: it is raised for a copy
+    /// taken from the replica, so every screen drawing the series reads it again, and for
+    /// a person's change made through any scope — never for an echo or a refused copy,
+    /// which wrote nothing.</summary>
+    [Fact]
+    public async Task The_screens_hear_a_taken_copy_and_a_local_change_but_not_an_echo()
+    {
+        var heard = 0;
+        Planning.Changed += () => heard++;
+
+        var id = Guid.NewGuid();
+        await Replication.ApplyAsync(Copy(id, "{}", Morning), Cancellation);
+        Assert.Equal(1, heard);
+
+        await Replication.ApplyAsync(Copy(id, "{}", Morning), Cancellation);
+        await Replication.ApplyAsync(Copy(id, "{}", Morning.AddMinutes(-1)), Cancellation);
+        Assert.Equal(1, heard);
+
+        using var other = _provider.CreateScope();
+        await other.ServiceProvider.GetRequiredService<ISprintSeriesPlanning>()
+            .CreateSeriesAsync(new CreateSprintSeries(["docs"]), Cancellation);
+        Assert.Equal(2, heard);
+    }
+
     /// <summary>A pulled copy waits for a command that holds the series, so a command's
     /// save can never write over it from the copy it loaded first.</summary>
     [Fact]
