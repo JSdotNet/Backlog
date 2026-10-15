@@ -158,8 +158,12 @@ public sealed class DashboardHoursWorkedPartTests
 
         part.Render(parameters => parameters.Add(p => p.Scope, TwelveWeeks));
 
-        Assert.Equal([new DateOnly(2026, 9, 7), new DateOnly(2026, 7, 13)], source.Asked.Select(asked => asked.From));
-        Assert.Contains("per week", part.Find("[data-testid='dashboard-hours-worked-bars'] caption").TextContent, StringComparison.Ordinal);
+        // A period moved is a press: the part answers it, then fetches.
+        part.WaitForAssertion(() =>
+        {
+            Assert.Equal([new DateOnly(2026, 9, 7), new DateOnly(2026, 7, 13)], source.Asked.Select(asked => asked.From));
+            Assert.Contains("per week", part.Find("[data-testid='dashboard-hours-worked-bars'] caption").TextContent, StringComparison.Ordinal);
+        });
     }
 
     [Fact]

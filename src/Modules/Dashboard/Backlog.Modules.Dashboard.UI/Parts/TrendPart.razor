@@ -27,7 +27,7 @@
 
 <PartFrame Title="Volume over time"
            Note="@Note"
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            CssClass="dashboard-part--volume"
            Actions="@(IsReady ? MeasureToggle : null)"

@@ -723,7 +723,7 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
-| Press feedback, busy actions, scoped loading | `AppButton` (`Busy`, `BusyLabel`), `IconButton`, `Spinner` and `Skeleton` in `src/Core/Backlog.UI.Components` | Storybook → *Buttons* and *Feedback* |
+| Press feedback, busy actions, scoped loading | In `src/Core/Backlog.UI.Components`: `AppButton` (`Busy` keeps the button focusable through `aria-disabled`), `TaskAction` (`Busy`, `Blocked`), `ConfirmDialog` (busy until its act lands), `Modal.CloseDisabled`, `FileView.Refreshing`, `Spinner` and `Skeleton`; the generic `:active` and `[aria-busy]` rules in `components.css`. Hosts copy the dashboard's pattern: each part loads on its own, and a refresh keeps its figures under the frame's busy mark | Storybook → *Buttons*, *Overlays*, *Feedback* → **A region refreshing in place**, *File view* |
 | Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The edge autoscroll is one frame loop for every pointer drag: the Board's card drag and the month calendar's drag (a tray item, a chip, a shelf plan) hand themselves to it, the calendar through `window.backlogDragAutoscroll`, rather than each carrying its own edge zones and speed cap. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse**; *Task calendar*, for a drag to a day scrolled out of view |
 
 Known gaps:
@@ -753,11 +753,16 @@ Known gaps:
   up to a cap. The timeline's own gesture, `backlogRoadmapTimeline`, carries no
   scroll logic at all, so a bar cannot be dragged past the edge of what the
   timeline is showing. The rule is unmet there, not misstated here.
-- **Not every host applies the responsiveness rules yet.** Some module screens
-  run slow work in click handlers without a busy state, and some regions reload
-  without a scoped loader. The shared stylesheet declares a single `:active`
-  rule, so most controls lack the pressed state *Pressed state everywhere*
-  asks for. The follow-up code change audits and fixes them.
-- **A busy `AppButton` leaves the tab order.** Its button form sets the native
-  `disabled` attribute while `Busy`, which breaks *Tab order* and *Focus stays*
-  in `#accessibility`. Its link form already keeps focus.
+- **A dashboard part's first load does not yield.** `DashboardPartBase` yields
+  before a fetch a press started (a refresh, a filter change), but not on a
+  part's first load. A provider that does synchronous work before its first await
+  would therefore hold the takeover's frame, against *Frame first* in
+  `#scoped-loading`. No provider is known to do so.
+- **Some acts still close their dialog before the work.** The device and sync
+  forget/reset confirmations in Settings run synchronously and close at once, so
+  they show no busy state. They are quick, but they are not built to the
+  *Busy Actions* rules.
+- **A move's change check relies on write times.** Moving the storage folder
+  copies in the background and refuses the move if the backlog changed during
+  the copy. On FAT32 or exFAT, write times are coarse enough that a same-length
+  write inside that window could go unseen.

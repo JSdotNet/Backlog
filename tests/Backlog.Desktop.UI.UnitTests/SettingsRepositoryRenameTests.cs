@@ -201,18 +201,21 @@ public sealed class SettingsRepositoryRenameTests
     /// held leaks into the card that survives it.
     /// </summary>
     [Fact]
-    public void Removing_the_first_repository_from_the_text_keeps_the_second_card_bound_to_its_own_settings()
+    public async Task Removing_the_first_repository_from_the_text_keeps_the_second_card_bound_to_its_own_settings()
     {
         using var settings = RenderSettings();
         OpenRepositoryCard(settings.Component);
         var backlogClone = Path.Combine(settings.Root, "clones", "backlog");
         var docsClone = Path.Combine(settings.Root, "clones", "docs");
 
-        SetCloneDirectory(settings.Component, backlogClone);
+        await SetCloneDirectory(settings.Component, backlogClone);
         SettingsMenu.EditRepository(settings.Component, "docs");
-        SetCloneDirectory(settings.Component, docsClone);
+        await SetCloneDirectory(settings.Component, docsClone);
 
-        Retype(settings.Component, "docs = JSdotNet/Docs");
+        // On the renderer's thread in one go: the clone folders typed above are
+        // checked in the background, and an answer landing between the typing
+        // and the change would re-render the box under the test.
+        await settings.Component.InvokeAsync(() => Retype(settings.Component, "docs = JSdotNet/Docs"));
 
         Assert.Equal("JSdotNet/Docs", Assert.Single(settings.GitHub.Current.Repositories).FullName);
         var edit = Assert.Single(settings.Component.FindAll("[data-testid='repo-edit']"));
@@ -229,10 +232,50 @@ public sealed class SettingsRepositoryRenameTests
         Assert.DoesNotContain(backlogClone, card.TextContent, StringComparison.Ordinal);
     }
 
-    private static void SetCloneDirectory(IRenderedComponent<Settings> component, string directory)
+    /// <summary>Types a clone folder and leaves the field. Each step is found and
+    /// raised on the renderer's own thread, and the card is let settle after,
+    /// because the folder typed is checked with git in the background and its
+    /// answer re-renders the card - between a Find and its event, that would
+    /// leave the event pointing at a handler the render replaced.</summary>
+    private static async Task SetCloneDirectory(IRenderedComponent<Settings> component, string directory)
     {
-        component.Find("[data-testid='repo-clone-directory-input']").Input(directory);
-        component.Find("[data-testid='repo-clone-directory-input']").Change(directory);
+        await component.InvokeAsync(() => component.Find("[data-testid='repo-clone-directory-input']").Input(directory));
+        await component.InvokeAsync(() => component.Find("[data-testid='repo-clone-directory-input']").Change(directory));
+        component.WaitForAssertion(() =>
+        {
+            var status = component.Find("[data-testid='repo-clone-status']").TextContent;
+            Assert.False(string.IsNullOrWhiteSpace(status));
+            Assert.DoesNotContain("Checking the local clone", status, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// A rename keeps the alias and the clone folder and changes the id, and the
+    /// clone's status hangs on the id: a clone is "ready" only when its origin
+    /// is the repository the row names. So the status the card had for the old
+    /// name is not kept for the new one - it is asked again.
+    /// </summary>
+    [Fact]
+    public async Task A_rename_asks_about_the_clone_again_rather_than_keeping_the_old_names_answer()
+    {
+        var git = new GatedLocalGit();
+        using var settings = RenderSettings(localGit: git);
+        var clone = Path.Combine(settings.Root, "clones", "backlog");
+        git.Cloned(clone, "JSdotNet/Backlog");
+        OpenRepositoryCard(settings.Component);
+        await SetCloneDirectory(settings.Component, clone);
+        settings.Component.WaitForAssertion(() => Assert.Contains(
+            "Local clone:", settings.Component.Find("[data-testid='repo-clone-status']").TextContent, StringComparison.Ordinal));
+
+        Rename(settings.Component, "JSdotNet/Backlog-next");
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            var status = settings.Component.Find("[data-testid='repo-clone-status']").TextContent;
+            Assert.Contains("its origin is not JSdotNet/Backlog-next", status, StringComparison.Ordinal);
+            Assert.DoesNotContain("Local clone:", status, StringComparison.Ordinal);
+            Assert.Equal("Clone repository", settings.Component.Find("[data-testid='repo-clone-button']").TextContent.Trim());
+        });
     }
 
     private static void Rename(IRenderedComponent<Settings> component, string newName)
@@ -251,7 +294,7 @@ public sealed class SettingsRepositoryRenameTests
     private static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
         SettingsMenu.OpenRepository(component);
 
-    private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null)
+    private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null, ILocalGitRepositoryService? localGit = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-rename-tests", Guid.NewGuid().ToString("n"));
 
@@ -292,7 +335,7 @@ public sealed class SettingsRepositoryRenameTests
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
-        context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        context.Services.AddSingleton(localGit ?? new LocalGitRepositoryService());
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         context.Services.AddSingleton<ITaskItems>(tasks);

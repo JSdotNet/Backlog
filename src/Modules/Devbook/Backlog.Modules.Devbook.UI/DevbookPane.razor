@@ -488,8 +488,18 @@
     /// place keeps the copies it last found on screen until the new walk lands; a
     /// Brain in another folder, or none, drops them at once.
     /// </para>
+    /// <para>
+    /// The tabs are read on the pool too, and awaited: resolving the folder and
+    /// reading <c>CONVENTIONS.md</c> are disk reads, inside OneDrive more often
+    /// than not, and a press of the switch that waits on them on the renderer's
+    /// thread is a press that does not repaint (interaction-guidelines.md
+    /// #press-feedback). While they are out the pane says it is reading rather
+    /// than that the Brain cannot be read — see <see cref="RenderBrainSection"/>.
+    /// A read overtaken by a later one lands nothing, and says so: it returns
+    /// false, so a caller does not reload the menu over the areas from before it.
+    /// </para>
     /// </summary>
-    private void ReadBrain()
+    private async Task<bool> ReadBrainAsync()
     {
         var walk = ++_conflictWalk;
         var fingerprint = BrainReadFingerprint;
@@ -497,26 +507,90 @@
 
         if (_brain is null || !BrainMode)
         {
+            _brainReading = false;
             _brainRoot = null;
             _brainAreas = [];
             _brainUnavailable = null;
             _brainConflicts = [];
-            return;
+            return true;
         }
 
         var brain = _brain;
-        var location = brain.Resolve(BrainConventions.FolderKey);
         var root = fingerprint.Root;
         if (!string.Equals(root, _brainRoot, StringComparison.Ordinal)) _brainConflicts = [];
 
+        _brainReading = true;
+        DevbookFolderLocation location;
+        IReadOnlyList<BrainArea> areas;
+        try
+        {
+            (location, areas) = await Task.Run(() =>
+            {
+                var resolved = brain.Resolve(BrainConventions.FolderKey);
+                return (resolved, resolved.Available ? brain.Areas() : (IReadOnlyList<BrainArea>)[]);
+            });
+        }
+        finally
+        {
+            if (walk == _conflictWalk) _brainReading = false;
+        }
+
+        if (_disposed || walk != _conflictWalk) return false;
+
         _brainRoot = root;
         _brainUnavailable = location.Available ? null : location.Message;
-        _brainAreas = location.Available
-            ? [.. brain.Areas().Select(area => new DevbookArea(DevbookMenu.BrainAreaKey(area.Folder), area.Name))]
-            : [];
+        _brainAreas = [.. areas.Select(area => new DevbookArea(DevbookMenu.BrainAreaKey(area.Folder), area.Name))];
+
+        // A render while the read was out cached the areas from before it.
+        _visibleAreas = null;
 
         if (location.Available) _ = FindConflictCopiesAsync(brain, walk);
         else _brainConflicts = [];
+
+        return true;
+    }
+
+    /// <summary>Whether the Brain's tabs are still being read; see
+    /// <see cref="ReadBrainAsync"/>.</summary>
+    private bool _brainReading;
+
+    /// <summary>Whether a look for a vanished Brain folder is out; one at a time is
+    /// enough, since every parameter set would otherwise start another.</summary>
+    private bool _brainPresenceCheck;
+
+    /// <summary>
+    /// Looks, on the pool, whether the Brain folder read as there is still there,
+    /// and reads the Brain again when it has gone. A folder that disappears — a
+    /// drive unmounted, the folder renamed — raises no change, so this is asked on
+    /// parameter sets; the shell hands the pane those on every keystroke typed into
+    /// a task, and the look is a disk call, so it is not awaited there.
+    /// </summary>
+    private async Task CheckBrainFolderStillThereAsync()
+    {
+        if (_brainPresenceCheck || _brain is not { } brain) return;
+
+        _brainPresenceCheck = true;
+        try
+        {
+            if (await Task.Run(brain.BrainFolderPresent)) return;
+            if (_disposed || !BrainMode || _brainUnavailable is not null || _brainRoot is null) return;
+
+            _visibleAreas = null;
+            if (!await ReadBrainAsync() || _disposed) return;
+            if (BrainMode) await ReloadMenuAsync();
+            if (!_disposed) StateHasChanged();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Started and not awaited, so nothing underneath would observe a
+            // failure; a folder that cannot be read, a menu load that throws or a
+            // pane gone mid-check all end here, and the next parameter set looks
+            // again.
+        }
+        finally
+        {
+            _brainPresenceCheck = false;
+        }
     }
 
     /// <summary>
@@ -547,10 +621,6 @@
         {
         }
     }
-
-    /// <summary>Whether the Brain read last as available is no longer there.</summary>
-    private bool BrainFolderVanished() =>
-        BrainMode && _brainUnavailable is null && _brainRoot is not null && _brain?.BrainFolderPresent() == false;
 
     /// <summary>Whether the last parameter set showed the Brain.</summary>
     private bool _parametersShowedBrain;
@@ -591,9 +661,9 @@
                 if (_disposed) return;
 
                 _visibleAreas = null;
-                ReadBrain();
+                if (!await ReadBrainAsync() || _disposed) return;
                 if (BrainMode) await ReloadMenuAsync();
-                StateHasChanged();
+                if (!_disposed) StateHasChanged();
             });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
@@ -842,8 +912,10 @@
         // says, through OnBrainChanged. One exception, at the cost of one look: a
         // folder that was there and has gone — a drive unmounted, the folder
         // renamed — raises no change, so the pane checks it is still there rather
-        // than offering tabs and Capture on a folder that is not.
-        if (_brainReadFingerprint != BrainReadFingerprint || BrainFolderVanished()) ReadBrain();
+        // than offering tabs and Capture on a folder that is not. That look is a
+        // disk call and goes to the pool unawaited, so a keystroke never waits on it.
+        if (_brainReadFingerprint != BrainReadFingerprint) await ReadBrainAsync();
+        else if (BrainMode && _brainUnavailable is null && _brainRoot is not null) _ = CheckBrainFolderStillThereAsync();
         CloseRepositoryReadingsOnModeChange();
         CloseReviewWhenNotApplicable();
         ForgetUpdateStateOnScopeChange();
@@ -2113,6 +2185,13 @@
                                        OnOpenRepositoryChapter="OpenRepositoryChapterAsync"
                                        TaskTitleFor="@TaskTitleFor"
                                        OnOpenTask="OnOpenTask" />;
+        }
+
+        // No areas yet because they are still being read, not because there are
+        // none: neither the first-use prompt nor "cannot be read" is true yet.
+        if (_brainReading && _brainSettings is not { IsSet: false })
+        {
+            return @<Spinner Label="Reading your Brain" TestId="devbook-brain-reading" />;
         }
 
         if (_brainSettings is { IsSet: false })
