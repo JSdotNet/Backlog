@@ -48,7 +48,7 @@ public sealed class PackagedAppDataTests : IDisposable
 
         var adoption = PackagedAppData.Adopt(Redirected, AppData);
 
-        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        AssertAdopted(adoption);
         var arrived = await new SqliteTaskRepository(AppData).GetAsync(task.Id, TestContext.Current.CancellationToken);
         Assert.NotNull(arrived);
         Assert.Equal("Still mine", arrived.Title);
@@ -72,7 +72,7 @@ public sealed class PackagedAppDataTests : IDisposable
 
         var adoption = PackagedAppData.Adopt(Redirected, AppData);
 
-        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        AssertAdopted(adoption);
         Assert.Equal("{\"id\":\"x\"}", File.ReadAllText(Path.Combine(AppData, "device.json")));
         Assert.Equal("{\"watermark\":1}", File.ReadAllText(Path.Combine(AppData, "task-sync-state.json")));
         Assert.True(File.Exists(Path.Combine(AppData, "settings.json")));
@@ -100,7 +100,7 @@ public sealed class PackagedAppDataTests : IDisposable
 
         var adoption = PackagedAppData.Adopt(Redirected, AppData);
 
-        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        AssertAdopted(adoption);
         Assert.Equal("{\"from\":\"redirected\"}", File.ReadAllText(Path.Combine(AppData, fileName)));
     }
 
@@ -120,7 +120,7 @@ public sealed class PackagedAppDataTests : IDisposable
 
         var adoption = PackagedAppData.Adopt(Redirected, AppData);
 
-        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        AssertAdopted(adoption);
         Assert.False(File.Exists(Path.Combine(AppData, "Cost.md")));
         Assert.False(File.Exists(Path.Combine(AppData, "image.png")));
         Assert.False(Directory.Exists(Path.Combine(AppData, "Documents")));
@@ -159,7 +159,7 @@ public sealed class PackagedAppDataTests : IDisposable
 
         var adoption = PackagedAppData.Adopt(Redirected, AppData);
 
-        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        AssertAdopted(adoption);
         Assert.True(File.Exists(Path.Combine(AppData, "settings.json")));
         Assert.False(File.Exists(Path.Combine(AppData, "backlog.db")));
         Assert.False(Directory.Exists(Path.Combine(AppData, "config")));
@@ -177,7 +177,7 @@ public sealed class PackagedAppDataTests : IDisposable
 
         var adoption = PackagedAppData.Adopt(Redirected, AppData);
 
-        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        AssertAdopted(adoption);
         Assert.NotNull(await new SqliteTaskRepository(AppData).GetAsync(task.Id, TestContext.Current.CancellationToken));
     }
 
@@ -242,7 +242,7 @@ public sealed class PackagedAppDataTests : IDisposable
 
         var adoption = PackagedAppData.Adopt(Redirected, AppData);
 
-        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        AssertAdopted(adoption);
         var only = Assert.Single(await new SqliteTaskRepository(AppData).ListAsync(TestContext.Current.CancellationToken));
         Assert.Equal("Still mine", only.Title);
         Assert.True(File.Exists(Path.Combine(AppData, "settings.json")));
@@ -263,6 +263,14 @@ public sealed class PackagedAppDataTests : IDisposable
         // And the failure is what stops the next start from calling it done.
         Assert.NotEqual(AppDataAdoptionOutcome.AlreadyInPlace, PackagedAppData.Adopt(Redirected, AppData).Outcome);
     }
+
+    /// <summary>Adopted, or the reason it was not: a <see cref="AppDataAdoptionOutcome.Failed"/>
+    /// that reported only its outcome left a once-in-six flake with no cause to
+    /// chase (issue #526).</summary>
+    private static void AssertAdopted(AppDataAdoption adoption) =>
+        Assert.True(
+            adoption.Outcome == AppDataAdoptionOutcome.Adopted,
+            $"Expected {AppDataAdoptionOutcome.Adopted}, got {adoption.Outcome}: {adoption.Error ?? "(no error)"}");
 
     private static void Write(string path, string content)
     {
