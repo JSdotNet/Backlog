@@ -107,13 +107,20 @@
             @* While an Update all is going both say so: the check would re-read rows
                the run is still changing, and a second run cannot start over the
                first. *@
-            <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
+            @* The glyph before the words, hidden from assistive technology: the
+               label already says what the button does. *@
+            <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" CssClass="tools-panel__refresh" OnClick="RefreshToolsAsync" TestId="tools-refresh">
+                <RefreshCwIcon Size="16" TestId="tools-refresh-icon" />
                 @(Updating ? UpdatingLabel : _toolsLoading ? "Checking…" : "Check for updates")
             </AppButton>
             <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync" TestId="tools-update-all">
                 @(Updating ? UpdatingLabel : UpdateAllLabel)
             </AppButton>
-            <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
+            @* Icon-only, so the label is the aria-label and the target is the
+               44px floor the iconography rules set for one. *@
+            <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost tools-panel__close" OnClick="() => OnClose.InvokeAsync()" TestId="tools-close">
+                <XIcon Size="20" TestId="tools-close-icon" />
+            </IconButton>
         </Actions>
     </SectionHeader>
 
@@ -309,13 +316,16 @@
                     <ChildContent>
                         <TabPanel Id="@OverviewTab" Title="Overview" Eager="true"
                                   BaseClass="tools-tab" TabTestId="tools-tab-overview" TestId="tools-overview">
-                            @* The catalog's acts stay reachable from here: Overview is
-                               the tab a machine opens on. *@
+                            @* No toolbar here: the Overview has nothing to filter, and
+                               the catalog's acts sit in its footer instead, beside
+                               the catalog they edit. Drawn in the active panel only,
+                               for the reason the kind toolbars are, so Add tool and
+                               Import exist once. *@
+                            @OverviewBody
                             @if (_activeTab == OverviewTab)
                             {
-                                @KindToolbar(OverviewTab)
+                                @OverviewFooter
                             }
-                            @OverviewBody
                         </TabPanel>
 
                         @foreach (var tab in KindTabs)
@@ -1044,25 +1054,98 @@
 
             if (states.Length == 0) return "Everything matches the catalog";
 
+            // More than one kind of outstanding: each counted on its own, in the
+            // order Needs you lists them, rather than one "need action" that says
+            // neither what nor how many of each.
+            var mixed = MixedHeadline(states, tab);
+            if (mixed is not null) return mixed;
+
+            // Every number in words or every one in digits: "Fourteen of 22" reads
+            // as two registers in one sentence. The total is the larger of the two.
+            var words = rows.Count < SmallNumbers.Length;
+
             var noun = tab is null ? (rows.Count == 1 ? "entry" : "entries") : rows.Count == 1 ? tab.NounOne : tab.Noun;
             var one = states.Length == 1;
-            var finding = states.Distinct().ToArray() switch
+            var finding = states[0] switch
             {
-                [ToolState.Update] => one ? "is behind" : "are behind",
-                [ToolState.Missing] => one ? "is missing" : "are missing",
-                [ToolState.NotConfirmed] => one ? "is not confirmed" : "are not confirmed",
-                _ => one ? "needs action" : "need action"
+                ToolState.Update => one ? "is behind" : "are behind",
+                ToolState.Missing => one ? "is missing" : "are missing",
+                _ => one ? "is not confirmed" : "are not confirmed"
             };
 
-            // Both numbers in words or both in digits: "Fourteen of 22" reads as two
-            // registers in one sentence.
-            var words = rows.Count < SmallNumbers.Length;
             return Capitalised($"{NumberWord(states.Length, words)} of {NumberWord(rows.Count, words)} {noun} {finding}");
         }
     }
 
+    /// <summary>The order the outstanding states are counted in — the order Needs
+    /// you lists them.</summary>
+    private static readonly ToolState[] OutstandingOrder = [ToolState.Update, ToolState.Missing, ToolState.NotConfirmed];
+
+    /// <summary>
+    /// The headline when a tab has more than one kind of outstanding: one clause per
+    /// state, in <see cref="OutstandingOrder"/>, joined as a list — "Three updates
+    /// waiting, two tools missing and one item to confirm" on the Overview, where
+    /// each clause carries its own noun, and "Two plugins behind and one missing"
+    /// on a kind tab, where the first clause carries the tab's. Null when there is
+    /// only one kind, which keeps the "n of m" sentence.
+    /// </summary>
+    private static string? MixedHeadline(IReadOnlyCollection<ToolState> states, KindTab? tab)
+    {
+        var counts = OutstandingOrder
+            .Select(state => (State: state, Count: states.Count(found => found == state)))
+            .Where(part => part.Count > 0)
+            .ToArray();
+
+        if (counts.Length < 2) return null;
+
+        // Words or digits by the largest number the sentence says, not by the
+        // tab's total, which this sentence never names: "21 updates waiting and
+        // two tools missing" is the two registers the single-kind sentence avoids.
+        var words = counts.Max(part => part.Count) < SmallNumbers.Length;
+
+        var clauses = counts.Select((part, index) =>
+        {
+            var number = NumberWord(part.Count, words);
+            var one = part.Count == 1;
+
+            if (tab is null)
+            {
+                return part.State switch
+                {
+                    ToolState.Update => $"{number} {(one ? "update" : "updates")} waiting",
+                    ToolState.Missing => $"{number} {(one ? "tool" : "tools")} missing",
+                    _ => $"{number} {(one ? "item" : "items")} to confirm"
+                };
+            }
+
+            var finding = part.State switch
+            {
+                ToolState.Update => "behind",
+                ToolState.Missing => "missing",
+                _ => "to confirm"
+            };
+
+            return index == 0
+                ? $"{number} {(one ? tab.NounOne : tab.Noun)} {finding}"
+                : $"{number} {finding}";
+        }).ToArray();
+
+        var sentence = clauses.Length == 2
+            ? $"{clauses[0]} and {clauses[1]}"
+            : $"{string.Join(", ", clauses[..^1])} and {clauses[^1]}";
+
+        return Capitalised(sentence);
+    }
+
     /// <summary>The muted line under the sentence: when the catalog was last
-    /// checked, and how many entries the tab on show holds.</summary>
+    /// checked, how many entries the tab on show holds, and how many of them
+    /// already match.
+    ///
+    /// <para>"Already match" is the headline figures' Matches, over the tab on
+    /// show: a row switched off or whose version nothing could look up is neither
+    /// a match nor outstanding, so it is in the entries and not in the matches.
+    /// The time is relative and read when the line renders — nothing polls it, so
+    /// "just now" stays until something else redraws the header.</para></summary>
     private string CheckedLine
     {
         get
@@ -1071,13 +1154,37 @@
             if (_toolsLoading && _tools.Count == 0) return "Checking the catalog";
             if (!_catalogExists) return "No catalog on this machine";
 
-            var count = RowsOn(_activeTab).Count;
-            var entries = count == 1 ? "1 entry" : $"{count} entries";
+            var rows = RowsOn(_activeTab);
+            var entries = rows.Count == 1 ? "1 entry" : $"{rows.Count} entries";
+            var matches = rows.Select(StateOf).Count(state => IsCounted(state) && !IsOutstanding(state));
+            var figures = $"{entries} · {matches} already match";
 
             return _checkedAt is { } at
-                ? $"Checked {TimeZoneInfo.ConvertTime(at, Time.LocalTimeZone):HH:mm} · {entries}"
-                : entries;
+                ? $"Checked {CheckedWhen(at)} against the setup catalog · {figures}"
+                : figures;
         }
+    }
+
+    /// <summary>How long ago the last listing came back: "just now" under a
+    /// minute, minutes under an hour, hours under a day, and the date past it.</summary>
+    private string CheckedWhen(DateTimeOffset at)
+    {
+        var ago = Time.GetUtcNow() - at;
+
+        if (ago < TimeSpan.FromMinutes(1)) return "just now";
+        if (ago < TimeSpan.FromHours(1))
+        {
+            var minutes = (int)ago.TotalMinutes;
+            return minutes == 1 ? "1 minute ago" : $"{minutes} minutes ago";
+        }
+
+        if (ago < TimeSpan.FromDays(1))
+        {
+            var hours = (int)ago.TotalHours;
+            return hours == 1 ? "1 hour ago" : $"{hours} hours ago";
+        }
+
+        return "on " + TimeZoneInfo.ConvertTime(at, Time.LocalTimeZone).ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static readonly string[] SmallNumbers =
@@ -1250,7 +1357,7 @@
                                      ExpandedChanged="expanded => SetExpanded(group, expanded)"
                                      Controls="@group.RegionId"
                                      HeadingLevel="3"
-                                     Label="@GroupLabel(group)"
+                                     Label="@GroupLabel(tabId, group)"
                                      TestId="tools-group-toggle" />
                         @if (group.Outstanding == 0)
                         {
@@ -1259,7 +1366,7 @@
                     </div>
                     <DataTable TItem="DevToolInfo"
                                Columns="Columns"
-                               Items="@group.Tools"
+                               Items="@RowsShown(tabId, group)"
                                RowKey="ToolKey"
                                RowCssClass="RowClass"
                                RowAttributes="RowIdentity"
@@ -1270,6 +1377,18 @@
                                hidden="@(!IsExpanded(group))">
                         <Row Context="tool">@ToolRow(tool)</Row>
                     </DataTable>
+                    @if (IsExpanded(group) && HiddenUpToDate(tabId, group) is > 0 and var more)
+                    {
+                        @* The rows that match the catalog, held back behind one
+                           button so an open group reads as its work first. *@
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   CssClass="tools-group__reveal"
+                                   OnClick="() => Reveal(group)"
+                                   TestId="tools-group-reveal">
+                            @($"{more} more up to date — show")
+                        </AppButton>
+                    }
                 </Card>
             }
         </section>;
@@ -1487,12 +1606,20 @@
                             @* Not for a marketplace. It is not a tool this
                                machine opts into — it is where the Claude
                                plugins that do come from — so the only way to
-                               stop wanting one is to remove it. *@
-                            <AppButton Variant="ButtonVariant.Ghost"
-                                       Disabled="@(_toolsLoading || ToolActionBusy)"
-                                       OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? DevToolAction.Disable : DevToolAction.Enable)">
-                                @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                            </AppButton>
+                               stop wanting one is to remove it.
+
+                               A switch rather than a verb: whether this machine
+                               wants the row is a state, and a switch shows the
+                               state it is in as well as the way to change it. The
+                               label is for assistive technology only — every row
+                               has the same one, and the column says it. *@
+                            <Toggle Checked="@tool.ConfiguredEnabled"
+                                    CheckedChanged="enabled => ApplyToolActionAsync(tool, enabled ? DevToolAction.Enable : DevToolAction.Disable)"
+                                    Disabled="@(_toolsLoading || ToolActionBusy)"
+                                    Label="Enabled on this machine"
+                                    LabelCssClass="sr-only"
+                                    CssClass="tools-inventory__switch"
+                                    TestId="tools-row-enabled" />
                         </span>
                     }
                     @if (CanEdit)
@@ -1534,6 +1661,7 @@
     private bool _catalogExists;
     private bool _canEditCatalog;
     private string _catalogPath = string.Empty;
+    private string _pcConfigPath = string.Empty;
 
     private bool _addOpen;
     private DevToolKind _draftKind = DevToolKind.Plugin;
@@ -1866,19 +1994,60 @@
             : (status[..index], status[(index + NoteSeparator.Length)..]);
     }
 
-    /// <summary>What a group's fold says: its title, how many rows, and how many of
-    /// them are outstanding — so a folded group can be read without opening it.</summary>
-    private static string GroupLabel(ToolGroup group) =>
-        $"{group.Title} — {Counted(group.Tools.Count, group.Outstanding)}";
-
-    private static string Counted(int count, int outstanding)
+    /// <summary>What a group's fold says: its title, how many of the tab's kind it
+    /// holds, and how many of them need action — so a folded group can be read
+    /// without opening it. A group with nothing outstanding drops the last part;
+    /// its "All up to date" chip says it instead.</summary>
+    private static string GroupLabel(string tabId, ToolGroup group)
     {
-        var rows = count == 1 ? "1 row" : $"{count} rows";
+        var tab = KindTabOf(tabId);
+        var count = group.Tools.Count;
+        var noun = count == 1 ? tab?.NounOne ?? "row" : tab?.Noun ?? "rows";
+        var label = $"{group.Title} · {count} {noun}";
 
-        return outstanding == 0
-            ? $"{rows}, nothing outstanding"
-            : $"{rows}, {outstanding} outstanding";
+        return group.Outstanding == 0 ? label : $"{label} · {NeedActionSpoken(group.Outstanding)}";
     }
+
+    /// <summary>Per group key, whether its up-to-date rows have been revealed.
+    /// Held like <see cref="_expanded"/>, so a refresh does not hide again what
+    /// the reader asked to see.</summary>
+    private readonly HashSet<string> _revealed = new(StringComparer.Ordinal);
+
+    private void Reveal(ToolGroup group) => _revealed.Add(group.Key);
+
+    /// <summary>
+    /// The rows a group's table draws. Under All, a group with work and rows that
+    /// are up to date lists its work and holds the up-to-date rows back behind one
+    /// button, until that button is pressed; then the work first and the rest
+    /// after it, so pressing it adds rows under the ones already read rather than
+    /// shuffling them. Under Needs action the toolbar has already narrowed the
+    /// rows to the work, and a group with no work has nothing to hold back.
+    ///
+    /// <para>Only a row that is up to date is held back. A row switched off here,
+    /// or one whose version nothing could look up, is not outstanding and is not
+    /// up to date either — the button's "more up to date" would be untrue of it,
+    /// so it stays on show after the work.</para>
+    /// </summary>
+    private IReadOnlyList<DevToolInfo> RowsShown(string tabId, ToolGroup group)
+    {
+        if (NeedsActionOnly(tabId) || group.Outstanding == 0 || !group.Tools.Any(IsUpToDate))
+        {
+            return group.Tools;
+        }
+
+        var work = group.Tools.Where(NeedsAttention);
+        var neither = group.Tools.Where(tool => !NeedsAttention(tool) && !IsUpToDate(tool));
+        var shown = work.Concat(neither);
+
+        return _revealed.Contains(group.Key)
+            ? shown.Concat(group.Tools.Where(IsUpToDate)).ToArray()
+            : shown.ToArray();
+    }
+
+    private static bool IsUpToDate(DevToolInfo tool) => StateOf(tool) is ToolState.Current;
+
+    /// <summary>How many rows <see cref="RowsShown"/> is holding back.</summary>
+    private int HiddenUpToDate(string tabId, ToolGroup group) => group.Tools.Count - RowsShown(tabId, group).Count;
 
     /// <summary>Whichever groups somebody has opened or closed by hand. Held per
     /// group key so it survives a refresh: checking for updates re-reads every row
@@ -2033,6 +2202,7 @@
             _toolMessage = catalog.Message;
             _catalogExists = catalog.CatalogExists;
             _catalogPath = catalog.CatalogPath;
+            _pcConfigPath = catalog.PcConfigPath;
             _canEditCatalog = catalog.CanEditCatalog;
             _commands = catalog.Commands;
             _checkedAt = Time.GetUtcNow();
@@ -3149,8 +3319,16 @@
 
             <div class="tools-overview__columns">
                 <section class="tools-overview__main tools-overview__part dashboard-part" aria-labelledby="tools-overview-needs-title" data-testid="tools-overview-needs">
-                    <h3 class="tools-overview__heading" id="tools-overview-needs-title">Needs you</h3>
                     @{ var needs = NeedsYou; }
+                    <div class="tools-overview__heading-row">
+                        <h3 class="tools-overview__heading" id="tools-overview-needs-title">Needs you</h3>
+                        @if (needs.Count > 0)
+                        {
+                            @* Only over a list: over the empty state it would say
+                               the same thing twice. *@
+                            <p class="tools-overview__heading-note" data-testid="tools-overview-needs-subtitle">The exceptions — everything else matches the catalog</p>
+                        }
+                    </div>
                     @if (needs.Count == 0)
                     {
                         <EmptyState Title="Everything matches the catalog"
@@ -3181,6 +3359,14 @@
                                         @if (need.Detail.Length > 0)
                                         {
                                             <span class="dashboard-overview-needs__detail" data-testid="tools-overview-need-detail">@need.Detail</span>
+                                        }
+                                        @if (_runErrors.TryGetValue(need.Key, out var needError))
+                                        {
+                                            @* The same reason the row on its kind tab carries.
+                                               The Overview is the tab a machine opens on, and
+                                               a card that only went back to needing action
+                                               would not say that a run just tried it. *@
+                                            <Alert Message="@($"Update all failed here: {needError}")" BaseClass="tools-overview-need__run-error" Inline="true" Role="status" TestId="tools-overview-need-run-error" />
                                         }
                                     </div>
                                     <div class="tools-overview-need__control">
@@ -3253,6 +3439,45 @@
                 </div>
             </div>
         </div>;
+
+    /// <summary>
+    /// The Overview's footer: which catalog this machine reads and which file its
+    /// own choices are kept in, and the two acts that edit the catalog — beside
+    /// the path they write to rather than in a toolbar with nothing else in it.
+    /// The acts only on a host that can write the catalog; the paths always,
+    /// because where the setup comes from is worth knowing on any host.
+    /// </summary>
+    private RenderFragment OverviewFooter =>
+        @<footer class="tools-overview__footer" data-testid="tools-overview-footer">
+            <p class="tools-overview__footer-paths" data-testid="tools-overview-footer-paths">
+                Catalog <code class="tools-overview__path">@_catalogPath</code>
+                @if (PcConfigShortPath is { Length: > 0 } pcConfig)
+                {
+                    <text> · per-PC choices in <code class="tools-overview__path" title="@_pcConfigPath">@pcConfig</code></text>
+                }
+            </p>
+            @if (CanEdit)
+            {
+                <div class="tools-overview__footer-actions">
+                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
+                        Add tool
+                    </AppButton>
+                    <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                        Import
+                    </AppButton>
+                </div>
+            }
+        </footer>;
+
+    /// <summary>The per-PC file as its machine folder and file name —
+    /// <c>this-pc\ai-tools.json</c>. The file name alone is the catalog's own, so it
+    /// would read as the catalog a second time; the machine folder is what says
+    /// whose choices these are. The rest of the path is the catalog's folder,
+    /// already on the line, and stays in the hover title. Empty from a host that
+    /// names no per-PC file, which drops the clause.</summary>
+    private string PcConfigShortPath => _pcConfigPath.Length == 0
+        ? string.Empty
+        : Path.Combine(Path.GetFileName(Path.GetDirectoryName(_pcConfigPath)) ?? string.Empty, Path.GetFileName(_pcConfigPath));
 
     /// <summary>The one control a Needs you card carries.</summary>
     private RenderFragment NeedControlFor(NeedItem need) => need.Control switch
