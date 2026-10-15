@@ -155,7 +155,20 @@
                 <span class="repo-table__mark @($"repo-swatch--{ColourOf(repository)}")" aria-hidden="true"></span>
                 <span>@repository.Alias</span>
             </th>
-            <td class="data-table__mono" data-testid="repo-table-folder">@(string.IsNullOrWhiteSpace(repository.CloneDirectory) ? "Not set" : repository.CloneDirectory)</td>
+            @* The folder is the one column that holds an unbounded value: a full
+               clone path pushed the account and the Edit button behind the box's
+               sideways scroll at a desktop width. It is cut to the column with an
+               ellipsis and carried whole in the tooltip; the editor shows it in full. *@
+            <td class="data-table__mono" data-testid="repo-table-folder">
+                @if (string.IsNullOrWhiteSpace(repository.CloneDirectory))
+                {
+                    <span>Not set</span>
+                }
+                else
+                {
+                    <span class="repo-table__folder" title="@repository.CloneDirectory">@repository.CloneDirectory</span>
+                }
+            </td>
             <td data-testid="repo-table-devbook">
                 @if (DevbookFolderSummary(repository) is { } devbook)
                 {

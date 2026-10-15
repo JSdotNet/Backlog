@@ -19898,6 +19898,22 @@ select.field__input {
     box-shadow: var(--shadow-md);
 }
 
+/* On a phone the panel is the whole screen, so its own border, padding and
+   shadow only take width from the page: about 90px of a 390px window, which
+   left the cards 300px. The shell's gutter is the page's edge there. A window
+   query rather than the frame's container: a container cannot ask its own
+   width, and only a phone-sized window, not a narrow pane beside others, has
+   nothing for the panel to stand out from. */
+@media (max-width: 40rem) {
+    .settings-frame {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+    }
+}
+
 /* The way back, the eyebrow and headline, and the chip and search slot on the
    right. The right-hand cluster wraps under the headline where the panel is
    narrow rather than squeezing the sentence. */
@@ -19973,10 +19989,14 @@ select.field__input {
     outline: none;
 }
 
+/* The chip and the search stay side by side: shrinkable, the cluster gave way
+   to a long headline by wrapping the search under the chip. It does not shrink,
+   so the header's own wrap moves the whole cluster under the headline instead,
+   once the two no longer fit on one line. */
 .settings-frame__actions {
     display: flex;
-    flex: 0 1 auto;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: flex-end;
     gap: var(--spacing-xs) var(--spacing-sm);
@@ -20160,6 +20180,21 @@ select.field__input {
 
     .settings-frame--page .settings-frame__back--menu {
         display: inline-flex;
+    }
+
+    /* The way back and the heading share the first line, as on the canvas's
+       phone board: a 16rem basis cannot sit beside the 44px arrow on a phone, so
+       the heading took a row of its own under it. The cluster may wrap again
+       here, where the panel can no longer hold the chip and the search in one
+       line. */
+    .settings-frame__heading {
+        flex: 1 1 0;
+    }
+
+    .settings-frame__actions {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
     }
 
     /* No page is on screen beside the list, so the heading is the screen's
