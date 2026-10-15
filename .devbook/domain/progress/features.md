@@ -89,6 +89,23 @@ it is made, and a refused change is said on its card in the module's words. Done
 is shown as the rule it is, not a choice: a task's status Done, or every linked pull
 request merged.
 
+### Starting the first sprint
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#sprint-window, .devbook/domain/progress/features.md#closing-a-sprint]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_added_on_the_settings_page_starts_its_first_sprint_from_its_card, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_switched_off_series_offers_no_start, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_with_no_sprint_carries_the_switch_and_its_sprint_side_starts_the_first, unit:dotnet:Backlog.UI.Components.UnitTests.SprintStartComponentsTests]
+```
+
+A new series runs no sprint until its first is started. While a series is switched on
+and has none, its card on Settings › Sprints says "No sprint has started yet." and
+offers **Start Sprint 1…**, named by the series' pattern; the sprint view of a scope
+holding it offers the same. Start asks for the first sprint's goal in words and the
+day it starts: the next start weekday, today when today is one. A day on another
+weekday is held back with the reason beside it. Every later sprint starts when the
+one before it [closes](#closing-a-sprint), so Start is offered once per series.
+
 ## Filling a sprint
 
 ```meta
@@ -199,6 +216,21 @@ Choose any combination of rules for the series:
 
 A task picked by more than one rule counts once.
 
+### Writing the sprint goal
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#sprint]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.Edit_goal_on_the_open_sprint_writes_the_goal_through_the_module, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_closed_sprints_goal_card_only_reads, unit:dotnet:Backlog.UI.Components.UnitTests.SprintStartComponentsTests.The_goal_card_offers_edit_goal_only_when_the_host_does]
+```
+
+Write or change the open sprint's goal in words from the sprint view's goal card:
+**Edit goal**, or **Set goal** while the sprint has none. Blank clears it. The goal is
+the sprint's own; the first sprint's is asked when it [starts](#starting-the-first-sprint)
+and every later one's when the sprint before it [closes](#closing-a-sprint). A closed
+sprint's goal only reads.
+
 ### Marking a task as goal
 
 ```meta
@@ -242,14 +274,17 @@ task's linked pull requests. A task with no linked pull request shows no owner.
 type: sub-feature
 status: draft
 related: [.devbook/domain/progress/requirements.md#requirement-a-repository-in-no-series-keeps-the-in-progress-view, .devbook/domain/sessions/features.md#in-progress-by-task]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.With_progress_off_the_now_view_is_drawn_with_no_switch, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_repository_in_no_series_keeps_the_now_view_unchanged, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_switched_off_series_reads_as_no_series, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Choosing_the_sprint_draws_the_sprint_view_and_choosing_now_brings_the_now_view_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Pull_request_chips_are_coloured_by_state_and_the_owner_is_their_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.The_pace_reading_names_the_open_goal_tasks_the_blocked_ones_and_the_gap_to_the_even_pace]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.With_progress_off_the_now_view_is_drawn_with_no_switch, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_repository_in_no_series_keeps_the_now_view_unchanged, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_switched_off_series_reads_as_no_series, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Choosing_the_sprint_draws_the_sprint_view_and_choosing_now_brings_the_now_view_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Pull_request_chips_are_coloured_by_state_and_the_owner_is_their_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.The_pace_reading_names_the_open_goal_tasks_the_blocked_ones_and_the_gap_to_the_even_pace, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_with_no_sprint_carries_the_switch_and_its_sprint_side_starts_the_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.With_every_repository_in_scope_a_series_that_runs_a_sprint_comes_before_one_that_has_not_started]
 ```
 
 The [In progress](../sessions/features.md#in-progress-by-task) tab shows the sprint.
-While the header's repository scope holds a repository of a series that is switched on
-and has a sprint, a **Now | Sprint n** switch sits beside the title. Now is the view by
-task, unchanged. With no such repository in scope, or Progress off, there is no switch.
-A scope with repositories of several series shows the first series in scope order.
+While the header's repository scope holds a repository of a series that is switched on,
+a **Now | Sprint n** switch sits beside the title. Now is the view by task, unchanged.
+With no such repository in scope, or Progress off, there is no switch. A scope with
+repositories of several series shows the first series in scope order; with every
+repository in scope, the first series that runs a sprint. A series with no sprint yet
+names the switch for the sprint it will start, and its sprint side
+[starts the first](#starting-the-first-sprint).
 
 The sprint side opens on the open sprint and steps to the previous and next one. It
 shows:
