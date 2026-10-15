@@ -573,15 +573,29 @@ pages.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
 and lightweight Tasks. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
 
-The shell (`MainLayout`) is a title bar carrying the sync status, the page, and
-three tabs along the bottom, withheld until the device is paired:
+The shell (`MainLayout`) is a title bar carrying the version control and the sync
+status, the page, and three tabs along the bottom, withheld until the device is
+paired.
+
+The **version control** (`AppUpdateControl`) is the app bar's title. It names the
+app and the running version, and opens the update bottom sheet, the phone's
+counterpart of the desktop footer's version control. The sheet offers Check, then
+Install update once a check finds a newer APK. A quiet check after launch only
+puts a dot on the control. The sheet talks to `IAppUpdateService`, the contract
+shared with the desktop in `Backlog.UI.Components/AppUpdate`. The Android head
+registers `ApkAppUpdateService` for it (`Backlog.Mobile.UI/AppUpdate`), which
+checks GitHub Releases and installs through `AndroidApkInstaller`
+(`Backlog.Mobile/Services`). `.devbook/arc42/07-deployment-view.md#installation-and-updates-mobile`
+describes the update path.
+
+The tabs are:
 
 - **Inbox** — a quick-capture field and the phone's own captures that the desktop
   has not taken in yet. Each says whether it waits in the outbox or was sent. No
@@ -621,6 +635,7 @@ leftover talk note's capture to `POST /api/sync/inbox`. See `.devbook/arc42/06-r
 graph TB
   subgraph "UI (.NET MAUI / Blazor Hybrid, Backlog.Mobile.UI)"
     Shell["Shell\n(sync status, pairing gate)"]
+    Version["Version control\n(update bottom sheet)"]
     InboxTab["Inbox tab\n(quick capture, own captures, sync state)"]
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
     NoteTab["Notes tab\n(list, search, editor)"]
@@ -641,10 +656,16 @@ graph TB
     Speech["Speech transcriber"]
     Share["Share target"]
     Creds["Secure storage\n(device credential)"]
+    Installer["APK installer\n(PackageInstaller)"]
   end
 
   API["Sync API\n(REST, device JWT)"]
+  Releases["GitHub Releases\n(update channel)"]
 
+  Shell --> Version
+  Version -->|"list releases"| Releases
+  Version -->|"on the person's tap"| Installer
+  Installer -->|"download APK"| Releases
   Shell --> InboxTab
   Shell --> NoteTab
   Shell --> TasksTab
