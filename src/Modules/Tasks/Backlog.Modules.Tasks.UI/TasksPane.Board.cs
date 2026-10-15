@@ -92,6 +92,11 @@ public partial class TasksPane
     /// that carry none last; an entry under two plans is a card in both, the way
     /// the tag chips count it twice.
     /// </para>
+    /// <para>
+    /// By plan the board shows only what is still to do. A ticked-off or archived
+    /// entry is no card there, so a plan with nothing left draws no column, the
+    /// way its chip leaves the ticked-off entries out of its count.
+    /// </para>
     /// </summary>
     private IReadOnlyList<TaskBoardColumn> BoardColumns()
     {
@@ -118,7 +123,7 @@ public partial class TasksPane
             ],
             // An archived entry has no column: the reader put it away past Done.
             // The status filter is set aside here, so "All" would otherwise hand
-            // it in; it still counts under the other groupings, which have no
+            // it in; it still counts by repository and priority, which have no
             // column per status to leave it out of.
             _ =>
             [
@@ -132,8 +137,15 @@ public partial class TasksPane
         };
     }
 
-    private static IReadOnlyList<TaskBoardColumn> PlanColumns(List<(EntryRow Row, TaskBoardCard Card)> cards)
+    private static IReadOnlyList<TaskBoardColumn> PlanColumns(List<(EntryRow Row, TaskBoardCard Card)> all)
     {
+        // Finished work is set aside before the plans are read off the cards, so a
+        // plan whose entries are all ticked or archived has no column, and each
+        // column's count and points are the work left in it.
+        var cards = all
+            .Where(pair => !pair.Row.IsPreviewCompleted && pair.Row.PreviewStatus != EntryStatus.Archived)
+            .ToList();
+
         var plans = cards
             .SelectMany(pair => PlanTags(pair.Row))
             .Distinct(StringComparer.OrdinalIgnoreCase)
