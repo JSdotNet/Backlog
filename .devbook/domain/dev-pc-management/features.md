@@ -151,16 +151,26 @@ related: [.devbook/domain/dev-pc-management/requirements.md#system-tools-pane]
 
 Read the catalog against this machine one kind at a time. The pane leads with a
 sentence saying what is outstanding on the tab on show — how many of its entries
-are behind, missing or not yet confirmed, or that everything matches the catalog —
-and when the catalog was last checked. Its tabs are an Overview, then Plugins,
+are behind, missing or not yet confirmed, or that everything matches the catalog.
+When more than one of those is outstanding, the sentence counts each on its own,
+in the order Needs you lists them — "Three updates waiting, two tools missing and
+one item to confirm" on the Overview, "Two plugins behind and one missing" on a
+kind tab. Under it a quieter line says how long ago the catalog was checked — just
+now, so many minutes or hours ago, or the date — how many entries the tab holds
+and how many of them already match. That line changes when the pane next redraws,
+never on a timer. Its tabs are an Overview, then Plugins,
 Marketplaces, MCP servers, Applications and a Checklist, which holds the
 applications nothing can check and somebody confirms by hand; each kind tab
 carries a count of the entries needing action. A host filter narrows every tab
 and every count to the entries for Claude (Claude Code or Claude Desktop) or for
 Copilot, and entries for no host at all — applications and checklist items —
-show only under all hosts. Within a tab, a toolbar narrows to the entries that
-need action or by name, and each catalog group is a card that starts folded when
-nothing in it is outstanding. The tab and the host filter are remembered on this
+show only under all hosts. Within a kind tab, a toolbar narrows to the entries
+that need action or by name, and each catalog group is a card that starts folded
+when nothing in it is outstanding. A group's fold names its title, how many
+entries of the tab's kind it holds and how many of them need action, dropping the
+last when none do. Under All, an open group that has both lists the entries
+needing action first and holds the ones that match behind "n more up to date —
+show"; once shown, they stay shown when the catalog is checked again. The tab and the host filter are remembered on this
 machine, never synced, so the pane reopens where it was left. A machine that has
 never been on a tab opens on the Overview.
 
@@ -195,7 +205,8 @@ every entry that needs action, updates first, then missing entries, then
 unconfirmed checklist items, then the stale cache, each as one action — update it,
 install it, go to its download page and install it by hand, tick it done here, or
 clear the cache — and says that everything matches the catalog when nothing is
-left. Beside it, one bar per kind says how many of that kind's entries match, and
+left. Over a list, it says the list is only the exceptions — everything else
+matches the catalog. Beside it, one bar per kind says how many of that kind's entries match, and
 opens that kind's tab, and the last run this machine finished says how it ended,
 what it was, when, how many of its steps succeeded and how long it took, with the
 end of its transcript and the whole of it a click away. The tab strip's "Last run
@@ -204,6 +215,9 @@ a restart too, before anything has run in this session; a tab opened from the
 Overview takes the keyboard focus with it, to that tab in the strip. An entry switched off on
 this machine, or one whose version could not be looked up, is left out of every
 figure. The host filter narrows every figure here as it does on the kind tabs.
+At its foot the Overview names the catalog this machine reads and the file this
+machine's own choices are kept in and, where the host can write the catalog,
+offers Add tool and Import there; the kind tabs keep both in their toolbars.
 
 The download page an entry installed by hand links to is the one its catalog
 entry names, when that is an http or https address. Otherwise it is derived from
@@ -261,8 +275,9 @@ Act on the machine the person is sitting at:
 
 - re-check the catalog for newer versions;
 - update one tool, or every updatable tool at once;
-- switch an individual tool on or off for this machine, without changing what the
-  catalog declares for everyone else.
+- switch an individual tool on or off for this machine, with a switch on its row
+  that shows whether this machine wants it, without changing what the catalog
+  declares for everyone else.
 
 Each action reports back whether it succeeded. Tool management can be switched
 off wholesale on machines where it does not apply, by the
@@ -276,8 +291,8 @@ in order — done, running, queued or failed — with the version it is going fr
 and to and, once finished, how long it took, beside the run's transcript as it is
 written, which can be copied and read with long lines wrapped or not. The tools
 themselves stay on screen under it. A tool whose step fails goes back to needing
-action, with the reason under its row, and the run's transcript stays open beside
-it.
+action, with the reason under its row and on its Needs you card, until the next
+run starts, and the run's transcript stays open beside it.
 
 ### Last run record
 

@@ -36,6 +36,7 @@
         </div>
         <SearchBox Value="@_query"
                    ValueChanged="RunAsync"
+                   Clock="@_clock"
                    CssClass="devbook-search__box"
                    Placeholder="Words a chapter would use"
                    AriaLabel="Search devbook chapters"
@@ -160,6 +161,14 @@
     private static readonly TimeSpan MeaningPause = TimeSpan.FromMilliseconds(350);
 
     private DevbookUnifiedSearch _search = null!;
+
+    /// <summary>What the box's debounce and <see cref="MeaningPause"/> are measured
+    /// on: the host's registered clock, or the system one where a host registered
+    /// none. Looked up rather than injected, as the chapter editor's is, so a host
+    /// that opens search does not have to know it keeps time; a test registers a
+    /// clock it moves by hand.</summary>
+    private TimeProvider _clock = TimeProvider.System;
+
     private IReadOnlyList<DevbookSearchSource> _sources = [];
     private IReadOnlyList<DevbookSearchGroup> _groups = [];
     private IReadOnlyList<DevbookSearchGroup> _words = [];
@@ -191,6 +200,7 @@
     protected override void OnInitialized()
     {
         _search = Services.GetService<DevbookUnifiedSearch>() ?? DevbookUnifiedSearch.From(Services);
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
         Run();
     }
 
@@ -243,7 +253,7 @@
     {
         try
         {
-            await Task.Delay(MeaningPause, cancellationToken);
+            await Task.Delay(MeaningPause, _clock, cancellationToken);
             var merged = await Task.Run(() => _search.WithMeaningAsync(words, query, Limit, cancellationToken), cancellationToken);
 
             if (asked != _asked || cancellationToken.IsCancellationRequested) return;

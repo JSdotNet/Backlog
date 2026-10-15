@@ -176,6 +176,46 @@ public sealed class ToolsPaneRunStatesTests
         Assert.Contains("network unreachable", pane.Find("[data-testid='tools-command-log-output']").TextContent, StringComparison.Ordinal);
     }
 
+    /// <summary>The Overview is the tab a machine opens on, so a failed step says why
+    /// on its Needs you card too — not only under a row on a kind tab nobody is
+    /// looking at. The reason is a status line, not a second control, and it goes
+    /// when the next run starts.</summary>
+    [Fact]
+    public void A_failed_step_says_why_on_its_needs_you_card_until_the_next_run_starts()
+    {
+        var next = new TaskCompletionSource<DevToolActionResult>();
+        var runs = 0;
+        var tools = ThreeBehind(progress =>
+        {
+            if (++runs > 1) return next.Task;
+
+            progress?.Report(Snapshot(Done("plugin:a"), Failed("plugin:b", "network unreachable"), Done("plugin:c")));
+            return Task.FromResult(DevToolActionResult.Failed("Updated 2 tool(s); 1 failed."));
+        });
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        pane.Find("[data-testid='tools-update-all']").Click();
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='tools-run-queue']")));
+
+        var card = pane.Find("[data-testid='tools-overview-need'][data-need-key='plugin:b']");
+        var error = card.QuerySelector("[data-testid='tools-overview-need-run-error']");
+        Assert.NotNull(error);
+        Assert.Equal("Update all failed here: network unreachable", error.TextContent.Trim());
+        Assert.Equal("status", error.GetAttribute("role"));
+        Assert.Single(card.QuerySelectorAll("button, a, input"));
+
+        Assert.Null(pane.Find("[data-testid='tools-overview-need'][data-need-key='plugin:a']")
+            .QuerySelector("[data-testid='tools-overview-need-run-error']"));
+
+        pane.Find("[data-testid='tools-update-all']").Click();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='tools-run-queue']")));
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-overview-need-run-error']"));
+
+        next.SetResult(DevToolActionResult.Ok("Updated."));
+    }
+
     [Fact]
     public void A_report_landing_after_the_run_is_ignored()
     {

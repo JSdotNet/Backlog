@@ -3151,6 +3151,64 @@ public class DashboardPaneTests
     }
 
     /// <summary>
+    /// A finished item is drawn to the day its last entry landed, never on to the end it
+    /// was planned for: work that is done cannot run past today. One that landed before
+    /// its planned start is drawn from the day it landed, and one that landed before the
+    /// window opened in the window's first week.
+    /// </summary>
+    [Fact]
+    public void A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end()
+    {
+        var plan = new PlanInsight(
+            RoadmapEnabled: true,
+            new PlanPace(12m, PlanPaceBasis.LastFourWeeks),
+            [
+                new PlanItemInsight(
+                    PlanItem("Landed early", new DateOnly(2026, 9, 14), new DateOnly(2026, 11, 27), total: 8, done: 8, finished: true, landed: new DateOnly(2026, 9, 23)),
+                    PlanOutlook.Finished,
+                    new DateOnly(2026, 9, 23)),
+                new PlanItemInsight(
+                    PlanItem("Landed before it was due to start", new DateOnly(2026, 10, 19), new DateOnly(2026, 10, 30), total: 5, done: 5, finished: true, landed: new DateOnly(2026, 9, 30)),
+                    PlanOutlook.Finished,
+                    new DateOnly(2026, 9, 30)),
+                new PlanItemInsight(
+                    PlanItem("Still running", new DateOnly(2026, 9, 28), new DateOnly(2026, 10, 30), total: 10, done: 3),
+                    PlanOutlook.OnTrack,
+                    new DateOnly(2026, 10, 28)),
+                new PlanItemInsight(
+                    PlanItem("Landed before the window", new DateOnly(2026, 6, 1), new DateOnly(2026, 10, 30), total: 3, done: 3, finished: true, landed: new DateOnly(2026, 7, 1)),
+                    PlanOutlook.Finished,
+                    new DateOnly(2026, 7, 1))
+            ])
+        { WindowFrom = new DateOnly(2026, 7, 16), WindowTo = new DateOnly(2026, 10, 8), TimelineTo = new DateOnly(2026, 10, 30) };
+        using var context = Context(configure: services =>
+            services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(plan)));
+
+        var pane = context.Render<DashboardPane>();
+
+        var bars = pane.FindAll("[data-testid='dashboard-roadmap-bar']");
+        Assert.Equal(4, bars.Count);
+
+        // 14 Sep is W38, the tenth week; it landed 23 Sep in W39 — not 27 Nov in W48.
+        Assert.Equal("grid-column: 11 / 13", bars[0].GetAttribute("style"));
+        Assert.DoesNotContain("dashboard-timeline__bar--clipped-end", bars[0].ClassList);
+        Assert.Equal("Landed early, 14 Sep – 23 Sep", bars[0].GetAttribute("aria-label"));
+
+        // Landed 30 Sep in W40, three weeks before the 19 Oct it was planned to start.
+        Assert.Equal("grid-column: 13 / 14", bars[1].GetAttribute("style"));
+        Assert.Equal("Landed before it was due to start, 30 Sep – 30 Sep", bars[1].GetAttribute("aria-label"));
+
+        // An item still running keeps its planned window.
+        Assert.Equal("grid-column: 13 / 18", bars[2].GetAttribute("style"));
+
+        // Kept by its planned days, it landed 1 Jul, before the window's first week: drawn
+        // in that week and cut off there, rather than an empty lane.
+        Assert.Equal("grid-column: 2 / 3", bars[3].GetAttribute("style"));
+        Assert.Contains("dashboard-timeline__bar--clipped-start", bars[3].ClassList);
+        Assert.DoesNotContain("dashboard-timeline__bar--clipped-end", bars[3].ClassList);
+    }
+
+    /// <summary>
     /// The axis names ISO weeks, so a window that crosses the turn of the year runs
     /// W52, W53, W01 — 2026 has 53 of them — and a bar across the turn spans them.
     /// </summary>
@@ -3179,11 +3237,12 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The Tasks tab leads with its six figures in one row, then the roadmap's timeline,
-    /// and lays the two weekly task charts side by side under it (entry 16).
+    /// The Tasks tab leads with its six figures in one row, then the two weekly task
+    /// charts side by side, then the roadmap's timeline — under the charts, because it
+    /// grows a row per plan and pushed them off the screen.
     /// </summary>
     [Fact]
-    public void The_tasks_tab_puts_the_roadmap_first_and_the_two_task_charts_side_by_side_under_it()
+    public void The_tasks_tab_puts_the_two_task_charts_side_by_side_above_the_roadmap()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(Plan())));
@@ -3194,11 +3253,11 @@ public class DashboardPaneTests
         var children = tab.Children.ToList();
         Assert.Equal(3, children.Count);
         Assert.Equal("dashboard-tasks-figures", children[0].GetAttribute("data-testid"));
-        Assert.Equal("dashboard-roadmap", children[1].GetAttribute("data-testid"));
-        Assert.Contains("dashboard-section__split", children[2].ClassList);
+        Assert.Contains("dashboard-section__split", children[1].ClassList);
+        Assert.Equal("dashboard-roadmap", children[2].GetAttribute("data-testid"));
         Assert.Equal(
             ["dashboard-tasks-completed", "dashboard-tasks-effort"],
-            children[2].Children.Select(part => part.GetAttribute("data-testid")));
+            children[1].Children.Select(part => part.GetAttribute("data-testid")));
 
         Assert.Equal(
             [
@@ -3207,7 +3266,7 @@ public class DashboardPaneTests
             ],
             children[0].QuerySelectorAll("[data-testid='dashboard-tasks-figures-tiles'] > *").Select(tile => tile.GetAttribute("data-testid")));
 
-        var timeline = children[1].QuerySelector("[data-testid='dashboard-roadmap-timeline']")!;
+        var timeline = children[2].QuerySelector("[data-testid='dashboard-roadmap-timeline']")!;
         Assert.NotNull(timeline.QuerySelector(".dashboard-timeline__scroll > .dashboard-timeline__grid"));
     }
 
@@ -3328,7 +3387,7 @@ public class DashboardPaneTests
 
     /// <summary>An item in one repository at one pace, for the tests that only care
     /// where its bar sits and what tone it wears.</summary>
-    private static PlanItemProgress PlanItem(string title, DateOnly start, DateOnly end, int total, int done, bool finished = false) =>
+    private static PlanItemProgress PlanItem(string title, DateOnly start, DateOnly end, int total, int done, bool finished = false, DateOnly? landed = null) =>
         new(
             Guid.NewGuid(),
             title,
@@ -3341,7 +3400,7 @@ public class DashboardPaneTests
             DoneEffort: done,
             Unestimated: 0,
             IsFinished: finished,
-            LastCompletedOn: finished ? end : null,
+            LastCompletedOn: finished ? landed ?? end : null,
             Parts: [new PlanPartProgress("backlog", total - done, 8m, [])],
             PlacedByEffort: false);
 

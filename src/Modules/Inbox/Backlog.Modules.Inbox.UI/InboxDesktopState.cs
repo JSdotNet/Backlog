@@ -1977,7 +1977,7 @@ public sealed class InboxDesktopState
 
     internal static string RouteHint(int repositories) => repositories switch
     {
-        0 => "one entry, no repository",
+        0 => $"one entry, in the {Backlog.SharedKernel.BrainScope.Name}",
         1 => "one entry",
         _ => $"{repositories} linked entries",
     };

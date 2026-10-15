@@ -618,24 +618,20 @@ public sealed class DevbookBranchReview(
                 }
             }
 
-            // A read that fails is dropped when it fails, not when somebody next
-            // asks: every waiter may have left already, and the next ask must not
-            // be handed the old failure. Reading the exception observes it.
-            _ = placeholder.Task.ContinueWith(
-                failed =>
-                {
-                    _ = failed.Exception;
-                    Evict(key, failed);
-                },
-                CancellationToken.None,
-                TaskContinuationOptions.NotOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
-
-            _ = RunAsync(placeholder, read);
+            _ = RunAsync(key, placeholder, read);
             return placeholder.Task;
         }
 
-        private static async Task RunAsync(TaskCompletionSource<T> placeholder, Func<Task<T>> read)
+        /// <summary>
+        /// Runs the read into its placeholder. A read that fails is dropped when
+        /// it fails, not when somebody next asks: every waiter may have left
+        /// already, and the next ask must not be handed the old failure. So the
+        /// entry goes before the failure is set, never after — a continuation on
+        /// the placeholder would run a thread-pool hop later, because the
+        /// placeholder runs its continuations asynchronously, and an ask in that
+        /// hop found the failure still cached.
+        /// </summary>
+        private async Task RunAsync(string key, TaskCompletionSource<T> placeholder, Func<Task<T>> read)
         {
             try
             {
@@ -643,11 +639,17 @@ public sealed class DevbookBranchReview(
             }
             catch (OperationCanceledException cancelled)
             {
+                Evict(key, placeholder.Task);
                 placeholder.TrySetCanceled(cancelled.CancellationToken);
             }
             catch (Exception exception)
             {
+                Evict(key, placeholder.Task);
                 placeholder.TrySetException(exception);
+
+                // Observed here, because nobody may be left to: a failure no one
+                // read would surface later as an unobserved task exception.
+                _ = placeholder.Task.Exception;
             }
         }
 
