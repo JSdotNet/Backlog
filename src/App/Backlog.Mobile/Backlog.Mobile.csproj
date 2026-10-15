@@ -18,6 +18,12 @@
         <ApplicationVersion>1</ApplicationVersion>
 
         <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+
+        <!-- No lock file, against the root default: net10.0-android brings in the
+             Android runtime identifiers, the pull request restores this head with
+             RuntimeIdentifierOverride=win-x64 and the release on ubuntu without it,
+             so no one committed file could match them all. -->
+        <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
     </PropertyGroup>
 
     <ItemGroup>

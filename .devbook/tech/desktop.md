@@ -121,7 +121,7 @@ status: adopted
 type: package
 version: "10.0.11"
 depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-runtime"]
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/domain/tasks/features.md#pairing-a-device", ".devbook/domain/tasks/domain.md#registration-credential"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/domain/sync/features.md#pairing-a-device", ".devbook/domain/sync/domain.md#registration-credential"]
 ```
 
 The .NET wrapper over Windows DPAPI.
@@ -250,8 +250,9 @@ sequenceDiagram
   the same mechanism through `PackageManager`.
 - **How** — `build/New-AppInstaller.ps1` generates it from
   `build/Backlog.Desktop.appinstaller.template` during the release workflow. Its
-  own `Uri` points at the `latest` release download, which is stable.
-  `MainPackage/@Uri` points at the tagged release asset. `Name`, `Publisher`,
+  own `Uri` points at the `latest` release download, which is stable. A tag,
+  dispatch or Deploy All release takes Latest; a scheduled nightly takes it only
+  when no higher-versioned release holds it. `MainPackage/@Uri` points at the tagged release asset. `Name`, `Publisher`,
   and `ProcessorArchitecture` are kept identical to the signed MSIX.
 - **Version name** — `PackageManager` only answers whether an update exists. The
   app therefore reads the manifest back through `AppInstallerManifest` to name

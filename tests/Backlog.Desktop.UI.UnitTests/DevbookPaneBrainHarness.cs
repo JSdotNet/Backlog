@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
@@ -143,13 +145,58 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
     public static IReadOnlyList<string> Tabs(IRenderedComponent<DevbookPane> component) =>
         [.. component.FindAll(".devbook-stack__nav-item").Select(tab => tab.TextContent.Trim())];
 
+    /// <summary>
+    /// Deletes the Brain folder from under the pane — a drive unmounted, the
+    /// folder renamed — retrying while something still holds a file in it.
+    /// </summary>
+    public void DeleteBrainFolder() => WhileHeld(() => Directory.Delete(BrainFolder, recursive: true));
+
     private static string WriteFile(string root, string relativePath, string content)
     {
         var path = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, content);
+        WhileHeld(() => File.WriteAllText(path, content));
         return path;
     }
+
+    /// <summary>
+    /// Runs a change to the Brain folder on disk, again for a few seconds while
+    /// another handle holds the file. The pane reads the Brain off the renderer's
+    /// thread — <c>CONVENTIONS.md</c> for its areas, the open note for its body —
+    /// and on Windows a file being read with <see cref="FileShare.Read"/> can be
+    /// neither replaced nor deleted, so a test that changes a file the pane is
+    /// still reading met "being used by another process". A virus scanner or the
+    /// search indexer opening a file just written does the same. The change the
+    /// test makes is the same; only its timing gives way.
+    /// <para>
+    /// Synchronous, because the harness's writers are and so are their many callers. The
+    /// wait between tries is on the running test's cancellation token, so a cancelled run
+    /// stops at once rather than sitting out the patience. It blocks its thread only while
+    /// a file is held, which is the rare case.
+    /// </para>
+    /// </summary>
+    private static void WhileHeld(Action change)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var elapsed = Stopwatch.StartNew();
+
+        while (true)
+        {
+            try
+            {
+                change();
+                return;
+            }
+            catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && elapsed.Elapsed < HeldPatience)
+            {
+                if (cancellationToken.WaitHandle.WaitOne(HeldRetryInterval)) cancellationToken.ThrowIfCancellationRequested();
+            }
+        }
+    }
+
+    private static readonly TimeSpan HeldPatience = TimeSpan.FromSeconds(5);
+
+    private static readonly TimeSpan HeldRetryInterval = TimeSpan.FromMilliseconds(25);
 
     public async ValueTask DisposeAsync()
     {

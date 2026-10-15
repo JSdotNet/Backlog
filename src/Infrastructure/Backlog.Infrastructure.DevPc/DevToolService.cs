@@ -300,7 +300,10 @@ public sealed class DevToolService : IDevToolService
                 $"Tool catalog was not found at {configPaths.CatalogPath}.",
                 CatalogExists: false,
                 CatalogPath: configPaths.CatalogPath,
-                CanEditCatalog: true);
+                CanEditCatalog: true)
+            {
+                PcConfigPath = configPaths.PcConfigPath
+            };
         }
 
         var config = await DevToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
@@ -487,6 +490,7 @@ public sealed class DevToolService : IDevToolService
         var message = messages.Count == 0 ? sourceMessage : $"{sourceMessage} {string.Join(" ", messages)}";
         return new DevToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
         {
+            PcConfigPath = config.PcConfigPath,
             Commands = log.Commands
         };
     }

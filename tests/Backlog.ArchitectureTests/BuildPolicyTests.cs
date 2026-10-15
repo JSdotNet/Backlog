@@ -176,6 +176,83 @@ public partial class BuildPolicyTests
             p => string.Equals((string?)p.Attribute("Include"), "YamlDotNet", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>The two MAUI heads, the only solution projects without a lock
+    /// file: their restore graph changes with the runtime identifier each
+    /// workflow passes, so one committed file could not match them all.</summary>
+    private static readonly string[] AppHeads =
+    [
+        "src/App/Backlog.Desktop/Backlog.Desktop.csproj",
+        "src/App/Backlog.Mobile/Backlog.Mobile.csproj",
+    ];
+
+    /// <summary>Every project <c>Backlog.sln</c> lists, as a forward-slash path
+    /// relative to the root.</summary>
+    private static List<string> SolutionProjects() =>
+        SolutionProject().Matches(File.ReadAllText(RepositoryRoot.File("Backlog.sln")))
+            .Select(match => match.Groups[1].Value.Replace('\\', '/'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+    private static string LockFileBeside(string project) =>
+        Path.Combine(Path.GetDirectoryName(Path.Combine(Repository.Root.FullName, project))!, "packages.lock.json");
+
+    /// <summary>
+    /// Lock files are on for the whole solution from one line, so a new project
+    /// gets one without anyone remembering to ask. Unconditioned: a lock file
+    /// written only on some machines is one the pull request's locked restore
+    /// cannot rely on (issue #748).
+    /// </summary>
+    [Fact]
+    public void The_root_props_turns_lock_files_on_for_every_project()
+    {
+        var element = RootProperty("RestorePackagesWithLockFile");
+
+        Assert.NotNull(element);
+        Assert.Equal("true", element.Value.Trim(), ignoreCase: true);
+        Assert.Null(element.Attribute("Condition"));
+        Assert.Null(element.Parent?.Attribute("Condition"));
+    }
+
+    /// <summary>The pull request restores in locked mode, which fails on a
+    /// project whose lock file was never committed — but only on GitHub. This
+    /// says which project, before the push.</summary>
+    [Fact]
+    public void Every_solution_project_but_the_app_heads_commits_its_lock_file()
+    {
+        var projects = SolutionProjects();
+        Assert.NotEmpty(projects);
+
+        var missing = projects
+            .Where(project => !AppHeads.Contains(project, StringComparer.OrdinalIgnoreCase))
+            .Where(project => !File.Exists(LockFileBeside(project)))
+            .ToList();
+
+        Assert.True(
+            missing.Count == 0,
+            "Run `dotnet restore Backlog.WithoutAppHeads.slnf` and commit the packages.lock.json it writes beside: "
+            + string.Join(", ", missing));
+    }
+
+    /// <summary>The heads opt out in their own project file, where the next
+    /// reader of it sees why, rather than by a condition at the root.</summary>
+    [Theory]
+    [InlineData("src/App/Backlog.Desktop/Backlog.Desktop.csproj")]
+    [InlineData("src/App/Backlog.Mobile/Backlog.Mobile.csproj")]
+    public void Each_app_head_opts_out_of_lock_files(string head)
+    {
+        Assert.Contains(head, AppHeads);
+        Assert.Contains(head, SolutionProjects(), StringComparer.OrdinalIgnoreCase);
+
+        var optOut = XDocument.Load(Path.Combine(Repository.Root.FullName, head))
+            .Descendants("RestorePackagesWithLockFile")
+            .SingleOrDefault();
+
+        Assert.NotNull(optOut);
+        Assert.Equal("false", optOut.Value.Trim(), ignoreCase: true);
+        Assert.False(File.Exists(LockFileBeside(head)), $"{head} opts out, so no packages.lock.json belongs beside it.");
+    }
+
     private sealed record Section(string Glob, IReadOnlyList<string> Body);
 
     private static List<Section> EditorConfigSections(string config)
@@ -251,4 +328,7 @@ public partial class BuildPolicyTests
 
     [GeneratedRegex(@"^(\s*)- (name|uses):")]
     private static partial Regex StepItem();
+
+    [GeneratedRegex(@"""([^""]+\.csproj)""")]
+    private static partial Regex SolutionProject();
 }

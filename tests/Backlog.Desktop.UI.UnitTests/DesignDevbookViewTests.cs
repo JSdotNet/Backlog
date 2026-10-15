@@ -227,20 +227,22 @@ public sealed class DesignDevbookViewTests : IDisposable
         var component = harness.Render("interaction-guidelines.md");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='design-chapter-file-body'] .devbook-record select")));
 
-        component.FindAll("[data-testid='design-chapter-file-body'] .devbook-record select")[0].Change("deprecated");
+        await component.ChangeAsync("[data-testid='design-chapter-file-body'] .devbook-record select", "deprecated");
 
         // Auto-save's fence is the one that changes. The file's own block is the
         // heading directly above it in the source, and the pane used to be able to
         // write nothing but that one — so the file staying `draft` is half the
-        // assertion.
-        component.WaitForAssertion(
-            () =>
-            {
-                var text = File.ReadAllText(Path.Combine(harness.DesignFolder, "interaction-guidelines.md"));
-                Assert.Contains("status: deprecated", text, StringComparison.Ordinal);
-                Assert.Contains("# Interaction guidelines\r\n```meta\r\nstatus: draft".ReplaceLineEndings(), text.ReplaceLineEndings(), StringComparison.Ordinal);
-            },
+        // assertion. The status write asks for no render of its own, so the file
+        // is polled.
+        var file = Path.Combine(harness.DesignFolder, "interaction-guidelines.md");
+        await Polling.WaitUntilAsync(
+            () => Task.FromResult(RaceSafeTestHelpers.ReadOrNull(file)?.Contains("status: deprecated", StringComparison.Ordinal) == true),
+            () => $"{file} never took the picked status:\n{RaceSafeTestHelpers.ReadOrNull(file)}",
             TimeSpan.FromSeconds(5));
+
+        var text = File.ReadAllText(file);
+        Assert.Contains("status: deprecated", text, StringComparison.Ordinal);
+        Assert.Contains("# Interaction guidelines\r\n```meta\r\nstatus: draft".ReplaceLineEndings(), text.ReplaceLineEndings(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -263,12 +265,13 @@ public sealed class DesignDevbookViewTests : IDisposable
 
         // The gestures are dispatched without awaiting the write, so the file is
         // polled rather than read once.
-        component.WaitForAssertion(
-            () => Assert.Contains(
-                "Typed into the design chapter.",
-                File.ReadAllText(Path.Combine(harness.DesignFolder, "color-scheme.md")),
-                StringComparison.Ordinal),
+        var file = Path.Combine(harness.DesignFolder, "color-scheme.md");
+        await Polling.WaitUntilAsync(
+            () => Task.FromResult(RaceSafeTestHelpers.ReadOrNull(file)?.Contains("Typed into the design chapter.", StringComparison.Ordinal) == true),
+            () => $"{file} never took the typed text:\n{RaceSafeTestHelpers.ReadOrNull(file)}",
             TimeSpan.FromSeconds(5));
+
+        Assert.Contains("Typed into the design chapter.", File.ReadAllText(file), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -418,14 +421,14 @@ public sealed class DesignDevbookViewTests : IDisposable
         var component = harness.Render(selectedPath: null);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-document__header select")));
 
-        component.FindAll(".folder-document__header select")[0].Change("deprecated");
+        await component.ChangeAsync(".folder-document__header select", "deprecated");
 
-        component.WaitForAssertion(
-            () => Assert.Contains(
-                "status: deprecated",
-                File.ReadAllText(Path.Combine(harness.DesignFolder, "color-scheme.md")),
-                StringComparison.Ordinal),
+        var file = Path.Combine(harness.DesignFolder, "color-scheme.md");
+        await Polling.WaitUntilAsync(
+            () => Task.FromResult(RaceSafeTestHelpers.ReadOrNull(file)?.Contains("status: deprecated", StringComparison.Ordinal) == true),
+            () => $"{file} never took the picked status:\n{RaceSafeTestHelpers.ReadOrNull(file)}",
             TimeSpan.FromSeconds(5));
+        Assert.Contains("status: deprecated", File.ReadAllText(file), StringComparison.Ordinal);
 
         // The nav link reads its status off the parsed folder rather than off the
         // control that was changed, so it only says the new word once the pane has
@@ -443,19 +446,20 @@ public sealed class DesignDevbookViewTests : IDisposable
         var component = harness.Render(selectedPath: null);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-section .devbook-record select")));
 
-        component.FindAll(".folder-section .devbook-record select")[0].Change("deprecated");
+        await component.ChangeAsync(".folder-section .devbook-record select", "deprecated");
 
         // Auto-save is the one chapter whose status the folder's vocabulary
         // offers a control for, and its fence is the one that must change — not
         // the file's, which is the heading directly above it in the source.
-        component.WaitForAssertion(
-            () =>
-            {
-                var text = File.ReadAllText(Path.Combine(harness.DesignFolder, "interaction-guidelines.md"));
-                Assert.Contains("status: deprecated", text, StringComparison.Ordinal);
-                Assert.Contains("status: draft", text, StringComparison.Ordinal);
-            },
+        var file = Path.Combine(harness.DesignFolder, "interaction-guidelines.md");
+        await Polling.WaitUntilAsync(
+            () => Task.FromResult(RaceSafeTestHelpers.ReadOrNull(file)?.Contains("status: deprecated", StringComparison.Ordinal) == true),
+            () => $"{file} never took the picked status:\n{RaceSafeTestHelpers.ReadOrNull(file)}",
             TimeSpan.FromSeconds(5));
+
+        var text = File.ReadAllText(file);
+        Assert.Contains("status: deprecated", text, StringComparison.Ordinal);
+        Assert.Contains("status: draft", text, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -45,6 +45,9 @@
     <!-- The instruction-source readers followed them into the adapter's
          Instructions/ folder, for the same reason and with the same reach. -->
     <Using Include="Backlog.Infrastructure.Devbook.Instructions" />
+    <!-- And the design/ai document provider into its Documents/ folder; the sync
+         reader and writer it uses went into Chapters/ beside the status writer. -->
+    <Using Include="Backlog.Infrastructure.Devbook.Documents" />
   </ItemGroup>
 
   <ItemGroup>

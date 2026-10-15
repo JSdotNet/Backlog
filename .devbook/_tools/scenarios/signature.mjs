@@ -32,7 +32,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { collapse, normalizePath, parseScenarioPage, SCENARIO_FOLDER } from "./parse.mjs";
+import { collapse, dataFolder, normalizePath, OUTSIDE_ROOT, parseScenarioPage, resolveInside, SCENARIO_FOLDER } from "./parse.mjs";
 
 /** What a data set hashes to when its folder does not exist. */
 export const MISSING_DATA = "missing";
@@ -99,11 +99,11 @@ export function hashFiles(files) {
 export async function hashDataSet(folder) {
     const files = {};
     async function walk(rel) {
-        const entries = await readdir(path.join(folder, rel), { withFileTypes: true });
+        const entries = await readdir(resolveInside(folder, rel), { withFileTypes: true });
         for (const entry of entries) {
             const child = rel ? `${rel}/${entry.name}` : entry.name;
             if (entry.isDirectory()) await walk(child);
-            else if (entry.isFile()) files[child] = await readFile(path.join(folder, child));
+            else if (entry.isFile()) files[child] = await readFile(resolveInside(folder, child));
         }
     }
     try {
@@ -116,12 +116,14 @@ export async function hashDataSet(folder) {
 
 /**
  * A page's signature with its data sets hashed from
- * `<repoRoot>/<scenarioFolder>/data/<name>/`.
+ * `<repoRoot>/<scenarioFolder>/data/<name>/`. A name that resolves outside
+ * that folder reads as `missing`.
  */
 export async function pageSignature(page, repoRoot, scenarioFolder) {
     const hashes = new Map();
     for (const name of page.setup?.data ?? []) {
-        hashes.set(collapse(name), await hashDataSet(path.join(repoRoot, scenarioFolder, "data", collapse(name))));
+        const folder = dataFolder(repoRoot, scenarioFolder, collapse(name));
+        hashes.set(collapse(name), folder ? await hashDataSet(folder) : MISSING_DATA);
     }
     return signatureOf(page, (name) => hashes.get(name) ?? MISSING_DATA);
 }
@@ -143,13 +145,15 @@ async function main(argv) {
     const repoRoot = path.resolve(options.root);
     let failed = false;
     for (const given of options.pages) {
-        const file = path.resolve(repoRoot, given);
-        const relPath = normalizePath(path.relative(repoRoot, file));
+        let relPath = normalizePath(given);
         let page;
         try {
+            const file = resolveInside(repoRoot, given);
+            relPath = normalizePath(path.relative(repoRoot, file));
             page = parseScenarioPage(await readFile(file, "utf8"), relPath);
         } catch (error) {
-            console.error(`${relPath}: ${error.code === "ENOENT" ? "does not exist" : error.message}`);
+            const why = error.code === "ENOENT" ? "does not exist" : error.code === OUTSIDE_ROOT ? "resolves outside the repository" : error.message;
+            console.error(`${relPath}: ${why}`);
             failed = true;
             continue;
         }

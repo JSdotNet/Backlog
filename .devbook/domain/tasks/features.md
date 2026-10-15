@@ -687,14 +687,17 @@ order, independent of recency or priority. Where a task nobody ranked lands is
 type: sub-feature
 status: draft
 related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_plan_leave_out_finished_work_and_a_plan_with_nothing_left_has_no_column]
 ```
 
 The same filtered tasks laid out as columns of cards, under the same filters
 and beside the same open task. The columns can be:
 
 - by status, the default: Draft, Ready, In progress and Done;
-- by plan: one per [Roadmap Tag](domain.md#roadmap-tag) in view, then the tasks
-  in no plan;
+- by plan: one per [Roadmap Tag](domain.md#roadmap-tag) with work left in view,
+  then the tasks in no plan. Only what is still to do is shown: a ticked-off or
+  archived task is no card here, so a plan with nothing left draws no column,
+  the way its tag chip leaves ticked-off tasks out of its count;
 - by repository, with the tasks filed against no repository in a column titled
   **Brain**, the name the scope gives them;
 - by [Priority](domain.md#priority).
@@ -1132,7 +1135,7 @@ app; the sync itself does that now.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/requirements.md#multi-device-sync]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/requirements.md#multi-device-sync, .devbook/domain/sync/features.md#syncing-between-devices]
 depends-on: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
@@ -1154,53 +1157,13 @@ This is deliberate, and it does lose the other edit. Merging field by field woul
 domain rule for reconciling two different priorities or two different statuses,
 and the domain has none. What the person sees is one task with one status.
 
-Both halves are built. [Pairing a device](#pairing-a-device) gives each device
-its identity, and the sync service refuses any call that does not carry a valid
-token. The task change feed is pushed and pulled through the sync service, which
+Both halves are built. [Pairing a device](../sync/features.md#pairing-a-device),
+in the [Sync](../sync/context.md) context, gives each device its identity, and
+the sync service refuses any call that does not carry a valid token. The task change feed is pushed and pulled through the sync service, which
 keeps devices, pairing codes and the task replica in Azure Cosmos DB. The
 desktop's replica merge applies the later-edit-wins rule to each pulled copy.
 How the feed moves is
 [Task Sync](../../arc42/08-crosscutting-concepts.md#task-sync).
-
-### Pairing a device
-
-```meta
-type: sub-feature
-related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/tasks/domain.md#device, .devbook/domain/tasks/requirements.md#pairing-a-device]
-depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
-```
-
-Join a second machine to the same backlog by entering a short pairing code shown
-on the first, once. There is no account and no sign-in: personal use requires no
-login (`.devbook/arc42/02-constraints.md`), so devices are paired to each other rather
-than to an identity.
-
-```mermaid
-sequenceDiagram
-    participant First as First device
-    participant Second as Second device
-    participant Sync as Sync service
-    First->>Sync: Register, naming a new owner
-    Sync-->>First: Registration credential, shown once
-    First->>Sync: Ask for a pairing code
-    Sync-->>First: Pairing code
-    Note over First,Second: The person enters the code on the second device
-    Second->>Sync: Redeem the code
-    Sync-->>Second: Its own registration credential, same owner
-    Second->>Sync: Exchange credential for a device token
-    Sync-->>Second: Short-lived device token
-```
-
-The [Owner](domain.md#owner), [Pairing code](domain.md#pairing-code),
-[Registration credential](domain.md#registration-credential) and
-[Device token](domain.md#device-token) terms give each step's rules. A
-registration credential is never stored anywhere in the clear. Neither device
-ever holds the other's credential.
-
-A paired device can therefore reach exactly one owner's tasks and no one else's.
-The sync service enforces that boundary by reading the owner out of the presented
-token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
-The cloud store does not enforce it on its own.
 
 ## Backup to a repository
 
