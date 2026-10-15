@@ -4,7 +4,7 @@ using Bunit;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The stage list a run's fold draws: the legend, each stage's chips and mark, and one
+/// The stage list a run card draws: the legend, each stage's row on one grid, and one
 /// panel open at a time with the stage's whole execution. What each value means is
 /// <c>DeliveryRunStageResolutionTests</c>'; this is what the list makes of it.
 /// </summary>
@@ -81,6 +81,44 @@ public sealed class DeliveryRunStagesTests
         Assert.Equal("inferred", stages[3].QuerySelector("[data-testid='sessions-stage-mark']")!.GetAttribute("data-mark"));
     }
 
+    /// <summary>
+    /// A row reads, in order: the status dot, the name with its rounds, the mode chip,
+    /// the model with its effort chip and mark, the time or the word for where it
+    /// stands, the cost, the cost against its usual, and the chevron — one fixed grid,
+    /// so the columns line up down the list.
+    /// </summary>
+    [Fact]
+    public void Each_row_reads_dot_name_mode_model_time_cost_usual_and_chevron_in_order()
+    {
+        using var context = new BunitContext();
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, Run()));
+        var implement = list.FindAll("[data-testid='sessions-stage']")[1];
+        var trigger = implement.QuerySelector(".fold__trigger")!;
+
+        Assert.Equal(
+            ["fold__chevron", "fold__label"],
+            trigger.Children.Select(child => child.ClassList[0]));
+        Assert.Equal(
+            ["status-dot", "sessions-stage__name", "sessions-stage__mode", "sessions-stage__ran-on", "sessions-stage__took", "sessions-stage__price", "sessions-stage__against"],
+            trigger.QuerySelector(".fold__label")!.Children.Select(child => child.ClassList[0]));
+
+        // The dot is decorative; the word or the time beside it says the state.
+        var dot = implement.QuerySelector("[data-testid='sessions-stage-dot']")!;
+        Assert.Equal("true", dot.GetAttribute("aria-hidden"));
+        Assert.Equal("done", dot.GetAttribute("data-tone"));
+        Assert.Equal("10m 0s", implement.QuerySelector("[data-testid='sessions-stage-took']")!.TextContent.Trim());
+
+        // Implement was entered twice: its rounds ride on its name.
+        Assert.Equal("· 2 rounds", implement.QuerySelector("[data-testid='sessions-stage-rounds']")!.TextContent.Trim());
+
+        var stages = list.FindAll("[data-testid='sessions-stage']");
+        Assert.Null(stages[0].QuerySelector("[data-testid='sessions-stage-rounds']"));
+        Assert.Equal("In progress", stages[2].QuerySelector("[data-testid='sessions-stage-took']")!.TextContent.Trim());
+        Assert.Equal("Not yet", stages[3].QuerySelector("[data-testid='sessions-stage-took']")!.TextContent.Trim());
+        Assert.Equal("pending", stages[3].QuerySelector("[data-testid='sessions-stage-dot']")!.GetAttribute("data-tone"));
+    }
+
     [Fact]
     public void One_panel_is_open_at_a_time()
     {
@@ -117,17 +155,31 @@ public sealed class DeliveryRunStagesTests
         Assert.Equal("csharp-coding:coding · Sonnet · high effort — from the team default", panel.QuerySelector("[data-testid='sessions-stage-configured']")!.TextContent.Trim());
         Assert.Equal("not recorded", panel.QuerySelector("[data-testid='sessions-stage-skill']")!.TextContent.Trim());
         Assert.Equal("before devbook:validate", panel.QuerySelector("[data-testid='sessions-stage-chores']")!.TextContent.Trim());
-        Assert.Contains("Configured vs ran: agent csharp-coding:coding → general-purpose", panel.QuerySelector("[data-testid='sessions-stage-notes']")!.TextContent);
+        Assert.Equal(
+            ["Ran", "Configured", "Skill", "MCP servers", "Around it"],
+            panel.QuerySelectorAll("dt").Select(term => term.TextContent.Trim()));
+
+        // Why ≠ is a callout under the facts, wearing the warning edge and the mark.
+        var notes = panel.QuerySelector("[data-testid='sessions-stage-notes']")!;
+        Assert.Contains("Configured vs ran: agent csharp-coding:coding → general-purpose", notes.TextContent);
+        Assert.Equal("note", notes.GetAttribute("role"));
+        Assert.Contains("callout--warning", notes.ClassList);
+        Assert.Equal("drift", notes.QuerySelector(".stage-mark")!.GetAttribute("data-mark"));
+
         Assert.Contains("Not recorded: the run saw no sub-agent call", panel.QuerySelector("[data-testid='sessions-stage-workers']")!.TextContent);
 
         var scope = list.FindAll("[data-testid='sessions-stage-panel']")[0];
         Assert.Equal("delivery:phase-scope", scope.QuerySelector("[data-testid='sessions-stage-skill']")!.TextContent.Trim());
         Assert.Equal("backlog", scope.QuerySelector("[data-testid='sessions-stage-mcp']")!.TextContent.Trim());
-        var worker = scope.QuerySelector("[data-testid='sessions-stage-worker']")!;
-        Assert.Equal("architecture:architect", worker.QuerySelector(".data-table__mono")!.TextContent.Trim());
+
+        // The sub-agent runs are a table with headed columns.
         Assert.Equal(
-            "Opus 5.5 · 2m 21s · 52.0K tokens · 33 tool calls · completed",
-            worker.QuerySelector(".sessions-stage__worker-facts")!.TextContent.Trim());
+            ["Sub-agent run", "Model", "Time", "Tokens", "Tool calls", "Result"],
+            scope.QuerySelectorAll("[data-testid='sessions-stage-workers'] th").Select(heading => heading.TextContent.Trim()));
+        var worker = scope.QuerySelector("[data-testid='sessions-stage-worker']")!;
+        Assert.Equal(
+            ["architecture:architect", "Opus 5.5", "2m 21s", "52.0K", "33", "completed"],
+            worker.QuerySelectorAll("td").Select(cell => cell.TextContent.Trim()));
     }
 
     [Fact]
@@ -195,12 +247,14 @@ public sealed class DeliveryRunStagesTests
     [Fact]
     public void An_estimated_sub_agent_cost_says_so_and_an_unpriced_one_says_nothing()
     {
-        Assert.Contains(
-            "$0.0042 estimated from tokens",
-            DeliveryRunStages.WorkerFacts(new DeliveryRunStageWorker("Explore", "claude-sonnet-5", null, null, 1_000, 10, 1, false, false, false, true), new CostFigure(4_200, CostSource.Estimated)));
+        Assert.Equal("$0.0042 estimated from tokens", DeliveryRunStages.CostText(new CostFigure(4_200, CostSource.Estimated)));
 
-        var none = DeliveryRunStages.WorkerFacts(new DeliveryRunStageWorker("Explore", "claude-sonnet-5", null, null, 1_000, 10, 1, false, false, false, true));
-        Assert.DoesNotContain("$", none);
+        using var context = new BunitContext();
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, Run()));
+        list.FindAll("[data-testid='sessions-stage-toggle']")[0].Click();
+
+        Assert.DoesNotContain("$", list.Find("[data-testid='sessions-stage-worker']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -258,8 +312,8 @@ public sealed class DeliveryRunStagesTests
         Assert.Null(stages[3].QuerySelector("[data-testid='sessions-stage-usual']"));
     }
 
-    /// <summary>Scenario evidence sits under the stage that reported it: its folded
-    /// row counts the passing parts, and its panel lists them. A stage without
+    /// <summary>Scenario evidence sits under the stage that reported it: its row
+    /// counts the passing parts, and its panel lists them. A stage without
     /// evidence carries neither.</summary>
     [Fact]
     public void Only_the_stage_with_evidence_carries_the_checklist_in_its_panel()
@@ -306,14 +360,15 @@ public sealed class DeliveryRunStagesTests
         var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run));
         var stages = list.FindAll("[data-testid='sessions-stage']");
 
-        // The rows: what the latest pass reported, which here ended clean.
-        Assert.Equal("round 1", Found(stages[2])!.TextContent.Trim());
-        Assert.Equal("round 1 · no blockers", Found(stages[3])!.TextContent.Trim());
+        // The rows: what the latest pass left behind, which here ended clean; the
+        // round rides on the name, so Implement's lone round 1 says nothing there.
+        Assert.Null(Found(stages[2]));
+        Assert.Equal("no blockers", Found(stages[3])!.TextContent.Trim());
         Assert.Equal("clean", Found(stages[3])!.GetAttribute("data-tone"));
         Assert.Equal("no defects", Found(stages[5])!.TextContent.Trim());
         Assert.Null(Found(stages[4]));
 
-        // The panels: the run's record across every pass, which did not.
+        // The panels: the latest pass, then the run's record across every pass.
         Assert.Equal(
             "Latest pass: round 1 · no blockers. Across the run: 3 review rounds, 2 blockers left open over 3 rounds",
             FoundFact(stages[3]));
@@ -333,7 +388,8 @@ public sealed class DeliveryRunStagesTests
         var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run));
         var stages = list.FindAll("[data-testid='sessions-stage']");
 
-        Assert.Equal("round 2 · no blockers", Found(stages[3])!.TextContent.Trim());
+        Assert.Equal("no blockers", Found(stages[3])!.TextContent.Trim());
+        Assert.Equal("· 2 rounds", stages[3].QuerySelector("[data-testid='sessions-stage-rounds']")!.TextContent.Trim());
 
         var verify = Found(stages[5])!;
         Assert.Equal("1 defect found", verify.TextContent.Trim());
@@ -372,7 +428,7 @@ public sealed class DeliveryRunStagesTests
         var gate = list.FindAll("[data-testid='sessions-stage-panel']")[2];
 
         Assert.Equal("revise · round 3", gate.QuerySelector("[data-testid='sessions-stage-revise']")!.TextContent.Trim());
-        Assert.DoesNotContain("round 3", gate.QuerySelector(".sessions-stage__worker-facts")!.TextContent);
+        Assert.Null(gate.QuerySelector("[data-testid='sessions-stage-worker'] .sessions-stage__qualifier"));
     }
 
     [Fact]
@@ -380,8 +436,8 @@ public sealed class DeliveryRunStagesTests
     {
         var worker = new DeliveryRunStageWorker("Explore", "claude-sonnet-5", null, "contract", 1_000, 10, 1, false, false, false, true);
 
-        Assert.DoesNotContain("round", DeliveryRunStages.WorkerFacts(worker));
-        Assert.Contains("slice contract · round 2", DeliveryRunStages.WorkerFacts(worker with { Round = 2 }));
+        Assert.Equal("slice contract", DeliveryRunStages.WorkerQualifier(worker));
+        Assert.Equal("slice contract · round 2", DeliveryRunStages.WorkerQualifier(worker with { Round = 2 }));
         Assert.Equal("revise round", DeliveryRunStages.ReviseLabel(worker));
     }
 

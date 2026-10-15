@@ -528,9 +528,10 @@ public sealed class SessionsPaneDetailTests
     }
 
     /// <summary>
-    /// A run against its usual: the cost on the run's header in place of the output
-    /// tokens, each stage's share and ratio, and the insight line naming the stage
-    /// that explains the difference — against five earlier finished runs of its flow.
+    /// A run against its usual: the estimated cost as a tile, each stage's share and
+    /// ratio, and the insight callout directly under the header — the run's ratio as
+    /// its headline and the stage that explains the difference as its why — against
+    /// five earlier finished runs of its flow.
     /// </summary>
     [Fact]
     public void A_finished_run_reads_its_cost_against_the_usual_run_of_its_flow()
@@ -562,12 +563,19 @@ public sealed class SessionsPaneDetailTests
         {
             var line = pane.Find("[data-testid='sessions-run'][data-run-id='run-now']");
 
-            Assert.Contains("$10.00 est. cost", line.QuerySelector(".fold__trigger")!.TextContent, StringComparison.Ordinal);
-            Assert.DoesNotContain("output tokens", line.QuerySelector(".fold__trigger")!.TextContent, StringComparison.Ordinal);
+            var cost = line.QuerySelector("[data-testid='sessions-run-figure-cost']")!;
+            Assert.Equal("Est. cost", cost.QuerySelector(".metric-tile__label")!.TextContent.Trim());
+            Assert.Equal("$10.00", cost.QuerySelector(".metric-tile__value")!.TextContent.Trim());
 
+            // The callout is the first thing in the card's body, under the header.
             var insight = line.QuerySelector("[data-testid='sessions-run-insight']")!;
+            Assert.Same(line.QuerySelector("[data-testid='sessions-run-panel']")!.FirstElementChild, insight);
+            Assert.Equal("note", insight.GetAttribute("role"));
             Assert.Equal("higher", insight.GetAttribute("data-band"));
-            Assert.Equal("2.0× the usual flow-code run · Implement explains most of it: $5.00 over its usual, entered again once", insight.TextContent);
+            Assert.Contains("callout--warning", insight.ClassList);
+            Assert.NotNull(insight.QuerySelector(".callout__icon svg.lightbulb-icon[aria-hidden='true']"));
+            Assert.Equal("2.0× the usual flow-code run", insight.QuerySelector("[data-testid='sessions-run-insight-heading']")!.TextContent.Trim());
+            Assert.Equal("Implement explains most of it: $5.00 over its usual, entered again once", insight.QuerySelector("[data-testid='sessions-run-insight-text']")!.TextContent.Trim());
 
             Assert.StartsWith("100%", line.QuerySelector("[data-testid='sessions-stage-share']")!.TextContent);
             Assert.StartsWith("2.0×", line.QuerySelector("[data-testid='sessions-stage-ratio']")!.TextContent);
@@ -575,8 +583,8 @@ public sealed class SessionsPaneDetailTests
     }
 
     /// <summary>
-    /// The insight line is a way into Delivery economics: a real button that opens the
-    /// page inside the takeover, on the run's own flow.
+    /// The insight callout is a way into Delivery economics: its action is a real button
+    /// that opens the page inside the takeover, on the run's own flow.
     /// </summary>
     [Fact]
     public void A_finished_runs_insight_line_opens_delivery_economics_on_its_flow()
@@ -588,11 +596,14 @@ public sealed class SessionsPaneDetailTests
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']")));
 
         var insight = pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']");
-        Assert.Equal("BUTTON", insight.TagName);
         Assert.Equal("higher", insight.GetAttribute("data-band"));
-        Assert.Contains("Opens Delivery economics for flow-code", insight.GetAttribute("title"), StringComparison.Ordinal);
 
-        insight.Click();
+        var action = insight.QuerySelector("[data-testid='sessions-run-insight-action']")!;
+        Assert.Equal("BUTTON", action.TagName);
+        Assert.Equal("Compare configurations for this flow", action.TextContent.Trim());
+        Assert.Contains("Opens Delivery economics for flow-code", action.GetAttribute("title"), StringComparison.Ordinal);
+
+        action.Click();
 
         pane.WaitForAssertion(() =>
         {
@@ -603,8 +614,8 @@ public sealed class SessionsPaneDetailTests
         });
     }
 
-    /// <summary>A run still under way has no insight line, and so no way into the page
-    /// from it.</summary>
+    /// <summary>A run still under way has no insight callout, and so no way into the
+    /// page from it.</summary>
     [Fact]
     public void A_run_with_no_insight_offers_no_way_into_delivery_economics()
     {
@@ -662,7 +673,7 @@ public sealed class SessionsPaneDetailTests
         });
     }
 
-    /// <summary>Back from a page an insight line opened returns the focus to that line.</summary>
+    /// <summary>Back from a page an insight callout opened returns the focus to its action.</summary>
     [Fact]
     public void Back_from_a_page_an_insight_line_opened_returns_the_focus_to_the_line()
     {
@@ -673,23 +684,61 @@ public sealed class SessionsPaneDetailTests
         var pane = context.Render<SessionsPane>();
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']")));
-        var id = pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']").Id;
+        var id = pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight-action']").Id;
         Assert.StartsWith("sessions-run-insight-", id, StringComparison.Ordinal);
 
-        pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']").Click();
+        pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight-action']").Click();
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
 
         pane.Find("[data-testid='economics-back']").Click();
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(id, pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']").Id);
+            Assert.Equal(id, pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight-action']").Id);
             Assert.Equal(id, focus.Invocations.Last().Arguments[0]);
         });
     }
 
     /// <summary>
-    /// A Refresh on the page drops the runs' comparisons, so the insight line that opened
+    /// An earlier run's callout sits inside its fold, and the list is drawn afresh on Back,
+    /// folded again: Back opens that run's fold first, so the action the focus returns to
+    /// is on screen rather than inside a hidden body.
+    /// </summary>
+    [Fact]
+    public void Back_from_a_page_an_earlier_runs_insight_opened_unfolds_that_run_and_focuses_its_action()
+    {
+        using var context = InsightContext(earlierOnRow: true);
+        context.JSInterop.Mode = JSRuntimeMode.Strict;
+        var focus = context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        focus.SetVoidResult();
+
+        var pane = context.Render<SessionsPane>();
+
+        const string Earlier = "[data-testid='sessions-run'][data-run-id='run-prev']";
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find($"{Earlier} [data-testid='sessions-run-insight-action']")));
+        Assert.True(pane.Find($"{Earlier} [data-testid='sessions-run-panel']").HasAttribute("hidden"));
+
+        pane.Find($"{Earlier} [data-testid='sessions-run-fold']").Click();
+        pane.WaitForAssertion(() => Assert.False(pane.Find($"{Earlier} [data-testid='sessions-run-panel']").HasAttribute("hidden")));
+
+        var id = pane.Find($"{Earlier} [data-testid='sessions-run-insight-action']").Id;
+        pane.Find($"{Earlier} [data-testid='sessions-run-insight-action']").Click();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
+
+        pane.Find("[data-testid='economics-back']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.False(pane.Find($"{Earlier} [data-testid='sessions-run-panel']").HasAttribute("hidden"));
+            Assert.Equal("true", pane.Find($"{Earlier} [data-testid='sessions-run-fold']").GetAttribute("aria-expanded"));
+            Assert.Equal(id, pane.Find($"{Earlier} [data-testid='sessions-run-insight-action']").Id);
+            Assert.Equal(id, focus.Invocations.Last().Arguments[0]);
+        });
+    }
+
+    /// <summary>
+    /// A Refresh on the page drops the runs' comparisons, so the insight callout that opened
     /// it is not drawn when the list comes back: Back then puts the focus on the header's
     /// button rather than on an id nobody wears.
     /// </summary>
@@ -703,7 +752,7 @@ public sealed class SessionsPaneDetailTests
         var pane = context.Render<SessionsPane>();
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']")));
-        pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight']").Click();
+        pane.Find("[data-testid='sessions-run'][data-run-id='run-now'] [data-testid='sessions-run-insight-action']").Click();
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
 
         pane.Find("[data-testid='economics-refresh']").Click();
@@ -849,7 +898,7 @@ public sealed class SessionsPaneDetailTests
 
     /// <summary>The run and its five earlier runs of the insight test, on the clock of
     /// the day they ran.</summary>
-    private static BunitContext InsightContext()
+    private static BunitContext InsightContext(bool earlierOnRow = false)
     {
         static DeliveryRunTokenUsage Spent(long input) => new(
             new DeliveryRunTokens(1, input, 0, 0, 0, 0),
@@ -868,7 +917,13 @@ public sealed class SessionsPaneDetailTests
         var now = Priced("run-now", Noon.AddMinutes(-90), 2_000_000, done: 2) with { SessionIds = [Claude.Id] };
         var earlier = Enumerable.Range(1, 5).Select(day => Priced($"run-{day}", Noon.AddDays(-day), 1_000_000) with { Worktree = $"wt-{day}-1a2b3c4d" });
 
-        var context = Context([Claude], [now, .. earlier]);
+        // A second, earlier run on the same row, folded under the latest, with an
+        // insight of its own over the same five runs before it.
+        DeliveryRun[] onRow = earlierOnRow
+            ? [now, Priced("run-prev", Noon.AddMinutes(-180), 2_000_000, done: 2) with { SessionIds = [Claude.Id] }]
+            : [now];
+
+        var context = Context([Claude], [.. onRow, .. earlier]);
         context.Services.AddSingleton<IClaudeApiRequestStore>(new StubRequestStore([]));
         context.Services.AddSingleton<IModelPriceStore>(new StubPriceStore(new ModelPriceTable([new ModelPrice("opus", 5m, 25m, 0.5m, 6.25m)])));
         context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));

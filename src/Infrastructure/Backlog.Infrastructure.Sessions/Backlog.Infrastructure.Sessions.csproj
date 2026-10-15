@@ -3,8 +3,8 @@
   <!--
     The Sessions context's disk adapters: the readers of the Claude and Copilot
     transcripts and session files in the signed-in profile, the delivery-run stores
-    and their telemetry, the delivery surface's writing half, the Archify runner that
-    draws a run, and the composites the hosts' registrations stand behind them.
+    and their telemetry, the delivery surface's writing half, and the composites the
+    hosts' registrations stand behind them.
 
     They used to sit in Backlog.Modules.Sessions.UI/Adapters, which made the screen
     project the adapter. They answer the module's published ports and nothing else,

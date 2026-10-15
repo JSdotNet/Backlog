@@ -65,6 +65,32 @@
         </div>
     </Story>
 
+    <Story Name="Callout"
+           Description="Renders role note by default, so it says nothing on render; Role overrides it. Icon is the glyph slot, drawn as the host passes it. Heading is the headline and ChildContent the paragraph under it; with neither, nothing renders. ActionLabel and OnAction draw one link-weight button under the text — both or nothing — and ActionId puts an id on it. Tone is quiet by default, or warning, which draws the edge in the warning colour; any other word draws quiet.
+
+                        The Sessions pane draws a delivery run's insight as one, and a stage's ≠ explanation as another with the stage mark as its glyph."
+           Code="@CalloutCode">
+        <div class="sb-stack">
+            <Callout Heading="2.1× the usual flow-code run"
+                     Tone="warning"
+                     ActionLabel="Compare configurations for this flow"
+                     OnAction="() => _calloutOpened++"
+                     ActionTestId="callout-action"
+                     TestId="callout-insight">
+                <Icon><LightbulbIcon Size="18" /></Icon>
+                <ChildContent>Implement explains most of it: $3.40 over its usual, entered again twice, over 3 review rounds.</ChildContent>
+            </Callout>
+            <p class="sb-state" data-testid="callout-opened">Opened: @_calloutOpened</p>
+            <Callout TestId="callout-drift">
+                <Icon><StageMark Kind="StageMarkKind.Drift" Title="Not as configured: model Opus 5.5 → Sonnet 5.5" /></Icon>
+                <ChildContent>Configured vs ran: model Opus 5.5 → Sonnet 5.5. The session hit its weekly Opus limit, so the runner retried on Sonnet.</ChildContent>
+            </Callout>
+            <Callout Heading="About the usual flow-code run (1.0× its median)" TestId="callout-quiet">
+                <Icon><LightbulbIcon Size="18" /></Icon>
+            </Callout>
+        </div>
+    </Story>
+
     <Story Name="EmptyState"
            Description="With an action when there is something to do about it, without one when there is not."
            Code="@EmptyCode">
@@ -127,9 +153,23 @@
     </Story>
 
     <Story Name="FlowSteps"
-           Description="A process someone else is running, drawn as a flow: one node per step in order, joined by connectors, wrapping into rows in a narrow column. Five tones — pending, active, done, blocked, skipped — each drawn on the node's edge and mark, with its own glyph, and said in words on the status line, so colour is never the only carrier. The current step carries aria-current and the whole flow is an ordered list. Notes under a step say who worked in it and on what — the Sessions pane puts a delivery run's owner session and each delegated agent there, with the model it ran on."
+           Description="A process someone else is running, drawn as a flow: one node per step in order, joined by connectors, wrapping into rows in a narrow column. Five tones — pending, active, done, blocked, skipped — each drawn on the node's edge and mark, with its own glyph, and said in words on the status line, so colour is never the only carrier. The current step carries aria-current and the whole flow is an ordered list. Notes under a step say who worked in it and on what: the owner session and each delegated agent, with the model it ran on."
            Code="@FlowStepsCode">
         <FlowSteps AriaLabel="Stages of the run" TestId="flow-steps-sample" Steps="@SampleFlow" />
+    </Story>
+
+    <Story Name="StatusDot"
+           Description="A FlowSteps node at the size of a row's head, for a list that already says the state in a word beside it. The five tones are told apart by shape as well as colour — done filled, active filled inside a ring, blocked a square, pending a hollow ring and skipped a dashed one — and the dot is aria-hidden, so a screen reader hears the word once and never a colour."
+           Code="@StatusDotCode">
+        <div class="sb-stack">
+            @foreach (var tone in Enum.GetValues<FlowStepTone>())
+            {
+                <div class="sb-row">
+                    <StatusDot Tone="@tone" TestId="@($"status-dot-{tone.ToString().ToLowerInvariant()}")" />
+                    <span>@tone</span>
+                </div>
+            }
+        </div>
     </Story>
 
     <Story Name="StageStrip"
@@ -304,6 +344,29 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
 
     private const string StageStripCode = """
         <StageStrip Steps="@Steps" Summary="flow-code · Implementation (2 of 5)" />
+        """;
+
+    private int _calloutOpened;
+
+    private const string CalloutCode = """
+        <Callout Heading="2.1× the usual flow-code run"
+                 Tone="warning"
+                 ActionLabel="Compare configurations for this flow"
+                 ActionId="@insightId"
+                 OnAction="OpenEconomics">
+            <Icon><LightbulbIcon Size="18" /></Icon>
+            <ChildContent>Implement explains most of it: $3.40 over its usual, entered again twice.</ChildContent>
+        </Callout>
+
+        <Callout>
+            <Icon><StageMark Kind="StageMarkKind.Drift" Title="@differences" /></Icon>
+            <ChildContent>Configured vs ran: model Opus 5.5 → Sonnet 5.5.</ChildContent>
+        </Callout>
+        """;
+
+    private const string StatusDotCode = """
+        <StatusDot Tone="FlowStepTone.Done" />
+        <span>Done</span>
         """;
 
     private const string FlowStepsCode = """
