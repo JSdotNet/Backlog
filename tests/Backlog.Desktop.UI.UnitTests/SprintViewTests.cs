@@ -304,6 +304,14 @@ public sealed class SprintViewTests : IDisposable
     }
 
     [Fact]
+    public void Before_its_first_working_day_an_open_sprint_reads_when_it_starts_and_how_many_working_days_it_has()
+    {
+        var progress = Progress(0) with { Start = new DateOnly(2026, 10, 26) };
+
+        Assert.Equal("Starts Mon 26 Oct · 10 working days", SprintBoardMapper.DayText(progress));
+    }
+
+    [Fact]
     public void The_goal_rules_read_as_the_plans_and_rules_that_counted_them()
     {
         Assert.Equal(
