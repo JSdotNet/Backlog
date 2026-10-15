@@ -99,6 +99,17 @@ public sealed class DpapiDeviceCredentialStore : IDeviceCredentialStore
         Changed?.Invoke();
     }
 
+    /// <summary>The port's save: <see cref="Save"/>, which has nothing to wait
+    /// for, under a completed task. A failure throws from the call, as the port
+    /// allows.</summary>
+    public Task SaveAsync(DeviceCredential credential, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        Save(credential);
+        return Task.CompletedTask;
+    }
+
     public void Clear()
     {
         Current = null;

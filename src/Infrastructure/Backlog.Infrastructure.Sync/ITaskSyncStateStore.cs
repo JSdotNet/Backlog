@@ -111,7 +111,7 @@ public interface ITaskSyncStateStore
     /// <summary>Records the state, replacing what was there, and raises
     /// <see cref="Changed"/>. A store that cannot record it throws and leaves
     /// <see cref="Current"/> alone — the same contract
-    /// <see cref="IDeviceCredentialStore.Save"/> keeps, and for a related
+    /// <see cref="IDeviceCredentialStore.SaveAsync"/> keeps, and for a related
     /// reason: a watermark that moved in memory but not on disk would skip
     /// everything between the two on the next run.</summary>
     void Save(TaskSyncState state);

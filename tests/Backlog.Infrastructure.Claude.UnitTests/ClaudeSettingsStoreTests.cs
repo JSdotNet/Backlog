@@ -77,6 +77,120 @@ public class ClaudeSettingsStoreTests
         Assert.Equal("work", reopened.DisplayName);
     }
 
+    // --- The key at rest (local ADR 0030) ----------------------------------------
+
+    /// <summary>
+    /// The admin key is sealed under the signed-in Windows user rather than written
+    /// in the clear; the rest of the file stays legible. Read as text, because a
+    /// store that read the key back perfectly while leaving it in the file would
+    /// pass every test that only read it back.
+    /// </summary>
+    [Fact]
+    public void A_saved_key_is_not_in_the_file_and_a_restart_reads_it_back()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        using var directory = new TemporaryDirectory();
+        var path = directory.File("claude.json");
+
+        var store = new ClaudeSettingsStore(path);
+        var id = store.Current.Accounts[0].Id;
+        store.SetAdminApiKey(id, "sk-ant-admin01-at-rest");
+        store.SetApiEndpoint(id, "https://claude.example.internal");
+
+        var text = File.ReadAllText(path);
+        Assert.DoesNotContain("sk-ant-admin01-at-rest", text, StringComparison.Ordinal);
+        Assert.Contains("\"adminApiKey\": \"dpapi:", text, StringComparison.Ordinal);
+        Assert.Contains($"\"id\": \"{id}\"", text, StringComparison.Ordinal);
+        Assert.Contains("\"apiEndpoint\": \"https://claude.example.internal\"", text, StringComparison.Ordinal);
+
+        Assert.Equal("sk-ant-admin01-at-rest", Assert.Single(new ClaudeSettingsStore(path).Current.Accounts).AdminApiKey);
+    }
+
+    /// <summary>A file the release before the envelope wrote holds the key in the
+    /// clear. It opens with the key, and the plaintext is gone from the disk once
+    /// it has, without waiting for a save.</summary>
+    [Fact]
+    public void A_plaintext_key_from_an_earlier_release_is_read_and_sealed_on_first_read()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        using var directory = new TemporaryDirectory();
+        var path = directory.File("claude.json");
+        File.WriteAllText(path, """
+            {
+              "accounts": [
+                { "id": "personal", "adminApiKey": "sk-ant-admin01-plaintext", "actor": "me@example.com" }
+              ]
+            }
+            """);
+
+        var store = new ClaudeSettingsStore(path);
+
+        var account = Assert.Single(store.Current.Accounts);
+        Assert.Equal("sk-ant-admin01-plaintext", account.AdminApiKey);
+
+        var text = File.ReadAllText(path);
+        Assert.DoesNotContain("sk-ant-admin01-plaintext", text, StringComparison.Ordinal);
+        Assert.Contains("\"adminApiKey\": \"dpapi:", text, StringComparison.Ordinal);
+        Assert.Contains("\"actor\": \"me@example.com\"", text, StringComparison.Ordinal);
+
+        var reopened = Assert.Single(new ClaudeSettingsStore(path).Current.Accounts);
+        Assert.Equal("personal", reopened.Id);
+        Assert.Equal("sk-ant-admin01-plaintext", reopened.AdminApiKey);
+    }
+
+    /// <summary>The oldest shape: the flat file from before accounts. Its key is
+    /// sealed on first read as well, which also moves the file to the list
+    /// shape.</summary>
+    [Fact]
+    public void A_flat_settings_files_plaintext_key_is_sealed_on_first_read()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        using var directory = new TemporaryDirectory();
+        var path = directory.File("claude.json");
+        File.WriteAllText(path, """
+            { "adminApiKey": "sk-ant-admin01-flat", "actor": "person@example.com" }
+            """);
+
+        var store = new ClaudeSettingsStore(path);
+
+        Assert.Equal("sk-ant-admin01-flat", Assert.Single(store.Current.Accounts).AdminApiKey);
+        Assert.DoesNotContain("sk-ant-admin01-flat", File.ReadAllText(path), StringComparison.Ordinal);
+        Assert.Equal("sk-ant-admin01-flat", Assert.Single(new ClaudeSettingsStore(path).Current.Accounts).AdminApiKey);
+    }
+
+    /// <summary>An envelope this Windows user cannot open (corrupt, or sealed
+    /// under another profile or on another machine) reads as no key, and the rest
+    /// of the account still loads. Entering the key again in Settings is the
+    /// recovery.</summary>
+    [Theory]
+    [InlineData("dpapi:dGhpcyBpcyBiYXNlNjQgYnV0IG5vdCBhIERQQVBJIGVudmVsb3Bl")]
+    [InlineData("dpapi:this is not base64 at all !!")]
+    [InlineData("dpapi:")]
+    public void A_key_this_user_cannot_open_reads_as_no_key_and_the_rest_still_loads(string stored)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        using var directory = new TemporaryDirectory();
+        var path = directory.File("claude.json");
+        File.WriteAllText(path, $$"""
+            {
+              "accounts": [
+                { "id": "work", "displayName": "work", "adminApiKey": "{{stored}}", "actor": "me@employer.example" }
+              ]
+            }
+            """);
+
+        var account = Assert.Single(new ClaudeSettingsStore(path).Current.Accounts);
+
+        Assert.Null(account.AdminApiKey);
+        Assert.Equal("work", account.Id);
+        Assert.Equal("work", account.DisplayName);
+        Assert.Equal("me@employer.example", account.Actor);
+    }
+
     [Fact]
     public void Two_accounts_keep_their_own_keys_endpoints_and_actors_across_a_restart()
     {

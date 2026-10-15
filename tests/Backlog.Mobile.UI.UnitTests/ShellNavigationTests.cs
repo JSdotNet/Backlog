@@ -119,7 +119,7 @@ public sealed class ShellNavigationTests
 
         Assert.Equal(SyncStatusReading.NotPaired, tracker.Current);
 
-        credentials.Save(new DeviceCredential(Guid.NewGuid(), Guid.NewGuid(), "Phone", "a-registration-credential"));
+        await credentials.SaveAsync(new DeviceCredential(Guid.NewGuid(), Guid.NewGuid(), "Phone", "a-registration-credential"), TestContext.Current.CancellationToken);
         Assert.Equal(SyncStatusReading.Synced(null), tracker.Current);
 
         tracker.RecordSynced();

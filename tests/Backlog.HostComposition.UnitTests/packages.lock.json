@@ -893,7 +893,8 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.12, )",
           "Microsoft.Extensions.Http": "[10.0.12, )",
-          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )"
+          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
       "backlog.infrastructure.capture": {
@@ -910,7 +911,8 @@
         "dependencies": {
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.12, )",
-          "Microsoft.Extensions.Http": "[10.0.12, )"
+          "Microsoft.Extensions.Http": "[10.0.12, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
       "backlog.infrastructure.copilot": {
@@ -970,7 +972,8 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.12, )",
           "Microsoft.Extensions.Http": "[10.0.12, )",
-          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )"
+          "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
         }
       },
       "backlog.infrastructure.mcp": {
