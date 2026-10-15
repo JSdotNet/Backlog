@@ -57,6 +57,7 @@ between inherited ADRs 0005 and 0009.
 - **[0028 — Progress is its own boundary, and Tasks knows no sprints](0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md)** *(proposed, not yet built)*
 - **[0030 — Every stored credential goes through the OS-protected envelope](0030-stored-credentials-go-through-the-os-protected-envelope.md)** *(proposed, built; the MCP token of 0012 is its one exception)*
 - **[0031 — GitHub calls resolve their account per repository, and a token taken from the GitHub CLI is never stored](0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md)** *(proposed, built in PR #493; ADR 0021 syncs the accounts it resolves)*
+- **[0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)** *(accepted, built in PR #1316; widens what Ask AI sends, beside 0023)*
 
 ## Inherited decisions
 
