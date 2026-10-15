@@ -98,6 +98,38 @@ public class TaskItemLifecycleTests
         }
         return entry;
     }
+
+    /// <summary>A restore is the later version of the task: live again, and stamped
+    /// past the tombstone even when the tombstone came from a faster clock, so every
+    /// copy that keeps the later version keeps this one.</summary>
+    [Fact]
+    public void A_restored_task_is_live_again_and_stamped_after_its_tombstone()
+    {
+        var entry = NewEntry();
+        var deletedAhead = DateTimeOffset.UtcNow.AddMinutes(5);
+        entry.LoadStamps(deletedAhead, deletedAhead);
+
+        entry.Restore();
+
+        Assert.Null(entry.DeletedAt);
+        Assert.True(entry.UpdatedAt > deletedAhead);
+    }
+
+    /// <summary>Deleting a restored task is a deletion like any other: a second
+    /// tombstone, stamped after the restore.</summary>
+    [Fact]
+    public void A_restored_task_deleted_again_is_a_tombstone_again()
+    {
+        var entry = NewEntry();
+        entry.MarkDeleted();
+        entry.Restore();
+        var restoredAt = entry.UpdatedAt;
+
+        entry.MarkDeleted();
+
+        Assert.NotNull(entry.DeletedAt);
+        Assert.True(entry.UpdatedAt > restoredAt);
+    }
 }
 
 public class TaskItemSubItemTests

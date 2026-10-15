@@ -267,8 +267,8 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                 // it, and a sync that worked must leave a trace there too.
                 var summary = result.Value;
                 _log.LogInformation(
-                    "Linked task sync for {Connector} {Target}: {Fetched} fetched, {Created} created, {Updated} updated, {Archived} archived",
-                    connectorId, target, summary.Fetched, summary.Created, summary.Updated, summary.Vanished);
+                    "Linked task sync for {Connector} {Target}: {Fetched} fetched, {Created} created, {Restored} restored, {Updated} updated, {Archived} archived",
+                    connectorId, target, summary.Fetched, summary.Created, summary.Restored, summary.Updated, summary.Vanished);
                 return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(result.Value)}.");
             }
         }
@@ -288,8 +288,9 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
     /// nothing did.</summary>
     private static string Describe(LinkedTaskSyncSummary summary)
     {
-        var parts = new List<string>(3);
+        var parts = new List<string>(4);
         if (summary.Created > 0) parts.Add($"{summary.Created} new");
+        if (summary.Restored > 0) parts.Add($"{summary.Restored} restored");
         if (summary.Updated > 0) parts.Add($"{summary.Updated} updated");
         if (summary.Vanished > 0) parts.Add($"{summary.Vanished} archived as gone");
 

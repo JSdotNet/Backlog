@@ -2,6 +2,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.DeleteDisconnectedLinkedTasks;
+using Backlog.Modules.Tasks.Features.DeleteTask;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.SharedKernel.Results;
 
@@ -12,8 +13,9 @@ namespace Backlog.Modules.Tasks.UnitTests.LinkedTasks;
 /// are listed, and deleting one source's tasks. What is worth holding: only a pair
 /// with no connected target is listed, its count covers every status, a pair
 /// connected again is refused rather than emptied, the delete is a tombstone that
-/// touches nothing else, and a tombstone keeps the sync from bringing the task
-/// back once the source is connected again.
+/// touches nothing else and marks each task as deleted with its source, and the
+/// sync brings those back once the source is connected again — but not a task
+/// deleted on its own.
 /// </summary>
 public sealed class DeleteDisconnectedLinkedTasksTests
 {
@@ -142,6 +144,10 @@ public sealed class DeleteDisconnectedLinkedTasksTests
         Assert.All([ready, done, archived], task => Assert.NotNull(task.DeletedAt));
         Assert.All([otherSource, local, connected], task => Assert.Null(task.DeletedAt));
 
+        // What tells the sync these went with their source, and may come back with it.
+        Assert.All([ready, done, archived], task => Assert.True(task.SourceRef!.HasFlag(LinkedTaskFlags.DeletedWithSource)));
+        Assert.All([otherSource, connected], task => Assert.False(task.SourceRef!.HasFlag(LinkedTaskFlags.DeletedWithSource)));
+
         // The dependent is left as it was: the same as deleting one task by hand.
         Assert.Equal([ready.Id.ToString()], local.DependsOn);
         Assert.Equal(3, _tasks.Writes);
@@ -175,10 +181,13 @@ public sealed class DeleteDisconnectedLinkedTasksTests
         Assert.Equal(0, _tasks.Writes);
     }
 
-    /// <summary>The point of a tombstone over a removed row: connecting the source
-    /// again and syncing it does not bring the deleted tasks back.</summary>
+    /// <summary>The tombstone still keeps another machine from bringing the tasks
+    /// back, but it no longer outlives the source: connecting the source again and
+    /// syncing it brings back every task deleted with it, live, stamped past the
+    /// tombstone so the restore wins on every copy, and with the source's word on
+    /// it again.</summary>
     [Fact]
-    public async Task Connecting_the_source_again_does_not_bring_the_deleted_tasks_back()
+    public async Task Connecting_the_source_again_brings_the_deleted_tasks_back()
     {
         var connector = new StubTaskConnector();
         connector.Items.Add(Item("I_1"));
@@ -189,13 +198,44 @@ public sealed class DeleteDisconnectedLinkedTasksTests
 
         _targets.Remove(StubTaskConnector.Id, Repo);
         Assert.Equal(2, (await DeleteAsync(StubTaskConnector.Id, Repo)).Value);
+        var tombstonedAt = _tasks.Entries.Values.ToDictionary(task => task.Id, task => task.UpdatedAt);
 
+        connector.Items[0] = connector.Items[0] with { Title = "Renamed at the source" };
         _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo));
         var again = await SyncAsync(connector);
 
-        Assert.Equal(0, again.Created);
-        Assert.Equal(2, again.SkippedTombstoned);
-        Assert.Empty(await _tasks.ListAsync(TestContext.Current.CancellationToken));
+        Assert.Equal((0, 2, 0), (again.Created, again.Restored, again.SkippedTombstoned));
+        var restored = await _tasks.ListAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(2, restored.Count);
+        Assert.All(restored, task =>
+        {
+            Assert.Null(task.DeletedAt);
+            Assert.True(task.UpdatedAt > tombstonedAt[task.Id]);
+            Assert.False(task.SourceRef!.HasFlag(LinkedTaskFlags.DeletedWithSource));
+        });
+        Assert.Equal("Renamed at the source", _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_1")].Title);
+    }
+
+    /// <summary>A task the sync brought back is the person's again: deleting it on
+    /// its own is a single delete, and the sync after that leaves it deleted.</summary>
+    [Fact]
+    public async Task A_task_brought_back_and_then_deleted_on_its_own_stays_deleted()
+    {
+        var connector = new StubTaskConnector();
+        connector.Items.Add(Item("I_1"));
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo));
+        await SyncAsync(connector);
+        _targets.Remove(StubTaskConnector.Id, Repo);
+        await DeleteAsync(StubTaskConnector.Id, Repo);
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo));
+        Assert.Equal(1, (await SyncAsync(connector)).Restored);
+
+        var id = LinkedTaskIds.For(StubTaskConnector.Id, "I_1");
+        await new DeleteTaskCommandHandler(_tasks).Handle(new DeleteTaskCommand(id), TestContext.Current.CancellationToken);
+        var again = await SyncAsync(connector);
+
+        Assert.Equal((0, 1), (again.Restored, again.SkippedTombstoned));
+        Assert.NotNull(_tasks.Entries[id].DeletedAt);
     }
 
     // --- Helpers ----------------------------------------------------------------

@@ -28,6 +28,11 @@
     until a sync succeeds: a target that stopped syncing says why on its own card.
     What the host's answer to this card's Sync now was is shown on this card too,
     so two cards syncing at once never read each other's answer.
+
+    A target whose tasks were deleted offers to restore them, when the host listens
+    and says how many there are. The card only raises the request: the host asks
+    before it restores anything, since the count may include tasks the person
+    deleted one by one.
 *@
 
 <Card Compact="true" CssClass="connected-target" TestId="@TestId" AriaLabel="@($"{Options.ConnectorName} {Options.Target}")">
@@ -126,7 +131,7 @@
         </fieldset>
     }
 
-    @if (OnSyncNow.HasDelegate || OnRemove.HasDelegate)
+    @if (OnSyncNow.HasDelegate || OnRemove.HasDelegate || OffersRestore)
     {
     <div class="connected-target__actions">
         @if (OnSyncNow.HasDelegate)
@@ -139,6 +144,17 @@
                        TestId="@Suffix("sync")"
                        OnClick="() => _acts.RunAsync(SyncAct, () => OnSyncNow.InvokeAsync(Options))">
                 Sync now
+            </AppButton>
+        }
+        @if (OffersRestore)
+        {
+            @* Disabled rather than blocked: a restore and a sync would write the
+               same tasks at once, and the restore can wait for the sync. *@
+            <AppButton Size="ButtonSize.Small"
+                       Disabled="@(Syncing || _acts.IsAnyRunning)"
+                       TestId="@Suffix("restore")"
+                       OnClick="() => OnRestoreDeleted.InvokeAsync(Options)">
+                Restore deleted tasks
             </AppButton>
         }
         @if (OnRemove.HasDelegate)
@@ -180,6 +196,12 @@
     /// listener.</summary>
     [Parameter]
     public EventCallback<ConnectedTargetOptions> OnRemove { get; set; }
+
+    /// <summary>Raised to restore the target's deleted tasks. The button is drawn
+    /// only with a listener and while <see cref="ConnectedTargetOptions.DeletedTaskCount"/>
+    /// is above zero; the host asks before it restores anything.</summary>
+    [Parameter]
+    public EventCallback<ConnectedTargetOptions> OnRestoreDeleted { get; set; }
 
     /// <summary>Whether a sync the host started is still running.</summary>
     [Parameter]
@@ -232,6 +254,8 @@
                 days.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 days % 365 == 0 ? (days == 365 ? "a year" : $"{days / 365} years") : $"{days} days"))
     ];
+
+    private bool OffersRestore => OnRestoreDeleted.HasDelegate && Options.DeletedTaskCount > 0;
 
     /// <summary>A repository picker is drawn when there is something to pick or a
     /// stored repository to show.</summary>

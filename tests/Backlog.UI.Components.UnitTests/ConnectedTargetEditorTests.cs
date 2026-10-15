@@ -190,6 +190,68 @@ public sealed class ConnectedTargetEditorTests
         Assert.Equal(Target, removed);
     }
 
+    /// <summary>Restore deleted tasks is drawn only when the host listens for it and
+    /// says the target has deleted tasks: a button with nothing to restore would do
+    /// nothing.</summary>
+    [Theory]
+    [InlineData(true, 3, true)]
+    [InlineData(true, 0, false)]
+    [InlineData(false, 3, false)]
+    public void Restore_deleted_tasks_is_offered_only_with_a_listener_and_something_to_restore(bool listening, int deleted, bool offered)
+    {
+        using var context = new BunitContext();
+
+        var card = context.Render<ConnectedTargetEditor>(p =>
+        {
+            p.Add(c => c.Options, Target with { DeletedTaskCount = deleted }).Add(c => c.TestId, "t");
+            if (listening) p.Add(c => c.OnRestoreDeleted, _ => { });
+        });
+
+        Assert.Equal(offered, card.FindAll("[data-testid='t-restore']").Count == 1);
+    }
+
+    /// <summary>A restore and a sync would write the same tasks at once, so the
+    /// restore waits: it is disabled while the host says a sync runs, and a press
+    /// asks nothing.</summary>
+    [Fact]
+    public async Task Restore_deleted_tasks_is_disabled_while_a_sync_runs()
+    {
+        using var context = new BunitContext();
+        var asked = 0;
+
+        var card = context.Render<ConnectedTargetEditor>(p => p
+            .Add(c => c.Options, Target with { DeletedTaskCount = 3 })
+            .Add(c => c.Syncing, true)
+            .Add(c => c.OnSyncNow, _ => { })
+            .Add(c => c.OnRestoreDeleted, _ => asked++)
+            .Add(c => c.TestId, "t"));
+
+        var restore = card.Find("[data-testid='t-restore']");
+        Assert.True(restore.HasAttribute("disabled"));
+        await restore.ClickAsync(new());
+
+        Assert.Equal(0, asked);
+    }
+
+    [Fact]
+    public async Task Restore_deleted_tasks_reports_the_target()
+    {
+        using var context = new BunitContext();
+        ConnectedTargetOptions? restored = null;
+        var options = Target with { DeletedTaskCount = 34 };
+
+        var card = context.Render<ConnectedTargetEditor>(p => p
+            .Add(c => c.Options, options)
+            .Add(c => c.OnRestoreDeleted, chosen => restored = chosen)
+            .Add(c => c.TestId, "t"));
+
+        var restore = card.Find("[data-testid='t-restore']");
+        Assert.Equal("Restore deleted tasks", restore.TextContent.Trim());
+        await restore.ClickAsync(new());
+
+        Assert.Equal(options, restored);
+    }
+
     [Fact]
     public void A_target_switched_off_refuses_sync_now()
     {

@@ -593,19 +593,42 @@ A spec-manager product is read whole on every sync: the open backlog has no
 ```meta
 type: sub-feature
 status: proposed
-related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#requirement-a-deleted-linked-task-is-never-made-again]
+related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#requirement-reconnecting-a-target-restores-the-tasks-deleted-with-it, .devbook/domain/tasks/requirements.md#requirement-a-deleted-linked-task-is-never-made-again, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
 Disconnecting a target keeps its tasks on the list as they are. Settings →
 Connectors lists each source that left tasks behind under **Disconnected
 sources**, with how many tasks it left. **Delete tasks** asks first and then
 makes every one of them a [Tombstone](domain.md#tombstone), whatever its status.
+Each tombstone is marked as deleted with its source.
 
 The confirmation says that the items at the source stay untouched and that the
 deletion reaches the other devices. It also says that connecting the target
-again does not bring the tasks back, and how many other tasks will wait on a
-missing one. A source connected again before the delete runs is refused,
-because its tasks belong to the sync again.
+again brings the tasks back, and how many other tasks will wait on a missing
+one. A source connected again before the delete runs is refused, because its
+tasks belong to the sync again.
+
+When the target is connected again, its next sync restores each deleted task
+whose item it fetches and brings it up to date from the source. A first sync
+fetches open items only, so a task whose item has closed since stays deleted
+until the person restores it. A task deleted on its own is never brought back
+by the sync.
+
+### Restoring deleted tasks
+
+```meta
+type: sub-feature
+status: proposed
+related: [.devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#requirement-restore-deleted-tasks-restores-every-deleted-task-of-the-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+A connected target whose linked tasks include deleted ones shows **Restore
+deleted tasks** on its card in Settings → Connectors. The confirmation names
+how many tasks come back and says that the tasks deleted one by one are among
+them. Confirming restores every deleted task of that target and no other, and
+the restore reaches the other devices. The next sync brings each task up to
+date with its source. A target disconnected before the person confirms is
+refused, and nothing is restored.
 
 ### Promote to plan
 

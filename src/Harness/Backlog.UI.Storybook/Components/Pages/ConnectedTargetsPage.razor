@@ -47,6 +47,19 @@ The Statuses group has one row per status the source lists, in its order, each w
         </div>
     </Story>
 
+    <Story Name="Deleted tasks to restore"
+           Description="A target with deleted tasks offers Restore deleted tasks, when the host listens for it and hands in how many there are; with none, or no listener, there is no button. The card only raises the request: the host asks first, naming the count and saying it includes tasks deleted one by one, which the sync never brings back by itself. Press it — this page plays the host and restores at once."
+           Code="@RestoreCode">
+        <div class="sb-menu-wide" data-testid="connected-target-restore">
+            <ConnectedTargetEditor Options="@_restorable"
+                                   OnChange="options => _restorable = options"
+                                   OnSyncNow="_ => { }"
+                                   OnRestoreDeleted="_ => _restorable = _restorable with { DeletedTaskCount = 0 }"
+                                   TestId="connected-target-restorable" />
+            <p class="sb-label" data-testid="connected-target-restore-log">@(_restorable.DeletedTaskCount == 0 ? "Restored; nothing left to restore." : $"{_restorable.DeletedTaskCount} deleted tasks.")</p>
+        </div>
+    </Story>
+
     <Story Name="Off, and never synced"
            Description="A target switched off keeps its tasks and stops bringing in new ones, so Sync now is refused rather than hidden. One that has never synced says so where the last sync would be. A stored interval or age that is none of the offered choices is still offered, so editing another option never rewrites it."
            Code="@OffCode">
@@ -104,6 +117,9 @@ The Statuses group has one row per status the source lists, in its order, each w
             ],
         };
 
+    private ConnectedTargetOptions _restorable =
+        new("spec-manager", "fincent-specs") { LastSynced = "15 Oct 2026 08:30", DeletedTaskCount = 34 };
+
     private static readonly ConnectedTargetOptions CannotComplete =
         new("Jira", "PROJ") { LastSynced = "5 Oct 2026 08:40" };
 
@@ -150,6 +166,12 @@ The Statuses group has one row per status the source lists, in its order, each w
         <ConnectedTargetEditor Options="@(options with { LastSyncError = target.LastSyncError, LastSyncFailed = failedAt })"
                                OnChange="Save"
                                OnSyncNow="SyncNowAsync" />
+        """;
+
+    private const string RestoreCode = """
+        <ConnectedTargetEditor Options="@(options with { DeletedTaskCount = deleted.TaskCount })"
+                               OnChange="Save"
+                               OnRestoreDeleted="AskToRestore" />
         """;
 
     private const string OffCode = """

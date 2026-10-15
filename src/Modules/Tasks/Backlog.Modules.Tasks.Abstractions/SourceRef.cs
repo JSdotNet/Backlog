@@ -260,4 +260,11 @@ public static class LinkedTaskFlags
     /// <summary>The item carried more than one <c>+</c> label; the first became the
     /// plan tag and the rest were dropped, so no effort counts in two plans.</summary>
     public const string MultiplePlanTags = "multiple-plan-tags";
+
+    /// <summary>The task was deleted with the rest of its source's tasks — the
+    /// settings page's Delete tasks — rather than on its own. Its tombstone is the
+    /// one the sync takes back when the source is connected again; it is cleared
+    /// when the task is restored. A linked task deleted on its own never carries it,
+    /// and stays deleted.</summary>
+    public const string DeletedWithSource = "deleted-with-source";
 }

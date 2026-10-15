@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.Features.CompleteLinkedTask;
 using Backlog.Modules.Tasks.Features.DeleteDisconnectedLinkedTasks;
+using Backlog.Modules.Tasks.Features.RestoreDeletedLinkedTasks;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -42,8 +43,8 @@ public static class LinkedTaskSyncRegistration
 
     /// <summary>
     /// Registers the sync and its timer, the write-back a save asks for when it
-    /// finishes a linked task, and the delete of what a disconnected source left
-    /// behind. The host registers the
+    /// finishes a linked task, the delete of what a disconnected source left
+    /// behind, and the restore of a connected target's deleted tasks. The host registers the
     /// <see cref="IConnectedTargets"/> store, and resolves
     /// <see cref="LinkedTaskSyncWorker"/> once after building, or the timer never
     /// starts.
@@ -74,6 +75,12 @@ public static class LinkedTaskSyncRegistration
         services.AddScoped<IQueryHandler<ListDisconnectedSourcesQuery, IReadOnlyList<DisconnectedSource>>, ListDisconnectedSourcesQueryHandler>();
         services.AddScoped<ICommandHandler<DeleteDisconnectedLinkedTasksCommand, Result<int>>, DeleteDisconnectedLinkedTasksCommandHandler>();
         services.TryAddScoped<IDisconnectedLinkedTasks, DisconnectedLinkedTasks>();
+
+        // Restoring a connected target's deleted tasks reads the same targets, to
+        // refuse a pair disconnected since its card offered the restore.
+        services.AddScoped<IQueryHandler<ListDeletedLinkedSourcesQuery, IReadOnlyList<DeletedLinkedSource>>, ListDeletedLinkedSourcesQueryHandler>();
+        services.AddScoped<ICommandHandler<RestoreDeletedLinkedTasksCommand, Result<int>>, RestoreDeletedLinkedTasksCommandHandler>();
+        services.TryAddScoped<IDeletedLinkedTasks, DeletedLinkedTasks>();
 
         return services;
     }

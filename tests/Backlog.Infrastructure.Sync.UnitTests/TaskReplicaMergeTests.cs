@@ -293,6 +293,34 @@ public sealed class TaskReplicaMergeTests
     }
 
     /// <summary>
+    /// A restore travels the way the deletion it undoes did. <c>TaskItem.Restore</c>
+    /// stamps the live copy past the tombstone, so it is the later version at the
+    /// replica and on the device still holding the tombstone, and the task comes
+    /// back there too rather than staying deleted on one machine.
+    /// </summary>
+    [Fact]
+    public async Task A_task_restored_on_one_device_comes_back_on_the_other()
+    {
+        var id = Guid.NewGuid();
+        var replica = new ReplicaDouble();
+
+        var desktop = new InMemoryTaskStore();
+        desktop.Seed(TaskChanges.Task("Deleted with its source", Noon, id, deletedAt: Noon));
+        Assert.True(replica.Push(desktop.Tasks[id], Later));
+
+        var laptop = new InMemoryTaskStore();
+        laptop.Seed(TaskChanges.Task("Deleted with its source", Noon, id, deletedAt: Noon));
+        laptop.Tasks[id].Restore();
+        Assert.True(replica.Push(laptop.Tasks[id], Earlier));
+
+        await new TaskReplicaMerge(desktop)
+            .ApplyAsync(replica.Feed(), TestContext.Current.CancellationToken);
+
+        Assert.Null(desktop.Tasks[id].DeletedAt);
+        Assert.NotNull(await desktop.GetAsync(id, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
     /// Work this machine has done and not yet sent is the older-inbound case
     /// everybody thinks of first: the edit will win on its own next push, and
     /// taking the older inbound copy now would lose it before it ever left. The
@@ -657,7 +685,7 @@ public sealed class TaskReplicaMergeTests
     {
         var source = new SourceRef(
             "github", "JSdotNet/Backlog", "I_kwDO42", "https://github.com/JSdotNet/Backlog/issues/42", "#42",
-            "Job", "open", Noon.AddDays(-1), [LinkedTaskFlags.DoneLocally],
+            "Job", "open", Noon.AddDays(-1), [LinkedTaskFlags.DoneLocally, LinkedTaskFlags.DeletedWithSource],
             Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Open,
             "The title at the source");
         var task = TaskChanges.Task("Linked", Noon);
@@ -667,7 +695,7 @@ public sealed class TaskReplicaMergeTests
         var change = TaskReplicaMerge.ToChange(task);
         Assert.NotNull(change.Task.SourceRef);
         Assert.Equal("github", change.Task.SourceRef.ConnectorId);
-        Assert.Equal([LinkedTaskFlags.DoneLocally], change.Task.SourceRef.Flags!);
+        Assert.Equal([LinkedTaskFlags.DeletedWithSource, LinkedTaskFlags.DoneLocally], change.Task.SourceRef.Flags!);
         Assert.Equal("open", change.Task.SourceRef.NormalisedState);
         Assert.Equal("The title at the source", change.Task.SourceRef.SourceTitle);
 

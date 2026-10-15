@@ -104,7 +104,7 @@ public sealed class LinkedTaskSyncWorkerTests
     public async Task A_target_that_synced_logs_what_it_did_at_information()
     {
         var log = new CapturingLogger<LinkedTaskSyncWorker>();
-        _handler.Summary = new LinkedTaskSyncSummary(Fetched: 5, Created: 2, Updated: 1, Unchanged: 1, SkippedTombstoned: 1, SkippedUntouched: 0, Vanished: 3);
+        _handler.Summary = new LinkedTaskSyncSummary(Fetched: 5, Created: 2, Restored: 4, Updated: 1, Unchanged: 1, SkippedTombstoned: 1, SkippedUntouched: 0, Vanished: 3);
         using var worker = new LinkedTaskSyncWorker(
             new HandlerScopeFactory(_handler), new InMemoryConnectedTargets(new ConnectedTarget("stub", "a")), [new StubTaskConnector()], _time, log);
 
@@ -117,6 +117,22 @@ public sealed class LinkedTaskSyncWorkerTests
         Assert.Equal<object?>(2, line.Properties["Created"]);
         Assert.Equal<object?>(1, line.Properties["Updated"]);
         Assert.Equal<object?>(3, line.Properties["Archived"]);
+        Assert.Equal<object?>(4, line.Properties["Restored"]);
+    }
+
+    /// <summary>"Sync now" says what the sync brought back as well as what it made,
+    /// so connecting a source again after its tasks were deleted shows them
+    /// returning.</summary>
+    [Fact]
+    public async Task A_sync_that_restored_tasks_says_so()
+    {
+        _handler.Summary = new LinkedTaskSyncSummary(Fetched: 3, Created: 1, Restored: 2, Updated: 0, Unchanged: 0, SkippedTombstoned: 0, SkippedUntouched: 0, Vanished: 0);
+        using var worker = new LinkedTaskSyncWorker(
+            new HandlerScopeFactory(_handler), new InMemoryConnectedTargets(new ConnectedTarget("stub", "a")), [new StubTaskConnector()], _time);
+
+        var outcome = await worker.RequestSync("stub", "a");
+
+        Assert.Equal("Synced a: 1 new, 2 restored.", outcome.Message);
     }
 
     /// <summary>The defect this answers: the page said "Synced." over a sync that

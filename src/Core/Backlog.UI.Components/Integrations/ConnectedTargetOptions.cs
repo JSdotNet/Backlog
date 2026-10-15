@@ -80,6 +80,11 @@ public sealed record ConnectedTargetOptions(
     /// this library knows no task status of its own.</summary>
     public IReadOnlyList<SelectorOption> StatusChoices { get; init; } = [];
 
+    /// <summary>How many of the target's tasks are deleted, handed in by the host.
+    /// The card offers to restore them only while this is above zero: a button with
+    /// nothing to restore would do nothing.</summary>
+    public int DeletedTaskCount { get; init; }
+
     /// <summary>The sync intervals the editor offers, in minutes. A stored interval
     /// that is none of these is still offered, so editing another option never
     /// rewrites it.</summary>

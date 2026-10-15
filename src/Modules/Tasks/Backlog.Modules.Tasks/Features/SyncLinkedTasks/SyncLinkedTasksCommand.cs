@@ -48,18 +48,22 @@ public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 /// <param name="Fetched">Items the source answered, whatever the sync then did
 /// with each.</param>
 /// <param name="Created">Items that became a task.</param>
+/// <param name="Restored">Tasks deleted with their source
+/// (<see cref="LinkedTaskFlags.DeletedWithSource"/>) that the sync brought back
+/// because their item was fetched again; counted here and not as updated.</param>
 /// <param name="Updated">Tasks a source field, the status, the blocked mark, a
 /// devbook reference, a dependency, the plan, the repository or a flag changed
 /// on.</param>
 /// <param name="Unchanged">Tasks the sync read and left alone.</param>
-/// <param name="SkippedTombstoned">Items whose task the person deleted; never made
-/// again.</param>
+/// <param name="SkippedTombstoned">Items whose task the person deleted on its own;
+/// never made again.</param>
 /// <param name="SkippedUntouched">Items older than the target's first-sync cut-off,
 /// with no task yet.</param>
 /// <param name="Vanished">Tasks archived because their item was gone.</param>
 public sealed record LinkedTaskSyncSummary(
     int Fetched,
     int Created,
+    int Restored,
     int Updated,
     int Unchanged,
     int SkippedTombstoned,
@@ -136,7 +140,7 @@ public sealed class SyncLinkedTasksCommandHandler(
         var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
         var seen = new HashSet<Guid>();
         var synced = new List<Synced>();
-        int created = 0, updated = 0, unchanged = 0, tombstoned = 0, untouched = 0, vanished = 0;
+        int created = 0, restored = 0, updated = 0, unchanged = 0, tombstoned = 0, untouched = 0, vanished = 0;
 
         foreach (var item in items)
         {
@@ -148,10 +152,23 @@ public sealed class SyncLinkedTasksCommandHandler(
             var existing = await tasks.GetIncludingDeletedAsync(id, cancellationToken);
 
             // A linked task the person deleted stays deleted. The tombstone is what
-            // says so, and the sync never makes the id again.
+            // says so, and the sync never makes the id again — unless it went with
+            // the rest of its source's tasks (ADR 0020, §5). That one is restored and
+            // then updated from the item like any other, past the first-sync cut-off,
+            // which only decides what is new enough to make: this task existed.
             if (existing?.DeletedAt is not null)
             {
-                tombstoned++;
+                if (existing.SourceRef is not { } deletedWith || !deletedWith.HasFlag(LinkedTaskFlags.DeletedWithSource))
+                {
+                    tombstoned++;
+                    continue;
+                }
+
+                existing.Restore();
+                existing.SetSourceRef(deletedWith.WithFlag(LinkedTaskFlags.DeletedWithSource, set: false));
+                Update(existing, connectorId, target, item, today, FinishedOn(item, today));
+                FileUnder(existing, repositoryId);
+                synced.Add(new Synced(existing, deletedWith.WaitsOn, IsNew: false, Changed: true, IsRestored: true));
                 continue;
             }
 
@@ -165,14 +182,14 @@ public sealed class SyncLinkedTasksCommandHandler(
 
                 var made = Create(id, connectorId, target, item, fetchStartedAt, today, FinishedOn(item, today));
                 FileUnder(made, repositoryId);
-                synced.Add(new Synced(made, [], IsNew: true, Changed: true));
+                synced.Add(new Synced(made, [], IsNew: true, Changed: true, IsRestored: false));
                 continue;
             }
 
             var heldWaitsOn = existing.SourceRef?.WaitsOn ?? [];
             var changed = Update(existing, connectorId, target, item, today, FinishedOn(item, today));
             changed |= FileUnder(existing, repositoryId);
-            synced.Add(new Synced(existing, heldWaitsOn, IsNew: false, changed));
+            synced.Add(new Synced(existing, heldWaitsOn, IsNew: false, changed, IsRestored: false));
         }
 
         // Dependencies after every item has its task, so an item that waits on one
@@ -190,6 +207,11 @@ public sealed class SyncLinkedTasksCommandHandler(
             {
                 await tasks.SaveAsync(entry.Task, cancellationToken);
                 created++;
+            }
+            else if (entry.IsRestored)
+            {
+                await tasks.SaveAsync(entry.Task, cancellationToken);
+                restored++;
             }
             else if (entry.Changed || dependenciesChanged)
             {
@@ -224,7 +246,7 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         RecordSync(target, fetchStartedAt, cutoff);
 
-        return new LinkedTaskSyncSummary(items.Count, created, updated, unchanged, tombstoned, untouched, vanished);
+        return new LinkedTaskSyncSummary(items.Count, created, restored, updated, unchanged, tombstoned, untouched, vanished);
     }
 
     // --- The status map -----------------------------------------------------
@@ -637,8 +659,9 @@ public sealed class SyncLinkedTasksCommandHandler(
     // --- Waits-on ---------------------------------------------------------------
 
     /// <summary>A task the sync read this run, with what its reference said the
-    /// item waited on before this sync.</summary>
-    private sealed record Synced(TaskItem Task, IReadOnlyList<string> HeldWaitsOn, bool IsNew, bool Changed);
+    /// item waited on before this sync, and whether this sync made it or brought
+    /// it back.</summary>
+    private sealed record Synced(TaskItem Task, IReadOnlyList<string> HeldWaitsOn, bool IsNew, bool Changed, bool IsRestored);
 
     /// <summary>
     /// Turns what the item waits on into the task's <c>after:</c> dependencies, and

@@ -1,3 +1,4 @@
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -9,10 +10,12 @@ namespace Backlog.Modules.Tasks.Features.DeleteDisconnectedLinkedTasks;
 /// settings page's "Delete tasks", behind a confirmation the person has given.
 /// <para>
 /// A tombstone per task, as a single delete is (<c>DeleteTaskCommand</c>), and for
-/// the same reason: a row simply gone would come back from another machine. The
-/// tombstone also keeps the sync from making the task again if the source is
-/// connected later. Nothing is written back to the source, and the tasks that wait
-/// on a deleted one are left as they are, the way a single delete leaves them.
+/// the same reason: a row simply gone would come back from another machine. Unlike
+/// a single delete, each one carries <see cref="LinkedTaskFlags.DeletedWithSource"/>:
+/// the tasks went because their source did, so connecting the source again brings
+/// them back, and the sync restores them rather than skipping them. Nothing is
+/// written back to the source, and the tasks that wait on a deleted one are left
+/// as they are, the way a single delete leaves them.
 /// </para>
 /// </summary>
 public sealed record DeleteDisconnectedLinkedTasksCommand(string ConnectorId, string Target)
@@ -63,6 +66,8 @@ public sealed class DeleteDisconnectedLinkedTasksCommandHandler(ITaskRepository 
                 continue;
             }
 
+            // Flagged before the tombstone, so the one save carries both.
+            task.SetSourceRef(source.WithFlag(LinkedTaskFlags.DeletedWithSource, set: true));
             task.MarkDeleted();
             await tasks.SaveAsync(task, cancellationToken).ConfigureAwait(false);
             deleted++;

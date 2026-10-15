@@ -23,6 +23,17 @@ the settings page and write-back to the source are built. The record now
 describes them as built, and the amendments below say where that differs from
 the proposal.
 
+> **Amended 2026-10-15: a reconnected target gets its deleted tasks back.**
+> Deleting a disconnected source's tasks no longer means they are gone for
+> good. A spec-manager product connected again came back with only its newest
+> items, because its other tasks were tombstones the sync skipped. Delete tasks
+> now marks its tombstones, and the next sync of the reconnected target
+> restores them. A tombstone left by deleting one task is still never
+> re-created. Each connected target also offers Restore deleted tasks.
+> [Section 5](#5-one-id-per-item-on-every-device-tombstones-and-quiet-syncs)
+> and [section 9](#9-the-open-questions-are-settings-per-connected-target) give
+> the detail.
+
 > **Amended 2026-10-15: "Assigned to me" is gone.** PR #1018 removed the
 > "Assigned to me" filter from the Tasks pane, the per-target setting that
 > turned it on by default, and the "Who am I" call from `ITaskConnector`. The
@@ -271,8 +282,24 @@ status map too.
   `linked:{connectorId}:{externalId}`. Two desktops syncing the same repository
   create one task, not two. Every desktop may sync. Mobile never fetches from a
   source and sees linked tasks through the replica.
-- **Tombstones.** A linked task the person deleted leaves a tombstone. The sync
-  skips a tombstoned id and never re-creates it.
+- **Tombstones.** A linked task the person deleted leaves a tombstone. A
+  tombstone left by deleting one task is never re-created: the sync skips its
+  id. The settings page's **Delete tasks** marks each tombstone it makes with
+  the `deleted-with-source` flag on its `SourceRef`. When the target is
+  connected again and a sync fetches the item, the sync restores that task,
+  clears the flag and updates it from the item. It does so past the first
+  sync's cut-off, because the task existed before.
+- **Restore deleted tasks.** A connected target with tombstoned linked tasks
+  offers this action on its settings card. After a confirmation that names the
+  count, it restores every tombstone of that connector and target, the ones
+  deleted one by one included. A target that is not connected is refused. The
+  next sync then brings the tasks up to date, under its normal rules.
+- **A restore re-stamps.** `TaskItem.Restore()` clears `DeletedAt` and moves
+  `UpdatedAt` past the tombstone's, so the live copy wins the last-writer-wins
+  replica merge on every device.
+- **Known limit: a first sync fetches open items only.** A tombstone whose item
+  has closed at the source since is not fetched, so the sync cannot restore it.
+  Restore deleted tasks still can.
 - **A quiet sync stays quiet.** A sync that changes no field leaves `UpdatedAt`
   alone. The replica merge is whole-task last writer wins on `UpdatedAt`, so an
   idle machine that stamped every task would overwrite real edits made elsewhere.
@@ -385,7 +412,10 @@ Information line with what it fetched, created, updated and archived.
 "Disconnected sources" section lists each connector and target pair that still
 has linked tasks but is no longer connected. After the person confirms, it
 deletes those tasks through `DeleteDisconnectedLinkedTasks`. Each deleted task
-leaves a tombstone (§5), so a later reconnect does not bring it back.
+leaves a tombstone marked as deleted with its source (§5). Connecting the
+target again brings each one back with its next sync, and the confirmation
+says so. A connected target's card offers **Restore deleted tasks** whenever
+the target has tombstoned tasks, for those the sync does not bring back (§5).
 
 **A repository set on a target wins for every connector.** The sync files the
 target's new tasks under it, and the tasks it brought in earlier that are still
@@ -487,6 +517,7 @@ decision; each is how the code stands on 2026-10-15.
 
 | Date | Change |
 |---|---|
+| 2026-10-15 | Amended: deleting a disconnected source's tasks marks their tombstones, a reconnected target's sync restores them, and each connected target can restore its deleted tasks, because a reconnected product came back with only its newest items. |
 | 2026-10-15 | Accepted, as built: "Assigned to me" and Promote to plan are dropped, on-demand sync is a target's "Sync now" in Settings, and the record gains the fetch failures, target picker, repository filing, disconnected-source cleanup and sync log line added since. |
 | 2026-10-13 | Amended: each connected target gets a repository its tasks are filed under and a status map over the fixed one, because a spec-manager product with no status flagged as work put every task In progress. |
 | 2026-10-05 | Proposed: linked tasks through `ITaskConnector`, from the "External Task Sources" design note. |

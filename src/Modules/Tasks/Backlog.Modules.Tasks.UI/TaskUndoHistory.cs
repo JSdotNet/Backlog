@@ -27,7 +27,9 @@ internal sealed record TaskCreatedUndoStep(string Label, Guid Id, string Text, b
 
 /// <summary>An entry holding <paramref name="Text"/> left the list from
 /// <paramref name="Index"/>. Undone by saving that text as a new entry in the same
-/// place — the module deliberately has no undelete (<c>TaskItem.MarkDeleted</c>).</summary>
+/// place, not through <c>TaskItem.Restore</c>: that brings the deleted task itself
+/// back, and is the linked-task sync's and the connector settings page's. Undoing
+/// a delete with it would be a change of its own.</summary>
 internal sealed record TaskDeletedUndoStep(string Label, Guid Id, string Text, int Index) : TaskUndoStep(Label);
 
 /// <summary>The same entries were put in a different order.</summary>

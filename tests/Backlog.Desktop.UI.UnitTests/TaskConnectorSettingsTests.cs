@@ -398,7 +398,7 @@ public sealed class TaskConnectorSettingsTests
     }
 
     [Fact]
-    public async Task The_confirmation_says_what_is_deleted_what_stays_and_that_it_cannot_be_brought_back()
+    public async Task The_confirmation_says_what_is_deleted_what_stays_and_that_connecting_again_brings_them_back()
     {
         var (context, _, _) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0));
         using var _context = context;
@@ -409,9 +409,10 @@ public sealed class TaskConnectorSettingsTests
         var dialog = page.Find("[data-testid='task-connector-delete-dialog']");
         var message = dialog.QuerySelector(".confirm-dialog__message")!.TextContent;
         Assert.Contains("This deletes 3 tasks from owner/old.", message, StringComparison.Ordinal);
-        Assert.Contains("The items at the source stay untouched.", message, StringComparison.Ordinal);
-        Assert.Contains("Connecting owner/old again will not bring these tasks back", message, StringComparison.Ordinal);
+        Assert.Contains("The items at the source stay untouched", message, StringComparison.Ordinal);
         Assert.Contains("the deletion reaches your other devices.", message, StringComparison.Ordinal);
+        Assert.Contains("Connecting owner/old again brings these tasks back.", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("will not bring", message, StringComparison.Ordinal);
         Assert.DoesNotContain("blocked", message, StringComparison.Ordinal);
 
         // Destructive: the confirm is the danger button, and it names the act.
@@ -511,6 +512,178 @@ public sealed class TaskConnectorSettingsTests
         var page = context.Render<TaskConnectorSettings>();
 
         Assert.Contains("jira", page.Find(".connected-target__connector").TextContent);
+    }
+
+    // --- Restoring deleted tasks ------------------------------------------------
+
+    private static (BunitContext Context, InMemoryTargets Targets, FakeDeleted Deleted) ComposeDeleted(
+        ConnectedTarget[] connected,
+        params DeletedLinkedSource[] sources)
+    {
+        var (context, targets, _) = Compose(true, connected);
+
+        // The confirmation is a modal, which moves focus through JS interop.
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var deleted = new FakeDeleted(targets, sources);
+        context.Services.AddSingleton<IDeletedLinkedTasks>(deleted);
+        return (context, targets, deleted);
+    }
+
+    /// <summary>Offered on a connected target's own card, and only on one with
+    /// deleted tasks: the pair is matched the way a target is, without regard to
+    /// case, and a source with deleted tasks that is not connected gets nothing
+    /// here.</summary>
+    [Fact]
+    public void Only_a_connected_target_with_deleted_tasks_offers_to_restore_them()
+    {
+        var (context, _, _) = ComposeDeleted(
+            [new ConnectedTarget(FakeConnector.Id, "owner/one"), new ConnectedTarget(FakeConnector.Id, "owner/two")],
+            new DeletedLinkedSource(FakeConnector.Id, "OWNER/TWO", 34),
+            new DeletedLinkedSource(FakeConnector.Id, "owner/gone", 2));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        var restore = Assert.Single(page.FindAll("[data-testid='task-connector-target-card-restore']"));
+        Assert.Equal("Fake owner/two", restore.Closest("[data-testid='task-connector-target-card']")!.GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void Nothing_offers_a_restore_in_a_host_without_the_port()
+    {
+        var (context, _, _) = Compose(true, new ConnectedTarget(FakeConnector.Id, "owner/one"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-restore']"));
+    }
+
+    [Fact]
+    public async Task The_restore_confirmation_names_the_count_and_says_it_includes_tasks_deleted_one_by_one()
+    {
+        var (context, _, _) = ComposeDeleted(
+            [new ConnectedTarget(FakeConnector.Id, "owner/repo")],
+            new DeletedLinkedSource(FakeConnector.Id, "owner/repo", 34));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-target-card-restore']").ClickAsync(new());
+
+        var dialog = page.Find("[data-testid='task-connector-restore-dialog']");
+        var message = dialog.QuerySelector(".confirm-dialog__message")!.TextContent;
+        Assert.Contains("This restores 34 tasks deleted from owner/repo", message, StringComparison.Ordinal);
+        Assert.Contains("including tasks you deleted one by one", message, StringComparison.Ordinal);
+        Assert.Contains("the next sync", message, StringComparison.Ordinal);
+
+        // Not destructive: it brings work back rather than taking it away.
+        var confirm = page.Find("[data-testid='task-connector-restore-confirm']");
+        Assert.DoesNotContain("btn--danger", confirm.ClassName, StringComparison.Ordinal);
+        Assert.Equal("Restore tasks", confirm.TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task Cancelling_the_restore_confirmation_restores_nothing()
+    {
+        var (context, _, deleted) = ComposeDeleted(
+            [new ConnectedTarget(FakeConnector.Id, "owner/repo")],
+            new DeletedLinkedSource(FakeConnector.Id, "owner/repo", 34));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-target-card-restore']").ClickAsync(new());
+        await page.Find("[data-testid='task-connector-restore-cancel']").ClickAsync(new());
+
+        Assert.Empty(page.FindAll("[data-testid='task-connector-restore-dialog']"));
+        Assert.Empty(deleted.Restored);
+        Assert.Single(page.FindAll("[data-testid='task-connector-target-card-restore']"));
+    }
+
+    [Fact]
+    public async Task Confirming_restores_the_tasks_says_how_many_and_takes_the_offer_away()
+    {
+        var (context, _, deleted) = ComposeDeleted(
+            [new ConnectedTarget(FakeConnector.Id, "owner/repo")],
+            new DeletedLinkedSource(FakeConnector.Id, "owner/repo", 34));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-target-card-restore']").ClickAsync(new());
+        await page.Find("[data-testid='task-connector-restore-confirm']").ClickAsync(new());
+
+        Assert.Equal([(FakeConnector.Id, "owner/repo")], deleted.Restored);
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                "Restored 34 tasks from owner/repo. The next sync brings them up to date.",
+                page.Find("[data-testid='task-connectors-message']").TextContent.Trim());
+            Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-restore']"));
+        });
+    }
+
+    /// <summary>One task reads as one throughout: the confirmation, the line that
+    /// says how it went, and what comes back.</summary>
+    [Fact]
+    public async Task Restoring_one_task_says_so_in_the_singular()
+    {
+        var (context, _, _) = ComposeDeleted(
+            [new ConnectedTarget(FakeConnector.Id, "owner/repo")],
+            new DeletedLinkedSource(FakeConnector.Id, "owner/repo", 1));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-target-card-restore']").ClickAsync(new());
+
+        Assert.Equal(
+            "This restores 1 task deleted from owner/repo, even if you deleted it on its own. "
+            + "It comes back as it was, the next sync brings it up to date with the source, and the restore reaches your other devices.",
+            page.Find(".confirm-dialog__message").TextContent.Trim());
+
+        await page.Find("[data-testid='task-connector-restore-confirm']").ClickAsync(new());
+
+        page.WaitForAssertion(() => Assert.Equal(
+            "Restored 1 task from owner/repo. The next sync brings it up to date.",
+            page.Find("[data-testid='task-connectors-message']").TextContent.Trim()));
+    }
+
+    /// <summary>Deleting one task reads as one too, and so does the warning about
+    /// the tasks left waiting on it.</summary>
+    [Fact]
+    public async Task Deleting_one_task_says_so_in_the_singular()
+    {
+        var (context, _, _) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/old", 1, 2));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-disconnected-delete']").ClickAsync(new());
+
+        Assert.Equal(
+            "This deletes 1 task from owner/old. The item at the source stays untouched, and the deletion reaches your other devices. "
+            + "Connecting owner/old again brings this task back. 2 tasks that wait on it will show as blocked on a missing task.",
+            page.Find(".confirm-dialog__message").TextContent.Trim());
+    }
+
+    /// <summary>A refusal — the target disconnected meanwhile — is said in the
+    /// module's own words rather than as a count.</summary>
+    [Fact]
+    public async Task A_target_disconnected_before_the_confirmation_is_refused_in_words()
+    {
+        var (context, targets, deleted) = ComposeDeleted(
+            [new ConnectedTarget(FakeConnector.Id, "owner/repo")],
+            new DeletedLinkedSource(FakeConnector.Id, "owner/repo", 34));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-target-card-restore']").ClickAsync(new());
+
+        // Disconnected elsewhere while the question is open.
+        targets.Remove(FakeConnector.Id, "owner/repo");
+        await page.Find("[data-testid='task-connector-restore-confirm']").ClickAsync(new());
+
+        Assert.Empty(deleted.Restored);
+        page.WaitForAssertion(() => Assert.Equal(
+            "owner/repo is no longer connected, so its tasks were not restored.",
+            page.Find("[data-testid='task-connectors-message']").TextContent.Trim()));
     }
 
     // --- Picking a target ---------------------------------------------------------
@@ -1411,6 +1584,35 @@ public sealed class TaskConnectorSettingsTests
             var source = _sources.Single(candidate => candidate.ConnectorId == connectorId && candidate.Target == target);
             _sources.Remove(source);
             Deleted.Add((connectorId, target));
+            return Task.FromResult<Result<int>>(source.TaskCount);
+        }
+    }
+
+    /// <summary>The deleted sources the test set, restoring one only while its pair
+    /// is connected — as the module's handler does — and listing it no more once
+    /// restored.</summary>
+    private sealed class FakeDeleted(InMemoryTargets targets, IEnumerable<DeletedLinkedSource> sources) : IDeletedLinkedTasks
+    {
+        private readonly List<DeletedLinkedSource> _sources = [.. sources];
+
+        public List<(string ConnectorId, string Target)> Restored { get; } = [];
+
+        public Task<IReadOnlyList<DeletedLinkedSource>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<DeletedLinkedSource>>([.. _sources]);
+
+        public Task<Result<int>> RestoreAsync(string connectorId, string target, CancellationToken cancellationToken = default)
+        {
+            if (targets.Get(connectorId, target) is null)
+            {
+                return Task.FromResult<Result<int>>(Error.Conflict(
+                    "linked_tasks.target_not_connected",
+                    $"{target} is no longer connected, so its tasks were not restored."));
+            }
+
+            var source = _sources.Single(candidate =>
+                candidate.ConnectorId == connectorId && string.Equals(candidate.Target, target, StringComparison.OrdinalIgnoreCase));
+            _sources.Remove(source);
+            Restored.Add((connectorId, target));
             return Task.FromResult<Result<int>>(source.TaskCount);
         }
     }
