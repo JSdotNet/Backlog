@@ -1,7 +1,6 @@
 using Backlog.SharedKernel.Devbook;
-using Backlog.UI.Components.Devbook;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
 /// Writes the <c>sync</c> field of the <c>meta</c> fence belonging to one devbook
@@ -113,7 +112,8 @@ internal static class DevbookMarkdownSyncWriter
 /// nearest-wins through its page, its context and its folder overview.
 ///
 /// <para>A devbook pane builds one per open document and cascades it as a
-/// <see cref="DevbookSyncScope"/>. The levels above a unit live in other files — a
+/// <c>DevbookSyncScope</c>, which the Devbook UI project's <c>Scope</c>
+/// extension builds from <see cref="Describe"/> and <see cref="ItemPath"/>. The levels above a unit live in other files — a
 /// unit's page is its own file, but its <c>context.md</c> and the folder overview
 /// are not — so those file-level blocks are read here too, once, rather than every
 /// time a record asks.</para>
@@ -168,20 +168,19 @@ public sealed class DevbookSyncReading
     }
 
     /// <summary>
-    /// The scope a pane cascades over the open document: this reading answers what
-    /// each record asks, and <paramref name="write"/> — null where the folder cannot
-    /// be written — is handed the item path a status write would use, the bare
-    /// document path for its own block and <c>path#slug</c> for a chapter, with the
-    /// direction or null to inherit.
+    /// The item path a direction for the block at <paramref name="level"/> with
+    /// heading text <paramref name="heading"/> is written to — the one a status
+    /// write would use: <c>path#slug</c> for a chapter, the bare
+    /// <paramref name="documentPath"/> for the document's own block and for a
+    /// heading this document does not hold.
+    /// <para>The screen's <c>DevbookSyncScope</c> is built from this and
+    /// <see cref="Describe"/> by a <c>Scope</c> extension in the Devbook UI project,
+    /// so this adapter names no UI type (issue #738).</para>
     /// </summary>
-    public DevbookSyncScope Scope(string documentPath, Func<string, string?, Task>? write) =>
-        new(Describe, write is null
-            ? null
-            : (level, heading, direction) => write(
-                Find(level, heading) is { Level: > 1 } chapter
-                    ? $"{documentPath}#{DevbookMarkdownStatusWriter.Slug(chapter.Title)}"
-                    : documentPath,
-                direction));
+    public string ItemPath(string documentPath, DevbookMetadataLevel level, string? heading) =>
+        Find(level, heading) is { Level: > 1 } chapter
+            ? $"{documentPath}#{DevbookMarkdownStatusWriter.Slug(chapter.Title)}"
+            : documentPath;
 
     /// <summary>The state of the block at <paramref name="level"/> with heading
     /// text <paramref name="heading"/>, or null for one that is no sync level or

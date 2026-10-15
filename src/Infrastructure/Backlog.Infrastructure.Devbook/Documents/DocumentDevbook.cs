@@ -1,12 +1,13 @@
 ﻿using System.Text.RegularExpressions;
 
-using Backlog.Infrastructure.Devbook;
+using Backlog.Infrastructure.Devbook.Chapters;
 using Backlog.SharedKernel.Markdown;
 
 using Backlog.Modules.Devbook.Abstractions;
 
 // Imported rather than aliased, which it was until the shared pair was renamed.
-// Both of its old names were taken in this namespace — the arc42 reader grew a
+// Both of its old names were taken in the Devbook UI namespace this reader lived
+// in before issue #738 moved it here — the arc42 reader grew a
 // `DevbookMeta` of its own and the technology reader a `DevbookMetadata`,
 // each predating the shared pair — so an unqualified name here would silently
 // have resolved to the neighbour rather than to the library. `MetadataRecord`
@@ -15,7 +16,7 @@ using Backlog.Modules.Devbook.Abstractions;
 // through the library; moving the other two is their own change.
 using Backlog.SharedKernel.Metadata;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Documents;
 
 /// <summary>
 /// Loads one document-shaped devbook folder — see <see cref="DocumentDevbookFolder"/>
