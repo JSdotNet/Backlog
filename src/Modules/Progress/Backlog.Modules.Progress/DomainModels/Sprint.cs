@@ -70,7 +70,11 @@ public sealed class Sprint
         return Result.Success();
     }
 
-    internal Result RemoveTask(Guid taskId)
+    /// <summary>Takes a directly added task out. While a linked plan still brings it in
+    /// (<paramref name="broughtByPlan"/>) it stays a member and keeps what is recorded on
+    /// it; otherwise its membership ends and its item goes whole — goal mark, note and
+    /// open question with it — so adding it again starts clean.</summary>
+    internal Result RemoveTask(Guid taskId, bool broughtByPlan = false)
     {
         if (!IsOpen) return Closed();
 
@@ -78,7 +82,7 @@ public sealed class Sprint
         if (item is null || !item.AddedDirectly) return Result.Failure(ProgressErrors.NotAnItem(taskId));
 
         item.ClearAddedDirectly();
-        if (item.IsEmpty) _items.Remove(item);
+        if (!broughtByPlan || item.IsEmpty) _items.Remove(item);
 
         return Result.Success();
     }

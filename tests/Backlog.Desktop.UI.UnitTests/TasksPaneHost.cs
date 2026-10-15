@@ -220,9 +220,17 @@ internal sealed class TasksPaneHost : IDisposable
 
         public Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(
             GitHubRepositoryRef repository,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<GitHubOpenPullRequest>>(
-                [.. OpenPullRequests.Where(pull => string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))]);
+            CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<GitHubOpenPullRequest> answer =
+                [.. OpenPullRequests.Where(pull => string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))];
+
+            return OpenGate is { } gate ? gate.Task.ContinueWith(_ => answer, TaskScheduler.Default) : Task.FromResult(answer);
+        }
+
+        /// <summary>Set, the open read answers only once it completes — how a test holds
+        /// that read back while another reader reads.</summary>
+        public TaskCompletionSource? OpenGate { get; set; }
 
         /// <summary>What a read by number answers, whatever state each is in — the
         /// pull requests tasks link, merged and closed among them.</summary>

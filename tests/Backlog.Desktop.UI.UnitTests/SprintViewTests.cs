@@ -258,6 +258,19 @@ public sealed class SprintViewTests : IDisposable
         Assert.Equal(5, rendered.FindAll("[data-testid=sprint-row]").Count);
     }
 
+    [Fact]
+    public void A_series_of_one_repository_draws_no_repository_filter_and_a_filter_left_over_lets_go()
+    {
+        var rendered = _context.Render<SprintBoard>(parameters => parameters.Add(p => p.Model, Board()));
+        rendered.Find("[data-testid=sprint-board-repository] select").Change("marketplace");
+
+        rendered.Render(parameters => parameters.Add(p => p.Model, Board() with { Repositories = ["marketplace"] }));
+
+        Assert.Empty(rendered.FindAll("[data-testid=sprint-board-repository]"));
+        Assert.NotEmpty(rendered.FindAll("[data-testid=sprint-board-group]"));
+        Assert.Equal(5, rendered.FindAll("[data-testid=sprint-row]").Count);
+    }
+
     // ---- The words and the done line -------------------------------------------------------
 
     [Fact]
@@ -380,7 +393,9 @@ public sealed class SprintViewTests : IDisposable
             var client = new TasksPaneHost.FakeGitHubClient();
             client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(4, "u", "t", "JSdotNet/Backlog", GitHubItemState.Merged, "jsdotnet", new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero)));
             client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(5, "u", "t", "JSdotNet/Backlog", GitHubItemState.Open, "octo", null, new DateTimeOffset(2026, 10, 6, 12, 0, 0, TimeSpan.Zero)));
-            var reader = new GitHubSprintPullRequests(() => new GitHubIntegration(settings, client, new ConnectedProbe()));
+            // One adapter, as the host composes it: what has been read is kept there.
+            var gitHub = new GitHubIntegration(settings, client, new ConnectedProbe());
+            var reader = new GitHubSprintPullRequests(() => gitHub);
 
             var first = await reader.ReadAsync([new("JSdotNet/Backlog", "4"), new("JSdotNet/Backlog", "5"), new("JSdotNet/Backlog", "6")], TestContext.Current.CancellationToken);
 
