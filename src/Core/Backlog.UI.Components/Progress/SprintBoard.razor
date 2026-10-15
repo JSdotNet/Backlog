@@ -47,13 +47,17 @@
         </IconButton>
         @if (Model is not null)
         {
-            <SelectField Label="Repository"
-                         Options="@RepositoryOptions"
-                         CurrentValue="@(_repository ?? AllRepositories)"
-                         BaseClass="sprint-board__select"
-                         SelectCssClass="sprint-board__select-control"
-                         TestId="sprint-board-repository"
-                         OnChanged="OnRepositoryChanged" />
+            @* One repository is nothing to narrow to: the filter shows from two. *@
+            @if (Board.Repositories.Count > 1)
+            {
+                <SelectField Label="Repository"
+                             Options="@RepositoryOptions"
+                             CurrentValue="@(_repository ?? AllRepositories)"
+                             BaseClass="sprint-board__select"
+                             SelectCssClass="sprint-board__select-control"
+                             TestId="sprint-board-repository"
+                             OnChanged="OnRepositoryChanged" />
+            }
             <SelectField Label="Group"
                          Options="@GroupOptions"
                          CurrentValue="@(_byPlan ? GroupByPlan : GroupNone)"
@@ -422,8 +426,11 @@
 
     protected override void OnParametersSet()
     {
-        // A repository the series no longer holds is no filter at all.
-        if (_repository is not null && Model is not null && !Board.Repositories.Contains(_repository, StringComparer.OrdinalIgnoreCase))
+        // A repository the series no longer holds is no filter at all, and neither is
+        // one left over once the series is down to one and the filter is not drawn.
+        if (_repository is not null
+            && Model is not null
+            && (Board.Repositories.Count <= 1 || !Board.Repositories.Contains(_repository, StringComparer.OrdinalIgnoreCase)))
         {
             _repository = null;
         }

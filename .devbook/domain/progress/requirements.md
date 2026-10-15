@@ -143,6 +143,18 @@ The system SHALL leave a task's status, tags and plan unchanged when it is added
 - **When** the person removes it from Sprint 4
 - **Then** the task is still In progress, with the same tags and plan
 
+#### Scenario: Adding a removed task again starts it clean
+
+- **Given** a task added directly to Sprint 4, marked as a goal task and given a note, that no linked plan brings in
+- **When** the person removes it from Sprint 4 and adds it again
+- **Then** it is in Sprint 4 with no goal mark, no note and no open question
+
+#### Scenario: Removing a task a linked plan still brings in
+
+- **Given** a task added directly to Sprint 4 and marked as a goal task, whose plan is linked to Sprint 4
+- **When** the person removes it from Sprint 4
+- **Then** it is still in Sprint 4, brought in by its plan, and keeps its goal mark
+
 ## Setting the sprint goal
 
 ```meta
@@ -394,6 +406,27 @@ The system SHALL keep, for each series, the change saved last when two desktops 
 - **Given** the series "Core" and "Docs" on A and B
 - **When** the person changes Sprint 4's goal of "Core" on A and of "Docs" on B, and both sync
 - **Then** both desktops show both new goals
+
+### Requirement: A pulled series shows at once
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL redraw, on the desktop a series arrives at, every screen that shows that series, without the person moving away or pressing Refresh, and SHALL keep what the person has typed or chosen in a dialog left open.
+
+#### Scenario: A task added on one desktop
+
+- **Given** the series "Core" on A and B, with Sprint 4 open in B's sprint view and in B's Settings › Sprints
+- **When** the person adds a task to Sprint 4 and renames the series "Platform" on A, and A and then B sync
+- **Then** B's sprint view lists the task, its Sprint section reads "In Sprint 4", its weekly brief counts it, and its settings card reads "Platform"
+
+#### Scenario: A close under way on the other desktop
+
+- **Given** B's Close dialog open on Sprint 4, one item set to Drop and the next goal typed
+- **When** a task is added to Sprint 4 on A, and A and then B sync
+- **Then** B's dialog lists the new item on Carry, and still shows Drop and the typed goal
 
 ### Requirement: A desktop with no series sends none
 

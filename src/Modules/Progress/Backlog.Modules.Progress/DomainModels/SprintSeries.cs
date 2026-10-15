@@ -307,8 +307,10 @@ public sealed class SprintSeries
     public Result AddTask(int number, Guid taskId, DateOnly today) =>
         Change(number, sprint => sprint.AddTask(taskId, today));
 
-    /// <summary>Takes a directly added task out of sprint <paramref name="number"/>.</summary>
-    public Result RemoveTask(int number, Guid taskId) => Change(number, sprint => sprint.RemoveTask(taskId));
+    /// <summary>Takes a directly added task out of sprint <paramref name="number"/>; what
+    /// is recorded on it stays only while a linked plan still brings it in.</summary>
+    public Result RemoveTask(int number, Guid taskId, bool broughtByPlan = false) =>
+        Change(number, sprint => sprint.RemoveTask(taskId, broughtByPlan));
 
     public Result LinkPlan(int number, string? planTag, DateOnly today) =>
         Change(number, sprint => sprint.LinkPlan(planTag, today));

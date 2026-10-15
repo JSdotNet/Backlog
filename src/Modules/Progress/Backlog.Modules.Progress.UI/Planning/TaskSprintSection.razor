@@ -14,6 +14,11 @@
     and draws how the task stands in that series' open sprint. Every act is a write
     through ISprintSeriesPlanning; the series it answers with is drawn at once. With
     Progress off, or the task's repositories in no series switched on, nothing is drawn.
+
+    A series saved anywhere else - pulled from another desktop by the sync, or changed
+    from the sprint view or Settings - raises ISprintSeriesPlanning.Changed and the
+    section finds and draws its series again. A note dialog left open keeps what is
+    typed in it: it takes the stored note only as it opens.
 *@
 @if (_series is { } series)
 {
@@ -48,6 +53,7 @@
     public SprintCandidate Candidate { get; set; } = default!;
 
     private IAppFeatureSettings? _features;
+    private ISprintSeriesPlanning? _notices;
     private SprintSeriesDto? _series;
     private string _taskKey = "\u0000";
     private bool _writing;
@@ -64,6 +70,8 @@
     {
         _features = Services.GetService(typeof(IAppFeatureSettings)) as IAppFeatureSettings;
         if (_features is not null) _features.Changed += OnFeaturesChanged;
+        _notices = Planning;
+        if (_notices is not null) _notices.Changed += OnSeriesChanged;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -78,11 +86,17 @@
         await FindSeriesAsync();
     }
 
-    private void OnFeaturesChanged() => _ = InvokeAsync(async () =>
+    /// <summary>A series was saved somewhere else: the task's series is found and drawn
+    /// again, so a sprint changed on another desktop shows here.</summary>
+    private void OnSeriesChanged() => _ = InvokeAsync(ReadAgainAsync);
+
+    private void OnFeaturesChanged() => _ = InvokeAsync(ReadAgainAsync);
+
+    private async Task ReadAgainAsync()
     {
         await FindSeriesAsync();
         StateHasChanged();
-    });
+    }
 
     private async Task FindSeriesAsync()
     {
@@ -167,5 +181,6 @@
     public void Dispose()
     {
         if (_features is not null) _features.Changed -= OnFeaturesChanged;
+        if (_notices is not null) _notices.Changed -= OnSeriesChanged;
     }
 }

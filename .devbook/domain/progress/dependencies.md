@@ -32,8 +32,9 @@ A linked pull request's merged state, its author and the day it was opened are r
 from GitHub by the same infrastructure reads the pull requests list uses. That is a transport rather
 than a relationship with another context: Progress reaches a pull request only
 through the task that links it. In the desktop app `ISprintPullRequestReader` reads
-them by number, the read the In progress view's linked pull requests use; a merged one
-is read once, the rest at most once a minute. Where no GitHub is configured, or GitHub
+them by number through the one cache the In progress view's linked pull requests read
+through too, so on one Refresh the two views ask GitHub about a pull request once; a
+merged one is read once, the rest at most once a minute. Where no GitHub is configured, or GitHub
 does not answer, a pull request reads as unknown and a member is done by its task's
 status alone.
 
