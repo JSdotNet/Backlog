@@ -92,6 +92,54 @@ public sealed class SprintViewTests : IDisposable
         rendered.WaitForAssertion(() => Assert.Equal("now:switch", rendered.Find("[data-testid=now]").TextContent));
     }
 
+    /// <summary>
+    /// The weekly brief's "Open Sprint n" (<c>.devbook/domain/progress/features.md#sprints-in-the-briefs</c>)
+    /// opens the sprint view on that series and that sprint — here a closed one, of the
+    /// second series in an every-repository scope, which the scope alone would never pick —
+    /// and tells the host it was taken, once.
+    /// </summary>
+    [Fact]
+    public async Task An_open_request_opens_the_sprint_view_on_that_series_and_sprint()
+    {
+        var first = Series("Tools", ["tools"]);
+        var second = Series("Fincent", ["fincent"]);
+        second = second with { Sprints = [Sprint(41, Start.AddDays(-14), isOpen: false), .. second.Sprints] };
+        var progress = Compose(on: true, first, second);
+        var reads = new List<bool>();
+        var taken = 0;
+        var request = new SprintViewRequest(second.Id, 41);
+
+        var rendered = RenderTab([], onRead: reads.Add, configure: parameters => parameters
+            .Add(p => p.Open, request)
+            .Add(p => p.OnOpened, () => taken++));
+
+        rendered.WaitForAssertion(() => Assert.Single(rendered.FindAll("[data-testid=sprint-board]")));
+        rendered.WaitForAssertion(() => Assert.Equal(41, progress.LastNumber));
+        Assert.Equal("Sprint 41", rendered.Find("[data-testid=in-progress-view-switch-sprint]").TextContent.Trim());
+        Assert.StartsWith("Fincent · ", rendered.Find("[data-testid=sprint-board-series]").TextContent, StringComparison.Ordinal);
+        Assert.Equal([false], reads);
+        Assert.Equal(1, taken);
+
+        // The same request handed again is not a second press.
+        await rendered.InvokeAsync(() => rendered.Render(parameters => parameters.Add(p => p.Open, request)));
+        Assert.Equal(1, taken);
+    }
+
+    /// <summary>A request for a sprint the series does not hold, or a series switched off,
+    /// leaves the tab as it was.</summary>
+    [Fact]
+    public void An_open_request_for_a_missing_sprint_leaves_the_now_view()
+    {
+        var series = Series("Fincent", ["fincent"]);
+        Compose(on: true, series);
+
+        var rendered = RenderTab(["fincent"], configure: parameters => parameters
+            .Add(p => p.Open, new SprintViewRequest(series.Id, 7)));
+
+        rendered.WaitForAssertion(() => Assert.Equal("now:switch", rendered.Find("[data-testid=now]").TextContent));
+        Assert.Empty(rendered.FindAll("[data-testid=sprint-board]"));
+    }
+
     /// <summary>Copy as table (<c>.devbook/domain/progress/features.md#copying-a-sprint-as-a-table</c>)
     /// hands the clipboard the whole sprint as HTML and as plain text together.</summary>
     [Fact]
@@ -420,8 +468,11 @@ public sealed class SprintViewTests : IDisposable
         return progress;
     }
 
-    private IRenderedComponent<InProgressSprints> RenderTab(IReadOnlyList<string> scope, Action<bool>? onRead = null) =>
-        _context.Render<InProgressSprints>(parameters => parameters
+    private IRenderedComponent<InProgressSprints> RenderTab(
+        IReadOnlyList<string> scope,
+        Action<bool>? onRead = null,
+        Action<ComponentParameterCollectionBuilder<InProgressSprints>>? configure = null) =>
+        _context.Render<InProgressSprints>(parameters => Configure(parameters, configure)
             .Add(p => p.Repositories, scope)
             .Add(p => p.OnRead, (bool refresh) => onRead?.Invoke(refresh))
             .Add(p => p.Now, (RenderFragment<RenderFragment?>)(viewSwitch => builder =>
@@ -432,6 +483,14 @@ public sealed class SprintViewTests : IDisposable
                 builder.CloseElement();
                 builder.AddContent(3, viewSwitch);
             })));
+
+    private static ComponentParameterCollectionBuilder<InProgressSprints> Configure(
+        ComponentParameterCollectionBuilder<InProgressSprints> parameters,
+        Action<ComponentParameterCollectionBuilder<InProgressSprints>>? configure)
+    {
+        configure?.Invoke(parameters);
+        return parameters;
+    }
 
     private static SprintSeriesDto Series(string name, IReadOnlyList<string> repositories) =>
         new(Guid.NewGuid(), name, repositories, SprintLength.TwoWeeks, DayOfWeek.Monday, "Sprint {n}", false, false,
