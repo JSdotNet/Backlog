@@ -99,7 +99,10 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
                 $"Tool catalog was not found at {paths.CatalogPath}.",
                 CatalogExists: false,
                 CatalogPath: paths.CatalogPath,
-                CanEditCatalog: true);
+                CanEditCatalog: true)
+            {
+                PcConfigPath = paths.PcConfigPath
+            };
         }
 
         var config = await DevToolConfiguration.ReadAsync(paths, ct).ConfigureAwait(false);
@@ -202,6 +205,7 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             : $"Showing tools from {config.CatalogPath}. PC config will be created at {config.PcConfigPath}.";
         return new DevToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
         {
+            PcConfigPath = config.PcConfigPath,
             Commands = SampleCommands
         };
     }

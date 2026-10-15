@@ -186,6 +186,20 @@ public sealed class DevToolListingTests : IDisposable
         Assert.Empty(runner.Launches);
     }
 
+    /// <summary>A listing names the per-PC file beside the catalog it read, so
+    /// the pane's footer can say where this machine's choices are kept without
+    /// parsing the status sentence for it.</summary>
+    [Fact]
+    public async Task A_listing_names_this_machines_choices_file_beside_the_catalog()
+    {
+        var catalog = await Service(new ScriptedRunner(), concurrency: 5).ListAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            Path.Combine(_root, ".tools", Environment.MachineName.ToLowerInvariant(), "ai-tools.json"),
+            catalog.PcConfigPath,
+            ignoreCase: true);
+    }
+
     /// <summary>The Claude CLI writes its own state file as it starts, and
     /// nothing says two of it are safe at once. So every <c>claude</c> launch
     /// waits for the one before it, while the other CLIs run beside them.</summary>
