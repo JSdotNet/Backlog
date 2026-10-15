@@ -259,7 +259,9 @@ public sealed class SprintSettingsTests : IDisposable
         page.WaitForAssertion(() => Assert.Single(page.FindAll($"[data-testid='{Card(core)}']")));
 
         await page.Find($"[data-testid='{Card(core)}-delete']").ClickAsync(new MouseEventArgs());
-        await Planning.DeleteSeriesAsync(core.Id, TestContext.Current.CancellationToken);
+        // Straight to the store: the planning port would raise Changed and the page would
+        // drop the card on its own. This is the delete the page has not heard of yet.
+        await _store.DeleteAsync(core.Id, TestContext.Current.CancellationToken);
         await page.Find($"[data-testid='{Card(core)}-delete-confirm']").ClickAsync(new MouseEventArgs());
 
         page.WaitForAssertion(() => Assert.Empty(page.FindAll($"[data-testid='{Card(core)}']")));
