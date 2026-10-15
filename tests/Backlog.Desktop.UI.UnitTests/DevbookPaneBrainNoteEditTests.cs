@@ -23,12 +23,10 @@ public sealed class DevbookPaneBrainNoteEditTests
         var editor = component.WaitForElement("[data-testid='devbook-chapter-surface'] textarea");
         Assert.Equal("# Plan\n\nOld body.\n", editor.GetAttribute("value"));
 
-        component.Find("[data-testid='devbook-chapter-surface'] textarea").Input("# Plan\n\nNew body.\n");
-        component.Find("[data-testid='devbook-chapter-surface'] textarea").Blur();
+        await TypeAndLeaveAsync(component, "# Plan\n\nNew body.\n");
 
-        component.WaitForAssertion(
-            () => Assert.Equal("# Plan\n\nNew body.\n", File.ReadAllText(note)),
-            TimeSpan.FromSeconds(5));
+        await WaitForFileAsync(note, "# Plan\n\nNew body.\n");
+        Assert.Equal("# Plan\n\nNew body.\n", File.ReadAllText(note));
         Assert.Single(component.FindComponents<DevbookChapterEditor>());
     }
 
@@ -64,12 +62,11 @@ public sealed class DevbookPaneBrainNoteEditTests
         });
 
         await component.InvokeAsync(() => component.Find("[data-testid='brain-note-file-edit']").Click());
-        component.WaitForElement("[data-testid='devbook-chapter-surface'] textarea").Input("# Plan\n\nTyped after the move.\n");
-        component.Find("[data-testid='devbook-chapter-surface'] textarea").Blur();
+        component.WaitForElement("[data-testid='devbook-chapter-surface'] textarea");
+        await TypeAndLeaveAsync(component, "# Plan\n\nTyped after the move.\n");
 
-        component.WaitForAssertion(
-            () => Assert.Equal("# Plan\n\nTyped after the move.\n", File.ReadAllText(newNote)),
-            TimeSpan.FromSeconds(5));
+        await WaitForFileAsync(newNote, "# Plan\n\nTyped after the move.\n");
+        Assert.Equal("# Plan\n\nTyped after the move.\n", File.ReadAllText(newNote));
         Assert.Equal("# Plan\n\nIn the old folder.\n", File.ReadAllText(oldNote));
     }
 
@@ -91,4 +88,20 @@ public sealed class DevbookPaneBrainNoteEditTests
         component.WaitForAssertion(() =>
             Assert.Contains("After the sync.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal));
     }
+
+    private const string Editor = "[data-testid='devbook-chapter-surface'] textarea";
+
+    /// <summary>Types the body into the open editor and leaves the field — the leave
+    /// lands on the textarea that took the text, not one a render in between replaced.</summary>
+    private static async Task TypeAndLeaveAsync(IRenderedComponent<DevbookPane> component, string body)
+    {
+        await component.InputAsync(Editor, body);
+        await component.BlurAsync(Editor);
+    }
+
+    /// <summary>Waits for the note on disk to read <paramref name="expected"/>.</summary>
+    private static Task WaitForFileAsync(string path, string expected) =>
+        Polling.WaitUntilAsync(
+            () => Task.FromResult(RaceSafeTestHelpers.ReadOrNull(path) == expected),
+            () => $"{path} never read the typed body; it reads:\n{RaceSafeTestHelpers.ReadOrNull(path)}");
 }

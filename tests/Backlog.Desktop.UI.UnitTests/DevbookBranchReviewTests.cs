@@ -509,7 +509,15 @@ public sealed class DevbookBranchReviewTests : IDisposable
 
     /// <summary>A read that fails after everyone waiting on it has left is
     /// dropped when it fails: the next ask reads again rather than being handed
-    /// the old failure.</summary>
+    /// the old failure.
+    /// <para>
+    /// "When it fails" is taken at its word: the ask comes the moment the read
+    /// itself has finished failing, with no grace period after it. The test used
+    /// to wait a hundred milliseconds there, which stood in for the cache dropping
+    /// the failure a thread-pool hop later; under a loaded suite the hop took
+    /// longer and the next ask was handed the old failure.
+    /// </para>
+    /// </summary>
     [Fact]
     public async Task A_read_that_fails_with_no_one_waiting_is_not_served_again()
     {
@@ -526,7 +534,7 @@ public sealed class DevbookBranchReviewTests : IDisposable
 
         _comparison.Failure = "GitHub refused the commit.";
         gate.SetResult();
-        await Task.Delay(100, Token);
+        await Assert.ThrowsAsync<GitHubException>(() => Assert.Single(_comparison.Reads));
 
         _comparison.Failure = null;
         _comparison.Gates.Remove("c2bbbbbbbbbb");
