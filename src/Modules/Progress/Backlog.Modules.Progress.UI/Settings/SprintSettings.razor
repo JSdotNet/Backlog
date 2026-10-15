@@ -13,6 +13,11 @@
     than what was typed. A refused change keeps the series as it was and says why on
     its card, in the module's own words.
 
+    A series saved anywhere else - pulled from another desktop by the sync, or changed
+    from the sprint view or a task - raises ISprintSeriesPlanning.Changed, and the page
+    reads every series again. Each card keeps its place (@key) and its own drafts: a
+    plan or tag half typed, a pattern held back for want of {n}.
+
     The namespace is the project's root rather than the folder's, on the
     WorkingWeekSettings precedent.
 *@
@@ -28,6 +33,7 @@
 @using global::Backlog.UI.Components.Selects
 @inject ISprintSeriesPlanning Planning
 @inject ISprintRepositories RepositoryList
+@implements IDisposable
 
 <ProgressOnly>
     <div class="sprint-settings" data-testid="sprint-settings">
@@ -36,7 +42,7 @@
             In progress view.
         </p>
 
-        <Alert Message="@_pageError" TestId="sprint-settings-error" />
+        <Alert Message="@(_readError ?? _pageError)" TestId="sprint-settings-error" />
 
         @foreach (var series in _series)
         {
@@ -103,8 +109,17 @@
     /// saved has to carry the first rather than what the card last drew.</summary>
     private readonly Dictionary<Guid, (SprintLength Length, DayOfWeek Start)> _cadence = [];
     private List<SprintSeriesDto> _series = [];
+    /// <summary>Why the series could not be read, from the last read; null once one
+    /// succeeds.</summary>
+    private string? _readError;
+
+    /// <summary>Why the person's last Add did not go through. Kept across a read the
+    /// page did not ask for, so a series pulled from another desktop does not wipe it.</summary>
     private string? _pageError;
     private bool _adding;
+
+    /// <summary>Changes handed to the port and not yet answered.</summary>
+    private int _saving;
 
     /// <summary>The registered repositories no series holds, in the registry's order —
     /// what Add repository and Add another sprint offer, and what the Not in a sprint
@@ -122,23 +137,44 @@
 
     private IReadOnlyList<SelectorOption> FreeOptions => [.. Free.Select(alias => new SelectorOption(alias, alias))];
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override Task OnInitializedAsync()
+    {
+        Planning.Changed += OnSeriesChanged;
+        return LoadAsync();
+    }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// A series was saved somewhere else - most often pulled from another desktop - so
+    /// every series is read again. What the page said about the person's own last Add
+    /// stays; the page's own saves raise this too, after they have drawn their answer,
+    /// and cost one more read.
+    /// </summary>
+    private void OnSeriesChanged() => _ = InvokeAsync(async () =>
+    {
+        await LoadAsync(keepCadence: _saving > 0);
+        StateHasChanged();
+    });
+
+    public void Dispose() => Planning.Changed -= OnSeriesChanged;
+
+    /// <param name="keepCadence">A read between a cadence change and its save: the
+    /// length or weekday asked for and not yet stored stays, so the next change still
+    /// carries it.</param>
+    private async Task LoadAsync(bool keepCadence = false)
     {
         try
         {
             var listed = await Planning.ListSeriesAsync();
             _series = listed.IsSuccess ? [.. listed.Value] : [];
-            _pageError = listed.IsSuccess ? null : listed.Error.Message;
+            _readError = listed.IsSuccess ? null : listed.Error.Message;
         }
         catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
         {
             _series = [];
-            _pageError = $"The sprint series could not be read: {exception.Message}";
+            _readError = $"The sprint series could not be read: {exception.Message}";
         }
 
-        _cadence.Clear();
+        if (!keepCadence) _cadence.Clear();
         RefreshFree();
     }
 
@@ -165,6 +201,7 @@
     private async Task ChangeAsync(Guid seriesId, Func<CancellationToken, Task<global::Backlog.SharedKernel.Results.Result<SprintSeriesDto>>> change)
     {
         global::Backlog.SharedKernel.Results.Result<SprintSeriesDto> changed;
+        _saving++;
         try
         {
             changed = await change(CancellationToken.None);
@@ -174,6 +211,10 @@
             _errors[seriesId] = $"The change could not be saved: {exception.Message}";
             await LoadAsync();
             return;
+        }
+        finally
+        {
+            _saving--;
         }
 
         if (changed.IsFailure)
@@ -206,7 +247,10 @@
             }
 
             _pageError = null;
-            _series.Add(created.Value);
+            // The save's own notice may have read the new series in already.
+            var index = _series.FindIndex(series => series.Id == created.Value.Id);
+            if (index >= 0) _series[index] = created.Value;
+            else _series.Add(created.Value);
             RefreshFree();
         }
         catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
@@ -256,7 +300,8 @@
                 series.GoalRules.Any(rule => rule.Kind == GoalRuleKind.Everything),
                 series.GoalShare),
             series.ShowInDailyBrief,
-            series.ShowInWeeklyBrief);
+            series.ShowInWeeklyBrief,
+            series.OffReason);
     }
 
     /// <summary>The number the next sprint will carry: one past the open sprint, or

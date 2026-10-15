@@ -22,7 +22,8 @@ public sealed record RenameSeriesCommand(Guid SeriesId, string Name, string Name
 /// <summary>Chooses which briefs show the series' open sprint.</summary>
 public sealed record ShowInBriefsCommand(Guid SeriesId, bool Daily, bool Weekly);
 
-/// <summary>Switches a series on or off; nothing it holds changes.</summary>
+/// <summary>Switches a series on or off; nothing it holds changes. On is refused while
+/// another switched-on series has one of its repositories.</summary>
 public sealed record SwitchSeriesCommand(Guid SeriesId, bool On);
 
 /// <summary>Chooses the goal rules and the share of goal tasks that meets the goal.</summary>
@@ -83,13 +84,9 @@ public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
     public Task<Result<SprintSeriesDto>> Handle(SwitchSeriesCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return changes.ChangeAsync(
+        return changes.ChangeAcrossAsync(
             command.SeriesId,
-            series =>
-            {
-                series.Switch(command.On);
-                return Result.Success();
-            },
+            (all, series) => SeriesAssignment.SwitchOn(all, series, command.On),
             cancellationToken);
     }
 

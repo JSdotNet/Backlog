@@ -28,6 +28,11 @@
         <span class="sprint-card__running" data-testid="@Part("running")">@RunningText</span>
     </div>
 
+    @if (!Model.IsOn && !string.IsNullOrWhiteSpace(Model.OffReason))
+    {
+        <p class="sprint-card__hint" data-testid="@Part("off-reason")">@Model.OffReason</p>
+    }
+
     <Alert Message="@Error" TestId="@Part("error")" />
 
     <div class="sprint-card__field" role="group" aria-labelledby="@Part("repositories-key")">

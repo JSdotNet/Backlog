@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Globalization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Progress.Abstractions;
@@ -14,24 +13,25 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// state, merge day, author and the day it was opened
 /// (<c>.devbook/domain/progress/dependencies.md</c>).
 /// <para>
-/// On the reader's terms: a merged pull request cannot change again, so it is read once
-/// and kept for the life of the process; any other is read again once its answer is
-/// older than <see cref="FreshFor"/>. A pull request GitHub could not be asked about —
-/// no GitHub configured, a repository that refused, a number that is not a pull
+/// It keeps nothing of its own: it reads through
+/// <see cref="GitHubIntegration.ReadLinkedPullRequestsAsync"/>, the cache the In
+/// progress view's reader reads through too, so the sprint view and the Now view asking
+/// about the same links in one refresh ask GitHub once. On that cache's terms, a merged
+/// pull request is read once and kept for the life of the process, a number GitHub
+/// answered without is not asked about again, and any other is read again once its
+/// answer is older than <see cref="FreshFor"/>. A pull request GitHub could not be asked
+/// about — no GitHub configured, a repository that refused, a number that is not a pull
 /// request — answers <see cref="LinkedPullRequestState.Unknown"/> with no author, the
 /// module's own answer, so a member is then done by its task's status alone. It never
 /// throws for GitHub's sake.
 /// </para>
 /// </summary>
 /// <param name="gitHub">The GitHub adapter, resolved per call; null reads nothing.</param>
-public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub, TimeProvider? clock = null) : ISprintPullRequestReader
+public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : ISprintPullRequestReader
 {
     /// <summary>How long an answer that is not merged is kept before it is asked again —
     /// the In progress view's own freshness, so the two never disagree for long.</summary>
     public static readonly TimeSpan FreshFor = TimeSpan.FromMinutes(1);
-
-    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
-    private readonly ConcurrentDictionary<string, (LinkedPullRequestDto Answer, DateTimeOffset ReadAt)> _known = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task<IReadOnlyList<LinkedPullRequestDto>> ReadAsync(
         IReadOnlyList<PullRequestRefDto> pullRequests,
@@ -39,25 +39,25 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub, Ti
     {
         ArgumentNullException.ThrowIfNull(pullRequests);
 
-        var now = _clock.GetUtcNow();
         var wanted = pullRequests
-            .Where(pull => !IsKnown(pull, now) && Reference(pull) is not null)
-            .Select(pull => Reference(pull)!)
+            .Select(Reference)
+            .OfType<GitHubPullRequestReference>()
             .DistinctBy(Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        var answers = new Dictionary<string, LinkedPullRequestDto>(StringComparer.OrdinalIgnoreCase);
         if (wanted.Count > 0 && gitHub() is { IsConfigured: true } configured)
         {
             try
             {
-                var listing = await configured.ListLinkedPullRequestsAsync(wanted, cancellationToken).ConfigureAwait(false);
+                var listing = await configured.ReadLinkedPullRequestsAsync(wanted, FreshFor, cancellationToken).ConfigureAwait(false);
                 var refused = listing.Failures.Select(failure => failure.RepositoryFullName.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var whole = refused.Contains("GitHub");
 
-                // Kept under the key it was asked by, not the name GitHub answers with: a
-                // renamed repository answers under its new name, and a key the next read
-                // never asks by would send the same question again every time.
                 foreach (var reference in wanted)
                 {
+                    // The one in its own repository, or — renamed since it was linked —
+                    // the only one with its number.
                     var pull = listing.PullRequests.FirstOrDefault(candidate =>
                             candidate.Number == reference.Number
                             && string.Equals(candidate.RepositoryFullName, reference.RepositoryFullName, StringComparison.OrdinalIgnoreCase))
@@ -67,24 +67,23 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub, Ti
 
                     if (pull is not null)
                     {
-                        _known[Key(reference)] = (new LinkedPullRequestDto(
+                        answers[Key(reference)] = new LinkedPullRequestDto(
                             reference.RepositoryFullName,
                             reference.Number.ToString(CultureInfo.InvariantCulture),
                             State(pull.State),
                             pull.MergedAt is { } merged ? DateOnly.FromDateTime(merged.ToLocalTime().Date) : null,
                             string.IsNullOrWhiteSpace(pull.AuthorLogin) ? null : pull.AuthorLogin,
-                            pull.CreatedAt is { } opened ? DateOnly.FromDateTime(opened.ToLocalTime().Date) : null), now);
+                            pull.CreatedAt is { } opened ? DateOnly.FromDateTime(opened.ToLocalTime().Date) : null);
                     }
-                    else if (!refused.Contains(reference.RepositoryFullName.Trim()))
+                    else if (!whole && !refused.Contains(reference.RepositoryFullName.Trim()))
                     {
-                        // Answered without it — not a pull request, or deleted: Unknown, and
-                        // not asked again until the answer is stale.
-                        _known[Key(reference)] = (new LinkedPullRequestDto(
+                        // Answered without it — not a pull request, or deleted.
+                        answers[Key(reference)] = new LinkedPullRequestDto(
                             reference.RepositoryFullName,
                             reference.Number.ToString(CultureInfo.InvariantCulture),
                             LinkedPullRequestState.Unknown,
                             null,
-                            null), now);
+                            null);
                     }
                 }
             }
@@ -95,19 +94,12 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub, Ti
             }
         }
 
-        return [.. pullRequests.Select(pull => Known(pull) ?? LinkedPullRequestDto.Unread(pull))];
+        // The task's own spelling of the repository and number, so a caller matching its
+        // answers back to its links finds them.
+        return [.. pullRequests.Select(pull => answers.TryGetValue(Key(pull), out var answer)
+            ? answer with { Repository = pull.Repository, Number = pull.Number }
+            : LinkedPullRequestDto.Unread(pull))];
     }
-
-    private bool IsKnown(PullRequestRefDto pull, DateTimeOffset now) =>
-        _known.TryGetValue(Key(pull), out var known)
-        && (known.Answer.State is LinkedPullRequestState.Merged || now - known.ReadAt < FreshFor);
-
-    private LinkedPullRequestDto? Known(PullRequestRefDto pull) =>
-        _known.TryGetValue(Key(pull), out var known)
-            // The task's own spelling of the repository and number, so a caller matching
-            // its answers back to its links finds them.
-            ? known.Answer with { Repository = pull.Repository, Number = pull.Number }
-            : null;
 
     private static GitHubPullRequestReference? Reference(PullRequestRefDto pull) =>
         int.TryParse(pull.Number.Trim().TrimStart('#'), NumberStyles.None, CultureInfo.InvariantCulture, out var number)

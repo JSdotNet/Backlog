@@ -170,6 +170,8 @@ public class ProgressSprintBriefSourceTests
 
     private sealed class FakeProgress(IReadOnlyList<SprintSeriesDto> series) : ISprintSeriesPlanning, ISprintProgress
     {
+        public event Action? Changed { add { } remove { } }
+
         public Dictionary<(Guid, int), SprintProgressDto> Read { get; } = [];
 
         public List<(Guid, int)> Asked { get; } = [];

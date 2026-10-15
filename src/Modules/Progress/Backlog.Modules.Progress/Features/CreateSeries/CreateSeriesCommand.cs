@@ -11,7 +11,7 @@ namespace Backlog.Modules.Progress.Features.CreateSeries;
 /// (<c>.devbook/domain/progress/features.md#setting-up-a-sprint-series</c>).</summary>
 public sealed record CreateSeriesCommand(CreateSprintSeries Request);
 
-public sealed class CreateSeriesCommandHandler(ISprintSeriesRepository repository, ProgressGate gate, SeriesSaved saved)
+public sealed class CreateSeriesCommandHandler(ISprintSeriesRepository repository, ProgressGate gate, SeriesSaved saved, TimeProvider clock)
     : ICommandHandler<CreateSeriesCommand, Result<SprintSeriesDto>>
 {
     public async Task<Result<SprintSeriesDto>> Handle(CreateSeriesCommand command, CancellationToken cancellationToken = default)
@@ -42,7 +42,8 @@ public sealed class CreateSeriesCommandHandler(ISprintSeriesRepository repositor
             request.NamePattern,
             new BriefVisibility(request.ShowInDailyBrief, request.ShowInWeeklyBrief),
             rules,
-            request.GoalShare);
+            request.GoalShare,
+            clock.GetUtcNow());
 
         if (created.IsFailure) return created.Error;
 

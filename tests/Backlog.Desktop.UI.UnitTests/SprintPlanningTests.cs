@@ -282,6 +282,8 @@ public sealed class SprintPlanningTests : IDisposable
     /// </summary>
     private sealed class FakeProgress(SprintSeriesDto series) : ISprintSeriesPlanning, ISprintProgress
     {
+        public event Action? Changed { add { } remove { } }
+
         private SprintSeriesDto _series = series;
 
         public List<string> Writes { get; } = [];
