@@ -178,7 +178,7 @@ as charts.
 type: sub-feature
 status: draft
 related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget, .devbook/domain/productivity/features.md#the-weekly-brief, .devbook/domain/productivity/features.md#the-header-and-its-controls, .devbook/domain/productivity/features.md#deltas-against-the-previous-window, .devbook/domain/productivity/requirements.md#six-tabs-and-what-each-answers]
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_pane_opened_again_starts_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_carries_the_open_drift_issue_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_has_no_badge_when_no_issue_is_open_or_none_could_be_read, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_part_keeps_its_own_more_fold, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardProductivityTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_pane_opened_again_starts_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_carries_the_open_drift_issue_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_has_no_badge_when_no_issue_is_open_or_none_could_be_read, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_part_keeps_its_own_more_fold, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_tasks_tab_puts_the_two_task_charts_side_by_side_above_the_roadmap, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardProductivityTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests]
 ```
 
 The pane holds six tabs, in this order:
@@ -187,7 +187,7 @@ The pane holds six tabs, in this order:
 | --- | --- | --- |
 | Overview | How is it going, and what needs me? | The headline tiles, the main charts and [What needs you](#what-needs-you) |
 | Productivity | How much did I ship, and how much came back? | The throughput tiles, volume over time, the Volume and Quality scores, and rework after review |
-| Tasks | Is the planned work getting done, and will each plan land? | The six task figures, the [roadmap timeline](#whether-each-plan-will-land-in-its-window), and tasks and story points completed per week |
+| Tasks | Is the planned work getting done, and will each plan land? | The six task figures, tasks and effort completed per week, and the [roadmap timeline](#whether-each-plan-will-land-in-its-window) |
 | Sessions | When and how long did the agents work? | The session figures, agent-active hours per week, the hour grid, [the longest sessions](#the-longest-sessions), [hours worked](#hours-worked), and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped) |
 | Devbook | Which devbook [sync units](../devbook/domain.md#sync-unit) have drifted from their code? | [Drift at a glance](#drift-at-a-glance) |
 | Cost | What are my assistants costing this month? | [Spend against a monthly budget](#spend-against-a-monthly-budget) |
@@ -256,8 +256,9 @@ The Tasks tab opens with its six task figures in one joined row, in this order:
 With no measured pace, the pace says "No pace" and still to do says there is no pace
 to tell how long, rather than showing 0 points a week. The backlog and the roadmap
 each answer for their own figures, so one failing leaves the other's standing. The
-roadmap timeline sits under the row, and the two weekly task charts sit side by side
-below it.
+two weekly task charts, Tasks completed and Effort completed, sit side by side under
+the row, and the roadmap timeline comes last. The timeline grows a row per plan, so
+it sits below the charts rather than pushing them off the screen.
 
 The Sessions tab's weekly chart opens on agent-active hours, cut by model, titled
 "Agent-active hours per week". The cut is one choice of By model, By repository or
@@ -761,7 +762,7 @@ type: sub-feature
 status: draft
 feature-flag: .devbook/domain/productivity/context.md#dashboard
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#5-placed_by_import-and-what-a-re-import-may-touch]
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests.The_points_tile_counts_overdue_items_as_behind_as_their_chips_do]
+tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests.The_points_tile_counts_overdue_items_as_behind_as_their_chips_do]
 ```
 
 See, without opening the roadmap, which plans will land inside the window they
@@ -772,8 +773,14 @@ overdue, not sized, or with no pace to read it at. The Overview's roadmap chart 
 the same plans against their pace, and a plan that is behind pace is listed under
 [What needs you](#what-needs-you).
 
-The timeline starts where the window starts and runs past today to the latest end of
-the plans it holds, so a plan still running is drawn whole. It stops 26 weeks past
+A finished plan's bar ends in the week its work landed, never at its planned end,
+because work that is done cannot run on past today. One that landed before its planned
+start begins there too. A finished plan that landed before the window opened is drawn
+in the window's first week and cut off there, rather than left as an empty row. Every
+other plan's bar runs from its planned start to its planned end.
+
+The timeline starts where the window starts and runs past today to the latest drawn
+end of the plans it holds, so a plan still running is drawn whole. It stops 26 weeks past
 today, and a bar running beyond that stays visibly cut. A "Today" line marks today,
 and today's week is emphasised. Without a window, the axis is the plans' own stretch.
 Each row has an outlook sentence: one sentence saying how the plan's work stands and
