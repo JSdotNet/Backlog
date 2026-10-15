@@ -21,15 +21,20 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 
 The extensibility model for the VS Code channel.
 
-- **Used for** — `Backlog.Ide.VsCode`: the `backlog.capture` and
-  `backlog.refreshInbox` commands and the `backlogInbox` explorer tree view,
-  configured with the sync service's base URL.
+- **Used for** — `Backlog.Ide.VsCode`: the `backlog.capture`,
+  `backlog.refreshInbox`, `backlog.pair` and `backlog.unpair` commands and the
+  `backlogInbox` explorer tree view, configured with the sync service's base URL.
+  `SecretStorage` (API 1.53, inside the 1.90 pin) holds the device id and
+  credential the pair command gets for a desktop-issued pairing code.
 - **Why** — the only supported way to extend VS Code.
 - **How** — the AppHost registers two explicit-start resources for it:
   `ide-vscode-build` runs `npm run watch` to keep `out/extension.js` current, and
   `ide-vscode-host` launches an Extension Development Host with the extension
   side-loaded. Because Aspire assigns a dynamic port per run, `backlog.cloudUrl`
-  has no default — it is copied from the dashboard.
+  has no default — it is copied from the dashboard. The pairing, token and inbox
+  calls live in `src/sync-client.ts`, which imports nothing from `vscode`, so
+  `npm test` runs it under Node's built-in `node:test` runner with a stub
+  `fetch`; the `vscode-extension` job in `pull-request.yml` runs that too.
 
 ## VS Code Webview UI
 
