@@ -332,7 +332,8 @@
                 series.GoalRules.Any(rule => rule.Kind == GoalRuleKind.Everything),
                 series.GoalShare),
             series.ShowInDailyBrief,
-            series.ShowInWeeklyBrief);
+            series.ShowInWeeklyBrief,
+            series.OffReason);
     }
 
     /// <summary>The number the next sprint will carry: one past the open sprint, or

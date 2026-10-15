@@ -22,7 +22,8 @@ public static class SprintSeriesMapper
             [.. series.GoalRules.Select(ToDto)],
             series.Threshold.Share,
             [.. series.Sprints.Select(sprint => sprint.ToDto(series.NamePattern))],
-            series.IsOn);
+            series.IsOn,
+            series.OffReason);
     }
 
     public static GoalRuleDto ToDto(GoalRule rule) => new(rule.Kind, [.. rule.Choices]);

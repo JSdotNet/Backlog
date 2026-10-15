@@ -199,3 +199,19 @@ Giving a series a repository that another series already has is refused (`progre
 A repository with two cadences would have two open sprints, and its view could show neither honestly.
 
 Enforced at: `Assign()`
+
+### Invariant: A synced repository keeps to the series set up first
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SeriesClaimTests.The_series_set_up_first_keeps_the_repository, unit:dotnet:Backlog.Modules.Progress.UnitTests.SeriesClaimTests.A_switched_on_series_keeps_the_repository_from_a_switched_off_one, unit:dotnet:Backlog.Modules.Progress.UnitTests.SeriesClaimTests.Switching_on_a_series_whose_repository_another_has_is_refused, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.SprintSyncBetweenDevicesTests.Two_desktops_that_set_up_a_series_for_one_repository_offline_keep_it_in_the_first]
+```
+
+Two desktops that each give one repository to a series while offline both keep their series after syncing, which is the one way a repository comes to be in two.
+When that leaves a repository in two switched-on series, the series that holds it is decided by the series' documents alone, so every desktop decides it the same way:
+a switched-on series before a switched-off one, then the series set up first, then the lower id.
+Every other switched-on series that has the repository is switched off with its [Off Reason](domain.md#series-switch), keeping its sprints and settings.
+Switching a series on while another switched-on series has one of its repositories is refused (`progress.repository_in_other_series`).
+
+Enforced at: `ResolveClaims()`, `HolderOf()`, `SwitchOn()`
