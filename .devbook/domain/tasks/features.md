@@ -334,24 +334,35 @@ occurrence carries over.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
-related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day]
+setting: .devbook/domain/tasks/context.md#clear-my-day-overnight
+related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
 Pick the tasks to work on today, separately from when they are due: a task
 due next Friday can be in today's [My Day](domain.md#my-day), and a task due
 today need not be.
 
-My Day expires on its own. Yesterday's list clears itself without a timer, a
-timezone rule or an overnight sweep. A device that was switched off for a week
-comes back to an empty My Day rather than a stale one.
+My Day expires on its own unless the person turns
+[Clear My Day overnight](context.md#clear-my-day-overnight) off. With it on,
+the default, yesterday's list clears itself without a timer, a timezone rule or
+an overnight sweep. A device that was switched off for a week comes back to an
+empty My Day rather than a stale one.
+
+With it off, an unfinished task picked on an earlier day stays in today's My Day
+until the person ticks it off or takes it out. A task ticked off today stays,
+ticked, until the day ends. One ticked off on an earlier day is gone, and a task
+moved to tomorrow never shows today. The person sets the switch on the desktop,
+and every paired device follows it, the phone included.
 
 A task in today's My Day may also carry an [Agenda Time](domain.md#agenda-time):
 a start time and a duration that place it in the day, such as 10:45 for 45
 minutes. The agenda time is set and cleared on the desktop only. It means
-nothing without a My Day date, and it is dropped when the task leaves My Day.
+nothing without a My Day date, and it is dropped when the task leaves My Day. A
+task carried over from an earlier day shows no agenda time, because its slot
+belonged to the day it was picked for.
 
 On the desktop, the agenda time sits in the task's detail pane directly under
-the My Day control, and only while the task is in today's My Day. A start is
+the My Day control, and only while the task is picked for today. A start is
 picked in 15-minute steps and a duration from 15, 30, 45, 60, 90 or 120
 minutes. A start picked alone means 30 minutes. Changing the start keeps the
 duration, and changing the duration keeps the start. Clearing removes the agenda
@@ -362,8 +373,7 @@ to end beside My Day, such as `10:45–11:30`.
 On the phone, My Day is the Today tab, the first of the phone's three tabs
 (Today, Inbox, Notes) and the screen the app opens on. Under the phone's own
 date it says how many of the day's tasks are ticked off, as `3 of 8 done` with
-a bar. It shows what was picked for the phone's own date, never a due-date
-grouping, and splits that list into four groups:
+a bar. It shows My Day for the phone's own date, never a due-date grouping, and splits that list into four groups:
 
 ```mermaid
 flowchart TD
