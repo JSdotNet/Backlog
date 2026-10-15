@@ -410,6 +410,27 @@ The system SHALL send no series from a desktop that never set one up.
 - **When** B syncs
 - **Then** B holds "Core" as A has it, and A still holds its own "Core"
 
+### Requirement: A repository two desktops gave to two series stays in the first
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL, when syncing leaves a repository in two switched-on series, keep it working to the series set up first and switch the other off with a line saying why, on every paired desktop alike, without asking the person and without losing a sprint.
+
+#### Scenario: Two desktops set up a series for one repository offline
+
+- **Given** A and B are both offline, A sets up the series "Core" over `backlog`, and later B sets up the series "Main" over `backlog`
+- **When** A and B both sync, in either order
+- **Then** both desktops show `backlog` working to "Core", and "Main" switched off with the line `Switched off: backlog already works to "Core", which was set up first.`, and "Main" keeps every sprint it recorded
+
+#### Scenario: The switched-off series cannot be switched back on
+
+- **Given** "Main" was switched off because `backlog` works to "Core"
+- **When** the person switches "Main" on
+- **Then** the change is refused and "Main" stays off
+
 ## Sprints in the briefs
 
 ```meta

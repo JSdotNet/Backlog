@@ -36,6 +36,14 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
         </div>
     </Story>
 
+    <Story Name="Switched off by sync"
+           Description="Two desktops each set up a series for one repository while offline. Once both synced, the repository stays in the series set up first and this one is switched off, with a line saying why. It keeps every sprint it recorded; take the repository out and it can be switched back on."
+           Code="@SyncOffCode">
+        <div class="sb-menu-wide">
+            <SprintSeriesCard Model="@(Fincent with { IsOn = false, Running = null, OffReason = SyncOffReason })" TestId="sprint-off-by-sync" />
+        </div>
+    </Story>
+
     <Story Name="A goal counted by plans and tags, met at a share"
            Description="Two plans and a tag pick the goal tasks, and the goal is met once 80% of them are done. A task picked by more than one rule counts once."
            Code="@ShareCode">
@@ -149,6 +157,12 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
 
     private const string OffCode = """
         <SprintSeriesCard Model="@(series with { IsOn = false })" />
+        """;
+
+    private const string SyncOffReason = "Switched off: innovadis-dev/Fincent already works to \"Platform\", which was set up first.";
+
+    private const string SyncOffCode = """
+        <SprintSeriesCard Model="@(series with { IsOn = false, OffReason = series.OffReason })" />
         """;
 
     private const string ShareCode = """

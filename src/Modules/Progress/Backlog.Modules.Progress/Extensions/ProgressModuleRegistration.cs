@@ -75,7 +75,8 @@ public static class ProgressModuleRegistration
         services.TryAddSingleton<ISprintSeriesReplication>(sp => new SprintSeriesReplication(
             sp.GetService<ISprintSeriesReplicaStore>(),
             sp.GetRequiredService<SeriesSaved>(),
-            sp.GetRequiredService<ProgressGate>()));
+            sp.GetRequiredService<ProgressGate>(),
+            sp.GetService<ISprintSeriesRepository>()));
 
         return services;
     }

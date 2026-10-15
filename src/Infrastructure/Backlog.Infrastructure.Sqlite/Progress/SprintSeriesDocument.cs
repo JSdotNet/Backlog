@@ -55,6 +55,13 @@ internal sealed record SprintSeriesDocument
     /// was then — so the shape is still <see cref="CurrentVersion"/>.</summary>
     public bool IsOn { get; init; } = true;
 
+    /// <summary>When the series was set up. Absent from a document written before it was
+    /// kept, which then reads as set up before every series that has one.</summary>
+    public DateTimeOffset? CreatedAt { get; init; }
+
+    /// <summary>Why the system switched the series off, or absent.</summary>
+    public string? OffReason { get; init; }
+
     public static SprintSeriesDocument From(SprintSeries series) =>
         new()
         {
@@ -69,7 +76,9 @@ internal sealed record SprintSeriesDocument
             GoalRules = [.. series.GoalRules.Select(rule => new GoalRuleDocument(rule.Kind, [.. rule.Choices]))],
             GoalShare = series.Threshold.Share,
             Sprints = [.. series.Sprints.Select(SprintDocument.From)],
-            IsOn = series.IsOn
+            IsOn = series.IsOn,
+            CreatedAt = series.CreatedAt,
+            OffReason = series.OffReason
         };
 
     public SprintSeries ToSeries() =>
@@ -84,7 +93,9 @@ internal sealed record SprintSeriesDocument
             (GoalRules ?? []).Select(rule => (rule.Kind, (IReadOnlyList<string>)(rule.Choices ?? []))),
             GoalShare,
             (Sprints ?? []).Select(sprint => sprint.ToSprint()),
-            IsOn);
+            IsOn,
+            CreatedAt,
+            OffReason);
 }
 
 internal sealed record GoalRuleDocument(GoalRuleKind Kind, List<string>? Choices);
