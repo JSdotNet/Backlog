@@ -26,6 +26,14 @@
                 CssClass="sprint-card__switch" />
         <h3 class="sprint-card__title" id="@TitleId">@Model.Name</h3>
         <span class="sprint-card__running" data-testid="@Part("running")">@RunningText</span>
+        @if (CanStart)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       CssClass="sprint-card__start"
+                       TestId="@Part("start")"
+                       OnClick="() => OnStartSprint.InvokeAsync()">Start @FirstName…</AppButton>
+        }
     </div>
 
     <Alert Message="@Error" TestId="@Part("error")" />
@@ -299,6 +307,11 @@
     [Parameter]
     public EventCallback<(bool Daily, bool Weekly)> OnShowInChanged { get; set; }
 
+    /// <summary>Start was pressed on a switched-on series with no sprint yet: the host
+    /// asks for the first sprint's goal and day. Unset, the card offers no Start.</summary>
+    [Parameter]
+    public EventCallback OnStartSprint { get; set; }
+
     [Parameter]
     public string? TestId { get; set; }
 
@@ -324,6 +337,12 @@
     private string TitleId => Part("title");
 
     private string RunningText => Model.Running ?? "No sprint has started yet.";
+
+    /// <summary>A first sprint can be started on a switched-on series that has none,
+    /// when the host offers it. Every later one starts by closing the one before.</summary>
+    private bool CanStart => Model.IsOn && Model.Running is null && Model.NextNumber == 1 && OnStartSprint.HasDelegate;
+
+    private string FirstName => SprintSeriesCardModel.NextName(Model.NamePattern, Model.NextNumber) ?? "the first sprint";
 
     private bool InPlansShown => _goal.InPlans || _plansPending;
 

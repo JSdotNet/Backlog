@@ -71,6 +71,10 @@
         {
             <Alert Message="@Error" TestId="sprint-board-error" />
         }
+        else if (Empty is not null)
+        {
+            @Empty
+        }
         else
         {
             <Spinner Label="Reading the sprint" TestId="sprint-board-reading" />
@@ -84,6 +88,13 @@
             <div class="sprint-board__goal-line">
                 <span class="sprint-board__eyebrow">Sprint goal</span>
                 <span class="sprint-board__goal-text" data-testid="sprint-board-goal-text">@(string.IsNullOrWhiteSpace(Board.Goal) ? "No goal set for this sprint." : Board.Goal)</span>
+                @if (OnEditGoal.HasDelegate)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="sprint-board-goal-edit"
+                               OnClick="() => OnEditGoal.InvokeAsync()">@(string.IsNullOrWhiteSpace(Board.Goal) ? "Set goal" : "Edit goal")</AppButton>
+                }
                 @if (Board.GoalMet)
                 {
                     <Badge BaseClass="sprint-board__goal-badge" Kind="" TestId="sprint-board-goal-met">Goal met</Badge>
@@ -355,6 +366,18 @@
     /// goal card while a sprint is drawn; null draws nothing there.</summary>
     [Parameter]
     public RenderFragment? Daily { get; set; }
+
+    /// <summary>What the host draws under the header when there is no sprint to read —
+    /// a series whose first sprint has not started. Set, it stands in for the spinner
+    /// while <see cref="Model"/> is null.</summary>
+    [Parameter]
+    public RenderFragment? Empty { get; set; }
+
+    /// <summary>Edit goal was pressed on the goal card. Set by the host only while the
+    /// sprint drawn is the open one, the one sprint whose goal can still change; unset,
+    /// the goal card only reads.</summary>
+    [Parameter]
+    public EventCallback OnEditGoal { get; set; }
 
     [Parameter]
     public EventCallback OnPrevious { get; set; }

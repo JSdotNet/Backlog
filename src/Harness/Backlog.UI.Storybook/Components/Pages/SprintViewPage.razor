@@ -56,6 +56,48 @@ The header folds the strip to its label and headline. Copy for the stand-up puts
         </div>
     </Story>
 
+    <Story Name="Writing the goal"
+           Description="On the open sprint the goal card offers Edit goal — Set goal while the sprint has none. It opens a dialog over the goal in words; Save hands it back trimmed and the host writes it through the module, so the card shows what the sprint now holds. A closed sprint's goal card only reads."
+           Code="@GoalCode">
+        <div class="sb-menu-wide">
+            <SprintBoard Model="@(Fincent with { Goal = _goal })"
+                         TestId="sprint-view-goal"
+                         OnEditGoal="@(() => _goalOpen = true)" />
+            <SprintGoalDialog Open="_goalOpen"
+                              OpenChanged="open => _goalOpen = open"
+                              SprintName="Sprint 42"
+                              Current="@_goal"
+                              TestId="sprint-view-goal-dialog"
+                              OnSave="goal => { _goal = goal; _goalOpen = false; }" />
+        </div>
+    </Story>
+
+    <Story Name="No sprint has started yet"
+           Description="A series switched on with no sprint yet still carries the switch, named for the sprint it will start. Its sprint side says so and offers Start Sprint 1…, which asks for the first sprint's goal and the day it starts — the next start weekday, today when today is one. A day on another weekday is held back with the reason beside the field. Every later sprint starts by closing the one before."
+           Code="@NotStartedCode">
+        <div class="sb-menu-wide">
+            <SprintBoard TestId="sprint-view-not-started" ViewSwitch="@Switch("Sprint 1")">
+                <Empty>
+                    <EmptyState Title="No sprint has started yet"
+                                Description="Fincent team runs two-week sprints from a Monday. Start the first to plan into it."
+                                TestId="sprint-view-not-started-state">
+                        <Action>
+                            <AppButton Variant="ButtonVariant.Primary" OnClick="@(() => _startOpen = true)">Start Sprint 1…</AppButton>
+                        </Action>
+                    </EmptyState>
+                </Empty>
+            </SprintBoard>
+            <SprintStartDialog Open="_startOpen"
+                               OpenChanged="open => _startOpen = open"
+                               SprintName="Sprint 1"
+                               SeriesName="Fincent team"
+                               StartWeekday="DayOfWeek.Monday"
+                               DefaultStart="@SprintStartRules.DefaultStart(DateOnly.FromDateTime(DateTime.Today), DayOfWeek.Monday)"
+                               TestId="sprint-view-start-dialog"
+                               OnStart="Started" />
+        </div>
+    </Story>
+
     <Story Name="An empty sprint"
            Description="A sprint just started with nothing added and no plan linked. The counts read nought and the rows give way to an empty state."
            Code="@EmptyCode">
@@ -74,6 +116,42 @@ The header folds the strip to its label and headline. Copy for the stand-up puts
     ];
 
     private string? _said;
+    private string _goal = string.Empty;
+    private bool _goalOpen;
+    private bool _startOpen;
+
+    private void Started(SprintStart start)
+    {
+        _said = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Start Sprint 1 on {start.On:ddd d MMM}: {(start.Goal.Length == 0 ? "no goal" : start.Goal)}");
+        _startOpen = false;
+    }
+
+    private const string GoalCode = """
+        <SprintBoard Model="@board" OnEditGoal="() => goalOpen = true" />
+        <SprintGoalDialog Open="goalOpen"
+                          OpenChanged="open => goalOpen = open"
+                          SprintName="@open.Name"
+                          Current="@open.Goal"
+                          Error="@goalError"
+                          OnSave="SaveGoalAsync" />
+        """;
+
+    private const string NotStartedCode = """
+        <SprintBoard ViewSwitch="viewSwitch">
+            <Empty>
+                <EmptyState Title="No sprint has started yet" Description="@line">
+                    <Action><AppButton OnClick="OpenStart">Start Sprint 1…</AppButton></Action>
+                </EmptyState>
+            </Empty>
+        </SprintBoard>
+        <SprintStartDialog Open="startOpen"
+                           SprintName="Sprint 1"
+                           SeriesName="@series.Name"
+                           StartWeekday="@series.StartWeekday"
+                           DefaultStart="@SprintStartRules.DefaultStart(today, series.StartWeekday)"
+                           Error="@startError"
+                           OnStart="StartAsync" />
+        """;
     private bool _sprint = true;
 
     private RenderFragment Switch(string name) =>

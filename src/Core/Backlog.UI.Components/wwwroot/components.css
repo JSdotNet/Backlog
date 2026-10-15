@@ -20735,6 +20735,11 @@ select.field__input {
     gap: var(--spacing-xs) var(--spacing-sm);
 }
 
+/* Start Sprint 1…, after the running line on a series with no sprint yet. */
+.sprint-card__start {
+    margin-left: auto;
+}
+
 .sprint-card__title {
     margin: 0;
     font-family: var(--font-family-heading);
@@ -21632,7 +21637,8 @@ button.sprint-pr:focus-visible {
 }
 
 .sprint-add-picker__description,
-.sprint-note-dialog__description {
+.sprint-note-dialog__description,
+.sprint-start-dialog__description {
     margin: 0 0 var(--spacing-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
