@@ -161,11 +161,12 @@ public static class ArchifyDiagramTypes
 
 /// <summary>What the app knows about the Archify artifact for one diagram.</summary>
 /// <param name="Html">The whole self-contained document, or null when there is
-/// none to show. Not a URL: the artifact sits in whichever repository clone is
-/// configured, not in the app's own assets, so it reaches the browser as
-/// content.</param>
+/// none to show. Not a URL: the artifact sits in the host's own cache folder, not
+/// in the app's assets, so it reaches the browser as content.</param>
 /// <param name="ArtifactPath">Where it came from, for a person who wants to open
-/// or regenerate it.</param>
+/// or regenerate it. A host that files artifacts under a hash of what they were
+/// drawn from hands over a new path for a new picture, which is what reloads the
+/// frame.</param>
 /// <param name="SpecPath">The specification it was rendered from, when one
 /// exists. Present without <see cref="Html"/> is the case the render action
 /// exists for: somebody authored the specification and nobody has run the
@@ -182,13 +183,22 @@ public static class ArchifyDiagramTypes
 /// Archify type fits the diagram at all, since a diagram nothing can be authored
 /// for has no profile to be authored under. Carried so the view could say so
 /// later; nothing draws it yet.</param>
+/// <param name="IsRenderPending">A current specification exists and the host can
+/// draw it, but has not on this machine yet. The picture is one
+/// <see cref="IDiagramArtifactSource.LoadAsync"/> away, so the view starts that
+/// and shows the mermaid meanwhile rather than offering a button.</param>
+/// <param name="RenderFailure">Why drawing the picture failed — no Node, no
+/// generator, a timeout, a specification the generator rejected. Said out loud so
+/// a reader looking at mermaid beside a specification knows why.</param>
 public sealed record DiagramArtifact(
     string? Html,
     string? ArtifactPath,
     string? SpecPath,
     string? ArchifyType,
     bool IsOutOfDate,
-    string? Quality = null)
+    string? Quality = null,
+    bool IsRenderPending = false,
+    string? RenderFailure = null)
 {
     public bool CanRender => !string.IsNullOrEmpty(Html);
 }
@@ -210,6 +220,15 @@ public interface IDiagramArtifactSource
     /// artifact — when the feature is off, so that "switched off" and "nothing
     /// authored" cannot be confused by a caller.</summary>
     DiagramArtifact? Find(string? source, string? language);
+
+    /// <summary>What exists for this diagram once anything the host can draw by
+    /// itself has been drawn. Asked when <see cref="Find"/> answered with
+    /// <see cref="DiagramArtifact.IsRenderPending"/>, because a synchronous lookup
+    /// cannot wait for a render. A host that draws nothing on demand answers what
+    /// <see cref="Find"/> does, which is the default. Returns a failure in
+    /// <see cref="DiagramArtifact.RenderFailure"/> rather than throwing.</summary>
+    Task<DiagramArtifact?> LoadAsync(string? source, string? language, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Find(source, language));
 
     /// <summary>Renders an already-authored specification by running the pinned
     /// generator. Deterministic and agentless: this is the half of "generate"

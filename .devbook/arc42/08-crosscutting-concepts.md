@@ -312,6 +312,9 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
 - **The authored half stays text.** The hand-written Archify specifications and
   the Structurizr C4 workspace under `.devbook/arc42/_c4/` are committed and
   reviewed in diffs. Only what a generator produces goes into the database. The
+  rendered Archify pages are not committed at all: the app draws them on demand
+  from the specifications into `_archify-renders/` beside `_databases/` (local
+  ADR 0029). The
   reading order is not authored at all. Both writers derive it the way the devbook
   generator does, from `index: root`, the folder's convention root and the numbers
   in filenames (local ADR 0016). The C4 workspace has no derived half. It is not

@@ -50,6 +50,12 @@ public static class DevbookDatabaseLocation
     /// per repository path.</summary>
     public const string DatabasesFolderName = "_databases";
 
+    /// <summary>The folder beside <see cref="DatabasesFolderName"/> that holds the
+    /// Archify artifacts the app draws on demand from committed specifications
+    /// (local ADR 0029). Underscore-prefixed for the same reason: no snapshot
+    /// folder can be called that.</summary>
+    public const string ArchifyRendersFolderName = "_archify-renders";
+
     private const int HashLength = 12;
 
     private const int NameLength = 40;
@@ -77,6 +83,12 @@ public static class DevbookDatabaseLocation
     /// nothing has configured one.</summary>
     public static string? DatabasesDirectory =>
         s_configuration?.CacheDirectory() is { Length: > 0 } cache ? Path.Combine(cache, DatabasesFolderName) : null;
+
+    /// <summary>The folder Archify renders are cached in, beside the databases, or
+    /// <see langword="null"/> while nothing has configured the devbook cache
+    /// folder. Read on every ask, so a moved Storage setting moves it too.</summary>
+    public static string? ArchifyRendersDirectory =>
+        s_configuration?.CacheDirectory() is { Length: > 0 } cache ? Path.Combine(cache, ArchifyRendersFolderName) : null;
 
     /// <summary>
     /// The database for the repository at <paramref name="repositoryRoot"/>,

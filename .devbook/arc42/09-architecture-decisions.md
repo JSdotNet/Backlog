@@ -117,3 +117,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0026 — The Brain is a personal devbook, one folder per user outside any repository](adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md)
 - [ADR 0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](adr/0027-the-brain-is-a-scope-beside-the-repositories.md)
 - [ADR 0028 — Progress is its own boundary, and Tasks knows no sprints](adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md)
+- [ADR 0029 — Archify renders are generated on demand into app storage, not committed](adr/0029-archify-renders-are-generated-on-demand-not-committed.md)

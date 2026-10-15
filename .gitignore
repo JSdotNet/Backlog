@@ -109,6 +109,16 @@ build/.local/
 # directory, so `!tools/archify/bin/**` on its own would keep it invisible.
 !tools/archify/bin/
 
+# Generated Archify renders (local ADR 0029). Each is a self-contained page of
+# roughly 700 KB derived from the specification beside it; committed, they were
+# more than half the tracked tree and every regeneration rewrote megabytes of
+# history. The app draws them on demand into its own storage, so only the
+# specifications and `_archify/index.json` are committed. `render` still leaves a
+# local preview beside the specification, and `render-examples.mjs` writes the
+# example renders; both stay on the machine that made them.
+**/_archify/*.html
+tools/archify/examples/*.html
+
 # azd environment state (azure.yaml, infra/sync/). Holds the resolved
 # subscription, resource group and every provisioning output for a named
 # environment, per developer machine. Deployment targets that matter are written

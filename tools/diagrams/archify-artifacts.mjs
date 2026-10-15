@@ -11,6 +11,12 @@
 // rule on the reading side, and the two normalise the same way or the feature
 // silently shows nothing.
 //
+// Only the specifications and the index are committed. The HTML `render` writes
+// beside a specification is a local preview, ignored by git: the app draws each
+// artifact itself, on demand, from the specification into its own storage (local
+// ADR 0029). So "rendered" here means an index entry filed under the fence's hash
+// whose specification is still there — not a file on disk.
+//
 //   node tools/diagrams/archify-artifacts.mjs scan [--json] [--missing]
 //   node tools/diagrams/archify-artifacts.mjs render <spec.json> [more.json ...] [--confirm-fence]
 //   node tools/diagrams/archify-artifacts.mjs render --all [--confirm-fence]
@@ -336,9 +342,10 @@ function parseSpecName(specFile) {
 /** Every knowledge chapter diagram and what state its artifact is in.
  *
  *  Six states, because the button the app draws has to tell them apart:
- *    rendered    hash matches an index entry whose artifact is on disk
+ *    rendered    hash matches an index entry and the specification it names exists;
+ *                the app draws the picture from it (local ADR 0029)
  *    stale       an entry names this chapter and ordinal, but for a different hash
- *    unrendered  a specification exists and no artifact does
+ *    unrendered  a specification exists and no entry for this hash does
  *    missing     no specification, and Archify has a type for this kind
  *    unsupported no Archify type fits — classDiagram and the rest
  *    error       two specifications claim one diagram, so there is no answer to give */
@@ -377,7 +384,11 @@ function scan() {
                     error = `two specifications claim this diagram: ${specs.map(found => found.name).join(' and ')}. Exactly one may exist.`;
                 }
                 else if (type === null) state = 'unsupported';
-                else if (entry && artifact && existsSync(artifact)) state = 'rendered';
+                // The HTML is not consulted: it is not committed, and the app
+                // draws it from the specification. What makes a diagram rendered is
+                // that `render` validated this specification and filed it under
+                // this fence's hash.
+                else if (entry && spec && existsSync(spec)) state = 'rendered';
                 else if (displaced) state = 'stale';
                 else if (spec && existsSync(spec)) state = 'unrendered';
                 else state = 'missing';
@@ -474,6 +485,10 @@ function assertAuthoredFrom(specFile, chapterFile, ordinal, fence, index) {
 }
 
 /** Renders one specification and records what it was authored from.
+ *
+ *  The HTML it writes beside the specification is a local preview for the author,
+ *  ignored by git; the index entry is what is committed, and the app draws its own
+ *  copy from the specification (local ADR 0029).
  *
  *  `deliver` validates before it writes and exits non-zero if it cannot, so this
  *  adds no checking of the picture — it forwards the receipt. What it does check

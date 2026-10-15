@@ -395,6 +395,82 @@ public sealed class DiagramArtifactViewTests
         Assert.Equal(["<!doctype html><p>aaaa</p>", "<!doctype html><p>bbbb</p>"], documents);
     }
 
+    /// <summary>
+    /// A specification whose index entry matches but which has not been drawn on
+    /// this machine yet (local ADR 0029). The reader gets the mermaid at once and a
+    /// line saying the Archify picture is on its way, and no Render button: the
+    /// drawing is already happening, and a second press would only start it twice.
+    /// When the render lands, the artifact replaces the mermaid with no
+    /// interaction at all.
+    /// </summary>
+    [Fact]
+    public async Task A_specification_drawn_on_demand_shows_the_mermaid_first_and_the_artifact_once_it_lands()
+    {
+        var pending = new DiagramArtifact(null, null, "/repo/.domain/orders/_archify/flow.1.workflow.json", "workflow", IsOutOfDate: false, Quality: "showcase", IsRenderPending: true);
+        var landed = new TaskCompletionSource<DiagramArtifact?>();
+        var source = new OnDemandDiagramArtifactSource(pending, landed.Task);
+
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton<IDiagramArtifactSource>(source);
+
+        var diagram = Render(context);
+
+        Assert.NotNull(diagram.Find(".diagram-view__rendered"));
+        Assert.Single(context.JSInterop.Invocations["backlogDiagrams.render"]);
+        Assert.Contains("Archify", diagram.Find("[data-testid='diagram-view-artifact-pending']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-render']"));
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-artifact']"));
+
+        await diagram.InvokeAsync(() => landed.SetResult(pending with
+        {
+            Html = "<!doctype html><html><body>Archify</body></html>",
+            ArtifactPath = "/cache/_archify-renders/flow.1.workflow-0123456789abcdef.html",
+            IsRenderPending = false
+        }));
+
+        diagram.WaitForAssertion(() => Assert.NotNull(diagram.Find("[data-testid='diagram-view-artifact']")));
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-artifact-pending']"));
+        var invocation = Assert.Single(context.JSInterop.Invocations["backlogDiagrams.renderArtifact"]);
+        Assert.Equal("<!doctype html><html><body>Archify</body></html>", invocation.Arguments[2]);
+        Assert.Equal(1, source.Loads);
+    }
+
+    /// <summary>
+    /// A render that failed is said out loud with its reason — no Node, no
+    /// generator, a timeout, a specification Archify rejected — rather than
+    /// leaving a reader to wonder why a diagram with a specification has no
+    /// picture. The mermaid stays, and the Render button stays as the retry.
+    /// </summary>
+    [Fact]
+    public void A_render_that_failed_keeps_the_mermaid_and_says_why()
+    {
+        var pending = new DiagramArtifact(null, null, "/repo/.domain/orders/_archify/flow.1.workflow.json", "workflow", IsOutOfDate: false, Quality: "showcase", IsRenderPending: true);
+        var failed = pending with { IsRenderPending = false, RenderFailure = "Node.js is not installed or not on the PATH." };
+        var source = new OnDemandDiagramArtifactSource(pending, Task.FromResult<DiagramArtifact?>(failed));
+
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton<IDiagramArtifactSource>(source);
+
+        var diagram = Render(context);
+
+        diagram.WaitForAssertion(() => Assert.NotNull(diagram.Find("[data-testid='diagram-view-render-failure']")));
+        Assert.Contains("Node.js is not installed", diagram.Find("[data-testid='diagram-view-render-failure']").TextContent, StringComparison.Ordinal);
+        Assert.NotNull(diagram.Find(".diagram-view__rendered"));
+        Assert.NotNull(diagram.Find("[data-testid='diagram-view-render']"));
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-artifact']"));
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-artifact-pending']"));
+
+        // A parent re-render asks Find again, which still answers "pending" because
+        // a failure is never cached. That must not start the render over on every
+        // pass: one attempt per source until the reader asks again.
+        diagram.Render(parameters => parameters.Add(view => view.Title, "Again"));
+
+        Assert.Equal(1, source.Loads);
+        Assert.NotNull(diagram.Find("[data-testid='diagram-view-render-failure']"));
+    }
+
     private static BunitContext Context(DiagramArtifact? artifact, bool canAuthor = false)
     {
         var context = new BunitContext();
@@ -422,6 +498,32 @@ file sealed class StubDiagramArtifactSource(DiagramArtifact? artifact, bool canA
     public bool CanAuthor => canAuthor;
 
     public DiagramArtifact? Find(string? source, string? language) => artifact;
+
+    public Task<string?> RenderAsync(string? source, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(null);
+
+    public Task<string?> AuthorAsync(string? source, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(null);
+}
+
+/// <summary>
+/// A host that draws on demand: <see cref="Find"/> says a picture is coming, and
+/// <see cref="LoadAsync"/> hands it over when the test says so.
+/// </summary>
+file sealed class OnDemandDiagramArtifactSource(DiagramArtifact pending, Task<DiagramArtifact?> load) : IDiagramArtifactSource
+{
+    internal int Loads { get; private set; }
+
+    public bool CanAuthor => false;
+
+    public DiagramArtifact? Find(string? source, string? language) =>
+        load.IsCompletedSuccessfully && load.Result is { CanRender: true } drawn ? drawn : pending;
+
+    public Task<DiagramArtifact?> LoadAsync(string? source, string? language, CancellationToken cancellationToken = default)
+    {
+        Loads++;
+        return load;
+    }
 
     public Task<string?> RenderAsync(string? source, CancellationToken cancellationToken = default) =>
         Task.FromResult<string?>(null);

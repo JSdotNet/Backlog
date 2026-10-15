@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
+using Backlog.Infrastructure.Devbook.Archify;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Diagrams;
@@ -23,9 +24,16 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <para>
 /// It also rebuilds, in C#, the half of <c>tools/diagrams/archify-artifacts.mjs</c>
 /// that reads chapters — the fence scan and the hash. Not because duplicating it
-/// is pleasant, but because a running app cannot shell out to Node to answer a
-/// question asked once per diagram per render. The two must agree exactly, and
-/// the unit tests pin the hash on both sides.
+/// is pleasant, but because the lookup is synchronous and asked once per diagram
+/// per render, which no Node process can answer in time. The two must agree
+/// exactly, and the unit tests pin the hash on both sides.
+/// </para>
+/// <para>
+/// The picture itself is the one thing Node does draw, and only once per
+/// specification per machine (local ADR 0029): the renders are not committed, so
+/// a diagram whose index entry matches its fence is drawn from its specification
+/// by <see cref="ArchifyArtifactRenderer"/> into the app's devbook cache, and
+/// every lookup after that is answered from the cache without starting anything.
 /// </para>
 /// </summary>
 public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposable
@@ -70,6 +78,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     private readonly IDevbookFolderSource _folders;
     private readonly GitHubSettingsStore _repositories;
     private readonly ICopilotCliLauncher _launcher;
+    private readonly ArchifyArtifactRenderer _renderer;
     private readonly TimeProvider _clock;
     private readonly object _gate = new();
 
@@ -81,8 +90,9 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         IAppFeatureSettings features,
         IDevbookFolderSource folders,
         GitHubSettingsStore repositories,
-        ICopilotCliLauncher launcher)
-        : this(features, folders, repositories, launcher, TimeProvider.System)
+        ICopilotCliLauncher launcher,
+        ArchifyArtifactRenderer renderer)
+        : this(features, folders, repositories, launcher, renderer, TimeProvider.System)
     {
     }
 
@@ -94,12 +104,14 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         IDevbookFolderSource folders,
         GitHubSettingsStore repositories,
         ICopilotCliLauncher launcher,
+        ArchifyArtifactRenderer renderer,
         TimeProvider clock)
     {
         _features = features;
         _folders = folders;
         _repositories = repositories;
         _launcher = launcher;
+        _renderer = renderer;
         _clock = clock;
 
         // A moved folder, a new clone or a switched flag all change the answer,
@@ -126,11 +138,34 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// that has nowhere to put the result.
     /// </para>
     /// </summary>
-    public DiagramArtifact? Find(string? source, string? language)
+    public DiagramArtifact? Find(string? source, string? language) => Resolve(source, language).Artifact;
+
+    /// <summary>
+    /// <see cref="Find"/>, and then the picture drawn if it can be: a diagram
+    /// whose index entry matches its fence and whose specification is there, but
+    /// which nobody has drawn on this machine yet. A failed render comes back with
+    /// its reason and falls back to the mermaid; it is not remembered, so the next
+    /// lookup tries again.
+    /// </summary>
+    public async Task<DiagramArtifact?> LoadAsync(string? source, string? language, CancellationToken cancellationToken = default)
     {
-        if (!DiagramView.CanRender(language)) return null;
-        if (!_features.IsEnabled(DevbookFeatures.ArchifyDiagrams)) return null;
-        if (Diagram(source) is not { } diagram) return null;
+        var (artifact, request) = Resolve(source, language);
+        if (artifact is not { IsRenderPending: true } || request is null) return artifact;
+
+        var render = await _renderer.RenderAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return render.Html is { } html
+            ? artifact with { Html = html, ArtifactPath = render.ArtifactPath, IsRenderPending = false }
+            : artifact with { IsRenderPending = false, RenderFailure = render.Failure };
+    }
+
+    /// <summary>What exists for this diagram, and the render request that would
+    /// draw it when its picture is not cached yet.</summary>
+    private (DiagramArtifact? Artifact, ArchifyRenderRequest? Request) Resolve(string? source, string? language)
+    {
+        if (!DiagramView.CanRender(language)) return (null, null);
+        if (!_features.IsEnabled(DevbookFeatures.ArchifyDiagrams)) return (null, null);
+        if (Diagram(source) is not { } diagram) return (null, null);
 
         var entries = ReadIndex(diagram);
         var hash = DiagramSourceHash.Of(source);
@@ -164,26 +199,33 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         var discovered = DiscoverSpecification(directory, diagram);
 
         var type = named?.Type ?? discovered?.Type ?? ArchifyDiagramTypes.For(source);
-        if (type is null) return new DiagramArtifact(null, null, null, null, false);
+        if (type is null) return (new DiagramArtifact(null, null, null, null, false), null);
 
         var quality = named?.Quality ?? discovered?.Quality ?? ShowcaseQuality;
         var stem = $"{Path.GetFileNameWithoutExtension(diagram.ChapterFile)}.{diagram.Ordinal}.{type}"
             + (string.Equals(quality, StandardQuality, StringComparison.Ordinal) ? $".{StandardQuality}" : string.Empty);
         var specFile = Path.Combine(directory, $"{stem}.json");
-        var artifactFile = Path.Combine(directory, $"{stem}.html");
+        var specExists = File.Exists(specFile);
 
-        // Read only when the hash matched. An artifact on disk that no entry
-        // points at is either the displaced one or a leftover, and showing either
-        // is the drift this whole design exists to prevent.
-        var html = entry is not null && File.Exists(artifactFile) ? TryReadAllText(artifactFile) : null;
+        // Drawn only when the hash matched. A specification no entry files under
+        // this fence's hash is either the displaced one or not rendered yet, and
+        // drawing it would be the drift this whole design exists to prevent. The
+        // picture comes from the app's cache and never from an HTML file beside
+        // the specification: renders are not committed (local ADR 0029), and one
+        // lying there is a local preview that may be of an older specification.
+        var request = entry is not null && specExists
+            ? new ArchifyRenderRequest(specFile, type, quality, diagram.RootPath)
+            : null;
+        var cached = request is null ? null : _renderer.TryCached(request);
 
-        return new DiagramArtifact(
-            html,
-            html is null ? null : artifactFile,
-            File.Exists(specFile) ? specFile : null,
+        return (new DiagramArtifact(
+            cached?.Html,
+            cached?.ArtifactPath,
+            specExists ? specFile : null,
             type,
-            IsOutOfDate: html is null && displaced is not null,
-            Quality: quality);
+            IsOutOfDate: request is null && displaced is not null,
+            Quality: quality,
+            IsRenderPending: request is not null && cached is null), request);
     }
 
     /// <summary>
@@ -678,8 +720,9 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// <para>The generated database first — local ADR 0004 copied the fourteen
     /// <c>_archify/index.json</c> files into <c>archify_artifact</c> rows, so the
     /// lookup stops reading a JSON file per folder — and the file itself when there
-    /// is no database. The specifications and the rendered HTML stay on disk either
-    /// way; only the pointer moved.</para>
+    /// is no database. The specifications stay on disk either way; only the pointer
+    /// moved, and the picture is drawn from the specification (local ADR
+    /// 0029).</para>
     ///
     /// <para>Read per call rather than cached, which is what it did before. The
     /// artifact index changes underneath this while the app is running — that is
@@ -757,22 +800,6 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         catch (UnauthorizedAccessException)
         {
             return [];
-        }
-    }
-
-    private static string? TryReadAllText(string file)
-    {
-        try
-        {
-            return File.ReadAllText(file);
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
         }
     }
 

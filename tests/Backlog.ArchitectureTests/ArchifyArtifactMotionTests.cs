@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// Rules for the motion in the committed Archify artifacts.
+/// Rules for the motion in the Archify artifacts.
 ///
 /// <para>An Archify artifact animates only if its specification asked it to.
 /// <c>meta.animation</c> is an <c>enum ["trace", "none"]</c> in all five of
@@ -464,8 +464,20 @@ public class ArchifyArtifactMotionTests
             // was authored from — not a specification anybody renders.
             .Where(file => !file.Name.Equals("index.json", StringComparison.OrdinalIgnoreCase));
 
-    private static IEnumerable<FileInfo> Artifacts() =>
-        ArtifactFolders().SelectMany(folder => folder.EnumerateFiles("*.html"));
+    /// <summary>
+    /// The rendered artifacts this suite can read, which is the storybook fixture
+    /// alone. The devbook's renders are no longer committed (local ADR 0029): the
+    /// app draws each from its specification on demand, so the specification rule
+    /// is the guard for every devbook diagram, and the template rules
+    /// are the guard for what any render of it will carry. A preview the generator
+    /// script left beside a specification is ignored by git and is not read here,
+    /// so a machine with local previews and a fresh clone answer the same.
+    /// </summary>
+    private static IEnumerable<FileInfo> Artifacts()
+    {
+        var storybook = new DirectoryInfo(Path.Combine([RepositoryRoot.Root.FullName, .. StorybookFolder]));
+        return storybook.Exists ? storybook.EnumerateFiles("*.html") : [];
+    }
 
     /// <summary>Every folder holding authored Archify specifications and the
     /// artifacts rendered from them.</summary>
