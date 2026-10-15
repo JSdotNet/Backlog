@@ -412,6 +412,16 @@ No outcome changes the task. The next sprint is numbered one higher and starts o
 the first start weekday after the closed sprint's last day. It starts with no
 linked plan: an unfinished task a plan brought in moves on only when it is carried.
 
+Closing before the last day ends a sprint's work, not its window: a window always
+starts on the series' start weekday, on a [shared calendar](domain.invariants.md#sprint-series).
+The closed sprint keeps its planned days, and nothing more is recorded against it.
+The next sprint still starts on the first start weekday after the planned last day,
+but is open at once, so work can be added to it. Until its first working
+day the views show it as starting: for a Sprint 5 from Monday 26 October, the sprint
+view reads "Starts Mon 26 Oct · 10 working days", the daily strip "Sprint 5, starts
+Mon 26 Oct" with no at-risk landing from pace, and the burn-up chart's description
+says the sprint has not reached its first working day.
+
 ### Closing from the sprint view
 
 ```meta
