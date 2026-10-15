@@ -38,10 +38,22 @@ internal sealed class StubBranchComparison : IGitHubBranchComparison
     /// about an answer arriving after the reader moved on.</summary>
     public Dictionary<string, TaskCompletionSource> Gates { get; } = new(StringComparer.Ordinal);
 
-    public async Task<GitHubCommitChange> ReadCommitAsync(
+    /// <summary>The task each commit read handed back, in order — so a test can
+    /// wait for the read itself to finish, failure included, rather than for a
+    /// guess at how long it takes.</summary>
+    public List<Task<GitHubCommitChange>> Reads { get; } = [];
+
+    public Task<GitHubCommitChange> ReadCommitAsync(
         GitHubRepositoryRef repository,
         string commitSha,
         CancellationToken cancellationToken = default)
+    {
+        var read = ReadCommitCoreAsync(commitSha, cancellationToken);
+        Reads.Add(read);
+        return read;
+    }
+
+    private async Task<GitHubCommitChange> ReadCommitCoreAsync(string commitSha, CancellationToken cancellationToken)
     {
         CommitsRead.Add(commitSha);
 
