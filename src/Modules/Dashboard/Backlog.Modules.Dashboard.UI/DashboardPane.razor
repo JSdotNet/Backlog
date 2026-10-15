@@ -194,12 +194,17 @@
 
                     <TabPanel Id="dashboard-productivity" Title="Productivity" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-productivity" TestId="dashboard-productivity">
-                        @* The throughput row, then the volume chart with the scores beside
-                           it — the chart taking the room, the scores their own width — then
-                           rework across the whole tab. *@
+                        @* The throughput row, then a main column - the volume chart, and
+                           size and rework under it - with the scores beside it, the column
+                           taking the room and the scores their own width; then rework across
+                           the whole tab. The size part fills what the taller score card used
+                           to leave empty under the chart. *@
                         <HeadlinePart Scope="_scope" />
                         <div class="dashboard-productivity__split">
-                            <TrendPart Scope="_scope" />
+                            <div class="dashboard-productivity__main" data-testid="dashboard-productivity-main">
+                                <TrendPart Scope="_scope" />
+                                <SizeReworkPart Scope="_scope" />
+                            </div>
                             <ScorePart Scope="_scope" />
                         </div>
                         <ReworkPart Scope="_scope" />

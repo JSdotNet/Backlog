@@ -767,7 +767,198 @@ public class ProductivityInsightsTests
         Assert.Equal(1, rework.Value.PullRequestsReviewed);
     }
 
-    private static ActivityPullRequest Merged(int number, bool reviewed, bool churned)
+    /// <summary>
+    /// The size buckets' edges are exact: under 10 lines is XS, under 50 S, under 200 M,
+    /// under 400 L, and 400 or more XL. Each pull request lands in exactly one.
+    /// </summary>
+    [Theory]
+    [InlineData(0, "XS")]
+    [InlineData(9, "XS")]
+    [InlineData(10, "S")]
+    [InlineData(49, "S")]
+    [InlineData(50, "M")]
+    [InlineData(199, "M")]
+    [InlineData(200, "L")]
+    [InlineData(399, "L")]
+    [InlineData(400, "XL")]
+    [InlineData(5000, "XL")]
+    public async Task A_sized_merge_lands_in_the_one_bucket_its_changed_lines_fall_in(int lines, string bucket)
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: true, churned: false, lines: lines)], [])
+        };
+
+        var rework = (await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        var landed = Assert.Single(rework.BySize, size => size.PullRequestsMerged > 0);
+        Assert.Equal(bucket, landed.Label);
+        Assert.Equal(1, landed.PullRequestsMerged);
+    }
+
+    [Fact]
+    public async Task The_five_size_buckets_come_out_in_order_with_the_empty_ones_kept()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: false, churned: false, lines: 3),
+                    Merged(2, reviewed: false, churned: false, lines: 7),
+                    Merged(3, reviewed: false, churned: false, lines: 120),
+                    Merged(4, reviewed: false, churned: false, lines: 900)
+                ],
+                [])
+        };
+
+        var rework = (await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        Assert.Equal(
+            [("XS", 2), ("S", 0), ("M", 1), ("L", 0), ("XL", 1)],
+            rework.BySize.Select(size => (size.Label, size.PullRequestsMerged)));
+        Assert.Equal(
+            [(0, (int?)10), (10, 50), (50, 200), (200, 400), (400, null)],
+            rework.BySize.Select(size => (size.MinLines, size.MaxLinesExclusive)));
+    }
+
+    /// <summary>
+    /// A bucket's came-back share has the rework rate's denominator: merged counts every
+    /// sized pull request in it, but only the reviewed ones count towards the share, so a
+    /// pull request that changed after merge-without-review is not churn after review.
+    /// </summary>
+    [Fact]
+    public async Task A_buckets_share_is_of_its_reviewed_pull_requests_not_its_merged_ones()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: true, churned: true, lines: 80),
+                    Merged(2, reviewed: true, churned: false, lines: 60),
+                    Merged(3, reviewed: false, churned: false, lines: 70),
+                    Merged(4, reviewed: false, churned: true, lines: 90)
+                ],
+                [])
+        };
+
+        var rework = (await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        var medium = Assert.Single(rework.BySize, size => size.Label == "M");
+        Assert.Equal(4, medium.PullRequestsMerged);
+        Assert.Equal(2, medium.PullRequestsReviewed);
+        Assert.Equal(1, medium.PullRequestsWithChurn);
+        Assert.Equal(0.5m, medium.Rate);
+    }
+
+    [Fact]
+    public async Task A_bucket_with_no_reviewed_pull_request_has_no_share_rather_than_a_zero_one()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: false, churned: false, lines: 5),
+                    Merged(2, reviewed: false, churned: false, lines: 8)
+                ],
+                [])
+        };
+
+        var rework = (await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        var extraSmall = Assert.Single(rework.BySize, size => size.Label == "XS");
+        Assert.Equal(2, extraSmall.PullRequestsMerged);
+        Assert.Null(extraSmall.Rate);
+    }
+
+    /// <summary>
+    /// A merge whose size was not read is in no bucket, whatever its line count says — its
+    /// zero is not a very small pull request — and the insight counts how many were left out.
+    /// </summary>
+    [Fact]
+    public async Task A_merge_with_no_size_read_is_in_no_bucket_and_is_counted_as_left_out()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: true, churned: false, lines: 30),
+                    Merged(2, reviewed: true, churned: true) with { ChangedLines = 30 },
+                    Merged(3, reviewed: false, churned: false)
+                ],
+                [])
+        };
+
+        var rework = (await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        Assert.Equal(2, rework.PullRequestsWithoutSize);
+        Assert.Equal(1, rework.BySize.Sum(size => size.PullRequestsMerged));
+        Assert.Equal(0, rework.BySize.Sum(size => size.PullRequestsWithChurn));
+    }
+
+    [Fact]
+    public async Task The_size_buckets_are_read_from_the_focused_repository_only()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: true, churned: false, lines: 12)], [])
+        };
+
+        var rework = (await Insights(source).GetReworkAsync(
+            new DashboardScope(RepositoryFocus.Of("backlog-ide")),
+            TestContext.Current.CancellationToken)).Value!;
+
+        var asked = Assert.Single(source.Requested);
+        Assert.Equal("backlog-ide", asked.Alias);
+        Assert.Equal(1, Assert.Single(rework.BySize, size => size.Label == "S").PullRequestsMerged);
+    }
+
+    [Fact]
+    public async Task A_focus_on_a_deleted_alias_asks_no_repository_for_the_size_buckets()
+    {
+        var source = new StubActivitySource();
+
+        var rework = (await Insights(source).GetReworkAsync(
+            new DashboardScope(RepositoryFocus.Of("deleted-repo")),
+            TestContext.Current.CancellationToken)).Value!;
+
+        Assert.Empty(source.Requested);
+        Assert.Equal(5, rework.BySize.Count);
+        Assert.All(rework.BySize, size => Assert.Equal(0, size.PullRequestsMerged));
+    }
+
+    [Fact]
+    public async Task A_truncated_window_keeps_its_size_buckets_and_says_they_are_a_floor()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: true, churned: true, lines: 250)], []) { Complete = false }
+        };
+
+        var rework = (await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        Assert.False(rework.Complete);
+        Assert.Equal(1, Assert.Single(rework.BySize, size => size.Label == "L").PullRequestsWithChurn);
+    }
+
+    [Fact]
+    public async Task The_size_buckets_cost_no_fetch_of_their_own()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: true, churned: false, lines: 450)], [])
+        };
+        var insights = Insights(source);
+
+        _ = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var rework = (await insights.GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        Assert.Equal(1, source.Calls);
+        Assert.Equal(1, Assert.Single(rework.BySize, size => size.Label == "XL").PullRequestsMerged);
+    }
+
+    /// <summary>A merged pull request; <paramref name="lines"/> gives it a read size, and
+    /// leaving it out leaves the size unread, as the adapter does when detail is missing.</summary>
+    private static ActivityPullRequest Merged(int number, bool reviewed, bool churned, int? lines = null)
     {
         var mergedAt = Now.AddDays(-number);
 
@@ -783,7 +974,9 @@ public class ProductivityInsightsTests
             ChurnComplete: true)
         {
             ReviewTurnaround = reviewed ? TimeSpan.FromHours(6) : null,
-            SyncsKnown = true
+            SyncsKnown = true,
+            SizeKnown = lines is not null,
+            ChangedLines = lines ?? 0
         };
     }
 

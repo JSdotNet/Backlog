@@ -127,6 +127,10 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     /// period" under a rework heading tells a reader nothing about whether their work
     /// came back after review — the sentence has to name the thing that was absent.
     /// </para>
+    /// <para>
+    /// Read once the empty answer is in <see cref="Value"/>, so a part whose answer can be
+    /// empty for more than one reason can say which.
+    /// </para>
     /// </summary>
     protected virtual string? EmptyMessage => null;
 
@@ -238,8 +242,10 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
         else if (IsEmpty(result.Value!))
         {
             Status = MetricStatusKind.Empty;
-            StatusMessage = EmptyMessage;
+            // Value first: an EmptyMessage that says why the answer is empty reads
+            // this answer, never the one before the refresh.
             Value = result.Value;
+            StatusMessage = EmptyMessage;
         }
         else
         {
