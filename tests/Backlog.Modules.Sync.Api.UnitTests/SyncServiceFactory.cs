@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
@@ -68,6 +69,14 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
     /// thing that is missing.</summary>
     internal IReadOnlyList<(string Key, string? Value)> MoreConfiguration { get; init; } = [];
 
+    /// <summary>The gate registered for the most recent build, which is the one
+    /// <see cref="CreateHost"/> is in the middle of: it is set while that build
+    /// runs and opened before <see cref="CreateHost"/> returns or throws. One
+    /// slot, because one factory builds one host at a time — each test makes
+    /// its own factory, and nothing here builds two hosts from one at
+    /// once.</summary>
+    private StartGateLifetime? _building;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(Environment);
@@ -83,10 +92,88 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
             builder.UseSetting(key, value);
         }
 
+        // Before the test's own registrations, so a test that replaces the
+        // lifetime for a reason of its own still has the last word. A fresh gate
+        // per build: this runs once for every host built, and a second host —
+        // a retry after a failed start, or a WithWebHostBuilder child, both of
+        // which come through here — must not inherit a gate already opened.
+        builder.ConfigureTestServices(services =>
+        {
+            var gate = new StartGateLifetime();
+            Volatile.Write(ref _building, gate);
+
+            services.RemoveAll<IHostLifetime>();
+            services.AddSingleton<IHostLifetime>(gate);
+        });
+
         if (TestServices is not null)
         {
             builder.ConfigureTestServices(TestServices);
         }
+    }
+
+    /// <summary>
+    /// The base start, made deterministic. <c>Program</c> runs on its own
+    /// thread, and the host it builds is handed to this one while its own
+    /// <c>app.Run</c> carries on. The deferred start here first resolves
+    /// <see cref="IHostApplicationLifetime"/> from the app's provider; meanwhile
+    /// <c>app.Run</c> can fail startup validation and dispose that very provider
+    /// on its way out. Whichever gets there first decided whether a host that
+    /// refused to start reported its own <c>OptionsValidationException</c> or an
+    /// <see cref="ObjectDisposedException"/> — the second only under load.
+    /// <para>
+    /// <see cref="IHostLifetime.WaitForStartAsync"/> runs before startup
+    /// validation, so holding the app there until the deferred start has
+    /// subscribed means this side is always listening first. The gate opens in a
+    /// <c>finally</c> that covers the build as well, so a throw on this side
+    /// does not leave the app parked — including a build timeout that lands
+    /// after the gate is registered, behind which the app can still finish
+    /// building. A test
+    /// that replaced the lifetime leaves a gate nobody waits on, and opening it
+    /// changes nothing.
+    /// </para>
+    /// <para>
+    /// The base also calls <c>TryConfigureServerPort</c>, which only matters
+    /// under <c>UseKestrel</c>; this factory never calls it.
+    /// </para></summary>
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        IHost host;
+        Task started;
+
+        try
+        {
+            host = builder.Build();
+            started = host.StartAsync();
+        }
+        finally
+        {
+            Volatile.Read(ref _building)?.Open();
+        }
+
+        started.GetAwaiter().GetResult();
+        return host;
+    }
+
+    /// <summary>
+    /// Replaces the console lifetime rather than wrapping it: a test host has
+    /// no console, so Ctrl+C, SIGTERM and the "Application started" lines have
+    /// nothing to do here. All it keeps is the one point where the app waits
+    /// before it validates and starts, until <see cref="Open"/>.
+    /// <para>
+    /// Continuations run asynchronously, so opening it never runs the app's
+    /// start on the test thread.
+    /// </para></summary>
+    private sealed class StartGateLifetime : IHostLifetime
+    {
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Lets the app start. Opening twice is harmless.</summary>
+        public void Open() => _gate.TrySetResult();
+
+        public Task WaitForStartAsync(CancellationToken cancellationToken) => _gate.Task.WaitAsync(cancellationToken);
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }
 
