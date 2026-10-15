@@ -648,9 +648,12 @@ button.badge {
    *are* the cue — open takes this exact pair, merged the strong edge, closed and
    draft the disabled ink. Repainting them all amber would say "followable" about a
    row where every badge is, and lose the only thing the row was distinguishing.
+
+   `.badge--sync` is held out on the same rule: the centre of the sync arrow pad is a
+   button, and its direction's edge and ink are the badge's whole message.
 */
-a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--linked),
-button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--linked) {
+a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--sync, .badge--linked),
+button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--sync, .badge--linked) {
     border-color: var(--color-primary-dark);
     color: var(--color-primary-light);
 }
@@ -1006,30 +1009,124 @@ button.badge:hover {
 .badge--sync-sync { border-color: var(--color-success-text); color: var(--color-success-text); }
 .badge--sync-off { color: var(--color-text-disabled); border-style: dashed; }
 
-/* The editable form, shaped like .status-editor and positioned for the same
-   reason: it carries the sr-only label naming the control. */
-.sync-editor {
+/* The editable direction: an arrow pad. Four keys sit where their arrows point,
+   around the badge naming the direction in force, so the key that states a
+   direction is the one its arrow reaches. Outlined like the badge: the pressed
+   key takes an edge and ink, never a fill, because a direction must not read as
+   a status.
+
+   Sized by its content and nothing else: whatever row or stack it lands in, a
+   stretching parent must not pull the side keys away from the centre, and a
+   shrinking one must not wrap the centre's words — the pad is the same size in
+   every state but the width of the words it names. */
+.sync-pad {
+    display: inline-grid;
+    grid-template-areas:
+        ".    up     ."
+        "left value  right"
+        ".    down   .";
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+    align-content: start;
+    gap: var(--spacing-2xs);
+    align-items: center;
+    justify-items: center;
+    flex: 0 0 auto;
+    width: max-content;
+    align-self: start;
+    justify-self: start;
+    margin-left: var(--spacing-xs);
+    vertical-align: middle;
+}
+
+/* In a record's headline the pad is the tallest thing on the line, and the line
+   lines its items up by their baselines — which put the pad's top key level with
+   the status and its centre a key-height below. A row holding a pad centres
+   instead, so the centre naming the direction sits on the line beside the
+   status and the heading. Only such a row: every other headline keeps its
+   baselines. */
+.devbook-record__headline:has(> .sync-pad) {
+    align-items: center;
+}
+
+.devbook-record__headline > .sync-pad {
+    align-self: center;
+}
+
+.sync-pad__key--up { grid-area: up; }
+.sync-pad__key--left { grid-area: left; }
+.sync-pad__key--right { grid-area: right; }
+.sync-pad__key--down { grid-area: down; }
+
+/* Each key is a 1.5rem square — 24 px, WCAG 2.5.8's minimum — around a 12 px
+   glyph, and its hit area reaches a further --spacing-sm outward, the way its
+   arrow points, through a transparent ::before. It never reaches inward or
+   sideways, so an imprecise press on ← cannot land on the centre or
+   on ↑. The pad stays an inline control beside the status; the 44 px of
+   .devbook/design/accessibility.md is not met. */
+.sync-pad__key {
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
-}
-
-.sync-editor__select {
-    min-width: 0;
-    min-height: 1.5rem;
-    padding: 1px var(--spacing-xs);
-    border: none;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
     background: transparent;
-    color: inherit;
-    font: inherit;
+    color: var(--color-text-disabled);
     cursor: pointer;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
 }
 
-.sync-editor__select:focus-visible {
+.sync-pad__key::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+
+.sync-pad__key--up::before { top: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--down::before { bottom: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--left::before { left: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--right::before { right: calc(-1 * var(--spacing-sm)); }
+
+.sync-pad__key:hover {
+    border-color: var(--color-border);
+    color: var(--color-text-primary);
+}
+
+.sync-pad__key[aria-pressed="true"] {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.sync-pad__key:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
+}
+
+/* The glyph is ChevronUpIcon, turned to the key's arrow here, as its own file
+   asks a host to. */
+.sync-pad__glyph--right { transform: rotate(90deg); }
+.sync-pad__glyph--down { transform: rotate(180deg); }
+.sync-pad__glyph--left { transform: rotate(-90deg); }
+
+/* The centre never wraps: its words changing length may widen the pad, never
+   make it taller. No margin of its own — .badge--sync's is spacing for a badge
+   in a row, and the keys sit tight around the centre on the grid's gap. */
+.sync-pad__value {
+    grid-area: value;
+    margin: 0;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* Outlined in the pad whatever the direction. Elsewhere pull keeps the info
+   surface .badge--sync-pull gives it; in the pad the centre sits among keys
+   that are all outlined, and a filled one would read as the status beside it.
+   Pull keeps its strong edge and primary ink, so it still differs from report. */
+.sync-pad__value.badge--sync-pull {
+    background: transparent;
 }
 
 .badge--progress {
