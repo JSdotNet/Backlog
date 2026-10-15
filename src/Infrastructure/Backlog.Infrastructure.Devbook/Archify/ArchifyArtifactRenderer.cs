@@ -23,8 +23,7 @@ public sealed record ArchifyRender(string? Html, string? ArtifactPath, string? F
 /// <para>
 /// The renders used to be committed beside their specifications, roughly 700 KB
 /// each and more than half the tracked tree. What makes drawing them on demand
-/// affordable is the same thing <c>ArchifyDeliveryRunDiagrams</c> leans on for a
-/// delivery run's stages: one render takes well under a second, and almost every
+/// affordable is that one render takes well under a second, and almost every
 /// lookup is for a specification somebody already drew. So the artifact is filed
 /// under a hash of everything it depends on — the specification's text, its type,
 /// its quality and the generator's identity — and the generator runs only for a

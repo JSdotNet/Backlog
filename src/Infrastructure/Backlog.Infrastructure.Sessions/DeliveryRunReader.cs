@@ -630,7 +630,9 @@ internal sealed partial class DeliveryRunReader
                 DefectsFound = ExecutionCount(stage, "defectsFound"),
                 StartedAt = Moment(stage, "startedAt"),
                 CompletedAt = Moment(stage, "completedAt"),
-                Evidence = StageEvidence(stage)
+                Evidence = StageEvidence(stage),
+                Scenarios = StageScenarios(stage),
+                Links = StageLinks(stage)
             });
         }
 
@@ -690,6 +692,74 @@ internal sealed partial class DeliveryRunReader
 
         return read;
     }
+
+    /// <summary>
+    /// The scenarios a stage reported (<c>scenarios</c>), each with the screenshot
+    /// paths it sent as its evidence. A scenario is drawn by its name, so one without
+    /// a name is skipped; a path that is not text is dropped from its list rather
+    /// than costing the scenario its row.
+    /// </summary>
+    private static IReadOnlyList<DeliveryScenario> StageScenarios(JsonElement stage)
+    {
+        if (!stage.TryGetProperty("scenarios", out var scenarios) || scenarios.ValueKind is not JsonValueKind.Array) return [];
+
+        var read = new List<DeliveryScenario>();
+
+        foreach (var scenario in scenarios.EnumerateArray())
+        {
+            if (scenario.ValueKind is not JsonValueKind.Object) continue;
+            if (Text(scenario, "name") is not { } name || string.IsNullOrWhiteSpace(name)) continue;
+
+            IReadOnlyList<string> paths = scenario.TryGetProperty("evidence", out var evidence) && evidence.ValueKind is JsonValueKind.Array
+                ?
+                [
+                    .. evidence.EnumerateArray()
+                        .Where(path => path.ValueKind is JsonValueKind.String)
+                        .Select(path => path.GetString()!)
+                        .Where(path => !string.IsNullOrWhiteSpace(path))
+                ]
+                : [];
+
+            read.Add(new DeliveryScenario(name, Text(scenario, "status") ?? string.Empty, Text(scenario, "notes"), paths));
+        }
+
+        return read;
+    }
+
+    /// <summary>
+    /// The links a stage recorded (<c>links</c>), its fields as sent. A link with no
+    /// url points nowhere and is skipped; one with no label is kept, and the panel
+    /// shows its url in the label's place.
+    /// <para>
+    /// Only an absolute <c>http</c>, <c>https</c> or <c>file</c> address is kept. A run
+    /// file is written by an agent, and the panel draws each link as an anchor, so a
+    /// <c>javascript:</c> or <c>data:</c> address would run in the app the moment a
+    /// person pressed it. Refused here, once, so no surface that reads a stage's links
+    /// can draw one.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<DeliveryStageLink> StageLinks(JsonElement stage)
+    {
+        if (!stage.TryGetProperty("links", out var links) || links.ValueKind is not JsonValueKind.Array) return [];
+
+        var read = new List<DeliveryStageLink>();
+
+        foreach (var link in links.EnumerateArray())
+        {
+            if (link.ValueKind is not JsonValueKind.Object) continue;
+            if (Text(link, "url") is not { } url || !IsFollowable(url)) continue;
+
+            read.Add(new DeliveryStageLink(Text(link, "label"), url, Text(link, "description")));
+        }
+
+        return read;
+    }
+
+    /// <summary>Whether an address is one the panel may draw as an anchor: absolute,
+    /// and http, https or file.</summary>
+    private static bool IsFollowable(string url) =>
+        Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeFile);
 
     /// <summary>
     /// Every delegated agent the run's insights recorded, with the stage it ran in —

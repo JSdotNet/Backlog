@@ -1,0 +1,29 @@
+@*
+    A step's state as a dot at the head of its row: the compact form of a FlowSteps
+    node, for a list that already says the state in a word beside it. The Sessions
+    pane's stage rows are the case — a dot, the stage, and "Failed" or "Not yet" or
+    the time it took further along the row.
+
+    Decorative, and only ever drawn beside the word: the dot is aria-hidden, so a
+    screen reader hears the word once rather than a colour it cannot see
+    (.devbook/design/accessibility.md). The five tones are FlowSteps', told apart by
+    shape as well as colour — done filled, active filled inside a ring, blocked a
+    filled square, pending and skipped hollow rings, skipped's dashed.
+*@
+<span class="@ClassValue" aria-hidden="true" data-tone="@Slug" data-testid="@TestId"></span>
+
+@code {
+    [Parameter]
+    public FlowStepTone Tone { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string Slug => Tone.ToString().ToLowerInvariant();
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? $"status-dot status-dot--{Slug}" : $"status-dot status-dot--{Slug} {CssClass}";
+}

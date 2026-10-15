@@ -1,6 +1,16 @@
 @*
     Cancel is the default: Escape and the backdrop both mean "no", so a
     destructive action can never be taken by dismissing the question.
+
+    Confirm stays open, its button Busy, until OnConfirm has finished, and only
+    then closes. Closing first left the reader looking at the screen they came
+    from with nothing saying the delete or the reset was still running, and a
+    failure had no dialog left to come back to. A host that closes the dialog
+    itself inside OnConfirm still can: its Open wins as soon as it re-renders.
+    While the act runs, Escape and the backdrop do nothing and Cancel and the
+    header's close are disabled, because the act can no longer be taken back. If OnConfirm throws,
+    the dialog stays open with Confirm usable again, and the exception goes on to
+    the host.
 *@
 
 <Modal Open="@Open"
@@ -8,13 +18,16 @@
        Title="@Title"
        AriaLabel="@AriaLabel"
        CssClass="@ClassValue"
+       CloseOnEscape="@(!Confirming)"
+       CloseOnBackdropClick="@(!Confirming)"
+       CloseDisabled="@Confirming"
        TestId="@TestId">
     <ChildContent>
         <p class="confirm-dialog__message">@Message</p>
     </ChildContent>
     <Footer>
-        <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="@CancelTestId">@CancelText</AppButton>
-        <AppButton Variant="@ConfirmVariant" OnClick="ConfirmAsync" TestId="@ConfirmTestId">@ConfirmText</AppButton>
+        <AppButton Variant="ButtonVariant.Ghost" Disabled="@Confirming" OnClick="CancelAsync" TestId="@CancelTestId">@CancelText</AppButton>
+        <AppButton Variant="@ConfirmVariant" Busy="@Confirming" BusyLabel="@ConfirmText" OnClick="ConfirmAsync" TestId="@ConfirmTestId">@ConfirmText</AppButton>
     </Footer>
 </Modal>
 
@@ -67,17 +80,33 @@
         ? "confirm-dialog"
         : $"confirm-dialog {CssClass}";
 
+    private const string ConfirmAct = "confirm";
+
+    private readonly PendingAct _acts;
+
+    public ConfirmDialog() => _acts = new PendingAct(StateHasChanged);
+
+    private bool Confirming => _acts.IsRunning(ConfirmAct);
+
     private Task OnOpenChangedAsync(bool open) => open ? OpenChanged.InvokeAsync(true) : CancelAsync();
 
-    private async Task ConfirmAsync()
+    /// <summary>The close is part of the act, so the render the act settles with
+    /// is already the closed one — no frame of an idle Confirm in between — and a
+    /// failure skips it, leaving the dialog open and usable.</summary>
+    private Task ConfirmAsync() => _acts.RunAsync(ConfirmAct, async () =>
     {
+        await OnConfirm.InvokeAsync();
         Open = false;
         await OpenChanged.InvokeAsync(false);
-        await OnConfirm.InvokeAsync();
-    }
+    });
 
     private async Task CancelAsync()
     {
+        // Nothing dismisses the dialog mid-act any more, but this stays the one
+        // place that would report it: the act cannot be taken back, so it is not
+        // a cancel.
+        if (Confirming) return;
+
         Open = false;
         await OpenChanged.InvokeAsync(false);
         await OnCancel.InvokeAsync();

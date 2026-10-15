@@ -30,8 +30,7 @@ public interface IArchifyGeneratorRunner
 /// <summary>
 /// The generator run with Node, the same command a person would type:
 /// <c>node bin/archify.mjs deliver &lt;type&gt; &lt;spec&gt; &lt;out&gt; --quality &lt;q&gt; --json</c>,
-/// from the generator's own folder. The same launch
-/// <c>ArchifyDeliveryRunDiagrams</c> makes for a delivery run's stages.
+/// from the generator's own folder.
 /// </summary>
 /// <param name="executable">The Node executable, <c>node</c> on the PATH unless a
 /// caller names another.</param>

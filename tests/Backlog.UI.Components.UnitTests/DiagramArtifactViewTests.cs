@@ -334,8 +334,8 @@ public sealed class DiagramArtifactViewTests
     }
 
     /// <summary>
-    /// A picture the host generated from live data rather than found for a fence — a
-    /// delivery run's stages — is shown without any source being registered, and
+    /// A picture the host generated from live data rather than found for a fence is
+    /// shown without any source being registered, and
     /// wins over whatever a registered source would have found. The source stays
     /// what the Mermaid side of the switch draws.
     /// </summary>
@@ -347,7 +347,7 @@ public sealed class DiagramArtifactViewTests
         var diagram = context.Render<DiagramView>(parameters => parameters
             .Add(view => view.Source, Flowchart)
             .Add(view => view.Language, "mermaid")
-            .Add(view => view.CssClass, "sessions-run__artifact")
+            .Add(view => view.CssClass, "host-artifact")
             .Add(view => view.Compact, true)
             .Add(view => view.HideNodeDetails, true)
             .Add(view => view.Artifact, new DiagramArtifact(
@@ -357,7 +357,7 @@ public sealed class DiagramArtifactViewTests
                 "architecture",
                 IsOutOfDate: false)));
 
-        Assert.Equal("diagram-view sessions-run__artifact", diagram.Find("figure").ClassName);
+        Assert.Equal("diagram-view host-artifact", diagram.Find("figure").ClassName);
         Assert.Equal("IFRAME", diagram.Find("[data-testid='diagram-view-artifact']").TagName);
         var invocation = Assert.Single(context.JSInterop.Invocations["backlogDiagrams.renderArtifact"]);
         Assert.Equal("<!doctype html><html><body>Run</body></html>", invocation.Arguments[2]);

@@ -148,7 +148,7 @@ public sealed class SettingsRepositoryColourTests
     internal static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
         SettingsMenu.OpenRepository(component);
 
-    internal static SettingsRenderContext RenderSettings()
+    internal static SettingsRenderContext RenderSettings(ILocalGitRepositoryService? localGit = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-colour-tests", Guid.NewGuid().ToString("n"));
 
@@ -176,7 +176,7 @@ public sealed class SettingsRepositoryColourTests
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
-        context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        context.Services.AddSingleton(localGit ?? new LocalGitRepositoryService());
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 

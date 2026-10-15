@@ -1353,7 +1353,8 @@ public sealed class InboxPaneTests
 
         var button = pane.Find("[data-testid='inbox-pane-capture']");
         Assert.Equal("true", button.GetAttribute("aria-busy"));
-        Assert.True(button.HasAttribute("disabled"));
+        // Blocked, but still in the tab order: aria-disabled, not the native attribute.
+        Assert.Equal("true", button.GetAttribute("aria-disabled"));
     }
 
     [Fact]

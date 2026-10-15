@@ -44,16 +44,23 @@ public sealed class ConnectorSignInTests
     [Fact]
     public void A_sign_in_under_way_is_busy_and_cannot_be_pressed_again()
     {
+        // Busy blocks the press through aria-disabled rather than the native
+        // attribute, so the button keeps its place in the tab order.
         using var context = new BunitContext();
+        var pressed = 0;
 
         var line = context.Render<ConnectorSignIn>(p => p
             .Add(c => c.ConnectorName, "Tracker")
             .Add(c => c.SigningIn, true)
+            .Add(c => c.OnSignIn, () => pressed++)
             .Add(c => c.TestId, "t"));
 
         var button = line.Find("[data-testid='t-sign-in']");
-        Assert.True(button.HasAttribute("disabled"));
+        button.Click();
+
+        Assert.Equal("true", button.GetAttribute("aria-disabled"));
         Assert.Equal("true", button.GetAttribute("aria-busy"));
+        Assert.Equal(0, pressed);
     }
 
     [Fact]

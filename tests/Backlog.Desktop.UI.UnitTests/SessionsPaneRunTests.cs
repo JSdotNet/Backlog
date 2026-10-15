@@ -60,59 +60,70 @@ public sealed class SessionsPaneRunTests
             Assert.Equal("2 of 3 stages done", strip.QuerySelector(".stage-strip__marks")!.GetAttribute("aria-label"));
             Assert.Equal("orch-feature · Done, 2 of 3 stages done", strip.QuerySelector(".stage-strip__summary")!.TextContent.Trim());
 
-            // The run itself is in the panel's run card, the line that has always
-            // drawn a run.
+            // The run itself is in the panel's run card, as a card that titles itself.
             var detail = Assert.Single(pane.FindAll("[data-testid='sessions-detail']"));
-            Assert.Equal("Delivery run", detail.QuerySelector("[data-testid='sessions-run-card'] h4")!.TextContent.Trim());
             Assert.Empty(detail.QuerySelectorAll("[data-testid='sessions-no-run']"));
 
             var line = detail.QuerySelector("[data-testid='sessions-run']");
             Assert.NotNull(line);
 
-            // The library's chip over the dashboard's word, and the word made readable.
-            var status = line!.QuerySelector("[data-testid='sessions-run-status']")!;
+            // Top to bottom: the header, then the body — insight, tiles, stages,
+            // footnote, details — drawn whole, because it is the row's latest run.
+            Assert.Equal(["sessions-run__header", "sessions-run__body"], line!.Children.Select(child => child.ClassName));
+            var body = line.QuerySelector("[data-testid='sessions-run-panel']")!;
+            Assert.False(body.HasAttribute("hidden"));
+            Assert.Null(line.QuerySelector("[data-testid='sessions-run-fold']"));
+
+            // The header: "Delivery run", the flow in mono, and the outcome last.
+            var header = line.QuerySelector(".sessions-run__header")!;
+            Assert.Equal("Delivery run", header.QuerySelector("h4.sessions-run__title")!.TextContent.Trim());
+            var flow = header.QuerySelector("[data-testid='sessions-run-flow']")!;
+            Assert.Equal("orch-feature", flow.TextContent.Trim());
+            Assert.Contains("data-table__mono", flow.ClassList);
+
+            // The library's chip over the dashboard's word, and the word made readable;
+            // a span, because this run named no Backlog entry, so there is nowhere to lead.
+            var status = header.QuerySelector("[data-testid='sessions-run-status']")!;
             Assert.Equal("Done", status.TextContent.Trim());
-
-            // Under the summary's references — here there are none — and a span:
-            // this run named no Backlog entry, so there is nowhere to lead.
-            Assert.Same(status, line.QuerySelector(".sessions-run__summary")!.LastElementChild);
             Assert.Equal("SPAN", status.TagName);
+            Assert.Same(header.LastElementChild, status.ParentElement);
 
-            // The skill is the last of the figures, under the fold, wearing the
-            // sparkles glyph as decoration beside the word.
-            var facts = line.QuerySelector(".sessions-run__facts")!;
-            var skill = facts.QuerySelector("[data-testid='sessions-run-skill']")!;
+            // No skill line: the flow in the header is the same id.
+            Assert.Null(line.QuerySelector("[data-testid='sessions-run-skill']"));
 
-            Assert.Equal("orch-feature", skill.TextContent.Trim());
-            Assert.NotNull(skill.QuerySelector("svg.sparkles-icon[aria-hidden='true']"));
-            Assert.Same(skill, facts.LastElementChild);
-
-            // Two blocks, and the summary is the first of them in the markup: the
-            // work and the outcome before the figures, whatever side each takes. The
-            // fold's panel comes after both, because it spans the row under them.
-            Assert.Equal(
-                ["sessions-run__summary", "sessions-run__facts", "sessions-run__panel"],
-                line.Children.Select(child => child.ClassName));
-
-            // The panel is the trigger's region, and hidden while folded.
-            var panel = line.QuerySelector("[data-testid='sessions-run-panel']")!;
-            Assert.True(panel.HasAttribute("hidden"));
-            Assert.Equal(panel.Id, line.QuerySelector(".fold__trigger")!.GetAttribute("aria-controls"));
-
-            // The run's own title is not on the line: beside a reference to the work
-            // it names, it is the same sentence twice. It is in the fold.
-            Assert.Null(line.QuerySelector(".sessions-run__summary [data-testid='sessions-run-title']"));
+            // The run's own title is not in the header: beside a reference to the work
+            // it names, it is the same sentence twice. It is in the run details.
+            Assert.Null(header.QuerySelector("[data-testid='sessions-run-title']"));
 
             // Nothing linked, no references.
-            Assert.Empty(line.QuerySelectorAll(".integration-link"));
+            Assert.Empty(header.QuerySelectorAll(".integration-link"));
 
-            // The figures, on the fold's own trigger: stages done, cost, context peak
-            // and tool calls — a run nobody priced has no cost, never "$0.00".
-            var trigger = line.QuerySelector(".fold__trigger")!;
-            Assert.Equal("2 of 3 stages done · context peak 41% · 45.2K tool calls", trigger.TextContent.Trim().TrimStart('▸').Trim());
+            // The figures, as tiles: stages done, context peak with its share of the
+            // limit, and tool calls — a run nobody priced has no cost tile, never "$0.00".
+            var tiles = body.QuerySelectorAll("[data-testid='sessions-run-figures'] .metric-tile");
+            Assert.Equal(
+                ["sessions-run-figure-stages", "sessions-run-figure-context", "sessions-run-figure-calls"],
+                tiles.Select(tile => tile.GetAttribute("data-testid")));
+            Assert.Equal(["Stages done", "Context peak", "Tool calls"], tiles.Select(tile => tile.QuerySelector(".metric-tile__label")!.TextContent.Trim()));
+            Assert.Equal(["2/3", "412.5K", "45,199"], tiles.Select(tile => tile.QuerySelector(".metric-tile__value")!.TextContent.Trim()));
+            Assert.Equal("41% of the limit", tiles[1].QuerySelector(".metric-tile__footnote")!.TextContent.Trim());
 
-            // Folded until asked.
-            Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
+            // No picture of the stages anywhere: the stage list is the run's flow.
+            Assert.Empty(line.QuerySelectorAll("[data-testid='diagram-view']"));
+            Assert.Empty(line.QuerySelectorAll("[data-testid='flow-step']"));
+            Assert.Equal(3, line.QuerySelectorAll("[data-testid='sessions-stage']").Length);
+
+            // The footnote names the run's own flow and the baselines' window.
+            Assert.EndsWith(
+                "\"vs typical\" compares with that stage's median over your last 30 orch-feature runs.",
+                body.QuerySelector("[data-testid='sessions-run-footnote']")!.TextContent.Trim(),
+                StringComparison.Ordinal);
+
+            // The rest of the run file, under the footnote, behind a closed fold.
+            var details = body.QuerySelector("[data-testid='sessions-run-details-toggle']")!;
+            Assert.Equal("Run details", details.TextContent.Trim().TrimStart('▸').Trim());
+            Assert.Equal("false", details.GetAttribute("aria-expanded"));
+            Assert.Same(body.LastElementChild, details.Closest(".sessions-run__more"));
 
             // The session row stays a session row: no run-only line on it.
             Assert.Null(row.QuerySelector("[data-testid='sessions-run-only']"));
@@ -140,17 +151,35 @@ public sealed class SessionsPaneRunTests
         {
             var card = pane.Find("[data-testid='sessions-run-card']");
 
-            Assert.Equal("Delivery runs · 2", card.QuerySelector("h4")!.TextContent.Trim());
-            Assert.Equal(["run-2", "run-1"], card.QuerySelectorAll("[data-testid='sessions-run']").Select(line => line.GetAttribute("data-run-id")));
+            Assert.Equal("Delivery runs · 2", card.GetAttribute("aria-label"));
+            var lines = card.QuerySelectorAll("[data-testid='sessions-run']");
+            Assert.Equal(["run-2", "run-1"], lines.Select(line => line.GetAttribute("data-run-id")));
+
+            // The latest is drawn whole; the earlier one folds to its header, its
+            // title the fold's trigger, until asked.
+            Assert.False(lines[0].QuerySelector("[data-testid='sessions-run-panel']")!.HasAttribute("hidden"));
+            Assert.Null(lines[0].QuerySelector("[data-testid='sessions-run-fold']"));
+
+            var fold = lines[1].QuerySelector("[data-testid='sessions-run-fold']")!;
+            var earlier = lines[1].QuerySelector("[data-testid='sessions-run-panel']")!;
+            Assert.Equal("Delivery run", fold.TextContent.Trim().TrimStart('▸').Trim());
+            Assert.NotNull(fold.Closest("h4.sessions-run__title"));
+            Assert.Equal(earlier.Id, fold.GetAttribute("aria-controls"));
+            Assert.True(earlier.HasAttribute("hidden"));
 
             Assert.Equal(
                 "orch-feature · Implement (2 of 3) · 2 runs",
                 pane.Find("[data-testid='sessions-row'] .stage-strip__summary").TextContent.Trim());
         });
+
+        pane.Find("[data-testid='sessions-run'][data-run-id='run-1'] [data-testid='sessions-run-fold']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.False(pane.Find("[data-testid='sessions-run'][data-run-id='run-1'] [data-testid='sessions-run-panel']").HasAttribute("hidden")));
     }
 
     [Fact]
-    public void The_fold_opens_on_the_stages_tokens_context_and_tool_calls()
+    public void Run_details_open_on_the_tokens_context_and_tool_calls()
     {
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
         {
@@ -180,37 +209,26 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
-        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run-details-toggle']")));
+
+        // The stages need no opening: each a row in run order, its dot in the tone of
+        // where it stands, a re-entered stage's rounds on its name and a finished
+        // stage's time where an unfinished one says where it stands.
+        var stages = pane.FindAll("[data-testid='sessions-stage']");
+        Assert.Equal(["done", "active", "pending"], stages.Select(stage => stage.QuerySelector("[data-testid='sessions-stage-dot']")!.GetAttribute("data-tone")));
+        Assert.Equal("· 3 rounds", stages[0].QuerySelector("[data-testid='sessions-stage-rounds']")!.TextContent.Trim());
+        Assert.Equal(["2m 5s", "In progress", "Not yet"], stages.Select(stage => stage.QuerySelector("[data-testid='sessions-stage-took']")!.TextContent.Trim()));
+
+        pane.Find("[data-testid='sessions-run-details-toggle']").Click();
 
         pane.WaitForAssertion(() =>
         {
             var line = pane.Find("[data-testid='sessions-run']");
 
-            Assert.Equal("true", line.QuerySelector(".fold__trigger")!.GetAttribute("aria-expanded"));
+            Assert.Equal("true", line.QuerySelector("[data-testid='sessions-run-details-toggle']")!.GetAttribute("aria-expanded"));
 
             // The run's own words, kept where they do not repeat a reference.
             Assert.Equal("A run", line.QuerySelector("[data-testid='sessions-run-title']")!.TextContent.Trim());
-
-            var stages = line.QuerySelector("[data-testid='sessions-run-stages']")!;
-            Assert.Contains("Build & Test", stages.TextContent);
-
-            // A re-entered stage says so; a stage done once is not decorated with ×1.
-            Assert.Contains("Done · 2m 5s · done ×3", stages.TextContent);
-
-            // Drawn as a flow, in run order, each stage in the tone of where it stands.
-            var nodes = stages.QuerySelectorAll("[data-testid='flow-step']");
-            Assert.Equal(["done", "active", "pending"], nodes.Select(node => node.GetAttribute("data-tone")));
-
-            // Who worked in the stage: the owner session — with no model, because the
-            // run called two and the file does not say which the owner was on — then
-            // each agent on the model it ran on, a declared one with none to claim.
-            Assert.Equal(
-                ["main session", "general-purpose claude-sonnet-5 · ×2 · 1 failed", "delivery:builder declared"],
-                nodes[0].QuerySelectorAll(".flow-step__note").Select(note => string.Join(' ', note.Children.Select(part => part.TextContent.Trim()))));
-
-            // A stage not reached yet names nobody.
-            Assert.Null(nodes[2].QuerySelector(".flow-step__notes"));
 
             var tokens = line.QuerySelector("[data-testid='sessions-run-tokens']")!;
             Assert.Contains("66 calls", tokens.TextContent);
@@ -260,52 +278,11 @@ public sealed class SessionsPaneRunTests
         });
     }
 
-    /// <summary>A run that called one model called it for everything, the owner
-    /// session's work in every stage included, so that model can be named per stage
-    /// without being a guess.</summary>
-    [Fact]
-    public void A_run_on_one_model_names_it_for_the_owner_session_in_every_stage_it_worked()
-    {
-        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
-        {
-            Stages =
-            [
-                new DeliveryRunStage("Scope Discovery", "done", 60_000, 1),
-                new DeliveryRunStage("Verification", "skipped", null, 0)
-            ],
-            TokenUsage = new DeliveryRunTokenUsage(
-                new DeliveryRunTokens(3, 1, 2, 0, 0, 0),
-                new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
-                [],
-                ["claude-opus-5-5"])
-        };
-
-        using var context = Context([Live], [run]);
-
-        var pane = context.Render<SessionsPane>();
-
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
-        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
-
-        pane.WaitForAssertion(() =>
-        {
-            var nodes = pane.FindAll("[data-testid='sessions-run-stages'] [data-testid='flow-step']");
-
-            var owner = Assert.Single(nodes[0].QuerySelectorAll(".flow-step__note"));
-            Assert.Equal("main session", owner.QuerySelector(".flow-step__note-label")!.TextContent.Trim());
-            Assert.Equal("claude-opus-5-5", owner.QuerySelector(".flow-step__note-detail")!.TextContent.Trim());
-
-            // Skipped: nobody worked in it.
-            Assert.Equal("skipped", nodes[1].GetAttribute("data-tone"));
-            Assert.Null(nodes[1].QuerySelector(".flow-step__notes"));
-        });
-    }
-
     /// <summary>
     /// The GitHub work a run links to, drawn as the Integrations family's references
-    /// — the way the storybook's references page draws them — one per line, with the
-    /// status under them. The Backlog entry is not among them: the status badge is
-    /// how this line reaches one.
+    /// — the way the storybook's references page draws them — in the header between
+    /// the flow and the outcome. The Backlog entry is not among them: the status badge
+    /// is how this card reaches one.
     /// </summary>
     [Fact]
     public void The_work_a_run_links_to_is_an_integration_reference_per_kind()
@@ -350,17 +327,17 @@ public sealed class SessionsPaneRunTests
             Assert.Equal("https://github.com/JSdotNet/Backlog/pull/482", pull.GetAttribute("href"));
             Assert.Equal("PR #482", pull.QuerySelector(".integration-link__label")!.TextContent.Trim());
 
-            // Stacked, in the order a reader asks: what the run was for, what it
+            // In the order a reader asks: the flow, what the run was for, what it
             // produced, then how it ended.
-            var summary = line.QuerySelector(".sessions-run__summary")!;
+            var header = line.QuerySelector(".sessions-run__header")!;
 
             Assert.Equal(
-                ["sessions-run-issue", "sessions-run-pull-request", "sessions-run-status"],
-                summary.Children.Select(child => child.GetAttribute("data-testid")));
+                ["sessions-run-flow", "sessions-run-issue", "sessions-run-pull-request", "sessions-run-status"],
+                header.QuerySelectorAll("[data-testid]").Select(child => child.GetAttribute("data-testid")));
 
-            // The status never leads to the pull request above it: with no way to
+            // The status never leads to the pull request beside it: with no way to
             // open the entry, it is the span every badge here is.
-            var status = summary.QuerySelector("[data-testid='sessions-run-status']")!;
+            var status = header.QuerySelector("[data-testid='sessions-run-status']")!;
 
             Assert.Equal("SPAN", status.TagName);
             Assert.Null(status.GetAttribute("href"));
@@ -477,10 +454,10 @@ public sealed class SessionsPaneRunTests
                 line.TextContent.Trim());
 
             // The run itself, in the panel's run card; the dashboard's own status on
-            // its chip, and the run's own words in the fold.
+            // its chip, and its flow beside the title.
 
             Assert.Equal("In progress", detail.QuerySelector("[data-testid='sessions-run-status']")!.TextContent.Trim());
-            Assert.Equal("orch-feature", detail.QuerySelector("[data-testid='sessions-run-skill']")!.TextContent.Trim());
+            Assert.Equal("orch-feature", detail.QuerySelector("[data-testid='sessions-run-flow']")!.TextContent.Trim());
 
             // A Claude row on this machine, dated by the run, and Finished on the
             // row's own chip: the run's word is the run's, the row's state is the
@@ -809,7 +786,7 @@ public sealed class SessionsPaneRunTests
 
     /// <summary>A verify stage's scenario evidence (BL2) shows in that stage's own
     /// panel, one row per part with the run's outcome as its dot, and nowhere else
-    /// on the run line.</summary>
+    /// on the run card.</summary>
     [Fact]
     public void A_verify_stage_shows_its_scenario_evidence_per_part()
     {
@@ -833,10 +810,7 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
-        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
-
-        // Folded, the Verify row already says how its parts went.
+        // Closed, the Verify row already says how its parts went.
         pane.WaitForAssertion(() =>
         {
             var verify = pane.Find("[data-testid='sessions-stage'][data-stage='Verify']");
@@ -856,7 +830,7 @@ public sealed class SessionsPaneRunTests
             var parts = list.QuerySelectorAll("[data-testid='sessions-stage-evidence-part']");
             Assert.Equal(["passed", "never-run"], parts.Select(part => part.GetAttribute("data-state")));
             Assert.Equal("statuses-are-set-up", parts[0].QuerySelector(".scenario-checklist__part")!.TextContent.Trim());
-            Assert.Equal("set-up-and-fill-the-backlog", parts[0].QuerySelector(".scenario-checklist__page")!.TextContent.Trim());
+            Assert.StartsWith("set-up-and-fill-the-backlog · ", parts[0].QuerySelector(".scenario-checklist__run")!.TextContent.Trim(), StringComparison.Ordinal);
 
             // A run's evidence is no item: it never says proved.
             Assert.Empty(list.QuerySelectorAll("[data-testid='sessions-stage-evidence-proved']"));
@@ -877,9 +851,6 @@ public sealed class SessionsPaneRunTests
         using var context = Context([Live], [run]);
 
         var pane = context.Render<SessionsPane>();
-
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
-        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
 
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-stage-toggle']")));
         pane.Find("[data-testid='sessions-stage-toggle']").Click();
@@ -930,26 +901,22 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            var line = pane.Find("[data-testid='sessions-run']");
-            var trigger = line.QuerySelector(".fold__trigger")!;
-            var summary = trigger.TextContent.Trim().TrimStart('▸').Trim();
+            var tiles = pane.FindAll("[data-testid='sessions-run-figures'] .metric-tile");
 
             // The stage count is measured and is shown. The three figures this run
             // does not carry are left out rather than shown as zero — the rule the
             // area already states for a dashboard's own gaps, which a run recorded
             // here is simply another case of.
-            Assert.Equal("2 of 2 stages done", summary);
-
-            Assert.DoesNotContain("0 output tokens", summary, StringComparison.Ordinal);
-            Assert.DoesNotContain("context peak", summary, StringComparison.Ordinal);
-            Assert.DoesNotContain("tool calls", summary, StringComparison.Ordinal);
+            var tile = Assert.Single(tiles);
+            Assert.Equal("sessions-run-figure-stages", tile.GetAttribute("data-testid"));
+            Assert.Equal("2/2", tile.QuerySelector(".metric-tile__value")!.TextContent.Trim());
         });
 
-        // And the same inside the fold, which is where this first went wrong: the
-        // rule held on the trigger and not under it, so opening the fold on a run
-        // recorded here answered "0 calls · 0 out · 0 in · 0 cache read · 0 cache
-        // write" — a measurement nobody made, contradicting the line that opened it.
-        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
+        // And the same inside the run details, which is where this first went wrong:
+        // the rule held on the figures and not under them, so opening the details on
+        // a run recorded here answered "0 calls · 0 out · 0 in · 0 cache read · 0 cache
+        // write" — a measurement nobody made, contradicting the figures above.
+        pane.Find("[data-testid='sessions-run-details-toggle']").Click();
 
         pane.WaitForAssertion(() =>
         {
@@ -985,11 +952,11 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        // The trigger's figures are stages done, cost, context and calls; the tokens
-        // are the fold's, where every one of them is still shown.
-        pane.WaitForAssertion(() => Assert.Contains("1 of 1 stages done", pane.Find("[data-testid='sessions-run'] .fold__trigger").TextContent, StringComparison.Ordinal));
+        // The tiles are stages done, cost, context and calls; the tokens are the run
+        // details', where every one of them is still shown.
+        pane.WaitForAssertion(() => Assert.Equal("1/1", pane.Find("[data-testid='sessions-run-figure-stages'] .metric-tile__value").TextContent.Trim()));
 
-        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
+        pane.Find("[data-testid='sessions-run-details-toggle']").Click();
 
         pane.WaitForAssertion(() =>
         {
@@ -1002,94 +969,10 @@ public sealed class SessionsPaneRunTests
     }
 
     /// <summary>
-    /// Where the host can render one, the fold opens on the run's Archify artifact —
-    /// full width, above the figures — rather than the flow. Asked for only once the
-    /// fold is open, and not again for a re-read run whose stages have not moved.
-    /// </summary>
-    [Fact]
-    public void An_open_fold_shows_the_runs_archify_artifact_above_the_figures()
-    {
-        var run = DeliveryRunDiagramSpecTests.Eleven() with { Worktree = Worktree, StartedAt = Noon.AddMinutes(-90), UpdatedAt = Noon.AddMinutes(-10) };
-        var diagrams = new StubRunDiagrams(new DeliveryRunDiagram("<!doctype html><p>stages</p>", @"C:\Temp\run-0123456789abcdef.html", null));
-
-        using var context = Context([Live], [run]);
-        context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddSingleton<IDeliveryRunDiagrams>(diagrams);
-
-        var pane = context.Render<SessionsPane>();
-
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
-
-        // Folded: nobody is looking, so nothing is generated.
-        Assert.Empty(diagrams.Requests);
-
-        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
-
-        pane.WaitForAssertion(() =>
-        {
-            var panel = pane.Find("[data-testid='sessions-run-panel']");
-            Assert.False(panel.HasAttribute("hidden"));
-
-            // The artifact, in the library's diagram view, and no flow beside it.
-            var view = panel.QuerySelector("[data-testid='diagram-view']")!;
-            Assert.Contains("sessions-run__artifact", view.ClassName);
-            Assert.NotNull(view.QuerySelector("[data-testid='diagram-view-artifact']"));
-            Assert.Null(panel.QuerySelector("[data-testid='sessions-run-stages']"));
-
-            // Picture first, then how each stage ran, then the figures.
-            Assert.Equal(["sessions-run__diagram", "sessions-stages", "sessions-run__details"], panel.Children.Select(child => child.ClassName));
-        });
-
-        var request = Assert.Single(diagrams.Requests);
-        Assert.Contains("\"Personal Validation\"", request, StringComparison.Ordinal);
-
-        // The same run again, as a refresh delivers it: the same specification, so
-        // no second render.
-        pane.Render();
-
-        Assert.Single(diagrams.Requests);
-    }
-
-    /// <summary>Where the artifact cannot be made — no Node, no generator — the fold
-    /// keeps the live flow and says why, rather than showing an empty frame.</summary>
-    [Fact]
-    public void Without_an_artifact_the_fold_keeps_the_flow_and_says_why()
-    {
-        var run = DeliveryRunDiagramSpecTests.Eleven() with { Worktree = Worktree, StartedAt = Noon.AddMinutes(-90), UpdatedAt = Noon.AddMinutes(-10) };
-        var diagrams = new StubRunDiagrams(DeliveryRunDiagram.Failed("Node.js is not installed or not on the PATH, so the stages are drawn without Archify."));
-
-        using var context = Context([Live], [run]);
-        context.Services.AddSingleton<IDeliveryRunDiagrams>(diagrams);
-
-        var pane = context.Render<SessionsPane>();
-
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
-        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
-
-        pane.WaitForAssertion(() =>
-        {
-            Assert.Equal(11, pane.FindAll("[data-testid='sessions-run-stages'] [data-testid='flow-step']").Count);
-            Assert.Empty(pane.FindAll("[data-testid='diagram-view']"));
-            Assert.Contains("Node.js is not installed", pane.Find("[data-testid='sessions-run-diagram-note']").TextContent, StringComparison.Ordinal);
-        });
-    }
-
-    private sealed class StubRunDiagrams(DeliveryRunDiagram answer) : IDeliveryRunDiagrams
-    {
-        public List<string> Requests { get; } = [];
-
-        public Task<DeliveryRunDiagram> RenderAsync(string specification, CancellationToken cancellationToken = default)
-        {
-            Requests.Add(specification);
-            return Task.FromResult(answer);
-        }
-    }
-
-    /// <summary>
     /// A flow reports to every surface it is bound to, and each surface files the run
     /// under an id of its own: two files in two dashboards' folders for one piece of
-    /// work. Read off the disk the way the app reads them, the pair is one line under
-    /// the session that drove it, and the fold says which surfaces reported it.
+    /// work. Read off the disk the way the app reads them, the pair is one card under
+    /// the session that drove it, and its run details say which surfaces reported it.
     /// </summary>
     [Fact]
     public void A_run_two_surfaces_reported_is_one_line_under_its_session()
@@ -1118,7 +1001,7 @@ public sealed class SessionsPaneRunTests
 
                 Assert.Equal("run-mujuq9gz-xn8tz3", line.GetAttribute("data-run-id"));
 
-                // And the fold says who reported it, after the run's own identity.
+                // And the run details say who reported it, after the run's own identity.
                 var surfaces = line.QuerySelector("[data-testid='sessions-run-surfaces']");
 
                 Assert.NotNull(surfaces);

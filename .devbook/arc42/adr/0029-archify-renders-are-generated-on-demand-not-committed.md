@@ -36,10 +36,11 @@ specification by `tools/diagrams/archify-artifacts.mjs`. Redrawing the stale
 pictures after a fence edit, or after an Archify upgrade, rewrote megabytes at a
 time. Pull request #1201 redrew 20 of them in one commit.
 
-**The pattern to draw on demand already exists.** The Sessions pane draws a
-delivery run's stages with `ArchifyDeliveryRunDiagrams`. It runs the vendored
-generator with Node and files the result under a hash of the specification, so
-the generator runs once per specification per machine.
+**The pattern to draw on demand was already proven.** The Sessions pane drew a
+delivery run's stages with `ArchifyDeliveryRunDiagrams` until pull request #1308
+replaced that diagram with the run card. It ran the vendored generator with Node
+and filed the result under a hash of the specification, so the generator ran once
+per specification per machine.
 
 **The index is what ties a picture to a fence, not the HTML.** The app finds a
 diagram's artifact by hashing the mermaid fence and looking the hash up in
@@ -174,7 +175,7 @@ Neutral:
 ```meta
 ```
 
-What this record decides. It reuses the Sessions pattern and the app-storage
+What this record decides. It reuses the former Sessions pattern and the app-storage
 location of ADR 0015.
 
 ### Keep the renders committed, in Git LFS

@@ -1,0 +1,49 @@
+@*
+    Lightbulb: a bulb on a short neck with two bands under it.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives. Lucide's idiom
+    — an outline on the 24x24 grid, stroked at 2, round caps and joins, filled nowhere —
+    which is what `.devbook/design/typography-and-layout.md#iconography` allows.
+
+    Named for the shape, not for a meaning. The sessions pane puts it in front of a
+    delivery run's insight, the callout saying what the run cost against its usual;
+    a second host may read it as any other idea. Colour and size are the caller's,
+    as on every glyph in this folder.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @* The two bands of the base, then the bulb itself down to its neck. *@
+    <path d="M9 18h6" />
+    <path d="M10 22h4" />
+    <path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2z" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "lightbulb-icon" : $"lightbulb-icon {CssClass}";
+}

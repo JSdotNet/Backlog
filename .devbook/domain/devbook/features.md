@@ -496,6 +496,10 @@ repository's devbook commits. A repository that commits no register is read for
 the pages that say so themselves. In the menu each journey carries the scenario
 mark and a dot for its last run: passed, failed, stale, or never run. The dot
 differs by shape as well as by colour, and a screen reader hears its state.
+Under the menu a legend draws the four dots, each beside its word, so a reader
+who has not learned the shapes can tell them apart. The legend is there only
+while the repository has at least one scenario page, and never for a Brain, which
+has none.
 
 The run is the one committed beside the scenario folder's copy of the page,
 `<scenario folder>/<stem>/run.json`. The app reads both the current run format

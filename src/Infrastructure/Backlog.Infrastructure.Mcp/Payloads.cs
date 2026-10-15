@@ -129,7 +129,13 @@ public sealed record ScenarioPartPayload(
     string Part,
     string Title,
     string State,
-    DateTimeOffset? LastRun);
+    DateTimeOffset? LastRun)
+{
+    /// <summary>The 1-based step the last run stopped on, for a <c>failed</c> part
+    /// whose run recorded one; null otherwise. Added beside the positional fields
+    /// so a caller that never asked for it reads the payload as before.</summary>
+    public int? FailedStep { get; init; }
+}
 
 /// <summary>One Devbook reference and what it points at.</summary>
 /// <param name="Reference">As the entry stores it.</param>

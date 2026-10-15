@@ -140,21 +140,34 @@
            default button and the field's own change event, so the folder
            somebody typed had no button that said "move" over it. *@
         <div class="setting__actions">
+            @* The pressed one is busy while the folder changes. The other two
+               say they are blocked and drop a press meanwhile, because a second
+               change of folder under the first is not a thing to start - but
+               they keep their place in the tab order, as a busy button does. *@
             <AppButton Variant="ButtonVariant.None"
                        data-testid="move-storage-path"
-                       Disabled="@IsCurrentRootDraft"
+                       Disabled="@RootButtonDisabled(RootAct.Move, IsCurrentRootDraft)"
+                       Busy="@(_rootAct is RootAct.Move)"
+                       BusyLabel="Moving"
+                       aria-disabled="@RootButtonsBlocked"
                        OnClick="ApplyAsync">
                 Move to this folder
             </AppButton>
             <AppButton Variant="ButtonVariant.None"
                        data-testid="switch-storage-path"
-                       Disabled="@IsCurrentRootDraft"
+                       Disabled="@RootButtonDisabled(RootAct.Switch, IsCurrentRootDraft)"
+                       Busy="@(_rootAct is RootAct.Switch)"
+                       BusyLabel="Switching"
+                       aria-disabled="@RootButtonsBlocked"
                        OnClick="SwitchAsync">
                 Switch without moving
             </AppButton>
             <AppButton Variant="ButtonVariant.None"
                        data-testid="reset-storage-path"
-                       Disabled="@Store.IsDefaultRoot"
+                       Disabled="@RootButtonDisabled(RootAct.Default, Store.IsDefaultRoot)"
+                       Busy="@(_rootAct is RootAct.Default)"
+                       BusyLabel="Moving"
+                       aria-disabled="@RootButtonsBlocked"
                        OnClick="MoveToDefaultAsync">
                 Move to the default folder
             </AppButton>
@@ -490,24 +503,66 @@
     /// backlog goes along to the folder typed in. The store copies before it
     /// repoints, and refuses a folder that already holds a backlog, so the
     /// worst a slip here can do is leave everything where it was and say why.</summary>
-    private Task ApplyAsync()
-    {
-        var previous = Store.RootDirectory;
-        var move = Store.TryMoveRoot(_draftPath);
-
-        RecordRootChange(previous, move.Error, move.CopiedData);
-        return Task.CompletedTask;
-    }
+    private Task ApplyAsync() => ChangeRootAsync(RootAct.Move, _draftPath, Store.PrepareMoveRoot);
 
     /// <summary>The old behaviour, kept for opening a backlog that already
     /// lives in the folder: the app is pointed there and nothing is copied.</summary>
-    private Task SwitchAsync()
-    {
-        var previous = Store.RootDirectory;
-        var error = Store.TryUseRoot(_draftPath);
+    private Task SwitchAsync() => ChangeRootAsync(RootAct.Switch, _draftPath, Store.PrepareUseRoot);
 
-        RecordRootChange(previous, error, copied: false);
-        return Task.CompletedTask;
+    /// <summary>Which of the three folder changes is under way, so its button
+    /// says so and the other two wait.</summary>
+    private enum RootAct
+    {
+        None,
+        Move,
+        Switch,
+        Default,
+    }
+
+    private RootAct _rootAct;
+
+    /// <summary>A root button's standing <c>disabled</c>: its own reason, unless
+    /// it is the one running - a busy button keeps focus.</summary>
+    private bool RootButtonDisabled(RootAct act, bool idleDisabled) => _rootAct != act && idleDisabled;
+
+    /// <summary>Every root button says it is blocked while a folder change runs:
+    /// the running one is busy, and the others drop a press
+    /// (<see cref="ChangeRootAsync"/> ignores it) without leaving the tab order.
+    /// Null when idle, so nothing overrides the button's own state.</summary>
+    private string? RootButtonsBlocked => _rootAct is RootAct.None ? null : "true";
+
+    /// <summary>
+    /// Runs one folder change with its button busy from the press. A press - or
+    /// Enter - while one is under way is ignored.
+    /// <para>
+    /// The store's two halves run on two threads. The preparation - resolving
+    /// the folder and, for a move, copying the backlog into it - runs on the
+    /// pool, so the window stays live however big the backlog is. The commit
+    /// runs back here on the dispatcher, because it raises <c>RootChanged</c>
+    /// and its listeners (the task list's reload among them) replace state the
+    /// renderer reads.
+    /// </para>
+    /// </summary>
+    private async Task ChangeRootAsync(RootAct act, string path, Func<string?, PreparedRoot> prepare)
+    {
+        if (_rootAct is not RootAct.None) return;
+
+        _rootAct = act;
+        try
+        {
+            var previous = Store.RootDirectory;
+            var prepared = await Task.Run(() => prepare(path));
+            var outcome = Store.CommitRoot(prepared);
+            RecordRootChange(previous, outcome.Error, outcome.CopiedData);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _error = $"Couldn't change the folder: {ex.Message}";
+        }
+        finally
+        {
+            _rootAct = RootAct.None;
+        }
     }
 
     /// <summary>
@@ -539,8 +594,10 @@
 
     private Task MoveToDefaultAsync()
     {
+        if (_rootAct is not RootAct.None) return Task.CompletedTask;
+
         _draftPath = Store.DefaultRootDirectory;
-        return ApplyAsync();
+        return ChangeRootAsync(RootAct.Default, _draftPath, Store.PrepareMoveRoot);
     }
 
     /// <summary>Whether the field still names the folder the app is in, in

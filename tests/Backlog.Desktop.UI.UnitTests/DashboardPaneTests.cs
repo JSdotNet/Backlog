@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
@@ -158,7 +159,8 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog-ide");
 
-        Assert.Contains(productivity.Scopes, scope => scope.Repositories.Contains("backlog-ide") && !scope.IsAllRepositories);
+        pane.WaitForAssertion(() =>
+            Assert.Contains(productivity.Scopes, scope => scope.Repositories.Contains("backlog-ide") && !scope.IsAllRepositories));
     }
 
     /// <summary>
@@ -177,9 +179,13 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog-ide", "backlog");
 
-        var focus = productivity.Scopes[^1].Repositories;
-        Assert.Equal(["backlog-ide", "backlog"], focus.Aliases);
-        Assert.Equal("backlog-ide", focus.Anchor);
+        // A filter moved is a press, and the part answers it before it fetches.
+        pane.WaitForAssertion(() =>
+        {
+            var focus = productivity.Scopes[^1].Repositories;
+            Assert.Equal(["backlog-ide", "backlog"], focus.Aliases);
+            Assert.Equal("backlog-ide", focus.Anchor);
+        });
     }
 
     /// <summary>
@@ -198,7 +204,7 @@ public class DashboardPaneTests
         FocusRepository(pane, "backlog-ide");
         FocusRepository(pane);
 
-        Assert.True(productivity.Scopes[^1].IsAllRepositories);
+        pane.WaitForAssertion(() => Assert.True(productivity.Scopes[^1].IsAllRepositories));
     }
 
     /// <summary>
@@ -308,7 +314,7 @@ public class DashboardPaneTests
         Assert.Equal("tablist", list.GetAttribute("role"));
         Assert.Equal(
             ["Overview", "Productivity", "Tasks", "Sessions", "Devbook", "Cost"],
-            tabs.Select(tab => tab.TextContent.Trim()).ToArray());
+            tabs.Select(TabLabel).ToArray());
 
         var overview = pane.Find("[data-testid='dashboard-tab-overview']");
         Assert.Equal("true", overview.GetAttribute("aria-selected"));
@@ -484,7 +490,7 @@ public class DashboardPaneTests
             var pane = unread.Render<DashboardPane>();
 
             Assert.Empty(pane.FindAll("[data-testid='dashboard-tab-devbook-badge']"));
-            Assert.Equal("Devbook", pane.Find("[data-testid='dashboard-tab-devbook']").TextContent.Trim());
+            Assert.Equal("Devbook", TabLabel(pane.Find("[data-testid='dashboard-tab-devbook']")));
         }
 
         var none = new DriftInsight([], [], IssuesNote: null);
@@ -494,6 +500,59 @@ public class DashboardPaneTests
         var read = context.Render<DashboardPane>();
 
         Assert.Empty(read.FindAll("[data-testid='dashboard-tab-devbook-badge']"));
+    }
+
+    /// <summary>
+    /// The dashboard is released, but its Devbook and Cost tabs are not usable yet: each
+    /// wears the DEV flag inside its own tab, and the other four wear none.
+    /// </summary>
+    [Fact]
+    public void The_devbook_and_cost_tabs_wear_the_dev_flag_and_the_others_none()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+
+        foreach (var id in new[] { "devbook", "cost" })
+        {
+            var tab = pane.Find($"[data-testid='dashboard-tab-{id}']");
+            var flag = Assert.Single(tab.QuerySelectorAll(".badge--feature-dev"));
+            Assert.Equal($"dashboard-tab-{id}-feature-status", flag.GetAttribute("data-testid"));
+            Assert.Equal("In development — not usable yet.", flag.GetAttribute("title"));
+        }
+
+        foreach (var id in new[] { "overview", "productivity", "tasks", "sessions" })
+        {
+            var tab = pane.Find($"[data-testid='dashboard-tab-{id}']");
+            Assert.Empty(tab.QuerySelectorAll(".badge--feature"));
+        }
+    }
+
+    /// <summary>
+    /// The DEV flag and the open drift count sit side by side on the Devbook tab: the
+    /// flag does not displace the count, nor its spoken phrase.
+    /// </summary>
+    [Fact]
+    public void The_devbook_tab_wears_the_dev_flag_beside_the_drift_count()
+    {
+        var drift = new DriftInsight(
+            [],
+            [new DriftIssue("backlog", 11, "Drift in domain/sync", "https://github.com/o/r/issues/11", SyncFailed: false)],
+            IssuesNote: null);
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IDriftInsights>(new ReadyDriftInsights(drift)));
+
+        var pane = context.Render<DashboardPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tab = pane.Find("[data-testid='dashboard-tab-devbook']");
+            Assert.Single(tab.QuerySelectorAll("[data-testid='dashboard-tab-devbook-feature-status']"));
+            Assert.Equal("1", pane.Find("[data-testid='dashboard-tab-devbook-badge']").TextContent.Trim());
+            Assert.Contains("1 open drift issue", tab.QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
+            Assert.Equal("Devbook", TabLabel(tab));
+        });
     }
 
     /// <summary>
@@ -1462,10 +1521,12 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        var breakdown = pane.Find("[data-testid='dashboard-sessions-breakdown']");
-
-        Assert.Contains("Assistant", breakdown.TextContent, StringComparison.Ordinal);
-        Assert.DoesNotContain("Machine", breakdown.TextContent, StringComparison.Ordinal);
+        pane.WaitForAssertion(() =>
+        {
+            var breakdown = pane.Find("[data-testid='dashboard-sessions-breakdown']");
+            Assert.Contains("Assistant", breakdown.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("Machine", breakdown.TextContent, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>
@@ -1894,12 +1955,14 @@ public class DashboardPaneTests
 
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog");
-        pane.Find("[data-testid='dashboard-sessions-cut-repository']").Click();
+        pane.WaitForElement("[data-testid='dashboard-sessions-cut-repository']").Click();
 
-        var text = Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent);
-
-        Assert.Contains("Narrowed to the header's repository scope", text, StringComparison.Ordinal);
-        Assert.Contains("are out of it", text, StringComparison.Ordinal);
+        pane.WaitForAssertion(() =>
+        {
+            var text = Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent);
+            Assert.Contains("Narrowed to the header's repository scope", text, StringComparison.Ordinal);
+            Assert.Contains("are out of it", text, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>An axis or nothing, on the sessions chart's rule: a series that arrived
@@ -2568,7 +2631,15 @@ public class DashboardPaneTests
                     PullRequestsSynced = 14,
                     PullRequestsWithConflictedSync = 3,
                     SyncMerges = 21,
-                    ConflictedSyncMerges = 4
+                    ConflictedSyncMerges = 4,
+                    BySize =
+                    [
+                        new ReworkSize("XS", 0, 10, 8, 6, 0),
+                        new ReworkSize("S", 10, 50, 12, 10, 2),
+                        new ReworkSize("M", 50, 200, 9, 8, 2),
+                        new ReworkSize("L", 200, 400, 4, 4, 1),
+                        new ReworkSize("XL", 400, null, 3, 2, 1)
+                    ]
                 }) with
                 {
                     Complete = score.Complete,
@@ -2610,11 +2681,12 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The Productivity tab as the board lays it out: the throughput row, the volume
-    /// chart with the scores beside it, then rework across the tab.
+    /// The Productivity tab as the board lays it out: the throughput row, a main column
+    /// of the volume chart and size and rework under it with the scores beside it, then
+    /// rework across the tab.
     /// </summary>
     [Fact]
-    public void The_productivity_tab_lays_out_throughput_then_volume_beside_score_then_rework()
+    public void The_productivity_tab_lays_out_throughput_then_volume_and_size_beside_score_then_rework()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
@@ -2624,8 +2696,13 @@ public class DashboardPaneTests
 
         var split = panel.QuerySelector(".dashboard-productivity__split")!;
         Assert.Equal(
-            ["dashboard-trend", "dashboard-score"],
+            ["dashboard-productivity-main", "dashboard-score"],
             split.Children.Select(child => child.GetAttribute("data-testid")));
+
+        var main = split.QuerySelector("[data-testid='dashboard-productivity-main']")!;
+        Assert.Equal(
+            ["dashboard-trend", "dashboard-size"],
+            main.Children.Select(child => child.GetAttribute("data-testid")));
 
         var order = panel.QuerySelectorAll("[data-testid='dashboard-headline'], .dashboard-productivity__split, [data-testid='dashboard-rework']")
             .Select(element => element.GetAttribute("data-testid") ?? "split")
@@ -2813,6 +2890,12 @@ public class DashboardPaneTests
     private static string Squashed(string text) =>
         string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
+    /// <summary>A tab's own label: the text the tab button holds directly, without
+    /// what sits beside it in elements - the DEV flag, the drift count and its
+    /// spoken phrase.</summary>
+    private static string TabLabel(IElement tab) =>
+        Squashed(string.Concat(tab.ChildNodes.OfType<IText>().Select(text => text.Data)));
+
     [Fact]
     public void The_window_can_be_narrowed_to_four_weeks()
     {
@@ -2880,10 +2963,10 @@ public class DashboardPaneTests
         Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(4, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
-        // Fourteen parts across the five section tabs — the Tasks tab's figures row among
+        // Fifteen parts across the five section tabs — the Tasks tab's figures row among
         // them — and the Overview's five framed blocks; its tiles are figures, not parts,
         // and carry only a "try again" while unavailable.
-        Assert.Equal(19, pane.FindAll("[data-testid$='-refresh']").Count);
+        Assert.Equal(20, pane.FindAll("[data-testid$='-refresh']").Count);
         // The tabs show and hide what is already there; they arrange nothing. No fold
         // is left on the pane itself — the More folds' parts are shown in their tabs,
         // and the sessions part's own More is inside the figures it would fold, which
@@ -2891,18 +2974,18 @@ public class DashboardPaneTests
         Assert.Equal(6, pane.FindAll("[data-testid='dashboard-tablist'] [role='tab']").Count);
         Assert.Empty(pane.FindAll(".fold__trigger"));
         // The info marks open a caption; they change nothing.
-        Assert.Equal(19, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
+        Assert.Equal(20, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, four window buttons, nineteen refreshes, six
-        // tabs, nineteen info marks, the "Read as brief" link, which opens a view
+        // One close, one filter select, four window buttons, twenty refreshes, six
+        // tabs, twenty info marks, the "Read as brief" link, which opens a view
         // and configures nothing, and a "try again" on each of the five headline tiles,
         // which read again and only appear while a tile is unavailable, as every one is
         // here. Needs you draws a link per item, and there are none here.
         Assert.Equal(5, pane.FindAll("[data-testid$='-retry']").Count);
-        Assert.Equal(1 + 1 + 4 + 19 + 6 + 19 + 1 + 5, controls.Count);
+        Assert.Equal(1 + 1 + 4 + 20 + 6 + 20 + 1 + 5, controls.Count);
     }
 
     /// <summary>
