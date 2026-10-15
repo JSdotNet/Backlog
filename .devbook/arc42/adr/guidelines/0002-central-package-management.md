@@ -31,9 +31,37 @@ child `Directory.Build.props` that imports the root one.
   dependencies do not leak into production projects.
 - `$(MauiVersion)` comes from the root `Directory.Build.props`, which
   `Microsoft.Common.props` imports just before the packages file.
+- `RestorePackagesWithLockFile` is on in the root `Directory.Build.props`, so
+  every project commits the `packages.lock.json` its restore writes. The pull
+  request workflow's `dotnet` job and the nightly run restore
+  `Backlog.WithoutAppHeads.slnf` with `--locked-mode`: a package that resolves
+  differently from the committed file fails the run with NU1004 instead of
+  building. Both cache the NuGet packages folder through `setup-dotnet`, keyed on
+  the lock files. A local restore still rewrites the files, so a package change
+  commits them with the version it moves (issue #748).
 
 ## Deviations and gaps
 
+- **The two MAUI heads keep no lock file.** `Backlog.Desktop` and
+  `Backlog.Mobile` set `RestorePackagesWithLockFile` to `false` in their own
+  project files. Their restore graph changes with the runtime identifier: the
+  pull request restores the desktop head with `RuntimeIdentifierOverride=win-x64`
+  and again with `-r win-x64`, the releases add the MSIX properties or restore the
+  Android head on ubuntu, and `net10.0-android` brings in the Android runtime
+  identifiers. One committed file could not match every one of those restores. So
+  the app-heads job restores without `--locked-mode`: the runtime identifier flows
+  into every project the heads reference and rewrites those projects' lock files
+  on the runner. The release and deploy workflows restore unlocked and uncached.
+  The option not taken gives the heads lock files too. It declares a fixed
+  `RuntimeIdentifiers` list in each head, replaces the two desktop restores with
+  one `RuntimeIdentifierOverride` restore, and runs every head restore in locked
+  mode, the release workflows included.
+- **The AppHost's lock file is free of host runtime identifiers only while
+  `AspireUseCliBundle` is on.** With it off, `Aspire.AppHost.Sdk` adds
+  `Aspire.Dashboard.Sdk.<rid>` and `Aspire.Hosting.Orchestration.<rid>` for the
+  restoring machine's own runtime identifier. The AppHost's lock file would then
+  hold only for machines of that kind: win-x64 on the windows-latest runners and
+  the developer machines.
 - **Transitive pinning is deliberately off.** Turning it on rewrote versions the
   solution never asked for — the AppHost's transitive YamlDotNet 16.3.0,
   OpenTelemetry 1.15.3, and `Microsoft.Extensions.*` 10.0.8 were each lifted to

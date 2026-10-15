@@ -1039,6 +1039,15 @@ public sealed record DevToolCatalog(
     /// service — still constructs this without it, and diagnostics arriving is
     /// not a reason for those to stop compiling.</para></summary>
     public IReadOnlyList<DevToolCommand> Commands { get; init; } = [];
+
+    /// <summary>Where this machine's own choices are kept — the per-PC file the
+    /// catalog's entries are switched on and off in. Empty from a host that has
+    /// no such file.
+    ///
+    /// <para>Init-only for the same reason as <see cref="Commands"/>: the pane
+    /// names the file in its footer, and a host that cannot write one still
+    /// constructs this without saying where it would be.</para></summary>
+    public string PcConfigPath { get; init; } = "";
 }
 
 public sealed record DevToolActionResult(bool Succeeded, string Message)

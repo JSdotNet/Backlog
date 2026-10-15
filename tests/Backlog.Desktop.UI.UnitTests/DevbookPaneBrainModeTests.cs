@@ -1,4 +1,6 @@
+using Backlog.Infrastructure.Copilot;
 using Bunit;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -113,6 +115,7 @@ public sealed class DevbookPaneBrainModeTests
     public async Task The_repository_only_chrome_is_absent_and_its_services_are_not_asked()
     {
         await using var harness = DevbookPaneBrainHarness.Create();
+        GiveTheRepositoryItsChrome(harness);
         harness.WriteNote(BrainConventions.FileName, TwoAreas);
         harness.WriteNote("work/standup.md", "# Standup\n\nToday.\n");
         harness.RepositoryFolders.Reset();
@@ -130,6 +133,68 @@ public sealed class DevbookPaneBrainModeTests
         Assert.Empty(component.FindComponents<DevbookSyncVerdictBadges>());
         Assert.Empty(component.FindAll("[data-testid='devbook-open-vscode-button']"));
         Assert.Equal(0, harness.RepositoryFolders.Calls);
+    }
+
+    /// <summary>The control for the test above: the same harness, the same
+    /// repository content, on the repository instead — and the chrome the Brain
+    /// leaves out is drawn. Without it, the absence above could be a harness that
+    /// never produces that chrome at all.</summary>
+    [Fact]
+    public async Task On_the_repository_the_same_harness_draws_the_repository_only_chrome()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        GiveTheRepositoryItsChrome(harness);
+        harness.WriteNote(BrainConventions.FileName, TwoAreas);
+
+        var component = harness.Render(harness.RepositoryAlias);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+        Assert.Single(component.FindAll("[data-testid='devbook-update-action']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='devbook-source-select']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='devbook-open-vscode-button']"));
+
+        // The pane opens on Instructions, which carries no chapter verdicts; the
+        // architecture tab opens its first chapter, and that one has a verdict.
+        component.Find(".devbook-stack__nav-item[aria-controls='tabpanel-arc42']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<DevbookSyncVerdictBadges>()));
+
+        component.Find(".devbook-stack__nav-item[aria-controls='tabpanel-domain']").Click();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-scenario-mark']")));
+    }
+
+    /// <summary>What a repository needs before its chrome has anything to draw: a
+    /// scenario page in its domain folder, and a sync verdict on every chapter.</summary>
+    private static void GiveTheRepositoryItsChrome(DevbookPaneBrainHarness harness)
+    {
+        var page = Path.Combine(harness.Root, "clone", ".domain", "intake", "specs", "spec.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(page)!);
+        File.WriteAllText(page, "# Specs\n\n```meta\ntype: scenario\n```\n\n## Done\n- **Then** it is done\n");
+
+        harness.Context.Services.AddSingleton<IDevbookSyncVerdicts>(new EveryChapterVerdict());
+
+        // What the domain panel the scenario page sits under asks for; the harness
+        // composes no domain panel of its own.
+        harness.Context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
+        harness.Context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
+    }
+
+    /// <summary>A sweep that spoke about every file of every repository, at the
+    /// file's own level, so whatever chapter the pane opens has a badge to draw.</summary>
+    private sealed class EveryChapterVerdict : IDevbookSyncVerdicts
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public IReadOnlyList<DevbookSyncVerdict> For(string repository, string chapterPath, IReadOnlyList<DevbookFolderSetting>? folders = null) =>
+            [new(repository, chapterPath, string.Empty, "aligned", "Matches the code.", chapterPath, "chapter", "aligned", "none", null, DateTimeOffset.UnixEpoch, "run-1")];
+
+        public IReadOnlyList<DevbookSyncVerdict> ForRepository(string repository) => [];
+
+        public Task RecordAsync(IReadOnlyList<DevbookSyncVerdict> verdicts, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 
     /// <summary>A note written while the pane is open shows once the Brain says it

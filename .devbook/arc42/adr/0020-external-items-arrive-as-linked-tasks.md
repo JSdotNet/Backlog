@@ -1,9 +1,8 @@
 # ADR 0020: Items from GitHub and spec-manager arrive as linked tasks, through one connector contract
 
 ```meta
-date: 2026-10-13
-status: proposed
-related: [".devbook/domain/tasks/domain.md#source-ref", ".devbook/domain/tasks/domain.md#linked-task", ".devbook/domain/tasks/domain.md#task-connector", ".devbook/domain/tasks/domain.md#source-state", ".devbook/domain/tasks/domain.md#connected-target", ".devbook/domain/tasks/domain.md#projection-ref", ".devbook/domain/tasks/domain.md#tombstone", ".devbook/domain/tasks/features.md#linked-tasks", ".devbook/domain/tasks/features.md#promote-to-plan", ".devbook/domain/tasks/requirements.md#linked-tasks", ".devbook/domain/tasks/flow.md#task-lifecycle", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/roadmap/domain.md#source-label", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md"]
+date: 2026-10-15
+related: [".devbook/domain/tasks/domain.md#source-ref", ".devbook/domain/tasks/domain.md#linked-task", ".devbook/domain/tasks/domain.md#task-connector", ".devbook/domain/tasks/domain.md#source-state", ".devbook/domain/tasks/domain.md#connected-target", ".devbook/domain/tasks/domain.md#projection-ref", ".devbook/domain/tasks/domain.md#tombstone", ".devbook/domain/tasks/features.md#linked-tasks", ".devbook/domain/tasks/requirements.md#linked-tasks", ".devbook/domain/tasks/flow.md#task-lifecycle", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/roadmap/domain.md#source-label", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md"]
 ```
 
 Every open item in a connected GitHub repository or spec-manager product
@@ -18,10 +17,38 @@ connector. GitHub and spec-manager are the first two connectors.
 ```meta
 ```
 
-Proposed, 2026-10-05, by the flow-spec run that drafted it. Since then the
-connector contract, the sync, the GitHub and spec-manager connectors, the
-settings page and write-back to the source have been built. Whether the record
-moves off `proposed` is the repository owner's call.
+Accepted, 2026-10-15. Proposed on 2026-10-05 by the flow-spec run that drafted
+it. The connector contract, the sync, the GitHub and spec-manager connectors,
+the settings page and write-back to the source are built. The record now
+describes them as built, and the amendments below say where that differs from
+the proposal.
+
+> **Amended 2026-10-15: "Assigned to me" is gone.** PR #1018 removed the
+> "Assigned to me" filter from the Tasks pane, the per-target setting that
+> turned it on by default, and the "Who am I" call from `ITaskConnector`. The
+> sync still overwrites the assignee and keeps it in `SourceRef`, but no screen
+> filters on it. spec-manager still reads which backlog member is the signed-in
+> one, only to name the account on the settings page.
+
+> **Amended 2026-10-15: Promote to plan is dropped.** It was never built. PR
+> #1266 removed its setting, and the repository owner confirmed that it stays
+> dropped. No action on a linked task creates a Roadmap Item, and nothing breaks
+> an item down from sub-issues, a checklist or a generated plan.
+> [Section 7](#7-promote-to-plan-was-dropped) keeps the proposal and says why.
+
+> **Amended 2026-10-15: on-demand sync lives in Settings.** Each connected
+> target's card has a "Sync now" button, which syncs that one target. The Tasks
+> pane has none. The timer runs each target at its own interval, 15 minutes by
+> default ([section 9](#9-the-open-questions-are-settings-per-connected-target)).
+
+> **Amended 2026-10-15: what was added after the proposal.** A failed fetch
+> names its kind and stays on the target's card until the next success. The
+> settings page offers a list to pick a target from. A connector whose targets
+> are repositories files each task under its target. The settings page also
+> clears the tasks a disconnected target left behind, and each successful sync
+> logs one line. [Section 3](#3-itaskconnector-is-the-one-contract) and
+> [section 9](#9-the-open-questions-are-settings-per-connected-target) give the
+> detail.
 
 > **Amended 2026-10-13: a repository and a status map per connected target.** A
 > spec-manager product whose statuses carry no development, AI or review flag
@@ -96,7 +123,6 @@ flowchart TD
     P --> S["SyncLinkedTasksCommand<br/>(Tasks, names no connector)"]
     S --> T["Task + SourceRef"]
     T --> R["Task replica"]
-    T -. "a person's Promote to plan" .-> I["IRoadmapPlanIntake"]
 ```
 
 ### 1. External items become linked tasks, with no Inbox step
@@ -108,7 +134,9 @@ A connector fetches every open item of each connected target, plus the items
 closed since its last run. Each one becomes a task, or updates the task it
 already became. The item does not pass through the Inbox, because triage would
 freeze it. The assignee does not filter what arrives: it is data on the task,
-and the Tasks pane offers "Assigned to me" as a filter over it.
+kept in its `SourceRef`. The proposal had the Tasks pane filter on it with
+"Assigned to me". That filter was removed, so today no screen filters on the
+assignee.
 
 The GitHub connector fetches issues only. Pull requests and review requests stay
 in the Pull Requests pane.
@@ -151,14 +179,24 @@ between two systems sits behind it:
 | Part | What the connector supplies |
 |---|---|
 | Descriptor | A stable id, a display name, an icon and a colour token. The source badge, the Source filter and the settings page are drawn from it. |
-| Targets | What a person connects: repositories, or product slugs. Never credentials. |
+| Targets | What a person connects: repositories, or product slugs. Never credentials. `ListTargetChoicesAsync(ct)` offers them as a list to pick from, each with the name a person knows it by, or says in a sentence why it cannot list them. |
 | Fetch | `FetchAsync(target, since, ct)`: every open item, plus the items closed since `since`, each normalised to a `SourceItem`. |
+| Fetch failure | A failure the connector recognises throws `TaskConnectorFetchException` with its kind: not found, no access, not configured, sign-in required, or unreachable. Its message is a sentence the person can act on. |
+| Complete | `CompleteAsync(item, ct)`: finishes the item at the source, or answers why it could not (write-back, §9). |
 | Display key | How a person names an item. |
 | Normalised state | One of `Open`, `Active`, `Done` or `Dropped`, beside the source's own status name. |
 | Source statuses | `ListSourceStatusesAsync(target, ct)`: each status name the target uses, with its normalised state, so a person can map them (§9). A connector with nothing to list answers none. |
 | Blocked | Whether the item cannot be worked on now, and the reason. |
-| Capabilities | Flags the sync and the UI read: has effort, has dependencies, can set status, can comment. |
-| Who am I | The connected account, so "Assigned to me" knows who "me" is. |
+| Capabilities | Flags the sync and the UI read: has effort, has dependencies, can set status, can comment, can complete, and whether a target is a repository. |
+
+The proposal had a "Who am I" call, so that "Assigned to me" knew who "me" was.
+It was removed with that filter.
+
+**A target that is a repository files its tasks under itself.** A connector sets
+the `TargetIsRepository` capability when its targets are spelled `owner/name`.
+The sync then files each new linked task of that target under the repository.
+GitHub sets it, and spec-manager does not. A repository set on the target
+overrides it ([section 9](#9-the-open-questions-are-settings-per-connected-target)).
 
 A connector is registered with `AddTaskConnector<T>()`. The Tasks module never
 names GitHub or spec-manager, and `ModuleBoundaryTests` hold that. The GitHub
@@ -263,28 +301,35 @@ Item**, because the roadmap changes only through a person's gesture (ADR 0013,
 ruling 3). A plan tag with no item yet shows on the roadmap's shelf, where the
 person places it with one click.
 
-### 7. Promote to plan turns one linked task into a Roadmap Item
+### 7. Promote to plan was dropped
 
 ```meta
 ```
 
-Promote to plan is a person's action on one linked task, for an item that is
-really an epic. It creates a Roadmap Item through `IRoadmapPlanIntake`, the port
-Import already uses (ADR 0013, ruling 3). The item is titled after the source
-item and carries its link in its notes. Its tag is the item's `+` label when it
-has one, and otherwise a slug made from the display key and the title, such as
-`gh-412-offline-sync`.
+**Promote to plan is dropped and was never built.** PR #1266 removed its
+setting, and the repository owner confirmed on 2026-10-15 that it stays
+dropped. No action on a linked task creates a Roadmap Item, and linked tasks
+never call `IRoadmapPlanIntake`. An item that is really an epic reaches the
+roadmap the way §6 says: a `+` label makes the plan tag, and the person places
+it from the shelf.
 
-It then breaks the item down from one of three places:
+The proposal is kept below, so that someone arriving to propose it again finds
+what it was. Promote to plan was to be a person's action on one linked task,
+for an item that is really an epic. It would have created a Roadmap Item through `IRoadmapPlanIntake`, the port
+Import already uses (ADR 0013, ruling 3). The item would have been titled after
+the source item and carried its link in its notes. Its tag would have been the
+item's `+` label, or else a slug made from the display key and the title, such
+as `gh-412-offline-sync`.
 
-- **Sub-issues.** Each becomes a linked task with the plan tag. It stays linked
-  to its source.
-- **A checklist** in the body. Each line becomes a local task with the plan tag.
-- **A generated plan.** The body is the specification for `import-plan`.
-  Importing the result fills the item, and a re-import updates the steps nobody
-  started (ADR 0007).
+It would then have broken the item down from one of three places:
 
-What happens to the original task is a setting ([section 9](#9-the-open-questions-are-settings-per-connected-target)).
+- **Sub-issues.** Each would become a linked task with the plan tag.
+- **A checklist** in the body. Each line would become a local task with the plan tag.
+- **A generated plan.** The body would be the specification for `import-plan`
+  (ADR 0007).
+
+A per-target setting would have said whether the original task was archived or
+kept as an umbrella step. That setting is the one PR #1266 removed.
 
 ### 8. spec-manager is reached over REST with OAuth
 
@@ -315,17 +360,32 @@ repository or product. Two targets may answer it differently.
 | Setting | Default |
 |---|---|
 | Skip items untouched for longer than a set age, on the first sync only | Off |
-| "Assigned to me" on in the Tasks pane by default | Off |
 | The title follows the source, or can be renamed locally | Follows the source |
-| Sync interval | A fixed interval on the desktop, plus on demand from the Tasks pane |
-| On Promote to plan, archive the original task or keep it as an umbrella step | Archive it |
+| Sync interval | 15 minutes, on the desktop's timer |
 | Finishing a task here completes its item at the source | Off |
 | The repository the target's tasks are filed under | None set: a GitHub repository files its tasks under itself, and a spec-manager product under no repository |
 | A status map from the source's own status names to task statuses | Empty: every status takes the fixed map ([section 4](#4-the-source-owns-three-fields-backlog-owns-the-rest)) |
 
 A target's settings hold its connector id, whether it is enabled, the target
 itself, and the values above, its repository and its status map among them.
-They never hold credentials.
+They also hold when the target last synced, and the last failure's message and
+time until the next success clears them. They never hold credentials.
+
+The proposal had two more settings: "Assigned to me" on by default, and what
+Promote to plan did with the original task. Both were removed with the
+features they served (see the amendments under [Status](#status)).
+
+**A person syncs a target on demand from Settings.** Each connected target's
+card has a "Sync now" button. It syncs that one target at once, whatever its
+interval, and the card shows how it went. `LinkedTaskSyncWorker` runs the timer
+and syncs each target whose interval has passed. Every successful sync logs one
+Information line with what it fetched, created, updated and archived.
+
+**The settings page clears what a disconnected target left behind.** A
+"Disconnected sources" section lists each connector and target pair that still
+has linked tasks but is no longer connected. After the person confirms, it
+deletes those tasks through `DeleteDisconnectedLinkedTasks`. Each deleted task
+leaves a tombstone (§5), so a later reconnect does not bring it back.
 
 **A repository set on a target wins for every connector.** The sync files the
 target's new tasks under it, and the tasks it brought in earlier that are still
@@ -359,10 +419,10 @@ questions that two built-in connectors do not justify.
   column, and the replica payload carries it. An older device keeps the field as
   written.
 - `SyncLinkedTasksCommand` in Tasks upserts by deterministic id. It runs on the
-  desktop's timer and on demand.
+  desktop's timer and on demand from a target's "Sync now" in Settings.
 - The Tasks pane gains a source badge on the row, in the editor header and in My
-  Day, and two filters: Source and Assigned to me. All three are drawn from the
-  connector descriptors, so a new connector needs no UI change.
+  Day, and a Source filter. Both are drawn from the connector descriptors, so a
+  new connector needs no UI change.
 - `ConnectedTarget` gains `RepositoryId` and `StatusMap`, and the settings file
   keeps both. A file written before them reads as neither set.
   `ITaskConnector` gains `ListSourceStatusesAsync`, which answers none unless a
@@ -373,8 +433,25 @@ questions that two built-in connectors do not justify.
   later slice, behind the per-target setting "Finishing a task here completes
   its item at the source", and it needs the spec-manager status call above.
 - Linked tasks take part in My Day, search, the roadmap and sync like any other
-  task. A Tasks list over a busy repository grows, which is what the Source and
-  Assigned to me filters are for.
+  task. A Tasks list over a busy repository grows, which is what the Source
+  filter is for.
+
+### Known gaps
+
+```meta
+```
+
+Two parts of the contract do less than this record implies. Neither is a
+decision; each is how the code stands on 2026-10-15.
+
+- **spec-manager re-reads the whole open backlog on every sync.** The connector
+  passes the `gewijzigdSinds` (changed since) filter only when it asks for
+  archived items. The quiet-sync rule (§5) keeps the unchanged tasks from being
+  stamped, but every sync still fetches every open item.
+- **Most capability flags drive nothing yet.** The sync and the settings page
+  read only `CanComplete` and `TargetIsRepository`. `HasEffort`,
+  `HasDependencies`, `CanSetStatus` and `CanComment` are declared by the
+  connectors and read by no code.
 
 ## Rejected
 
@@ -386,7 +463,7 @@ questions that two built-in connectors do not justify.
 - **A live federated pane.** It holds no tasks, so nothing reaches My Day,
   search, the roadmap or the other devices.
 - **Only the items assigned to me.** Reassignment would make tasks appear and
-  vanish. Everything open arrives, and the assignee is a filter.
+  vanish. Everything open arrives, and the assignee is data on the task.
 - **`ConnectorId` as an enum.** Every new connector would change the schema, and
   an older device could not read a newer device's tasks.
 - **A status map inside each connector.** The map would be repeated in each
@@ -410,5 +487,6 @@ questions that two built-in connectors do not justify.
 
 | Date | Change |
 |---|---|
+| 2026-10-15 | Accepted, as built: "Assigned to me" and Promote to plan are dropped, on-demand sync is a target's "Sync now" in Settings, and the record gains the fetch failures, target picker, repository filing, disconnected-source cleanup and sync log line added since. |
 | 2026-10-13 | Amended: each connected target gets a repository its tasks are filed under and a status map over the fixed one, because a spec-manager product with no status flagged as work put every task In progress. |
 | 2026-10-05 | Proposed: linked tasks through `ITaskConnector`, from the "External Task Sources" design note. |

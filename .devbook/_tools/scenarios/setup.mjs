@@ -6,7 +6,7 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { splitPortal } from "./parse.mjs";
+import { resolveInside, splitPortal } from "./parse.mjs";
 
 /** The reference's last segment: `context.md#new-board` → `new-board`. */
 export function keyOf(reference) {
@@ -149,7 +149,7 @@ export async function runSetup({ hook, config, open, dataFolder = () => null, en
 export function findRepoRoot(start = process.cwd()) {
     let current = path.resolve(start);
     for (;;) {
-        if (existsSync(path.join(current, ".devbook"))) return current;
+        if (existsSync(resolveInside(current, ".devbook"))) return current;
         const parent = path.dirname(current);
         if (parent === current) throw new Error(`no .devbook/ folder at or above ${start}`);
         current = parent;

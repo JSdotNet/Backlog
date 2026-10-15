@@ -51,6 +51,11 @@
     [Parameter]
     public int DebounceMilliseconds { get; set; } = 200;
 
+    /// <summary>What <see cref="DebounceMilliseconds"/> is measured on; the system
+    /// clock unless the host — or a test — hands in its own.</summary>
+    [Parameter]
+    public TimeProvider? Clock { get; set; }
+
     [Parameter]
     public string? Id { get; set; }
 
@@ -85,7 +90,7 @@
 
         try
         {
-            await Task.Delay(DebounceMilliseconds, cts.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(DebounceMilliseconds), Clock ?? TimeProvider.System, cts.Token);
         }
         catch (TaskCanceledException)
         {

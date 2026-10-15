@@ -84,8 +84,8 @@ related: [".devbook/tech/ai-development.md#repository-instruction-files"]
 - **Used for** — the plugin-provided `flow-*`, `phase-*`, and `schedule-*`
   skills, and the repository-owned procedures with their wrappers. The `run`
   recipe is at `.claude/skills/run-backlog/SKILL.md`; `capture`, `diagnose`, and
-  `estimate` are under `.agents/skills/`. The five Aspire skills sit beside them,
-  and so does the `update-devbook-index` command.
+  `estimate` are under `.agents/skills/`. The `update-devbook-index` command sits
+  beside them.
 - **Why** — a skill is loaded only when its name is invoked, so a large body of
   procedure costs nothing until it is needed.
 

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Backlog.SharedKernel;
 
@@ -39,12 +40,25 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <para>
 /// <b>What an unreadable file costs.</b> A file that is there but that this process
 /// cannot read through — another host holding it open, or an empty one left by a write
-/// that never finished — is never overwritten. The store looks again a few times and, if
-/// nothing readable arrives, runs on an identity it does not write down. That branch is
-/// deliberate and is the same bargain the unwritable folder gets: the run is stamped
-/// with an id no later run will use, which costs the sessions read during it, and it is
-/// the cheaper of the two mistakes — the other one is stamping over an id that something
-/// is already paired to because it could not be read at the wrong moment.
+/// that never finished — is never overwritten. The store keeps looking for a window of
+/// wall-clock time, about two seconds, and adopts the id the moment a read finds one; if
+/// nothing readable arrives before the window closes, it runs on an identity it does not
+/// write down. That branch is deliberate and is the same bargain the unwritable folder
+/// gets: the run is stamped with an id no later run will use, which costs the sessions
+/// read during it, and it is the cheaper of the two mistakes — the other one is stamping
+/// over an id that something is already paired to because it could not be read at the
+/// wrong moment.
+/// </para>
+/// <para>
+/// The window is time rather than a count of attempts because what it has to outlast is
+/// another process, and a starved machine stretches that by more than a fixed handful of
+/// short pauses covers — six concurrent test runs were enough to see a host give up on a
+/// file that was only being renamed over (issue #526). The price is start-up time, and it
+/// is only paid when the file exists and stays locked or freshly empty: a host that finds
+/// it so for the whole window opens up to two seconds late, on an identity of its own. An
+/// empty file last written longer ago than <see cref="AbandonedEmptyAfter"/> is not waited
+/// for at all — it is a first write a crash cut off, holds no id anything can be paired
+/// to, and is replaced, so it cannot charge every later start the whole window.
 /// </para>
 /// </summary>
 public sealed class DeviceIdentityStore : IDeviceIdentitySource
@@ -55,17 +69,28 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    /// <summary>How many times a host that lost the first-write race re-reads before
-    /// giving up and running on an identity of its own. Two Debug hosts out of two
-    /// worktrees can start in the same second; the winner holds the file exclusively
-    /// while it writes, so the loser's first read can arrive before there is anything
-    /// to read. A hundred milliseconds is far longer than writing sixty bytes takes and
-    /// is only ever spent on that one race.</summary>
-    private const int AdoptionAttempts = 5;
+    /// <summary>How long a host that finds the file there but unreadable keeps re-reading
+    /// before giving up and running on an identity of its own. Two Debug hosts out of two
+    /// worktrees can start in the same second; the winner holds the file exclusively while
+    /// it writes, and a rename moves a new copy over the top, so a read can arrive while
+    /// there is nothing to read through. Writing sixty bytes takes far less than this on
+    /// an idle machine; the margin is for a busy one, and it is only ever spent while the
+    /// file stays locked.</summary>
+    internal static readonly TimeSpan DefaultAdoptionWindow = TimeSpan.FromSeconds(2);
 
+    /// <summary>The pause between two looks inside the window: short enough that the id
+    /// is adopted soon after the file comes free, long enough not to spin on it.</summary>
     private const int AdoptionPauseMilliseconds = 20;
 
+    /// <summary>How long ago an empty file must have been last written before it counts
+    /// as a first write that never finished rather than one still landing. A first write
+    /// fills sixty bytes in milliseconds; a minute leaves room for any clock the file
+    /// system keeps.</summary>
+    internal static readonly TimeSpan AbandonedEmptyAfter = TimeSpan.FromMinutes(1);
+
     private readonly string _path;
+
+    private readonly TimeSpan _adoptionWindow;
 
     /// <summary>The per-user location: <c>device.json</c> in the same app-data folder
     /// <see cref="WorkspaceSettingsStore"/> puts the workspace pointer in.</summary>
@@ -90,11 +115,20 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
     /// <summary>The machine name injected as well, so the rename case can be asserted
     /// without renaming the machine the tests run on.</summary>
     public DeviceIdentityStore(string path, string machineName)
+        : this(path, machineName, DefaultAdoptionWindow)
+    {
+    }
+
+    /// <summary>The adoption window injected too, so the give-up branch can be asserted
+    /// without a test spending the whole default window on it.</summary>
+    internal DeviceIdentityStore(string path, string machineName, TimeSpan adoptionWindow)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(machineName);
+        ArgumentOutOfRangeException.ThrowIfLessThan(adoptionWindow, TimeSpan.Zero);
 
         _path = path;
+        _adoptionWindow = adoptionWindow;
         Current = Resolve(machineName);
     }
 
@@ -213,21 +247,29 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
     /// <summary>
     /// What the loser of the first-write race does: read what the winner wrote, and use
     /// that. The winner holds the file exclusively while it writes, so the first read
-    /// can legitimately find nothing — hence the retries rather than a single attempt.
-    /// If every attempt comes back empty the process runs on its own minted identity,
-    /// which is the same fallback an unwritable folder gets.
+    /// can legitimately find nothing — hence looking again rather than a single attempt.
+    /// It keeps looking until the adoption window has passed on a monotonic clock, so a
+    /// wall-clock change cannot cut the wait short or stretch it, and the window is time
+    /// rather than a number of attempts because a starved machine stretches the winner's
+    /// write, not the loser's patience. If nothing readable arrives inside it the process
+    /// runs on its own minted identity, which is the same fallback an unwritable folder
+    /// gets, and the start has paid the whole window for it.
     /// </summary>
     private DeviceIdentity AdoptTheWinner(string machineName, Guid minted)
     {
-        for (var attempt = 0; attempt < AdoptionAttempts; attempt++)
+        var started = Stopwatch.GetTimestamp();
+
+        while (true)
         {
             var (outcome, theirs) = Read();
 
             if (outcome is ReadOutcome.Found) return Adopt(theirs, machineName);
 
-            // Nothing after the last look: the answer cannot change between a read this
-            // method has already given up on and the line below it.
-            if (attempt < AdoptionAttempts - 1) Thread.Sleep(AdoptionPauseMilliseconds);
+            // Checked after the look rather than before it, so even an empty window reads
+            // once, and nothing sleeps once the window has already closed.
+            if (Stopwatch.GetElapsedTime(started) >= _adoptionWindow) break;
+
+            Thread.Sleep(AdoptionPauseMilliseconds);
         }
 
         return new DeviceIdentity(minted, machineName);
@@ -260,8 +302,14 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
 
             // A file with nothing in it is not a file that says something wrong. It is a
             // write that has not landed or one that never finished, and the two call for
-            // opposite actions: this one is waited for, not overwritten.
-            if (string.IsNullOrWhiteSpace(text)) return (ReadOutcome.Unreadable, default);
+            // opposite actions: this one is waited for, not overwritten — unless it has
+            // sat empty for so long that no write can still be landing in it.
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return DateTime.UtcNow - File.GetLastWriteTimeUtc(_path) > AbandonedEmptyAfter
+                    ? (ReadOutcome.Unusable, default)
+                    : (ReadOutcome.Unreadable, default);
+            }
 
             var stored = JsonSerializer.Deserialize<StoredIdentity>(text, JsonOptions);
 

@@ -93,11 +93,13 @@ references it. A module with a desktop face owns a `.UI` project beside its othe
 projects — `src/Modules/Inbox/Backlog.Modules.Inbox.UI` and its siblings — so a
 context's screens ship with the context instead of inside the shell.
 
-`Sync` is the one module that is not a bounded context from
-[`.devbook/domain/context-map.md`](.devbook/domain/context-map.md). It owns no domain — it
-pairs devices and carries between them the replicas other contexts sync: tasks, session
-records, devbook annotations, and Inbox captures with their attachments. If it ever grows
-rules of its own, it needs an entry in the context map before it grows projects.
+`Sync` is the Sync bounded context in
+[`.devbook/domain/context-map.md`](.devbook/domain/context-map.md), described in
+[`.devbook/domain/sync/context.md`](.devbook/domain/sync/context.md). It owns the devices,
+their pairing and the owner-scoped replicas, and carries between devices the documents
+other contexts sync: tasks, session records, devbook annotations, and Inbox captures with
+their attachments. It never reads what those documents say; their meaning stays with
+the context that wrote them.
 
 Development-time hosts live under `src/Harness/` so runnable project hosts stay below
 `src/`, and automated test projects live in `tests/`.
