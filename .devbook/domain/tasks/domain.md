@@ -856,15 +856,24 @@ whose time has passed reads as overdue until it is cleared.
 type: term
 status: proposed
 aliases: [in_my_day_on, myday, InMyDay]
-related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#agenda-time]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
 The set of tasks a person picked to work on today. Held as the date it was
-picked for, not as a flag, so membership is derived by comparing that date
-against the reader's current local date and expires without a timer.
+picked for, not as a flag. Membership is derived when My Day is read, from that
+date, the reader's current local date and the person's
+[Clear My Day overnight](context.md#clear-my-day-overnight) setting. Nothing
+rewrites the date when a day passes.
+
+With the setting on, a task is in My Day only while its date is today, so
+yesterday's list expires without a timer. With it off, an unfinished task with
+an earlier date stays in My Day as a **carried task** until it is ticked off or
+taken out. A task with a later date is never in today's My Day.
+
 Deliberately not a deadline: `My Day` is this morning's choice, a `Due Date` is
 a commitment. A task in My Day may also carry an [Agenda Time](#agenda-time),
-which places it at a time within that day. Moving a task to tomorrow sets the
+which places it at a time within the day it was picked for. A carried task's
+slot is therefore not shown. Moving a task to tomorrow sets the
 date to the next day, which
 [drops its agenda time](domain.invariants.md#invariant-a-new-my-day-date-drops-the-agenda-time).
 

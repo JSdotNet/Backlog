@@ -159,7 +159,11 @@ public sealed class SessionsPaneLoadStatesTests
 
         var gate = sessions.HoldNextRead();
         pane.Find("[data-testid='sessions-refresh']").Click();
-        pane.WaitForAssertion(() => Assert.Equal(2, sessions.Reads));
+
+        // The Refresh's read starts on the pool and is held at the gate, so no render
+        // follows the source counting it — wait on the source, not on the pane, which
+        // re-checks only when it renders.
+        Assert.True(SpinWait.SpinUntil(() => sessions.Reads == 2, TimeSpan.FromSeconds(5)));
 
         pane.Find("[data-testid='sessions-update-records']").Click();
 

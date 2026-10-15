@@ -27,11 +27,13 @@ internal sealed class TasksPaneHost : IDisposable
         AppFeatureSettingsStore features,
         GitHubIntegration gitHub,
         FakeGitHubClient client,
+        MyDayPreferencesStore myDay,
         string root,
         string storageRoot)
     {
         Context = context;
         State = state;
+        MyDay = myDay;
         Toasts = toasts;
         Features = features;
         GitHub = gitHub;
@@ -55,6 +57,12 @@ internal sealed class TasksPaneHost : IDisposable
     public GitHubIntegration GitHub { get; }
 
     public FakeGitHubClient Client { get; }
+
+    /// <summary>The person's My Day preferences — Clear My Day overnight — as the
+    /// desktop keeps them, in a file of this host's own. Untouched, it reads on, the
+    /// rule every pane test before the switch was written under; a test about a
+    /// carried task turns it off here, and the state behind the pane hears it.</summary>
+    public MyDayPreferencesStore MyDay { get; }
 
     /// <summary>The folder the store this host composed actually reads and writes.
     /// Handed out so a test can stand a second list over the same backlog, which is
@@ -106,7 +114,8 @@ internal sealed class TasksPaneHost : IDisposable
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
-        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates);
+        var myDay = new MyDayPreferencesStore(Path.Combine(root, MyDayPreferencesStore.FileName));
+        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates, myDayPreferences: myDay);
 
         await state.InitializeAsync();
 
@@ -126,8 +135,9 @@ internal sealed class TasksPaneHost : IDisposable
         // what the app does.
         context.Services.AddSingleton(toasts);
         context.Services.AddSingleton<IToastChannel>(toasts);
+        context.Services.AddSingleton<IMyDayPreferences>(myDay);
 
-        return new TasksPaneHost(context, state, toasts, features, gitHub, client, root, storageRoot);
+        return new TasksPaneHost(context, state, toasts, features, gitHub, client, myDay, root, storageRoot);
     }
 
     public IRenderedComponent<TasksPane> Render() => Context.Render<TasksPane>();

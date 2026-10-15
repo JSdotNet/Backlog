@@ -112,7 +112,7 @@ The runtime the Android toolchain itself needs.
 status: adopted
 type: tool
 depends-on: [".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#android-sdk-build-tools"]
-related: [".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile"]
+related: [".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
 The packaging and release format for the Android client.
@@ -136,3 +136,12 @@ The packaging and release format for the Android client.
   before publishing. The keystore is self-signed, and Android rejects signature
   changes, so an APK signed with a different key cannot upgrade an existing
   install.
+- **Update channel** — `BacklogUpdateRepository` is the GitHub repository, as
+  `owner/repository`, whose releases the installed APK checks for a newer one.
+  Only `release-mobile.yml` passes it (`-p:BacklogUpdateRepository=`), because
+  only its APKs carry the release key a later release can update. A target in
+  `Backlog.Mobile.csproj` compiles it into `UpdateChannelBuildDefaults.Repository`
+  and fails the build on a value that is not `owner/repository`. Empty is the
+  default and means a development build: `build/Install-AndroidApp.ps1` and a
+  debug deploy leave it out, and their update window reports that the build
+  cannot update itself.

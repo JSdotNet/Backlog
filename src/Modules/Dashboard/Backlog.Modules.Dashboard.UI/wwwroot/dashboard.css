@@ -1085,6 +1085,17 @@
     min-width: 0;
 }
 
+/* Ask AI sits beside refresh, so it takes the push the header's space-between would
+   otherwise spend between the two; behind a control of the part's own, that control
+   has already taken it. */
+.dashboard-part__ask {
+    margin-left: auto;
+}
+
+.dashboard-part__actions + .dashboard-part__ask {
+    margin-left: 0;
+}
+
 .dashboard-part__title {
     margin: 0;
     font-family: var(--font-family-heading);

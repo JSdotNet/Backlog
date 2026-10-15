@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-sprints-between-devices"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-sprints-between-devices"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -36,6 +36,7 @@ Optional cloud sync carries this state between a person's devices:
 | Planning pace and working week | kind `planning-pace` in `tasks`, with a `workingWeek` key | last-write-wins | local ADRs 0018 and 0019 |
 | Repository registry | kind `repository-registry` in `tasks` | last-write-wins | local ADR 0021 |
 | GitHub accounts | kind `github-accounts` in `tasks`, never a token | last-write-wins | local ADR 0021 |
+| My Day preferences | kind `my-day-preferences` in `tasks`, written by a desktop and folded read-only by the phone | last-write-wins | local ADR 0032 |
 | Sprint series | kind `sprint-series` in `tasks`, one document per series under its own id | last-write-wins per series on `progress_series.updated_at` | local ADR 0018's arrangement, local ADR 0028 |
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
@@ -446,7 +447,7 @@ references, they stay node attributes and produce no edges in the knowledge grap
 ## Authentication and Authorization
 
 ```meta
-related: [".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md"]
 ```
 
 - **No account required** for personal use in standalone mode.
@@ -461,6 +462,11 @@ related: [".devbook/arc42/09-architecture-decisions.md"]
 
   [Task Sync](#task-sync) has the pairing flow that issues the token.
 - The current architecture assumes a single personal user and does not include team-oriented authorization roles.
+- **Credentials at rest are sealed by the OS.** Every third-party key or token the
+  app stores is sealed under the signed-in Windows user with DPAPI, or in the
+  platform secure store on Android. The settings files seal only the secret value
+  and stay legible otherwise. The MCP server's loopback token is the one stated
+  exception. Local ADR 0030 has the threat model.
 
 For the cloud service specifically, the inherited identity, authorization, and
 error-contract decisions apply — `.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md`,
