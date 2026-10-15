@@ -8,7 +8,9 @@
     It reads Progress through the dashboard's own port, ISprintBriefSource, which an
     adapter answers from Progress's published surface — this project may not name a
     Progress type. Every week the brief can step to is read once, when it opens; stepping
-    a week moves what the block draws and never what it fetches (SprintWeekBrief).
+    a week moves what the block draws and never what it fetches (SprintWeekBrief). The
+    port's Changed — a sprint series saved here or pulled from another desktop — reads
+    them again, over the figures already drawn.
 
     With Progress switched off, not composed, or no series marked, the port answers with
     no sprint and the block draws nothing at all — no heading, no spinner, no "missing"
@@ -123,5 +125,29 @@
     // Nothing cached: the port reads Progress afresh every time.
     protected override void InvalidateSource()
     {
+    }
+
+    private ISprintBriefSource? _source;
+
+    /// <summary>A series saved here or pulled from another device reads the block again,
+    /// over the figures already drawn, as its Refresh would.</summary>
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _source = Services.GetService(typeof(ISprintBriefSource)) as ISprintBriefSource;
+        if (_source is not null) _source.Changed += OnSeriesChanged;
+    }
+
+    private void OnSeriesChanged() => _ = InvokeAsync(RefreshAsync);
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && _source is not null)
+        {
+            _source.Changed -= OnSeriesChanged;
+            _source = null;
+        }
+
+        base.Dispose(disposing);
     }
 }

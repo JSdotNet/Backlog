@@ -79,6 +79,14 @@ public sealed record SprintBriefSprint(
 public interface ISprintBriefSource
 {
     /// <summary>
+    /// Raised when what <see cref="ReadAsync"/> answers may have changed — a sprint
+    /// series saved on this machine, by a person or pulled from another device — so the
+    /// Sprint block reads again rather than waiting for the brief to be opened afresh. It
+    /// may arrive on any thread.
+    /// </summary>
+    event Action? Changed;
+
+    /// <summary>
     /// For every sprint series marked to show in the weekly brief, each of its sprints
     /// whose start–end overlaps <paramref name="from"/> to <paramref name="to"/>, both
     /// inclusive. Empty — never a failure — while Progress is switched off, when no

@@ -41,6 +41,13 @@
     last reading, written by SprintCloseMapper, and one CloseSprintAsync through
     ISprintSeriesPlanning. Once it lands the view opens on the sprint it started; the
     closed sprint is a step back, read-only like every closed one.
+
+    A series saved anywhere else - pulled from another desktop by the sync, or changed
+    from Settings or a task - raises ISprintSeriesPlanning.Changed: the series is found
+    again and, while the sprint view is open, the sprint is read again, as Refresh does.
+    What the person has open stays open with what they put in it - the Close dialog's
+    choices and next goal, a note being written, the Add picker - over the fresh reading;
+    the Close dialog closes only once the sprint it would close is no longer open.
 *@
 
 @if (_series is { } series && SwitchName(series) is { } sprintName)
@@ -188,6 +195,7 @@ else
     public Func<IReadOnlyList<SprintCandidate>>? Candidates { get; set; }
 
     private IAppFeatureSettings? _features;
+    private ISprintSeriesPlanning? _notices;
     private bool _on;
     private string _scopeKey = "\u0000";
 
@@ -238,6 +246,48 @@ else
         _features = Services.GetService(typeof(IAppFeatureSettings)) as IAppFeatureSettings;
         _on = IsOn();
         if (_features is not null) _features.Changed += OnFeaturesChanged;
+        _notices = Planning;
+        if (_notices is not null) _notices.Changed += OnSeriesChanged;
+    }
+
+    /// <summary>
+    /// A series was saved somewhere else — most often pulled from another desktop — so
+    /// the series is found again and an open sprint view reads its sprint again. The
+    /// view's own writes raise this too, after they have read; the second read is the
+    /// same sprint, on the roadmap band's terms.
+    /// </summary>
+    private void OnSeriesChanged() => _ = InvokeAsync(async () =>
+    {
+        if (!_on) return;
+
+        await FindSeriesAsync();
+        KeepOpenDialogs();
+        StateHasChanged();
+    });
+
+    /// <summary>
+    /// After an outside read, what the person has open follows the fresh reading without
+    /// losing what they put in it: the Close dialog is drawn again over the sprint as it
+    /// now stands — it keeps its choices and next goal while it stays open — and the Add
+    /// picker offers what the series now leaves to add. When the sprint shown is no
+    /// longer the open one, there is nothing left to close. A reading that failed leaves
+    /// both as they were.
+    /// </summary>
+    private void KeepOpenDialogs()
+    {
+        if (_progress is null) return;
+
+        if (_closing is not null)
+        {
+            _closing = Writable is not null && _series is { } series && _model is { } board
+                ? SprintCloseMapper.ToModel(_progress, series, board)
+                : null;
+        }
+
+        if (_picking && _series is { } current && Writable is { } open && Candidates is not null)
+        {
+            _choices = SprintPlanning.Choices(current, open, Candidates());
+        }
     }
 
     private bool IsOn() => _features?.IsEnabled(ProgressFeatures.Progress) ?? false;
@@ -626,5 +676,6 @@ else
     public void Dispose()
     {
         if (_features is not null) _features.Changed -= OnFeaturesChanged;
+        if (_notices is not null) _notices.Changed -= OnSeriesChanged;
     }
 }
