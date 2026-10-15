@@ -107,11 +107,14 @@ sprint, or linking a plan, changes nothing on the task.
 type: sub-feature
 status: draft
 related: [.devbook/domain/progress/domain.md#sprint-item]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.A_removed_task_no_plan_brings_in_comes_back_without_its_old_marks, unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.A_removed_task_a_linked_plan_still_brings_in_keeps_its_marks]
 ```
 
 Add one task to the open sprint by its id. Any task in the series' repositories
 can be added, whatever its status. Removing it again takes it out of the sprint
-and leaves the task as it was.
+and leaves the task as it was. What the sprint recorded on it — its goal mark,
+note and open question — goes with it, unless a linked plan still brings the
+task in ([Sprint Item](domain.md#sprint-item)).
 
 ### Linking a plan
 
@@ -252,7 +255,8 @@ The sprint side opens on the open sprint and steps to the previous and next one.
 shows:
 
 - the series' name, how many repositories it has and the sprint's dates;
-- a filter to one of the series' repositories, and grouping by plan or none;
+- a filter to one of the series' repositories, drawn only when the series has more
+  than one, and grouping by plan or none;
 - the goal card: the goal in words, the goal tasks done of their total with a bar by
   status, the goal rules that counted them, then all the sprint's work done of its
   total, how much is outside the goal and how much was added after the start;
