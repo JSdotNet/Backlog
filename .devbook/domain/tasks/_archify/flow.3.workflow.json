@@ -11,7 +11,7 @@
     { "id": "readiness", "label": "Readiness" }
   ],
   "nodes": [
-    { "id": "status-check", "lane": "derivation", "col": 1, "width": 120, "type": "security", "label": "Status is done?" },
+    { "id": "status-check", "lane": "derivation", "col": 1, "width": 150, "type": "security", "label": "Ticked off?", "sublabel": "completed" },
     { "id": "depends-check", "lane": "derivation", "col": 3, "width": 190, "type": "security", "label": "All depends_on resolved?", "sublabel": "every id resolves to a completed entry" },
     { "id": "readiness-done", "lane": "readiness", "col": 0, "width": 84, "type": "database", "label": "done", "sublabel": "Readiness" },
     { "id": "readiness-ready", "lane": "readiness", "col": 4, "width": 84, "type": "backend", "label": "ready", "sublabel": "Readiness" },
@@ -35,11 +35,11 @@
     },
     {
       "dot": "emerald",
-      "title": "Orthogonal to Task Status",
+      "title": "The tick, not the status",
       "items": [
-        "Status is the recorded lifecycle state; readiness is a conclusion about starting",
-        "They share only done, and a recorded done wins over the derivation",
-        "An entry somebody marked done is done even if something it named is outstanding"
+        "The first question is the tick, completed, not Task Status",
+        "Readiness done is the tick, not the status of the same name",
+        "A ticked task reads done even if something it names is outstanding"
       ]
     },
     {

@@ -281,7 +281,7 @@ sequenceDiagram
 ## Mobile My Day and Task Push
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md"]
 ```
 
 The phone's Today tab is My Day and nothing else. It reads the owner's existing
@@ -298,16 +298,24 @@ projection of the feed.
   - the later `UpdatedAt` wins;
   - an equal stamp goes to the higher server stamp, and then to the tombstone;
   - a `DeletedAt` hides the row;
-  - a `capture`-type document is skipped, because it is the Inbox's (ADR 0009).
+  - a document of a kind that is not a task never becomes a row. A `capture` is
+    the Inbox's (ADR 0009), and a `note` folds into its own view (ADR 0025).
 
   A deleted task keeps its row, hidden, so the order pages arrive in never
   changes the result.
+- **The My Day preferences are kept, not folded.** A `my-day-preferences`
+  document is taken out of the page, and the later `UpdatedAt` wins. It is saved
+  in the same transaction as the page and its cursor. The phone never writes it
+  and reads `clearsOvernight: true` until one arrives (ADR 0032).
 - **My Day is arithmetic**, as `.devbook/domain/tasks/domain.md#my-day` defines
-  it. The list is the rows whose `in_my_day_on` is the phone's current local date
-  and whose status is not `archived`. A row with `completed_on` today is in Done
-  today. The other rows are grouped by their agenda time against the phone's
-  clock into Now, Agenda and Anytime today, as
-  `.devbook/domain/tasks/features.md#my-day` describes.
+  it. With Clear My Day overnight on, the list is the rows whose `in_my_day_on` is
+  the phone's current local date and whose status is not `archived`. With it off,
+  an unfinished row with an earlier `in_my_day_on` stays in the list too. A row
+  with `completed_on` today is in Done today, and a row completed earlier is out.
+  The phone applies the same rule as the desktop (ADR 0032 §5). The other rows are
+  grouped by their agenda time against the phone's clock into Now, Agenda and
+  Anytime today, as `.devbook/domain/tasks/features.md#my-day` describes. A
+  carried row has no agenda time, so it sits in Anytime today.
 - **A rejected cursor starts over.** `sync.cursor_malformed` or
   `sync.cursor_expired` drops the cursor and pulls once from the beginning; the
   rows already kept fold to the same result. Any other failure keeps the list on

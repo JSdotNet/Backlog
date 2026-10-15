@@ -160,7 +160,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/productivity/context.md#dashboard
 setting: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/productivity/context.md#weekly-usage-reset, .devbook/domain/productivity/context.md#monthly-spend-budget]
-related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md]
+related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Expose productivity trends as personal insight rather than team performance
@@ -824,3 +824,31 @@ An unestimated task counts nothing here, because the part reports it as unestima
 A figure that also guessed at its size would count it twice. A plan has no pace only
 when no part with work left has one. Where the parts with work left run at different
 paces, the plan names each of them, for example "app 8, site 4 points a week".
+
+### Asking AI about a part
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: [.devbook/domain/productivity/context.md#dashboard, .devbook/domain/tasks/context.md#ai-assistant]
+related: [.devbook/domain/tasks/features.md#ai-assistance-over-the-visible-backlog, .devbook/domain/productivity/requirements.md#asking-ai-about-a-part, .devbook/arc42/05-building-block-view.md#desktop-app]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardAiContentSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part]
+```
+
+Ask the assistant about one chart without describing it first. Every part of the
+dashboard's tabs has an Ask AI control beside its refresh. Pressing it opens the
+assistant on the Dashboard with a question already begun, such as
+`About the "Throughput" chart: `, and the person finishes the question.
+
+The assistant reads the whole dashboard, whichever part was pressed. It gets one
+line of figures for every part on every tab, plus the merged pull requests and
+closed issues behind them. So a question about rework can also be answered from
+the plan or the spend. A part whose figures cannot be read says why on its line,
+and the assistant reports that instead of treating the part as empty.
+
+A second press on the same part keeps what the person already typed. Pressing a
+part clears an answer still on screen from an earlier question, and an earlier
+question still waiting for its answer is dropped. The Overview's five tiles and
+the weekly brief's blocks carry no control, because they are not parts.
+
+With the assistant switched off, no part shows the control.

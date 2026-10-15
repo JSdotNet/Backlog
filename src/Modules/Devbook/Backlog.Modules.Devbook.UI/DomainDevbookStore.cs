@@ -129,7 +129,7 @@ public sealed class DomainDevbookStore : IDisposable
                 ? ReadContexts(root)
                 : ReadContextsFromIndex(index, root);
             contexts = [.. contexts.Select(context => context with { MapChapter = MapChapterFor(contextMap, context.Slug) })];
-            return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit);
+            return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit, location.RepositoryArchived);
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -690,7 +690,11 @@ public sealed class DomainDevbookStore : IDisposable
 /// when the folder resolved to a branch snapshot, and the panel then leaves out
 /// the status selectors, the editor and the launchers rather than offering
 /// changes the next fetch would discard.</param>
-public sealed record DomainDevbookView(string RepositoryLabel, string RepositoryRoot, string RootPath, string? Error, DomainDevbookDocument ContextMap, IReadOnlyList<DomainDevbookContext> Contexts, bool CanEdit = true)
+/// <param name="RepositoryArchived">Whether the repository this view belongs to
+/// is archived (local ADR 0029 §4). The panel then takes no new remark, which
+/// <paramref name="CanEdit"/> alone does not decide: a branch snapshot of an
+/// active repository still takes remarks.</param>
+public sealed record DomainDevbookView(string RepositoryLabel, string RepositoryRoot, string RootPath, string? Error, DomainDevbookDocument ContextMap, IReadOnlyList<DomainDevbookContext> Contexts, bool CanEdit = true, bool RepositoryArchived = false)
 {
     public bool IsReady => Error is null;
     public static DomainDevbookView Unavailable(string error) => new(string.Empty, string.Empty, string.Empty, error, DomainDevbookDocument.Empty, []);

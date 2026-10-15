@@ -47,6 +47,14 @@ The Statuses group has one row per status the source lists, in its order, each w
         </div>
     </Story>
 
+    <Story Name="Paused with its repository"
+           Description="A target whose repository is archived is paused: the host says so on the card in its own sentence, and nothing syncs until the repository is unarchived. The switch keeps what the person set, because the pause is derived from the repository and never written to the target."
+           Code="@PausedCode">
+        <div class="sb-menu-wide" data-testid="connected-target-paused">
+            <ConnectedTargetEditor Options="@Paused" OnChange="_ => { }" OnSyncNow="_ => { }" TestId="connected-target-paused-card" />
+        </div>
+    </Story>
+
     <Story Name="Off, and never synced"
            Description="A target switched off keeps its tasks and stops bringing in new ones, so Sync now is refused rather than hidden. One that has never synced says so where the last sync would be. A stored interval or age that is none of the offered choices is still offered, so editing another option never rewrites it."
            Code="@OffCode">
@@ -115,6 +123,14 @@ The Statuses group has one row per status the source lists, in its order, each w
             LastSyncFailed = "7 Oct 2026 22:09",
         };
 
+    private static readonly ConnectedTargetOptions Paused =
+        new("GitHub", "innovadis-dev/Budgetbeheer")
+        {
+            Icon = "github",
+            LastSynced = "1 Oct 2026 08:30",
+            PausedReason = "Paused while innovadis-dev/Budgetbeheer is archived.",
+        };
+
     private static readonly ConnectedTargetOptions Off =
         new("Spec manager", "backlog-product", Enabled: false, SyncIntervalMinutes: 45, SkipUntouchedOlderThanDays: 120);
 
@@ -148,6 +164,12 @@ The Statuses group has one row per status the source lists, in its order, each w
 
     private const string FailedCode = """
         <ConnectedTargetEditor Options="@(options with { LastSyncError = target.LastSyncError, LastSyncFailed = failedAt })"
+                               OnChange="Save"
+                               OnSyncNow="SyncNowAsync" />
+        """;
+
+    private const string PausedCode = """
+        <ConnectedTargetEditor Options="@(options with { PausedReason = archived ? $"Paused while {repository} is archived." : null })"
                                OnChange="Save"
                                OnSyncNow="SyncNowAsync" />
         """;

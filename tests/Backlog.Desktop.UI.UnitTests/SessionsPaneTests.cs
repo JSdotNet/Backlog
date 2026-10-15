@@ -694,7 +694,7 @@ public sealed class SessionsPaneTests
     }
 
     [Fact]
-    public void The_close_control_reports_the_press_and_nothing_else()
+    public async Task The_close_control_reports_the_press_and_nothing_else()
     {
         using var context = Context(Sample);
         var closed = 0;
@@ -705,7 +705,10 @@ public sealed class SessionsPaneTests
         // The reading now lands from a background thread, so wait for the rows, not
         // only the frame, before pressing.
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-row']")));
-        pane.Find(".sessions-panel button.btn--ghost").Click();
+
+        // Awaited: the rows' own background re-renders can still hold the renderer when
+        // the press is dispatched, and Click() returns with the press queued behind them.
+        await pane.Find(".sessions-panel button.btn--ghost").ClickAsync(new());
 
         // What that closes is the shell's business; the pane still shows its rows.
         Assert.Equal(1, closed);

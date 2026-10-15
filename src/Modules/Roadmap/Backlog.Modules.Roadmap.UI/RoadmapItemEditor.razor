@@ -326,6 +326,11 @@
     [Parameter]
     public IReadOnlyList<PlannedRepository> Repositories { get; set; } = [];
 
+    /// <summary>Whether this device shows archived repositories: only then is an
+    /// archived one offered to file new work under (local ADR 0029, §3).</summary>
+    [Parameter]
+    public bool ShowArchived { get; set; }
+
     /// <summary>Everything else in the plan, so an item can be told what it waits
     /// for. Milestones included: work waits on a release as readily as on work.</summary>
     [Parameter]
@@ -458,7 +463,10 @@
     ];
 
     private IReadOnlyList<SelectorOption> RepositoryOptions =>
-        [.. Repositories.Select(repository => new SelectorOption(repository.Alias, repository.Title))];
+        PlannedRepositoryOptions.For(
+            Repositories,
+            ShowArchived,
+            Item?.RepositoryAliases ?? (Placement?.Repository is { } placed ? [placed] : []));
 
     // Knowledge references are free-typed: there is no fixed list to offer, so the
     // multi-select is a create-only chip editor over whatever the person writes.
