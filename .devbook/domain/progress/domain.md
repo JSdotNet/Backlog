@@ -48,6 +48,15 @@ across sprints, so they need the series to hold them.
 A series exists only while it has at least one repository. The rules it holds
 are in [its invariants](domain.invariants.md#sprint-series).
 
+A person can **delete** a series, whether it is on or off and whatever sprints it
+recorded, an open one included. Its sprints go with it, with their goals, marks,
+notes and outcomes. No task changes, because a sprint only names its tasks. Its
+repositories are in no series from then on. Nothing offers to bring a deleted
+series back. It leaves a **tombstone** under its id, stamped like any other
+change, so the deletion travels to every paired desktop the way a change does, and
+the [newer change wins](features.md#syncing-sprints-between-devices) over it as
+over any other.
+
 ### Sprint
 
 ```meta
