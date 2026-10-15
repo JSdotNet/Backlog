@@ -38,6 +38,7 @@
         {
             <AppButton Size="ButtonSize.Small" CssClass="capture-row__retry"
                        aria-label="@($"Waiting — tap to retry {Title}")" title="@StuckReason"
+                       Busy="@Retrying" BusyLabel="Retrying"
                        OnClick="RetryAsync" TestId="@PartTestId("retry")">Waiting — tap to retry</AppButton>
         }
         else if (State == CaptureSyncState.Waiting)
@@ -115,5 +116,15 @@
 
     private Task OpenAsync() => OnOpen.InvokeAsync();
 
-    private Task RetryAsync() => OnRetry.InvokeAsync();
+    /// <summary>Sending goes over the network, so the button shows it is trying and
+    /// a second tap does not send the capture twice.</summary>
+    private const string RetryAct = "retry";
+
+    private readonly PendingAct _acts;
+
+    public CaptureRow() => _acts = new PendingAct(StateHasChanged);
+
+    private bool Retrying => _acts.IsRunning(RetryAct);
+
+    private Task RetryAsync() => _acts.RunAsync(RetryAct, () => OnRetry.InvokeAsync());
 }

@@ -465,8 +465,10 @@
     };
 
     /// <summary>A stage's evidence as checklist rows: the part's anchor, its
-    /// outcome, the page's stem, and when the run ran. A part named twice keeps its
-    /// last report.</summary>
+    /// outcome, the page's stem, and when the run ran — the row's quiet line reads
+    /// "stem · date". A part named twice keeps its last report. No failed step: the
+    /// engine's evidence carries none, and the run.json that does is the task's to
+    /// read.</summary>
     internal static IReadOnlyList<ScenarioChecklistPart> EvidenceParts(DeliveryRunStage stage) =>
         [
             .. stage.Evidence
@@ -486,7 +488,7 @@
         string.IsNullOrWhiteSpace(runAt)
             ? null
             : DateTimeOffset.TryParse(runAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time)
-                ? $"Ran {time.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)}"
+                ? time.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)
                 : runAt;
 
     /// <summary>

@@ -209,6 +209,23 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
         </div>
     </Story>
 
+    <Story Name="A region refreshing in place"
+           Description="A populated region that reloads keeps its content: it carries `aria-busy=&quot;true&quot;` while it loads, and the library dims anything that does, so the refresh shows where it is happening without blanking what the reader was looking at. Refresh is busy for the same two seconds, with a small spinner in its own place. A region still showing skeletons is not dimmed — a first load has nothing to dim — and neither is a busy button, which has its spinner."
+           Code="@RefreshCode">
+        <div class="sb-stack">
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Busy="_refreshing" BusyLabel="Refreshing"
+                           OnClick="RefreshAsync" TestId="feedback-refresh">Refresh</AppButton>
+                <span class="sb-label" data-testid="feedback-refresh-count">Refreshed @_refreshes @(_refreshes == 1 ? "time" : "times")</span>
+            </div>
+            <ul class="sb-stack" aria-busy="@(_refreshing ? "true" : null)" aria-label="Recent entries" data-testid="feedback-refresh-region">
+                <li>Renew the domain</li>
+                <li>Draft the keynote outline</li>
+                <li>Book the offsite venue</li>
+            </ul>
+        </div>
+    </Story>
+
     <Story Name="SaveIndicator"
            Description="All four states, plus a run through the sequence the product actually produces — Saving while the change is in flight, Saved once it has landed — driven by the same `DebouncedSave` a host binds an indicator to."
            Code="@SaveCode">
@@ -293,6 +310,7 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
         new("interaction-guidelines.md#feedback-and-toasts", "When something is a toast, an alert, or neither."),
         new("interaction-guidelines.md#save-state-indicator-vocabulary", "The words the save state is allowed to say."),
         new("interaction-guidelines.md#empty-loading-and-error-states", "What an empty, loading or failed surface shows."),
+        new("interaction-guidelines.md#scoped-loading", "Which region a loader covers, and why a refresh keeps the content it is replacing."),
         new("accessibility.md#reduced-motion", "What the pulse and the spin do when motion is unwelcome."),
         new("accessibility.md#save-state-announcements", "What a save announces, and how often."),
         new("color-scheme.md#semantic-soft-surface-tokens", "The tone each severity is drawn in."),
@@ -479,6 +497,31 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
                 Point storage at a repository root that contains <code>.arc42</code>.
             </DescriptionContent>
         </EmptyState>
+        """;
+
+    private bool _refreshing;
+    private int _refreshes;
+
+    private async Task RefreshAsync()
+    {
+        _refreshing = true;
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            _refreshes++;
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+    }
+
+    private const string RefreshCode = """
+        <AppButton Size="ButtonSize.Small" Busy="@_refreshing" BusyLabel="Refreshing" OnClick="RefreshAsync">Refresh</AppButton>
+
+        <ul aria-busy="@(_refreshing ? "true" : null)" aria-label="Recent entries">
+            @foreach (var entry in _entries) { <li>@entry.Title</li> }
+        </ul>
         """;
 
     private const string SpinnerCode = """

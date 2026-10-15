@@ -68,13 +68,17 @@
         <div class="ai-proposal__actions">
             <AppButton Variant="ButtonVariant.Primary"
                        Size="ButtonSize.Small"
+                       Busy="@_acts.IsRunning(AcceptAct)"
+                       BusyLabel="@AcceptLabel"
                        TestId="@AcceptTestId"
-                       OnClick="() => OnAccept.InvokeAsync(Proposal)">@AcceptLabel</AppButton>
+                       OnClick="() => _acts.RunAsync(AcceptAct, () => OnAccept.InvokeAsync(Proposal))">@AcceptLabel</AppButton>
 
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="ButtonSize.Small"
+                       Busy="@_acts.IsRunning(RejectAct)"
+                       BusyLabel="@RejectLabel"
                        TestId="@RejectTestId"
-                       OnClick="() => OnReject.InvokeAsync(Proposal)">@RejectLabel</AppButton>
+                       OnClick="() => _acts.RunAsync(RejectAct, () => OnReject.InvokeAsync(Proposal))">@RejectLabel</AppButton>
         </div>
     }
 </article>
@@ -127,6 +131,15 @@
 
     [Parameter]
     public string? RejectTestId { get; set; }
+
+    private const string AcceptAct = "accept";
+    private const string RejectAct = "reject";
+
+    /// <summary>Applying a proposal writes a document. One of the two acts at a
+    /// time: while Use this is running, Discard is ignored rather than racing it.</summary>
+    private readonly PendingAct _acts;
+
+    public AiProposalCard() => _acts = new PendingAct(StateHasChanged);
 
     private string ProviderName => IntegrationStates.NameOf(Proposal.Provider);
 

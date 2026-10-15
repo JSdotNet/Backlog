@@ -22,7 +22,7 @@
 
 <PartFrame Title="Spend by model"
            Note="Your own usage this month. Tokens are split into input and output where the provider splits them — Anthropic does; Copilot meters in AI credits and Azure AI Foundry in per-meter units, which are left out of the token columns rather than mixed into them, as is a total no provider split. Azure rows are billing meters: one model appears once per token direction."
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-spend-model">
     <MetricBreakdown Rows="@Rows"

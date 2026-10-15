@@ -349,6 +349,85 @@ public sealed class DeliveryRunStagesTests
         Assert.Empty(checklist.QuerySelectorAll("button"));
     }
 
+    /// <summary>The screenshots a verify stage reported sit in its panel, one entry
+    /// per scenario with its status and each file by name — the path as sent in its
+    /// title — and the failure shot told apart in words.</summary>
+    [Fact]
+    public void A_stage_s_scenarios_list_their_screenshots_in_its_panel()
+    {
+        using var context = new BunitContext();
+        var run = Run();
+        var stages = run.Stages.ToList();
+        stages[1] = stages[1] with
+        {
+            Scenarios =
+            [
+                new DeliveryScenario("set-up-and-fill-the-backlog", "fail", "An item is moved stopped on step 1",
+                [
+                    ".devbook/scenarios/set-up-and-fill-the-backlog/statuses-set-up.png",
+                    ".devbook/scenarios/set-up-and-fill-the-backlog/fail.an-item-is-moved.png"
+                ]),
+                new DeliveryScenario("Sessions pane", "pass", null, [])
+            ]
+        };
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run with { Stages = stages }));
+        Assert.All(new[] { 0, 2, 3 }, other => Assert.Null(list.FindAll("[data-testid='sessions-stage']")[other].QuerySelector("[data-testid='sessions-stage-screenshots']")));
+
+        list.FindAll("[data-testid='sessions-stage-toggle']")[1].Click();
+
+        var panel = list.FindAll("[data-testid='sessions-stage']")[1].QuerySelector("[data-testid='sessions-stage-panel']")!;
+        var fact = panel.QuerySelector("[data-testid='sessions-stage-screenshots']")!;
+        Assert.Equal("Screenshots", fact.ParentElement!.QuerySelector("dt")!.TextContent.Trim());
+
+        var scenarios = fact.QuerySelectorAll("[data-testid='sessions-stage-scenario']");
+        Assert.Equal(["set-up-and-fill-the-backlog", "Sessions pane"], scenarios.Select(scenario => scenario.QuerySelector(".sessions-stage__scenario-name")!.TextContent.Trim()));
+        Assert.Equal(["Failed", "Passed"], scenarios.Select(scenario => scenario.QuerySelector("[data-testid='sessions-stage-scenario-status']")!.TextContent.Trim()));
+        Assert.Equal("An item is moved stopped on step 1", scenarios[0].QuerySelector(".sessions-stage__scenario-notes")!.TextContent.Trim());
+
+        var files = scenarios[0].QuerySelectorAll("[data-testid='sessions-stage-screenshot']");
+        Assert.Equal(["statuses-set-up.png", "fail.an-item-is-moved.png"], files.Select(file => file.QuerySelector(".sessions-stage__screenshot-file")!.TextContent.Trim()));
+        Assert.Equal(".devbook/scenarios/set-up-and-fill-the-backlog/statuses-set-up.png", files[0].QuerySelector(".sessions-stage__screenshot-file")!.GetAttribute("title"));
+        Assert.Null(files[0].QuerySelector("[data-testid='sessions-stage-failure-shot']"));
+        Assert.Equal("Failure screenshot", files[1].QuerySelector("[data-testid='sessions-stage-failure-shot']")!.TextContent.Trim());
+        Assert.Empty(scenarios[1].QuerySelectorAll("[data-testid='sessions-stage-screenshot']"));
+    }
+
+    /// <summary>The links a stage recorded — the app Personal Validation started, a
+    /// review target — are drawn in its panel: the label as the anchor, the
+    /// description as its title.</summary>
+    [Fact]
+    public void A_stage_s_links_are_drawn_in_its_panel()
+    {
+        using var context = new BunitContext();
+        var run = Run();
+        var stages = run.Stages.ToList();
+        stages[2] = stages[2] with
+        {
+            Links =
+            [
+                new DeliveryStageLink("Desktop harness", "https://localhost:7101/", "The app, started for review"),
+                new DeliveryStageLink(null, "https://localhost:7102/storybook", null)
+            ]
+        };
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, run with { Stages = stages }));
+        Assert.All(new[] { 0, 1, 3 }, other => Assert.Null(list.FindAll("[data-testid='sessions-stage']")[other].QuerySelector("[data-testid='sessions-stage-links']")));
+
+        list.FindAll("[data-testid='sessions-stage-toggle']")[2].Click();
+
+        var fact = list.FindAll("[data-testid='sessions-stage']")[2].QuerySelector("[data-testid='sessions-stage-links']")!;
+        Assert.Equal("Links", fact.ParentElement!.QuerySelector("dt")!.TextContent.Trim());
+
+        var anchors = fact.QuerySelectorAll("a");
+        Assert.Equal(["https://localhost:7101/", "https://localhost:7102/storybook"], anchors.Select(anchor => anchor.GetAttribute("href")));
+        Assert.Equal("Desktop harness", anchors[0].TextContent.Trim());
+        Assert.Equal("The app, started for review", anchors[0].GetAttribute("title"));
+
+        // No label: the url is what the anchor says.
+        Assert.Equal("https://localhost:7102/storybook", anchors[1].TextContent.Trim());
+    }
+
     // What each pass found — Stage Counts on the rows, the run's Quality Facts in the panel.
 
     [Fact]

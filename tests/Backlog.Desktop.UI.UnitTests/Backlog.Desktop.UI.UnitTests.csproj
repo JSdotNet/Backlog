@@ -48,6 +48,7 @@
          project for its adapter under issue #738 and say so in their namespace. -->
     <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
     <Using Include="Backlog.Infrastructure.Devbook.Instructions" />
+    <Using Include="Backlog.Infrastructure.Devbook.Documents" />
     <!-- Roadmap Planning now has a domain module, so its feature key and its DTOs
          come from the abstractions project like every other context's; the .UI
          namespace is still imported for the band and the view that maps a plan onto

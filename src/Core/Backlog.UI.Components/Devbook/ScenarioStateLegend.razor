@@ -1,0 +1,43 @@
+@*
+    The key to the scenario dot: the four states — passed, failed, stale, never
+    run — each drawn by ScenarioStateDot exactly as a tree row, a checklist row or
+    a run draws it, with its word beside it. The dot is already told apart by shape
+    and named to a screen reader; the legend is for the sighted reader who has not
+    learned the shapes yet, so it says each word in plain text. The dot is drawn
+    Decorative here: the word beside it is its name, and a screen reader hears each
+    state once (.devbook/design/accessibility.md, "Names & roles").
+
+    It draws nothing about whether any dot is on screen: the host decides that,
+    because only the host knows whether its tree holds a scenario page.
+*@
+<ul class="@ClassValue" aria-label="Scenario states" data-testid="@TestId">
+    @foreach (var state in States)
+    {
+        <li class="scenario-legend__entry" data-testid="@($"{TestId}-item")">
+            <ScenarioStateDot State="@state" Decorative="true" TestId="@null" />
+            <span class="scenario-legend__label">@Label(state)</span>
+        </li>
+    }
+</ul>
+
+@code {
+    /// <summary>The four states in the order the legend lists them: the outcome a
+    /// reader hopes for first, then what calls for a look, then what never ran.</summary>
+    public static readonly IReadOnlyList<string> States = ["passed", "failed", "stale", "never-run"];
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "scenario-legend";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "scenario-legend" : $"scenario-legend {CssClass}";
+
+    private static string Label(string state) => state switch
+    {
+        "passed" => "Passed",
+        "failed" => "Failed",
+        "stale" => "Stale",
+        _ => "Never run"
+    };
+}

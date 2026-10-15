@@ -131,6 +131,7 @@
                 CompareBaselines="@CompareBaselines"
                 SelectedBaselineId="@SelectedBaseline?.Id"
                 OnSelectBaseline="SelectBaselineAsync"
+                Refreshing="@Refreshing"
                 TestId="@TestId" /><FileContent Name="@Name"
                                                 TestId="@TestId"
                                                 Frontmatter="@_frontmatter"
@@ -496,6 +497,10 @@
     /// told.</summary>
     [Parameter]
     public bool Fill { get; set; }
+
+    /// <summary>The file is being read again; see <c>FileHeader.Refreshing</c>.</summary>
+    [Parameter]
+    public bool Refreshing { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

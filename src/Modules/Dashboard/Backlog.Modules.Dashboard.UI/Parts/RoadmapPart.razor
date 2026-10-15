@@ -33,7 +33,7 @@
 {
     <PartFrame Title="Roadmap"
                Note="@Note"
-               Busy="Status == MetricStatusKind.Loading"
+               Busy="IsLoading"
                OnRefresh="RefreshAsync"
                TestId="dashboard-roadmap">
         @if (IsReady)

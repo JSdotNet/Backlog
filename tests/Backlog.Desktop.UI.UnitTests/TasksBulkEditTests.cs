@@ -978,6 +978,90 @@ public sealed class TasksBulkEditTests
         Assert.Contains("`remind:2026-09-01T09:00`", two.RawText, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A batch is written row by row and can take a while. While it is, the button
+    /// that started it is busy and stays where it was, and every other bulk control
+    /// reads blocked — still focusable, never the native <c>disabled</c> — and drops
+    /// a press or a pick rather than starting a second batch
+    /// (interaction-guidelines.md#busy-actions, #press-feedback "No double fire").
+    /// </summary>
+    [Fact]
+    public async Task A_batch_being_written_is_busy_and_every_other_bulk_control_waits()
+    {
+        var calls = new TaskStoreCalls();
+        using var host = await TasksPaneHost.CreateAsync(roadmapTags: null, [], storeCalls: calls);
+        var (pane, one, two) = await TwoPickedAsync(host);
+        await OpenGroupAsync(pane, "classification");
+
+        var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        calls.HoldSaves = hold;
+        var marking = pane.Find("[data-testid='bulk-blocked-set']").ClickAsync(new());
+
+        pane.WaitForAssertion(() =>
+        {
+            var running = pane.Find("[data-testid='bulk-blocked-set']");
+            Assert.Equal("true", running.GetAttribute("aria-busy"));
+            Assert.False(running.HasAttribute("disabled"));
+
+            var sibling = pane.Find("[data-testid='bulk-blocked-clear']");
+            Assert.Equal("true", sibling.GetAttribute("aria-disabled"));
+            Assert.False(sibling.HasAttribute("disabled"));
+
+            var myDay = pane.Find("[data-testid='bulk-action-myday-set']");
+            Assert.Equal("true", myDay.GetAttribute("aria-disabled"));
+            Assert.False(myDay.HasAttribute("disabled"));
+
+            Assert.Equal("true", pane.Find("[data-testid='bulk-delete']").GetAttribute("aria-disabled"));
+        });
+
+        // A second act and a pick while the batch is out: both dropped.
+        await pane.Find("[data-testid='bulk-blocked-clear']").ClickAsync(new());
+        await pane.Find("[data-testid='bulk-action-myday-set']").ClickAsync(new());
+        await pane.Find("[data-testid='bulk-status'] select").ChangeAsync(new() { Value = nameof(EntryStatus.InProgress) });
+
+        hold.SetResult();
+        await marking;
+
+        Assert.Contains($"`blocked:{TodayToken}`", one.RawText, StringComparison.Ordinal);
+        Assert.Contains($"`blocked:{TodayToken}`", two.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("`!in-progress`", one.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("myday:", one.RawText, StringComparison.Ordinal);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='bulk-blocked-set']"));
+            Assert.Null(pane.Find("[data-testid='bulk-action-myday-set']").GetAttribute("aria-disabled"));
+            Assert.Null(pane.Find("[data-testid='bulk-delete']").GetAttribute("aria-disabled"));
+        });
+    }
+
+    /// <summary>My Day writes every selected row too, so its own row is the busy one
+    /// while that batch runs.</summary>
+    [Fact]
+    public async Task My_day_is_busy_while_its_batch_is_written()
+    {
+        var calls = new TaskStoreCalls();
+        using var host = await TasksPaneHost.CreateAsync(roadmapTags: null, [], storeCalls: calls);
+        var (pane, _, _) = await TwoPickedAsync(host);
+
+        var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        calls.HoldSaves = hold;
+        var adding = pane.Find("[data-testid='bulk-action-myday-set']").ClickAsync(new());
+
+        pane.WaitForAssertion(() =>
+        {
+            var myDay = pane.Find("[data-testid='bulk-action-myday-set']");
+            Assert.Equal("true", myDay.GetAttribute("aria-busy"));
+            Assert.NotNull(myDay.QuerySelector(".spinner"));
+        });
+
+        hold.SetResult();
+        await adding;
+
+        pane.WaitForAssertion(() =>
+            Assert.Null(pane.Find("[data-testid='bulk-action-myday-set']").GetAttribute("aria-busy")));
+    }
+
     // --- Due date (AC2, AC4) -----------------------------------------------
 
     [Fact]

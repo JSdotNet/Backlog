@@ -49,6 +49,70 @@ public sealed class SettingsAccountsTests
         Assert.Null(added.Host);
     }
 
+    /// <summary>
+    /// "Look again" is a <c>gh</c> subprocess away from an answer, so it is busy
+    /// from the press until the logins are back, keeps its place in the tab
+    /// order meanwhile, and a second press while it runs asks <c>gh</c> nothing.
+    /// </summary>
+    [Fact]
+    public void Look_again_is_busy_until_gh_has_answered_and_a_second_press_asks_nothing()
+    {
+        var gh = new GatedCliAccounts([Signed("JSdotNet", active: true)]);
+        using var settings = RenderSettings(cliSource: gh);
+        OpenAccountsTab(settings.Component);
+        settings.Component.WaitForAssertion(() => Assert.Equal(1, gh.Calls));
+
+        settings.Component.Find(LookAgain).Click();
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            var button = settings.Component.Find(LookAgain);
+            Assert.Equal("true", button.GetAttribute("aria-busy"));
+            Assert.False(button.HasAttribute("disabled"));
+            Assert.Equal(2, gh.Calls);
+        });
+
+        settings.Component.Find(LookAgain).Click();
+        Assert.Equal(2, gh.Calls);
+
+        gh.Release();
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Null(settings.Component.Find(LookAgain).GetAttribute("aria-busy")));
+        Assert.Equal(2, gh.Calls);
+    }
+
+    private const string LookAgain = "[data-testid='gh-cli-accounts-refresh-button']";
+
+    /// <summary>Answers the screen's first read at once and holds every later
+    /// one until <see cref="Release"/>, so a test can look at the screen while
+    /// <c>gh</c> is still thinking.</summary>
+    private sealed class GatedCliAccounts(IReadOnlyList<GhCliAccount> accounts) : IGhCliAccountSource
+    {
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public void Release() => _gate.TrySetResult();
+
+        public async Task<IReadOnlyList<GhCliAccount>> ListAsync(CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _calls) > 1) await _gate.Task;
+            return accounts;
+        }
+
+        public Task<string?> GetTokenAsync(
+            string login,
+            string? host = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>(null);
+
+        public void Invalidate()
+        {
+        }
+    }
+
     [Fact]
     public void An_account_the_cli_already_reported_is_not_offered_twice()
     {
@@ -727,7 +791,8 @@ public sealed class SettingsAccountsTests
         IReadOnlyList<GhCliAccount>? cliAccounts = null,
         Action<GitHubSettingsStore>? seed = null,
         bool gitHubIntegrationEnabled = true,
-        IGitHubAccountProbe? accountProbe = null)
+        IGitHubAccountProbe? accountProbe = null,
+        IGhCliAccountSource? cliSource = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-accounts-tests", Guid.NewGuid().ToString("n"));
 
@@ -759,7 +824,7 @@ public sealed class SettingsAccountsTests
             githubSettings,
             new NoGitHub(),
             new NoProbe(),
-            new StubCliAccounts(cliAccounts ?? []),
+            cliSource ?? new StubCliAccounts(cliAccounts ?? []),
             accountProbe));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();

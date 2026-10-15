@@ -396,14 +396,102 @@
     box-shadow: var(--shadow-sm);
 }
 
-.btn--primary:hover {
+.btn--primary:hover:where(:not([aria-disabled="true"])) {
     background: var(--color-primary-light);
     box-shadow: var(--shadow-md);
 }
 
-.btn--primary:active {
+.btn--primary:active:where(:not([aria-disabled="true"])) {
     background: var(--color-primary-dark);
     transform: scale(0.98);
+}
+
+/*
+  Press feedback, for every pressable control at once
+  (.devbook/design/interaction-guidelines.md#press-feedback).
+
+  Only `.btn--primary` had a pressed state, so a press on any other variant, a
+  chip, a tab, a menu item, a switch or a row button showed nothing until the
+  work behind it finished — and in the desktop app that work runs on the thread
+  that paints. One rule rather than one per class: almost every pressable thing
+  in the product is a `<button>` — AppButton and its BaseClass hosts, IconButton,
+  ToggleButton, the switch track, menu items, tabs — so keying on the element
+  reaches the app's own classes too, and a new one gets it without being listed.
+  The link-shaped ones are named: an AppButton with an Href, and the shell's tab
+  bar. A checkbox or radio dims too, and its label pressing it counts.
+
+  A brightness filter rather than a fill, because the variants disagree about
+  their fill — transparent, amber, red — and a filter darkens each of them, and
+  the label on a transparent one, without knowing which it is. It is colour
+  only, so it holds under reduced motion as it is. No transition: a pressed state
+  that eases in is a pressed state that arrives late.
+
+  `:where()` keeps it at the weight of `:active` alone, so a component that sets
+  a filter of its own still wins. A disabled control and a busy one
+  (aria-disabled, AppButton's Busy) take no press: nothing will happen.
+
+  Two exclusions, both because `:active` lasts as long as the pointer is held
+  and climbs to ancestors. The body of a draggable task row is the handle a
+  reorder drags by, so a press there would keep the whole row darkened for
+  the length of the drag. And an option that holds a button of its own is
+  active whenever that button is, so it would darken under the button's own
+  darkening; the button is the one that was pressed.
+*/
+:where(button, a.btn, .tab-bar__tab, [role="option"], input[type="checkbox"], input[type="radio"]):active:where(:not(:disabled, [aria-disabled="true"], [data-draggable="true"] .task-item__body, [role="option"]:has(button:active))) {
+    filter: brightness(0.85);
+}
+
+/* The one press that moves. Under reduced motion the darker fill above is the
+   whole acknowledgement. */
+@media (prefers-reduced-motion: reduce) {
+    .btn--primary:active {
+        transform: none;
+    }
+}
+
+/* A busy AppButton keeps its look and its place in the tab order; the spinner
+   says it is working and the pointer agrees. */
+.btn[aria-busy="true"] {
+    cursor: progress;
+}
+
+/*
+  A region that is reloading dims, so a refresh shows where it is happening
+  without blanking what the reader was looking at
+  (.devbook/design/interaction-guidelines.md#scoped-loading). Any element with
+  aria-busy="true" gets it, which is the attribute the accessibility rules
+  already ask a loading region to carry.
+
+  Not a button or a link: AppButton's Busy carries its own spinner and stays
+  full strength. Not a region showing skeletons either — a first load has
+  nothing to dim, and a dimmed placeholder only looks broken. The skeleton is
+  recognised by the library's own class or a host's `__skeleton` wrapper (the
+  TreeView shape), not by any class that merely contains the word. The
+  transition is on the way in only; the content comes back at once.
+
+  A busy region inside a busy region is not dimmed again: the outer one
+  already says the area is loading, and 0.6 twice is content nobody can read.
+
+  Opacity makes the region a stacking context. The library's menus and
+  popovers are shown in the top layer (`showPopover`, `<dialog>`), which paints
+  outside it, so they stay full strength and on top; something a host
+  positions absolutely inside a refreshing region dims with it, which is
+  accepted — it is part of what is refreshing.
+*/
+[aria-busy="true"]:where(:not(button, a, :has(.skeleton, [class*="__skeleton"]))) {
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+}
+
+[aria-busy="true"] [aria-busy="true"]:where(:not(button, a)) {
+    opacity: 1;
+}
+
+/* A button blocked while a sibling act runs (aria-disabled without Busy) reads
+   as disabled does, so a press on it does not look lost. */
+.btn[aria-disabled="true"]:not([aria-busy="true"]) {
+    cursor: default;
+    opacity: 0.55;
 }
 
 .btn--secondary {
@@ -412,7 +500,7 @@
     border-color: var(--color-primary);
 }
 
-.btn--secondary:hover {
+.btn--secondary:hover:where(:not([aria-disabled="true"])) {
     background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
@@ -421,12 +509,12 @@
     color: var(--color-text-secondary);
 }
 
-.btn--ghost:hover {
+.btn--ghost:hover:where(:not([aria-disabled="true"])) {
     background: var(--color-background-alt);
     color: var(--color-text-primary);
 }
 
-.btn--destructive:hover {
+.btn--destructive:hover:where(:not([aria-disabled="true"])) {
     background: var(--color-error);
     color: var(--color-text-primary);
 }
@@ -3227,16 +3315,40 @@ button.devbook-chip__label:focus-visible {
 
 .scenario-checklist__count { color: var(--color-text-secondary); }
 
-.badge--scenario-proved {
-    background: var(--color-success);
-    color: var(--color-success-text);
+/* The key to the scenario dot: one entry per state, wrapping to the width it is
+   given — under a tree column that is narrow, so two to a line there. */
+.scenario-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
-/* One grid for the list and a subgrid per row, so the columns line up from
-   row to row and the last run keeps the width it needs. */
+.scenario-legend__entry {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The verdict after the count. Proved takes the success text colour, not a
+   badge: it is the end of the count's sentence, and the word carries the meaning
+   without the colour. */
+.scenario-checklist__verdict--proved {
+    color: var(--color-success-text);
+    font-weight: 600;
+}
+
+/* One grid for the list and a subgrid per row: the dot in the first column,
+   the part and its quiet line stacked in the second. The line is a line, so it
+   wraps rather than ellipsising — its end is the step a failed part stopped on. */
 .scenario-checklist__list {
     display: grid;
-    grid-template-columns: auto minmax(0, 3fr) minmax(0, 2fr) max-content;
+    grid-template-columns: auto minmax(0, 1fr);
     gap: var(--spacing-xs) var(--spacing-sm);
     margin: 0;
     padding: 0;
@@ -3247,15 +3359,26 @@ button.devbook-chip__label:focus-visible {
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: subgrid;
-    align-items: center;
+    align-items: start;
+    min-width: 0;
+}
+
+/* The dot sits on the part's first line, not at the top of the stack. */
+.scenario-checklist__row > .devbook-scenario-dot {
+    margin-top: 0.35em;
+}
+
+.scenario-checklist__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
     min-width: 0;
 }
 
 .scenario-checklist__part {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .scenario-checklist__part--link {
@@ -3271,14 +3394,12 @@ button.devbook-chip__label:focus-visible {
 .scenario-checklist__part--link:hover,
 .scenario-checklist__part--link:focus-visible { text-decoration: underline; }
 
-.scenario-checklist__page,
 .scenario-checklist__run {
-    min-width: 0;
-    overflow: hidden;
+    max-width: 100%;
     color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
     font-variant-numeric: tabular-nums;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 /* The run above an open scenario page. */
@@ -6186,6 +6307,32 @@ button.task-panel__check:focus-visible {
     cursor: default;
 }
 
+/* Busy or blocked (TaskAction's Busy and Blocked): still focusable, so it is
+   aria-disabled rather than :disabled, and reads the way a blocked AppButton
+   does. The busy one keeps full strength — its spinner is the message. */
+.task-action--inert .task-action__main[aria-disabled="true"]:not([aria-busy="true"]),
+.task-action--inert .task-action__clear[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.task-action__main[aria-busy="true"] {
+    cursor: progress;
+}
+
+/* A region refreshing in place says so in its header, but only once the wait is
+   worth a loader (interaction-guidelines.md#timing: "after ~300 ms"). The
+   spinner is drawn at once and held invisible, so a fast reload never flashes
+   it and a slow one needs no timer. */
+.region-refresh {
+    animation: region-refresh-appear 0s linear 300ms both;
+}
+
+@keyframes region-refresh-appear {
+    from { visibility: hidden; }
+    to { visibility: visible; }
+}
+
 .task-action__icon {
     display: inline-flex;
     justify-content: center;
@@ -7495,7 +7642,7 @@ body.is-resizing-pane {
     color: var(--color-text-primary);
 }
 
-.btn--danger:hover:not(:disabled) {
+.btn--danger:hover:not(:disabled, [aria-disabled="true"]) {
     border-color: var(--color-border-strong);
 }
 
@@ -7571,7 +7718,7 @@ body.is-resizing-pane {
   and grey out the selected option under the pointer — the selection blinking
   off wherever the user is about to click.
 */
-.btn--toggle:not(.btn--pressed):hover:not(:disabled) {
+.btn--toggle:not(.btn--pressed):hover:not(:disabled, [aria-disabled="true"]) {
     background: var(--color-background-alt);
     color: var(--color-text-primary);
 }

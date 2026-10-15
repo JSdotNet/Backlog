@@ -830,7 +830,7 @@ public sealed class SessionsPaneRunTests
             var parts = list.QuerySelectorAll("[data-testid='sessions-stage-evidence-part']");
             Assert.Equal(["passed", "never-run"], parts.Select(part => part.GetAttribute("data-state")));
             Assert.Equal("statuses-are-set-up", parts[0].QuerySelector(".scenario-checklist__part")!.TextContent.Trim());
-            Assert.Equal("set-up-and-fill-the-backlog", parts[0].QuerySelector(".scenario-checklist__page")!.TextContent.Trim());
+            Assert.StartsWith("set-up-and-fill-the-backlog · ", parts[0].QuerySelector(".scenario-checklist__run")!.TextContent.Trim(), StringComparison.Ordinal);
 
             // A run's evidence is no item: it never says proved.
             Assert.Empty(list.QuerySelectorAll("[data-testid='sessions-stage-evidence-proved']"));

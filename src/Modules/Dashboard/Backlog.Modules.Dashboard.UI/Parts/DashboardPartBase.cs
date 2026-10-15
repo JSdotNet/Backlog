@@ -75,6 +75,15 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     /// on this before touching <see cref="Value"/>.</summary>
     protected bool IsReady => Status == MetricStatusKind.Ready && Value is not null;
 
+    /// <summary>A refresh is reading again over figures already on screen. They stay
+    /// drawn, under the frame's busy mark, until the new ones land
+    /// (interaction-guidelines.md#scoped-loading, "Refresh").</summary>
+    protected bool Refreshing { get; private set; }
+
+    /// <summary>Whether the part is waiting on a read, first load or refresh — what its
+    /// frame's refresh control shows.</summary>
+    protected bool IsLoading => Status == MetricStatusKind.Loading || Refreshing;
+
     /// <summary>
     /// Whether the repository filter changes this part's answer.
     /// <para>
@@ -127,6 +136,10 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     /// period" under a rework heading tells a reader nothing about whether their work
     /// came back after review — the sentence has to name the thing that was absent.
     /// </para>
+    /// <para>
+    /// Read once the empty answer is in <see cref="Value"/>, so a part whose answer can be
+    /// empty for more than one reason can say which.
+    /// </para>
     /// </summary>
     protected virtual string? EmptyMessage => null;
 
@@ -154,7 +167,7 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
 
     protected override void OnInitialized()
     {
-        _reload = () => InvokeAsync(LoadAsync);
+        _reload = () => InvokeAsync(() => LoadAsync(acknowledgeFirst: true, keepContent: true));
 
         if (Refreshes is not null && Sources != DashboardSources.None)
         {
@@ -171,9 +184,18 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
 
         if (_fetchedFor is not null && _fetchedFor == relevant) return;
 
+        // A filter moved, a period changed: a press, answered before the fetch.
+        // A part opening for the first time is not a press, and does not yield. It
+        // runs inside the parent's render batch, so a provider that did synchronous
+        // work before its first await would hold the takeover's frame with it. That
+        // is a provider's defect to fix where it is (interaction-guidelines.md
+        // #scoped-loading, "Frame first"), not proven absent here. Yielding on
+        // every first load would also turn some 140 render-then-assert tests across
+        // nine dashboard suites asynchronous, which is a rewrite of its own.
+        var pressed = _fetchedFor is not null;
         _fetchedFor = relevant;
 
-        await LoadAsync();
+        await LoadAsync(acknowledgeFirst: pressed);
     }
 
     /// <summary>Fetches again from the provider. What the part's refresh control does —
@@ -185,11 +207,14 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
 
         var others = Refreshes?.AnnounceAsync(Sources, _reload!) ?? Task.CompletedTask;
 
-        await LoadAsync();
+        await LoadAsync(acknowledgeFirst: true, keepContent: true);
         await others;
     }
 
-    private async Task LoadAsync()
+    /// <param name="keepContent">A refresh of the same scope: figures already drawn
+    /// stay until the new ones land. A scope change or a first load clears them,
+    /// since they would answer a question the reader no longer asks.</param>
+    private async Task LoadAsync(bool acknowledgeFirst, bool keepContent = false)
     {
         // A filter changed twice in quick succession must not let the first answer
         // arrive after the second and win.
@@ -197,10 +222,26 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
         _inFlight = new CancellationTokenSource();
         var token = _inFlight.Token;
 
-        Status = MetricStatusKind.Loading;
-        StatusMessage = null;
-        Value = null;
+        if (keepContent && Value is not null && Status is MetricStatusKind.Ready or MetricStatusKind.Empty)
+        {
+            Refreshing = true;
+        }
+        else
+        {
+            Refreshing = false;
+            Status = MetricStatusKind.Loading;
+            StatusMessage = null;
+            Value = null;
+        }
+
         StateHasChanged();
+
+        // StateHasChanged only queues the render; it is drawn when this method
+        // first gives the thread back. A provider that does its first work
+        // synchronously — a cache read, a file — would hold the part's loader, and
+        // the press of Refresh that asked for it, behind that work
+        // (interaction-guidelines.md#press-feedback, "Acknowledge before work").
+        if (acknowledgeFirst) await Task.Yield();
 
         // Started before the previous fetch is withdrawn, not after. The module caches
         // a read as one shared call that stops when its last waiter leaves; a fetch
@@ -228,9 +269,12 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
 
         if (token.IsCancellationRequested) return;
 
+        Refreshing = false;
+
         if (!result.HasValue)
         {
             Status = MetricStatusKind.Unavailable;
+            Value = default;
             StatusMessage = string.IsNullOrWhiteSpace(result.Availability.Reason)
                 ? "This is not available right now."
                 : result.Availability.Reason;
@@ -238,8 +282,10 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
         else if (IsEmpty(result.Value!))
         {
             Status = MetricStatusKind.Empty;
-            StatusMessage = EmptyMessage;
+            // Value first: an EmptyMessage that says why the answer is empty reads
+            // this answer, never the one before the refresh.
             Value = result.Value;
+            StatusMessage = EmptyMessage;
         }
         else
         {

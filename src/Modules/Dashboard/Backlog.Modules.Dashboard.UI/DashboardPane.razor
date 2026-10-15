@@ -194,12 +194,17 @@
 
                     <TabPanel Id="dashboard-productivity" Title="Productivity" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-productivity" TestId="dashboard-productivity">
-                        @* The throughput row, then the volume chart with the scores beside
-                           it — the chart taking the room, the scores their own width — then
-                           rework across the whole tab. *@
+                        @* The throughput row, then a main column - the volume chart, and
+                           size and rework under it - with the scores beside it, the column
+                           taking the room and the scores their own width; then rework across
+                           the whole tab. The size part fills what the taller score card used
+                           to leave empty under the chart. *@
                         <HeadlinePart Scope="_scope" />
                         <div class="dashboard-productivity__split">
-                            <TrendPart Scope="_scope" />
+                            <div class="dashboard-productivity__main" data-testid="dashboard-productivity-main">
+                                <TrendPart Scope="_scope" />
+                                <SizeReworkPart Scope="_scope" />
+                            </div>
                             <ScorePart Scope="_scope" />
                         </div>
                         <ReworkPart Scope="_scope" />
@@ -234,11 +239,16 @@
                     @* The devbook against the code: what the sync sweeps last said about each
                        unit, by the direction it goes, and the drift issues they left open. The
                        repository chips narrow it; the window and the machine do not, and the
-                       part says so. The tab carries the open issues' count the part reports. *@
+                       part says so. The tab carries the open issues' count the part reports.
+
+                       The Devbook and Cost tabs wear the DEV flag on their own while the rest of
+                       the dashboard is released. The tooltip mirrors AppFeatureStatusBadge in
+                       Desktop.UI, which owns that wording and which this module cannot reference. *@
                     <TabPanel Id="dashboard-devbook" Title="Devbook" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-devbook" TestId="dashboard-devbook-section">
                         <TitleContent>
                             Devbook
+                            <FeatureStatusBadge Status="dev" Title="In development — not usable yet." TestId="dashboard-tab-devbook-feature-status" />
                             @if (_openDriftIssues is > 0)
                             {
                                 <span class="dashboard-tabs__badge" aria-hidden="true" data-testid="dashboard-tab-devbook-badge">@MetricFormat.Compact(_openDriftIssues.Value)</span>
@@ -252,9 +262,15 @@
 
                     <TabPanel Id="dashboard-cost" Title="Cost" Eager="true"
                               BaseClass="dashboard-tab" TabTestId="dashboard-tab-cost" TestId="dashboard-cost">
-                        <SpendThisMonthPart Scope="_scope" />
-                        <SpendTrendPart Scope="_scope" />
-                        <SpendByModelPart Scope="_scope" />
+                        <TitleContent>
+                            Cost
+                            <FeatureStatusBadge Status="dev" Title="In development — not usable yet." TestId="dashboard-tab-cost-feature-status" />
+                        </TitleContent>
+                        <ChildContent>
+                            <SpendThisMonthPart Scope="_scope" />
+                            <SpendTrendPart Scope="_scope" />
+                            <SpendByModelPart Scope="_scope" />
+                        </ChildContent>
                     </TabPanel>
                 </ChildContent>
             </Tabs>

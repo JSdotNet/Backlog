@@ -680,7 +680,13 @@ public sealed class SessionsPaneTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.Equal(1, source.Reads));
+        // The first read has landed, not merely been asked: a Refresh pressed while it
+        // is still out is a press on a busy button, and is dropped.
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, source.Reads);
+            Assert.Null(pane.Find("[data-testid='sessions-refresh']").GetAttribute("aria-busy"));
+        });
 
         pane.Find("[data-testid='sessions-refresh']").Click();
 
@@ -696,7 +702,9 @@ public sealed class SessionsPaneTests
         var pane = context.Render<SessionsPane>(parameters => parameters
             .Add(p => p.OnClose, () => closed++));
 
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll(".sessions-panel button.btn--ghost")));
+        // The reading now lands from a background thread, so wait for the rows, not
+        // only the frame, before pressing.
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-row']")));
         pane.Find(".sessions-panel button.btn--ghost").Click();
 
         // What that closes is the shell's business; the pane still shows its rows.

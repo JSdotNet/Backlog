@@ -26,7 +26,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { DEMO_MODEL_ID, LINKED_PART, parseDemo, resolveLinkedPage, stepTextMatches } from "../devbook-meta/demo.mjs";
-import { DOMAIN_FOLDER, SCENARIO_FOLDER, STEP_KEYWORDS, collapse, listScenarioPages, normalizePath } from "./parse.mjs";
+import { DOMAIN_FOLDER, OUTSIDE_ROOT, SCENARIO_FOLDER, STEP_KEYWORDS, collapse, listScenarioPages, normalizePath, resolveInside } from "./parse.mjs";
 import { pageSignature } from "./signature.mjs";
 
 const DEMO_FILE = /\.demo\.html$/i;
@@ -195,7 +195,7 @@ async function demosUnder(repoRoot, rel) {
     const out = [];
     let entries;
     try {
-        entries = await readdir(path.join(repoRoot, rel), { withFileTypes: true });
+        entries = await readdir(resolveInside(repoRoot, rel), { withFileTypes: true });
     } catch {
         return out;
     }
@@ -218,21 +218,26 @@ export async function scenarioPages(repoRoot, scenarioFolder = SCENARIO_FOLDER) 
 }
 
 /**
- * Sync `files` — repository-relative demo paths, or every demo under
- * `domain/` when none is given. With `check`, nothing is written. Returns
- * `[{ path, changes, problems }]`, one per demo read.
+ * Sync `files` — demo paths, relative to the repository root, or every demo
+ * under `domain/` when none is given. With `check`, nothing is written.
+ * Returns `[{ path, changes, problems }]`, one per demo read; a path that
+ * resolves outside the repository is a problem and is not read.
  */
 export async function syncDemos(repoRoot, { files = [], scenarioFolder = SCENARIO_FOLDER, check = false } = {}) {
-    const demos = files.length ? files.map(normalizePath) : await demosUnder(repoRoot, DOMAIN_FOLDER);
+    const demos = files.length ? files : await demosUnder(repoRoot, DOMAIN_FOLDER);
     const pages = await scenarioPages(repoRoot, scenarioFolder);
     const results = [];
-    for (const relPath of demos) {
-        const file = path.join(repoRoot, relPath);
+    for (const given of demos) {
+        let relPath = normalizePath(given);
+        let file;
         let html;
         try {
+            file = resolveInside(repoRoot, given);
+            relPath = normalizePath(path.relative(repoRoot, file));
             html = await readFile(file, "utf8");
         } catch (error) {
-            results.push({ path: relPath, changes: [], problems: [`${relPath}: ${error.code === "ENOENT" ? "does not exist" : error.message}`] });
+            const why = error.code === "ENOENT" ? "does not exist" : error.code === OUTSIDE_ROOT ? "resolves outside the repository" : error.message;
+            results.push({ path: relPath, changes: [], problems: [`${relPath}: ${why}`] });
             continue;
         }
         let synced;
@@ -263,8 +268,7 @@ async function main(argv) {
         return;
     }
     const repoRoot = path.resolve(options.root);
-    const files = options.files.map((given) => normalizePath(path.relative(repoRoot, path.resolve(repoRoot, given))));
-    const results = await syncDemos(repoRoot, { files, scenarioFolder: options.scenarioFolder, check: options.check });
+    const results = await syncDemos(repoRoot, { files: options.files, scenarioFolder: options.scenarioFolder, check: options.check });
 
     let changed = 0;
     let failed = false;

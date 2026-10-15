@@ -38,6 +38,14 @@
     Scenario evidence (BL2), where a stage reported any — the verify stage, for a
     delivery run: the row says how many of its parts passed after the name, and the
     panel lists them, so the evidence sits under the stage that ran it.
+
+    Screenshots and links, where a stage reported any. Verify sends scenarios, each
+    with the screenshot paths it took — a scenario page's label shots, and a failed
+    part's own as fail.<anchor>.png, which the panel calls a failure screenshot in
+    words rather than by colour. Personal Validation sends links — the app it
+    started, the review targets — drawn as anchors with their description as the
+    title. Scope and Implement send neither: their output is the run folder's
+    scope.md and implement.md, which is text, not something to draw here.
 *@
 @if (_stages.Count > 0)
 {
@@ -157,6 +165,69 @@
                                                 data-tone="@(FoundSomething(stage) ? "found" : "clean")">@foundFact</dd>
                                         </div>
                                     }
+                                @if (ScenariosOf(position) is { Count: > 0 } scenarios)
+                                {
+                                    @* File names, not images: the paths are relative to
+                                       the run's worktree, which the run file does not
+                                       record, so the pane names what was taken and
+                                       leaves opening it to the person with the
+                                       worktree. *@
+                                    <div class="sessions-stage__fact">
+                                        <dt>Screenshots</dt>
+                                        <dd data-testid="sessions-stage-screenshots">
+                                            <ul class="sessions-stage__scenarios">
+                                                @foreach (var scenario in scenarios)
+                                                {
+                                                    <li class="sessions-stage__scenario" data-testid="sessions-stage-scenario">
+                                                        <span class="sessions-stage__scenario-name">@scenario.Name</span>
+                                                        <StatusBadge Status="@ScenarioStatusSlug(scenario.Status)"
+                                                                     Text="@ScenarioStatusLabel(scenario.Status)"
+                                                                     TestId="sessions-stage-scenario-status" />
+                                                        @if (!string.IsNullOrWhiteSpace(scenario.Notes))
+                                                        {
+                                                            <span class="sessions-stage__scenario-notes">@scenario.Notes</span>
+                                                        }
+                                                        @if (scenario.Evidence is { Count: > 0 } files)
+                                                        {
+                                                            <ul class="sessions-stage__screenshots">
+                                                                @foreach (var file in files)
+                                                                {
+                                                                    <li class="sessions-stage__screenshot" data-testid="sessions-stage-screenshot">
+                                                                        <span class="sessions-stage__screenshot-file data-table__mono" title="@file">@FileName(file)</span>
+                                                                        @if (IsFailureShot(file))
+                                                                        {
+                                                                            <Badge Kind="trigger"
+                                                                                   Title="The page captured this when the part failed"
+                                                                                   TestId="sessions-stage-failure-shot">Failure screenshot</Badge>
+                                                                        }
+                                                                    </li>
+                                                                }
+                                                            </ul>
+                                                        }
+                                                    </li>
+                                                }
+                                            </ul>
+                                        </dd>
+                                    </div>
+                                }
+                                @if (LinksOf(position) is { Count: > 0 } links)
+                                {
+                                    <div class="sessions-stage__fact">
+                                        <dt>Links</dt>
+                                        <dd data-testid="sessions-stage-links">
+                                            <ul class="sessions-stage__links">
+                                                @foreach (var link in links)
+                                                {
+                                                    <li>
+                                                        <IntegrationLink Link="@StageLink(link)"
+                                                                         ShowTitle="false"
+                                                                         TestId="sessions-stage-link" />
+                                                    </li>
+                                                }
+                                            </ul>
+                                        </dd>
+                                    </div>
+                                }
                                 </dl>
 
                                 @* Why the row carries its mark, as a callout under the
@@ -264,6 +335,59 @@
     /// resolution maps the run's stages one to one, so the positions agree.</summary>
     private IReadOnlyList<ScenarioChecklistPart> EvidenceOf(int stage) =>
         stage < Run.Stages.Count ? DeliveryRunLine.EvidenceParts(Run.Stages[stage]) : [];
+
+    /// <summary>The scenarios the stage reported, read from the run's own stage for
+    /// the reason <see cref="EvidenceOf"/> is.</summary>
+    private IReadOnlyList<DeliveryScenario> ScenariosOf(int stage) =>
+        stage < Run.Stages.Count ? Run.Stages[stage].Scenarios : [];
+
+    /// <summary>The links the stage recorded, read from the run's own stage.</summary>
+    private IReadOnlyList<DeliveryStageLink> LinksOf(int stage) =>
+        stage < Run.Stages.Count ? Run.Stages[stage].Links : [];
+
+    /// <summary>A scenario's status as the status badge's tone: a pass reads done, a
+    /// failure blocked, and anything else — flaky, a word no writer has sent yet —
+    /// the neutral tone, its own word still on the badge.</summary>
+    internal static string ScenarioStatusSlug(string? status) => status?.Trim().ToLowerInvariant() switch
+    {
+        "pass" or "passed" => "done",
+        "fail" or "failed" => "blocked",
+        _ => "draft"
+    };
+
+    /// <summary>A scenario's status in words.</summary>
+    internal static string ScenarioStatusLabel(string? status) => status?.Trim().ToLowerInvariant() switch
+    {
+        "pass" or "passed" => "Passed",
+        "fail" or "failed" => "Failed",
+        "flaky" => "Flaky",
+        null or "" => "Not recorded",
+        _ => DeliveryRunLine.StatusLabel(status!)
+    };
+
+    /// <summary>The file's own name, whichever separator the path was sent with.</summary>
+    internal static string FileName(string path) =>
+        path[(path.LastIndexOfAny(['/', '\\']) + 1)..];
+
+    /// <summary>Whether the file is a part's failure screenshot: devbook's reporter
+    /// names it <c>fail.&lt;anchor&gt;.png</c>, the dot keeping it apart from every
+    /// label's shot.</summary>
+    internal static bool IsFailureShot(string path)
+    {
+        var name = FileName(path);
+        return name.StartsWith("fail.", StringComparison.OrdinalIgnoreCase)
+            && name.EndsWith(".png", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A stage link as the library's integration link: the label — or the
+    /// url, with none — as the anchor's text and the description as its title. No
+    /// provider: an app started on localhost is nobody's tracker item.</summary>
+    internal static IntegrationLinkRef StageLink(DeliveryStageLink link)
+    {
+        var url = link.Url ?? string.Empty;
+        var label = string.IsNullOrWhiteSpace(link.Label) ? url : link.Label;
+        return new IntegrationLinkRef(url, IntegrationProvider.None, IntegrationLinkKind.Other, label, link.Description, url);
+    }
 
     private CostFigure? WorkerCostOf(int stage, int worker) =>
         Costs is { } costs && stage < costs.Count && worker < costs[stage].Workers.Count ? costs[stage].Workers[worker] : null;

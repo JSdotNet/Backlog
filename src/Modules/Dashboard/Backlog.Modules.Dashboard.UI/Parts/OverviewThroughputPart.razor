@@ -16,7 +16,7 @@
 
 <PartFrame Title="Throughput"
            Note="@Note"
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-overview-throughput">
     @if (IsReady)
