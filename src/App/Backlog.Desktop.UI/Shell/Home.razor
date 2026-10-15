@@ -651,7 +651,8 @@
             <DashboardPane OnClose="CloseSurface"
                            RepositoryAliases="@State.SelectedRepositoryAliases"
                            RepositoryColour="@RepositoryColourFor"
-                           OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)" />
+                           OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)"
+                           OnAskAi="@(DashboardAskAiOffered ? EventCallback.Factory.Create<string>(this, AskAboutDashboardPartAsync) : default)" />
         </main>
     }
     else if (SessionsVisible)
@@ -2018,6 +2019,50 @@
     /// <summary>The question box's text, kept so the panel reopens with it. Not a
     /// render: see <see cref="AskAiQuestion"/>.</summary>
     private void KeepAiQuestion(string question) => _aiQuestion = question;
+
+    /// <summary>Whether the Dashboard's parts offer Ask AI: the assistant is on and a
+    /// Dashboard source was composed, so the panel the control opens can answer.</summary>
+    private bool DashboardAskAiOffered =>
+        IsFeatureEnabled(AppFeatures.AiAssistant) && _aiSources.ContainsKey("dashboard");
+
+    /// <summary>
+    /// A dashboard part's Ask AI: the panel opens on the Dashboard with a question
+    /// that names the part, for the reader to finish.
+    /// <para>
+    /// The chart goes into the question and not into the content. The Dashboard's
+    /// source sends every tab's figures whichever part was pressed, because what is on
+    /// screen is not a source's business; the reader's question is where something
+    /// about the screen belongs, and the prefix is just the start of one. A question
+    /// already begun about the same part is kept rather than reset, so a second press
+    /// does not throw away what was typed. The answer to an earlier question goes:
+    /// it was about something else — and so does an ask still in flight, ended the
+    /// way closing the panel ends one, or it would land under the new question and
+    /// read as the answer to it.
+    /// </para>
+    /// </summary>
+    private async Task AskAboutDashboardPartAsync(string title)
+    {
+        var prefix = $"About the \"{title}\" chart: ";
+
+        CancelAsk();
+        _aiScope = "dashboard";
+        _aiExpanded = true;
+        if (!_aiQuestion.StartsWith(prefix, StringComparison.Ordinal)) _aiQuestion = prefix;
+        _aiAnswer = null;
+        StateHasChanged();
+
+        try
+        {
+            // The box is drawn by the render just requested, and backlogFocus waits a
+            // few frames for it, so the reader can type straight after the prefix.
+            await JS.InvokeVoidAsync("backlogFocus", AskAiQuestion.InputId, false);
+        }
+        catch (Exception)
+        {
+            // Focus is an improvement on where the browser would have left it, not
+            // something the panel depends on — the same rule the surfaces' focus keeps.
+        }
+    }
 
     /// <summary>An ask, from the box's button or its Ctrl+Enter. The question is
     /// the one the box already kept here; the text it was asked with is taken

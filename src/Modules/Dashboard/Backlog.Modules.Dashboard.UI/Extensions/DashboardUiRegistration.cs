@@ -53,6 +53,13 @@ public static class DashboardUiRegistration
     /// behind the ports can still compose these two, which have no provider
     /// behind them at all.
     /// <para>
+    /// The source reads the module's seven insights, the same scoped instances
+    /// the parts inject, so the figures it sends come out of the caches the parts
+    /// on screen filled. They are resolved here rather than registered: they are
+    /// <c>AddDashboardModule()</c>'s, or a test's doubles, and a host composing
+    /// this call has composed one or the other already.
+    /// </para>
+    /// <para>
     /// The clock is taken from the container when the module registered one and
     /// is the system's otherwise, the way the module's own derivations take it:
     /// a host that composes the adapters without the module still gets a window
@@ -68,6 +75,14 @@ public static class DashboardUiRegistration
             sp.GetRequiredService<IActivitySource>(),
             sp.GetRequiredService<IRepositoryDirectory>(),
             sp.GetRequiredService<DashboardScopeInView>(),
+            new DashboardInsightPorts(
+                sp.GetRequiredService<IProductivityInsights>(),
+                sp.GetRequiredService<ITaskInsights>(),
+                sp.GetRequiredService<ISessionInsights>(),
+                sp.GetRequiredService<IHoursWorkedInsights>(),
+                sp.GetRequiredService<IDriftInsights>(),
+                sp.GetRequiredService<ICostInsights>(),
+                sp.GetRequiredService<IAttentionInsights>()),
             sp.GetService<TimeProvider>() ?? TimeProvider.System));
 
         return services;
