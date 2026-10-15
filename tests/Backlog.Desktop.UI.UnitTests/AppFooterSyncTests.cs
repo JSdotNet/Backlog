@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Sync.Abstractions;

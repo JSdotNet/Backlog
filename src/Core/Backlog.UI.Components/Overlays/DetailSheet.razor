@@ -61,6 +61,7 @@
         <IconButton BaseClass="detail-sheet__close"
                     AriaLabel="@CloseLabel"
                     TestId="@CloseTestId"
+                    Disabled="@(!Dismissible)"
                     OnClick="CloseAsync">&#215;</IconButton>
     </header>
 
@@ -107,6 +108,14 @@
 
     [Parameter]
     public RenderFragment? Footer { get; set; }
+
+    /// <summary>False while the sheet must stay up - work it started is still
+    /// running and its result belongs here. Escape, the backdrop and the close
+    /// button then do nothing, and the close button says so by being disabled.
+    /// <see cref="CloseOnEscape"/> and <see cref="CloseOnBackdropClick"/> each
+    /// turn one of those off for good; this turns all three off for a while.</summary>
+    [Parameter]
+    public bool Dismissible { get; set; } = true;
 
     [Parameter]
     public bool CloseOnEscape { get; set; } = true;
@@ -178,7 +187,7 @@
 
     private async Task CloseAsync()
     {
-        if (!Open) return;
+        if (!Open || !Dismissible) return;
 
         Open = false;
         await OpenChanged.InvokeAsync(false);

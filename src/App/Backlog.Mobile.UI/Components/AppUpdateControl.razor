@@ -1,0 +1,163 @@
+@using Backlog.Mobile.UI.AppUpdate
+@using Backlog.UI.Components.AppUpdate
+@inject IAppUpdateService Updates
+@inject AppUpdateWatch Watch
+@implements IDisposable
+
+@*
+    The app bar's title, which is also the phone's version control: it names the
+    app and the version it is running, and opens the update window - the phone's
+    counterpart of the desktop footer's version control and its update window.
+
+    The window offers Check, then Install once a check has found something newer.
+    Installing is only ever the person's tap: the app checks quietly on its own
+    once it is on screen, at most every eight hours (AppUpdateWatch), and what that
+    finds only puts a dot on this control.
+
+    The window cannot be put away while a check or an install is running - the
+    result belongs in it - which is the desktop window's rule too.
+*@
+
+<AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" CssClass="app-bar__title"
+           OnClick="Open" TestId="app-version" id="@ButtonId"
+           aria-haspopup="dialog" aria-label="@Label">
+    <span class="app-bar__name">Backlog</span>
+    <span class="app-bar__version" data-testid="app-version-number">@Updates.CurrentVersion</span>
+    @if (Watch.UpdateReady)
+    {
+        <span class="app-bar__update-dot" data-testid="app-update-dot" aria-hidden="true"></span>
+    }
+</AppButton>
+
+<DetailSheet Open="_open" OpenChanged="OnOpenChanged"
+             Kicker="Application updates" Title="Update Backlog"
+             CloseLabel="Close update window" RestoreFocusToId="@ButtonId"
+             Dismissible="@(!Busy)"
+             CssClass="app-update-sheet" TestId="app-update-sheet">
+    <p class="app-update-sheet__current">
+        You are running version <code data-testid="app-update-current">@Updates.CurrentVersion</code>.
+    </p>
+    <div class="app-update-sheet__actions">
+        <AppButton Variant="ButtonVariant.Secondary" TestId="check-for-updates"
+                   Disabled="Busy" OnClick="CheckAsync">
+            @AppUpdatePresentation.CheckLabel(_checking)
+        </AppButton>
+        @if (_ready)
+        {
+            <AppButton Variant="ButtonVariant.Primary" TestId="install-update"
+                       Disabled="Busy" OnClick="InstallAsync">
+                @(_installing ? "Installing..." : "Install update")
+            </AppButton>
+        }
+    </div>
+    <Alert Message="@_message" BaseClass="@_statusClass" TestId="app-update-status" Role="status" />
+</DetailSheet>
+
+@code {
+    private const string ButtonId = "app-version-button";
+
+    private readonly CancellationTokenSource _lifetime = new();
+    private bool _open;
+    private bool _checking;
+    private bool _installing;
+    private bool _ready;
+    private string? _message;
+    private string _statusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
+
+    private bool Busy => _checking || _installing;
+
+    private string Label =>
+        $"Backlog. {AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)}"
+        + (Watch.UpdateReady ? " An update is available." : string.Empty);
+
+    protected override void OnInitialized() => Watch.Changed += OnWatchChanged;
+
+    /// <summary>
+    /// After the first render, never before it: nothing waits on the check, and the
+    /// browser harness prerenders on the server, where a check would run twice.
+    /// </summary>
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender) _ = Watch.CheckQuietlyAsync(_lifetime.Token);
+    }
+
+    private void Open()
+    {
+        _open = true;
+
+        // What the quiet check found is shown as if the person had just checked,
+        // so a dot on the control leads straight to an Install button.
+        if (!Busy && Watch.Latest is { } latest) Show(latest);
+    }
+
+    private void OnOpenChanged(bool open)
+    {
+        if (!open && Busy) return;
+
+        _open = open;
+    }
+
+    private async Task CheckAsync()
+    {
+        if (Busy) return;
+
+        _checking = true;
+        _message = null;
+        _ready = false;
+
+        try
+        {
+            Show(await Watch.CheckAsync(_lifetime.Token));
+        }
+        catch
+        {
+            _ready = false;
+            _message = "The update check could not be completed.";
+            _statusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+
+    private async Task InstallAsync()
+    {
+        if (Busy) return;
+
+        _installing = true;
+
+        try
+        {
+            var result = await Updates.StartUpdateAsync(_lifetime.Token);
+            _message = result.Message;
+            _statusClass = AppUpdatePresentation.StatusClass(
+                result.Started ? AppUpdateAvailability.UpToDate : AppUpdateAvailability.Failed);
+        }
+        catch
+        {
+            _message = "The update could not be installed.";
+            _statusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
+        }
+        finally
+        {
+            _installing = false;
+        }
+    }
+
+    private void Show(AppUpdateCheckResult result)
+    {
+        _ready = result.UpdateReady;
+        _message = result.Message;
+        _statusClass = AppUpdatePresentation.StatusClass(result.Availability);
+    }
+
+    private void OnWatchChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Watch.Changed -= OnWatchChanged;
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+    }
+}

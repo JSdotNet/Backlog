@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.Components;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Tasks;
+using Backlog.UI.Components.AppUpdate;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,7 +28,8 @@ internal sealed class ShellHost : IDisposable
         IDeviceStore? store,
         TimeProvider? clock,
         ScriptedTaskService? tasks = null,
-        ITaskViewStore? taskView = null)
+        ITaskViewStore? taskView = null,
+        IAppUpdateService? updates = null)
     {
         Inbox = inbox ?? new ScriptedInboxService();
         Tasks = tasks ?? new ScriptedTaskService();
@@ -45,6 +47,8 @@ internal sealed class ShellHost : IDisposable
         _context.Services.AddSingleton(new DevicePairingClient(
             new HttpClient(_handler) { BaseAddress = new Uri("https://sync.test") },
             credentials));
+        // Before AddMobileShell, whose unsupported service is only a default.
+        if (updates is not null) _context.Services.AddSingleton(updates);
         _context.Services.AddMobileShell();
         _context.Services.AddTestDeviceOutbox(store, taskView);
     }
@@ -99,8 +103,9 @@ internal sealed class ShellHost : IDisposable
         IDeviceStore? store = null,
         TimeProvider? clock = null,
         ScriptedTaskService? tasks = null,
-        ITaskViewStore? taskView = null) =>
-        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView);
+        ITaskViewStore? taskView = null,
+        IAppUpdateService? updates = null) =>
+        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
     /// the base address — "" is Today, and the default is the Inbox, which most

@@ -3,7 +3,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
-using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
 using Backlog.Modules.Inbox.Abstractions.Services;

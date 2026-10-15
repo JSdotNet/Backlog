@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.AppUpdate;
+namespace Backlog.UI.Components.AppUpdate;
 
 /// <summary>
 /// How an update check turned out. Kept deliberately small and platform-neutral

@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;

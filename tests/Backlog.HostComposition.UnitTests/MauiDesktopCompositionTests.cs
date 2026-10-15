@@ -1,7 +1,7 @@
 using System.Runtime.Versioning;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.Desktop.Composition;
-using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Claude;

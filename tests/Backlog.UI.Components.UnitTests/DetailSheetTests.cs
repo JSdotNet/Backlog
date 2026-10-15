@@ -156,6 +156,26 @@ public sealed class DetailSheetTests
         Assert.False(open);
     }
 
+    /// <summary>A sheet whose work is still running cannot be put away by any of
+    /// the three ways out, and its close button shows it.</summary>
+    [Fact]
+    public void A_sheet_that_is_not_dismissible_stays_open_every_way()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        bool? open = null;
+
+        var sheet = Render(context, onOpenChanged: value => open = value,
+            extra: parameters => parameters.Add(s => s.Dismissible, false));
+
+        sheet.Find(".detail-sheet").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        sheet.Find(".detail-sheet-backdrop").Click();
+
+        Assert.True(sheet.Find(".detail-sheet__close").HasAttribute("disabled"));
+        Assert.Null(open);
+        Assert.Equal("true", sheet.Find(".detail-sheet").GetAttribute("data-open"));
+    }
+
     /// <summary>Opening arms the trap and names where focus goes back to. The
     /// naming is what survives the opener being re-rendered while the sheet is
     /// up.</summary>
