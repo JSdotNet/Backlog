@@ -159,6 +159,65 @@ public sealed class DevbookUpdateServiceTests : IDisposable
         Assert.Equal("JSdotNet/Backlog", harness.Git.LastRepository?.FullName);
     }
 
+    // --- The clone alone, and the answer the overview already holds ----------
+
+    /// <summary>The version control is the clone's: a branch is kept current by
+    /// the snapshot's own cadence, so it offers no control of its own.</summary>
+    [Fact]
+    public void Only_a_scope_reading_its_clone_has_a_clone_to_update()
+    {
+        var harness = CreateHarness();
+        var branchHarness = CreateHarness(cloneDirectory: null);
+
+        Assert.True(harness.Service.CanUpdateClone(harness.Alias));
+        Assert.False(branchHarness.Service.CanUpdateClone(branchHarness.Alias));
+        Assert.False(harness.Service.CanUpdateClone(null));
+    }
+
+    /// <summary>The overview's look at the clone is the check a press would have
+    /// run, so the pane is handed the same state without asking git again.</summary>
+    [Fact]
+    public async Task The_overviews_look_at_the_clone_is_the_state_a_check_would_give()
+    {
+        var harness = CreateHarness(withOverview: true);
+        harness.Git.NextCheck = new LocalGitRepositoryUpdateCheck(
+            LocalGitRepositoryCurrency.Behind, 0, 3, false, "origin/main", "3 commits behind origin/main.");
+        await harness.Overview!.LoadAsync(harness.Alias, TestContext.Current.CancellationToken);
+        var checks = harness.Git.ChecksRequested;
+
+        var seeded = harness.Service.SeededState(harness.Alias);
+        var checkedState = await harness.Service.CheckAsync(harness.Alias, TestContext.Current.CancellationToken);
+
+        Assert.Equal(checkedState, seeded);
+        Assert.True(seeded!.CanPull);
+        Assert.Equal(checks + 1, harness.Git.ChecksRequested);
+    }
+
+    [Fact]
+    public void Nothing_loaded_seeds_nothing()
+    {
+        var harness = CreateHarness(withOverview: true);
+
+        Assert.Null(harness.Service.SeededState(harness.Alias));
+    }
+
+    /// <summary>A pull moves the clone, so the clone's row follows it; the
+    /// branches are not asked about again.</summary>
+    [Fact]
+    public async Task A_pull_leaves_the_overview_holding_the_clone_it_left()
+    {
+        var harness = CreateHarness(withOverview: true);
+        harness.Git.NextCheck = new LocalGitRepositoryUpdateCheck(
+            LocalGitRepositoryCurrency.Behind, 0, 3, false, "origin/main", "3 commits behind origin/main.");
+        await harness.Overview!.LoadAsync(harness.Alias, TestContext.Current.CancellationToken);
+
+        await harness.Service.PullAsync(harness.Alias, TestContext.Current.CancellationToken);
+
+        var local = harness.Overview.Current(harness.Alias)!.Local!;
+        Assert.Equal(LocalGitRepositoryCurrency.UpToDate, local.Currency);
+        Assert.Equal(DevbookUpdateAvailability.UpToDate, harness.Service.SeededState(harness.Alias)!.Availability);
+    }
+
     [Fact]
     public void The_busy_word_follows_which_of_the_two_things_the_button_is_doing()
     {
@@ -195,9 +254,9 @@ public sealed class DevbookUpdateServiceTests : IDisposable
         Assert.Equal(classes.Length, classes.Distinct(StringComparer.Ordinal).Count());
     }
 
-    private Harness CreateHarness(string? cloneDirectory = "clone")
+    private Harness CreateHarness(string? cloneDirectory = "clone", bool withOverview = false)
     {
-        var gitHubSettings = new GitHubSettingsStore(Path.Combine(_root, "github", "github.json"));
+        var gitHubSettings = new GitHubSettingsStore(Path.Combine(_root, "github", Guid.NewGuid().ToString("n"), "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
 
@@ -212,12 +271,23 @@ public sealed class DevbookUpdateServiceTests : IDisposable
         var git = new ScriptedGitRepositoryService();
         var folders = new AnnouncementCountingFolderSource();
 
+        DevbookBranchOverview? overview = null;
+        if (withOverview)
+        {
+            // The overview looks at a clone only where the folder is there.
+            if (resolvedClone is not null) Directory.CreateDirectory(resolvedClone);
+
+            var catalog = new StubBranchCatalog { Branches = { "main" }, Heads = { [string.Empty] = new GitHubBranchHead("main", "sha-main") } };
+            overview = new DevbookBranchOverview(gitHubSettings, catalog, new DevbookBranchComparisons(new ScriptedBranchComparisons()), git);
+        }
+
         return new Harness(
-            new DevbookUpdateService(gitHubSettings, git, folders),
+            new DevbookUpdateService(gitHubSettings, git, folders, overview: overview),
             git,
             folders,
             repository.Alias,
-            resolvedClone);
+            resolvedClone,
+            overview);
     }
 
     private sealed record Harness(
@@ -225,7 +295,8 @@ public sealed class DevbookUpdateServiceTests : IDisposable
         ScriptedGitRepositoryService Git,
         AnnouncementCountingFolderSource Folders,
         string Alias,
-        string? CloneDirectory);
+        string? CloneDirectory,
+        DevbookBranchOverview? Overview = null);
 
     public void Dispose()
     {
@@ -256,6 +327,9 @@ internal sealed class ScriptedGitRepositoryService : ILocalGitRepositoryService
 
     internal int ChecksRequested { get; private set; }
 
+    /// <summary>When set, a check throws it — a git that is not there at all.</summary>
+    internal Exception? CheckFailure { get; set; }
+
     internal int PullsRequested { get; private set; }
 
     internal GitHubRepositoryRef? LastRepository { get; private set; }
@@ -278,7 +352,7 @@ internal sealed class ScriptedGitRepositoryService : ILocalGitRepositoryService
         ChecksRequested++;
         LastRepository = repository;
         LastCloneDirectory = cloneDirectory;
-        return Task.FromResult(NextCheck);
+        return CheckFailure is null ? Task.FromResult(NextCheck) : Task.FromException<LocalGitRepositoryUpdateCheck>(CheckFailure);
     }
 
     public Task<LocalGitRepositoryPullResult> PullAsync(GitHubRepositoryRef repository, string? cloneDirectory, CancellationToken cancellationToken = default)

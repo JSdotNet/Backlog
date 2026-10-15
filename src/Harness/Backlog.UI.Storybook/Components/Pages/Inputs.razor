@@ -170,6 +170,48 @@
         <p class="sb-state" data-testid="input-combobox-refused-value">Value = @Show(_comboText) · kept = @_comboKept · @_comboRefusal</p>
     </Story>
 
+    <Story Name="Combobox — options drawn by the host"
+           Description="OptionTemplate draws each option in place of its label: here a branch name with the sections it changes and how far ahead and behind it is, the way the Devbook source picker draws its rows. The option stays the listbox's option and the one thing a pick lands on, so the template draws content only. The glyphs are hidden from assistive technology and say themselves in words, so the option's accessible name still says everything the row shows."
+           Code="@ComboboxTemplateCode">
+        <div class="sb-row">
+            <Combobox Options="@BranchSamples"
+                      AriaLabel="Devbook source"
+                      Compact="true"
+                      Placeholder="Search branches"
+                      Value="@_comboBranch"
+                      ValueChanged="v => _comboBranch = v"
+                      OnCommit="c => _comboBranchCommit = Describe(c)"
+                      TestId="input-combobox-template">
+                <OptionTemplate Context="option">
+                    <span class="sb-option">
+                        <span>@option.Label</span>
+                        @foreach (var area in SampleAreas.GetValueOrDefault(option.Value, []))
+                        {
+                            @switch (area)
+                            {
+                                case "Domain":
+                                    <BoxesIcon />
+                                    break;
+                                case "Architecture":
+                                    <LandmarkIcon />
+                                    break;
+                                case "Design":
+                                    <PaletteIcon />
+                                    break;
+                            }
+                            <span class="sr-only">Changes @area</span>
+                        }
+                        @if (option.Hint is { } hint)
+                        {
+                            <span class="sb-state">@hint</span>
+                        }
+                    </span>
+                </OptionTemplate>
+            </Combobox>
+        </div>
+        <p class="sb-state" data-testid="input-combobox-template-value">Value = @Show(_comboBranch) · last commit: @_comboBranchCommit</p>
+    </Story>
+
     <Story Name="TextArea"
            Description="AutoGrow is on by default: the box follows the text instead of introducing an inner scrollbar. The fixed one shows the difference."
            Code="@TextAreaCode">
@@ -577,6 +619,24 @@ It exists because two panels had each written a private class to get here, which
     // drift from what the hours fields suggest.
     private static readonly IReadOnlyList<SelectorOption> HourPresets = CalendarHours.PresetOptions();
 
+    // Two branch rows as the Devbook source picker draws them; the hint stands in
+    // for the counts and SampleAreas for what each branch changes, so the sample
+    // needs no service behind it.
+    private static readonly IReadOnlyList<SelectorOption> BranchSamples =
+    [
+        new("Default branch", "Default branch"),
+        new("docs/context-map", "docs/context-map", "↑2 ↓5"),
+        new("adr/sync-cadence", "adr/sync-cadence", "↑1 ↓0")
+    ];
+
+    private static readonly Dictionary<string, string[]> SampleAreas = new(StringComparer.Ordinal)
+    {
+        ["docs/context-map"] = ["Domain"],
+        ["adr/sync-cadence"] = ["Architecture", "Design"]
+    };
+
+    private string _comboBranch = "Default branch";
+    private string _comboBranchCommit = "none";
     private string? _comboEmpty;
     private string _comboEmptyCommit = "none";
     private string _comboPicked = "4";
@@ -625,6 +685,21 @@ It exists because two panels had each written a private class to get here, which
 
         private void OnCommit(ComboboxCommit commit) =>
             _last = $"{commit.Reason} {commit.Value}"; // Picked, Entered or Changed
+        """;
+
+    private const string ComboboxTemplateCode = """
+        <Combobox Options="@Branches" AriaLabel="Devbook source" Compact="true"
+                  @bind-Value="_source" OnCommit="OnCommit">
+            <OptionTemplate Context="option">
+                <span>@option.Label</span>
+                @foreach (var area in AreasOf(option))
+                {
+                    <LandmarkIcon />                               @* hidden from assistive technology *@
+                    <span class="sr-only">Changes @area</span>     @* so the name says it in words *@
+                }
+                <span>↑2 ↓5</span>
+            </OptionTemplate>
+        </Combobox>
         """;
 
     private const string ComboboxRefusedCode = """

@@ -41,7 +41,8 @@ public sealed class DevbookBranchReview(
     IGitHubBranchCatalog branches,
     IGitHubBranchComparison comparisons,
     IGitHubTreeClient trees,
-    TimeProvider? clock = null)
+    TimeProvider? clock = null,
+    DevbookBranchComparisons? sharedComparisons = null)
 {
     /// <summary>The id of the whole-branch scope. Not hex, so it can never be
     /// mistaken for a commit id in the picker's one id space.</summary>
@@ -64,10 +65,12 @@ public sealed class DevbookBranchReview(
     // Bounded by entry count, least recently used out first. Blobs dominate: a
     // chapter is a few kilobytes, so five hundred of them is a few megabytes. A
     // tree is cached already narrowed to the chapter folders, never whole.
-    private readonly BoundedCache<GitHubComparison> _comparisons = new(32);
-    private readonly BoundedCache<GitHubCommitChange> _commits = new(256);
-    private readonly BoundedCache<TreeIndex> _trees = new(64);
-    private readonly BoundedCache<string> _blobs = new(500);
+    // Comparisons are shared with the branch overview, so a branch the overview
+    // compared on opening the pane is reviewed without asking GitHub again.
+    private readonly DevbookBranchComparisons _comparisons = sharedComparisons ?? new DevbookBranchComparisons(comparisons);
+    private readonly BoundedTaskCache<GitHubCommitChange> _commits = new(256);
+    private readonly BoundedTaskCache<TreeIndex> _trees = new(64);
+    private readonly BoundedTaskCache<string> _blobs = new(500);
 
     /// <summary>Whether this scope reads a branch, and so has one to review.</summary>
     public bool CanReview(string? repositoryAlias) => Repository(repositoryAlias) is not null;
@@ -99,11 +102,7 @@ public sealed class DevbookBranchReview(
                 return DevbookReviewOutline.Failed($"GitHub did not say which branch {repository.FullName} treats as its default.");
             }
 
-            var comparison = await ReadAsync(
-                _comparisons,
-                $"{Key(repository)}|{head.Branch}|{@base.Sha}|{head.Sha}",
-                () => comparisons.CompareAsync(repository, @base.Sha, head.Sha, CancellationToken.None),
-                cancellationToken).ConfigureAwait(false);
+            var comparison = await _comparisons.CompareAsync(repository, @base.Sha, head.Sha, cancellationToken).ConfigureAwait(false);
 
             var handle = new DevbookReviewHandle(repository, @base.Branch, head.Branch, comparison);
             var prefixes = ChapterFolders(repository);
@@ -249,8 +248,7 @@ public sealed class DevbookBranchReview(
         }
         else
         {
-            var change = await ReadAsync(
-                _commits,
+            var change = await _commits.ReadAsync(
                 $"{Key(repository)}|{id}",
                 () => comparisons.ReadCommitAsync(repository, id, CancellationToken.None),
                 cancellationToken).ConfigureAwait(false);
@@ -466,7 +464,7 @@ public sealed class DevbookBranchReview(
         string commitSha,
         IReadOnlyList<string> prefixes,
         CancellationToken cancellationToken) =>
-        ReadAsync(_trees, $"{Key(repository)}|{commitSha}|{string.Join(",", prefixes)}", async () =>
+        _trees.ReadAsync($"{Key(repository)}|{commitSha}|{string.Join(",", prefixes)}", async () =>
         {
             var listing = await trees.ListTreeAsync(repository, commitSha, CancellationToken.None).ConfigureAwait(false);
 
@@ -480,7 +478,7 @@ public sealed class DevbookBranchReview(
         }, cancellationToken);
 
     private Task<string> BlobAsync(GitHubRepositoryRef repository, string blobSha, CancellationToken cancellationToken) =>
-        ReadAsync(_blobs, $"{Key(repository)}|{blobSha}", async () =>
+        _blobs.ReadAsync($"{Key(repository)}|{blobSha}", async () =>
         {
             var bytes = await trees.ReadBlobAsync(repository, blobSha, CancellationToken.None).ConfigureAwait(false);
 
@@ -488,31 +486,6 @@ public sealed class DevbookBranchReview(
             // front of the first heading and stop it reading as one.
             return Encoding.UTF8.GetString(bytes).TrimStart('﻿');
         }, cancellationToken);
-
-    /// <summary>
-    /// A shared read, started on no caller's token so no caller can cancel it for
-    /// the others; each caller stops waiting on its own. A read that failed or was
-    /// cancelled is dropped, so the next ask tries again rather than meeting the
-    /// same failure from the cache.
-    /// </summary>
-    private static async Task<T> ReadAsync<T>(
-        BoundedCache<T> cache,
-        string key,
-        Func<Task<T>> read,
-        CancellationToken cancellationToken)
-    {
-        var task = cache.GetOrStart(key, read);
-
-        try
-        {
-            return await task.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch when (task.IsFaulted || task.IsCanceled)
-        {
-            cache.Evict(key, task);
-            throw;
-        }
-    }
 
     /// <summary>
     /// Whether a path is one of the devbook's own chapters: Markdown under a
@@ -525,27 +498,8 @@ public sealed class DevbookBranchReview(
         path.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
         && prefixes.Any(prefix => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
 
-    private static IReadOnlyList<string> ChapterFolders(GitHubRepositoryRef repository)
-    {
-        var prefixes = new List<string>();
-
-        foreach (var folder in DevbookFolderSetting.Normalize(repository.DevbookFolders).Where(folder => folder.Enabled))
-        {
-            // The instructions section has no folder of its own to override; the
-            // chapters under it that a branch changes are the instruction files.
-            if (string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase))
-            {
-                prefixes.Add(".github/instructions/");
-                continue;
-            }
-
-            prefixes.AddRange(folder.CandidatePaths
-                .Where(path => !string.IsNullOrWhiteSpace(path) && !Path.IsPathRooted(path))
-                .Select(path => path.Replace('\\', '/').Trim('/') + "/"));
-        }
-
-        return prefixes.Count > 0 ? prefixes : [$"{DevbookFolderSetting.DevbookRoot}/", ".github/instructions/"];
-    }
+    private static IReadOnlyList<string> ChapterFolders(GitHubRepositoryRef repository) =>
+        [.. DevbookChapterFolders.For(repository).Select(folder => folder.Prefix)];
 
     private static string Key(GitHubRepositoryRef repository) => repository.FullName.ToLowerInvariant();
 
@@ -577,93 +531,6 @@ public sealed class DevbookBranchReview(
     /// row rather than the file it stands for: nothing here touches a disk, and
     /// a member named after the IO type reads as if it did.</summary>
     internal sealed record Chapter(ChangedFile Row, ComparedSection Comparison);
-
-    /// <summary>
-    /// A cache holding at most a fixed number of entries, dropping the least
-    /// recently used. Each entry is the read's task, so two callers asking for
-    /// one key at once share one read.
-    /// </summary>
-    private sealed class BoundedCache<T>(int capacity)
-    {
-        private readonly Dictionary<string, LinkedListNode<(string Key, Task<T> Task)>> _entries = new(StringComparer.Ordinal);
-        private readonly LinkedList<(string Key, Task<T> Task)> _recency = new();
-        private readonly Lock _gate = new();
-
-        /// <summary>
-        /// The read already cached for the key, or a new one. Only a placeholder
-        /// is taken under the lock: the read itself starts after it is released,
-        /// because its synchronous prelude — resolving a credential, starting the
-        /// GitHub CLI — would otherwise hold every other window's lookup.
-        /// </summary>
-        public Task<T> GetOrStart(string key, Func<Task<T>> read)
-        {
-            TaskCompletionSource<T> placeholder;
-
-            lock (_gate)
-            {
-                if (_entries.TryGetValue(key, out var found))
-                {
-                    _recency.Remove(found);
-                    _recency.AddFirst(found);
-                    return found.Value.Task;
-                }
-
-                placeholder = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _entries[key] = _recency.AddFirst((key, placeholder.Task));
-
-                while (_entries.Count > capacity && _recency.Last is { } oldest)
-                {
-                    _recency.RemoveLast();
-                    _entries.Remove(oldest.Value.Key);
-                }
-            }
-
-            _ = RunAsync(key, placeholder, read);
-            return placeholder.Task;
-        }
-
-        /// <summary>
-        /// Runs the read into its placeholder. A read that fails is dropped when
-        /// it fails, not when somebody next asks: every waiter may have left
-        /// already, and the next ask must not be handed the old failure. So the
-        /// entry goes before the failure is set, never after — a continuation on
-        /// the placeholder would run a thread-pool hop later, because the
-        /// placeholder runs its continuations asynchronously, and an ask in that
-        /// hop found the failure still cached.
-        /// </summary>
-        private async Task RunAsync(string key, TaskCompletionSource<T> placeholder, Func<Task<T>> read)
-        {
-            try
-            {
-                placeholder.TrySetResult(await read().ConfigureAwait(false));
-            }
-            catch (OperationCanceledException cancelled)
-            {
-                Evict(key, placeholder.Task);
-                placeholder.TrySetCanceled(cancelled.CancellationToken);
-            }
-            catch (Exception exception)
-            {
-                Evict(key, placeholder.Task);
-                placeholder.TrySetException(exception);
-
-                // Observed here, because nobody may be left to: a failure no one
-                // read would surface later as an unobserved task exception.
-                _ = placeholder.Task.Exception;
-            }
-        }
-
-        public void Evict(string key, Task<T> task)
-        {
-            lock (_gate)
-            {
-                if (!_entries.TryGetValue(key, out var found) || !ReferenceEquals(found.Value.Task, task)) return;
-
-                _recency.Remove(found);
-                _entries.Remove(key);
-            }
-        }
-    }
 }
 
 /// <summary>
