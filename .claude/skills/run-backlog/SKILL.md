@@ -25,7 +25,8 @@ aspire start --isolated --non-interactive --apphost src/Aspire/Backlog.Aspire.Ap
   failed to come up. The health verdict comes from the Aspire MCP (see Healthy).
 - To stop this worktree's AppHost, run `aspire stop --apphost <same path>`. Never use
   `--all`, and never kill `dotnet`, `dcp` or `Aspire*` processes by name, because they may
-  belong to another worktree. CLI details are in `.agents/skills/aspire/`.
+  belong to another worktree. For CLI details, run `aspire <command> --help`, or ask the
+  Aspire MCP's `search_docs` and `get_doc` tools. Both answer for the installed version.
 
 1. **Check that it is not already running.** Call the Aspire MCP `list_apphosts` and read the
    list titled "App hosts within scope of working directory". If this worktree's AppHost is
