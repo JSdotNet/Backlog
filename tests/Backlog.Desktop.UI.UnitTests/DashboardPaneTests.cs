@@ -662,7 +662,10 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        Assert.Contains(DashboardTestHost.MachineId, sessions.Scopes.Select(scope => scope.MachineId));
+        // A filter move acknowledges before it fetches, so the sessions part asks again
+        // on the renderer's dispatcher after Change has returned.
+        pane.WaitForAssertion(() =>
+            Assert.Contains(DashboardTestHost.MachineId, sessions.Scopes.Select(scope => scope.MachineId)));
     }
 
     /// <summary>
@@ -1941,7 +1944,8 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog");
 
-        Assert.Contains(sessions.Scopes, scope => scope.Repositories.Contains("backlog"));
+        pane.WaitForAssertion(() =>
+            Assert.Contains(sessions.Scopes, scope => scope.Repositories.Contains("backlog")));
     }
 
     [Fact]
@@ -2907,7 +2911,10 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-window-4']").Click();
 
-        Assert.Contains(DashboardPeriod.FourWeeks, productivity.Scopes.Select(scope => scope.Period));
+        // A window press acknowledges before it fetches (DashboardPartBase yields first),
+        // so the parts ask again on the renderer's dispatcher after Click has returned.
+        pane.WaitForAssertion(() =>
+            Assert.Contains(DashboardPeriod.FourWeeks, productivity.Scopes.Select(scope => scope.Period)));
     }
 
     [Fact]
@@ -3003,7 +3010,7 @@ public class DashboardPaneTests
         var first = context.Render<DashboardPane>();
         first.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        productivity.Scopes.Clear();
+        productivity.ClearScopes();
 
         var second = context.Render<DashboardPane>();
         _ = second;
@@ -3546,15 +3553,35 @@ public class DashboardPaneTests
 
     private sealed class RecordingProductivityInsights : IProductivityInsights
     {
-        public List<DashboardScope> Scopes { get; } = [];
+        private readonly List<DashboardScope> _scopes = [];
 
-        public int Invalidations { get; private set; }
+        private int _invalidations;
+
+        /// <summary>A snapshot, taken under the lock: the pane loads each region on
+        /// its own, so a load can still be recording while a test reads the calls,
+        /// and enumerating the live list then throws "Collection was modified".</summary>
+        public IReadOnlyList<DashboardScope> Scopes
+        {
+            get { lock (_scopes) return [.. _scopes]; }
+        }
+
+        public int Invalidations => Volatile.Read(ref _invalidations);
+
+        private void Record(DashboardScope scope)
+        {
+            lock (_scopes) _scopes.Add(scope);
+        }
+
+        public void ClearScopes()
+        {
+            lock (_scopes) _scopes.Clear();
+        }
 
         public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ProductivityHeadline>.Unavailable("Not configured."));
         }
 
@@ -3562,7 +3589,7 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable("Not configured."));
         }
 
@@ -3570,11 +3597,11 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ReworkInsight>.Unavailable("Not configured."));
         }
 
-        public void Invalidate(DashboardScope scope) => Invalidations++;
+        public void Invalidate(DashboardScope scope) => Interlocked.Increment(ref _invalidations);
     }
 
     /// <summary>
@@ -3618,13 +3645,21 @@ public class DashboardPaneTests
     /// which filters reached it and which did not.</summary>
     private sealed class RecordingSessionInsights : ISessionInsights
     {
-        public List<DashboardScope> Scopes { get; } = [];
+        private readonly List<DashboardScope> _scopes = [];
+
+        /// <summary>A snapshot, taken under the lock, for the reason
+        /// <see cref="RecordingProductivityInsights.Scopes"/> is one: a filter move's fetch
+        /// can still be recording while a test reads the calls.</summary>
+        public IReadOnlyList<DashboardScope> Scopes
+        {
+            get { lock (_scopes) return [.. _scopes]; }
+        }
 
         public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            lock (_scopes) _scopes.Add(scope);
             return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
         }
 

@@ -144,11 +144,53 @@ public sealed class SprintSeriesPlanningTests : IDisposable
         var removed = await Planning.RemoveTaskAsync(series.Id, 1, task.Id, ct);
 
         Assert.Same(task, Assert.Single(_tasks.Tasks));
-        var item = Assert.Single(removed.Value.OpenSprint!.Items);
+        Assert.Empty(removed.Value.OpenSprint!.Items);
+    }
+
+    /// <summary>No linked plan brings the task in, so removing it ends its membership,
+    /// and what the sprint recorded on it goes with it: added again, it starts clean.</summary>
+    [Fact]
+    public async Task A_removed_task_no_plan_brings_in_comes_back_without_its_old_marks()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        var task = Make.Task("Direct", SprintTaskStatus.InProgress, "+unlinked");
+        _tasks.Tasks.Add(task);
+
+        await Planning.AddTaskAsync(series.Id, 1, task.Id, ct);
+        await Planning.MarkGoalAsync(series.Id, 1, task.Id, true, ct);
+        await Planning.SetNoteAsync(series.Id, 1, task.Id, "Waiting on review", ct);
+        await Planning.SetOpenQuestionAsync(series.Id, 1, task.Id, true, ct);
+        await Planning.RemoveTaskAsync(series.Id, 1, task.Id, ct);
+        var added = (await Planning.AddTaskAsync(series.Id, 1, task.Id, ct)).Value;
+
+        var item = Assert.Single(added.OpenSprint!.Items);
+        Assert.True(item.AddedDirectly);
+        Assert.False(item.IsGoal);
+        Assert.Null(item.Note);
+        Assert.False(item.OpenQuestion);
+    }
+
+    /// <summary>A linked plan still brings the task in, so it stays a member when it is
+    /// no longer added directly, and keeps what the sprint recorded on it.</summary>
+    [Fact]
+    public async Task A_removed_task_a_linked_plan_still_brings_in_keeps_its_marks()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        var task = Make.Task("Planned", SprintTaskStatus.InProgress, "+plan");
+        _tasks.Tasks.Add(task);
+        await Planning.LinkPlanAsync(series.Id, 1, "+plan", ct);
+
+        await Planning.AddTaskAsync(series.Id, 1, task.Id, ct);
+        await Planning.MarkGoalAsync(series.Id, 1, task.Id, true, ct);
+        await Planning.SetNoteAsync(series.Id, 1, task.Id, "Waiting on review", ct);
+        var removed = (await Planning.RemoveTaskAsync(series.Id, 1, task.Id, ct)).Value;
+
+        var item = Assert.Single(removed.OpenSprint!.Items);
         Assert.False(item.AddedDirectly);
         Assert.True(item.IsGoal);
         Assert.Equal("Waiting on review", item.Note);
-        Assert.True(item.OpenQuestion);
     }
 
     [Fact]

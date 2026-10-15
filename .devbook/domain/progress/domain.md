@@ -123,6 +123,13 @@ The note and the open-question mark belong to Progress, not to the task: they
 say something about the task in this sprint, and the next sprint starts without
 them.
 
+Removing a task added directly ends what the item says about how it joined. While
+a linked plan still brings the task in, it stays a member and its item keeps its
+goal mark, note and open question. When no linked plan brings it in, its
+membership ends and the item goes with it: added again, the task starts with no
+goal mark, no note and no open question. The marks belong to a membership, not to
+the task, so they do not outlive it.
+
 A row shows the authors of the task's linked pull requests as its owner. There is
 no owner field, in the item or anywhere else in this context.
 

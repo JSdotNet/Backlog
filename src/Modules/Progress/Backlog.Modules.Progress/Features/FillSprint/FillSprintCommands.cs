@@ -1,4 +1,5 @@
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -8,7 +9,8 @@ namespace Backlog.Modules.Progress.Features.FillSprint;
 /// <summary>Adds one task to a sprint by its id. Nothing on the task changes.</summary>
 public sealed record AddTaskCommand(Guid SeriesId, int Number, Guid TaskId);
 
-/// <summary>Takes a directly added task out of a sprint. Nothing on the task changes.</summary>
+/// <summary>Takes a directly added task out of a sprint. Nothing on the task changes;
+/// what the sprint recorded on it stays only while a linked plan still brings it in.</summary>
 public sealed record RemoveTaskCommand(Guid SeriesId, int Number, Guid TaskId);
 
 /// <summary>Links a whole plan to a sprint by its plan tag.</summary>
@@ -23,7 +25,7 @@ public sealed record SetSprintGoalCommand(Guid SeriesId, int Number, string Goal
 /// <summary>The writes that say what a sprint holds
 /// (<c>.devbook/domain/progress/features.md#filling-a-sprint</c>). Each is recorded in
 /// the sprint alone; a closed sprint refuses them.</summary>
-public sealed class FillSprintCommandHandler(SeriesChanges changes, TimeProvider time)
+public sealed class FillSprintCommandHandler(SeriesChanges changes, ISprintTaskSource tasks, TimeProvider time)
     : ICommandHandler<AddTaskCommand, Result<SprintSeriesDto>>,
       ICommandHandler<RemoveTaskCommand, Result<SprintSeriesDto>>,
       ICommandHandler<LinkPlanCommand, Result<SprintSeriesDto>>,
@@ -40,13 +42,26 @@ public sealed class FillSprintCommandHandler(SeriesChanges changes, TimeProvider
             cancellationToken);
     }
 
-    public Task<Result<SprintSeriesDto>> Handle(RemoveTaskCommand command, CancellationToken cancellationToken = default)
+    public async Task<Result<SprintSeriesDto>> Handle(RemoveTaskCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return changes.ChangeAsync(
+
+        // The task by its id alone, wherever it lives: whether a linked plan still brings
+        // it in is the series' answer, given its plan tags and repository.
+        var read = await tasks
+            .ReadAsync(new SprintTaskQuery([command.TaskId], [], []), cancellationToken)
+            .ConfigureAwait(false);
+        var task = read.FirstOrDefault(candidate => candidate.Id == command.TaskId);
+
+        return await changes.ChangeAsync(
             command.SeriesId,
-            series => series.RemoveTask(command.Number, command.TaskId),
-            cancellationToken);
+            series => series.RemoveTask(
+                command.Number,
+                command.TaskId,
+                task is not null
+                && series.SprintNumber(command.Number) is { } sprint
+                && SprintProgress.BroughtByPlan(series, sprint, task) is not null),
+            cancellationToken).ConfigureAwait(false);
     }
 
     public Task<Result<SprintSeriesDto>> Handle(LinkPlanCommand command, CancellationToken cancellationToken = default)

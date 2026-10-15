@@ -17,8 +17,9 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// Scoped, because <see cref="ITaskItems"/> is: a singleton over a scoped port is a
 /// captive dependency a validating provider refuses. Call after <c>AddTasksModule</c>
 /// and <c>AddProgressModule</c>. The pull request reader replaces the module's own
-/// answer, which reads every pull request as Unknown; it is a singleton, because what
-/// it has read is kept, and it resolves <see cref="GitHubIntegration"/> per call, so a
+/// answer, which reads every pull request as Unknown; it is a singleton that keeps
+/// nothing itself — what it has read is kept by <see cref="GitHubIntegration"/>, in the
+/// cache the In progress view reads through too — and it resolves it per call, so a
 /// host without GitHub gets Unknown answers rather than a failed provider.
 /// </para>
 /// </summary>
@@ -35,9 +36,7 @@ public static class ProgressCrossContextAdapterRegistration
         services.AddScoped<ISprintRepositories>(sp =>
             new SprintRepositories(() => sp.GetService<IRepositoryDirectory>()));
         services.Replace(ServiceDescriptor.Singleton<ISprintPullRequestReader>(sp =>
-            new GitHubSprintPullRequests(
-                () => sp.GetService<GitHubIntegration>(),
-                sp.GetService<TimeProvider>())));
+            new GitHubSprintPullRequests(() => sp.GetService<GitHubIntegration>())));
 
         return services;
     }

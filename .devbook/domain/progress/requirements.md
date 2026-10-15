@@ -170,6 +170,18 @@ The system SHALL leave a task's status, tags and plan unchanged when it is added
 - **When** the person removes it from Sprint 4
 - **Then** the task is still In progress, with the same tags and plan
 
+#### Scenario: Adding a removed task again starts it clean
+
+- **Given** a task added directly to Sprint 4, marked as a goal task and given a note, that no linked plan brings in
+- **When** the person removes it from Sprint 4 and adds it again
+- **Then** it is in Sprint 4 with no goal mark, no note and no open question
+
+#### Scenario: Removing a task a linked plan still brings in
+
+- **Given** a task added directly to Sprint 4 and marked as a goal task, whose plan is linked to Sprint 4
+- **When** the person removes it from Sprint 4
+- **Then** it is still in Sprint 4, brought in by its plan, and keeps its goal mark
+
 ## Setting the sprint goal
 
 ```meta
