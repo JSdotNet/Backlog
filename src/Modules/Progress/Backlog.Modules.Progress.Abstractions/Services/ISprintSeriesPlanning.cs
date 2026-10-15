@@ -101,6 +101,16 @@ public interface ISprintSeriesPlanning
         IReadOnlyDictionary<Guid, CloseOutcome> outcomes,
         string nextGoal,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a series, on or off, with every sprint it recorded — an open one
+    /// included — and frees its repositories: from then on they are in no series and
+    /// can join another. No task changes. The deletion travels to every paired desktop
+    /// as the series' last change (<c>.devbook/domain/progress/features.md#deleting-a-series</c>).
+    /// Refused for a series that is not there. A host asks the person first; this
+    /// does not.
+    /// </summary>
+    Task<Result> DeleteSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>What a new series starts with. Everything but the repositories has the

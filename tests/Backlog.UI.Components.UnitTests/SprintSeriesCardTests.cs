@@ -301,4 +301,87 @@ public sealed class SprintSeriesCardTests
     {
         Assert.Equal(expected, SprintSeriesCardModel.NextName(pattern, number));
     }
+
+    // --- Delete series… (.devbook/domain/progress/features.md#deleting-a-series)
+
+    [Fact]
+    public void A_card_whose_host_cannot_delete_offers_no_delete()
+    {
+        using var context = new BunitContext();
+
+        var card = context.Render<SprintSeriesCard>(parameters => parameters.Add(c => c.Model, Series()));
+
+        Assert.Empty(card.FindAll("[data-testid='sprint-core-delete']"));
+    }
+
+    [Fact]
+    public async Task Delete_asks_first_naming_the_sprints_and_the_repositories_it_frees()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var deleted = 0;
+        var card = context.Render<SprintSeriesCard>(parameters => parameters
+            .Add(c => c.Model, Series())
+            .Add(c => c.OnDelete, () => deleted++));
+
+        await card.Find("[data-testid='sprint-core-delete']").ClickAsync(new MouseEventArgs());
+
+        Assert.Equal(0, deleted);
+        Assert.Equal("Delete Fincent team?", card.Find(".modal__title").TextContent.Trim());
+        Assert.Equal(
+            "Its 42 sprints are deleted with it, with their goals, notes and outcomes. innovadis-dev/Fincent, JSdotNet/devbook-marketplace go back to no sprint. No task changes, and it is deleted on every desktop you have paired. To keep the sprints, switch the series off instead.",
+            card.Find(".confirm-dialog__message").TextContent);
+        Assert.Equal("Delete series", card.Find("[data-testid='sprint-core-delete-confirm']").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task Confirming_raises_delete_once()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var deleted = 0;
+        var card = context.Render<SprintSeriesCard>(parameters => parameters
+            .Add(c => c.Model, Series())
+            .Add(c => c.OnDelete, () => deleted++));
+
+        await card.Find("[data-testid='sprint-core-delete']").ClickAsync(new MouseEventArgs());
+        await card.Find("[data-testid='sprint-core-delete-confirm']").ClickAsync(new MouseEventArgs());
+
+        Assert.Equal(1, deleted);
+        Assert.Empty(card.FindAll(".confirm-dialog__message"));
+    }
+
+    [Fact]
+    public async Task Cancelling_raises_nothing()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var deleted = 0;
+        var card = context.Render<SprintSeriesCard>(parameters => parameters
+            .Add(c => c.Model, Series())
+            .Add(c => c.OnDelete, () => deleted++));
+
+        await card.Find("[data-testid='sprint-core-delete']").ClickAsync(new MouseEventArgs());
+        await card.Find("[data-testid='sprint-core-delete-cancel']").ClickAsync(new MouseEventArgs());
+
+        Assert.Equal(0, deleted);
+        Assert.Empty(card.FindAll(".confirm-dialog__message"));
+    }
+
+    [Fact]
+    public async Task A_series_with_no_sprint_and_one_repository_says_so()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var card = context.Render<SprintSeriesCard>(parameters => parameters
+            .Add(c => c.Model, Series(repositories: ["backlog"]) with { Running = null, NextNumber = 1 })
+            .Add(c => c.OnDelete, () => { }));
+
+        await card.Find("[data-testid='sprint-core-delete']").ClickAsync(new MouseEventArgs());
+
+        Assert.StartsWith(
+            "It has no sprint yet. backlog goes back to no sprint. No task changes,",
+            card.Find(".confirm-dialog__message").TextContent,
+            StringComparison.Ordinal);
+    }
 }

@@ -163,4 +163,78 @@ public sealed class SqliteSprintSeriesReplicaTests : IDisposable
 
         Assert.Equal(copy, Assert.Single(await rooted.ReadAllAsync(Cancellation)));
     }
+
+    // --- A deleted series is a tombstone that travels -----------------------------
+
+    /// <summary>The deleted series is gone from every reading of the aggregate, and its
+    /// row stays as a tombstone — its id, its name for the sync log and the moment it
+    /// was deleted, with no sprint left in it — stamped later than the series was, so
+    /// the next push carries it.</summary>
+    [Fact]
+    public async Task A_deleted_series_leaves_a_later_tombstone_and_no_series()
+    {
+        var repository = new SqliteSprintSeriesRepository(_dir);
+        var core = Series("Core");
+        var docs = Series("Docs");
+        await repository.SaveAsync(core, Cancellation);
+        await repository.SaveAsync(docs, Cancellation);
+        var before = (await repository.ReadAsync(core.Id, Cancellation))!;
+
+        await repository.DeleteAsync(core.Id, Cancellation);
+
+        Assert.Null(await repository.GetAsync(core.Id, Cancellation));
+        Assert.Equal([docs.Id], (await repository.ListAsync(Cancellation)).Select(series => series.Id));
+
+        var tombstone = (await repository.ReadAsync(core.Id, Cancellation))!;
+        Assert.True(tombstone.UpdatedAt > before.UpdatedAt);
+        Assert.Equal("Core", tombstone.Name);
+        var document = JsonNode.Parse(tombstone.Content)!;
+        Assert.Equal(core.Id.ToString(), document["id"]!.GetValue<string>());
+        Assert.NotNull(document["deletedAt"]);
+        Assert.Empty(document["sprints"]!.AsArray());
+        Assert.Equal([core.Id, docs.Id], (await repository.ReadAllAsync(Cancellation)).Select(copy => copy.Id));
+    }
+
+    [Fact]
+    public async Task Deleting_a_series_this_device_never_held_writes_nothing()
+    {
+        var repository = new SqliteSprintSeriesRepository(_dir);
+        var id = Guid.NewGuid();
+
+        await repository.DeleteAsync(id, Cancellation);
+
+        Assert.Null(await repository.ReadAsync(id, Cancellation));
+    }
+
+    /// <summary>The tombstone is a copy like any other: written on another device
+    /// verbatim at its stamp, it takes the series away there too.</summary>
+    [Fact]
+    public async Task A_tombstone_from_another_device_takes_the_series_away_here()
+    {
+        var a = new SqliteSprintSeriesRepository(_dir);
+        var b = new SqliteSprintSeriesRepository(_other);
+        var series = Series("Core");
+        await a.SaveAsync(series, Cancellation);
+        Assert.True(await b.TryWriteAsync((await a.ReadAsync(series.Id, Cancellation))!, Cancellation));
+
+        await a.DeleteAsync(series.Id, Cancellation);
+        var tombstone = (await a.ReadAsync(series.Id, Cancellation))!;
+
+        Assert.True(await b.TryWriteAsync(tombstone, Cancellation));
+        Assert.Null(await b.GetAsync(series.Id, Cancellation));
+        Assert.Empty(await b.ListAsync(Cancellation));
+        Assert.Equal(tombstone, await b.ReadAsync(series.Id, Cancellation));
+    }
+
+    [Fact]
+    public async Task The_rooted_store_deletes_in_the_current_root()
+    {
+        var rooted = new RootedSqliteSprintSeriesRepository(() => _dir);
+        var series = Series("Core");
+        await rooted.SaveAsync(series, Cancellation);
+
+        await rooted.DeleteAsync(series.Id, Cancellation);
+
+        Assert.Empty(await rooted.ListAsync(Cancellation));
+    }
 }

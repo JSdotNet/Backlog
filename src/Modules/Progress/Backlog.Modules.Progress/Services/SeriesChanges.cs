@@ -33,6 +33,24 @@ public sealed class SeriesChanges(ISprintSeriesRepository repository, ProgressGa
         return series.ToDto();
     }
 
+    /// <summary>Deletes a series under the gate, and announces it as a save is announced,
+    /// so a sync loop pushes the deletion and a screen drawing the series reads again.
+    /// Refused for a series that is not there, with nothing deleted.</summary>
+    public async Task<Result> DeleteAsync(Guid seriesId, CancellationToken cancellationToken = default)
+    {
+        using var held = await gate.EnterAsync(cancellationToken).ConfigureAwait(false);
+
+        if (await repository.GetAsync(seriesId, cancellationToken).ConfigureAwait(false) is null)
+        {
+            return Result.Failure(ProgressErrors.SeriesNotFound(seriesId));
+        }
+
+        await repository.DeleteAsync(seriesId, cancellationToken).ConfigureAwait(false);
+        held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.
+        saved.Raise();
+        return Result.Success();
+    }
+
     /// <summary>The same, for a change that has to see every other series too.</summary>
     public async Task<Result<SprintSeriesDto>> ChangeAcrossAsync(
         Guid seriesId,
