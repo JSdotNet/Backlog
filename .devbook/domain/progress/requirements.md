@@ -333,6 +333,14 @@ The system SHALL start the next sprint when it closes one, with the next goal gi
 - **Then** Sprint 5 is open from Monday 26 October to Sunday 8 November 2026, with the goal "Ship the sprint view"
 - **And** Sprint 5 has the carried task as a member, and neither of the other two
 
+#### Scenario: Closing Sprint 4 early
+
+- **Given** Sprint 4 runs from Monday 12 October to Sunday 25 October 2026 and today is Monday 19 October
+- **When** the person closes Sprint 4
+- **Then** Sprint 5 is open from Monday 26 October to Sunday 8 November 2026
+- **And** Sprint 4 keeps its window to Sunday 25 October
+- **And** the sprint view reads "Starts Mon 26 Oct · 10 working days" until Monday 26 October
+
 ### Requirement: No outcome changes the task
 
 ```meta
