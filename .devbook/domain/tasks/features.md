@@ -687,14 +687,17 @@ order, independent of recency or priority. Where a task nobody ranked lands is
 type: sub-feature
 status: draft
 related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_plan_leave_out_finished_work_and_a_plan_with_nothing_left_has_no_column]
 ```
 
 The same filtered tasks laid out as columns of cards, under the same filters
 and beside the same open task. The columns can be:
 
 - by status, the default: Draft, Ready, In progress and Done;
-- by plan: one per [Roadmap Tag](domain.md#roadmap-tag) in view, then the tasks
-  in no plan;
+- by plan: one per [Roadmap Tag](domain.md#roadmap-tag) with work left in view,
+  then the tasks in no plan. Only what is still to do is shown: a ticked-off or
+  archived task is no card here, so a plan with nothing left draws no column,
+  the way its tag chip leaves ticked-off tasks out of its count;
 - by repository, with the tasks filed against no repository in a column titled
   **Brain**, the name the scope gives them;
 - by [Priority](domain.md#priority).
