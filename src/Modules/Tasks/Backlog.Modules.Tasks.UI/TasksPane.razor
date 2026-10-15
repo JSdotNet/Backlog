@@ -1684,9 +1684,11 @@
             Source: State.LinkedSources.ToTaskSource(row.SourceRef))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence),
-            // Only while the row is in today's My Day, the same test the sun
-            // beside it passes: a slot in yesterday's plan is no slot today.
-            Agenda = IsInMyDay(row) ? FormatAgenda(row.PreviewAgendaTime) : null
+            // Only while the row was put in My Day today: a slot belongs to the
+            // stamp's day, so a slot in yesterday's plan is no slot today, even on
+            // a task Clear My Day overnight being off has carried into today's list
+            // (local ADR 0032, §5).
+            Agenda = IsPlannedForToday(row) ? FormatAgenda(row.PreviewAgendaTime) : null
         })];
 
     /// <summary>
@@ -3826,8 +3828,10 @@
                    and borrows My Day's, so outside today's My Day there is nothing
                    for it to be a time of (.devbook/domain/tasks/domain.md#agenda-time).
                    In the lead rather than a group because it is part of the same
-                   morning decision, and it appears only once that decision is made. *@
-                @if (IsInMyDay(row))
+                   morning decision, and it appears only once that decision is made.
+                   Made today: a task carried over from an earlier day is in My Day
+                   with no slot, since its slot was that day's (local ADR 0032, §5). *@
+                @if (IsPlannedForToday(row))
                 {
                     <TaskAction Icon="🕒"
                                 Label="@(row.PreviewAgendaTime is null ? "Set a time" : "Planned for")"
@@ -4644,11 +4648,18 @@
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
-    /// <summary>An entry is in My Day exactly while its stamp is today's local
-    /// date. A stamp from yesterday is not "in My Day yesterday" — it is simply
-    /// not in My Day, which is what lets the list clear itself overnight with no
-    /// timer and nothing to sweep.</summary>
-    private static bool IsInMyDay(EntryRow row) => row.PreviewInMyDayOn == Today;
+    /// <summary>An entry is in My Day while its stamp is today's local date. A
+    /// stamp from yesterday is not "in My Day yesterday" — with Clear My Day
+    /// overnight on, it is simply not in My Day, which is what lets the list clear
+    /// itself overnight with no timer and nothing to sweep. With it off, an
+    /// unfinished task carries over, as does one finished today. The state holds
+    /// the rule and the switch; this is where the clock is.</summary>
+    private bool IsInMyDay(EntryRow row) => State.IsInMyDay(row, Today);
+
+    /// <summary>Whether the entry was put in My Day today rather than carried
+    /// over: the only case that owns an agenda slot, since a slot belongs to the
+    /// stamp's day (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    private static bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
 
     private async Task OnMyDayToggledAsync(EntryRow row)
     {

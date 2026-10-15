@@ -38,7 +38,12 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         }.ToString();
 
         using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+
+        var hadPreferences = HasTable(connection, transaction, "my_day_preferences");
+
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
 
         // Additive only, as the device store's tables are: the file outlives
         // every build of the app.
@@ -56,8 +61,28 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
                 id     INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
                 since  TEXT    NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS my_day_preferences (
+                id          INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+                updated_at  TEXT    NOT NULL,
+                server_ts   INTEGER NOT NULL,
+                payload     TEXT    NOT NULL
+            );
             """;
         command.ExecuteNonQuery();
+
+        // The one-time replay (.devbook/arc42/adr/0032, Verification 10): a build
+        // before the preferences table folded their document away and moved its
+        // cursor past it, so the first build that keeps it pulls the feed again from
+        // the start. The rows stay — a full pull folds over them to the same result.
+        if (!hadPreferences)
+        {
+            using var reset = connection.CreateCommand();
+            reset.Transaction = transaction;
+            reset.CommandText = "DELETE FROM task_cursor";
+            reset.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     public IReadOnlyList<TaskViewRow> ReadRows()
@@ -96,7 +121,24 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         return command.ExecuteScalar() as string;
     }
 
-    public async Task SaveAsync(IReadOnlyList<TaskViewRow> rows, string? cursor = null, CancellationToken cancellationToken = default)
+    public MyDayPreferencesDocument? ReadMyDayPreferences()
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = "SELECT updated_at, server_ts, payload FROM my_day_preferences WHERE id = 1";
+
+        using var reader = command.ExecuteReader();
+
+        return reader.Read()
+            ? new MyDayPreferencesDocument(ParseInstant(reader.GetString(0)), reader.GetInt64(1), reader.GetString(2))
+            : null;
+    }
+
+    public Task SaveAsync(IReadOnlyList<TaskViewRow> rows, string? cursor = null, CancellationToken cancellationToken = default) =>
+        SaveAsync(rows, cursor, preferences: null, cancellationToken);
+
+    public async Task SaveAsync(IReadOnlyList<TaskViewRow> rows, string? cursor, MyDayPreferencesDocument? preferences, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(rows);
 
@@ -143,6 +185,25 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        if (preferences is not null)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO my_day_preferences (id, updated_at, server_ts, payload)
+                VALUES (1, $updatedAt, $serverTs, $payload)
+                ON CONFLICT (id) DO UPDATE SET
+                    updated_at = excluded.updated_at,
+                    server_ts = excluded.server_ts,
+                    payload = excluded.payload
+                """;
+            command.Parameters.AddWithValue("$updatedAt", FormatInstant(preferences.UpdatedAt));
+            command.Parameters.AddWithValue("$serverTs", preferences.ServerTimestamp);
+            command.Parameters.AddWithValue("$payload", preferences.Content);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -154,6 +215,16 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         command.CommandText = "DELETE FROM task_cursor";
 
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static bool HasTable(SqliteConnection connection, SqliteTransaction transaction, string name)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name";
+        command.Parameters.AddWithValue("$name", name);
+
+        return command.ExecuteScalar() is not null;
     }
 
     private SqliteConnection Open()

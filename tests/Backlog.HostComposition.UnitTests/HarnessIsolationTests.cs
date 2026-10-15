@@ -52,6 +52,7 @@ public class HarnessIsolationTests
             // type; the ones behind a port alone are covered by the variables
             // HarnessIsolation sets beside these.
             services.GetRequiredService<WorkingHoursSettingsStore>().SettingsPath,
+            services.GetRequiredService<MyDayPreferencesStore>().SettingsPath,
             services.GetRequiredService<ShellNavigationStore>().SettingsPath,
             services.GetRequiredService<PullRequestPinsStore>().SettingsPath,
             services.GetRequiredService<ClaudeSettingsStore>().SettingsPath,
