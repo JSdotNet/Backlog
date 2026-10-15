@@ -1,6 +1,6 @@
 using Backlog.SharedKernel.Devbook;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Documents;
 
 /// <summary>
 /// A devbook folder that is a flat set of Markdown documents — a root document,

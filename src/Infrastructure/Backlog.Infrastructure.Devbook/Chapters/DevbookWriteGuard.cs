@@ -1,6 +1,6 @@
 using Backlog.Modules.Devbook.Abstractions;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
 /// The check every knowledge write makes before it touches a file: the folder
