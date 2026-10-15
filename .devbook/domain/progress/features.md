@@ -410,6 +410,7 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
 related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md, .devbook/domain/progress/domain.md#sprint-series, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/domain/progress/requirements.md#syncing-sprints-between-devices]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesReplicationTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.SprintSyncRefreshTests]
 ```
 
 Keep every sprint series the same on every desktop the person has paired. A series
@@ -429,6 +430,17 @@ set up a series has nothing to send**.
 Series travel whether the [Progress area](context.md#progress-area) is on or off,
 because the series recorded while it is off are kept. The phone keeps no sprints and
 lists none.
+
+A series that arrives from another desktop **shows at once** on every screen that draws
+it — [the Sprints settings page](#the-sprints-settings-page),
+[the sprint view](#the-sprint-view), a task's
+[Sprint section](#planning-from-a-task) and the weekly brief's
+[Sprint block](#sprints-in-the-briefs) — without the person moving away or pressing
+Refresh, as a task pulled by sync shows in the Tasks pane. What the person has open
+keeps what they put in it: the Close dialog keeps its choices and next goal and lists
+any item that turned unfinished, a note being written keeps its text, and a sprint
+name held back for want of `{n}` stays in its field. The Close dialog closes only when
+the sprint it would close was closed on the other desktop.
 
 ## Sprints in the briefs
 

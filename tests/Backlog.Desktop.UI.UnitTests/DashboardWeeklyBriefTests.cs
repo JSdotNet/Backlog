@@ -260,6 +260,8 @@ public class DashboardWeeklyBriefTests
 
     private sealed class SprintSource(IReadOnlyList<SprintBriefSprint> sprints) : ISprintBriefSource
     {
+        public event Action? Changed { add { } remove { } }
+
         public List<(DateOnly From, DateOnly To)> Asked { get; } = [];
 
         public Task<IReadOnlyList<SprintBriefSprint>> ReadAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)

@@ -501,6 +501,8 @@ public sealed class SprintViewTests : IDisposable
     /// the same three members. Nothing else is asked of them here.</summary>
     private sealed class FakeProgress(IReadOnlyList<SprintSeriesDto> series) : ISprintSeriesPlanning, ISprintProgress
     {
+        public event Action? Changed { add { } remove { } }
+
         public int? LastNumber { get; private set; }
 
         public bool Fails { get; set; }
