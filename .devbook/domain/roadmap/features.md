@@ -27,11 +27,25 @@ keeps everything else is a plan they will lose.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadmap/requirements.md#planning-work-that-has-no-task-yet]
 ```
 
 Add an item to the plan with a title and dates alone. Most planning happens before
 refinement, and a planning tool that first demands a refined work item is a tool
 that gets used after the decisions have already been made somewhere else.
+
+Some of that work is never refined at all: a launch post, a call, a decision. No
+task will ever say it is done, so the person says it: they **complete the item by
+hand**, from the end of its bar or from its editor, and reopen it if they were
+wrong. The item is then a record of finished work, drawn where it was planned and
+read as finished wherever the plan is read.
+
+Tasks still have the last word. Once a task is filed under the item, its progress
+is what the roadmap reads, and the hand completion waits until no task is left.
+What completing promises is in
+[the requirements](requirements.md#planning-work-that-has-no-task-yet), and what
+the item holds to is in
+[its invariants](domain.invariants.md#invariant-gathered-tasks-outrank-a-completion-by-hand).
 
 ### Linking an item to the task that executes it
 
