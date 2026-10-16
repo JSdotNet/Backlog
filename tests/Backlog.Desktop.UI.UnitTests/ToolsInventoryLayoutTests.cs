@@ -323,7 +323,7 @@ public sealed class ToolsInventoryLayoutTests
     }
 
     private static string Css() => File.ReadAllText(
-        RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        RepositoryRoot.File("src", "Modules", "DevPc", "Backlog.Modules.DevPc.UI", "wwwroot", "devpc.css")).Replace("\r\n", "\n");
 
     private static string Components() => File.ReadAllText(
         RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");

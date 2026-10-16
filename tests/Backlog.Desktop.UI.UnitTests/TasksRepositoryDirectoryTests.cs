@@ -40,6 +40,22 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         Assert.Equal("Backlog", repository.Name);
     }
 
+    /// <summary>An archived repository stays in the directory, marked, so finished work
+    /// keeps counting and the reconcile pass neither re-registers nor orphans its ids
+    /// (local ADR 0029). Hiding it is each picker's question, not the directory's.</summary>
+    [Fact]
+    public void An_archived_repository_is_still_offered_and_resolved_marked_archived()
+    {
+        var store = StoreWith("JSdotNet/Backlog\nJSdotNet/Archify");
+        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        var directory = new SettingsRepositoryDirectory(store);
+
+        Assert.Equal([false, true], directory.Repositories.Select(r => r.IsArchived));
+        Assert.True(directory.Resolve("JSdotNet/Archify")!.IsArchived);
+        Assert.False(directory.Resolve("backlog")!.IsArchived);
+        Assert.True(directory.Register("archify").Value.IsArchived);
+    }
+
     /// <summary>A plan writes a name however its author felt like writing it, and
     /// the alias it has to meet is stored lower-cased — so the match is on the
     /// normalized form rather than on the two strings as typed.

@@ -361,3 +361,7 @@ jobs:
       - name: Compile
         working-directory: src/App/Backlog.Ide.VsCode
         run: npm run compile
+
+      - name: Test
+        working-directory: src/App/Backlog.Ide.VsCode
+        run: npm test

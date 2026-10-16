@@ -171,6 +171,21 @@ public interface ITaskItems
     /// </summary>
     Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Moves the open tasks — Draft, Ready, In progress — filed under
+    /// <paramref name="repositoryId"/> to <paramref name="moveToId"/>, or, with
+    /// <paramref name="drop"/>, sets their Task Status to archived, and answers how
+    /// many tasks changed. Exactly one of the two is asked for; anything else is
+    /// refused.
+    /// <para>
+    /// The offer made when a repository is archived (local ADR 0029). A move
+    /// replaces that one filing and keeps every issue link where the issue lives;
+    /// a drop deletes nothing and keeps the filing. Finished work is left alone.
+    /// Idempotent.
+    /// </para>
+    /// </summary>
+    Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default);
+
     /// <summary>Brings in a plan — a block of entry text naming more than one
     /// prompt — and turns it into backlog entries in one step. See
     /// <c>ImportPlanCommand</c> and ADR 0007 for what "brings in" means: the

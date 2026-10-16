@@ -31,17 +31,16 @@ namespace Backlog.Desktop.UI.Shell;
 /// list went back to a segment of its own in the header.
 /// </para>
 /// <para>
-/// Deliberately not a fourth <see cref="GlobalPane"/>. The panes have a capacity
-/// rule the viewport sets and an invariant that one of them is always on screen;
-/// a takeover has neither, and folding it in would let the window width close a
-/// takeover or a takeover evict the reader's pane selection. Because this is a
-/// separate field, closing a surface simply reveals the selection that was there
-/// all along — no save, no restore, nothing to get wrong.
+/// Deliberately a field of its own beside the main view (<see cref="ShellView"/>).
+/// Closing a surface simply reveals the view that was there all along — no save,
+/// no restore, nothing to get wrong. The side panes that once sat beside the view
+/// had a capacity rule the viewport set; each of them, the Inbox and then the
+/// Devbook, became a member here instead, and none is left.
 /// </para>
 /// </summary>
 internal enum WorkspaceSurface
 {
-    /// <summary>The three side-by-side panes.</summary>
+    /// <summary>The main view the view switch picks, alone.</summary>
     Workspace,
 
     /// <summary>Dev PC Management's configuration, taking the whole screen.</summary>
@@ -72,11 +71,20 @@ internal enum WorkspaceSurface
     PullRequests,
 
     /// <summary>The Inbox, taking the whole screen (local ADR 0022, amendment of
-    /// 2026-10-12). It was a <see cref="GlobalPane"/> beside the main view until
+    /// 2026-10-12). It was a side pane beside the main view until
     /// triage wanted the width; <c>ShellNavigationStore</c> reads a file from then
     /// that had it open over the workspace as this surface. Appended for the reason
     /// <see cref="PullRequests"/> was. Unlike the other takeovers Escape does not
     /// close it: Escape belongs to the Inbox's own keys there, leaving triage for the
     /// list, so only its header option — or another surface's — leaves it.</summary>
-    Inbox
+    Inbox,
+
+    /// <summary>The Devbook — a repository's devbook or the Brain — taking the whole
+    /// screen (local ADR 0022, amendment of 2026-10-15). It was the last side pane,
+    /// beside the main view, until a chapter wanted the width;
+    /// <c>ShellNavigationStore</c> reads a file from then that had it open over the
+    /// workspace, as <c>Devbook</c> or the older <c>Knowledge</c>, as this surface.
+    /// Appended after <see cref="Inbox"/> for the reason <see cref="PullRequests"/>
+    /// was. Escape closes it as it closes the other takeovers.</summary>
+    Devbook
 }

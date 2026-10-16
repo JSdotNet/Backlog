@@ -49,7 +49,7 @@
                     TestId="brain-pane-first-use"
                     role="status">
             <Action>
-                <AppButton Href="settings/storage#brain-folder" Variant="ButtonVariant.Primary">Set up your Brain</AppButton>
+                <AppButton Href="settings/storage#brain-folder" External="false" Variant="ButtonVariant.Primary">Set up your Brain</AppButton>
             </Action>
         </EmptyState>
     </Story>
@@ -103,7 +103,7 @@
         <EmptyState Title="@BrainSetup.SetUpLabel" role="status">
             <DescriptionContent>…</DescriptionContent>
             <Action>
-                <AppButton Href="@BrainSetup.SettingsHref" Variant="ButtonVariant.Primary">
+                <AppButton Href="@BrainSetup.SettingsHref" External="false" Variant="ButtonVariant.Primary">
                     @BrainSetup.SetUpLabel
                 </AppButton>
             </Action>

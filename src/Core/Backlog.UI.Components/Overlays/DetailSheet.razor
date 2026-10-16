@@ -30,17 +30,24 @@
      aria-hidden="true"
      @onclick="BackdropClickedAsync"></div>
 
+@* While open, a key pressed in the sheet is the sheet's, as it is a Modal's: its
+   host is often an ancestor with a keydown handler of its own — the Devbook's
+   surface closes on Escape — and one Escape must not close the sheet and then the
+   surface behind it. Bound to Open as drawn before the key, the state the key acted
+   on; Blazor's stopPropagation ends only its own walk, so a document listener still
+   hears the key. *@
 <aside id="@_id"
        class="@ClassValue"
        data-testid="@TestId"
        data-open="@(Open ? "true" : "false")"
        role="dialog"
-       aria-modal="true"
+       aria-modal="@(Open ? "true" : null)"
        aria-labelledby="@(HasTitle ? TitleId : null)"
        aria-label="@(HasTitle ? null : AriaLabel)"
        inert="@(!Open)"
        tabindex="-1"
        @onkeydown="OnKeyDownAsync"
+       @onkeydown:stopPropagation="Open"
        @attributes="AdditionalAttributes">
     <header class="@HeaderClassValue">
         <div class="detail-sheet__heading">
@@ -198,7 +205,10 @@
         {
             if (Open)
             {
-                await Js.InvokeVoidAsync("backlogFocusTrap", _id, RestoreFocusToId);
+                // Escape held for the sheet wherever the focus is while it is open:
+                // a sheet opened with the pointer can leave the focus on what was
+                // pressed, outside it, and the key would go to the surface behind.
+                await Js.InvokeVoidAsync("backlogFocusTrap", _id, RestoreFocusToId, CloseOnEscape);
             }
             else
             {

@@ -33,6 +33,10 @@ public enum SyncItemKind
     /// <summary>A sprint series: its cadence, its sprints and what each holds, as one
     /// whole document.</summary>
     SprintSeries,
+
+    /// <summary>The My Day preferences: the Clear My Day overnight switch, as one whole
+    /// document (local ADR 0032).</summary>
+    MyDayPreferences,
 }
 
 /// <summary>

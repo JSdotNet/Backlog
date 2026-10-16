@@ -82,6 +82,23 @@ public sealed class FileTaskSyncStateStoreTests : IDisposable
         Assert.Null(new FileTaskSyncStateStore(path).Current.DocumentWatermarks);
     }
 
+    /// <summary>The one-time feed replays a device has made survive a restart (local
+    /// ADR 0032, Verification 10), and a file from before them has made none.</summary>
+    [Fact]
+    public void The_feed_replays_made_survive_a_restart()
+    {
+        var path = Path.Combine(_root, "task-sync-state.json");
+
+        new FileTaskSyncStateStore(path).Save(
+            new TaskSyncState(Noon, "cursor-1").WithFeedReplay(MyDayReplicaDocuments.PreferencesType));
+
+        Assert.True(new FileTaskSyncStateStore(path).Current.HasReplayedFeedFor(MyDayReplicaDocuments.PreferencesType));
+
+        File.WriteAllText(path, """{"pushWatermark":"2026-09-07T12:00:00+00:00","pullCursor":"cursor-1"}""");
+
+        Assert.False(new FileTaskSyncStateStore(path).Current.HasReplayedFeedFor(MyDayReplicaDocuments.PreferencesType));
+    }
+
     [Fact]
     public void Saving_raises_changed_and_moves_current()
     {

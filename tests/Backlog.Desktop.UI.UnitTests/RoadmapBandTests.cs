@@ -61,7 +61,7 @@ public class RoadmapBandTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task TheHeadingAndTheFiltersShareOneRow_AndThereIsNoSecondTitle()
+    public async Task TheHeadingSitsInTheChartsHeaderRow_WithNoFilterBar_AndNoSecondTitle()
     {
         Configure("JSdotNet/Backlog");
         await Planning.AddItemAsync(
@@ -74,13 +74,14 @@ public class RoadmapBandTests : RoadmapBandHarness
         var band = Drawn(context);
 
         // Exactly one heading, and it is inside the chart's header row rather than
-        // above the chart — which is what puts it on the same line as the filters.
+        // above the chart. The chart's facet filters are not offered: the Completed
+        // switch is the roadmap's one narrowing.
         var heading = Assert.Single(band.FindAll("h2#roadmap-band-title"));
         Assert.Equal("Roadmap", heading.TextContent.Trim());
 
         var header = band.Find(".roadmap-timeline__header");
         Assert.Contains(heading, header.QuerySelectorAll("h2"));
-        Assert.NotNull(header.QuerySelector(".roadmap-timeline__filters"));
+        Assert.Empty(band.FindAll(".roadmap-timeline__filters"));
 
         // No chart title of its own, and no year: the axis carries the years.
         Assert.Empty(band.FindAll(".roadmap-timeline__title"));
@@ -88,7 +89,7 @@ public class RoadmapBandTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task TheFiltersCarryNoLabelHeadings_ButAreStillNamed()
+    public async Task TheCompletedSwitch_IsOnUntilTurnedOff_AndOffIsKeptOnThisDevice()
     {
         Configure("JSdotNet/Backlog");
         await Planning.AddItemAsync(
@@ -100,10 +101,18 @@ public class RoadmapBandTests : RoadmapBandHarness
         using var context = Context();
         var band = Drawn(context);
 
-        Assert.Empty(band.FindAll(".roadmap-timeline__filters .field__label"));
-        Assert.Equal(
-            ["Repository", "Priority", "Lane", "Tag"],
-            band.FindAll(".roadmap-timeline__filters input").Select(input => input.GetAttribute("aria-label")));
+        var completed = band.Find("[data-testid='roadmap-band-completed'] button[role='switch']");
+        Assert.Equal("true", completed.GetAttribute("aria-checked"));
+
+        completed.Click();
+
+        band.WaitForAssertion(() => Assert.Equal(
+            "false",
+            band.Find("[data-testid='roadmap-band-completed'] button[role='switch']").GetAttribute("aria-checked")));
+        Assert.False(new ShellNavigationStore(ShellNavigationFile).RoadmapCompletedShown);
+
+        // The open work is still drawn: only finished plans leave the chart.
+        Assert.Single(band.FindComponent<RoadmapTimeline>().Instance.Bars);
     }
 
     [Fact]

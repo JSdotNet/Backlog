@@ -76,6 +76,9 @@ public sealed class InstructionSourceDiscovery
 
         var location = folders?.Resolve("instructions", repository.Alias);
         var fromBranch = location?.Source is DevbookSourceKind.Branch;
+        // A branch snapshot is never edited, and neither is an archived repository's
+        // clone (local ADR 0029 §4): the same answer the port gives every other area.
+        var canEdit = !fromBranch && location is not { RepositoryArchived: true };
 
         if (fromBranch && location is not { Available: true })
         {
@@ -105,7 +108,7 @@ public sealed class InstructionSourceDiscovery
                 fromBranch
                     ? "The fetched copy of this branch is no longer on disk."
                     : "The configured local clone directory was not found.",
-                CanEdit: !fromBranch);
+                CanEdit: canEdit);
         }
 
         var documents = new List<InstructionDocument>();
@@ -144,7 +147,7 @@ public sealed class InstructionSourceDiscovery
                 0 => "No recognized instruction documents were found in this clone.",
                 _ => null
             },
-            CanEdit: !fromBranch);
+            CanEdit: canEdit);
     }
 
     /// <summary>
@@ -297,8 +300,9 @@ public sealed record InstructionRepository(
 /// <summary>What one repository's instruction documents read as.</summary>
 /// <param name="CanEdit">Whether these documents may be written to. False for a
 /// branch snapshot, which is a copy of somebody's commit — an edit to it would
-/// survive exactly until the next fetch. Defaults to true so that every caller
-/// predating branch loading keeps offering the edit it always offered.</param>
+/// survive exactly until the next fetch, and for an archived repository's clone (local
+/// ADR 0029 §4). Defaults to true so that every caller predating branch loading keeps
+/// offering the edit it always offered.</param>
 public sealed record InstructionSourceListing(
     string? LocalRoot,
     IReadOnlyList<InstructionDocument> Documents,
