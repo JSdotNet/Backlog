@@ -197,6 +197,38 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
+    /// The head keeps one My Day preferences store behind both ports (local ADR 0032,
+    /// §2), and the sync merge it composes hands a <c>my-day-preferences</c> document to
+    /// it: the switch another desktop turned off reads off here, on the screen's port.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_takes_synced_my_day_preferences_into_its_one_store()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var preferences = provider.GetRequiredService<IMyDayPreferences>();
+        Assert.Same(preferences, provider.GetRequiredService<IMyDayPreferencesReplication>());
+        Assert.True(preferences.ClearsOvernight);
+
+        var stamp = new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero);
+        var change = MyDayReplicaDocuments.ToChange(
+            new Backlog.Modules.Tasks.Abstractions.DataTransferObjects.MyDayPreferencesCopyDto(
+                """{"updatedAt":"2026-10-15T08:00:00Z","clearsOvernight":false}""", stamp));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        Assert.False(preferences.ClearsOvernight);
+    }
+
+    /// <summary>
     /// The roadmap's actual hours are answered by the adapter over the agent activity,
     /// and one instance serves every window, as the activity source it reads does.
     /// </summary>
@@ -329,6 +361,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
                 Path.Combine(_appData, "planning-velocity.json"),
                 time: null,
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
+            MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(_appData, MyDayPreferencesStore.FileName)),
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(_appData, "shell-navigation.json")),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(_appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(_appData, "capture-runs.json")),

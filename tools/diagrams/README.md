@@ -15,6 +15,15 @@ unchanged, and mermaid is still what renders a knowledge diagram.
 The feature is behind the `archify-diagrams` flag on the settings screen, off by
 default.
 
+**Only the specifications and the index are committed** (local ADR 0034). The
+desktop app draws each artifact itself, on demand, from its specification, into
+`_archify-renders/` under its devbook cache folder, beside the devbook databases.
+It uses the clone's own `tools/archify` first and the copy bundled beside the app
+otherwise. The cache key covers the specification's text, its type, its quality
+and the generator's content, so an edited specification or a bumped generator is
+drawn again and an unchanged one is not. Drawing needs Node; without it the app
+shows the mermaid and says why.
+
 [archify]: https://github.com/tt-a1i/archify
 
 > **Not the only diagram arrangement here.** `C4.md` beside this file describes a
@@ -31,7 +40,10 @@ default.
 .devbook/domain/tasks/_archify/
     index.json                       sha256(fence) -> which artifact is whose
     flow.1.workflow.json             the specification, authored by hand
-    flow.1.workflow.html             the artifact, rendered from it
+    flow.1.workflow.html             a local preview `render` leaves; ignored by git
+
+<devbook cache folder>/_archify-renders/
+    flow.1.workflow-<key>.html       the artifact the app draws and shows
 ```
 
 A specification is named `<chapter>.<ordinal>.<type>.json`, where the ordinal is
@@ -88,9 +100,9 @@ different offer under the diagram — or none:
 
 | state | meaning |
 | --- | --- |
-| `rendered` | the hash matches an index entry and the artifact is on disk |
+| `rendered` | the hash matches an index entry and the specification it names exists; the app draws the artifact from it |
 | `stale` | an entry names this chapter and ordinal, but for an older hash — the fence was edited |
-| `unrendered` | a specification exists and no artifact does |
+| `unrendered` | a specification exists and no index entry for this hash does |
 | `missing` | no specification, and Archify has a type for this kind |
 | `unsupported` | no Archify type fits — every `classDiagram` in the repository |
 | `error` | two specifications claim the same chapter and ordinal |
@@ -121,6 +133,11 @@ the only thing that will ever connect the artifact back to the fence — and dro
 whatever used to hold that ordinal, so a re-render after an edited fence leaves
 no leftover matching text nobody can see any more.
 
+The `.html` it writes beside the specification is a preview for the author.
+`.gitignore` carries `**/_archify/*.html`, so it is never committed, and the app
+never reads it: the app draws its own copy from the specification. Commit the
+specification and the index entry.
+
 ## Motion is opt-in, and every specification has to ask for it
 
 Every specification's `meta` must carry:
@@ -142,9 +159,10 @@ All 42 specifications shipped without it and every artifact was silently static.
 Nothing reported it, and nothing can: a static artifact is a complete, valid,
 nine-of-nine-checks artifact. It renders, it exports, it passes every gate
 Archify has. `ArchifyArtifactMotionTests` in `tests/Backlog.ArchitectureTests`
-is what notices now, and it checks the rendered HTML as well as the
-specification, because the two go out of step whenever a specification is edited
-without a re-render.
+is what notices now. It checks every specification, the vendored template every
+render is drawn from, and the storybook's fixture artifact. The devbook's own
+renders are no longer committed, so there is no committed HTML of theirs to go
+out of step with its specification.
 
 **Do not go looking for the attribute with a whole-file grep.** Every artifact
 embeds a stylesheet full of `svg[data-animation="trace"] [data-animate="edge"]`
@@ -153,6 +171,7 @@ not — which is exactly what sent the first investigation down the wrong path.
 Match the diagram's own tag instead:
 
 ```bash
+# A local preview from `render`, or the app's copy under _archify-renders/.
 grep -o '<svg viewBox[^>]*>' .devbook/arc42/_archify/06-runtime-view.1.sequence.html
 ```
 
@@ -206,8 +225,8 @@ render it. `render --all` renders every `stale` and `unrendered` specification,
 refusing each one nobody re-authored, so it is safe after re-authoring several.
 
 **Diagrams were inserted or removed.** Rename the specifications to their fences'
-new ordinals with `git mv`, the `.json` and `.html` together, keeping one
-specification per ordinal, and render each renamed one. The guard accepts a
+new ordinals with `git mv`, keeping one specification per ordinal, and render
+each renamed one. The guard accepts a
 renamed specification because it is the one recorded for its fence. Then author
 the new diagrams as usual.
 
@@ -250,7 +269,6 @@ profile in its filename:
 
 ```
 .devbook/domain/_archify/context-map.1.architecture.standard.json
-.devbook/domain/_archify/context-map.1.architecture.standard.html
 ```
 
 `showcase` is the default and is never written into a name, so there is exactly
@@ -313,8 +331,11 @@ The working loop:
 Inside the app the same two steps are two buttons under a diagram, and they are
 the only two states offered:
 
-- a specification exists and the artifact is missing or stale → **Render
-  artifact**, which runs the same `render` command in the configured clone;
+- the index entry matches and the specification exists → nothing to press: the
+  app draws the artifact into its cache and shows it when it lands, and states
+  the reason instead if drawing failed;
+- a specification exists and no index entry matches → **Render artifact**, which
+  runs the same `render` command in the configured clone;
 - no specification and Archify has a type for this kind → **Author with agent**,
   which opens an agent session with a brief naming the chapter, the fence, the
   target path and the type;
@@ -340,11 +361,12 @@ faithful specification still produces a picture that differs from the mermaid:
 
 In the app there is one more: the theme is pinned from outside the frame, so the
 artifact's own theme toggle does nothing there. It is hidden along with the rest
-of the toolbar; open the `.html` directly for the full viewer.
+of the toolbar; open a local preview, or the app's copy under
+`_archify-renders/`, directly for the full viewer.
 
 ## Updating the vendored generator
 
-See `tools/archify/UPSTREAM.md`. The pinned commit is recorded there, and the
-artifacts in the repository were rendered by it. Bumping it means re-delivering
-every specification the way its **Updating** section says, not `render`, and
-reading the diff rather than just accepting it.
+See `tools/archify/UPSTREAM.md`. The pinned commit is recorded there. Bumping it
+means re-validating every specification the way its **Updating** section says.
+There are no committed renders to regenerate: the generator's content is part of
+the app's cache key, so every diagram is drawn again on its next view.

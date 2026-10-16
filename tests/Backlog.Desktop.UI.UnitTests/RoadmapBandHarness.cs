@@ -169,6 +169,18 @@ public abstract class RoadmapBandHarness : IDisposable
         return Drawn(context);
     }
 
+    /// <summary>Writes one task tagged <c>+<paramref name="tag"/></c> into the real
+    /// backlog, so the item carrying that tag is carried by a task: its bar and its editor
+    /// offer Open in Tasks rather than Complete.</summary>
+    protected async Task CarriedByATaskAsync(string tag)
+    {
+        var entries = TasksTestHost.EntriesFor(Settings);
+        var written = await entries.ImportPlanAsync(
+            $"# Step\n`task` `+{tag}` `id:step-{tag}`\n",
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(written.IsSuccess, written.IsFailure ? written.Error.Message : null);
+    }
+
     /// <summary>
     /// Puts a band colour into the stored plan the way a build from before the choice
     /// moved to Settings wrote one.

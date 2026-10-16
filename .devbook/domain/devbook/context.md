@@ -42,7 +42,8 @@ default: on
 related: [".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane"]
 ```
 
-Turning it on shows the Devbook side pane. The pane shows the repository the
+Turning it on offers the Devbook, which takes the whole screen in place of the
+main view. The pane shows the repository the
 scope's anchor names, with its design, architecture, domain, technology, AI
 adoption, and instruction sections. It shows the Brain when the anchor is Brain or
 nothing is pressed. The Brain mode has no switch of its own: it ships with the pane

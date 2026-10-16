@@ -1,18 +1,16 @@
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// <c>pane-resizer</c> is worn by two separators, and a rule that names it without
-/// saying which one is a rule about both.
+/// <c>pane-resizer</c> is worn by every <c>SplitPane</c> separator, and a rule that
+/// names it without saying which split it is about is a rule about all of them.
 /// <para>
-/// The shell's side pane has its own separator, and it wears the library's class on
-/// purpose — <c>SharedControlAdoptionTests</c> records that as a documented
-/// duplication, because the shell drives it through its own interop and
-/// <c>SplitPane</c> cannot take that over yet. Every <c>SplitPane</c> separator wears
-/// the same class, which is what makes the borrowed name dangerous rather than merely
-/// untidy: a rule written for one of them silently reaches the other.
+/// The shell's side pane had its own separator wearing the library's class, until the
+/// Devbook took the screen and the side pane went (local ADR 0022, amendment of
+/// 2026-10-15). While both wore it, the borrowed name was dangerous rather than
+/// merely untidy: a rule written for one of them silently reached the other.
 /// </para>
 /// <para>
-/// It did. The 72rem step stacks the knowledge layout to one column and hid
+/// It did. The 72rem step stacked the knowledge layout to one column and hid
 /// <c>.pane-resizer</c> unscoped, on the reasoning that a stacked layout has no
 /// vertical edge left to drag. True of that layout; false of the split inside its
 /// pane, which is still side by side at 72rem and stacks at 60rem. Between the two
@@ -32,29 +30,25 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class PaneResizerScopeTests
 {
-    /// <summary>Where the knowledge layout stops being two columns.</summary>
+    /// <summary>Where the knowledge layout stopped being two columns.</summary>
     private const string NarrowStep = "@media (max-width: 72rem) {";
 
-    /// <summary>And where the split inside its pane stops being two, which is a
+    /// <summary>And where the split inside the task list stops being two, which is a
     /// different width because it is a different layout.</summary>
     private const string StackStep = "@media (max-width: 60rem) {";
 
     /// <summary>
-    /// The narrow step hides the shell's own separator, named by the layout it
-    /// belongs to.
-    /// <para>
-    /// A child combinator rather than a descendant one, because the split's separator
-    /// is also inside <c>.devbook-layout</c> — two levels down, through the tasks
-    /// workspace — so a descendant selector would hide exactly what this is scoped to
-    /// spare.
-    /// </para>
+    /// The narrow step hid the shell's own separator, named by the layout it belonged
+    /// to. That layout and its separator are gone with the side pane, and so is the
+    /// rule: the step names no separator at all now.
     /// </summary>
     [Fact]
-    public void The_narrow_step_hides_the_shells_own_separator()
+    public void The_narrow_step_names_no_separator_since_the_side_pane_went()
     {
-        var narrow = Block(Css(), NarrowStep);
+        var narrow = StripComments(Block(Css(), NarrowStep));
 
-        Assert.Contains(".devbook-layout > .pane-resizer {", narrow, StringComparison.Ordinal);
+        Assert.DoesNotContain(".pane-resizer", narrow, StringComparison.Ordinal);
+        Assert.DoesNotContain(".devbook-layout", narrow, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -110,8 +104,8 @@ public sealed class PaneResizerScopeTests
 
         Assert.True(
             offenders.Count == 0,
-            "A viewport step is addressing the separator class on its own, which reaches both the "
-            + "shell's side pane and every SplitPane in the app. Name the layout the step is about:\n"
+            "A viewport step is addressing the separator class on its own, which reaches every "
+            + "SplitPane in the app. Name the layout the step is about:\n"
             + string.Join("\n", offenders));
     }
 
@@ -131,7 +125,7 @@ public sealed class PaneResizerScopeTests
     }
 
     /// <summary>Each selector in the block, one per comma, trimmed — so that
-    /// <c>.devbook-layout &gt; .pane-resizer</c> and <c>.pane-resizer</c> are told
+    /// <c>.some-layout &gt; .pane-resizer</c> and <c>.pane-resizer</c> are told
     /// apart rather than both matching a substring search.</summary>
     private static IEnumerable<string> SelectorLists(string block)
     {

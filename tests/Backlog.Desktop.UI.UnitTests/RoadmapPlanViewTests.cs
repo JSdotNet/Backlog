@@ -819,6 +819,28 @@ public class RoadmapPlanViewTests
         new(key, key.ToUpperInvariant(), 1, RollupOrigin.Tag, progress, StartedOn: started, CompletedOn: completed, CreatedOn: created);
 
     [Fact]
+    public void WithFinishedWorkHidden_AFinishedItemIsNotDrawn_NorTheArrowToIt()
+    {
+        var finished = Item("Shipped", repositories: ["backlog"]);
+        var open = Item("Next", startDay: 12, endDay: 16, repositories: ["backlog"], dependsOn: [finished.Id]);
+        var rollups = new Dictionary<Guid, RoadmapItemRollupDto>
+        {
+            [finished.Id] = new([Worked("a", RoadmapProgress.Done, started: new DateOnly(2026, 1, 5), completed: new DateOnly(2026, 1, 8))], []),
+            [open.Id] = new([Worked("b", RoadmapProgress.Planned)], [])
+        };
+
+        var shown = RoadmapPlanView.From(Plan([finished, open]), Configured, rollups);
+        var hidden = RoadmapPlanView.From(Plan([finished, open]), Configured, rollups, hideFinished: true);
+
+        Assert.Equal(2, shown.Bars.Count);
+        Assert.Single(shown.Links);
+
+        Assert.Equal(open.Id.ToString(), Assert.Single(hidden.Bars).Id);
+        Assert.Empty(hidden.Links);
+        Assert.True(hidden.HasAnythingToDraw);
+    }
+
+    [Fact]
     public void AFinishedItem_IsDrawnFromItsFirstStartToItsLastCompletion_AndLocked()
     {
         // Planned 5–9 January; the work actually ran 12 December to 20 January.
@@ -1448,5 +1470,193 @@ public class RoadmapPlanViewTests
 
         Assert.False(bar.Overdue);
         Assert.DoesNotContain("Overdue", bar.Detail, StringComparison.Ordinal);
+    }
+
+    // --- Completed by hand: work no task carries, that a person said was done ---
+    //
+    // Today is Saturday 10 January 2026 (Forecast); the window 5-9 January has passed.
+
+    private static RoadmapItemDto CompletedOn(RoadmapItemDto item, int day) =>
+        item with { CompletedOn = new DateOnly(2026, 1, day) };
+
+    [Fact]
+    public void ATaskLessItemCompletedByHand_IsDrawnFinished_WhereItWasPlanned_AndNeverOverdue()
+    {
+        var bar = Forecasted(CompletedOn(Item("Launch post", startDay: 5, endDay: 9, repositories: ["backlog"]), 8));
+
+        Assert.Equal((new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9)), (bar.Start, bar.End));
+        Assert.False(bar.Overdue);
+        Assert.False(bar.Tentative);
+        Assert.True(bar.Locked);
+        Assert.False(bar.EndResizable);
+        Assert.DoesNotContain("Overdue", bar.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("no task yet", bar.Detail, StringComparison.Ordinal);
+        Assert.Contains("Completed 8 Jan 2026", bar.Detail, StringComparison.Ordinal);
+        Assert.True(bar.Done);
+    }
+
+    [Fact]
+    public void ATaskLessItemCompletedByHand_IsDrawnFinished_WithoutAForecastToo()
+    {
+        var bar = Drawn(CompletedOn(Item("Launch post", repositories: ["backlog"]), 8), RoadmapItemRollupDto.Empty);
+
+        Assert.True(bar.Locked);
+        Assert.False(bar.Tentative);
+    }
+
+    [Fact]
+    public void OnceTasksCarryAnItemCompletedByHand_TheTasksWin_AndItsPassedWindowIsOverdue()
+    {
+        var bar = Forecasted(
+            CompletedOn(Item("Launch post", startDay: 5, endDay: 9, repositories: ["backlog"]), 8),
+            Sized("a", 2, RoadmapProgress.Ready));
+
+        Assert.True(bar.Overdue);
+        Assert.False(bar.Locked);
+        Assert.False(bar.Done);
+        Assert.DoesNotContain("Completed", bar.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EachItemSaysWhetherTasksCarryIt_AndWhetherItWasCompletedByHand()
+    {
+        var open = Item("Open", repositories: ["backlog"]);
+        var completed = CompletedOn(Item("Completed", repositories: ["backlog"]), 8);
+        var carried = Item("Carried", repositories: ["backlog"]);
+
+        var view = RoadmapPlanView.From(
+            Plan([open, completed, carried]),
+            Configured,
+            new Dictionary<Guid, RoadmapItemRollupDto>
+            {
+                [open.Id] = RoadmapItemRollupDto.Empty,
+                [completed.Id] = RoadmapItemRollupDto.Empty,
+                [carried.Id] = new([Task("a")], [])
+            },
+            Forecast);
+
+        Assert.Equal(new RoadmapItemState(HasTasks: false, CompletedOn: null), view.StateOf(open.Id.ToString()));
+        Assert.Equal(new RoadmapItemState(HasTasks: false, CompletedOn: new DateOnly(2026, 1, 8)), view.StateOf(completed.Id.ToString()));
+        Assert.Equal(new RoadmapItemState(HasTasks: true, CompletedOn: null), view.StateOf(carried.Id.ToString()));
+
+        Assert.Equal(RoadmapItemAction.Complete, view.StateOf(open.Id.ToString())!.BarAction);
+        Assert.Equal(RoadmapItemAction.None, view.StateOf(completed.Id.ToString())!.BarAction);
+        Assert.Equal(RoadmapItemAction.OpenInTasks, view.StateOf(carried.Id.ToString())!.BarAction);
+    }
+
+    [Fact]
+    public void AnItemTasksCarry_IsNotCompletedByHand_WhateverDayWasSet()
+    {
+        var item = CompletedOn(Item("Carried", repositories: ["backlog"]), 8);
+
+        var state = RoadmapPlanView.StateOf(item, new RoadmapItemRollupDto([Task("a")], []));
+
+        Assert.True(state.HasTasks);
+        Assert.False(state.IsCompletedByHand);
+        Assert.Null(state.CompletedOn);
+        Assert.Equal(RoadmapItemAction.OpenInTasks, state.BarAction);
+    }
+
+    [Fact]
+    public void EveryPartOfAnItemAnswersForTheItem()
+    {
+        var item = Item("Both", repositories: ["backlog", "fincent"]);
+
+        var view = RoadmapPlanView.From(
+            Plan([item]),
+            Configured,
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = RoadmapItemRollupDto.Empty });
+
+        Assert.Equal(2, view.Bars.Count);
+        Assert.All(view.Bars, bar => Assert.Equal(RoadmapItemAction.Complete, view.StateOf(bar.Id)!.BarAction));
+    }
+
+    [Fact]
+    public void AnItemWhoseTasksAreAllDone_IsDrawnDone()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"]),
+            Sized("a", 2, RoadmapProgress.Done, started: new DateOnly(2025, 12, 1), completed: new DateOnly(2025, 12, 20)));
+
+        Assert.True(bar.Done);
+    }
+
+    [Fact]
+    public void AnOpenItem_IsNotDrawnDone() =>
+        Assert.False(Forecasted(Item("Plan", startDay: 5, endDay: 20, repositories: ["backlog"])).Done);
+
+    // --- The action on a bar ------------------------------------------------------
+
+    private static RoadmapTimelineModel Acting(bool canOpenTasks, params (RoadmapItemDto Item, RoadmapItemRollupDto Rollup)[] items) =>
+        RoadmapPlanView.WithActions(
+            RoadmapPlanView.From(
+                Plan(items.Select(entry => entry.Item)),
+                Configured,
+                items.ToDictionary(entry => entry.Item.Id, entry => entry.Rollup),
+                Forecast),
+            canOpenTasks);
+
+    [Fact]
+    public void AnItemTasksCarry_OffersToOpenThemInTasks_NamedForTheItem()
+    {
+        var item = Item("Launch", repositories: ["backlog"]);
+
+        var bar = Assert.Single(Acting(true, (item, new RoadmapItemRollupDto([Task("a")], []))).Bars);
+
+        Assert.Equal(new RoadmapBarAction(RoadmapBarActionKind.Open, "Open Launch in Tasks"), bar.Action);
+    }
+
+    [Fact]
+    public void AnItemTasksCarry_OffersNothing_WhereTheHostCannotShowTasks()
+    {
+        var item = Item("Launch", repositories: ["backlog"]);
+
+        Assert.Null(Assert.Single(Acting(false, (item, new RoadmapItemRollupDto([Task("a")], []))).Bars).Action);
+    }
+
+    [Fact]
+    public void AnOpenTaskLessItem_OffersToComplete_NeverToOpenInTasks()
+    {
+        var item = Item("Launch", startDay: 5, endDay: 20, repositories: ["backlog"]);
+
+        var bar = Assert.Single(Acting(true, (item, RoadmapItemRollupDto.Empty)).Bars);
+
+        Assert.Equal(new RoadmapBarAction(RoadmapBarActionKind.Complete, "Complete Launch"), bar.Action);
+    }
+
+    [Fact]
+    public void ACompletedTaskLessItem_OffersNothingOnItsBar()
+    {
+        var item = CompletedOn(Item("Launch", repositories: ["backlog"]), 8);
+
+        Assert.Null(Assert.Single(Acting(true, (item, RoadmapItemRollupDto.Empty)).Bars).Action);
+    }
+
+    [Fact]
+    public void AnItemInTwoBands_CarriesItsActionOnTheBarThatEndsLast_Only()
+    {
+        var item = Item("Launch", startDay: 5, endDay: 20, repositories: ["backlog", "fincent"]);
+        var rollup = new RoadmapItemRollupDto(
+        [
+            new RoadmapGatheredLink("a", "A", 2, RollupOrigin.Tag, RoadmapProgress.Ready, null, ["backlog"]),
+            new RoadmapGatheredLink("b", "B", 20, RollupOrigin.Tag, RoadmapProgress.Ready, null, ["fincent"])
+        ], []);
+
+        var view = Acting(true, (item with { PlacedByImport = ImportPlacement.Effort }, rollup));
+
+        Assert.Equal(2, view.Bars.Count);
+        var last = view.Bars.OrderBy(bar => bar.End).Last();
+        Assert.NotNull(last.Action);
+        Assert.Single(view.Bars, bar => bar.Action is not null);
+    }
+
+    [Fact]
+    public void WithoutTheGatheredWork_NoItemSaysWhatItOffers()
+    {
+        var item = Item("Plan", repositories: ["backlog"]);
+
+        var view = RoadmapPlanView.From(Plan([item]), Configured);
+
+        Assert.Null(view.StateOf(item.Id.ToString()));
     }
 }

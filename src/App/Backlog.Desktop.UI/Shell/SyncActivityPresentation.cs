@@ -129,6 +129,7 @@ public static class SyncActivityPresentation
         SyncItemKind.GitHubSettings => "GitHub settings",
         SyncItemKind.Note => "Note",
         SyncItemKind.SprintSeries => "Sprint series",
+        SyncItemKind.MyDayPreferences => "My Day preferences",
         _ => kind.ToString(),
     };
 

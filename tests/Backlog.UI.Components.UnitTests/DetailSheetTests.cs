@@ -45,6 +45,9 @@ public sealed class DetailSheetTests
 
         Assert.Equal("false", panel.GetAttribute("data-open"));
         Assert.True(panel.HasAttribute("inert"));
+        // A closed sheet claims no modality, so the shell's Escape listener
+        // still hears a key pressed with focus on the page behind it.
+        Assert.False(panel.HasAttribute("aria-modal"));
     }
 
     [Fact]
@@ -92,6 +95,44 @@ public sealed class DetailSheetTests
         sheet.Find(".detail-sheet").KeyDown(new KeyboardEventArgs { Key = "Escape" });
 
         Assert.False(open);
+    }
+
+    /// <summary>
+    /// The Escape that closes an open sheet is the sheet's alone. Its host is often
+    /// an ancestor with a keydown handler of its own — the Devbook's surface closes
+    /// on Escape — and one press must not close the sheet and then the surface
+    /// behind it. A closed sheet holds nothing back.
+    /// </summary>
+    [Fact]
+    public void The_escape_that_closes_an_open_sheet_does_not_reach_its_host()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var closed = 0;
+        var hostHeard = 0;
+
+        RenderFragment Host(bool open) => builder =>
+        {
+            builder.OpenElement(0, "main");
+            builder.AddAttribute(1, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, () => hostHeard++));
+            builder.OpenComponent<DetailSheet>(2);
+            builder.AddComponentParameter(3, nameof(DetailSheet.Open), open);
+            builder.AddComponentParameter(4, nameof(DetailSheet.Title), "Butter");
+            builder.AddComponentParameter(5, nameof(DetailSheet.OnClosed), EventCallback.Factory.Create(this, () => closed++));
+            builder.CloseComponent();
+            builder.CloseElement();
+        };
+
+        var host = context.Render(Host(open: true));
+        host.Find(".detail-sheet").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(1, closed);
+        Assert.Equal(0, hostHeard);
+
+        var closedHost = context.Render(Host(open: false));
+        closedHost.Find(".detail-sheet").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(1, hostHeard);
     }
 
     [Fact]
@@ -190,6 +231,29 @@ public sealed class DetailSheetTests
         var invocation = Assert.Single(context.JSInterop.Invocations["backlogFocusTrap"]);
 
         Assert.Equal("open-sheet-button", invocation.Arguments[1]);
+    }
+
+    /// <summary>
+    /// An open sheet that closes on Escape asks the trap to hold Escape for it
+    /// wherever the focus is. A sheet opened with the pointer can leave the focus on
+    /// what was pressed — the Devbook atlas's canvas — and without the hold its
+    /// Escape went to the surface behind, closing the whole Devbook with the sheet.
+    /// A sheet that declines Escape asks for no hold. <c>FocusTrapScriptTests</c>
+    /// runs the hold itself.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Opening_asks_the_trap_to_hold_escape_when_the_sheet_closes_on_it(bool closeOnEscape)
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        Render(context, extra: parameters => parameters.Add(s => s.CloseOnEscape, closeOnEscape));
+
+        var invocation = Assert.Single(context.JSInterop.Invocations["backlogFocusTrap"]);
+
+        Assert.Equal(closeOnEscape, invocation.Arguments[2]);
     }
 
     [Fact]

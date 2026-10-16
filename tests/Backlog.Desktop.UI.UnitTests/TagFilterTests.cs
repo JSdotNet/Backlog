@@ -948,7 +948,7 @@ public sealed class TagFilterTests
         using var _host = host;
 
         host.State.ToggleTagFilter("+release-q4");
-        host.State.ShowPlan("+roadmap-import", []);
+        host.State.ShowPlan("+roadmap-import");
 
         Assert.Equal(["+roadmap-import"], host.State.SelectedTags);
         Assert.Equal("+roadmap-import", host.State.SelectedPlan);
@@ -967,7 +967,7 @@ public sealed class TagFilterTests
         host.State.ToggleTagFilter("sync");
         host.State.ToggleTagFilter("+release-q4");
 
-        host.State.ShowPlan("+roadmap-import", []);
+        host.State.ShowPlan("+roadmap-import");
 
         Assert.Equal(
             new[] { "+roadmap-import", "@bob", "sync" }.Order(),
@@ -982,8 +982,8 @@ public sealed class TagFilterTests
         var (host, release, _, _, _) = await PlansAsync();
         using var _host = host;
 
-        host.State.ShowPlan("+release-q4", []);
-        host.State.ShowPlan("+release-q4", []);
+        host.State.ShowPlan("+release-q4");
+        host.State.ShowPlan("+release-q4");
 
         Assert.Equal(["+release-q4"], host.State.SelectedTags);
         Assert.Equal([release], host.State.FilteredRows);
@@ -999,7 +999,7 @@ public sealed class TagFilterTests
         var changes = 0;
         host.State.Changed += () => changes++;
 
-        host.State.ShowPlan("+release-q4", []);
+        host.State.ShowPlan("+release-q4");
 
         Assert.Equal(1, changes);
     }
@@ -1013,7 +1013,7 @@ public sealed class TagFilterTests
         var (host, _, _, _, _) = await PlansAsync();
         using var _host = host;
 
-        host.State.ShowPlan("+e2e", []);
+        host.State.ShowPlan("+e2e");
         host.State.SetStatusFilter(null);
 
         Assert.Equal(["+e2e"], host.State.SelectedTags);
@@ -1038,7 +1038,7 @@ public sealed class TagFilterTests
         await host.WriteEntryAsync("# Ship it +plan-done\n`task` `!done` `completed:2026-09-23` `@platform`\n");
         await host.State.SelectAsync(null);
 
-        host.State.ShowPlan("+plan-done", []);
+        host.State.ShowPlan("+plan-done");
 
         var chip = Assert.Single(host.State.TagFilters, option => option.Value == "+plan-done");
         Assert.Equal((0, 2), (chip.OpenCount, chip.CompletedCount));
@@ -1059,7 +1059,7 @@ public sealed class TagFilterTests
         await host.WriteEntryAsync("# Ask about it @bob\n`task` `!ready` `@platform` `#sync`\n");
         await host.State.SelectAsync(null);
 
-        host.State.ShowPlan("+zeta", []);
+        host.State.ShowPlan("+zeta");
 
         Assert.Equal(
             ["+zeta", TasksDesktopState.NoPlanTag, "+alpha", "@bob", "sync"],
@@ -1069,9 +1069,8 @@ public sealed class TagFilterTests
         Assert.True(host.State.IsTagSelected("+zeta"));
     }
 
-    /// <summary>The same on the rendered strip, in a repository's scope and across
-    /// every repository: the first chip is the plan asked for, pressed, whatever room
-    /// the scope leaves the strip.</summary>
+    /// <summary>The same on the rendered strip, whatever scope the list was in before
+    /// it was asked: the first chip is the plan asked for, pressed.</summary>
     [Fact]
     public async Task A_shown_plan_is_the_first_chip_on_the_strip_in_every_scope()
     {
@@ -1086,7 +1085,8 @@ public sealed class TagFilterTests
 
         foreach (var scope in scopes)
         {
-            host.State.ShowPlan("+zeta", scope);
+            host.State.RestoreRepositoryScope(scope);
+            host.State.ShowPlan("+zeta");
             pane.Render();
 
             var first = pane.FindAll($"#tag-filter-strip > {Chip}")[0];
@@ -1105,7 +1105,7 @@ public sealed class TagFilterTests
         await host.WriteEntryAsync("# Finish it +zeta\n`task` `!ready` `@platform`\n");
         await host.State.SelectAsync(null);
 
-        host.State.ShowPlan("+zeta", []);
+        host.State.ShowPlan("+zeta");
         host.State.ToggleTagFilter("+alpha");
         host.State.ToggleTagFilter("+zeta");
 
@@ -1121,7 +1121,7 @@ public sealed class TagFilterTests
         await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
         await host.State.SelectAsync(null);
 
-        host.State.ShowPlan("+e2e", []);
+        host.State.ShowPlan("+e2e");
 
         Assert.Equal(["+e2e"], host.State.SelectedTags);
         Assert.Empty(host.State.FilteredRows);
@@ -1136,13 +1136,13 @@ public sealed class TagFilterTests
         var (host, release, _, _, _) = await PlansAsync();
         using var _host = host;
 
-        host.State.ShowPlan("+e2e", []);
+        host.State.ShowPlan("+e2e");
         host.State.ToggleTagFilter("+e2e");
 
         Assert.Empty(host.State.SelectedTags);
         Assert.DoesNotContain(host.State.TagFilters, option => option.Value == "+e2e");
 
-        host.State.ShowPlan("+e2e", []);
+        host.State.ShowPlan("+e2e");
         host.State.ToggleTagFilter("+release-q4");
 
         Assert.Equal(["+release-q4"], host.State.SelectedTags);
@@ -1158,13 +1158,190 @@ public sealed class TagFilterTests
         var (host, release, _, _, _) = await PlansAsync();
         using var _host = host;
 
-        host.State.ShowPlan("+e2e", []);
+        host.State.ShowPlan("+e2e");
         host.State.ToggleTagFilter("+release-q4");
 
         await Retag(host, release, "# Ship it\n`task` `!ready` `@platform` `#sync`\n");
 
         Assert.Empty(host.State.SelectedTags);
         Assert.DoesNotContain(host.State.TagFilters, option => option.Value == "+release-q4");
+    }
+
+    // --- Every entry the roadmap gathers ---------------------------------------
+    //
+    // "Open in Tasks" lists the work the roadmap counted under the item, by the
+    // roadmap's own rule (roadmap/domain.md#roadmap-item-gathering): the task the item
+    // links, and every entry wearing its tag with or without the +. Repository plays no
+    // part in that rule, so it plays none here.
+
+    private sealed record Gathered(
+        TasksPaneHost Host,
+        EntryRow Sigil,
+        EntryRow Bare,
+        EntryRow Shouted,
+        EntryRow Linked,
+        EntryRow Elsewhere,
+        EntryRow Brain,
+        EntryRow Person,
+        EntryRow Other);
+
+    /// <summary>An item tagged <c>release-q4</c> and linked to one untagged task, with
+    /// its work spread over two repositories and the Brain — and two entries it does
+    /// not gather, one naming a person who spells the slug.</summary>
+    private static async Task<Gathered> GatheredAsync()
+    {
+        var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        var gathered = new Gathered(
+            host,
+            Sigil: await host.WriteEntryAsync("# Ship it +release-q4\n`task` `!ready` `@platform` `repo:backlog`\n"),
+            Bare: await host.WriteEntryAsync("# Wire it\n`task` `!ready` `@platform` `#release-q4` `repo:backlog`\n"),
+            Shouted: await host.WriteEntryAsync("# Test it +RELEASE-Q4\n`task` `!ready` `@platform` `repo:backlog`\n"),
+            Linked: await host.WriteEntryAsync("# Plan it\n`task` `!ready` `@platform` `repo:backlog`\n"),
+            Elsewhere: await host.WriteEntryAsync("# Document it +release-q4\n`task` `!ready` `@platform` `repo:docs`\n"),
+            Brain: await host.WriteEntryAsync("# Think about it\n`task` `!ready` `@platform` `#release-q4`\n"),
+            Person: await host.WriteEntryAsync("# Ask @release-q4\n`task` `!ready` `@platform` `repo:backlog`\n"),
+            Other: await host.WriteEntryAsync("# Tidy it\n`task` `!ready` `@platform` `#other` `repo:backlog`\n"));
+        await host.State.SelectAsync(null);
+
+        return gathered;
+    }
+
+    [Fact]
+    public async Task Showing_a_plan_lists_every_entry_the_roadmap_gathers_under_it()
+    {
+        var gathered = await GatheredAsync();
+        using var host = gathered.Host;
+        host.State.RestoreRepositoryScope(["backlog"]);
+
+        host.State.ShowPlan("+release-q4", gathered.Linked.Id);
+
+        Assert.Equal(
+            new[] { gathered.Sigil, gathered.Bare, gathered.Shouted, gathered.Linked, gathered.Elsewhere, gathered.Brain }
+                .Select(row => row.TaskId)
+                .Order(StringComparer.Ordinal),
+            host.State.FilteredRows.Select(row => row.TaskId).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Showing_a_plan_lists_no_entry_the_roadmap_does_not_gather()
+    {
+        var gathered = await GatheredAsync();
+        using var host = gathered.Host;
+
+        host.State.ShowPlan("+release-q4", gathered.Linked.Id);
+
+        Assert.DoesNotContain(gathered.Person, host.State.FilteredRows);
+        Assert.DoesNotContain(gathered.Other, host.State.FilteredRows);
+    }
+
+    /// <summary>Every other scope is one that can hide gathered work, so the plan asked
+    /// for lets go of each of them — the treatment <see cref="TasksDesktopState.Reveal"/>
+    /// gives a scope in the way of a row.</summary>
+    [Fact]
+    public async Task Showing_a_plan_lets_go_of_every_scope_that_could_hide_its_work()
+    {
+        var gathered = await GatheredAsync();
+        using var host = gathered.Host;
+        host.State.SetBrainFilter();
+        host.State.SetMyDayFilter(new DateOnly(2026, 10, 15));
+        host.State.SetReadyInPlanFilter(true);
+        host.State.SetSourceFilter(TasksDesktopState.LocalSource);
+        host.State.SetTypeFilter(EntryType.Idea);
+        host.State.SetStatusFilter("done");
+
+        host.State.ShowPlan("+release-q4", gathered.Linked.Id);
+
+        Assert.Empty(host.State.SelectedRepositoryAliases);
+        Assert.False(host.State.BrainInScope);
+        Assert.Null(host.State.MyDayOn);
+        Assert.False(host.State.ReadyInPlanOnly);
+        Assert.Null(host.State.SelectedSource);
+        Assert.Null(host.State.SelectedType);
+        Assert.Equal(string.Empty, host.State.SelectedStatusFilterWire);
+        Assert.Equal(6, host.State.FilteredRows.Count);
+    }
+
+    /// <summary>The held chip counts what the list under it lists: work wearing the bare
+    /// slug and the linked task count as the + spelling does, so the chip does not read
+    /// 0 over a list of the plan's work.</summary>
+    [Fact]
+    public async Task A_shown_plan_counts_every_entry_it_gathers_open_and_finished()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Wire it\n`task` `!ready` `@platform` `#release-q4`\n");
+        var linked = await host.WriteEntryAsync("# Plan it\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Ship it\n`task` `!done` `completed:2026-09-22` `@platform` `#release-q4`\n");
+        await host.WriteEntryAsync("# Tidy it\n`task` `!ready` `@platform` `#other`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.ShowPlan("+release-q4", linked.Id);
+
+        var chip = host.State.TagFilters[0];
+        Assert.Equal("+release-q4", chip.Value);
+        Assert.Equal((2, 1), (chip.OpenCount, chip.CompletedCount));
+        Assert.True(host.State.IsTagSelected("+release-q4"));
+    }
+
+    /// <summary>The same where some of the plan's work wears the + spelling: that chip is
+    /// the one held, and it counts the bare and linked work beside it.</summary>
+    [Fact]
+    public async Task A_shown_plan_worn_with_its_sigil_counts_the_bare_and_linked_work_too()
+    {
+        var gathered = await GatheredAsync();
+        using var host = gathered.Host;
+
+        host.State.ShowPlan("+release-q4", gathered.Linked.Id);
+
+        var chip = host.State.TagFilters[0];
+        Assert.Equal("+release-q4", chip.Value);
+        Assert.Equal((6, 0), (chip.OpenCount, chip.CompletedCount));
+    }
+
+    /// <summary>Reveal asks the plan the question the list asks it, so a row the shown
+    /// plan gathers is brought into view without letting go of the plan.</summary>
+    [Fact]
+    public async Task Revealing_a_row_the_shown_plan_gathers_keeps_the_plan()
+    {
+        var gathered = await GatheredAsync();
+        using var host = gathered.Host;
+        host.State.ShowPlan("+release-q4", gathered.Linked.Id);
+        host.State.SetStatusFilter("done");
+
+        Assert.True(host.State.Reveal(gathered.Bare));
+
+        Assert.Equal("+release-q4", host.State.SelectedPlan);
+        Assert.Contains(gathered.Bare, host.State.FilteredRows);
+        Assert.Contains(gathered.Linked, host.State.FilteredRows);
+    }
+
+    [Fact]
+    public async Task Revealing_a_row_the_shown_plan_does_not_gather_lets_go_of_it()
+    {
+        var gathered = await GatheredAsync();
+        using var host = gathered.Host;
+        host.State.ShowPlan("+release-q4", gathered.Linked.Id);
+
+        Assert.True(host.State.Reveal(gathered.Other));
+
+        Assert.Null(host.State.SelectedPlan);
+        Assert.Contains(gathered.Other, host.State.FilteredRows);
+    }
+
+    /// <summary>The linked task is the shown plan's, not the chip's: once the reader lets
+    /// go and presses the plan chip themselves, it lists what wears the tag, as any
+    /// chip does.</summary>
+    [Fact]
+    public async Task Letting_go_of_a_shown_plan_lets_go_of_its_linked_task()
+    {
+        var gathered = await GatheredAsync();
+        using var host = gathered.Host;
+        host.State.ShowPlan("+release-q4", gathered.Linked.Id);
+
+        host.State.ToggleTagFilter("+release-q4");
+        host.State.ToggleTagFilter("+release-q4");
+
+        Assert.DoesNotContain(gathered.Linked, host.State.FilteredRows);
+        Assert.Contains(gathered.Sigil, host.State.FilteredRows);
     }
 
     /// <summary>Nothing to exclude while nobody plans, and nothing to show while

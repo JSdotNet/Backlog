@@ -99,6 +99,93 @@ public sealed class AzureFoundrySettingsStoreTests : IDisposable
         Assert.True(store.Current.IsConfigured);
     }
 
+    // --- The key at rest (local ADR 0030) ----------------------------------------
+
+    /// <summary>The API key is sealed under the signed-in Windows user rather than
+    /// written in the clear, by both doors that set it; the endpoint and the rest
+    /// stay legible.</summary>
+    [Fact]
+    public void A_saved_key_is_not_in_the_file_and_a_restart_reads_it_back()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var path = NewSettingsPath();
+        var store = new AzureFoundrySettingsStore(path);
+
+        Assert.Null(store.SetConnection("https://foundry.example.com", "chat", "foundry-key-connection", null));
+
+        var text = File.ReadAllText(path);
+        Assert.DoesNotContain("foundry-key-connection", text, StringComparison.Ordinal);
+        Assert.Contains("\"apiKey\": \"dpapi:", text, StringComparison.Ordinal);
+        Assert.Contains("\"endpoint\": \"https://foundry.example.com\"", text, StringComparison.Ordinal);
+        Assert.Contains("\"deployment\": \"chat\"", text, StringComparison.Ordinal);
+        Assert.Equal("foundry-key-connection", new AzureFoundrySettingsStore(path).Current.ApiKey);
+
+        Assert.Null(store.SetApiKey("foundry-key-replaced"));
+
+        Assert.DoesNotContain("foundry-key-replaced", File.ReadAllText(path), StringComparison.Ordinal);
+        var restarted = new AzureFoundrySettingsStore(path).Current;
+        Assert.Equal("foundry-key-replaced", restarted.ApiKey);
+        Assert.True(restarted.IsConfigured);
+    }
+
+    /// <summary>A file the release before the envelope wrote holds the key in the
+    /// clear. It opens with the key, and the plaintext is gone from the disk once
+    /// it has, without waiting for a save.</summary>
+    [Fact]
+    public void A_plaintext_key_from_an_earlier_release_is_read_and_sealed_on_first_read()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var path = NewSettingsPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """
+            {
+              "endpoint": "https://foundry.example.com",
+              "deployment": "chat",
+              "apiKey": "foundry-key-plaintext",
+              "apiVersion": "2024-10-21",
+              "costScope": "/subscriptions/abc"
+            }
+            """);
+
+        var store = new AzureFoundrySettingsStore(path);
+
+        Assert.Equal("foundry-key-plaintext", store.Current.ApiKey);
+        Assert.True(store.Current.IsConfigured);
+
+        var text = File.ReadAllText(path);
+        Assert.DoesNotContain("foundry-key-plaintext", text, StringComparison.Ordinal);
+        Assert.Contains("\"apiKey\": \"dpapi:", text, StringComparison.Ordinal);
+        Assert.Contains("\"costScope\": \"/subscriptions/abc\"", text, StringComparison.Ordinal);
+
+        Assert.Equal("foundry-key-plaintext", new AzureFoundrySettingsStore(path).Current.ApiKey);
+    }
+
+    /// <summary>An envelope this Windows user cannot open reads as no key, and the
+    /// connection around it still loads.</summary>
+    [Theory]
+    [InlineData("dpapi:dGhpcyBpcyBiYXNlNjQgYnV0IG5vdCBhIERQQVBJIGVudmVsb3Bl")]
+    [InlineData("dpapi:this is not base64 at all !!")]
+    [InlineData("dpapi:")]
+    public void A_key_this_user_cannot_open_reads_as_no_key_and_the_rest_still_loads(string stored)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var path = NewSettingsPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, $$"""
+            { "endpoint": "https://foundry.example.com", "deployment": "chat", "apiKey": "{{stored}}" }
+            """);
+
+        var settings = new AzureFoundrySettingsStore(path).Current;
+
+        Assert.Null(settings.ApiKey);
+        Assert.False(settings.IsConfigured);
+        Assert.Equal("https://foundry.example.com", settings.Endpoint);
+        Assert.Equal("chat", settings.Deployment);
+    }
+
     private string NewSettingsPath()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-settings", Guid.NewGuid().ToString("n"), "azure-foundry.json");

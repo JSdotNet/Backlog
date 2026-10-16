@@ -495,19 +495,16 @@ else
 
             @if (row.Runs.Count > 0)
             {
-                @* The run card: every run the row holds, latest first, each the line
-                   that has always drawn a run — its references, its outcome, and the
-                   fold with its stages and figures. *@
-                <section class="sessions-detail__card" aria-label="Delivery runs" data-testid="sessions-run-card">
-                    <h4 class="sessions-detail__card-title">@(row.Runs.Count == 1 ? "Delivery run" : $"Delivery runs · {row.Runs.Count}")</h4>
+                @* The run card: every run the row holds, latest first. The latest is
+                   drawn whole — its header, insight, figures, stages and footnote — and
+                   each earlier one folds to its header, so the run that matters now is
+                   the one open. Each run titles itself. *@
+                <section class="sessions-detail__card" aria-label="@(row.Runs.Count == 1 ? "Delivery run" : $"Delivery runs · {row.Runs.Count}")" data-testid="sessions-run-card">
                     <div class="sessions-runs" data-testid="sessions-runs">
-                        @foreach (var run in row.Runs)
+                        @for (var index = 0; index < row.Runs.Count; index++)
                         {
-                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" Comparison="@CostsOf(row)?.ComparisonOf(run)" OnOpenTask="OnOpenTask" OnOpenEconomics="OpenEconomicsFrom">
-                                <Usage>
-                                    <UsageShareFact Share="@SharesOf(row)?.Of(run)" Usage="@SharesOf(row)?.Usage" Run="true" TestId="sessions-run-share" />
-                                </Usage>
-                            </DeliveryRunLine>
+                            var run = row.Runs[index];
+                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" Collapsible="@(index > 0)" StartExpanded="@ReopensOnReturn(run)" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" Comparison="@CostsOf(row)?.ComparisonOf(run)" OnOpenTask="OnOpenTask" OnOpenEconomics="OpenEconomicsFrom" Usage="@UsageOf(row, run)" />
                         }
                     </div>
                 </section>
@@ -852,6 +849,13 @@ else
 
     private RowShares? SharesOf(SessionRow row) => _shares.TryGetValue(row.Key, out var shares) ? shares : null;
 
+    /// <summary>A run's share of the week for its card, or null where it has none — so
+    /// the card draws no empty slot, and no gap for one, between its tiles and stages.</summary>
+    private RenderFragment? UsageOf(SessionRow row, DeliveryRun run) =>
+        SharesOf(row) is { } shares && shares.Of(run) is { } share
+            ? @<UsageShareFact Share="@share" Usage="@shares.Usage" Run="true" TestId="sessions-run-share" />
+            : null;
+
     private Task<WeeklyUsage?> WeeklyAsync() => _weekly ??= ReadWeeklyAsync();
 
     /// <summary>Every stored request and every limit refusal inside the horizon. A
@@ -1185,6 +1189,16 @@ else
 
         return drawn ? DeliveryRunInsightLine.DomId(run) : OpenEconomicsId;
     }
+
+    /// <summary>
+    /// Whether a run's card is drawn open as the list comes back from Delivery economics:
+    /// the one whose insight opened the page. An earlier run's callout is inside its fold,
+    /// and the list returns with every fold closed, so without this the focus would land
+    /// on a button inside a hidden body and fall to the document. Only on the render that
+    /// returns, so a later selection draws its runs folded as usual.
+    /// </summary>
+    private bool ReopensOnReturn(DeliveryRun run) =>
+        _focusAfterEconomics && ReferenceEquals(run, _economicsOpener);
 
     /// <summary>
     /// The runs the page reads: those of the rows the shell's repository scope admits,

@@ -71,7 +71,12 @@ public sealed class SettingsCloneStatusTests
             Assert.EndsWith("Clone repository", button.TextContent.Trim(), StringComparison.Ordinal);
         });
 
-        settings.Component.Find(CloneButton).Click();
+        // The page asks git on the pool and is busy from the press, so the busy
+        // render can land before the clone has started and no render follows it.
+        Assert.True(SpinWait.SpinUntil(() => git.CloneCalls == 1, TimeSpan.FromSeconds(5)));
+
+        // Awaited: the second press returns at once, so its dispatch has run.
+        await settings.Component.Find(CloneButton).ClickAsync(new());
         Assert.Equal(1, git.CloneCalls);
 
         git.CloneGate.SetResult(null);

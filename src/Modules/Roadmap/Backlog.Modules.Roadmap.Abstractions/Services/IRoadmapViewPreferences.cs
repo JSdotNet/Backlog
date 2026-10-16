@@ -20,6 +20,14 @@ public interface IRoadmapViewPreferences
     /// for next time still holds for this run.</summary>
     void SetHoursShown(bool shown);
 
+    /// <summary>Whether finished plans are drawn — the "Completed" switch on the
+    /// roadmap's toolbar. On until the reader turns it off on this device.</summary>
+    bool CompletedShown { get; }
+
+    /// <summary>Remembers the Completed switch on this device. A choice the host cannot
+    /// keep for next time still holds for this run.</summary>
+    void SetCompletedShown(bool shown);
+
     /// <summary>The bands, by group id, the reader folded to one lane on this device —
     /// drawn folded when the roadmap opens again. Empty until one is folded.</summary>
     IReadOnlyCollection<string> CollapsedGroups { get; }

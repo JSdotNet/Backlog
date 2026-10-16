@@ -109,7 +109,7 @@ public sealed class RoadmapTooltipTests
         Assert.Contains("Release, read against the whole plan.", spoken, StringComparison.Ordinal);
     }
 
-    // --- Overdue: drawn as a warning, said by the caller's words ---------------
+    // --- Overdue: drawn as an alert, said by the caller's words -----------------
 
     private static IRenderedComponent<RoadmapTimeline> LateChart(BunitContext context)
     {

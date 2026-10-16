@@ -146,13 +146,24 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
             : ResolveRepository(key, alias);
     }
 
+    /// <summary>
+    /// The location, stamped with whether its repository is archived.
+    /// <para>
+    /// Stamped once here rather than at each of the answers below, so no answer
+    /// about an archived repository can leave the flag off: the flag is what turns
+    /// <see cref="DevbookFolderLocation.CanEdit"/> false for its clone and what the
+    /// panels refuse a new remark on (local ADR 0029 §4).
+    /// </para>
+    /// </summary>
+    private static DevbookFolderLocation Stamped(DevbookFolderLocation location, GitHubRepositoryRef repository) =>
+        repository.Archived ? location with { RepositoryArchived = true } : location;
+
     /// <summary>The repository an unscoped question is answered for, or null
-    /// when it is answered for none: the first configured one in the
-    /// devbook-only composition, nothing everywhere else.</summary>
+    /// when it is answered for none: the default repository — the first active
+    /// one (local ADR 0029) — in the devbook-only composition, nothing everywhere
+    /// else.</summary>
     private string? FallbackAlias() =>
-        _useRepositoryFallbackWhenNoAlias && _settings.Current.Repositories.Count > 0
-            ? _settings.Current.Repositories[0].Alias
-            : null;
+        _useRepositoryFallbackWhenNoAlias ? _settings.Current.DefaultRepository?.Alias : null;
 
     private DevbookFolderLocation ResolveRepository(string key, string repositoryAlias)
     {
@@ -164,6 +175,11 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
                 "Select a configured repository before opening the devbook.");
         }
 
+        return Stamped(ResolveConfigured(key, repository), repository);
+    }
+
+    private DevbookFolderLocation ResolveConfigured(string key, GitHubRepositoryRef repository)
+    {
         var folder = repository.DevbookFolders.FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
         if (folder is null)
         {
@@ -232,6 +248,27 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
             ? $"the default branch of {repository.FullName}"
             : $"{repository.FullName} ({label})";
         var snapshot = _snapshots.TryRead(repository, branch);
+
+        // An archived repository is not read from GitHub (local ADR 0029 §4): the
+        // snapshot on disk is served as it is, and with none there is nothing on
+        // its way to wait for, so the answer says why instead of "fetching".
+        if (repository.Archived)
+        {
+            if (snapshot is not null && SnapshotTree(repository) is { } kept)
+            {
+                return ResolvePath(key, folder, root, repository, $"{repository.FullName} ({label})", root, DevbookSourceKind.Branch, kept);
+            }
+
+            return DevbookFolderLocation.Unavailable(
+                key,
+                $"{repository.FullName} is archived, and no copy of {subject} was fetched before it was. Unarchive it in Settings to read its devbook.",
+                repository.FullName,
+                folder,
+                rootPath: root,
+                repositoryAlias: repository.Alias,
+                source: DevbookSourceKind.Branch);
+        }
+
         var fetch = _autoFetch.Ensure(repository, branch, hasSnapshot: snapshot is not null);
 
         if (snapshot is null || SnapshotTree(repository) is not { } tree)
@@ -280,7 +317,10 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         CancellationToken cancellationToken = default)
     {
         var location = Resolve(key, repositoryAlias);
-        if (BranchRepository(location) is not { } repository) return location;
+
+        // Served as it is: the files an archived repository's snapshot has are the
+        // ones it reads, and nothing is asked of GitHub for it (local ADR 0029 §4).
+        if (location.RepositoryArchived || BranchRepository(location) is not { } repository) return location;
 
         if (_snapshots!.TryRead(repository, repository.DevbookBranch) is null)
         {
@@ -316,7 +356,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         CancellationToken cancellationToken = default)
     {
         var location = await PrepareListingAsync(key, repositoryAlias, cancellationToken).ConfigureAwait(false);
-        if (!location.Available || BranchRepository(location) is not { } repository) return location;
+        if (!location.Available || location.RepositoryArchived || BranchRepository(location) is not { } repository) return location;
 
         var folder = FolderRelativePath(location.Folder);
         if (folder is null) return location;

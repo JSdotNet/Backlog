@@ -123,6 +123,19 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     public IReadOnlyList<string> PullRequestLabels { get; init; } = [];
 
     /// <summary>
+    /// Whether this repository is archived (local ADR 0029): still registered, with its
+    /// identity, settings and tasks, but no longer read from GitHub and hidden from the
+    /// places work is picked unless "show archived" is on.
+    /// <para>
+    /// Shared, in the registry beside <see cref="PullRequestLabels"/>, because "this
+    /// repository is retired" is true on every device of a workspace. Set only by
+    /// somebody's choice: GitHub's own <c>archived</c> field never sets it. Not part of
+    /// the <c>alias = owner/repo</c> grammar, for the reason the hue is not.
+    /// </para>
+    /// </summary>
+    public bool Archived { get; init; }
+
+    /// <summary>
     /// Where this repository's knowledge actually comes from, once the
     /// configuration meets this machine.
     /// <para>

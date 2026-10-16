@@ -154,8 +154,27 @@
                        TestId="diagram-view-outdated"
                        Message="An Archify artifact exists for this diagram, but it was authored from an earlier version of the source. You are looking at the mermaid rendering, which is current." />
             }
-            @if (artifact.SpecPath is not null)
+            @* Drawn on demand (local ADR 0034): the specification is current and
+               the host is drawing it now. A line rather than a button, because
+               there is nothing to press — a second render would only start the
+               same one twice — and the mermaid above is already the picture
+               until this one lands. *@
+            @if (artifact.IsRenderPending)
             {
+                <p class="diagram-view__status" role="status" data-testid="diagram-view-artifact-pending">Drawing the Archify artifact...</p>
+            }
+            else if (artifact.SpecPath is not null)
+            {
+                @* Why a diagram with a specification has no picture, when drawing
+                   it failed. Without this the reader would see mermaid where an
+                   artifact was promised and be told nothing. *@
+                @if (artifact.RenderFailure is { } failure)
+                {
+                    <Alert Role="note"
+                           BaseClass="diagram-view__notice"
+                           TestId="diagram-view-render-failure"
+                           Message="@($"The Archify artifact could not be drawn, so you are looking at the mermaid rendering. {failure}")" />
+                }
                 <AppButton Size="ButtonSize.Small"
                            Busy="_busy"
                            BusyLabel="Rendering"
@@ -196,6 +215,19 @@
     private string? _actionError;
     private bool _busy;
 
+    /// <summary>The source an on-demand render was started for, so a parent's
+    /// re-render does not start it again while it runs.</summary>
+    private string? _loadingSource;
+
+    /// <summary>The answer the last on-demand render gave, and for which source.
+    /// Kept because a failure is not cached by the host — it is the machine's
+    /// state, and the next reading should try again — so <c>Find</c> keeps saying
+    /// "pending", and without this every parent re-render would start the render
+    /// over. One attempt per source, until the reader presses Render.</summary>
+    private DiagramArtifact? _loaded;
+    private string? _loadedSource;
+    private bool _disposed;
+
     /// <summary>Whether the reader has asked for the mermaid rather than the
     /// artifact. Held here rather than lifted to the host, because it is a
     /// question about one diagram: a reader checking whether this picture still
@@ -215,8 +247,8 @@
     /// An artifact the caller already has, drawn in place of whatever the registered
     /// <see cref="IDiagramArtifactSource"/> would have found for <see cref="Source"/>.
     /// <para>
-    /// For a diagram that is not a fence in a chapter — a delivery run's stages, which
-    /// the host generates from live data and re-generates as they move. There is no
+    /// For a diagram that is not a fence in a chapter — a picture the host generates
+    /// from live data and re-generates as the data moves. There is no
     /// source text such a picture was authored from for the lookup to hash, so the
     /// host hands the picture over and <see cref="Source"/> stays what the Mermaid side
     /// of the switch draws. A changed <see cref="DiagramArtifact.ArtifactPath"/> is
@@ -241,8 +273,8 @@
     /// <summary>Asks the artifact to leave out the card a node opens when it is
     /// focused — Archify's "Semantic passport" — in the page and in full screen
     /// alike. For a drawing whose connections say nothing the boxes do not, such as
-    /// a delivery run's stages, where every card would read "previous stage in, next
-    /// stage out". Focusing a node still highlights it.</summary>
+    /// a straight sequence of steps, where every card would read "previous step in,
+    /// next step out". Focusing a node still highlights it.</summary>
     [Parameter]
     public bool HideNodeDetails { get; set; }
 
@@ -286,6 +318,55 @@
         }
 
         _artifact = Artifact ?? _artifacts?.Find(Source, Language);
+
+        if (Artifact is null && _artifact is { IsRenderPending: true }) LoadArtifact();
+    }
+
+    /// <summary>Starts drawing a picture the host can draw but has not yet, or
+    /// stands by the answer an earlier attempt for this source already gave.</summary>
+    private void LoadArtifact()
+    {
+        if (_loaded is not null && string.Equals(_loadedSource, Source, StringComparison.Ordinal))
+        {
+            _artifact = _loaded;
+            return;
+        }
+
+        if (string.Equals(_loadingSource, Source, StringComparison.Ordinal)) return;
+
+        _loadingSource = Source;
+        _ = LoadArtifactAsync(_artifacts!, _artifact!, Source, Language);
+    }
+
+    private async Task LoadArtifactAsync(IDiagramArtifactSource artifacts, DiagramArtifact pending, string source, string? language)
+    {
+        DiagramArtifact? loaded;
+        try
+        {
+            loaded = await artifacts.LoadAsync(source, language);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The contract is to answer a failure rather than throw it; a host
+            // that throws anyway still gets its reason on screen instead of an
+            // unobserved task and a diagram that never says anything.
+            loaded = pending with { IsRenderPending = false, RenderFailure = ex.Message };
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        // The diagram moved on while this was drawing; its answer is for a source
+        // nobody is looking at any more.
+        if (_disposed || !string.Equals(source, Source, StringComparison.Ordinal)) return;
+
+        _loadingSource = null;
+        _loaded = loaded;
+        _loadedSource = source;
+        _artifact = loaded;
+
+        await InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -431,7 +512,12 @@
         if (_actionError is not null) return;
 
         _artifactRevision++;
+        _loaded = null;
+        _loadedSource = null;
+        _loadingSource = null;
         _artifact = _artifacts.Find(Source, Language);
+
+        if (_artifact is { IsRenderPending: true }) LoadArtifact();
     }
 
     /// <summary>Opens an agent session with a brief. The half no running app can
@@ -454,7 +540,11 @@
         }
     }
 
-    public async ValueTask DisposeAsync() => await DisposeDiagramAsync();
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        await DisposeDiagramAsync();
+    }
 
     private async Task DisposeDiagramAsync()
     {

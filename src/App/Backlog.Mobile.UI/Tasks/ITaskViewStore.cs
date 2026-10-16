@@ -21,6 +21,17 @@ public interface ITaskViewStore
     /// transaction, so a page is never half kept.</summary>
     Task SaveAsync(IReadOnlyList<TaskViewRow> rows, string? cursor = null, CancellationToken cancellationToken = default);
 
+    /// <summary>As <see cref="SaveAsync(IReadOnlyList{TaskViewRow}, string?, CancellationToken)"/>,
+    /// and, when <paramref name="preferences"/> is given, writes it over the one kept —
+    /// in the same transaction as the page's rows and cursor, so a pull cut short never
+    /// keeps a cursor past a preferences document it did not keep
+    /// (.devbook/arc42/adr/0032, §4).</summary>
+    Task SaveAsync(IReadOnlyList<TaskViewRow> rows, string? cursor, MyDayPreferencesDocument? preferences, CancellationToken cancellationToken = default);
+
+    /// <summary>The My Day preferences last pulled, or null when no desktop has sent
+    /// any. Synchronous for the reason <see cref="ReadRows"/> is.</summary>
+    MyDayPreferencesDocument? ReadMyDayPreferences();
+
     /// <summary>Forgets the cursor, so the next pull starts from the beginning.
     /// The rows stay: a full pull folds over them to the same result.</summary>
     Task ResetCursorAsync(CancellationToken cancellationToken = default);

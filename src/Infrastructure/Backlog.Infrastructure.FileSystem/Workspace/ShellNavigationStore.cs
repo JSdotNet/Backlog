@@ -14,16 +14,19 @@ namespace Backlog.Infrastructure.FileSystem;
 /// holds.
 /// </para>
 /// <para>
-/// Holds the surface and the pane names as plain strings rather than the
+/// Holds the surface and the view names as plain strings rather than the
 /// shell's own enums, which are internal to the desktop UI project and not
 /// visible from here — the shell is the one that knows what the names mean
 /// and is the only reader of them.
 /// </para>
 /// <para>
-/// One file for all three, not three, because a fresh shell instance restores them
-/// together: which takeover was open, which main view the workspace was showing
-/// under it and which side panes were open beside that view are all "what the
-/// reader was looking at", read back in the same <c>OnInitializedAsync</c>.
+/// One file for both, not two, because a fresh shell instance restores them
+/// together: which takeover was open and which main view the workspace was
+/// showing under it are both "what the reader was looking at", read back in the
+/// same <c>OnInitializedAsync</c>. The side panes that once sat beside the view
+/// are gone (local ADR 0022, amendment of 2026-10-15); a file that still lists
+/// them is read once, to migrate it — see <see cref="MigrateSidePanes"/> — and
+/// that list is never written again.
 /// </para>
 /// <para>
 /// The roadmap was a takeover before it was a view, so a file from then names it
@@ -39,7 +42,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <para>
 /// So do the Calendar's Month | Week range, the In progress view's two toggles and the
 /// header's repository scope, and the system tools pane's tab and host filter: each is
-/// how the reader last had a screen, kept on this device only. Every key is additive and left out while at its default — the tools
+/// how the reader last had a screen, kept on this device only. So is show archived
+/// (local ADR 0029, §3), whether the archived repositories are offered where they are
+/// otherwise hidden. Every key is additive and left out while at its default — the tools
 /// pane's two until it has been on a tab or a filter here — so a file
 /// written before it keeps its shape and an older build reads a newer file.
 /// </para>
@@ -75,6 +80,14 @@ public sealed class ShellNavigationStore
     /// and the surface name it is stored under now.</summary>
     private const string InboxName = "Inbox";
 
+    /// <summary>The pane name the Devbook was stored under while it was a side pane,
+    /// and the surface name it is stored under now.</summary>
+    private const string DevbookName = "Devbook";
+
+    /// <summary>The pane name the Devbook was stored under before the Knowledge
+    /// bounded context was renamed to Devbook.</summary>
+    private const string LegacyDevbookName = "Knowledge";
+
     private readonly string _path;
 
     public ShellNavigationStore()
@@ -104,8 +117,9 @@ public sealed class ShellNavigationStore
 
         var dto = Read();
         (LastSurface, LastView) = Normalize(dto?.LastSurface, dto?.LastView);
-        (LastSurface, LastEnabledPanes) = MigrateInboxPane(dto?.LastSurface, LastSurface, dto?.LastEnabledPanes ?? Empty);
+        LastSurface = MigrateSidePanes(dto?.LastSurface, LastSurface, dto?.LastEnabledPanes ?? Empty);
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
+        RoadmapCompletedShown = dto?.RoadmapCompletedShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
@@ -115,6 +129,7 @@ public sealed class ShellNavigationStore
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
+        ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -130,17 +145,13 @@ public sealed class ShellNavigationStore
     /// — and <see cref="DefaultView"/> when nothing has been remembered yet.</summary>
     public string LastView { get; private set; }
 
-    /// <summary>The side panes that were open beside the main view when last set.
-    /// Empty is both "nothing remembered yet" and "no side pane open", which the
-    /// shell reopens the same way. A file from before the view switch may still
-    /// list <c>Tasks</c> here; the shell ignores it, since the task list is a view
-    /// now and no longer a pane. An <c>Inbox</c> here is read away on load — see
-    /// <see cref="MigrateInboxPane"/> — since the Inbox is a surface now.</summary>
-    public IReadOnlyList<string> LastEnabledPanes { get; private set; }
-
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
     /// the reader turns the Hours switch off on this device.</summary>
     public bool RoadmapHoursShown { get; private set; }
+
+    /// <summary>Whether the roadmap draws finished plans: on until the reader turns the
+    /// Completed switch off on this device.</summary>
+    public bool RoadmapCompletedShown { get; private set; }
 
     /// <summary>The roadmap bands, by group id, the reader folded to one lane on this
     /// device. Empty until one is folded.</summary>
@@ -201,6 +212,11 @@ public sealed class ShellNavigationStore
     /// one was chosen.</summary>
     public string? ToolsHostFilter { get; private set; }
 
+    /// <summary>Whether the archived repositories are shown where they are otherwise
+    /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
+    /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
+    public bool ShowArchivedRepositories { get; private set; }
+
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
 
@@ -241,31 +257,38 @@ public sealed class ShellNavigationStore
     }
 
     /// <summary>
-    /// The Inbox was a side pane beside the main view before it took the whole screen
-    /// as a surface (local ADR 0022, amendment of 2026-10-12), so a file from then
-    /// lists it among the panes. Where it was on screen — no takeover stored over the
-    /// workspace — it reopens as the Inbox surface; under a takeover it was hidden, so
-    /// that takeover stays. Either way the name leaves the pane list, and the next save
-    /// cannot write it back there. Decided on the stored surface, before the roadmap
-    /// takeover is read as a view, because that takeover covered the pane too.
+    /// The Inbox and then the Devbook were side panes beside the main view before
+    /// each took the whole screen as a surface (local ADR 0022, amendments of
+    /// 2026-10-12 and 2026-10-15), so a file from then lists them among the panes —
+    /// the Devbook perhaps as <c>Knowledge</c>, its name before the rename. Where a
+    /// pane was on screen — no takeover stored over the workspace — it reopens as its
+    /// surface; under a takeover it was hidden, so that takeover stays.
+    /// <para>
+    /// With both listed the Inbox wins: from the day the Inbox took the screen until
+    /// the Devbook did, the Inbox surface covered the Devbook pane, and before that
+    /// the two sat side by side, where the Inbox — the queue — is the likelier one
+    /// to have been read. <c>Tasks</c>, or the older <c>Backlog</c>, names the view
+    /// the file reopens on anyway and changes nothing.
+    /// </para>
+    /// <para>
+    /// The list itself is not kept: nothing is a side pane any more, so the next save
+    /// writes the file without it. Decided on the stored surface, before the roadmap
+    /// takeover is read as a view, because that takeover covered the panes too.
+    /// </para>
     /// </summary>
-    private static (string? Surface, IReadOnlyList<string> Panes) MigrateInboxPane(
-        string? storedSurface, string? surface, IReadOnlyList<string> panes)
+    private static string? MigrateSidePanes(string? storedSurface, string? surface, IReadOnlyList<string> panes)
     {
-        if (!panes.Contains(InboxName, StringComparer.Ordinal)) return (surface, panes);
+        var panesWereOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
+        if (!panesWereOnScreen) return surface;
 
-        string[] remaining = [.. panes.Where(pane => !string.Equals(pane, InboxName, StringComparison.Ordinal))];
-        var inboxWasOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
+        if (panes.Contains(InboxName, StringComparer.Ordinal)) return InboxName;
 
-        return (inboxWasOnScreen ? InboxName : surface, remaining);
-    }
+        if (panes.Contains(DevbookName, StringComparer.Ordinal) || panes.Contains(LegacyDevbookName, StringComparer.Ordinal))
+        {
+            return DevbookName;
+        }
 
-    public void SetLastPanes(IReadOnlyList<string> enabled)
-    {
-        if (enabled.SequenceEqual(LastEnabledPanes)) return;
-
-        LastEnabledPanes = [.. enabled];
-        Save();
+        return surface;
     }
 
     public void SetRoadmapHoursShown(bool shown)
@@ -273,6 +296,14 @@ public sealed class ShellNavigationStore
         if (shown == RoadmapHoursShown) return;
 
         RoadmapHoursShown = shown;
+        Save();
+    }
+
+    public void SetRoadmapCompletedShown(bool shown)
+    {
+        if (shown == RoadmapCompletedShown) return;
+
+        RoadmapCompletedShown = shown;
         Save();
     }
 
@@ -342,6 +373,14 @@ public sealed class ShellNavigationStore
         if (hostFilter == ToolsHostFilter) return;
 
         ToolsHostFilter = hostFilter;
+        Save();
+    }
+
+    public void SetShowArchivedRepositories(bool shown)
+    {
+        if (shown == ShowArchivedRepositories) return;
+
+        ShowArchivedRepositories = shown;
         Save();
     }
 
@@ -585,9 +624,11 @@ public sealed class ShellNavigationStore
             {
                 LastSurface = LastSurface,
                 LastView = LastView,
-                LastEnabledPanes = [.. LastEnabledPanes],
+                // LastEnabledPanes is never set: the side panes are gone, and the
+                // list a file from then held was migrated when it was read.
                 // Left out while on, so a file from before the switch keeps its shape.
                 RoadmapHoursShown = RoadmapHoursShown ? null : false,
+                RoadmapCompletedShown = RoadmapCompletedShown ? null : false,
                 // Likewise left out while no band is folded.
                 RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
                 // Likewise left out while the columns are the default ones.
@@ -601,7 +642,10 @@ public sealed class ShellNavigationStore
                 RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope],
                 // Left out until the tools pane has been on a tab or a filter here.
                 ToolsTab = ToolsTab,
-                ToolsHostFilter = ToolsHostFilter
+                ToolsHostFilter = ToolsHostFilter,
+                // Left out while off, the default. The key is a stored name: never
+                // rename it without reading the old one.
+                ShowArchivedRepositories = ShowArchivedRepositories ? true : null
             }, JsonOptions);
 
     private ShellNavigationDto? Read()
@@ -634,10 +678,17 @@ public sealed class ShellNavigationStore
         /// <summary>Absent from a file written before the view switch.</summary>
         public string? LastView { get; init; }
 
+        /// <summary>The side panes a file from before the Devbook took the screen
+        /// had open, read only to migrate them — see <see cref="MigrateSidePanes"/>.
+        /// Never set on a save, so never written.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? LastEnabledPanes { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? RoadmapHoursShown { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? RoadmapCompletedShown { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RoadmapCollapsedGroups { get; init; }
@@ -665,6 +716,10 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ToolsHostFilter { get; init; }
+
+        /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? ShowArchivedRepositories { get; init; }
 
         /// <summary>The retired "No repo" chip's state, read only to migrate it — see
         /// <see cref="MigrateNoRepositoryOnly"/>. Never set on a save, so never written.</summary>

@@ -58,4 +58,76 @@ public sealed class SqliteTaskViewStoreTests : IDisposable
         Assert.Null(store.ReadCursor());
         Assert.Single(store.ReadRows());
     }
+
+    [Fact]
+    public void A_new_file_keeps_no_my_day_preferences()
+    {
+        Assert.Null(new SqliteTaskViewStore(_path).ReadMyDayPreferences());
+    }
+
+    /// <summary>ADR 0032 Verification 4: the preferences document is kept with the page
+    /// that carried it — its rows and its cursor — and comes back after a restart.</summary>
+    [Fact]
+    public async Task The_my_day_preferences_survive_a_new_store_beside_the_rows_and_cursor_of_their_page()
+    {
+        var task = TestTasks.Task("Book the train", T0, inMyDayOn: new DateOnly(2026, 9, 24));
+        var preferences = new MyDayPreferencesDocument(T0.AddMinutes(3), 7, """{ "updatedAt": "2026-09-25T08:03:00.0000000+00:00", "clearsOvernight": false, "later": 1 }""");
+
+        await new SqliteTaskViewStore(_path).SaveAsync(
+            [new TaskViewRow(task.Id, task.UpdatedAt, null, 6, task.Task)],
+            "pos:7",
+            preferences,
+            TestContext.Current.CancellationToken);
+
+        var reopened = new SqliteTaskViewStore(_path);
+
+        Assert.Equal(preferences, reopened.ReadMyDayPreferences());
+        Assert.False(reopened.ReadMyDayPreferences()!.ClearsOvernight);
+        Assert.Equal("pos:7", reopened.ReadCursor());
+        Assert.Equal(task.Id, Assert.Single(reopened.ReadRows()).Id);
+    }
+
+    [Fact]
+    public async Task A_later_save_replaces_the_one_preferences_row_and_a_save_without_one_keeps_it()
+    {
+        var store = new SqliteTaskViewStore(_path);
+        var first = new MyDayPreferencesDocument(T0, 1, """{"clearsOvernight":false}""");
+        var second = new MyDayPreferencesDocument(T0.AddMinutes(1), 2, """{"clearsOvernight":true}""");
+
+        await store.SaveAsync([], "pos:1", first, TestContext.Current.CancellationToken);
+        await store.SaveAsync([], "pos:2", second, TestContext.Current.CancellationToken);
+        await store.SaveAsync([], "pos:3", TestContext.Current.CancellationToken);
+
+        Assert.Equal(second, store.ReadMyDayPreferences());
+    }
+
+    /// <summary>ADR 0032 Verification 10: a phone upgraded from a build without the
+    /// preferences table pulls the feed from the start once — its cursor had already
+    /// passed any preferences document — and keeps every row while it does.</summary>
+    [Fact]
+    public async Task A_file_from_before_the_preferences_table_forgets_its_cursor_once_and_keeps_its_rows()
+    {
+        var task = TestTasks.Task("Book the train", T0);
+        await new SqliteTaskViewStore(_path).SaveAsync([new TaskViewRow(task.Id, task.UpdatedAt, null, 1, task.Task)], "pos:40", TestContext.Current.CancellationToken);
+        DropPreferencesTable();
+
+        var upgraded = new SqliteTaskViewStore(_path);
+
+        Assert.Null(upgraded.ReadCursor());
+        Assert.Single(upgraded.ReadRows());
+
+        await upgraded.SaveAsync([], "pos:41", TestContext.Current.CancellationToken);
+
+        Assert.Equal("pos:41", new SqliteTaskViewStore(_path).ReadCursor());
+    }
+
+    /// <summary>Takes the file back to the shape a build before ADR 0032 left it in.</summary>
+    private void DropPreferencesTable()
+    {
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DROP TABLE my_day_preferences";
+        command.ExecuteNonQuery();
+    }
 }

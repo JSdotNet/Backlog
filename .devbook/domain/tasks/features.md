@@ -334,24 +334,35 @@ occurrence carries over.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
-related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day]
+setting: .devbook/domain/tasks/context.md#clear-my-day-overnight
+related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
 Pick the tasks to work on today, separately from when they are due: a task
 due next Friday can be in today's [My Day](domain.md#my-day), and a task due
 today need not be.
 
-My Day expires on its own. Yesterday's list clears itself without a timer, a
-timezone rule or an overnight sweep. A device that was switched off for a week
-comes back to an empty My Day rather than a stale one.
+My Day expires on its own unless the person turns
+[Clear My Day overnight](context.md#clear-my-day-overnight) off. With it on,
+the default, yesterday's list clears itself without a timer, a timezone rule or
+an overnight sweep. A device that was switched off for a week comes back to an
+empty My Day rather than a stale one.
+
+With it off, an unfinished task picked on an earlier day stays in today's My Day
+until the person ticks it off or takes it out. A task ticked off today stays,
+ticked, until the day ends. One ticked off on an earlier day is gone, and a task
+moved to tomorrow never shows today. The person sets the switch on the desktop,
+and every paired device follows it, the phone included.
 
 A task in today's My Day may also carry an [Agenda Time](domain.md#agenda-time):
 a start time and a duration that place it in the day, such as 10:45 for 45
 minutes. The agenda time is set and cleared on the desktop only. It means
-nothing without a My Day date, and it is dropped when the task leaves My Day.
+nothing without a My Day date, and it is dropped when the task leaves My Day. A
+task carried over from an earlier day shows no agenda time, because its slot
+belonged to the day it was picked for.
 
 On the desktop, the agenda time sits in the task's detail pane directly under
-the My Day control, and only while the task is in today's My Day. A start is
+the My Day control, and only while the task is picked for today. A start is
 picked in 15-minute steps and a duration from 15, 30, 45, 60, 90 or 120
 minutes. A start picked alone means 30 minutes. Changing the start keeps the
 duration, and changing the duration keeps the start. Clearing removes the agenda
@@ -362,8 +373,7 @@ to end beside My Day, such as `10:45–11:30`.
 On the phone, My Day is the Today tab, the first of the phone's three tabs
 (Today, Inbox, Notes) and the screen the app opens on. Under the phone's own
 date it says how many of the day's tasks are ticked off, as `3 of 8 done` with
-a bar. It shows what was picked for the phone's own date, never a due-date
-grouping, and splits that list into four groups:
+a bar. It shows My Day for the phone's own date, never a due-date grouping, and splits that list into four groups:
 
 ```mermaid
 flowchart TD
@@ -524,7 +534,7 @@ instantly and offline.
 ```meta
 type: feature
 status: proposed
-related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Connect a GitHub repository or a spec-manager product, and every open item in it
@@ -627,7 +637,7 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#brain-scope]
+related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key]
 ```
 
@@ -657,11 +667,14 @@ the one way to narrow to them (local ADR 0027).
 
 The repository scope is remembered on this device in the order it was chosen.
 The app reopens on the same repositories with the first one chosen still first,
-and with Brain in its place when it was pressed. The Devbook beside them is then
-offered straight away, with no chip to press. A repository that is no longer
+and with Brain in its place when it was pressed. The Devbook is then offered on
+them straight away, with no chip to press. A repository that is no longer
 configured is dropped when the scope comes back, and a scope with none left is
 every repository. The scope is remembered as it stands after any narrowing, so a
-scope narrowed back to one comes back as that one.
+scope narrowed back to one comes back as that one. Where an
+[archived repository](../repository-management/domain.md#archived-repository)
+appears in the scope, the Board and the pickers is set by
+[its requirements](../repository-management/requirements.md#archiving-a-repository).
 
 The filtered tasks can be read three ways, picked in the header's view switch:
 **Tasks**, the list with the open task beside it; the
@@ -693,7 +706,7 @@ order, independent of recency or priority. Where a task nobody ranked lands is
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag]
+related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_plan_leave_out_finished_work_and_a_plan_with_nothing_left_has_no_column]
 ```
 

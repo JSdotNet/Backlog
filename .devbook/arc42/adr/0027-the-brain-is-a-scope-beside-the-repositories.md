@@ -29,7 +29,8 @@ shell.
 
 It **amends** ADR 0022. The header's Identity region leads with the Brain chip
 and renders with no repository configured. The Devbook side pane shows the Brain
-when nothing is scoped. `shell-navigation.json` may hold the reserved Brain value
+when nothing is scoped; since ADR 0022's amendment of 2026-10-15 the Devbook
+takes the whole screen instead of a side pane, and shows the Brain the same way. `shell-navigation.json` may hold the reserved Brain value
 in `repositoryScope`. ADR 0022's [Amendment](0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment)
 of 2026-10-13 records the change there.
 

@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
@@ -313,7 +314,7 @@ public class DashboardPaneTests
         Assert.Equal("tablist", list.GetAttribute("role"));
         Assert.Equal(
             ["Overview", "Productivity", "Tasks", "Sessions", "Devbook", "Cost"],
-            tabs.Select(tab => tab.TextContent.Trim()).ToArray());
+            tabs.Select(TabLabel).ToArray());
 
         var overview = pane.Find("[data-testid='dashboard-tab-overview']");
         Assert.Equal("true", overview.GetAttribute("aria-selected"));
@@ -489,7 +490,7 @@ public class DashboardPaneTests
             var pane = unread.Render<DashboardPane>();
 
             Assert.Empty(pane.FindAll("[data-testid='dashboard-tab-devbook-badge']"));
-            Assert.Equal("Devbook", pane.Find("[data-testid='dashboard-tab-devbook']").TextContent.Trim());
+            Assert.Equal("Devbook", TabLabel(pane.Find("[data-testid='dashboard-tab-devbook']")));
         }
 
         var none = new DriftInsight([], [], IssuesNote: null);
@@ -499,6 +500,59 @@ public class DashboardPaneTests
         var read = context.Render<DashboardPane>();
 
         Assert.Empty(read.FindAll("[data-testid='dashboard-tab-devbook-badge']"));
+    }
+
+    /// <summary>
+    /// The dashboard is released, but its Devbook and Cost tabs are not usable yet: each
+    /// wears the DEV flag inside its own tab, and the other four wear none.
+    /// </summary>
+    [Fact]
+    public void The_devbook_and_cost_tabs_wear_the_dev_flag_and_the_others_none()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+
+        foreach (var id in new[] { "devbook", "cost" })
+        {
+            var tab = pane.Find($"[data-testid='dashboard-tab-{id}']");
+            var flag = Assert.Single(tab.QuerySelectorAll(".badge--feature-dev"));
+            Assert.Equal($"dashboard-tab-{id}-feature-status", flag.GetAttribute("data-testid"));
+            Assert.Equal("In development — not usable yet.", flag.GetAttribute("title"));
+        }
+
+        foreach (var id in new[] { "overview", "productivity", "tasks", "sessions" })
+        {
+            var tab = pane.Find($"[data-testid='dashboard-tab-{id}']");
+            Assert.Empty(tab.QuerySelectorAll(".badge--feature"));
+        }
+    }
+
+    /// <summary>
+    /// The DEV flag and the open drift count sit side by side on the Devbook tab: the
+    /// flag does not displace the count, nor its spoken phrase.
+    /// </summary>
+    [Fact]
+    public void The_devbook_tab_wears_the_dev_flag_beside_the_drift_count()
+    {
+        var drift = new DriftInsight(
+            [],
+            [new DriftIssue("backlog", 11, "Drift in domain/sync", "https://github.com/o/r/issues/11", SyncFailed: false)],
+            IssuesNote: null);
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IDriftInsights>(new ReadyDriftInsights(drift)));
+
+        var pane = context.Render<DashboardPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tab = pane.Find("[data-testid='dashboard-tab-devbook']");
+            Assert.Single(tab.QuerySelectorAll("[data-testid='dashboard-tab-devbook-feature-status']"));
+            Assert.Equal("1", pane.Find("[data-testid='dashboard-tab-devbook-badge']").TextContent.Trim());
+            Assert.Contains("1 open drift issue", tab.QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
+            Assert.Equal("Devbook", TabLabel(tab));
+        });
     }
 
     /// <summary>
@@ -607,6 +661,13 @@ public class DashboardPaneTests
 
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
+
+        // A moved filter acknowledges the press before it fetches (DashboardPartBase
+        // yields first), so Change() can return before the part has asked. Wait on the
+        // stub itself.
+        SpinWait.SpinUntil(
+            () => sessions.Scopes.Any(scope => scope.MachineId == DashboardTestHost.MachineId),
+            TimeSpan.FromSeconds(5));
 
         Assert.Contains(DashboardTestHost.MachineId, sessions.Scopes.Select(scope => scope.MachineId));
     }
@@ -1887,6 +1948,11 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog");
 
+        // The same yield before the fetch as a moved machine filter.
+        SpinWait.SpinUntil(
+            () => sessions.Scopes.Any(scope => scope.Repositories.Contains("backlog")),
+            TimeSpan.FromSeconds(5));
+
         Assert.Contains(sessions.Scopes, scope => scope.Repositories.Contains("backlog"));
     }
 
@@ -2836,6 +2902,12 @@ public class DashboardPaneTests
     private static string Squashed(string text) =>
         string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
+    /// <summary>A tab's own label: the text the tab button holds directly, without
+    /// what sits beside it in elements - the DEV flag, the drift count and its
+    /// spoken phrase.</summary>
+    private static string TabLabel(IElement tab) =>
+        Squashed(string.Concat(tab.ChildNodes.OfType<IText>().Select(text => text.Data)));
+
     [Fact]
     public void The_window_can_be_narrowed_to_four_weeks()
     {
@@ -2943,7 +3015,7 @@ public class DashboardPaneTests
         var first = context.Render<DashboardPane>();
         first.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        productivity.Scopes.Clear();
+        productivity.ClearScopes();
 
         var second = context.Render<DashboardPane>();
         _ = second;
@@ -3486,15 +3558,35 @@ public class DashboardPaneTests
 
     private sealed class RecordingProductivityInsights : IProductivityInsights
     {
-        public List<DashboardScope> Scopes { get; } = [];
+        private readonly List<DashboardScope> _scopes = [];
 
-        public int Invalidations { get; private set; }
+        private int _invalidations;
+
+        /// <summary>A snapshot, taken under the lock: the pane loads each region on
+        /// its own, so a load can still be recording while a test reads the calls,
+        /// and enumerating the live list then throws "Collection was modified".</summary>
+        public IReadOnlyList<DashboardScope> Scopes
+        {
+            get { lock (_scopes) return [.. _scopes]; }
+        }
+
+        public int Invalidations => Volatile.Read(ref _invalidations);
+
+        private void Record(DashboardScope scope)
+        {
+            lock (_scopes) _scopes.Add(scope);
+        }
+
+        public void ClearScopes()
+        {
+            lock (_scopes) _scopes.Clear();
+        }
 
         public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ProductivityHeadline>.Unavailable("Not configured."));
         }
 
@@ -3502,7 +3594,7 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable("Not configured."));
         }
 
@@ -3510,11 +3602,11 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ReworkInsight>.Unavailable("Not configured."));
         }
 
-        public void Invalidate(DashboardScope scope) => Invalidations++;
+        public void Invalidate(DashboardScope scope) => Interlocked.Increment(ref _invalidations);
     }
 
     /// <summary>
@@ -3555,16 +3647,26 @@ public class DashboardPaneTests
     }
 
     /// <summary>Sessions that remembers every scope it was asked for, so a test can say
-    /// which filters reached it and which did not.</summary>
+    /// which filters reached it and which did not. A moved filter's fetch runs after the
+    /// part's <c>Task.Yield</c>, off the test thread, so the list is read as a locked
+    /// snapshot.</summary>
     private sealed class RecordingSessionInsights : ISessionInsights
     {
-        public List<DashboardScope> Scopes { get; } = [];
+        private readonly List<DashboardScope> _scopes = [];
+
+        public IReadOnlyList<DashboardScope> Scopes
+        {
+            get
+            {
+                lock (_scopes) return [.. _scopes];
+            }
+        }
 
         public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            lock (_scopes) _scopes.Add(scope);
             return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
         }
 

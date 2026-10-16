@@ -99,6 +99,22 @@ public interface IRoadmapPlanning
         Guid itemId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Records <paramref name="on"/> as the day an item's work was done, for work no task
+    /// carries. Completing a completed item moves the day. Gathered tasks outrank it
+    /// wherever the plan is read (<see cref="RoadmapItemCompletion"/>), so the caller offers
+    /// it only for an item that gathers none. Fails for an unknown item.
+    /// </summary>
+    Task<Result<RoadmapItemDto>> CompleteItemAsync(
+        Guid itemId,
+        DateOnly on,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Opens an item completed by hand again. Fails for an unknown item.</summary>
+    Task<Result<RoadmapItemDto>> ReopenItemAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Changes the plan's own priority for an item. Never touches a
     /// linked backlog entry.</summary>
     Task<Result<RoadmapItemDto>> PrioritiseItemAsync(

@@ -161,8 +161,9 @@ internal sealed partial class DesktopHarness
 
     // ---- The Devbook pane on the Brain ----
 
-    /// <summary>Shows the Devbook pane beside the Tasks view.</summary>
-    public Task ShowDevbookAsync() => ShowPaneAsync("devbook-pane-option", "repository-devbook-pane");
+    /// <summary>Shows the Devbook, which takes the whole screen as a surface of its
+    /// own rather than opening beside the Tasks view.</summary>
+    public Task ShowDevbookAsync() => ShowPaneAsync("devbook-pane-option", "devbook-surface");
 
     /// <summary>The area tabs of the pane, in the order it draws them.</summary>
     public async Task<IReadOnlyList<string>> BrainAreasAsync() =>

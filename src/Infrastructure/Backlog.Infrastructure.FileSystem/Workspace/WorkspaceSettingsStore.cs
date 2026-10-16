@@ -234,7 +234,8 @@ public sealed class WorkspaceSettingsStore
     /// Plaintext, on local ADR 0012's own terms: "A token in a settings file.
     /// Bearer over loopback is as strong as the user account is; it is not a
     /// defence against a process already running as that user, and does not
-    /// claim to be."
+    /// claim to be." It is the one stated exception to local ADR 0030, which
+    /// seals every other stored credential.
     /// </para>
     /// </summary>
     public string? McpServerToken { get; private set; }

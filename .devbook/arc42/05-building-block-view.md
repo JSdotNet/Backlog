@@ -52,7 +52,7 @@ C4Container
     Rel(desktop, claude, "Reads usage", "HTTPS, optional")
 
     Rel(mobile, cloud, "Syncs items and pulls state", "HTTPS")
-    Rel(ide, cloud, "Reads and posts inbox items", "HTTPS /api/sync/inbox")
+    Rel(ide, cloud, "Reads and posts inbox items as a paired device", "HTTPS /api/sync/inbox, Bearer")
 
     Rel(cloud, cloudDb, "Reads and writes sync state", "")
     Rel(cloud, attachments, "Stores and serves attachments", "Blob SDK")
@@ -167,7 +167,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/domain/sync/features.md#pairing-a-device"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/domain/sync/features.md#pairing-a-device"]
 ```
 
 The desktop app is the local-first Windows client, and the one channel that serves
@@ -441,6 +441,24 @@ rows exceeded the deployment's quota on every press. The scope that defines an
 area's records is content, though, and the body's first line states it. Examples
 are a dashboard's repositories and period, or a task list's repository scope.
 
+A source may pin the records every question needs. `AiContentBudget` charges a
+pinned record before any other, so no question's words can rank it out. Tasks
+pins the open entry. The Dashboard pins its figures: one line per insight across
+every tab, worded the way its part words it, whichever tab is on show. The
+figures lead the body, under a line saying they are not entries. The first line
+counts only the merged pull requests and closed issues, so the assistant never
+reports a figure line as a pull request. An insight that cannot answer keeps its
+line, which states the reason, so a missing figure never reads as nothing to
+report. Local ADR 0033 records what this sends to Foundry and why.
+
+An area may also open the panel itself. Each dashboard part's frame draws an Ask
+AI control, and `DashboardPane.OnAskAi` hands the part's title to the shell. The
+shell opens the panel on the Dashboard with the question begun
+`About the "<part>" chart: `, for the reader to finish. The part travels in the
+question and never in the body, because which part was pressed is screen state.
+The shell passes the callback only while the assistant is on and a Dashboard
+source is composed, so no part offers a control that leads nowhere.
+
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and
 both web harnesses. The harnesses register it separately, so the two pair as two
 distinct devices. Its parts:
@@ -453,7 +471,11 @@ distinct devices. Its parts:
 - `SyncTokenProvider` exchanges the credential for a device token and caches it.
   It refreshes within two minutes of expiry and never retries a 401.
 - `SyncAuthenticationHandler` attaches the token to outbound requests.
-- `DevicePairingClient` drives the pairing calls.
+- `DevicePairingClient` drives the pairing calls. It awaits the store's
+  `SaveAsync`, so the Android store never blocks the pairing screen.
+
+The GitHub, Claude and Azure Foundry settings stores seal their keys with the same
+DPAPI scope, one value at a time (local ADR 0030).
 
 On the desktop the Sync Client also carries the capture path. `TaskReplicaMerge`
 hands every `capture`-kind replica document to the Inbox's `IInboxIntake` port
@@ -551,15 +573,29 @@ pages.
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
 and lightweight Tasks. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
 
-The shell (`MainLayout`) is a title bar carrying the sync status, the page, and
-three tabs along the bottom, withheld until the device is paired:
+The shell (`MainLayout`) is a title bar carrying the version control and the sync
+status, the page, and three tabs along the bottom, withheld until the device is
+paired.
+
+The **version control** (`AppUpdateControl`) is the app bar's title. It names the
+app and the running version, and opens the update bottom sheet, the phone's
+counterpart of the desktop footer's version control. The sheet offers Check, then
+Install update once a check finds a newer APK. A quiet check after launch only
+puts a dot on the control. The sheet talks to `IAppUpdateService`, the contract
+shared with the desktop in `Backlog.UI.Components/AppUpdate`. The Android head
+registers `ApkAppUpdateService` for it (`Backlog.Mobile.UI/AppUpdate`), which
+checks GitHub Releases and installs through `AndroidApkInstaller`
+(`Backlog.Mobile/Services`). `.devbook/arc42/07-deployment-view.md#installation-and-updates-mobile`
+describes the update path.
+
+The tabs are:
 
 - **Inbox** — a quick-capture field and the phone's own captures that the desktop
   has not taken in yet. Each says whether it waits in the outbox or was sent. No
@@ -599,6 +635,7 @@ leftover talk note's capture to `POST /api/sync/inbox`. See `.devbook/arc42/06-r
 graph TB
   subgraph "UI (.NET MAUI / Blazor Hybrid, Backlog.Mobile.UI)"
     Shell["Shell\n(sync status, pairing gate)"]
+    Version["Version control\n(update bottom sheet)"]
     InboxTab["Inbox tab\n(quick capture, own captures, sync state)"]
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
     NoteTab["Notes tab\n(list, search, editor)"]
@@ -619,10 +656,16 @@ graph TB
     Speech["Speech transcriber"]
     Share["Share target"]
     Creds["Secure storage\n(device credential)"]
+    Installer["APK installer\n(PackageInstaller)"]
   end
 
   API["Sync API\n(REST, device JWT)"]
+  Releases["GitHub Releases\n(update channel)"]
 
+  Shell --> Version
+  Version -->|"list releases"| Releases
+  Version -->|"on the person's tap"| Installer
+  Installer -->|"download APK"| Releases
   Shell --> InboxTab
   Shell --> NoteTab
   Shell --> TasksTab
@@ -661,6 +704,9 @@ graph LR
     Tree["backlogInbox\n(explorer tree view)"]
     Refresh["backlog.refreshInbox"]
     Capture["backlog.capture\n(selection to title)"]
+    Pair["backlog.pair / backlog.unpair"]
+    Client["sync-client\n(token cache)"]
+    Secrets[("SecretStorage\ndevice id + credential")]
   end
 
   subgraph "Agent sessions"
@@ -668,12 +714,17 @@ graph LR
     Copilot["GitHub Copilot"]
   end
 
-  Sync["Sync service\n(/api/sync/inbox at backlog.cloudUrl)"]
+  Sync["Sync service\n(/api/sync at backlog.cloudUrl)"]
   Mcp["MCP server in the desktop app\n(Backlog.Infrastructure.Mcp)"]
 
   Refresh --> Tree
-  Tree -->|"GET /api/sync/inbox"| Sync
-  Capture -->|"POST /api/sync/inbox"| Sync
+  Tree --> Client
+  Capture --> Client
+  Pair --> Client
+  Client <-->|"credential"| Secrets
+  Client -->|"POST /devices/pair (code)"| Sync
+  Client -->|"POST /devices/token (credential)"| Sync
+  Client -->|"GET, POST /inbox (Bearer)"| Sync
   Claude -->|"Streamable HTTP, loopback"| Mcp
   Copilot -->|"Streamable HTTP, loopback"| Mcp
 ```
@@ -683,16 +734,28 @@ extension talks to the sync service. Claude Code and GitHub Copilot sessions tal
 desktop app through its MCP server. Domain lifecycle rules stay with the owning domains.
 
 The VS Code extension, `Backlog.Ide.VsCode`, serves the Inbox (capture intake). It adds one
-explorer tree view, `backlogInbox`, and two commands:
+explorer tree view, `backlogInbox`, and four commands:
 
 - `backlog.refreshInbox` reloads the tree, which lists the captures from `GET /api/sync/inbox`.
 - `backlog.capture` turns the editor selection into a title and sends it to
   `POST /api/sync/inbox` with the source `vscode`.
+- `backlog.pair` redeems a pairing code from the desktop's Devices settings at
+  `POST /api/sync/devices/pair`, and `backlog.unpair` forgets the pairing.
 
 The extension reads the service's base URL from the `backlog.cloudUrl` setting. Local ADR
-0009 fixes the shape of both calls. Local ADR 0005 is why the extension goes to the sync
-service rather than to the desktop's files: only the service can serve an editor on a second
-machine. The extension has no webview and keeps no local cache.
+0009 fixes the shape of both inbox calls. Local ADR 0005 is why the extension goes to the
+sync service rather than to the desktop's files: only the service can serve an editor on a
+second machine.
+
+The inbox routes require a paired device, so the extension joins the desktop's owner as a
+second device, per local ADR 0005 §Identity. It redeems a code rather than registering,
+because a registration mints a new owner with an empty inbox. The device id and credential
+go into VS Code's `SecretStorage`. `src/sync-client.ts` trades the credential for a
+short-lived token at `POST /api/sync/devices/token`, reuses it until two minutes before it
+expires, and sends it as `Authorization: Bearer` on both inbox calls. An inbox 401 gets one
+retry with a fresh token. A 401 from the token endpoint means the credential is rejected:
+the extension clears it and offers to pair again. With no pairing it sends no inbox request.
+The extension has no webview and caches nothing but the token.
 
 The extension is a TypeScript project outside `Backlog.sln`. In development the AppHost
 hosts it through two explicit-start resources. `ide-vscode-build` runs `npm run watch`, and

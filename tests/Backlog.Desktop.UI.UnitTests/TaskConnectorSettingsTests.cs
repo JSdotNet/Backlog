@@ -745,7 +745,7 @@ public sealed class TaskConnectorSettingsTests
             TargetPlaceholder = "product-slug",
         };
 
-        public TaskConnectorCapabilities Capabilities { get; } = new();
+        public TaskConnectorCapabilities Capabilities { get; init; } = new();
 
         public Task<ConnectorTargetChoices> ListTargetChoicesAsync(CancellationToken cancellationToken) => _choices(_calls++);
 
@@ -1342,6 +1342,152 @@ public sealed class TaskConnectorSettingsTests
             Asked.Add(target);
             return list(target);
         }
+    }
+
+    /// <summary>A target filed under an archived repository says on its card that it
+    /// is paused, and keeps its switch on; one filed under an active repository says
+    /// nothing (local ADR 0029 §5).</summary>
+    [Fact]
+    public void A_target_filed_under_an_archived_repository_says_it_is_paused()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        var store = new InMemoryTargets([
+            new ConnectedTarget(ListingConnector.Id, "budget") { RepositoryId = "innovadis-dev/Budgetbeheer" },
+            new ConnectedTarget(ListingConnector.Id, "backlog") { RepositoryId = "JSdotNet/Backlog" }]);
+        context.Services.AddSingleton(new LinkedTaskSources([new ListingConnector(_ => Task.FromResult<IReadOnlyList<SourceStatus>>([]))], store));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+        context.Services.AddSingleton<IRepositoryDirectory>(new OneArchived());
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        var cards = page.FindAll("[data-testid='task-connector-target-card']");
+        Assert.Equal(2, cards.Count);
+        var paused = page.FindAll("[data-testid='task-connector-target-card-paused']");
+        Assert.Equal("Paused while innovadis-dev/Budgetbeheer is archived.", Assert.Single(paused).TextContent);
+        Assert.True(store.Get(ListingConnector.Id, "budget")!.Enabled);
+    }
+
+    private static IReadOnlyList<string> RepositoryOptionLabels(IRenderedComponent<TaskConnectorSettings> page) =>
+        [.. page.FindAll("[data-testid='task-connector-target-card-repository'] select option").Select(option => option.TextContent)];
+
+    /// <summary>
+    /// Scenario "Show archived is on" for the Connectors page's repository picker (local
+    /// ADR 0029, §3): an archived repository is offered only while show archived is on,
+    /// and then says so.
+    /// </summary>
+    [Fact]
+    public void The_repository_picker_offers_an_archived_repository_only_while_show_archived_is_on()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        var store = new InMemoryTargets([new ConnectedTarget(ListingConnector.Id, "backlog")]);
+        var showArchived = new ShowArchivedRepositories(store: null);
+        context.Services.AddSingleton(new LinkedTaskSources([new ListingConnector(_ => Task.FromResult<IReadOnlyList<SourceStatus>>([]))], store));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+        context.Services.AddSingleton<IRepositoryDirectory>(new OneArchived());
+        context.Services.AddSingleton<IShowArchivedRepositories>(showArchived);
+
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.Equal(["None", "backlog"], RepositoryOptionLabels(page));
+
+        showArchived.SetShown(true);
+        var reopened = context.Render<TaskConnectorSettings>();
+
+        Assert.Equal(["None", "budgetbeheer (archived)", "backlog"], RepositoryOptionLabels(reopened));
+    }
+
+    /// <summary>A target already filed under an archived repository keeps showing it,
+    /// marked archived, while show archived is off: hiding it would show the target as
+    /// filed nowhere.</summary>
+    [Fact]
+    public void A_target_filed_under_an_archived_repository_still_shows_it_marked_archived()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        var store = new InMemoryTargets([
+            new ConnectedTarget(ListingConnector.Id, "budget") { RepositoryId = "innovadis-dev/Budgetbeheer" }]);
+        context.Services.AddSingleton(new LinkedTaskSources([new ListingConnector(_ => Task.FromResult<IReadOnlyList<SourceStatus>>([]))], store));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+        context.Services.AddSingleton<IRepositoryDirectory>(new OneArchived());
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Equal(["None", "budgetbeheer (archived)", "backlog"], RepositoryOptionLabels(page));
+        Assert.Equal(
+            "innovadis-dev/Budgetbeheer",
+            page.Find("[data-testid='task-connector-target-card-repository'] select").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// Scenario "Show archived is on" for "Connect a task source": a connector whose
+    /// target is a repository offers an archived one only while show archived is on,
+    /// and then says so (local ADR 0029, §3).
+    /// </summary>
+    [Fact]
+    public void Connect_a_task_source_offers_an_archived_repository_only_while_show_archived_is_on()
+    {
+        var connector = new ChoosingConnector(new ConnectorTargetChoices(
+            [new("innovadis-dev/Budgetbeheer", "innovadis-dev/Budgetbeheer"), new("JSdotNet/Backlog", "JSdotNet/Backlog")]))
+        {
+            Capabilities = new(TargetIsRepository: true),
+        };
+        var (context, _) = ComposeChoosing(connector);
+        using var _context = context;
+        var showArchived = new ShowArchivedRepositories(store: null);
+        context.Services.AddSingleton<IRepositoryDirectory>(new OneArchived());
+        context.Services.AddSingleton<IShowArchivedRepositories>(showArchived);
+
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.Equal(["JSdotNet/Backlog"], ConnectOptionLabels(page));
+
+        showArchived.SetShown(true);
+        var reopened = context.Render<TaskConnectorSettings>();
+
+        Assert.Equal(
+            ["innovadis-dev/Budgetbeheer" + ArchivedRepositoryLabel.Suffix, "JSdotNet/Backlog"],
+            ConnectOptionLabels(reopened));
+    }
+
+    private static IReadOnlyList<string> ConnectOptionLabels(IRenderedComponent<TaskConnectorSettings> page) =>
+        [.. page.FindAll("select#task-connector-target option")
+            .Where(option => option.GetAttribute("value") != string.Empty)
+            .Select(option => option.TextContent)];
+
+    /// <summary>A switched-off target already says why it is not syncing; its
+    /// archived repository adds no second reason (the option's contract is "not
+    /// syncing although it is switched on").</summary>
+    [Fact]
+    public void A_switched_off_target_under_an_archived_repository_is_not_said_to_be_paused()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        var store = new InMemoryTargets([
+            new ConnectedTarget(ListingConnector.Id, "budget") { RepositoryId = "innovadis-dev/Budgetbeheer", Enabled = false }]);
+        context.Services.AddSingleton(new LinkedTaskSources([new ListingConnector(_ => Task.FromResult<IReadOnlyList<SourceStatus>>([]))], store));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+        context.Services.AddSingleton<IRepositoryDirectory>(new OneArchived());
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Single(page.FindAll("[data-testid='task-connector-target-card']"));
+        Assert.Empty(page.FindAll("[data-testid='task-connector-target-card-paused']"));
+    }
+
+    /// <summary>A registry holding one archived and one active repository, resolving
+    /// by <c>owner/name</c> as the real one does.</summary>
+    private sealed class OneArchived : IRepositoryDirectory
+    {
+        public IReadOnlyList<TasksRepositoryRef> Repositories { get; } =
+        [
+            new("budgetbeheer", "innovadis-dev", "Budgetbeheer") { IsArchived = true },
+            new("backlog", "JSdotNet", "Backlog"),
+        ];
+
+        public TasksRepositoryRef? Resolve(string name) =>
+            Repositories.FirstOrDefault(repository => string.Equals(repository.Id, name.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        public Result<TasksRepositoryRef> Register(string name) => new TasksRepositoryRef(name, name, name);
     }
 
     /// <summary>A registry of two repositories, whose aliases are not their names, so

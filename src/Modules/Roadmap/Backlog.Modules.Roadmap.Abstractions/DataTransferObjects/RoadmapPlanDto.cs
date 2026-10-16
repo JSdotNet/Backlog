@@ -55,6 +55,9 @@ public sealed record RoadmapPlanDto(
 /// is still the importer's; null once a person has placed it.</param>
 /// <param name="EndPinned">Whether a person fixed the end. For started work the drawn end is
 /// a forecast unless this is set.</param>
+/// <param name="CompletedOn">The day a person said the work was done, or null while it is
+/// open. Read only while the item gathers no task — gathered tasks outrank it; see
+/// <see cref="RoadmapItemCompletion"/>.</param>
 public sealed record RoadmapItemDto(
     Guid Id,
     string Title,
@@ -69,7 +72,8 @@ public sealed record RoadmapItemDto(
     string Tag = "",
     IReadOnlyList<string>? KnowledgeRefs = null,
     ImportPlacement? PlacedByImport = null,
-    bool EndPinned = false)
+    bool EndPinned = false,
+    DateOnly? CompletedOn = null)
 {
     /// <summary>How many days it covers, counting both ends.</summary>
     public int Days => End.DayNumber - Start.DayNumber + 1;

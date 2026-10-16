@@ -575,8 +575,14 @@
                                 @* A comment is prose that may run to a paragraph,
                                    so it gets a box and two buttons rather than
                                    the commit-on-Enter a one-line rename uses:
-                                   Enter has to stay a newline here. *@
-                                <div class="md-comment__edit">
+                                   Enter has to stay a newline here.
+
+                                   Its keys are the draft's: a host that closes
+                                   on Escape — the Devbook, which takes the screen
+                                   — must not throw the draft away with a key
+                                   pressed in it. Blazor's walk ends here; a
+                                   document listener still hears the key. *@
+                                <div class="md-comment__edit" @onkeydown:stopPropagation="true">
                                     <TextArea Value="@_draft"
                                               ValueChanged="v => _draft = v"
                                               AriaLabel="Edit comment"
