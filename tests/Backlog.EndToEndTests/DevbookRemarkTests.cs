@@ -6,16 +6,19 @@ using static Microsoft.Playwright.Assertions;
 namespace Backlog.EndToEndTests;
 
 /// <summary>
-/// A remark on an Architecture chapter in the Devbook side pane can be written,
-/// saved and deleted with ordinary clicks, at every width the pane is used at.
+/// A remark on an Architecture chapter in the Devbook can be written, saved and
+/// deleted with ordinary clicks, at every window width the Devbook is read at.
 ///
-/// <para>The defect this holds down: at a 1689px window with the pane at its 24rem
-/// minimum the margin layout kept its 18rem column, because its fallback asked the
-/// window and not the pane. The prose track measured 16px, the block's corner
-/// affordance spilled over the notes cell, and Playwright reported the block
-/// intercepting the pointer on the remark's Save and Delete. A click without
-/// <c>Force</c> runs Playwright's actionability check, which fails when another
-/// element is on top — so each click here is the assertion that nothing is.</para>
+/// <para>The defect this holds down: while the Devbook was a side pane, at a 1689px
+/// window with the pane at its 24rem minimum the margin layout kept its 18rem
+/// column, because its fallback asked the window and not the pane. The prose track
+/// measured 16px, the block's corner affordance spilled over the notes cell, and
+/// Playwright reported the block intercepting the pointer on the remark's Save and
+/// Delete. The Devbook takes the whole screen now (local ADR 0022, amendment of
+/// 2026-10-15), so its width is the window's, and the widths that matter are the
+/// windows'. A click without <c>Force</c> runs Playwright's actionability check,
+/// which fails when another element is on top — so each click here is the
+/// assertion that nothing is.</para>
 ///
 /// <para>Remarks live in the app's database (local ADR 0011), not in the chapter, and
 /// every remark a run creates is deleted again, pass or fail.</para>
@@ -29,18 +32,16 @@ public sealed class DevbookRemarkTests
     private const int Block = 3;
 
     /// <summary>
-    /// Opens backlog's Architecture › 01 Introduction and Goals, sets the pane's
-    /// width, comments on block 3, types a body and saves it, checks every control
-    /// the saved remark offers is the top element where it is drawn, and deletes it
-    /// — Save and Delete as real clicks, no <c>Force</c>. At a 900px window the
-    /// pane stacks under the Tasks view and has no width of its own to set.
+    /// Opens backlog's Architecture › 01 Introduction and Goals in the Devbook,
+    /// comments on block 3, types a body and saves it, checks every control the
+    /// saved remark offers is the top element where it is drawn, and deletes it —
+    /// Save and Delete as real clicks, no <c>Force</c>.
     /// </summary>
     [Theory(Timeout = 10 * 60 * 1000)]
-    [InlineData(1689, 1277, 24.0)]
-    [InlineData(1689, 1277, 36.0)]
-    [InlineData(1689, 1277, 44.0)]
-    [InlineData(900, 1277, 36.0)]
-    public async Task A_remark_can_be_saved_and_deleted_at_this_pane_width(int viewportWidth, int viewportHeight, double paneRem)
+    [InlineData(1689, 1277)]
+    [InlineData(1152, 1277)]
+    [InlineData(900, 1277)]
+    public async Task A_remark_can_be_saved_and_deleted_at_this_window_width(int viewportWidth, int viewportHeight)
     {
         Assert.SkipUnless(
             Environment.GetEnvironmentVariable("BACKLOG_E2E") == "1",
@@ -59,7 +60,7 @@ public sealed class DevbookRemarkTests
 
         var desktop = await DesktopHarness.OpenAsync(
             browser, appHost, new ViewportSize { Width = viewportWidth, Height = viewportHeight }, cancellationToken);
-        var evidence = Evidence.For(string.Create(CultureInfo.InvariantCulture, $"devbook-remark-{viewportWidth}px-{paneRem}rem"));
+        var evidence = Evidence.For(string.Create(CultureInfo.InvariantCulture, $"devbook-remark-{viewportWidth}px"));
         var created = new HashSet<string>(StringComparer.Ordinal);
 
         // The remarks the chapter carried before this run, once they have been
@@ -75,9 +76,8 @@ public sealed class DevbookRemarkTests
             await desktop.ShowDevbookAsync();
             await desktop.OpenArchitectureChapterAsync(Chapter);
 
-            var width = await desktop.SetSidePaneWidthAsync(paneRem);
             TestContext.Current.SendDiagnosticMessage(
-                string.Create(CultureInfo.InvariantCulture, $"viewport {viewportWidth}x{viewportHeight}, pane asked {paneRem}rem, got {width?.ToString(CultureInfo.InvariantCulture) ?? "the full width, stacked"}"));
+                string.Create(CultureInfo.InvariantCulture, $"viewport {viewportWidth}x{viewportHeight}, the Devbook at the window's width"));
 
             before = await desktop.RemarkIdsAsync();
             var comment = desktop.ArchitectureChapter.GetByTestId($"markdown-comment-{Block}");
@@ -170,22 +170,12 @@ public sealed class DevbookRemarkTests
                         $"Could not remove remark {id}: {exception.Message}. Delete it on Architecture › 01 Introduction and Goals by hand.");
                 }
             }
-
-            // The pane back at its default width for whoever looks next.
-            try
-            {
-                await desktop.SetSidePaneWidthAsync(36);
-            }
-            catch (Exception exception) when (exception is PlaywrightException or TimeoutException)
-            {
-                TestContext.Current.SendDiagnosticMessage($"Could not put the side pane back to 36rem: {exception.Message}");
-            }
         }
     }
 }
 
-/// <summary>The remark tests set the shared repository scope and the side pane's
-/// width, so they run one at a time and never beside another test class.</summary>
+/// <summary>The remark tests set the shared repository scope and open the Devbook,
+/// so they run one at a time and never beside another test class.</summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
 public sealed class DevbookRemarkCollection
 {

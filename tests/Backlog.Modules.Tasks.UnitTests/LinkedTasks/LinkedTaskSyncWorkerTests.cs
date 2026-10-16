@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 
@@ -50,6 +51,56 @@ public sealed class LinkedTaskSyncWorkerTests
         await worker.TickAsync();
 
         Assert.Equal(["never-synced", "synced-long-ago"], _handler.Commands.Select(command => command.Target));
+    }
+
+    /// <summary>A target whose repository is archived is not asked for, and no
+    /// attempt is stamped, so the first tick after Unarchive syncs it rather than
+    /// waiting out an interval nobody ran (local ADR 0029 §5).</summary>
+    [Fact]
+    public async Task A_tick_skips_a_target_whose_repository_is_archived_until_it_is_unarchived()
+    {
+        var registry = new FakeRepositoryDirectory([
+            new TasksRepositoryRef("archived", "JSdotNet", "Archived") { IsArchived = true },
+            new TasksRepositoryRef("active", "JSdotNet", "Active")]);
+        var targets = new InMemoryConnectedTargets(
+            new ConnectedTarget("stub", "JSdotNet/Archived"),
+            new ConnectedTarget("stub", "JSdotNet/Active"));
+        using var worker = RepositoryWorker(targets, registry);
+
+        await worker.TickAsync();
+        Assert.Equal(["JSdotNet/Active"], _handler.Commands.Select(command => command.Target));
+
+        registry.SetArchived("JSdotNet/Archived", archived: false);
+        await worker.TickAsync();
+
+        Assert.Equal(["JSdotNet/Active", "JSdotNet/Archived"], _handler.Commands.Select(command => command.Target));
+    }
+
+    [Fact]
+    public async Task A_request_to_sync_everything_skips_a_target_whose_repository_is_archived()
+    {
+        var registry = new FakeRepositoryDirectory([new TasksRepositoryRef("archived", "JSdotNet", "Archived") { IsArchived = true }]);
+        using var worker = RepositoryWorker(new InMemoryConnectedTargets(new ConnectedTarget("stub", "JSdotNet/Archived")), registry);
+
+        await worker.RequestSync();
+
+        Assert.Empty(_handler.Commands);
+    }
+
+    /// <summary>A card's Sync now on a paused target says why, naming it, and runs
+    /// nothing — the pause is the repository's, not a failure of the sync.</summary>
+    [Fact]
+    public async Task A_request_for_one_target_whose_repository_is_archived_says_it_is_paused()
+    {
+        var registry = new FakeRepositoryDirectory([new TasksRepositoryRef("archived", "JSdotNet", "Archived") { IsArchived = true }]);
+        using var worker = RepositoryWorker(new InMemoryConnectedTargets(new ConnectedTarget("stub", "JSdotNet/Archived")), registry);
+
+        var outcome = await worker.RequestSync("stub", "JSdotNet/Archived");
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(SyncLinkedTasksCommandHandler.RepositoryArchived.Code, outcome.ErrorCode);
+        Assert.Equal("Syncing JSdotNet/Archived is paused while its repository is archived.", outcome.Message);
+        Assert.Empty(_handler.Commands);
     }
 
     [Fact]
@@ -287,4 +338,14 @@ public sealed class LinkedTaskSyncWorkerTests
 
     private LinkedTaskSyncWorker Worker(InMemoryConnectedTargets targets) =>
         new(new HandlerScopeFactory(_handler), targets, [new StubTaskConnector()], _time);
+
+    /// <summary>A worker whose one connector's targets are repositories, reading
+    /// the registry the test hands in.</summary>
+    private LinkedTaskSyncWorker RepositoryWorker(InMemoryConnectedTargets targets, FakeRepositoryDirectory registry) =>
+        new(
+            new HandlerScopeFactory(_handler),
+            targets,
+            [new StubTaskConnector { Capabilities = new(TargetIsRepository: true) }],
+            _time,
+            repositories: registry);
 }

@@ -60,11 +60,11 @@
 
   <ItemGroup>
     <!--
-      The vendored Archify generator, beside the executable as archify\. The Sessions
-      pane draws a delivery run's stages as an Archify artifact generated on demand,
-      because a run changes while it runs and cannot be rendered once and committed;
-      ArchifyDeliveryRunDiagrams looks here first. A debug build would find
-      tools\archify up the tree anyway — an installed app has no tree to look up.
+      The vendored Archify generator, beside the executable as archify\, for the
+      Devbook pane's diagrams: a chapter diagram is drawn from its specification on
+      demand (local ADR 0034), with this copy when the opened repository carries no
+      tools\archify. An installed app has no tools\archify up the tree to find, as a
+      debug build would.
       The examples stay behind (3.4 MB of sample output nothing runs); the rest is
       2 MB with no install step, which is why it was vendored rather than fetched.
     -->

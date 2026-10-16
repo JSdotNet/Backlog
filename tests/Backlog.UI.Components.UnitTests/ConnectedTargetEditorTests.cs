@@ -53,6 +53,23 @@ public sealed class ConnectedTargetEditorTests
         Assert.Empty(fine.FindAll("[data-testid='t-error']"));
     }
 
+    /// <summary>A target the host says is paused — its repository archived — says
+    /// so on its own card; a card that is not paused says nothing.</summary>
+    [Fact]
+    public void A_paused_target_says_why_on_the_card()
+    {
+        using var context = new BunitContext();
+
+        var paused = context.Render<ConnectedTargetEditor>(p => p
+            .Add(c => c.Options, Target with { PausedReason = "Paused while JSdotNet/Backlog is archived." })
+            .Add(c => c.TestId, "t"));
+        var running = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target).Add(c => c.TestId, "t"));
+
+        Assert.Equal("Paused while JSdotNet/Backlog is archived.", paused.Find("[data-testid='t-paused']").TextContent);
+        Assert.Equal("status", paused.Find("[data-testid='t-paused']").GetAttribute("role"));
+        Assert.Empty(running.FindAll("[data-testid='t-paused']"));
+    }
+
     [Fact]
     public void The_hosts_answer_to_sync_now_is_shown_on_the_card()
     {

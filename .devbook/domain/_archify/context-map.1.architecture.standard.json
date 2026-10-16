@@ -166,6 +166,32 @@
         200,
         58
       ]
+    },
+    {
+      "id": "progress",
+      "type": "backend",
+      "label": "Progress",
+      "pos": [
+        1600,
+        540
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "sync",
+      "type": "backend",
+      "label": "Sync",
+      "pos": [
+        760,
+        1200
+      ],
+      "size": [
+        200,
+        58
+      ]
     }
   ],
   "connections": [
@@ -194,7 +220,11 @@
     {
       "from": "inbox",
       "to": "brain",
-      "label": "OHS + Published Language — ItemTriaged"
+      "label": "OHS + Published Language — ItemTriaged",
+      "labelAt": [
+        1140,
+        296
+      ]
     },
     {
       "from": "backlog",
@@ -449,7 +479,11 @@
     {
       "from": "sessions",
       "to": "productivity",
-      "label": "Customer/Supplier — agent session facts"
+      "label": "Customer/Supplier — agent session facts",
+      "labelAt": [
+        1000,
+        1572
+      ]
     },
     {
       "from": "sessions",
@@ -501,6 +535,54 @@
       "from": "repo",
       "to": "roadmap",
       "label": "Customer/Supplier — repo registry lookup by alias"
+    },
+    {
+      "from": "backlog",
+      "to": "progress",
+      "label": "Customer/Supplier — task by id: status, tags, plan tag, linked pull requests",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          300,
+          569
+        ]
+      ]
+    },
+    {
+      "from": "roadmap",
+      "to": "progress",
+      "label": "Customer/Supplier — plan tag vocabulary"
+    },
+    {
+      "from": "repo",
+      "to": "progress",
+      "label": "Customer/Supplier — repo registry lookup by alias"
+    },
+    {
+      "from": "progress",
+      "to": "monitor",
+      "label": "Customer/Supplier — open sprint and goal for the briefs"
+    },
+    {
+      "from": "sync",
+      "to": "backlog",
+      "label": "OHS + Published Language — task replica feed"
+    },
+    {
+      "from": "sync",
+      "to": "sessions",
+      "label": "OHS + Published Language — session record replica"
+    },
+    {
+      "from": "sync",
+      "to": "brain",
+      "label": "OHS + Published Language — annotation replica"
+    },
+    {
+      "from": "sync",
+      "to": "inbox",
+      "label": "Customer/Supplier — capture-kind documents for IInboxIntake"
     }
   ]
 }

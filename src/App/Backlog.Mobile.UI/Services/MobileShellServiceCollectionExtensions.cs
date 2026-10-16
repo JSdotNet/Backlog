@@ -1,7 +1,9 @@
+using Backlog.Mobile.UI.AppUpdate;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
+using Backlog.UI.Components.AppUpdate;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -36,6 +38,15 @@ public static class MobileShellServiceCollectionExtensions
         // Scoped unless the host already registered it: the MAUI head makes it a
         // singleton, because its window events arrive from outside any scope.
         services.TryAddScoped<AppLifecycle>();
+
+        // The app bar's version control and its update window. A host that can
+        // update itself registers its own service first - the Android head does;
+        // anything else, the browser harness and the tests included, gets the
+        // service that answers "not managed here", and the stamp that keeps the
+        // quiet launch check eight hours apart only for as long as the process.
+        services.TryAddSingleton<IAppUpdateService>(_ => new UnsupportedAppUpdateService());
+        services.TryAddSingleton<IAppUpdateCheckStamp, InMemoryAppUpdateCheckStamp>();
+        services.AddScoped<AppUpdateWatch>();
 
         return services;
     }

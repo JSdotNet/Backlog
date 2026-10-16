@@ -62,6 +62,36 @@ public sealed class SprintSettingsTests : IDisposable
         Assert.Empty(page.Markup.Trim());
     }
 
+    /// <summary>
+    /// An archived repository (local ADR 0029, §3) is not offered to a series, nor listed
+    /// as free, while show archived is off; with it on it is offered again. A series that
+    /// already holds one keeps it: only the sprint pull request reads skip it.
+    /// </summary>
+    [Fact]
+    public async Task An_archived_repository_is_offered_to_a_series_only_while_show_archived_is_on()
+    {
+        _registry.ArchivedAliases = ["docs"];
+        var showArchived = new Backlog.Infrastructure.FileSystem.ShowArchivedRepositories(store: null);
+        _context.Services.AddSingleton<IShowArchivedRepositories>(showArchived);
+        var core = await CreateAsync("backlog");
+
+        var page = _context.Render<SprintSettings>();
+
+        page.WaitForAssertion(() => Assert.Equal(
+            ["tools"],
+            page.FindAll("[data-testid='sprint-settings-free-repositories'] .tag-chip__label").Select(chip => chip.TextContent)));
+        Assert.Equal(
+            ["", "tools"],
+            page.FindAll($"[data-testid='{Card(core)}-add-repository'] option").Select(option => option.GetAttribute("value")));
+
+        showArchived.SetShown(true);
+        var reopened = _context.Render<SprintSettings>();
+
+        reopened.WaitForAssertion(() => Assert.Equal(
+            ["docs", "tools"],
+            reopened.FindAll("[data-testid='sprint-settings-free-repositories'] .tag-chip__label").Select(chip => chip.TextContent)));
+    }
+
     [Fact]
     public async Task Draws_a_card_per_series_and_lists_the_repositories_in_no_series()
     {
@@ -260,6 +290,8 @@ public sealed class SprintSettingsTests : IDisposable
     private sealed class Registry(params string[] aliases) : ISprintRepositories
     {
         public IReadOnlyList<string> Aliases { get; } = aliases;
+
+        public IReadOnlyList<string> ArchivedAliases { get; set; } = [];
     }
 
     private sealed class Switch : IAppFeatureSettings

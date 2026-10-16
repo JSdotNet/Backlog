@@ -3,7 +3,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
-using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
 using Backlog.Modules.Inbox.Abstractions.Services;
@@ -100,6 +100,9 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
         Path.Combine(localDevelopment, "planning-velocity.settings.json"),
         time: null,
         sp.GetRequiredService<WorkingHoursSettingsStore>()),
+    // Under the content root, never %LOCALAPPDATA%: that folder is shared by every
+    // worktree's harness and by the installed app.
+    MyDayPreferences = _ => CreateLocalDevelopmentMyDayPreferencesStore(builder.Environment.ContentRootPath),
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
@@ -479,6 +482,17 @@ static InboxRoutingRulesStore CreateLocalDevelopmentInboxRoutingRulesStore(strin
     }
 
     return new InboxRoutingRulesStore(settingsPath);
+}
+
+static MyDayPreferencesStore CreateLocalDevelopmentMyDayPreferencesStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_MY_DAY_PREFERENCES_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "my-day-preferences.settings.json");
+    }
+
+    return new MyDayPreferencesStore(settingsPath);
 }
 
 static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsStore(string contentRootPath)

@@ -66,6 +66,16 @@ internal sealed class FakeRepositoryDirectory : IRepositoryDirectory
 
     public bool WasRemoved(string id) => Removed.Contains(id.Trim());
 
+    /// <summary>Archives or unarchives the repository with <paramref name="id"/>,
+    /// as Settings' Archive and Unarchive do: the row keeps its place, its alias
+    /// and its id, and only the flag moves (local ADR 0029).</summary>
+    public void SetArchived(string id, bool archived)
+    {
+        var index = _repositories.FindIndex(repository => string.Equals(repository.Id, id, StringComparison.OrdinalIgnoreCase));
+        if (index < 0) throw new InvalidOperationException($"No repository {id} in the fake directory.");
+        _repositories[index] = _repositories[index] with { IsArchived = archived };
+    }
+
     public IReadOnlyList<TasksRepositoryRef> Repositories => _repositories;
 
     public TasksRepositoryRef? Resolve(string name)

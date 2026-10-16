@@ -85,8 +85,10 @@ the app reads it both ways from there:
   beside more than one backlog.
 - **From the task.** A task row, in the Brain scope and in a repository scope,
   carries a teal **◆ n note** badge counting the Brain notes that name it. With one
-  note, pressing it opens that note in the Devbook pane, Brain side; with several,
-  it lists them to pick from.
+  note, pressing it gives the Devbook the screen on the Brain side, at that note;
+  with several, it lists them to pick from. Where the Devbook is switched off or
+  has no Brain to read, the press shows a *not available* toast and opens
+  nothing.
 
 The reverse is read, never written: a task's record carries no note, and the badge
 is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so
@@ -107,7 +109,7 @@ the scope works for a person who has configured none.
 
 Brain is the scope of everything filed against no repository. Pressed alone, it
 narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the
-tasks with no repository. It also opens the Brain in the Devbook pane. Pull
+tasks with no repository. It also shows the Brain when the Devbook is opened. Pull
 requests and the Roadmap read Brain alone as nothing pressed: every pull request
 belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still
 means everything.
@@ -117,7 +119,10 @@ The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows
 With the Brain and repositories pressed together, each row's repository badge
 says where the task is filed: **Brain** for no repository, else the alias.
 Until a Brain folder is set up, the chip reads **Set up your Brain**, still
-scopes the tasks, and its tooltip points to Settings › Storage.
+scopes the tasks, and its tooltip points to Settings › Storage. The Devbook on the
+Brain side then shows a **Set up your Brain** button instead of areas. It opens
+Settings › Storage at the Brain folder card, inside the app rather than in the
+system browser.
 
 ## Brain folder setup
 
@@ -190,7 +195,7 @@ start of its tab strip. The switch sits right after the title, so it stays in
 place as the badge and the path come and go.
 
 The pane's own width decides its layout, not the window's. Narrower than a menu
-beside a readable column, as at the side pane's minimum, the menu sits above the
+beside a readable column, as in a narrow window, the menu sits above the
 note, capped so the note still starts on screen, and a note's title wraps above
 its path rather than ending in an ellipsis.
 
@@ -376,9 +381,9 @@ by the repository's own folder for that subject. Tasks are not an area. They are
 their own workspace section, read and written rather than browsed, so a
 repository's backlog folder is not a knowledge area.
 
-Areas are browsed from a side pane beside the task list, so knowledge and work
-stay in view together. The pane's width is adjustable, because the two compete for
-the same screen.
+Areas are browsed in the Devbook, which takes the whole screen in place of the
+task list and keeps it underneath, so one press moves between knowledge and work
+(local ADR 0022, amendment of 2026-10-15).
 
 ### Area selection and scope
 
@@ -386,7 +391,7 @@ the same screen.
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Switch between areas, and between repositories when more than one is registered,
@@ -634,7 +639,7 @@ repository read from a branch without a clone is prepared too.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Say whether the knowledge in view is the latest version the repository has, and
@@ -642,9 +647,18 @@ bring it up to date when it is not. A repository's folders are read from a local
 clone, and a clone falls behind in silence: every chapter still opens, and nothing
 in one says that somebody else has revised it since.
 
-The question is asked only when somebody asks it. Answering means reaching for the
-repository itself, and knowledge that reached out on its own would make opening a
-folder wait on the network for an answer nobody wanted yet.
+The question is asked once on its own: the first time the pane opens on the
+repository in an app session, beside loading
+[its branches](#choosing-where-the-devbook-is-read-from). Answering means reaching
+for the repository itself, so it runs in the background and opening a folder never
+waits on it. A clone it finds behind is offered "Pull latest" straight away, with
+no "Check now" pressed first and no sentence nobody asked for. After that the
+question is asked when somebody presses for it.
+
+The question is only about the local clone, so the version control shows only
+while the pane reads the clone. A branch snapshot keeps itself current on its own
+cadence (local ADR 0008), and a control there would only hurry along what happens
+anyway.
 
 The answer says how far behind the clone is. It offers to bring the clone up to
 date only when being behind is all that is in the way. Three other states are
@@ -656,9 +670,14 @@ reported as they stand rather than reconciled on the reader's behalf:
 
 What to do about any of those belongs to whoever owns the clone. Knowledge kept
 outside a repository has no latest version to be on, and is not asked about.
+Nor is the devbook of an
+[archived repository](../repository-management/domain.md#archived-repository),
+which [is read-only](../repository-management/requirements.md#requirement-an-archived-repositorys-devbook-is-read-only).
 
-Bringing a clone up to date replaces what its folders say, so the knowledge on screen
-becomes the knowledge that arrived with it.
+Bringing a clone up to date happens only when somebody presses for it, because a
+pull touches a working tree somebody may be editing in. It replaces what the
+clone's folders say, so the knowledge on screen becomes the knowledge that arrived
+with it.
 
 ### Choosing where the devbook is read from
 
@@ -666,7 +685,7 @@ becomes the knowledge that arrived with it.
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/design/typography-and-layout.md#iconography]
 ```
 
 Read a repository's devbook from its local clone or from any of its branches,
@@ -676,8 +695,15 @@ rarely the one who has that branch checked out, and a repository nobody has clon
 has only its branches to offer (local ADR 0008).
 
 The choice is one field the reader types into. It suggests the default branch, the
-local clone where there is one, and the repository's branches, narrowed to what
-the typed text contains.
+local clone where there is one, and the branches that change the devbook, narrowed
+to what the typed text contains. A branch that touches no devbook area has nothing
+to read that the default branch lacks, so it is not suggested; it can still be
+typed by name.
+
+Each branch says why it is worth reading: the glyph of every area it changes, and
+how many commits it is ahead of and behind the default branch. The local clone says
+how far it is ahead of and behind the branch it tracks, and nothing when it tracks
+none.
 
 ```mermaid
 flowchart TD
@@ -691,12 +717,21 @@ flowchart TD
     G -->|no| R[Says so and leaves the source alone]
 ```
 
-A repository can have hundreds of branches. They are fetched from GitHub when
-somebody asks for them rather than whenever the pane opens, and the list stops at a
-ceiling instead of paging without end. A typed branch the list does not hold is
-asked of GitHub before it is turned down, because the list may simply be older
-than the branch. A search is not a choice: only a named source switches what the
-pane reads.
+Knowing what a branch changes means comparing it with the default branch, one call
+per branch. The branches are therefore loaded once per repository per app session,
+in the background, when the pane first opens on it: the list, a comparison per
+branch, and a look at the clone. Reopening the picker, switching tabs or source, or
+a second window reuses that load rather than asking again. The pane never waits on
+it: the field works from the start, and "Loading branches…" in the list marks a
+load still running. "Refresh branches" asks again. The list stops at a ceiling
+instead of paging without end.
+
+A load can fail, or part of it can. A branch GitHub would not compare is not placed;
+a refused listing is said beside the field, and the default branch, the clone and
+the configured branch stay offered. A refused refresh keeps what the last good load
+listed. A typed branch the list does not hold is asked of GitHub before it is
+turned down, because the list may simply be older than the branch. A search is not
+a choice: only a named source switches what the pane reads.
 
 Switching says, under the strip, whether the pane now reads the clone or a branch
 snapshot, and a branch snapshot is read-only. The settings screen offers the same

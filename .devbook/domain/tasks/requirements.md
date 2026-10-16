@@ -14,12 +14,13 @@ related: [.devbook/domain/tasks/features.md]
 ```meta
 type: requirements
 status: draft
-related: [.devbook/domain/tasks/features.md#my-day]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
-> The requirements of My Day on the phone and how the phone's changes reach the
-> desktop. The feature chapter says what My Day is and why; this says what it
-> promises.
+> The requirements of My Day on the desktop and the phone, and how the phone's
+> changes reach the desktop. The feature chapter says what My Day is and why;
+> this says what it promises. A carried task is defined under
+> [My Day](domain.md#my-day).
 
 ### Requirement: Today places each task by its agenda time
 
@@ -176,6 +177,132 @@ Focus SHALL offer Complete task once every step of the task is ticked off, a pre
 - **Given** Focus offers Complete task on a task with all three steps ticked off
 - **When** the reader presses Complete task and the desktop syncs
 - **Then** the phone is on Today with the task under Done today, and the desktop shows it ticked off with its steps at 3 of 3
+
+### Requirement: An unfinished task carries over when My Day is kept
+
+```meta
+type: requirement
+status: draft
+```
+
+With Clear My Day overnight off, the system SHALL keep an unfinished task picked for an earlier day in today's My Day on every paired device.
+
+#### Scenario: Yesterday's open task on both heads
+
+- **Given** Clear My Day overnight is off and an open task was picked for yesterday
+- **When** the desktop opens the Tasks pane and the phone opens Today after its next pull
+- **Then** the desktop counts the task in My Day and shows it under the My Day filter, and the phone shows it under Anytime today
+
+#### Scenario: The same task with the switch on
+
+- **Given** Clear My Day overnight is on and an open task was picked for yesterday
+- **When** the desktop opens the Tasks pane and the phone opens Today after its next pull
+- **Then** neither device shows the task in today's My Day
+
+#### Scenario: Taking a carried task out
+
+- **Given** Clear My Day overnight is off and a carried task is in today's My Day on the desktop
+- **When** the reader chooses Remove from My Day on it
+- **Then** the task leaves My Day, its `myday:` date is cleared, and no other task changes
+
+#### Scenario: Finishing a carried task on the phone
+
+- **Given** Clear My Day overnight is off and the phone shows the page of a carried task
+- **When** the reader presses Mark done
+- **Then** the phone is on Today with the task under Done today
+
+### Requirement: A carried task ticked off today stays until the day ends
+
+```meta
+type: requirement
+status: draft
+```
+
+With Clear My Day overnight off, the system SHALL list a task picked for an earlier day under Done today when it was ticked off today, and leave it out when it was ticked off on an earlier day.
+
+#### Scenario: Ticked off today
+
+- **Given** Clear My Day overnight is off and a task picked for two days ago was ticked off this morning
+- **When** the reader opens Today on the phone
+- **Then** the task is under Done today
+
+#### Scenario: Ticked off yesterday
+
+- **Given** Clear My Day overnight is off and a task picked for two days ago was ticked off yesterday
+- **When** the reader opens Today on the phone or the Tasks pane on the desktop
+- **Then** the task is not in today's My Day
+
+### Requirement: A task picked for a later day never shows today
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL leave a task picked for a later day out of today's My Day, whatever Clear My Day overnight says.
+
+#### Scenario: Moved to tomorrow with the switch off
+
+- **Given** Clear My Day overnight is off and the phone shows the page of an open task in today's My Day
+- **When** the reader presses Move to tomorrow and the desktop syncs
+- **Then** neither device shows the task in today's My Day until tomorrow
+
+### Requirement: A carried task shows no agenda time
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show no agenda time for a carried task, on the desktop or the phone.
+
+#### Scenario: Yesterday's block
+
+- **Given** Clear My Day overnight is off and an open task was picked for yesterday with the block 10:00–11:00
+- **When** the phone opens Today and the desktop shows the task's row and detail pane
+- **Then** the phone shows the task under Anytime today without a block and offers no Focus, and the desktop row shows no block and the detail pane shows no agenda control
+
+### Requirement: A change to the switch reaches every paired device
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL bring a change to Clear My Day overnight made on one desktop to every paired device on that device's next pull.
+
+#### Scenario: Turning it off on one desktop
+
+- **Given** two paired desktops and a phone, all reading Clear My Day overnight as on
+- **When** the reader turns it off on the first desktop and the other devices pull
+- **Then** the second desktop reads it as off and all three devices list the same My Day
+
+#### Scenario: Two flips between syncs
+
+- **Given** the reader turns the switch off on the first desktop and later turns it on on the second, before either syncs
+- **When** both desktops and the phone sync
+- **Then** every device reads the switch as on, the later choice
+
+### Requirement: A device that never set the switch reads it as on
+
+```meta
+type: requirement
+status: draft
+```
+
+A device that never set Clear My Day overnight SHALL read it as on and send nothing for it.
+
+#### Scenario: A newly paired desktop
+
+- **Given** a desktop has Clear My Day overnight off and a second desktop that never set it is paired
+- **When** the second desktop syncs
+- **Then** the second desktop sends no choice of its own and reads the switch as off afterwards
+
+#### Scenario: A phone before any choice arrives
+
+- **Given** no desktop has ever set Clear My Day overnight and an open task was picked for yesterday
+- **When** the phone opens Today
+- **Then** the task is not in today's My Day
 
 ## Linked tasks
 

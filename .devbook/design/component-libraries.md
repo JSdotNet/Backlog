@@ -334,7 +334,7 @@ shared editor, and whether the token pipeline is delivered in the first release.
 ## Materialization
 
 ```meta
-related: [".devbook/design/README.md#living-reference-the-ui-storybook"]
+related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/tech/shared.md#mermaid", ".devbook/tech/shared.md#net-maui"]
 ```
 
 What the product actually uses today, against the recommendations above:
@@ -359,13 +359,19 @@ Notes:
   cost is that a11y semantics, keyboard support and reorder are the product's
   own work rather than inherited. The gaps listed in
   `accessibility.md#materialization` are that cost.
-- **Mermaid is fetched from a CDN on first use** (`jsdelivr`), with the diagram
-  source shown as the fallback when the fetch fails. That matches the
-  development-fallback allowance in `#risks-and-gaps`, and it violates the
-  local-first rule for production. Mermaid MUST be vendored into the library's
-  own `wwwroot` before the desktop app ships. On a machine with no egress, the
-  storybook's *Diagrams* page shows source instead of a picture, which is the
-  fallback behaving correctly.
+- **Mermaid is vendored.** Version 11.17.2 sits in the library's own `wwwroot`,
+  under `src/Core/Backlog.UI.Components/wwwroot/lib/mermaid/`, and `components.js`
+  imports only that copy, the first time a diagram renders. Every host serves it
+  through the library's static web assets, so diagrams draw with no network, which
+  is the local-first rule in `#risks-and-gaps` met. The folder's README says where
+  the files came from and how to move the version. The diagram source is still
+  shown when Mermaid fails to load or render.
+- The entry and its chunks are `.mjs` files, and a browser runs a module script
+  only when it is served with a JavaScript content type. MAUI 10.0.110's Windows
+  content-type table has no `.mjs` entry, so the desktop app maps it to
+  `text/javascript` itself, in `src/App/Backlog.Desktop/Services/ModuleScriptResponses.cs`
+  (PR #1348). Without that hook the desktop app shows diagram source where the
+  storybook and the web harness show a picture.
 - AntV G6 is not used. The library holds no loader for it, and no
   `.devbook/tech` chapter records it.
 

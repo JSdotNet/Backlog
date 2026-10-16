@@ -1,4 +1,4 @@
-# ADR 0022: The desktop shell shows one main view, picked by a view switch; side panes open beside it and takeovers replace it
+# ADR 0022: The desktop shell shows one main view, picked by a view switch, and takeovers replace it
 
 ```meta
 date: 2026-10-07
@@ -7,11 +7,12 @@ related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/de
 
 The desktop shell's workspace always shows exactly one **main view** — Tasks,
 Board, Calendar, Roadmap or In progress — chosen in the header and never closed,
-only replaced. The Devbook is a **side pane** that opens beside whichever view
-is showing. Sessions, Pull requests, Dashboard and Tools stay **takeovers** that
-hide the workspace and that Escape closes. The Inbox was a side pane too; since
-the [amendment](#amendment) of 2026-10-12 it takes the whole screen like a
-takeover, and Escape stays with its own keys. What the shell remembers in
+only replaced. Sessions, Pull requests, Dashboard and Tools stay **takeovers**
+that hide the workspace and that Escape closes. The Inbox and the Devbook were
+first **side panes** beside the view. Since the [amendment](#amendment) of
+2026-10-12 the Inbox takes the whole screen like a takeover, and Escape stays
+with its own keys. Since the amendment of 2026-10-15 the Devbook takes it too,
+as a takeover Escape closes, so no side pane remains. What the shell remembers in
 `shell-navigation.json` gains a `lastView`, and a file from before the change is
 read into the new shape rather than rejected.
 
@@ -70,14 +71,14 @@ flowchart LR
     subgraph Header
         Inbox["Inbox (full screen, amended 2026-10-12)"]
         Views["Tasks | Board | Calendar | Roadmap"]
-        Devbook["Devbook (side pane)"]
+        Devbook["Devbook (full screen, amended 2026-10-15)"]
         Work["In progress | Sessions | Pull requests"]
         Other["Dashboard  Tools"]
     end
     Views --> MainView["Main view (ShellView)"]
     Work -- "In progress" --> MainView
-    Devbook --> Beside["Beside the main view"]
     Inbox --> Takeover
+    Devbook --> Takeover
     Work -- "Sessions, Pull requests" --> Takeover["Takeover (WorkspaceSurface)"]
     Other --> Takeover
     Takeover -. "hides" .-> MainView
@@ -116,6 +117,12 @@ question that group asks, and it summarises the two lists beside it.
 ```meta
 ```
 
+Superseded in full by the [Amendment](#amendment) of 2026-10-15: the Devbook
+is no longer a side pane, so no side pane remains. `GlobalPane`,
+`GlobalPaneSelection`, the side slots, the viewport's count of panes and the
+draggable side-pane edge are gone. The text below is the decision as first
+taken, and nothing in it holds today.
+
 Superseded in part by the [Amendment](#amendment) of 2026-10-12: the Inbox is
 no longer a side pane, and `GlobalPane` holds only `Devbook`. The text below is
 the decision as first taken; where it names the Inbox, read the Amendment.
@@ -147,8 +154,9 @@ so closing a takeover shows them as they were.
 ```meta
 ```
 
-The roadmap is the Roadmap view inside the workspace, with the Inbox and the
-Devbook beside it. It is not closed by Escape, which on the roadmap already puts a
+The roadmap is the Roadmap view inside the workspace. As first taken it had the
+Inbox and the Devbook beside it; since the [Amendment](#amendment) both take
+the screen over it instead. It is not closed by Escape, which on the roadmap already puts a
 grabbed bar back and dismisses its planning dialogs. A window resize never closes
 it. The `WorkspaceSurface.Roadmap` member stays only so that an older file still
 reads. Nothing assigns it.
@@ -168,8 +176,8 @@ surface again when it initialises, so no path puts the old takeover back:
 |---|---|
 | No `lastView` | The Tasks view |
 | `lastSurface: Roadmap` | The Roadmap view over the workspace, never the takeover |
-| `Tasks` (or the older `Backlog`) in `lastEnabledPanes` | Ignored; the other panes keep their state (an `Inbox` beside it is superseded by the [Amendment](#amendment)) |
-| `Knowledge` in `lastEnabledPanes` | The Devbook, as before |
+| `Tasks` (or the older `Backlog`) in `lastEnabledPanes` | Ignored; the other panes keep their state (an `Inbox` or a `Devbook` beside it is superseded by the [Amendment](#amendment)) |
+| `Knowledge` in `lastEnabledPanes` | The Devbook, as before; superseded by the [Amendment](#amendment) of 2026-10-15, which reopens it as the Devbook surface |
 | An unknown or numeric name | The default for that field |
 
 `Roadmap` is never written as a surface again. The names are appended to the
@@ -296,6 +304,59 @@ The decision is recorded there. Three things change here:
 What changes in this record: section 3's Devbook pane has something to show with
 no repository scoped, and the shell's remembered scope may name the Brain.
 
+**2026-10-15: the Devbook takes the whole screen.** The Devbook stops being a
+side pane and becomes the `WorkspaceSurface.Devbook` member, appended after
+`Inbox`. Its header toggle keeps its place after the view switch and still reads
+**Brain** while it shows the Brain. A press gives the Devbook the whole screen in
+place of the main view, which is kept underneath. A second press, a view option,
+another takeover option or Escape returns to that view. The links that opened the
+side pane now open the Devbook surface: the task row's Brain badge and every
+other "open in the Devbook" link.
+
+Why:
+
+- **Side by side, each had half a screen.** The split left the main view and the
+  Devbook each part of the window, and the repository owner did not want the
+  side-by-side arrangement. A chapter, its diagrams and the Brain read full width,
+  as triage does in the Inbox.
+
+**Escape closes the Devbook.** The Devbook follows section 4's takeover rules,
+Escape included, so it carries none of the Inbox's exception. An Escape that a
+field, a draft or a dialog inside the Devbook handles stays there and does not
+also close the surface. Turning the `repository-devbook` flag off while the
+Devbook has the screen returns the reader to the workspace, as for the Inbox.
+
+**The side-pane machinery goes.** `GlobalPane`, `GlobalPaneSelection`, the
+side-pane slots, the viewport rule that counted how many panes fit, and the
+draggable side-pane edge are removed. The Brain scope of the 2026-10-13
+amendment and ADR 0027 is unchanged; only where the Devbook is shown changes.
+
+**The persisted state migrates.** `shell-navigation.json` may now hold `Devbook`
+as `lastSurface`, restored on a fresh shell like the other surfaces. A file from
+before lists `Devbook`, or the older `Knowledge`, in `lastEnabledPanes`;
+`ShellNavigationStore` reads it on load:
+
+| The file holds | It reopens as |
+|---|---|
+| `Devbook` or `Knowledge` in `lastEnabledPanes`, `lastSurface` absent or `Workspace` | The Devbook surface, over the remembered view |
+| `Devbook` or `Knowledge` in `lastEnabledPanes` under another stored surface | That surface; the Devbook was hidden under it |
+| `Inbox` and `Devbook` (or `Knowledge`) both in `lastEnabledPanes`, `lastSurface` absent or `Workspace` | The Inbox surface. An older file could hold both; the Inbox wins and the Devbook is dropped |
+
+Either way the name leaves the pane list, and `lastEnabledPanes` is never written
+again. Only one surface can be restored, so a file that lists both panes reopens
+on the Inbox, which the 2026-10-12 table already restored.
+
+What it costs: a chapter can no longer be read beside the task list. The reader
+moves between them with the toggle, and the view waits underneath.
+
+What changes in this record: section 3 no longer holds at all. The Devbook joins
+the takeovers of section 4 without the Inbox's Escape exception, and section 4's
+side-pane toggle and side panes kept underneath no longer exist. Section 5's
+roadmap has nothing beside it, and section 6's `Knowledge` row reads as the table
+above. The positive consequence of side panes beside every view no longer holds,
+nor does the negative consequence about dragging the side-pane edge. The
+2026-10-13 amendment's Devbook side pane is now the Devbook surface.
+
 ## Verification
 
 ```meta
@@ -305,10 +366,8 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
 
 1. **One view, never closed.** `HomeWorkspaceSurfaceTests.Pressing_the_pressed_view_again_changes_nothing`,
    `The_roadmap_view_replaces_the_task_list_inside_the_workspace`.
-2. **The side pane beside any view.** `The_devbook_opens_beside_the_roadmap_and_the_inbox_takes_the_screen_over_it`,
-   `The_side_pane_is_the_devbook_and_no_view_or_surface`,
-   `A_side_pane_toggle_opens_it_beside_the_view_and_closes_it_again`,
-   `GlobalPaneMarkupTests.A_side_pane_needs_neither_a_pin_nor_a_modifier`.
+2. **The side pane beside any view.** Withdrawn with the side pane by the
+   amendment of 2026-10-15; its tests were removed, and item 8 holds what replaced it.
 3. **Header order and groups.** `The_nav_reads_inbox_views_devbook_then_the_work_in_progress_and_the_other_takeovers`,
    `In_progress_is_a_main_view_that_leads_the_work_in_progress_group`.
 4. **Takeovers.** `A_takeover_keeps_the_view_switch_unpressed_and_a_view_option_returns_to_the_workspace`,
@@ -318,7 +377,7 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `A_window_resize_never_closes_the_roadmap`,
    `GlobalPaneMarkupTests.Roadmap_option_is_feature_gated_and_is_a_view_not_a_takeover`.
 6. **Migration.** `A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view`,
-   `A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_side_panes_keep_their_state`,
+   `A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_inbox_reopens`,
    `An_inbox_pane_from_before_the_inbox_took_the_screen_reopens_as_the_inbox_surface`,
    `The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it`, and
    `ShellNavigationStoreTests`.
@@ -326,5 +385,27 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `HomeInboxWiringTests.Routing_an_item_reloads_the_tasks_from_the_store_and_keeps_the_inbox_on_screen`,
    `HomeInboxWiringTests.Escape_heard_at_the_document_does_not_leave_the_inbox`,
    `GlobalPaneMarkupTests.Inbox_renders_as_its_own_surface_and_never_beside_the_main_view`,
-   `GlobalPaneSelectionTests.A_pane_name_that_names_no_side_pane_is_refused`, and the
+   and the
    `ShellNavigationStoreTests` whose names start `An_inbox_pane_` or `A_migrated_inbox_pane_`.
+8. **The Devbook takes the screen** (amendment of 2026-10-15).
+   `HomeWorkspaceSurfaceTests.The_devbook_takes_the_screen_over_the_view_and_a_second_press_returns_to_it`,
+   `Each_way_back_from_the_devbook_returns_to_the_view_underneath` (a view option,
+   Escape on the surface, Escape heard at the document, another takeover),
+   `The_devbooks_close_button_returns_to_the_view_underneath`,
+   `Pressing_the_devbook_during_another_takeover_gives_it_the_screen`,
+   `The_devbook_and_the_inbox_each_take_the_screen_over_the_roadmap`,
+   `Opening_the_devbook_reopens_it_after_a_restart`,
+   `A_devbook_pane_from_before_the_devbook_took_the_screen_reopens_as_the_devbook_surface`,
+   `A_devbook_pane_under_another_takeover_reopens_on_that_takeover`,
+   `Turning_the_devbook_flag_off_while_it_has_the_screen_returns_to_the_workspace`,
+   `The_devbook_toggle_takes_no_modifier_and_is_never_disabled`,
+   `The_devbook_tooltip_says_what_the_press_will_do`;
+   `HomeRepositoryScopeTests.A_task_rows_brain_badge_gives_the_devbook_the_screen_on_the_brain`,
+   `An_entrys_devbook_reference_gives_the_devbook_the_screen_on_that_repository`,
+   `An_escape_in_the_devbooks_source_field_does_not_close_the_devbook`;
+   `MarkdownCommentTests.A_key_pressed_in_a_comment_draft_does_not_reach_the_host`;
+   `GlobalPaneMarkupTests.Devbook_renders_as_its_own_surface_and_closes_on_escape`,
+   `No_side_pane_remains_and_neither_does_its_pin_or_modifier`; and the
+   `ShellNavigationStoreTests` whose names start `A_devbook_pane_` or
+   `A_migrated_devbook_pane_`, with `The_devbook_surface_survives_a_restart`.
+   No test yet holds the row where a file lists both the Inbox and the Devbook.

@@ -17,8 +17,9 @@ public interface ILocalGitRepositoryService
     /// Ask the remote whether the clone is still on the latest version.
     /// <para>
     /// This contacts the network — it has to, because nothing on disk knows what
-    /// the remote has moved on to — so it runs only when somebody asks. Nothing
-    /// in the product polls it.
+    /// the remote has moved on to — so it is asked rarely: once per repository per
+    /// session, when the Devbook pane opens on it and loads the branch overview,
+    /// and again when somebody presses the version control. Nothing polls it.
     /// </para>
     /// </summary>
     Task<LocalGitRepositoryUpdateCheck> CheckForUpdatesAsync(

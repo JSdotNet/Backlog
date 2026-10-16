@@ -187,7 +187,7 @@ internal static class StorybookIndex
         // chapters below all reach for.
         new("Feedback",
         [
-            new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, StageStrip, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
+            new("feedback", "Feedback", "Alert, Callout, EmptyState, SetupSteps, FlowSteps, StatusDot, StageStrip, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
             new("overlays", "Overlays", "Modal and ConfirmDialog."),
 
             // After Overlays: the phone's capture sheet is a sheet over the

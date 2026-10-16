@@ -91,6 +91,14 @@ public sealed class SyncLinkedTasksCommandHandler(
         "linked_tasks.target_disabled",
         "Syncing is switched off for that repository or product.");
 
+    /// <summary>The target files its tasks under a repository the person archived.
+    /// The pause is derived from the registry on every run and never written to the
+    /// target, so Unarchive resumes the sync with nothing to undo (local ADR 0029
+    /// §5).</summary>
+    public static readonly Error RepositoryArchived = Error.Validation(
+        "linked_tasks.repository_archived",
+        "Syncing is paused while its repository is archived.");
+
     private readonly ILogger _log = log ?? NullLogger<SyncLinkedTasksCommandHandler>.Instance;
 
     public async Task<Result<LinkedTaskSyncSummary>> Handle(
@@ -106,6 +114,10 @@ public sealed class SyncLinkedTasksCommandHandler(
         var target = targets.Get(command.ConnectorId, command.Target);
         if (target is null) return TargetNotFound;
         if (!target.Enabled) return TargetDisabled;
+
+        // Before the fetch and with no RecordFailure: a pause is not a failure, and
+        // the target is left exactly as it was so Unarchive has nothing to undo.
+        if (IsPaused(connector, target, repositories)) return RepositoryArchived;
 
         // Read before the fetch, so the next fetch's "closed since" overlaps this
         // one rather than leaving a gap for an item that closed while it ran.
@@ -794,12 +806,21 @@ public sealed class SyncLinkedTasksCommandHandler(
     /// </summary>
     private string? RepositoryIdOf(ITaskConnector connector, ConnectedTarget target)
     {
-        var typed = target.RepositoryId
-            ?? (connector.Capabilities.TargetIsRepository ? target.Target.Trim() : null);
+        var typed = target.FilesUnder(connector.Capabilities.TargetIsRepository);
         if (typed is null) return null;
 
         return repositories?.Resolve(typed)?.Id ?? typed;
     }
+
+    /// <summary>
+    /// Whether the target is paused because the repository its tasks are filed
+    /// under is archived — <see cref="ConnectedTarget.ArchivedRepository"/>, the one
+    /// rule the sync, <see cref="LinkedTaskSyncWorker"/> and the target's card all
+    /// read. A repository the registry does not know is not archived, and with no
+    /// registry nothing is.
+    /// </summary>
+    internal static bool IsPaused(ITaskConnector connector, ConnectedTarget target, IRepositoryDirectory? repositories) =>
+        target.ArchivedRepository(connector.Capabilities.TargetIsRepository, repositories) is not null;
 
     /// <summary>Files the task under <paramref name="repositoryId"/> while it is
     /// filed under none, and answers whether it did. A list it already has — the

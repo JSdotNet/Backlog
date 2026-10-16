@@ -15,8 +15,10 @@ namespace Backlog.Infrastructure.Sync;
 /// convenience for anyone reading both, not a contract.
 /// </para>
 /// <para>
-/// <b>The sync/async seam.</b> The platform store is asynchronous and
-/// <see cref="IDeviceCredentialStore.Current"/> is not: the Inbox reads it
+/// <b>The sync/async seam.</b> The platform store is asynchronous. The write
+/// side is too — <see cref="SaveAsync"/> awaits the platform's write, so the
+/// pairing screen is never held while the Keystore works. The read side is not:
+/// <see cref="IDeviceCredentialStore.Current"/> is synchronous, because the Inbox reads it
 /// synchronously on every render to decide whether to show the pairing box. So
 /// the value is read exactly once, here in the constructor, blocking on the
 /// platform's task, and served from the cache afterwards. Blocking is the
@@ -75,19 +77,23 @@ public sealed class SecureValueDeviceCredentialStore : IDeviceCredentialStore
     /// Writes the credential, then adopts it, in that order for the reason the
     /// DPAPI store gives: a write that fails throws and leaves
     /// <see cref="Current"/> and <see cref="Changed"/> exactly as they were.
+    /// The platform's write is awaited, not blocked on — there is no
+    /// justification here like the read's, because the caller is the pairing
+    /// client's own async flow rather than a synchronous getter.
     /// Whatever the platform threw arrives at the pairing client as an
     /// <see cref="IOException"/>, because that is what it catches and turns
     /// into "could not be saved on this machine" — on Android the original is a
     /// Java exception this project cannot name, and letting it through would
     /// be an unhandled exception on the pairing screen instead of a message.
     /// </summary>
-    public void Save(DeviceCredential credential)
+    public async Task SaveAsync(DeviceCredential credential, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(credential);
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            _store.SetAsync(Key, JsonSerializer.Serialize(credential, JsonOptions)).GetAwaiter().GetResult();
+            await _store.SetAsync(Key, JsonSerializer.Serialize(credential, JsonOptions)).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not IOException)
         {

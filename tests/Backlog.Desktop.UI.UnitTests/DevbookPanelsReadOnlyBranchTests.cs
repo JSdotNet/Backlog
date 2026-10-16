@@ -55,6 +55,61 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
     }
 
+    // --- An archived repository (local ADR 0029 §4) ----------------------------
+
+    /// <summary>"A clone of an archived repository": the chapter reads, and
+    /// neither an edit nor a remark is offered.</summary>
+    [Fact]
+    public void The_domain_panel_offers_no_edit_and_no_remark_on_an_archived_repositorys_clone()
+    {
+        using var harness = DomainHarness(DevbookSourceKind.LocalFolder, archived: true);
+
+        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, "backlog")
+            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+
+        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-edit']"));
+        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-']"));
+    }
+
+    /// <summary>A remark kept from before the archive reads, with no resolve,
+    /// edit or delete control: each would write to the replicated store.</summary>
+    [Fact]
+    public void The_domain_panel_shows_a_kept_remark_read_only_on_an_archived_repository()
+    {
+        using var harness = DomainHarness(DevbookSourceKind.LocalFolder, archived: true);
+        var store = new SessionDevbookAnnotationStore();
+        var kept = store.Add("backlog", ".domain/context-map.md", 0, "someone");
+        store.Edit(kept.Id, "Kept from before the archive.");
+        harness.Context.Services.AddSingleton<IDevbookAnnotationStore>(store);
+
+        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, "backlog")
+            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+
+        component.WaitForAssertion(() => Assert.Contains("Kept from before the archive.", component.Markup, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-resolve-']"));
+        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-edit-']"));
+        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-delete-']"));
+    }
+
+    /// <summary>The remark is refused on the repository being archived, not on
+    /// the folder being read-only: a branch snapshot of an active repository keeps
+    /// the remarks it always had, because a remark is the app's, not the
+    /// file's.</summary>
+    [Fact]
+    public void The_domain_panel_still_takes_remarks_on_an_active_repositorys_branch()
+    {
+        using var harness = DomainHarness(DevbookSourceKind.Branch);
+
+        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, "backlog")
+            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
+    }
+
     // --- Design ----------------------------------------------------------------
 
     [Fact]
@@ -157,10 +212,11 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
 
     // --- Fixtures --------------------------------------------------------------
 
-    private Harness DomainHarness(DevbookSourceKind source)
+    private Harness DomainHarness(DevbookSourceKind source, bool archived = false)
     {
         var root = WithDomain();
         var (context, folders) = Context(root, source);
+        folders.Archived = archived;
 
         context.Services.AddSingleton<IAppFeatureSettings>(
             new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json")));
@@ -275,6 +331,10 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
     {
         public DevbookSourceKind Source { get; set; } = source;
 
+        /// <summary>Whether the repository is archived, stamped on every location
+        /// the way the real source stamps it.</summary>
+        public bool Archived { get; set; }
+
         public event Action? Changed;
 
         public void RaiseChanged() => Changed?.Invoke();
@@ -296,8 +356,8 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
             var full = Path.Combine(root, folder.EffectivePath);
 
             return Directory.Exists(full)
-                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", "backlog", Source)
-                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: Source);
+                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", "backlog", Source, RepositoryArchived: Archived)
+                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: Source, repositoryArchived: Archived);
         }
     }
 }

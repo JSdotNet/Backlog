@@ -23,12 +23,14 @@ public sealed class SecureValueDeviceCredentialStoreTests
         "Pixel",
         "Zm9yLXRoZS1zYWtlLW9mLXRoaXMtdGVzdC1vbmx5LXNlY3JldA");
 
+    private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
+
     [Fact]
-    public void The_credential_survives_a_restart()
+    public async Task The_credential_survives_a_restart()
     {
         var secure = new FakeSecureValueStore();
 
-        new SecureValueDeviceCredentialStore(secure, Label).Save(Paired);
+        await new SecureValueDeviceCredentialStore(secure, Label).SaveAsync(Paired, Cancellation);
 
         // A second store over the same secure storage is what a force-stop and
         // relaunch looks like: nothing in memory, only what the platform kept.
@@ -51,11 +53,11 @@ public sealed class SecureValueDeviceCredentialStoreTests
     }
 
     [Fact]
-    public void Everything_is_kept_under_one_key()
+    public async Task Everything_is_kept_under_one_key()
     {
         var secure = new FakeSecureValueStore();
 
-        new SecureValueDeviceCredentialStore(secure, Label).Save(Paired);
+        await new SecureValueDeviceCredentialStore(secure, Label).SaveAsync(Paired, Cancellation);
 
         var (key, value) = Assert.Single(secure.Values);
         Assert.Equal(SecureValueDeviceCredentialStore.Key, key);
@@ -64,11 +66,11 @@ public sealed class SecureValueDeviceCredentialStoreTests
     }
 
     [Fact]
-    public void Clearing_forgets_it_here_and_in_secure_storage()
+    public async Task Clearing_forgets_it_here_and_in_secure_storage()
     {
         var secure = new FakeSecureValueStore();
         var store = new SecureValueDeviceCredentialStore(secure, Label);
-        store.Save(Paired);
+        await store.SaveAsync(Paired, Cancellation);
 
         store.Clear();
 
@@ -78,13 +80,13 @@ public sealed class SecureValueDeviceCredentialStoreTests
     }
 
     [Fact]
-    public void Saving_and_clearing_both_say_so()
+    public async Task Saving_and_clearing_both_say_so()
     {
         var store = new SecureValueDeviceCredentialStore(new FakeSecureValueStore(), Label);
         var changes = 0;
         store.Changed += () => changes++;
 
-        store.Save(Paired);
+        await store.SaveAsync(Paired, Cancellation);
         store.Clear();
 
         Assert.Equal(2, changes);
@@ -125,23 +127,55 @@ public sealed class SecureValueDeviceCredentialStoreTests
 
     /// <summary>
     /// The pairing client catches <see cref="IOException"/> from
-    /// <see cref="IDeviceCredentialStore.Save"/> and turns it into "could not be
-    /// saved on this machine". Whatever the platform threw — and on Android it is
-    /// a Java exception this project cannot name — has to arrive there as one.
+    /// <see cref="IDeviceCredentialStore.SaveAsync"/> and turns it into "could not
+    /// be saved on this machine". Whatever the platform threw — and on Android it
+    /// is a Java exception this project cannot name — has to arrive there as one,
+    /// whether it is thrown by the call or by the task it returned.
     /// </summary>
-    [Fact]
-    public void A_credential_that_cannot_be_written_is_not_kept_and_nothing_says_it_changed()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_credential_that_cannot_be_written_is_not_kept_and_nothing_says_it_changed(bool failsLater)
     {
-        var store = new SecureValueDeviceCredentialStore(new FakeSecureValueStore { WriteFails = true }, Label);
+        var secure = failsLater ? new FakeSecureValueStore { WriteFaults = true } : new FakeSecureValueStore { WriteFails = true };
+        var store = new SecureValueDeviceCredentialStore(secure, Label);
         var changes = 0;
         store.Changed += () => changes++;
 
-        var thrown = Record.Exception(() => store.Save(Paired));
+        var thrown = await Record.ExceptionAsync(() => store.SaveAsync(Paired, Cancellation));
 
         var io = Assert.IsType<IOException>(thrown);
         Assert.NotNull(io.InnerException);
         Assert.Null(store.Current);
         Assert.Equal(0, changes);
+    }
+
+    /// <summary>
+    /// The save awaits the platform's write rather than blocking on it: the
+    /// pairing screen's thread is never held while the Keystore works, and the
+    /// credential is adopted only once the write has landed. A store that blocked
+    /// on the write would not hand back a task until the write finished, so the
+    /// returned task would already be complete here.
+    /// </summary>
+    [Fact]
+    public async Task Saving_awaits_the_platform_write_and_adopts_the_credential_only_after_it_lands()
+    {
+        var secure = new FakeSecureValueStore { WriteGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously) };
+        var store = new SecureValueDeviceCredentialStore(secure, Label);
+        var changes = 0;
+        store.Changed += () => changes++;
+
+        var saving = store.SaveAsync(Paired, Cancellation);
+
+        Assert.False(saving.IsCompleted);
+        Assert.Null(store.Current);
+        Assert.Equal(0, changes);
+
+        secure.WriteGate.SetResult();
+        await saving.WaitAsync(TimeSpan.FromSeconds(10), Cancellation);
+
+        Assert.Equal(Paired, store.Current);
+        Assert.Equal(1, changes);
     }
 
     [Fact]
@@ -165,6 +199,13 @@ public sealed class SecureValueDeviceCredentialStoreTests
 
         public bool WriteFails { get; init; }
 
+        /// <summary>A write the platform accepts and fails afterwards, through the
+        /// task it handed back rather than by throwing from the call.</summary>
+        public bool WriteFaults { get; init; }
+
+        /// <summary>A write that does not finish until the test says so.</summary>
+        public TaskCompletionSource? WriteGate { get; init; }
+
         public Task<string?> GetAsync(string key)
         {
             Reads++;
@@ -176,9 +217,18 @@ public sealed class SecureValueDeviceCredentialStoreTests
         public Task SetAsync(string key, string value)
         {
             if (WriteFails) throw new InvalidOperationException("Keystore refused.");
+            if (WriteFaults) return Task.FromException(new InvalidOperationException("Keystore refused later."));
+
+            if (WriteGate is { } gate) return WriteOnceOpened(gate.Task, key, value);
 
             Values[key] = value;
             return Task.CompletedTask;
+        }
+
+        private async Task WriteOnceOpened(Task gate, string key, string value)
+        {
+            await gate;
+            Values[key] = value;
         }
 
         public bool Remove(string key) => Values.Remove(key);

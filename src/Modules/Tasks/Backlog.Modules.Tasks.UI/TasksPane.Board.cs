@@ -1,5 +1,6 @@
 using System.Globalization;
 
+using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Selects;
@@ -168,7 +169,7 @@ public partial class TasksPane
     private IReadOnlyList<TaskBoardColumn> RepositoryColumns(List<(EntryRow Row, TaskBoardCard Card)> cards)
     {
         var byAlias = cards
-            .GroupBy(pair => RepositoryFor(pair.Row)?.Alias ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(pair => OfferedRepositoryFor(pair.Row)?.Alias ?? string.Empty, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Select(pair => pair.Card).ToList(), StringComparer.OrdinalIgnoreCase);
 
         // In the order the repositories are configured, the order every repository
@@ -195,6 +196,15 @@ public partial class TasksPane
 
         return columns;
     }
+
+    /// <summary>The repository a row is shown filed under: the column its card sits in
+    /// and the value its repository pickers hold. The first of its repositories offered
+    /// right now, so an archived one hidden by show archived never gets a column or a
+    /// picker value no option holds, and a task that also names an active one sits under
+    /// that one (local ADR 0029, §3). Without the additional-repositories feature, the
+    /// default.</summary>
+    private GitHubRepositoryRef? OfferedRepositoryFor(EntryRow row) =>
+        AdditionalRepositoriesEnabled ? State.ShownRepositoryFor(row) : GitHub.DefaultRepository;
 
     private static IEnumerable<string> PlanTags(EntryRow row) => row.PreviewTags.Where(TagText.IsPlan);
 

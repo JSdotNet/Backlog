@@ -52,6 +52,8 @@ Every button here, in every variant, also darkens while it is held down. That pr
     <Story Name="A button that opens a page"
            Description="Given an Href the button is an anchor wearing the same classes, opening the address in a new window. An act whose whole effect is going to look at something on another site — Open on GitHub, Open review on GitHub — is a link: it can be middle-clicked, copied and opened in a new window, and a button that navigates cannot.
 
+A link to a page of the app itself — Set up your Brain, to Settings › Storage — sets External to false and opens in place, because the app's WebView hands every new-window link to the system browser.
+
 Disabled or busy, the anchor loses its href and says so on aria-disabled, because an anchor has no disabled state of its own. Without an Href the button is exactly the one it always was."
            Code="@HrefCode">
         <div class="sb-row" data-testid="buttons-href">

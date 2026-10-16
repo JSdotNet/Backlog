@@ -23,6 +23,14 @@
         "command": "backlog.refreshInbox",
         "title": "Backlog: Refresh Inbox",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "backlog.pair",
+        "title": "Backlog: Pair with Desktop"
+      },
+      {
+        "command": "backlog.unpair",
+        "title": "Backlog: Forget Pairing"
       }
     ],
     "views": {
@@ -55,7 +63,8 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "test": "tsc -p ./ && node --test \"out/test/**/*.test.js\""
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

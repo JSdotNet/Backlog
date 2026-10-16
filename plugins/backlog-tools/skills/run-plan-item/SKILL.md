@@ -63,7 +63,8 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    and validation rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land;
    a sub-item's status line cannot be changed through the connector — no tool edits one.
 6. **Answer the notes the item leaves open.** With the connector, `list_annotations` for the
-   repository; a chapter this item rewrote may carry a remark the change now answers. Answer
+   repository; a chapter this item rewrote may carry a remark the change now answers. When it
+   answers `archived: true`, skip this step: the repository's devbook is read-only. Answer
    each open note by steps 3–5 of `../handle-remarks/SKILL.md` — fence first, resolve
    second. Name the changed chapter files and offer the commit; never push.
    `handle-remarks` is the skill to invoke when notes are the whole job.

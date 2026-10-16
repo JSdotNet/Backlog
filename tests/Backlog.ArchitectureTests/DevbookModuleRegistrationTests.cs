@@ -52,6 +52,8 @@ public sealed partial class DevbookModuleRegistrationTests
         "DevbookUpdateService",
         "DevbookSourceSelection",
         "DevbookBranchReview",
+        "DevbookBranchComparisons",
+        "DevbookBranchOverview",
         "DevbookFolderOpenService",
         "Arc42DevbookStore",
         "C4DevbookStore",

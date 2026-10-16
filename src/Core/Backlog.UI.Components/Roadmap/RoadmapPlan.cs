@@ -34,13 +34,19 @@ namespace Backlog.UI.Components.Roadmap;
 /// <param name="Unnamed">The band shows no label of its own — for a band that is
 /// told apart by where it sits rather than by a name. <paramref name="Title"/> still
 /// names it to assistive technology.</param>
+/// <param name="Archived">The band is history: drawn greyed — neutral, whatever
+/// <paramref name="Color"/> says — and tagged Archived in words beside its name, and
+/// every row in it says so to assistive technology, so the mark is never a shade
+/// alone. What it holds is the caller's business; the chart only draws it as kept
+/// rather than current.</param>
 public sealed record RoadmapGroup(
     string Id,
     string Title,
     IReadOnlyList<RoadmapRow> Rows,
     string? Color = null,
     int ContentRows = 0,
-    bool Unnamed = false)
+    bool Unnamed = false,
+    bool Archived = false)
 {
     public IReadOnlyList<RoadmapRow> RowList => Rows ?? [];
 }

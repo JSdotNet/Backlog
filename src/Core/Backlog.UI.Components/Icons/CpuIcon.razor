@@ -1,0 +1,57 @@
+@*
+    A processor: a rounded square with a smaller one inside and two pins out of each side.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, and in
+    Lucide's idiom on exactly the terms
+    `.devbook/design/typography-and-layout.md#iconography` allows: Lucide's own
+    `cpu` outline on the 24x24 grid, stroked at 2, round caps and joins.
+
+    Named for the shape, not for a meaning. The Devbook pane puts it on the
+    Technology section's tab and on a branch that changes the technology graph.
+    The name the glyph stands beside says what it means, so it is decorative and
+    hidden from assistive technology. Colour and size are the caller's, as on
+    every glyph in this folder.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    <rect width="16" height="16" x="4" y="4" rx="2" />
+    <rect width="6" height="6" x="9" y="9" rx="1" />
+    <path d="M15 2v2" />
+    <path d="M15 20v2" />
+    <path d="M2 15h2" />
+    <path d="M2 9h2" />
+    <path d="M20 15h2" />
+    <path d="M20 9h2" />
+    <path d="M9 2v2" />
+    <path d="M9 20v2" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "cpu-icon" : $"cpu-icon {CssClass}";
+}

@@ -27,11 +27,25 @@ keeps everything else is a plan they will lose.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadmap/requirements.md#planning-work-that-has-no-task-yet]
 ```
 
 Add an item to the plan with a title and dates alone. Most planning happens before
 refinement, and a planning tool that first demands a refined work item is a tool
 that gets used after the decisions have already been made somewhere else.
+
+Some of that work is never refined at all: a launch post, a call, a decision. No
+task will ever say it is done, so the person says it: they **complete the item by
+hand**, from the end of its bar or from its editor, and reopen it if they were
+wrong. The item is then a record of finished work, drawn where it was planned and
+read as finished wherever the plan is read.
+
+Tasks still have the last word. Once a task is filed under the item, its progress
+is what the roadmap reads, and the hand completion waits until no task is left.
+What completing promises is in
+[the requirements](requirements.md#planning-work-that-has-no-task-yet), and what
+the item holds to is in
+[its invariants](domain.invariants.md#invariant-gathered-tasks-outrank-a-completion-by-hand).
 
 ### Linking an item to the task that executes it
 
@@ -267,7 +281,7 @@ and still be read one project at a time.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Group the plan into one [band](domain.md#band) per repository, with the person's
@@ -285,16 +299,23 @@ with one empty "Planned" lane when nothing is filed there. That lane is where th
 person plans the next project before it has a repository, by double-clicking or
 dragging on it.
 
+An [archived repository](../repository-management/domain.md#archived-repository)
+is still configured, so its work never falls into that last band. How its own
+band is drawn is set by
+[its requirements](../repository-management/requirements.md#archiving-a-repository).
+
 ### Surviving a repository that is no longer configured
 
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/domain.md#repository-scope-resolution]
+related: [.devbook/domain/roadmap/domain.md#repository-scope-resolution, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 The alias an item named is kept as written and reads as unresolved. Nothing the
-person typed is deleted because a registry changed underneath it.
+person typed is deleted because a registry changed underneath it. An
+[archived repository](../repository-management/domain.md#archived-repository) is
+not this case, because the registry still holds it.
 
 ## Reading and rescheduling on a timeline
 
@@ -303,7 +324,7 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#repository-scoped-planning]
 related: [.devbook/domain/roadmap/flow.md, .devbook/design/interaction-guidelines.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/domain/roadmap/requirements.md#reading-and-rescheduling-on-a-timeline]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_roadmap_view_replaces_the_task_list_inside_the_workspace, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbook_opens_beside_the_roadmap_and_the_inbox_takes_the_screen_over_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_leaves_the_roadmap_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_roadmap_view_replaces_the_task_list_inside_the_workspace, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbook_and_the_inbox_each_take_the_screen_over_the_roadmap, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_leaves_the_roadmap_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view]
 ```
 
 See the whole plan against time, with its bands, lanes, spans, milestones and the
@@ -313,9 +334,9 @@ and the plan decides whether it stands.
 
 The roadmap is one of the views in the header's view switch, last after Tasks,
 Board and Calendar, under its own Planning heading row and without the Tasks
-filter bar. It does not take the whole screen: the Inbox and the Devbook open
-beside it as they do beside the task list, and only another view replaces it.
-Escape does not leave it. On the roadmap, Escape puts a grabbed bar back and
+filter bar. It is a view, not a takeover, so only another view replaces it. The
+Inbox and the Devbook take the screen over it as they do over the task list, and
+closing either returns to the roadmap. Escape does not leave it. On the roadmap, Escape puts a grabbed bar back and
 dismisses the planning dialogs. A narrower window never closes it. Opening the
 Dashboard, Tools, the session list or the pull requests list from it and closing
 them again comes back to the roadmap. A roadmap a person left open from before the
@@ -437,7 +458,7 @@ dialog promises is in
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/tasks/domain.md#started, .devbook/domain/tasks/domain.md#completed, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#forecasting-work-in-flight]
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/tasks/domain.md#started, .devbook/domain/tasks/domain.md#completed, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/requirements.md#looking-back-at-finished-plans]
 ```
 
 A plan whose tasks are all done is drawn where its work actually ran: from the day
@@ -456,6 +477,14 @@ A finished plan cannot be dragged: its dates are read off the work, so a move wo
 change nothing the next reading keeps. Opening it still edits the stored item. A
 plan still being worked on is drawn from its work too, to a forecast end
 ([Forecasting work in flight](#forecasting-work-in-flight)).
+
+The Completed switch on the toolbar, beside Hours, takes the finished plans off
+the chart when the person wants only what is left to do. It is the one narrowing
+the roadmap offers: a filter bar by repository, priority, lane or tag was dropped,
+because the bands already sort the plan by repository and a plan is small enough
+to read whole. Off, the lanes close up over the open work, and an arrow to a
+hidden plan goes with it. It is on by default and stays with the device, as the
+Hours switch does, because what is shown of the plan is not part of the plan.
 
 ### Forecasting work in flight
 
@@ -538,17 +567,16 @@ label.
 
 The colour is an **identity and nothing more**: it says which repository, never a
 status, a severity or a priority. It is never the only thing saying it either. The
-band is labelled, every span names its band when read aloud, and the repository
-filter lists them in full, so a reader who cannot tell two hues apart loses
-nothing. Priority on a plan is the ordinal shade ramp on the spans, which is one
+band is labelled and every span names its band when read aloud, so a reader who
+cannot tell two hues apart loses nothing. Priority on a plan is the ordinal shade ramp on the spans, which is one
 colour and stays that way.
 
 **The plan does not decide the colour and does not store it.** Which colour a
 repository wears is a fact about that repository, settled in the registry, and the
 plan is told it. This is the same reason this context holds repository aliases as
 opaque strings rather than resolving them. A plan that recorded a colour of its
-own would make the same project one colour here and another on the filter beside
-it. It would also have to be rewritten whenever the choice changed.
+own would make the same project one colour here and another in the registry it
+came from. It would also have to be rewritten whenever the choice changed.
 
 The band for work under no repository, and the band carrying the plan's dates,
 take no colour at all. A colour here means "which repository", and neither of those

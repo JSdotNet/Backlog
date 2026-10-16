@@ -134,7 +134,10 @@ public sealed class ConfirmDialogTests
         Assert.False(dialog.Find("[data-testid='cancel']").HasAttribute("disabled"));
         Assert.False(dialog.Find(".modal__close").HasAttribute("disabled"));
 
-        dialog.Find("[data-testid='cancel']").Click();
+        // Awaited: the synchronous Click() drops the dispatch task, and while the
+        // renderer is still finishing the faulted confirm on another thread the
+        // cancel is queued behind it, so the count would be read before it ran.
+        await dialog.Find("[data-testid='cancel']").ClickAsync(new MouseEventArgs());
         Assert.Equal(1, cancelled);
     }
 

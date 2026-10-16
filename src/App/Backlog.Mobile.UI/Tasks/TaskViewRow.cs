@@ -32,8 +32,27 @@ public sealed record TaskViewRow(
     /// by arithmetic, so yesterday's is simply not today's — and a due date plays
     /// no part, because My Day is this morning's choice rather than a deadline.
     /// </summary>
-    public bool IsInMyDay(DateOnly today) =>
-        DeletedAt is null && !IsClosed && Task.InMyDayOn == today;
+    public bool IsInMyDay(DateOnly today) => IsInMyDay(today, clearsOvernight: true);
+
+    /// <summary>
+    /// In My Day on <paramref name="today"/> under Clear My Day overnight
+    /// (.devbook/arc42/adr/0032, §5): not deleted, not closed, and in by the one rule
+    /// both heads read (<see cref="MyDay.Includes"/>). With the switch on that is
+    /// <see cref="IsInMyDay(DateOnly)"/>; with it off, a pick made on an earlier day
+    /// carries over until the task is finished.
+    /// </summary>
+    public bool IsInMyDay(DateOnly today, bool clearsOvernight) =>
+        DeletedAt is null && !IsClosed && MyDay.Includes(Task.InMyDayOn, Task.CompletedOn, today, clearsOvernight);
+
+    /// <summary>
+    /// The agenda slot the task holds in the My Day of <paramref name="today"/>: its
+    /// <see cref="AgendaTime"/> when it was picked for that very day, and none when it
+    /// was carried over from an earlier one. A slot belongs to the day it was set for
+    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>), so a carried task sits in
+    /// Anytime today, with no block and nothing to focus on.
+    /// </summary>
+    public AgendaTime? AgendaTimeOn(DateOnly today) =>
+        MyDay.IsPlannedFor(Task.InMyDayOn, today) ? AgendaTime : null;
 
     /// <summary>
     /// Where the task sits in its My Day, as the desktop set it, or null when it

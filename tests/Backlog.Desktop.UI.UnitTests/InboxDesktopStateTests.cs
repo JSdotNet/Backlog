@@ -39,6 +39,55 @@ public sealed class InboxDesktopStateTests : IDisposable
             inbox.Renames);
     }
 
+    /// <summary>
+    /// Scenario "Show archived is on" for the Inbox's repository pickers (local ADR 0029,
+    /// §3): an archived repository is offered only while show archived is on, and then
+    /// says so; a host with no show-archived choice offers the active ones.
+    /// </summary>
+    [Fact]
+    public void The_repository_picker_offers_an_archived_repository_only_while_show_archived_is_on()
+    {
+        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        Assert.Null(settings.SetRepositories(
+        [
+            new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
+            new GitHubRepositoryRef("docs", "JSdotNet", "Docs")
+        ]));
+        Assert.Null(settings.SetRepositoryArchived("docs", archived: true));
+        using var showArchived = new ShowArchivedRepositories(store: null);
+
+        var withoutChoice = new InboxDesktopState(new FakeInboxItems(), settings);
+        var state = new InboxDesktopState(new FakeInboxItems(), settings, showArchived: showArchived);
+
+        Assert.Equal(["backlog"], withoutChoice.RepositoryOptions.Select(option => option.Label));
+        Assert.Equal(["backlog"], state.RepositoryOptions.Select(option => option.Label));
+
+        showArchived.SetShown(true);
+
+        Assert.Equal(
+            [("JSdotNet/Backlog", "backlog"), ("JSdotNet/Docs", "docs (archived)")],
+            state.RepositoryOptions.Select(option => (option.Value, option.Label)));
+
+        // Still configured either way: an item already routed there keeps its name.
+        Assert.Equal("docs", withoutChoice.RepositoryAlias("JSdotNet/Docs"));
+    }
+
+    /// <summary>A picker already on screen redraws when the header's switch moves: the
+    /// state announces the change it did not make itself.</summary>
+    [Fact]
+    public void Show_archived_moving_is_announced_as_an_inbox_change()
+    {
+        using var showArchived = new ShowArchivedRepositories(store: null);
+        var state = new InboxDesktopState(
+            new FakeInboxItems(), new GitHubSettingsStore(Path.Combine(_root, "github.json")), showArchived: showArchived);
+        var announced = 0;
+        state.Changed += () => announced++;
+
+        showArchived.SetShown(true);
+
+        Assert.Equal(1, announced);
+    }
+
     /// <summary>The header's "oldest …" in words: hours under a day, days
     /// after, singular where it is one.</summary>
     [Theory]

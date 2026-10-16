@@ -648,9 +648,12 @@ button.badge {
    *are* the cue — open takes this exact pair, merged the strong edge, closed and
    draft the disabled ink. Repainting them all amber would say "followable" about a
    row where every badge is, and lose the only thing the row was distinguishing.
+
+   `.badge--sync` is held out on the same rule: the centre of the sync arrow pad is a
+   button, and its direction's edge and ink are the badge's whole message.
 */
-a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--linked),
-button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--linked) {
+a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--sync, .badge--linked),
+button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--sync, .badge--linked) {
     border-color: var(--color-primary-dark);
     color: var(--color-primary-light);
 }
@@ -1006,30 +1009,124 @@ button.badge:hover {
 .badge--sync-sync { border-color: var(--color-success-text); color: var(--color-success-text); }
 .badge--sync-off { color: var(--color-text-disabled); border-style: dashed; }
 
-/* The editable form, shaped like .status-editor and positioned for the same
-   reason: it carries the sr-only label naming the control. */
-.sync-editor {
+/* The editable direction: an arrow pad. Four keys sit where their arrows point,
+   around the badge naming the direction in force, so the key that states a
+   direction is the one its arrow reaches. Outlined like the badge: the pressed
+   key takes an edge and ink, never a fill, because a direction must not read as
+   a status.
+
+   Sized by its content and nothing else: whatever row or stack it lands in, a
+   stretching parent must not pull the side keys away from the centre, and a
+   shrinking one must not wrap the centre's words — the pad is the same size in
+   every state but the width of the words it names. */
+.sync-pad {
+    display: inline-grid;
+    grid-template-areas:
+        ".    up     ."
+        "left value  right"
+        ".    down   .";
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+    align-content: start;
+    gap: var(--spacing-2xs);
+    align-items: center;
+    justify-items: center;
+    flex: 0 0 auto;
+    width: max-content;
+    align-self: start;
+    justify-self: start;
+    margin-left: var(--spacing-xs);
+    vertical-align: middle;
+}
+
+/* In a record's headline the pad is the tallest thing on the line, and the line
+   lines its items up by their baselines — which put the pad's top key level with
+   the status and its centre a key-height below. A row holding a pad centres
+   instead, so the centre naming the direction sits on the line beside the
+   status and the heading. Only such a row: every other headline keeps its
+   baselines. */
+.devbook-record__headline:has(> .sync-pad) {
+    align-items: center;
+}
+
+.devbook-record__headline > .sync-pad {
+    align-self: center;
+}
+
+.sync-pad__key--up { grid-area: up; }
+.sync-pad__key--left { grid-area: left; }
+.sync-pad__key--right { grid-area: right; }
+.sync-pad__key--down { grid-area: down; }
+
+/* Each key is a 1.5rem square — 24 px, WCAG 2.5.8's minimum — around a 12 px
+   glyph, and its hit area reaches a further --spacing-sm outward, the way its
+   arrow points, through a transparent ::before. It never reaches inward or
+   sideways, so an imprecise press on ← cannot land on the centre or
+   on ↑. The pad stays an inline control beside the status; the 44 px of
+   .devbook/design/accessibility.md is not met. */
+.sync-pad__key {
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
-}
-
-.sync-editor__select {
-    min-width: 0;
-    min-height: 1.5rem;
-    padding: 1px var(--spacing-xs);
-    border: none;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
     background: transparent;
-    color: inherit;
-    font: inherit;
+    color: var(--color-text-disabled);
     cursor: pointer;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
 }
 
-.sync-editor__select:focus-visible {
+.sync-pad__key::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+
+.sync-pad__key--up::before { top: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--down::before { bottom: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--left::before { left: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--right::before { right: calc(-1 * var(--spacing-sm)); }
+
+.sync-pad__key:hover {
+    border-color: var(--color-border);
+    color: var(--color-text-primary);
+}
+
+.sync-pad__key[aria-pressed="true"] {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.sync-pad__key:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
+}
+
+/* The glyph is ChevronUpIcon, turned to the key's arrow here, as its own file
+   asks a host to. */
+.sync-pad__glyph--right { transform: rotate(90deg); }
+.sync-pad__glyph--down { transform: rotate(180deg); }
+.sync-pad__glyph--left { transform: rotate(-90deg); }
+
+/* The centre never wraps: its words changing length may widen the pad, never
+   make it taller. No margin of its own — .badge--sync's is spacing for a badge
+   in a row, and the keys sit tight around the centre on the grid's gap. */
+.sync-pad__value {
+    grid-area: value;
+    margin: 0;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* Outlined in the pad whatever the direction. Elsewhere pull keeps the info
+   surface .badge--sync-pull gives it; in the pad the centre sits among keys
+   that are all outlined, and a filled one would read as the status beside it.
+   Pull keeps its strong edge and primary ink, so it still differs from report. */
+.sync-pad__value.badge--sync-pull {
+    background: transparent;
 }
 
 .badge--progress {
@@ -1337,6 +1434,7 @@ button.badge:hover {
 }
 
 .connected-target__error,
+.connected-target__paused,
 .connected-target__sync-message {
     margin: var(--spacing-xs) 0 0;
 }
@@ -3070,6 +3168,68 @@ button.devbook-chip__label:focus-visible {
 .alert__action {
     margin-inline-start: var(--spacing-sm);
     vertical-align: middle;
+}
+
+/* Callout: standing content set apart, not an announcement — the raised surface
+   inside an edge, the glyph at the head, the headline over its why, and one
+   link-weight action. Quiet takes the ordinary strong edge; warning takes the
+   warning edge. A callout is not a badge, so its tones are its own words rather
+   than the badge scale's. */
+.callout {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.callout--warning {
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-warning);
+}
+
+.callout__icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    margin-top: 2px;
+    color: var(--color-primary-light);
+}
+
+.callout__body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.callout__heading {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.callout__text {
+    color: var(--color-text-secondary);
+}
+
+/* A link at text weight inside a box the 44px target accessibility.md asks for. */
+.callout__action {
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--color-text-link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+.callout__action:hover {
+    color: var(--color-primary-light);
 }
 
 /* A tree that has not arrived: a column of placeholder rows on the tree's own
@@ -7960,6 +8120,39 @@ button.tag-chip__label {
   outside the list and is clipped there; every other connector lands in a gap.
   Nodes keep their own height instead of stretching to the row's tallest.
 */
+
+/* StatusDot: a FlowSteps node at the size of a row's head — the same five tones,
+   told apart by shape as well as colour, and always beside the word it stands
+   for. */
+.status-dot {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--border-radius-full);
+}
+
+.status-dot--done {
+    background: var(--color-success-text);
+}
+
+.status-dot--active {
+    background: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-border);
+}
+
+.status-dot--blocked {
+    border-radius: 2px;
+    background: var(--color-error-text);
+}
+
+.status-dot--pending {
+    box-shadow: inset 0 0 0 2px var(--color-border-strong);
+}
+
+.status-dot--skipped {
+    border: 2px dashed var(--color-border-strong);
+}
 
 .flow-steps {
     --flow-steps-gap: var(--spacing-md);
@@ -14158,8 +14351,43 @@ select.field__input {
     overflow: hidden;
 }
 
-.roadmap-timeline__group-name + .roadmap-timeline__lane-name::before {
+.roadmap-timeline__group-name + .roadmap-timeline__lane-name::before,
+.roadmap-timeline__group-tag + .roadmap-timeline__lane-name::before {
     content: "· ";
+}
+
+/*
+  An archived band (RoadmapGroup.Archived): history, kept rather than current. The
+  component already draws it neutral, whatever colour it was handed; here its edge
+  is dashed, as an archived scope chip's is, its name steps back to secondary ink,
+  and the word Archived sits beside it — so the grey is never the only thing saying
+  it. The word is the library's archived status badge; the tag rule below only
+  places it in the narrow sidebar, giving up the status column's fixed width.
+*/
+.roadmap-timeline__group--archived {
+    border-left-style: dashed;
+}
+
+.roadmap-timeline__group--archived .roadmap-timeline__group-name {
+    color: var(--color-text-secondary);
+}
+
+.roadmap-timeline__group-tag {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    margin-left: 0;
+    padding: 0 var(--spacing-2xs);
+    /* Drawn before the name, not after it. A host may keep room at the end of the
+       name for a mark of its own in the band's corner (the roadmap's pace hint);
+       a tag after the name was pushed past that room, under the mark. In front,
+       it leaves the name's end and the room after it as they were. */
+    order: -1;
+    /* The smallest type and no tracking, so the tag takes as little of the narrow
+       sidebar from the band's name as it can while still saying the word. */
+    font-size: var(--font-size-2xs);
+    letter-spacing: 0;
 }
 
 /*
@@ -14188,6 +14416,16 @@ select.field__input {
 
 .roadmap-timeline__group--collapsible .roadmap-timeline__group-name {
     padding-left: 1.125rem;
+}
+
+/* An archived band's tag is drawn before its name, so the room for the toggle
+   moves from the name to the tag. */
+.roadmap-timeline__group--collapsible .roadmap-timeline__group-tag {
+    margin-left: 1.125rem;
+}
+
+.roadmap-timeline__group--collapsible .roadmap-timeline__group-name:has(+ .roadmap-timeline__group-tag) {
+    padding-left: var(--spacing-2xs);
 }
 
 .roadmap-timeline__group-toggle {
@@ -14767,18 +15005,26 @@ select.field__input {
 }
 
 /*
-  Late: the window has passed and the work is still open — the dashboard's Behind, a
-  warning rather than a fault. Drawn as a strong end cap and a warning marker after
-  the title, never as the fill: the fill is the band's, and the tentative hatching
-  under it still says the bar is only intent. The cap is the neutral strong border,
-  not a warning tone: --color-warning is a surface and invisible as a boundary
-  (1.31:1). Only the marker carries the warning, as a chip in the alert tone of
-  .devbook/design/color-scheme.md#badge-and-chip-tones, as the outlook badge is.
-  Colour is never the only carrier: the marker is a shape, and the caller says
-  "Overdue" in words in the bar's detail.
+  Late: the window has passed and the work is still open — an alert that asks the
+  reader to act, so it is drawn in the fault tone of
+  .devbook/design/color-scheme.md#badge-and-chip-tones: an outline round the whole
+  bar and a marker after the title. Never as the fill: the fill is the band's, and the
+  tentative hatching under it still says the bar is only intent. The outline is the
+  error ink, --color-error-text, because the error surface is a fill and too faint to
+  be a boundary; the ink clears 3:1 against the chart. It is the border itself, made
+  heavier, and colour and width only: the style stays whatever the bar already is —
+  dashed for a fixed bar, dotted for intent — and the rings that say selected, grabbed
+  or refused are box-shadows this leaves alone. The band keeps its own leading edge,
+  which says whose work it is. Colour is never the only carrier: the marker is a
+  shape, and the caller says "Overdue" in words in the bar's detail.
 */
 .roadmap-bar--overdue .roadmap-bar__body {
-    border-right: var(--border-width-4) solid var(--color-border-strong);
+    border-top-width: var(--border-width-2);
+    border-right-width: var(--border-width-2);
+    border-bottom-width: var(--border-width-2);
+    border-top-color: var(--color-error-text);
+    border-right-color: var(--color-error-text);
+    border-bottom-color: var(--color-error-text);
 }
 
 .roadmap-bar__overdue {
@@ -14790,14 +15036,105 @@ select.field__input {
     min-width: 1.05rem;
     height: 1.05rem;
     padding: 0 var(--spacing-2xs);
-    border: var(--border-width) solid var(--color-border-strong);
+    border: var(--border-width) solid var(--color-error-text);
     border-radius: var(--border-radius-full);
-    background: var(--color-warning);
-    color: var(--color-text-primary);
+    background: var(--color-error);
+    color: var(--color-error-text);
     font-size: var(--font-size-xs);
     font-style: normal;
     font-weight: var(--font-weight-semibold);
     line-height: 1;
+}
+
+/*
+  Done: the work is over. Drawn in the done tone the progress fill already uses — the
+  success surface, edged in its ink — with a tick after the title, so a finished bar
+  reads as finished whether its tasks filled it or a person completed it by hand. The
+  band keeps its leading edge. The tick is a shape, and the caller says it in words in
+  the detail.
+*/
+.roadmap-bar--done .roadmap-bar__body {
+    border-color: var(--color-success-text);
+    border-left-color: var(--roadmap-group-color, var(--color-border-strong));
+    background: var(--color-success);
+}
+
+.roadmap-bar__done {
+    position: relative;
+    flex: none;
+    color: var(--color-success-text);
+}
+
+/*
+  The bar's one in-place action — Open in Tasks, Complete — at its end, clear of the
+  end grip. Shown while the bar is hovered or holds the focus anywhere in it, the
+  action's own included, so a keyboard reader tabbing onto it sees what they reached;
+  until then the bar keeps its whole width for the title, and the room the action
+  needs is only taken while it shows. Where nothing hovers — a touch screen — it is
+  always shown, because there is no hover to reveal it and an invisible button a tap
+  can still land on is worse than a visible one.
+*/
+.roadmap-bar--has-action:hover .roadmap-bar__body,
+.roadmap-bar--has-action:focus-within .roadmap-bar__body {
+    padding-right: 1.875rem;
+}
+
+.roadmap-bar__action {
+    position: absolute;
+    top: 50%;
+    right: 0.625rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    padding: 0;
+    translate: 0 -50%;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+/*
+  The hit target, 24px square around the 18px glyph (WCAG 2.5.8), the way the bar body
+  grows its own: drawn bigger than it looks rather than making the bar taller, since a
+  1.5rem bar has exactly the 24px. Placed 0.625rem in from the end so the target stops
+  short of the end grip's 0.375rem inside the bar.
+*/
+.roadmap-bar__action::before {
+    content: "";
+    position: absolute;
+    inset: -0.1875rem;
+}
+
+.roadmap-bar:hover .roadmap-bar__action,
+.roadmap-bar:focus-within .roadmap-bar__action {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .roadmap-bar--has-action .roadmap-bar__body {
+        padding-right: 1.875rem;
+    }
+
+    .roadmap-bar__action {
+        opacity: 1;
+    }
+}
+
+.roadmap-bar__action:hover {
+    background: var(--color-background);
+}
+
+.roadmap-bar__action:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
 }
 
 /*
@@ -20045,6 +20382,22 @@ select.field__input {
     box-shadow: var(--shadow-md);
 }
 
+/* On a phone the panel is the whole screen, so its own border, padding and
+   shadow only take width from the page: about 90px of a 390px window, which
+   left the cards 300px. The shell's gutter is the page's edge there. A window
+   query rather than the frame's container: a container cannot ask its own
+   width, and only a phone-sized window, not a narrow pane beside others, has
+   nothing for the panel to stand out from. */
+@media (max-width: 40rem) {
+    .settings-frame {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+    }
+}
+
 /* The way back, the eyebrow and headline, and the chip and search slot on the
    right. The right-hand cluster wraps under the headline where the panel is
    narrow rather than squeezing the sentence. */
@@ -20120,10 +20473,14 @@ select.field__input {
     outline: none;
 }
 
+/* The chip and the search stay side by side: shrinkable, the cluster gave way
+   to a long headline by wrapping the search under the chip. It does not shrink,
+   so the header's own wrap moves the whole cluster under the headline instead,
+   once the two no longer fit on one line. */
 .settings-frame__actions {
     display: flex;
-    flex: 0 1 auto;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: flex-end;
     gap: var(--spacing-xs) var(--spacing-sm);
@@ -20307,6 +20664,21 @@ select.field__input {
 
     .settings-frame--page .settings-frame__back--menu {
         display: inline-flex;
+    }
+
+    /* The way back and the heading share the first line, as on the canvas's
+       phone board: a 16rem basis cannot sit beside the 44px arrow on a phone, so
+       the heading took a row of its own under it. The cluster may wrap again
+       here, where the panel can no longer hold the chip and the search in one
+       line. */
+    .settings-frame__heading {
+        flex: 1 1 0;
+    }
+
+    .settings-frame__actions {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
     }
 
     /* No page is on screen beside the list, so the heading is the screen's

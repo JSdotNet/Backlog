@@ -86,6 +86,28 @@ public sealed class WorkInProgressReaderTests
         Assert.Empty(reader.LinkedPullRequests);
     }
 
+    /// <summary>A link into an archived repository is not read (local ADR 0029), and is
+    /// not taken for a number GitHub could not find either: once the repository is
+    /// unarchived, the link is read again.</summary>
+    [Fact]
+    public async Task A_link_into_an_archived_repository_is_read_again_once_it_is_unarchived()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository, Elsewhere);
+        host.Client.PullRequestsByNumber.Add(Linked(5, GitHubItemState.Closed, repository: Elsewhere));
+        var reader = Reader(host, out _, Link(5, Elsewhere));
+        Assert.Null(host.GitHub.Settings.SetRepositoryArchived(Elsewhere, archived: true));
+
+        await ReadAsync(reader);
+        Assert.Empty(host.Client.ReadByNumber);
+        Assert.Empty(reader.LinkedPullRequests);
+
+        Assert.Null(host.GitHub.Settings.SetRepositoryArchived(Elsewhere, archived: false));
+        await ReadAsync(reader);
+
+        Assert.Equal([$"{Elsewhere} 5"], host.Client.ReadByNumber);
+        Assert.Equal(5, Assert.Single(reader.LinkedPullRequests).Number);
+    }
+
     [Fact]
     public async Task A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number()
     {
