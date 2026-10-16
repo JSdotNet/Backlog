@@ -477,7 +477,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// <summary>
     /// A direction picked on a page's own block reaches every unit on that page at
     /// once: the scope is rebuilt from the file after the write, and each unit's
-    /// inherit entry names the level it now inherits from.
+    /// pad centre names the level it now inherits from.
     /// </summary>
     [Fact]
     public async Task A_direction_set_on_the_context_reaches_the_units_on_the_same_page_without_reopening_it()
@@ -488,18 +488,19 @@ public sealed class DomainDevbookPanelTests : IDisposable
         File.WriteAllText(contextPath, "# Inbox\n\n```meta\ntype: context\n```\n\n## Inbox Pane\n\n```meta\ntype: feature-flag\nkey: inbox-pane\n```\n\nThe flag.\n");
 
         var component = harness.Render(".domain/inbox/context.md");
-        component.WaitForAssertion(() => Assert.Contains("sync report · default", UnitInheritLabel(component), StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.Contains("sync report · default", UnitPadValue(component), StringComparison.Ordinal));
 
         // The context states nothing but its type, which the header draws as a
         // mark — and its headline is still there, because it takes a direction.
-        component.Find(".file-view__header select[aria-label='Sync direction']").Change("push");
+        // The pad's right key states push.
+        component.Find(".file-view__header [role='group'][aria-label='Sync direction'] .sync-pad__key--right").Click();
 
         component.WaitForAssertion(() => Assert.Contains("sync: push", File.ReadAllText(contextPath), StringComparison.Ordinal));
-        component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitInheritLabel(component)));
+        component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitPadValue(component)));
     }
 
-    private static string UnitInheritLabel(IRenderedComponent<DomainDevbookPanel> component) =>
-        component.Find("select[aria-label='Sync direction for Inbox Pane'] option").TextContent;
+    private static string UnitPadValue(IRenderedComponent<DomainDevbookPanel> component) =>
+        component.Find("[role='group'][aria-label='Sync direction for Inbox Pane'] .sync-pad__value").TextContent;
 
     [Fact]
     public async Task A_chapter_changed_in_this_sitting_is_offered_a_comparison()

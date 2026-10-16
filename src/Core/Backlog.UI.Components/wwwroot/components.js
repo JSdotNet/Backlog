@@ -1985,6 +1985,38 @@
         event.preventDefault();
     });
 
+    // The arrows on an arrow pad — the devbook sync direction's. Each one states a
+    // direction from the keydown and moves the focus to its key; left alone it
+    // would also scroll the pane the pad sits in. The same reasoning and contract
+    // as the radio keys above: refused at the keydown because a state-bound
+    // `@onkeydown:preventDefault` is one key late, only the default, the event
+    // keeps bubbling. Matched on the pad's marker, so its menu — rendered beside
+    // it, not inside — keeps the row keys' own refusal. A key held with a modifier
+    // is not the pad's: Alt+Left is the browser's Back.
+    const ARROW_PAD_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight']);
+
+    document.addEventListener('keydown', (event) => {
+        if (!ARROW_PAD_SWALLOWED_KEYS.has(event.key)) return;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches('[data-arrow-pad] > button')) return;
+
+        event.preventDefault();
+    });
+
+    // Where a menu opened from a button sits: under the button's left edge, as
+    // [x, y] in viewport pixels for ContextMenu's fixed position. Enter or Space on
+    // a button is a click with no pointer, clientX/clientY 0, so the click's own
+    // position would put the menu in the window's corner. Null for an element
+    // that is gone, and the caller keeps the pointer's position.
+    window.backlogAnchorBelow = (element) => {
+        if (!(element instanceof Element) || !element.isConnected) return null;
+
+        const box = element.getBoundingClientRect();
+        return [box.left, box.bottom];
+    };
+
     // Space on a focused TaskCard. The card opens on Space from its keydown
     // handler, as a button would, but it is an <article> and not a button, so the
     // browser still takes Space as "scroll the page" — and in a Board column that

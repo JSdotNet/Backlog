@@ -333,9 +333,10 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         File.WriteAllText(viewPath, "# Building Block View\n\n```meta\n```\n\nThe blocks.\n");
 
         var component = harness.Render(".arc42/05-building-block-view.md");
-        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header select[aria-label='Sync direction']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header [role='group'][aria-label='Sync direction']")));
 
-        component.Find(".file-view__header select[aria-label='Sync direction']").Change("pull");
+        // The pad's left key states pull.
+        component.Find(".file-view__header [role='group'][aria-label='Sync direction'] .sync-pad__key--left").Click();
 
         component.WaitForAssertion(
             () => Assert.Contains("```meta\nsync: pull\n```", File.ReadAllText(viewPath), StringComparison.Ordinal),

@@ -216,7 +216,9 @@ Which mattered because the field set never was folder-shaped: a field nobody wri
     <Story Name="The sync direction, beside the status"
            Description="Which way changes flow between a chapter and its code, for the sweeps that keep the two aligned: `push`, `pull`, `sync`, `report` or `off` (devbook contract 25). Stated on a folder overview, a `context.md`, a context page or a unit's root chapter, and resolved nearest wins — the unit, its page, its context, its folder, and `report` when nothing states one.
 
-`DevbookSyncSelector` draws the direction in force and where it came from. Editable, its empty entry is the inherit choice and reads as what the block would be left with; picking it sends null, and the host removes the line. Read-only — a folder read from a branch — it is the badge, with the same words. A block the host cannot place shows only the word it states, as a plain badge.
+`DevbookSyncSelector` draws the direction in force and where it came from. Editable, it is an arrow pad: four keys around that badge, each where its arrow points — up states `report`, left `pull`, right `push`, and down states nothing, so the block inherits; the host gets null and removes the line. The pressed key is what the block states, down while it states none. The centre opens a menu for `sync` and `off`, which have no key, and for inheriting again once something is stated. Read-only — a folder read from a branch — it is the badge, with the same words. A block the host cannot place shows only the word it states, as a plain badge.
+
+The pad is one tab stop. Inside it the arrow keys state their direction from any part, the centre included, and take the focus to their key, so Tab leaves and Shift+Tab returns where the ring last was. A held arrow states once, a key held with a modifier is never the pad's, and a key naming what the block already states raises nothing. Each key names its arrow in its label, its tooltip and `aria-keyshortcuts`.
 
 Outlined, like priority: a direction is how the sweeps treat the unit, never a second status. A devbook pane cascades a `DevbookSyncScope`, and every record in the open file asks it for its own block."
            Code="@SyncCode">
@@ -228,11 +230,13 @@ Outlined, like priority: a direction is how the sweeps treat the unit, never a s
             </div>
             <div class="sb-stack">
                 <p class="sb-label">A unit stating its own</p>
-                <DevbookSyncSelector State="@StatedPull" Editable="true" Label="Sync direction for Invoice" TestId="devbook-state-sync-stated" />
+                <DevbookSyncSelector State="@_stated" Editable="true" Label="Sync direction for Invoice" TestId="devbook-state-sync-stated"
+                                     OnChanged="@(direction => _stated = Restate(UnitDefault, direction))" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Nothing states one: the default</p>
-                <DevbookSyncSelector State="@DefaultReport" Editable="true" Label="Sync direction for Billing" TestId="devbook-state-sync-default" />
+                <DevbookSyncSelector State="@_default" Editable="true" Label="Sync direction for Billing" TestId="devbook-state-sync-default"
+                                     OnChanged="@(direction => _default = Restate(DefaultReport, direction))" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Read from a branch</p>
@@ -285,7 +289,16 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
 
     private static readonly MetadataRecord SyncRecord = MetadataReader.Parse("type: aggregate\nstatus: draft");
 
+    /// <summary>What the stated unit is left with once it states nothing: no level
+    /// above it states one either.</summary>
+    private static readonly DevbookSyncState UnitDefault =
+        new(DevbookSyncLevel.Unit, null, new DevbookSyncDirection("report", null));
+
     private DevbookSyncState _inheriting = InheritedPush;
+
+    private DevbookSyncState _stated = StatedPull;
+
+    private DevbookSyncState _default = DefaultReport;
 
     private string _syncPicked = "Nothing picked yet.";
 
@@ -293,17 +306,23 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
     /// Here the read-back is the state held on the page.</summary>
     private Task PickSync(string? direction)
     {
-        _inheriting = direction is null
-            ? InheritedPush
-            : new DevbookSyncState(DevbookSyncLevel.Unit, direction, new DevbookSyncDirection(direction, DevbookSyncLevel.Unit));
+        _inheriting = Restate(InheritedPush, direction);
         _syncPicked = direction is null ? "Picked: inherit (the line is removed)." : $"Picked: sync: {direction}";
         return Task.CompletedTask;
     }
 
+    /// <summary>The block read back after a pick: stating a direction makes it its
+    /// own, and stating none leaves it what it inherits.</summary>
+    private static DevbookSyncState Restate(DevbookSyncState inherits, string? direction) =>
+        direction is null
+            ? inherits
+            : new DevbookSyncState(inherits.Level, direction, new DevbookSyncDirection(direction, inherits.Level));
+
     private DevbookSyncScope SyncScope => new((_, _) => InheritedPush);
 
     private const string SyncCode = """
-        @* The direction in force, editable: the empty entry inherits. *@
+        @* The direction in force, editable: an arrow pad.
+           ↑ report, ← pull, → push, ↓ inherit (null); sync and off in the centre's menu. *@
         <DevbookSyncSelector State="@state" Editable="true"
                              OnChanged="@(direction => direction is null ? ClearAsync() : WriteAsync(direction))" />
 
