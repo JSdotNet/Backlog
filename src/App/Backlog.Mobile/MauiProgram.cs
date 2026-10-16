@@ -1,5 +1,7 @@
 using Backlog.Mobile.Services;
+using Backlog.Mobile.UI.AppUpdate;
 using Backlog.Mobile.UI.Services;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
 using Microsoft.Extensions.DependencyInjection;
@@ -89,6 +91,23 @@ public static class MauiProgram
 		// and Connectivity's change arrive in App, outside any scope, and have to
 		// reach the same instance the Inbox listens to.
 		builder.Services.AddSingleton<AppLifecycle>();
+
+		// The in-app update, from GitHub Releases. The channel is compiled in by
+		// release-mobile.yml (-p:BacklogUpdateRepository=); every other build has
+		// none, and its update window says a development build cannot update itself.
+		// Registered before AddMobileShell, whose UnsupportedAppUpdateService is only
+		// the default for a host that registers nothing. Transient, like the typed
+		// client it holds: it keeps no state between a check and an install.
+		builder.Services.AddSingleton(new ApkUpdateChannel(UpdateChannelBuildDefaults.Repository));
+		builder.Services.AddHttpClient<GitHubApkUpdateCheck>();
+		builder.Services.AddHttpClient(AndroidApkInstaller.DownloadClientName, client =>
+			client.Timeout = TimeSpan.FromMinutes(10));
+		builder.Services.AddSingleton<IApkInstaller, AndroidApkInstaller>();
+		builder.Services.AddTransient<IAppUpdateService, ApkAppUpdateService>();
+
+		// When the quiet launch check last got an answer, kept across launches.
+		builder.Services.AddSingleton<IPreferences>(Preferences.Default);
+		builder.Services.AddSingleton<IAppUpdateCheckStamp, PreferencesAppUpdateCheckStamp>();
 
 		// The shell's own state: the capture draft that outlives a tab switch, and
 		// the sync status the app bar reads. The browser harness calls the same method.

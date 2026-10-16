@@ -23,8 +23,34 @@
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
-.app-bar__title {
+/*
+  The title is the version control (AppUpdateControl): a ghost button that keeps
+  the bar's heading type, names the version beside the app in small mono, and
+  carries a dot when a quiet check found a newer one. It never gives way to the
+  status line - the sync button shrinks instead.
+*/
+::deep .app-bar__title {
     flex: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    min-height: 44px;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+::deep .app-bar__version {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+::deep .app-bar__update-dot {
+    align-self: center;
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+    background-color: var(--color-primary);
 }
 
 /*

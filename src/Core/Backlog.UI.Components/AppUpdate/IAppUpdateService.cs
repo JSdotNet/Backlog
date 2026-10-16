@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Backlog.Desktop.UI.AppUpdate;
+namespace Backlog.UI.Components.AppUpdate;
 
 /// <summary>
 /// Lets the shared UI show the current version and drive an update check/install

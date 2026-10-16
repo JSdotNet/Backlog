@@ -96,4 +96,41 @@
         </ItemGroup>
     </Target>
 
+    <!-- BacklogUpdateRepository is the update channel: the GitHub repository, as
+         owner/repository, whose releases this APK checks for a newer signed APK.
+         Only release-mobile.yml passes it (-p:BacklogUpdateRepository=), because
+         only its APKs are signed with the release key a later release can update.
+         Empty by default, and empty means a build that cannot update itself:
+         build/Install-AndroidApp.ps1 and a debug deploy leave it out, and their
+         update window says so (ApkUpdateChannel.DevelopmentBuildMessage).
+         Compiled into UpdateChannelBuildDefaults.Repository as a constant for the
+         same reasons as the sync address above. A value that is not
+         owner/repository fails the build here rather than the app at startup;
+         this is the only check of its shape - ApkUpdateChannel relies on it. -->
+    <Target Name="GenerateUpdateChannelBuildDefaults" BeforeTargets="BeforeCompile">
+        <PropertyGroup>
+            <_BacklogUpdateRepositoryTrimmed>$(BacklogUpdateRepository.Trim())</_BacklogUpdateRepositoryTrimmed>
+            <_BacklogUpdateRepositoryValid Condition="'$(_BacklogUpdateRepositoryTrimmed)' != ''">$([System.Text.RegularExpressions.Regex]::IsMatch('$(_BacklogUpdateRepositoryTrimmed)', '^[A-Za-z0-9-]+/[A-Za-z0-9._-]+\z'))</_BacklogUpdateRepositoryValid>
+            <_BacklogUpdateRepositoryLiteral Condition="'$(_BacklogUpdateRepositoryTrimmed)' == ''">null</_BacklogUpdateRepositoryLiteral>
+            <_BacklogUpdateRepositoryLiteral Condition="'$(_BacklogUpdateRepositoryTrimmed)' != ''">&quot;$(_BacklogUpdateRepositoryTrimmed)&quot;</_BacklogUpdateRepositoryLiteral>
+            <_UpdateChannelBuildDefaultsFile>$(IntermediateOutputPath)UpdateChannelBuildDefaults.g.cs</_UpdateChannelBuildDefaultsFile>
+        </PropertyGroup>
+        <Error Condition="'$(_BacklogUpdateRepositoryTrimmed)' != '' and '$(_BacklogUpdateRepositoryValid)' != 'True'"
+               Text="BacklogUpdateRepository must be a GitHub repository as owner/repository (got '$(BacklogUpdateRepository)')." />
+        <ItemGroup>
+            <_UpdateChannelBuildDefaultsLine Include="// &lt;auto-generated/&gt; by the GenerateUpdateChannelBuildDefaults target in Backlog.Mobile.csproj" />
+            <_UpdateChannelBuildDefaultsLine Include="#nullable enable" />
+            <_UpdateChannelBuildDefaultsLine Include="namespace Backlog.Mobile%3B" />
+            <_UpdateChannelBuildDefaultsLine Include="internal static class UpdateChannelBuildDefaults" />
+            <_UpdateChannelBuildDefaultsLine Include="{" />
+            <_UpdateChannelBuildDefaultsLine Include="    public const string%3F Repository = $(_BacklogUpdateRepositoryLiteral)%3B" />
+            <_UpdateChannelBuildDefaultsLine Include="}" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(_UpdateChannelBuildDefaultsFile)" Lines="@(_UpdateChannelBuildDefaultsLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <Compile Include="$(_UpdateChannelBuildDefaultsFile)" />
+            <FileWrites Include="$(_UpdateChannelBuildDefaultsFile)" />
+        </ItemGroup>
+    </Target>
+
 </Project>

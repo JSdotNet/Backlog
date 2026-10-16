@@ -66,6 +66,14 @@
     <Compile Include="..\..\src\App\Backlog.Desktop\Mcp\McpServerWorker.cs" Link="Head\McpServerWorker.cs" />
   </ItemGroup>
 
+  <!-- The head's .mjs response decision, compiled here for the same reason:
+       ModuleScriptResponsesTests holds the head to serving its module scripts
+       as JavaScript, which MAUI's Windows extension table does not. The file
+       uses no MAUI or WebView2 type, so it compiles without the head's SDK. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\App\Backlog.Desktop\Services\ModuleScriptResponses.cs" Link="Head\ModuleScriptResponses.cs" />
+  </ItemGroup>
+
   <!-- What Claude Code posted to an OTLP logs endpoint, scrubbed, for ClaudeCodeLogsEndpointGateTests
        to replay. Shared from tests/Fixtures because the reader and the host route
        replay the same capture. -->
