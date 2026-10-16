@@ -2841,7 +2841,8 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>AC3: the same plan opened from the action at the end of its bar, with no
-    /// editor in between.</summary>
+    /// editor in between — across every repository, as from the editor, though the item
+    /// is filed under <c>backlog</c> alone.</summary>
     [Fact]
     public async Task Open_in_tasks_from_a_roadmap_bar_shows_its_plan_in_the_task_list()
     {
@@ -2869,7 +2870,8 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Equal("+plan-a", state.SelectedPlan);
-            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+            Assert.Empty(state.SelectedRepositoryAliases);
+            Assert.Empty(navigation.RepositoryScope);
         });
     }
 
