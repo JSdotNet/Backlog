@@ -54,6 +54,63 @@ related: [".devbook/design/design-principles.md#keyboard-first", ".devbook/desig
 | Shortcuts discoverable | Keyboard shortcuts MUST be discoverable via the command palette and documented; they MUST NOT clobber platform/assistive-tech shortcuts. |
 | Non-native controls | Elements not natively focusable that become interactive MUST get `tabindex="0"` (or platform equivalent) and explicit focus styles. |
 
+### Sync Direction Arrow Pad
+
+```meta
+related: [".devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter", ".devbook/design/accessibility.md#target-sizes-and-text"]
+```
+
+The editable `sync` direction of a devbook block is an arrow pad: four keys
+around a centre naming the direction in force, each key where its arrow points.
+The pad is one tab stop, roving: Tab reaches the key for what the block states,
+or the centre when it states `sync`, `off` or nothing, and leaves the pad on the
+next press.
+
+| Key | States | Announced as |
+|---|---|---|
+| ArrowUp | `report` | "Report (↑)" |
+| ArrowLeft | `pull` | "Pull (←)" |
+| ArrowRight | `push` | "Push (→)" |
+| ArrowDown | nothing — the block inherits | "Inherit (↓)" |
+| Enter / Space on the centre | opens a menu: `sync`, `off`, and `inherit` when the block states a direction | — |
+
+- The arrows work from any part of the pad and take the focus, and the tab
+  stop, to the key they reached.
+- A held arrow states once: repeats are ignored, because each change writes a
+  file.
+- An arrow held with Alt, Ctrl, Meta or Shift is not the pad's — Alt+ArrowLeft
+  stays the browser's Back — and passes through untouched.
+- Each key carries `aria-keyshortcuts` and `aria-pressed`; the pad is
+  `role="group"` named by its label.
+
+### Requirement: Sync direction by arrow key
+
+```meta
+type: requirement
+```
+
+The sync arrow pad SHALL state a direction from its arrow key once per press,
+and SHALL leave a repeated or modified arrow alone.
+
+#### Scenario: An arrow states its direction
+
+- **Given** a block that states no direction and the pad's centre has focus
+- **When** the person presses ArrowRight
+- **Then** the block states `push`
+- **And** the focus and the tab stop move to the right key
+
+#### Scenario: A held arrow states once
+
+- **Given** the pad has focus
+- **When** the person holds ArrowUp until it repeats
+- **Then** the block states `report` once
+
+#### Scenario: A modified arrow is not the pad's
+
+- **Given** the pad has focus
+- **When** the person presses Alt+ArrowLeft
+- **Then** the block's direction is unchanged
+
 ## Screen Reader / Announcements
 
 ```meta
@@ -150,6 +207,20 @@ related: [".devbook/design/typography-and-layout.md#iconography"]
 | Respect user scale | Use scale tokens (rem / device-independent units) so OS/browser font-size and zoom settings are respected; layouts MUST reflow without loss of content up to 200% zoom. |
 | Not meaning by style alone | Do not convey meaning by weight, italic, or color alone — pair with text or icon. |
 
+**Exception — the sync direction arrow pad.** Its four keys are 24 × 24 px
+(1.5rem, WCAG 2.2's 2.5.8 AA minimum), not 44 × 44 px. Each key's hit area
+reaches a further `spacing-sm` outward, the way its arrow points, and never
+inward or sideways, so a loose press on one key cannot land on the centre or a
+neighbour. The exception holds because the pad is an inline control beside a
+block's status. Three rows of 44 px keys would stand far taller than the
+heading the pad sits on. It is bounded:
+
+- Every direction stays reachable without a pointer, per
+  `#sync-direction-arrow-pad`, and `sync` and `off` through the centre's menu.
+- The centre is a badge-sized button, and the same exception covers it.
+- The exception covers this pad only. Any other control below 44 × 44 px needs
+  its own exception here.
+
 ## Iconography Accessibility
 
 ```meta
@@ -227,7 +298,8 @@ Gaps, tracked rather than assumed:
   not in the set, and some metadata-line glyphs are still emoji. See
   `typography-and-layout.md#materialization`.
 - **Target sizes are unverified.** No test asserts the ≥ 44 × 44 px minimum, and
-  dense rows are exactly where it tends to fail.
+  dense rows are exactly where it tends to fail. The sync arrow pad's 24 px keys
+  are the one recorded exception (`#target-sizes-and-text`), not a gap.
 - **Both app channels are web-rendered.** The desktop and the Android head each
   host Razor components in a WebView; the phone's come from `Backlog.Mobile.UI`
   over the shared library. Every rule above applies to both as written, and MAUI's
