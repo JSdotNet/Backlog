@@ -324,7 +324,7 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#repository-scoped-planning]
 related: [.devbook/domain/roadmap/flow.md, .devbook/design/interaction-guidelines.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/domain/roadmap/requirements.md#reading-and-rescheduling-on-a-timeline]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_roadmap_view_replaces_the_task_list_inside_the_workspace, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbook_opens_beside_the_roadmap_and_the_inbox_takes_the_screen_over_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_leaves_the_roadmap_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_roadmap_view_replaces_the_task_list_inside_the_workspace, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_devbook_and_the_inbox_each_take_the_screen_over_the_roadmap, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_leaves_the_roadmap_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view]
 ```
 
 See the whole plan against time, with its bands, lanes, spans, milestones and the
@@ -334,9 +334,9 @@ and the plan decides whether it stands.
 
 The roadmap is one of the views in the header's view switch, last after Tasks,
 Board and Calendar, under its own Planning heading row and without the Tasks
-filter bar. It does not take the whole screen: the Inbox and the Devbook open
-beside it as they do beside the task list, and only another view replaces it.
-Escape does not leave it. On the roadmap, Escape puts a grabbed bar back and
+filter bar. It is a view, not a takeover, so only another view replaces it. The
+Inbox and the Devbook take the screen over it as they do over the task list, and
+closing either returns to the roadmap. Escape does not leave it. On the roadmap, Escape puts a grabbed bar back and
 dismisses the planning dialogs. A narrower window never closes it. Opening the
 Dashboard, Tools, the session list or the pull requests list from it and closing
 them again comes back to the roadmap. A roadmap a person left open from before the

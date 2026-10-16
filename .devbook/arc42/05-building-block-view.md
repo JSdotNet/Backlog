@@ -417,7 +417,7 @@ so the triage surfaces can be driven without Azure.
 flowchart LR
   Budget["AiContentBudget\n(character budget)"]
   Sources["IAiContentSource, one per area UI\n(Tasks, Inbox, Devbook, Roadmap,\nDashboard, Sessions, Tools)"]
-  Panel["Shell Ask AI panel\n(scope chip per open area)"]
+  Panel["Shell Ask AI panel\n(the area on screen)"]
   Client["Azure Foundry client\n(Infrastructure.AzureFoundry)"]
   Model["Azure AI Foundry\ndeployment"]
 
@@ -434,6 +434,10 @@ project answers it: `TasksAiContentSource`, `InboxAiContentSource`,
 its content is. It composes a body for a question within the character budget,
 choosing among its records the one way `AiContentBudget` defines. The shell
 learns nothing about what a task, an item or a chapter looks like.
+
+The panel asks the one area on screen. Every area is a view or a takeover, and
+the shell never shows two at once, so there is no scope to pick. The shell offers
+the panel only while the area on screen has a composed source.
 
 A source never describes the screen: no filter text, sort, layout or selection
 beyond pinning the open record. Screen state is left out because the visible task
