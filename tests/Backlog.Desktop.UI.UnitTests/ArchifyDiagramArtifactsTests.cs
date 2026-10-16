@@ -890,6 +890,24 @@ public sealed class ArchifyDiagramArtifactsTests
         Assert.Equal("No Archify diagram type fits this kind of diagram.", error);
         Assert.Empty(workspace.Launcher.Requests);
     }
+
+    /// <summary>
+    /// Node writes UTF-8 whatever the console's code page is, so the generator's
+    /// output has to be read as UTF-8 too. Left to the default, the app decoded it
+    /// with the code page and an em dash in a refusal reached the diagram view as
+    /// <c>â€”</c>. Pinned on the start info rather than through a real Node run,
+    /// because what the default decodes to depends on the host's console, and a
+    /// test host reading UTF-8 anyway would pass without the fix.
+    /// </summary>
+    [Fact]
+    public void The_generators_output_and_errors_are_read_as_UTF8()
+    {
+        var start = ArchifyDiagramArtifacts.GeneratorStart("root", "tool.mjs", "spec.json");
+
+        Assert.Equal(Encoding.UTF8.CodePage, start.StandardOutputEncoding?.CodePage);
+        Assert.Equal(Encoding.UTF8.CodePage, start.StandardErrorEncoding?.CodePage);
+        Assert.Equal(["tool.mjs", "render", "spec.json"], start.ArgumentList);
+    }
 }
 
 /// <summary>
@@ -1033,7 +1051,6 @@ file sealed class ArchifyWorkspace : IDisposable
 
     internal void WriteSpecification(string name) =>
         File.WriteAllText(ArtifactFile(name), """{"type":"workflow","title":"Orders"}""");
-
     /// <summary>The stem the generator builds a specification and its artifact
     /// from. <c>showcase</c> is the default and is never written into a name, so
     /// there is exactly one spelling of the ordinary case.</summary>

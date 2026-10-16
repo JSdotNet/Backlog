@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Backlog.Infrastructure.Copilot;
@@ -310,21 +311,9 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
             return $"The Archify generator is not in this repository: {tool} does not exist.";
         }
 
-        var start = new ProcessStartInfo("node")
-        {
-            WorkingDirectory = diagram.RootPath,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        start.ArgumentList.Add(tool);
-        start.ArgumentList.Add("render");
-        start.ArgumentList.Add(specFile);
-
         try
         {
-            using var process = Process.Start(start);
+            using var process = Process.Start(GeneratorStart(diagram.RootPath, tool, specFile));
             if (process is null) return "The Archify generator did not start.";
 
             var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
@@ -352,6 +341,28 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         {
             return $"The Archify generator could not be started: {ex.Message}";
         }
+    }
+
+    /// <summary>How the generator is started. Node writes UTF-8 whatever the
+    /// console's code page is, so both streams are read as UTF-8: decoded with
+    /// the code page instead, an em dash in a refusal reached the diagram view as
+    /// <c>â€”</c>.</summary>
+    internal static ProcessStartInfo GeneratorStart(string rootPath, string tool, string specFile)
+    {
+        var start = new ProcessStartInfo("node")
+        {
+            WorkingDirectory = rootPath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
+        };
+        start.ArgumentList.Add(tool);
+        start.ArgumentList.Add("render");
+        start.ArgumentList.Add(specFile);
+        return start;
     }
 
     /// <summary>Opens an agent session with a brief describing the diagram and
