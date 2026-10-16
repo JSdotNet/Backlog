@@ -115,9 +115,10 @@
     <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
-    <!-- The Sessions readers, for the tests here that render the pane over them or
-         drive the telemetry through the shell's MCP tools; the rest of their tests
-         are Backlog.Infrastructure.Sessions.UnitTests. -->
+    <!-- The Sessions readers, for the tests here that drive the telemetry through
+         the shell's MCP tools; the pane's tests over them are
+         Backlog.Modules.Sessions.UnitTests and the readers' own are
+         Backlog.Infrastructure.Sessions.UnitTests. -->
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
@@ -139,7 +140,10 @@
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
     <Compile Include="..\Shared\TestDoubles\StubAzureFoundryChatClient.cs" Link="Shared\TestDoubles\StubAzureFoundryChatClient.cs" />
     <Compile Include="..\Shared\TestDoubles\StubGitHubClient.cs" Link="Shared\TestDoubles\StubGitHubClient.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubPriceStore.cs" Link="Shared\TestDoubles\StubPriceStore.cs" />
     <Compile Include="..\Shared\TestDoubles\StubProbe.cs" Link="Shared\TestDoubles\StubProbe.cs" />
+    <!-- The pane-header shape the shell panes share with the Sessions pane. -->
+    <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
   </ItemGroup>
 
   <!-- bUnit's default wait for this process, set before any test runs; the file
@@ -153,12 +157,6 @@
        replay the same capture. -->
   <ItemGroup>
     <None Include="..\Fixtures\claude-code-otlp\*" Link="Fixtures\claude-code-otlp\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <!-- Recorded delivery run files, so DeliveryRunStagesTests draws a run read through the
-       product's own reader — with the cumulative quality facts and without them. -->
-  <ItemGroup>
-    <None Include="..\Fixtures\delivery-runs\*" Link="Fixtures\delivery-runs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

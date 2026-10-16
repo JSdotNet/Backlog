@@ -35,7 +35,7 @@
     <!-- The stale-session boundary and the grouping decide what a reader sees as
          running and how the list is carved up, so they are worth testing directly
          rather than only through whichever surface happens to render them. -->
-    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+    <InternalsVisibleTo Include="Backlog.Modules.Sessions.UnitTests" />
   </ItemGroup>
 
 </Project>

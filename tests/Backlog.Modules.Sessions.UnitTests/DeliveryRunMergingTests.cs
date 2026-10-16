@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// How two surfaces' files of one run become one run. Each condition of the rule has

@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// How the two readings become one list. The key is the worktree, derived from a

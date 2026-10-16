@@ -2,7 +2,7 @@ using Backlog.Modules.Sessions.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// What the sessions pane shows while its first read is out, and what it offers

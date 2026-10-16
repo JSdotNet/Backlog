@@ -7,7 +7,7 @@ using Bunit;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The Model prices settings page: empty until somebody fills it in, a row saved as
@@ -16,11 +16,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class ModelPriceSettingsTests
 {
-    private static (BunitContext Context, SessionsPaneDetailTests.StubPriceStore Store) Context(ModelPriceTable? table = null)
+    private static (BunitContext Context, StubPriceStore Store) Context(ModelPriceTable? table = null)
     {
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        var store = new SessionsPaneDetailTests.StubPriceStore(table ?? ModelPriceTable.Empty);
+        var store = new StubPriceStore(table ?? ModelPriceTable.Empty);
         context.Services.AddSingleton<IModelPriceStore>(store);
 
         return (context, store);

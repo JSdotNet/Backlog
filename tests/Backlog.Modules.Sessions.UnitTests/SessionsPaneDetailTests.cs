@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The rebuilt pane's own parts: the filter bar's Live tally, picking a row into the
@@ -1028,19 +1028,6 @@ public sealed class SessionsPaneDetailTests
         {
             await Task.Yield();
             return await inner.ListAsync(sessionId, cancellationToken);
-        }
-    }
-
-    internal sealed class StubPriceStore(ModelPriceTable table) : IModelPriceStore
-    {
-        public ModelPriceTable Table { get; private set; } = table;
-
-        public Task<ModelPriceTable> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(Table);
-
-        public Task SaveAsync(ModelPriceTable saved, CancellationToken cancellationToken = default)
-        {
-            Table = saved;
-            return Task.CompletedTask;
         }
     }
 

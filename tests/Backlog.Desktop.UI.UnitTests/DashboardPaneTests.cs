@@ -3090,7 +3090,7 @@ public class DashboardPaneTests
             text.Children.Select(child => child.GetAttribute("class")));
         Assert.Equal("dashboard-title", text.Children[1].GetAttribute("id"));
 
-        SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "dashboard-panel");
+        PaneHeaderAssertions.AssertPaneHeaderActions(header, "dashboard-panel");
         Assert.NotNull(header.QuerySelector(".dashboard-panel__header-actions button"));
     }
 

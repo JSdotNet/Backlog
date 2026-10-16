@@ -73,7 +73,7 @@ public sealed class ModuleSettingsBadgeSourceTests
     [Fact]
     public async Task Model_prices_counts_the_prices_once_read_and_follows_each_save()
     {
-        var store = new SessionsPaneDetailTests.StubPriceStore(
+        var store = new StubPriceStore(
             new ModelPriceTable([new ModelPrice("opus", 5m, 25m, 0.5m, 6.25m), new ModelPrice("sonnet", 3m, 15m, null, null)]));
         var source = new ModelPriceBadgeSource(store);
         var changed = new TaskCompletionSource();
@@ -97,7 +97,7 @@ public sealed class ModuleSettingsBadgeSourceTests
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddSingleton<IModelPriceStore>(new SessionsPaneDetailTests.StubPriceStore(ModelPriceTable.Empty));
+        context.Services.AddSingleton<IModelPriceStore>(new StubPriceStore(ModelPriceTable.Empty));
         context.Services.AddSessionsSettings();
         var source = context.Services.GetRequiredService<ModelPriceBadgeSource>();
 

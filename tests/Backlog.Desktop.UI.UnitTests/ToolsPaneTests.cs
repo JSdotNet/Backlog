@@ -1673,8 +1673,8 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
         var header = pane.Find(".tools-panel__header");
 
-        SectionHeaderAdoptionTests.AssertPaneHeader(header, "tools-panel", "installed-tools-title");
-        SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "tools-panel");
+        PaneHeaderAssertions.AssertPaneHeader(header, "tools-panel", "installed-tools-title");
+        PaneHeaderAssertions.AssertPaneHeaderActions(header, "tools-panel");
         Assert.NotNull(header.QuerySelector(".tools-panel__header-actions [data-testid='tools-host-filter']"));
         Assert.Equal("No catalog on this machine", header.QuerySelector("[data-testid='tools-checked']")!.TextContent.Trim());
     }

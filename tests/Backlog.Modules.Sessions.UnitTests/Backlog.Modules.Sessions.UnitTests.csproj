@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+    <!-- FakeTimeProvider: the pane's detail and the economics page measure ages and
+         spend windows from "now"; these tests pin it. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sessions publishes the session port, the DTOs behind it, the stale
+         threshold and the grouping under its abstractions' namespace, which almost
+         every file here speaks. -->
+    <Using Include="Backlog.Modules.Sessions.Abstractions" />
+    <!-- The app-wide ports and the settings-section contract the module's two
+         settings pages register against. -->
+    <Using Include="Backlog.SharedKernel" />
+    <!-- The library's feedback types, which the pane's load states render. -->
+    <Using Include="Backlog.UI.Components.Feedback" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
+    <!-- The Sessions readers, for the tests that render the pane over a real
+         delivery-run file and build the run diagram from one; the readers' own
+         tests are Backlog.Infrastructure.Sessions.UnitTests. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+  </ItemGroup>
+
+  <!-- The pane-header shape the Sessions pane shares with the shell panes in
+       Backlog.Desktop.UI.UnitTests, and the price store the Settings badges there use too. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubPriceStore.cs" Link="Shared\TestDoubles\StubPriceStore.cs" />
+  </ItemGroup>
+
+  <!-- Recorded delivery run files, so DeliveryRunStagesTests draws a run read through the
+       product's own reader — with the cumulative quality facts and without them. -->
+  <ItemGroup>
+    <None Include="..\Fixtures\delivery-runs\*" Link="Fixtures\delivery-runs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

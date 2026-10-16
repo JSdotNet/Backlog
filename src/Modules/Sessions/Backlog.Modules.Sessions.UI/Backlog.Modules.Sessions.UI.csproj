@@ -43,6 +43,8 @@
   <ItemGroup>
     <!-- The Ask AI source and the run's diagram specification are worth testing
          directly rather than only through the pane. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Sessions.UnitTests" />
+    <!-- The Home tests compose the Ask AI source into the shell's surface. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 

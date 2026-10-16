@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
 /// The environment narrowing is a pure function over the sessions it is given, the
