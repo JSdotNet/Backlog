@@ -387,10 +387,27 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `GlobalPaneMarkupTests.Inbox_renders_as_its_own_surface_and_never_beside_the_main_view`,
    `GlobalPaneSelectionTests.A_pane_name_that_names_no_side_pane_is_refused`, and the
    `ShellNavigationStoreTests` whose names start `An_inbox_pane_` or `A_migrated_inbox_pane_`.
-8. **The Devbook takes the screen** (amendment of 2026-10-15), to be written:
-   `HomeWorkspaceSurfaceTests` cases that open the Devbook over a view, return to
-   that view by each way back, Escape included, and reopen the Devbook after a
-   restart; a case that the task row's Brain badge opens the Devbook surface; and
-   `ShellNavigationStoreTests` cases for a `Devbook` or `Knowledge` pane from
-   before the change, under no surface and under another one. Item 2's tests and
-   the `GlobalPaneSelectionTests` in item 7 go with the side pane.
+8. **The Devbook takes the screen** (amendment of 2026-10-15).
+   `HomeWorkspaceSurfaceTests.The_devbook_takes_the_screen_over_the_view_and_a_second_press_returns_to_it`,
+   `Each_way_back_from_the_devbook_returns_to_the_view_underneath` (a view option,
+   Escape on the surface, Escape heard at the document, another takeover),
+   `The_devbooks_close_button_returns_to_the_view_underneath`,
+   `Pressing_the_devbook_during_another_takeover_gives_it_the_screen`,
+   `The_devbook_and_the_inbox_each_take_the_screen_over_the_roadmap`,
+   `Opening_the_devbook_reopens_it_after_a_restart`,
+   `A_devbook_pane_from_before_the_devbook_took_the_screen_reopens_as_the_devbook_surface`,
+   `A_devbook_pane_under_another_takeover_reopens_on_that_takeover`,
+   `Turning_the_devbook_flag_off_while_it_has_the_screen_returns_to_the_workspace`,
+   `The_devbook_toggle_takes_no_modifier_and_is_never_disabled`,
+   `The_devbook_tooltip_says_what_the_press_will_do`;
+   `HomeRepositoryScopeTests.A_task_rows_brain_badge_gives_the_devbook_the_screen_on_the_brain`,
+   `An_entrys_devbook_reference_gives_the_devbook_the_screen_on_that_repository`,
+   `An_escape_in_the_devbooks_source_field_does_not_close_the_devbook`;
+   `MarkdownCommentTests.A_key_pressed_in_a_comment_draft_does_not_reach_the_host`;
+   `GlobalPaneMarkupTests.Devbook_renders_as_its_own_surface_and_closes_on_escape`,
+   `No_side_pane_remains_and_neither_does_its_pin_or_modifier`; and the
+   `ShellNavigationStoreTests` whose names start `A_devbook_pane_` or
+   `A_migrated_devbook_pane_`, with `The_devbook_surface_survives_a_restart`.
+   Item 2's tests and the `GlobalPaneSelectionTests` in item 7 went with the side
+   pane, and item 6's tasks-pane case now reads
+   `A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_inbox_reopens`.

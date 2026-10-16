@@ -1,5 +1,9 @@
 @implements IDisposable
 @using Backlog.UI.Components.Compare
+@* For the source field's key boundary below: without it Razor reads
+   `@onkeydown:stopPropagation` as a literal attribute and the boundary does
+   nothing. *@
+@using Microsoft.AspNetCore.Components.Web
 @inject DevbookMenu DevbookMenu
 @inject DevbookFolderOpenService DevbookFolderOpen
 @inject DevbookScope Scope
@@ -108,16 +112,25 @@
                standing in the field of the next — two repositories on their
                default branch hand the field the same Value, and the field keeps
                typed text until its Value changes. *@
-            <Combobox @key="@ActiveRepositoryAlias"
-                      CssClass="devbook-stack__source"
-                      Compact="true"
-                      AriaLabel="@($"Devbook source for {ActiveRepositoryAlias}")"
-                      TestId="devbook-source-select"
-                      Placeholder="Search branches"
-                      Value="@DevbookSource.Label(ActiveRepositoryAlias)"
-                      ValueChanged="SetSourceQuery"
-                      Options="@SourceSuggestions"
-                      OnCommit="CommitDevbookSourceAsync" />
+            @* The field's keys are the field's. The Combobox keeps the Escape that
+               closes its list, and passes on the one that clears its text; the
+               Devbook takes the screen and closes on Escape (local ADR 0022,
+               amendment of 2026-10-15), so that second Escape would clear the field
+               and throw the reader out of the Devbook with the same press. The
+               wrapper draws nothing (display: contents) and ends Blazor's walk
+               only, so a document listener still hears the key. *@
+            <span class="devbook-stack__source-keys" data-testid="devbook-source-keys" @onkeydown:stopPropagation="true">
+                <Combobox @key="@ActiveRepositoryAlias"
+                          CssClass="devbook-stack__source"
+                          Compact="true"
+                          AriaLabel="@($"Devbook source for {ActiveRepositoryAlias}")"
+                          TestId="devbook-source-select"
+                          Placeholder="Search branches"
+                          Value="@DevbookSource.Label(ActiveRepositoryAlias)"
+                          ValueChanged="SetSourceQuery"
+                          Options="@SourceSuggestions"
+                          OnCommit="CommitDevbookSourceAsync" />
+            </span>
         }
     </ListLeading>
 
@@ -219,6 +232,17 @@
                        OnClick="ToggleAtlasAsync">
                 @(_atlasOpen ? "Hide atlas" : "Atlas")
             </AppButton>
+        }
+        @* The way back for a host that shows the Devbook as a takeover — the
+           desktop shell gives it the whole screen — in the place and shape the
+           other takeovers' close sits: last on the header row, an icon-only ghost
+           button named by its label. Absent for a host that passes no OnClose. *@
+        @if (OnClose.HasDelegate)
+        {
+            <IconButton AriaLabel="@(BrainMode ? "Close the Brain" : "Close the Devbook")"
+                        CssClass="btn--ghost"
+                        TestId="devbook-close"
+                        OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         }
     </ListTrailing>
 
@@ -395,6 +419,12 @@
     /// that composes no Brain it is no scope, and the pane has nothing to read.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
+
+    /// <summary>Reports that the ✕ was pressed. A host that shows the Devbook as a
+    /// takeover passes its way back here, as it does for every other takeover's
+    /// pane; with no delegate the pane draws no close control.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
 
     /// <summary>
     /// The repository on the other side of the <c>Brain | repo</c> switch, while
@@ -2223,6 +2253,7 @@
                 </DescriptionContent>
                 <Action>
                     <AppButton Href="@BrainSetup.SettingsHref"
+                               External="false"
                                Variant="ButtonVariant.Primary"
                                TestId="devbook-brain-set-up">
                         @BrainSetup.SetUpLabel

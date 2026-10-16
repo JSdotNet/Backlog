@@ -76,7 +76,6 @@ public class StylesheetDuplicateSelectorTests
             new(".sessions-panel__title", 2, SharedWithSiblings),
             new(".sessions-panel__subtitle", 2, SharedWithSiblings),
             new(".backlog-workspace", 2, SharedWithSiblings),
-            new(".side-pane-stack", 2, SharedWithSiblings),
             new(".devbook-stack", 2, SharedWithSiblings),
             new(".devbook-pane", 2, SharedWithSiblings),
             new(".devbook-pane__subtitle", 2, SharedWithSiblings),
