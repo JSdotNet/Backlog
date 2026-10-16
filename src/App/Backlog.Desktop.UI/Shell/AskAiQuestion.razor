@@ -1,0 +1,77 @@
+@*
+    The Ask AI panel's question box and its Ask button.
+
+    Its own component so that typing is its own business. The box reports every
+    keystroke, and its keys are listened to for Ctrl+Enter; while both landed on
+    Home, every keystroke drew the whole shell again — the header, the panel and
+    whichever pane was open. Here a keystroke draws this box and nothing else.
+
+    Home still keeps the question, through a plain delegate rather than an
+    EventCallback, because a delegate redraws nobody: the panel closes and opens
+    again with the question the reader left in it, as it did when the text was
+    Home's field. What it asks with comes back through OnAsk, which is Home's to
+    answer and does redraw it — the busy state and the answer are its.
+*@
+
+@* The box keeps its own class and its own border, so the library's grow wrapper
+   is emitted without one. *@
+<TextArea Bare="true"
+          AutoGrow="false"
+          GrowCssClass=""
+          InputCssClass="ai-panel__question"
+          AriaLabel="Ask about this content"
+          Id="@InputId"
+          data-testid="ai-question-input"
+          Rows="3"
+          Placeholder="What should I focus on next?"
+          Value="@_question"
+          ValueChanged="OnQuestionChanged"
+          @onkeydown="OnKeyDownAsync" />
+<div class="ai-panel__actions">
+    <AppButton Variant="ButtonVariant.Secondary"
+               data-testid="ai-ask-button"
+               Disabled="@Busy"
+               OnClick="AskAsync">
+        @(Busy ? "Asking..." : "Ask")
+    </AppButton>
+</div>
+
+@code {
+    /// <summary>The box's element id, so Home can take focus to it when it opens the
+    /// panel with a question begun — a dashboard part's Ask AI.</summary>
+    public const string InputId = "ai-question-input";
+
+    /// <summary>The question as Home last kept it: what the box opens with.</summary>
+    [Parameter]
+    public string Question { get; set; } = string.Empty;
+
+    /// <summary>Told every edit of the question, so Home can keep it for the next
+    /// time the panel opens. A plain delegate on purpose: see the comment above.</summary>
+    [Parameter]
+    public Action<string>? KeepQuestion { get; set; }
+
+    /// <summary>Whether an ask is in flight: the button is disabled and says so.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The question asked, from the button or from Ctrl+Enter in the box.</summary>
+    [Parameter]
+    public EventCallback<string> OnAsk { get; set; }
+
+    private string _question = string.Empty;
+
+    // Home keeps the question in step through KeepQuestion before it ever draws,
+    // so what it hands back here is what the box already holds.
+    protected override void OnParametersSet() => _question = Question;
+
+    private void OnQuestionChanged(string value)
+    {
+        _question = value;
+        KeepQuestion?.Invoke(value);
+    }
+
+    private Task AskAsync() => OnAsk.InvokeAsync(_question);
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) =>
+        e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? AskAsync() : Task.CompletedTask;
+}

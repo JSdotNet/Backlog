@@ -6,9 +6,10 @@
     & roles"). Any word but the four, a run's not-run among them, is never run.
 *@
 <span class="devbook-scenario-dot devbook-scenario-dot--@Slug"
-      role="img"
-      aria-label="@AccessibleName"
-      title="@Label"
+      role="@(Decorative ? null : "img")"
+      aria-label="@(Decorative ? null : AccessibleName)"
+      aria-hidden="@(Decorative ? "true" : null)"
+      title="@(Decorative ? null : Label)"
       data-testid="@TestId"
       data-state="@Slug"></span>
 
@@ -19,6 +20,12 @@
 
     [Parameter]
     public string? TestId { get; set; } = "devbook-scenario-dot";
+
+    /// <summary>Whether the dot stands beside its own word, as in a legend: then it is
+    /// hidden from assistive technology, so a screen reader does not hear the state
+    /// twice, and it carries no tooltip repeating the word next to it.</summary>
+    [Parameter]
+    public bool Decorative { get; set; }
 
     private string Slug => SlugOf(State);
 

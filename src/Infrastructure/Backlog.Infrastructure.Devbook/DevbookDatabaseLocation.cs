@@ -32,6 +32,14 @@ namespace Backlog.Infrastructure.Devbook;
 /// <para>Asking for a repository's database is also the moment its database is
 /// wanted, so a configured observer hears about each ask (see
 /// <see cref="DevbookDatabaseRefresher"/>). The ask never waits for it.</para>
+///
+/// <para>The Brain (local ADR 0026) gets its database the same way, keyed by its
+/// folder's absolute path under the same <c>_databases</c> folder, and never in
+/// the folder itself, which is often synced. What differs is that the Brain's
+/// folder is the root rather than a folder one step below it, and that it is
+/// read under the Brain's convention; <see cref="ForBrainFolder"/> records both,
+/// so a reader handed the Brain's folder and the refresher building it each know
+/// it for what it is.</para>
 /// </summary>
 public static class DevbookDatabaseLocation
 {
@@ -42,11 +50,22 @@ public static class DevbookDatabaseLocation
     /// per repository path.</summary>
     public const string DatabasesFolderName = "_databases";
 
+    /// <summary>The folder beside <see cref="DatabasesFolderName"/> that holds the
+    /// Archify artifacts the app draws on demand from committed specifications
+    /// (local ADR 0034). Underscore-prefixed for the same reason: no snapshot
+    /// folder can be called that.</summary>
+    public const string ArchifyRendersFolderName = "_archify-renders";
+
     private const int HashLength = 12;
 
     private const int NameLength = 40;
 
     private static volatile Configuration? s_configuration;
+
+    /// <summary>The normalized root of the Brain, or null: one per user, so one
+    /// per process, and a newly recorded folder replaces the last — a moved
+    /// setting must not leave its old folder read as a Brain.</summary>
+    private static volatile string? s_brainRoot;
 
     /// <summary>
     /// Points the resolver at the app's devbook cache folder, read on every ask so
@@ -64,6 +83,12 @@ public static class DevbookDatabaseLocation
     /// nothing has configured one.</summary>
     public static string? DatabasesDirectory =>
         s_configuration?.CacheDirectory() is { Length: > 0 } cache ? Path.Combine(cache, DatabasesFolderName) : null;
+
+    /// <summary>The folder Archify renders are cached in, beside the databases, or
+    /// <see langword="null"/> while nothing has configured the devbook cache
+    /// folder. Read on every ask, so a moved Storage setting moves it too.</summary>
+    public static string? ArchifyRendersDirectory =>
+        s_configuration?.CacheDirectory() is { Length: > 0 } cache ? Path.Combine(cache, ArchifyRendersFolderName) : null;
 
     /// <summary>
     /// The database for the repository at <paramref name="repositoryRoot"/>,
@@ -86,10 +111,42 @@ public static class DevbookDatabaseLocation
     /// <summary>
     /// The database for the repository a knowledge folder belongs to. The
     /// repository root is one level up from a root-layout folder (<c>.arc42</c>)
-    /// and two from a devbook-layout one (<c>.devbook/arc42</c>).
+    /// and two from a devbook-layout one (<c>.devbook/arc42</c>). A Brain folder
+    /// (<see cref="ForBrainFolder"/>) is its own root.
     /// </summary>
     public static string? ForDevbookFolder(string? devbookFolderPath) =>
-        RepositoryRootFor(devbookFolderPath) is { } root ? ForRepositoryRoot(root) : null;
+        IsBrainRoot(devbookFolderPath)
+            ? ForRepositoryRoot(devbookFolderPath)
+            : RepositoryRootFor(devbookFolderPath) is { } root ? ForRepositoryRoot(root) : null;
+
+    /// <summary>
+    /// The Brain's database: the one for the Brain folder at
+    /// <paramref name="brainRoot"/>, keyed by its absolute path like a
+    /// repository's, in the app's storage. Records the folder as a Brain, so
+    /// <see cref="ForDevbookFolder"/> treats it as its own root and the refresher
+    /// builds it under the Brain's convention, and tells the configured observer.
+    /// </summary>
+    public static string? ForBrainFolder(string? brainRoot)
+    {
+        RegisterBrainRoot(brainRoot);
+        return ForRepositoryRoot(brainRoot);
+    }
+
+    /// <summary>Records <paramref name="brainRoot"/> as the Brain folder, in place
+    /// of any recorded before, without asking for its database; null or blank
+    /// records none.</summary>
+    public static void RegisterBrainRoot(string? brainRoot) =>
+        s_brainRoot = brainRoot is null ? null : NormalizedRoot(brainRoot);
+
+    /// <summary>Whether <paramref name="path"/> is the folder recorded as the Brain.</summary>
+    public static bool IsBrainRoot(string? path) =>
+        path is not null && s_brainRoot is { } brain && string.Equals(NormalizedRoot(path), brain, StringComparison.Ordinal);
+
+    /// <summary>The convention the folder at <paramref name="root"/> is built
+    /// under: the Brain's when it was recorded as one, a repository's
+    /// otherwise.</summary>
+    public static DevbookCorpusKind KindFor(string? root) =>
+        IsBrainRoot(root) ? DevbookCorpusKind.Brain : DevbookCorpusKind.Repository;
 
     /// <summary>The repository root above a knowledge folder, or
     /// <see langword="null"/> when the path has no parent to go to.</summary>
@@ -146,7 +203,7 @@ public static class DevbookDatabaseLocation
     /// <c>D:\Repos\Backlog\</c> and <c>d:\repos\backlog</c> are one repository and
     /// get one database.
     /// </summary>
-    internal static string? NormalizedRoot(string repositoryRoot)
+    public static string? NormalizedRoot(string repositoryRoot)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) return null;
 

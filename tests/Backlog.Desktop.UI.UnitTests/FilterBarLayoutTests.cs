@@ -168,7 +168,7 @@ public sealed class FilterBarLayoutTests
     /// the only group allowed to leave at all.
     /// <para>
     /// Every other group is the whole of its own question — there is nowhere else to
-    /// pick a status, My Day or No repo, so hiding one would take the answer with it.
+    /// pick a status, My Day or Ready in a plan, so hiding one would take the answer with it.
     /// A tag is also on the rows, which is what once made the group safe to drop
     /// outright.
     /// </para>

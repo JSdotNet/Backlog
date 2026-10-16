@@ -16,16 +16,16 @@ related: [.devbook/domain/context-map.md]
 |---|---|---|---|---|
 | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Roadmap Planning = customer) | Registry lookup by repository alias, on the read path | `.devbook/domain/repository-management/domain.md#repository` | Repository Scope aliases resolve to configured repositories so a portfolio plan can be read one project at a time. Roadmap conforms to the registry's identity and never becomes a second authority for what a repository is. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Optional cross-link by foreign id, plus read-side gather by tag, plus a read of the imported plans the backlog holds (`IImportedPlanSource`) | `.devbook/domain/tasks/domain.md#task` | A planned item may name the task that executes it, and also gathers every task filed under its tag; over both it totals the tasks' registered effort. The [shelf](features.md#laying-out-a-plan-whose-tasks-arrived-first) reads the tasks grouped by the plan they were imported with, to offer the plans no item carries the tag of. Ids only, in both directions; neither side holds the other's aggregate and neither writes to it, and Roadmap reads effort it never registers. |
-| [Sessions](../sessions/domain.md#agent-session) | Customer/Supplier (Roadmap Planning = customer) | Infrastructure adapter reads `IAgentSessionSource` since a horizon, on the read path, only when a gathered task needs it. For actual hours, a port in `Backlog.Modules.Roadmap.Abstractions`, answered by an `Infrastructure.FileSystem` adapter over Sessions' agent-activity source and its cache, the same shape as `RoadmapItemRollupService` | `.devbook/domain/sessions/domain.md#activity-window`; for actual hours, each session's [human turns](../sessions/domain.md#human-turn) and its runs (`AgentActivityRun`), from this machine and from the replicated records of the paired ones | [Roadmap Item Gathering](domain.md#roadmap-item-gathering) dates a gathered task that recorded no start, or finished without a tick, from the AI sessions linked to it — the earliest session start, the latest last activity. Joined by the session ids the task carries; reads only, and never writes a date back to the task. The axis draws the person's [working stretches](domain.md#working-stretch) from each session's human turns and runs, and counts the [actual hours](domain.md#actual-hours) of the days that have begun from them. A session without human turns adds nothing. A failed read leaves the begun heads blank, never the plan ([requirement](requirements.md#requirement-a-begun-head-shows-no-hours-when-actual-hours-cannot-be-read)). Proposed, not built yet (ADR 0019). |
+| [Sessions](../sessions/domain.md#agent-session) | Customer/Supplier (Roadmap Planning = customer) | Infrastructure adapter reads `IAgentSessionSource` since a horizon, on the read path, only when a gathered task needs it. For actual hours, a port in `Backlog.Modules.Roadmap.Abstractions`, answered by an `Infrastructure.FileSystem` adapter over Sessions' agent-activity source and its cache, the same shape as `RoadmapItemRollupService` | `.devbook/domain/sessions/domain.md#activity-window`; for actual hours, each session's [human turns](../sessions/domain.md#human-turn) and its runs (`AgentActivityRun`), from this machine and from the replicated records of the paired ones | [Roadmap Item Gathering](domain.md#roadmap-item-gathering) dates a gathered task that recorded no start, or finished without a tick, from the AI sessions linked to it: the earliest session start, and the latest last activity. It joins them by the session ids the task carries, reads only, and never writes a date back to the task. The axis draws the person's [working stretches](domain.md#working-stretch) from each session's human turns and runs, and counts the [actual hours](domain.md#actual-hours) of the days that have begun from them. A session without human turns adds nothing. A failed read leaves the begun [column heads](domain.md#column-head) blank, never the plan ([requirement](requirements.md#requirement-a-begun-head-shows-no-hours-when-actual-hours-cannot-be-read)). ADR 0019. |
 | [Devbook](../devbook/domain.md#knowledge-note) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by tag | `.devbook/domain/devbook/domain.md#knowledge-note` | A Roadmap Item gathers the knowledge chapters it references directly (`knowledge_refs`) and the chapters whose own `roadmap` list names its tag, and totals their registered effort. Reads only, on the read path: Roadmap resolves chapters by reference or tag and reads the effort they registered, and never writes a chapter or owns an effort value. |
-| [Productivity](../productivity/context.md#working-week) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the person's working week on the placement path: the pace file's `workingWeek` key, else the device's `working-hours.json`, else the default week. Carries the week in the synced `planning-pace` document | `.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md` | An effort-sized window counts the person's working hours, and a pace's week is that week's hours. Productivity's settings screen sets the weekly pattern, and the roadmap sets the [day overrides](domain.md#day-override) from a day head or the Days off dialog; Roadmap carries both between devices so every device draws the same bars. Proposed, not built yet. |
+| [Productivity](../productivity/context.md#working-week) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the person's working week on the placement path: the pace file's `workingWeek` key, else the device's `working-hours.json`, else the default week. Carries the week in the synced `planning-pace` document | `.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md` | An effort-sized window counts the person's working hours, and a pace's week is that week's hours. Productivity's settings screen sets the weekly pattern, and the roadmap sets the [day overrides](domain.md#day-override) from a [column head](domain.md#column-head) or the Days off dialog. Roadmap carries both between devices so every device draws the same bars. |
 
 ## Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
 | [Monitoring & Dashboard](../monitoring/domain.md#progress-signal) | OHS + Published Language (Roadmap Planning = supplier) | Subscribes to `RoadmapItemScheduled` | `.devbook/domain/roadmap/domain.md#roadmapitemscheduled` | Relies on planned windows, and on the previous window being carried, to compare intent against delivery. Breaks if the window stops being inclusive at both ends, or if the previous window is dropped. |
-| [Productivity](../productivity/features.md#hours-worked) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the [day overrides](domain.md#day-override) inside the working week; reads Sessions itself for the stretches | `.devbook/domain/roadmap/domain.md#day-override`, `.devbook/domain/roadmap/domain.md#working-stretch` | The dashboard's Hours worked part applies the overrides to find each date's [office hours](../productivity/domain.md#office-hours), and counts [actual hours](domain.md#actual-hours) by this context's definition of a [working stretch](domain.md#working-stretch). Breaks if an override stops being only blocked or unblocked, or if the stretch rule changes on one side alone. Proposed, not built yet. |
+| [Productivity](../productivity/features.md#hours-worked) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the [day overrides](domain.md#day-override) inside the working week; reads Sessions itself for the stretches | `.devbook/domain/roadmap/domain.md#day-override`, `.devbook/domain/roadmap/domain.md#working-stretch` | The dashboard's Hours worked part applies the overrides to find each date's [office hours](../productivity/domain.md#office-hours), and counts [actual hours](domain.md#actual-hours) by this context's definition of a [working stretch](domain.md#working-stretch). Breaks if an override stops being only blocked or unblocked, or if the stretch rule changes on one side alone. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Cross-link by foreign id | `.devbook/domain/roadmap/domain.md#roadmap-item` | Relies on `roadmap_item_id` staying stable across a reschedule, so a link made once keeps pointing at the same planned work. |
 | [Tasks — Import](../tasks/features.md#import) | Customer/Supplier (Roadmap Planning = supplier) | A Tasks-side port (`IRoadmapPlanIntake`), answered by an infrastructure adapter that calls Roadmap's own import command, once per Import run and after the task entries are written | `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md` | Import hands over the `plan` entries a document held and the plan tags its task entries carried; Roadmap creates or updates one item per plan, [places it](features.md#placing-a-plan-in-time), and re-lengths import-placed items whose tasks changed. Relies on the item's tag being the plan's bare slug, and on an import never deleting an item. Tasks conforms to what the command accepts; it holds no roadmap model and receives none back. |
 
@@ -33,39 +33,31 @@ related: [.devbook/domain/context-map.md]
 
 - Repository aliases are held as **opaque strings**. Only
   [Repository Scope Resolution](domain.md#repository-scope-resolution)
-  resolves them, and it does so on the read path — so an unreachable or changed
-  registry degrades the reading of a plan, never the plan itself.
+  resolves them, and it does so on the read path. An unreachable or changed
+  registry therefore degrades the reading of a plan, never the plan itself.
 - The Partnership with Tasks is the same shape as the existing
   Tasks ↔ [Devbook](../devbook/domain.md#cross-linking)
   relationship: both sides keep only foreign ids, and the link semantics are
   coordinated rather than shared through an aggregate.
-- Gathering and totalling read **foreign registered effort and own none of it.**
-  [Roadmap Item Gathering](domain.md#roadmap-item-gathering) reads
-  Tasks and knowledge chapters on the read path — by named reference and
-  by tag — and adds the story points they registered. Tasks and Devbook
-  register the effort; Roadmap only totals it, and an unreachable supplier
-  degrades a total rather than corrupting a plan.
-- The tag vocabulary flows **out** of this context. A Roadmap Item's tag is the
-  slug Tasks offers in its picker and a knowledge chapter names in its
-  `roadmap` list; its stability across a rename is the contract those borrowings
-  rest on. This context supplies the vocabulary and reads back what was filed under
-  it — it does not learn the tag from either consumer.
+- The tag vocabulary flows **out** of this context. Its stability across a rename
+  is the contract the Tasks picker and the knowledge chapters' `roadmap` lists
+  rest on ([Roadmap Tag](domain.md#roadmap-tag)). This context supplies the
+  vocabulary and reads back what was filed under it. It does not learn the tag
+  from either consumer.
 - Both contexts use the word *priority*: **Tasks owns task status and task
   priority; Roadmap Planning owns planning priority and sequence.** Neither writes
   the other's value.
-- Roadmap Planning publishes to Monitoring and subscribes to nothing. Nothing
-  observed downstream reaches back in and edits a plan — a plan changes because a
-  person changed it. The inbound edge from Tasks' Import is **not** an exception
-  to that: it is not a subscription, and Roadmap does not react to a task being
-  created. A person pressing Import is a person changing the plan; the port
-  carries that gesture, and the plan is written by a command in this context
-  exactly as a drag on the timeline writes it. What Roadmap does not do is
-  *react*; being *told* by a person's command is how every edit reaches it.
+- Roadmap Planning [publishes and does not subscribe](features.md#publishing-planned-intent-for-observation).
+  The inbound edge from Tasks' Import is **not** an exception to that. It is not a
+  subscription, and Roadmap does not react to a task being created. A person
+  pressing Import is a person changing the plan. The port carries that gesture,
+  and a command in this context writes the plan exactly as a drag on the timeline
+  does. Roadmap does not *react*; being *told* by a person's command is how every
+  edit reaches it.
 - The tag is also how an imported plan and its item stay one thing without a
-  link. The item holds the bare slug, the plan's tasks carry it with the plan
-  sigil (`+slug`), and the adapters on both edges — the rollup and the shelf reading, the
-  intake writing — are the only places the sigil is lifted
-  (`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
+  link. The item holds the bare slug, and the plan's tasks carry it with the
+  [Plan Sigil](domain.md#plan-sigil), which only the adapters on the two edges
+  lift.
 - There is no dependency on [Environment](../environment/domain.md#environment-catalog).
   Surfacing environment shortcuts beside planned work is
   [Environment's own feature](../environment/features.md#environment-aware-work-context),

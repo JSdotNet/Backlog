@@ -65,7 +65,7 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
         }
 
         var inScope = completed
-            .Where(task => scope.IsAllRepositories || task.RepositoryAliases.Any(scope.Repositories.Contains))
+            .Where(task => scope.Repositories.Covers([.. task.RepositoryAliases]))
             .ToList();
 
         var counted = WeekBuckets.Count(buckets, inScope, InstantOf);
@@ -102,7 +102,7 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
             reading = await plan.ReadAsync(
                 windowFrom,
                 windowTo,
-                scope.IsAllRepositories ? [] : scope.Repositories.Aliases,
+                scope.IsAllRepositories ? [] : scope.Repositories.RepositoryAliases,
                 cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -125,9 +125,10 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
             .Select(item => Outlook(item, today, reading.Week))
             .ToList();
 
-        // The axis runs on past today to the last item's end, so an item still running
-        // draws whole; never shorter than the window it was read for.
-        var timelineTo = items.Count == 0 ? windowTo : items.Max(item => item.Item.End);
+        // The axis runs on past today to the last item's drawn end, so an item still
+        // running draws whole and a finished one stretches nothing past where it landed;
+        // never shorter than the window it was read for.
+        var timelineTo = items.Count == 0 ? windowTo : items.Max(item => item.DrawnEnd);
         if (timelineTo < windowTo) timelineTo = windowTo;
 
         return InsightResult<PlanInsight>.Ready(

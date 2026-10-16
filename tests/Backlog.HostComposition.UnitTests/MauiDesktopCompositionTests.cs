@@ -1,7 +1,7 @@
 using System.Runtime.Versioning;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.Desktop.Composition;
-using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Claude;
@@ -14,6 +14,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Desktop.UI.Inbox;
@@ -157,6 +158,77 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
+    /// The sync merge the head composes hands a <c>sprint-series</c> document to
+    /// Progress's replication port, which writes it into this device's own series rows:
+    /// the series another desktop synced lands here rather than as a draft task.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_takes_a_synced_sprint_series_into_its_own_series()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var id = Guid.NewGuid();
+        var document = $$"""{"version":1,"id":"{{id:D}}","name":"Platform","repositories":["backlog"]}""";
+        var change = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChange(
+            id,
+            new DateTimeOffset(2026, 10, 14, 9, 0, 0, TimeSpan.Zero),
+            DeletedAt: null,
+            new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskPayload(
+                "Platform", document, "sprint-series", "draft", "medium", 0, null,
+                new DateTimeOffset(2026, 10, 14, 9, 0, 0, TimeSpan.Zero),
+                null, null, null, null, null, null, null, null, null, null, null,
+                [], [], [], [], [], []));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        var held = Assert.Single(await provider
+            .GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.ISprintSeriesReplication>()
+            .ReadAllAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(id, held.Id);
+        Assert.Equal(document, held.Content);
+    }
+
+    /// <summary>
+    /// The head keeps one My Day preferences store behind both ports (local ADR 0032,
+    /// §2), and the sync merge it composes hands a <c>my-day-preferences</c> document to
+    /// it: the switch another desktop turned off reads off here, on the screen's port.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_takes_synced_my_day_preferences_into_its_one_store()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var preferences = provider.GetRequiredService<IMyDayPreferences>();
+        Assert.Same(preferences, provider.GetRequiredService<IMyDayPreferencesReplication>());
+        Assert.True(preferences.ClearsOvernight);
+
+        var stamp = new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero);
+        var change = MyDayReplicaDocuments.ToChange(
+            new Backlog.Modules.Tasks.Abstractions.DataTransferObjects.MyDayPreferencesCopyDto(
+                """{"updatedAt":"2026-10-15T08:00:00Z","clearsOvernight":false}""", stamp));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        Assert.False(preferences.ClearsOvernight);
+    }
+
+    /// <summary>
     /// The roadmap's actual hours are answered by the adapter over the agent activity,
     /// and one instance serves every window, as the activity source it reads does.
     /// </summary>
@@ -234,6 +306,38 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.IsType<ProcessCopilotCliLauncher>(provider.GetRequiredService<ICopilotCliLauncher>());
     }
 
+    /// <summary>
+    /// The Brain beside the repositories (local ADR 0026, ADR 0027): its source is a
+    /// port of its own over the Brain setting, the one repository folder source is
+    /// still the repository's, and the watch that ties the setting to the refresher
+    /// resolves and follows the setting once started.
+    /// </summary>
+    [Fact]
+    public void The_maui_head_composes_the_brain_beside_the_repository_devbook()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+
+        var brain = provider.GetRequiredService<IBrainFolderSource>();
+        Assert.IsType<BrainFolderSource>(brain);
+        Assert.IsType<DevbookFolderSource>(provider.GetRequiredService<IDevbookFolderSource>());
+        Assert.Single(provider.GetServices<IDevbookFolderSource>());
+
+        var folder = Path.Combine(_appData, "Brain");
+        Assert.Null(provider.GetRequiredService<IBrainSettings>().TrySetBrainFolder(folder));
+        Assert.Equal(folder, brain.BrainRoot);
+
+        var watch = provider.GetRequiredService<BrainFolderWatch>();
+        Assert.Same(watch, provider.GetRequiredService<BrainFolderWatch>());
+        watch.Start();
+        Assert.Equal(folder, watch.WatchedRoot);
+    }
+
     [SupportedOSPlatform("windows")]
     private ServiceProvider BuildMauiShaped(bool validateScopes)
     {
@@ -257,6 +361,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
                 Path.Combine(_appData, "planning-velocity.json"),
                 time: null,
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
+            MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(_appData, MyDayPreferencesStore.FileName)),
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(_appData, "shell-navigation.json")),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(_appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(_appData, "capture-runs.json")),
@@ -268,6 +373,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             PullRequestPins = _ => new PullRequestPinsStore(Path.Combine(_appData, "pull-request-pins.json")),
             ClaudeSettings = _ => new ClaudeSettingsStore(Path.Combine(_appData, "claude.settings.json")),
             AzureFoundrySettings = _ => new Backlog.Infrastructure.AzureFoundry.AzureFoundrySettingsStore(Path.Combine(_appData, "azure-foundry.json")),
+            BrainSettings = _ => new BrainSettingsStore(Path.Combine(_appData, BrainSettingsStore.FileName)),
             FolderEditorLauncher = _ => new VsCodeFolderEditorLauncher(),
             // MsixAppUpdateService is the head's and compiled for Windows only.
             AppUpdateService = _ => new UnsupportedAppUpdateService(),
@@ -322,5 +428,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         }
 
         public string EnsureToken() => string.Empty;
+
+        public string? CurrentToken => null;
     }
 }

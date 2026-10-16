@@ -3,7 +3,9 @@
 @using Backlog.Infrastructure.FileSystem
 @using Backlog.Infrastructure.Sync
 @using Backlog.Modules.Inbox.Abstractions.DataTransferObjects
+@using Backlog.SharedKernel
 @using Backlog.SharedKernel.Ai
+@using Backlog.Modules.Devbook.Abstractions
 @inject TasksDesktopState State
 @inject InboxDesktopState InboxState
 @inject IServiceProvider Services
@@ -27,18 +29,23 @@
     This page. It owns the header and the AI panel, and decides which surface sits
     below them.
 
+    It draws itself again for its own events, and for a Tasks or Inbox change only
+    when that change moved something it draws — see HandleStateChanged. Every
+    surface below it that reads a state listens to that state itself.
+
     It used to be called the shell, and it owned the update and feedback windows
     too. Those were never about this page — MainLayout mounts them below every
     route now, in AppFooter — and what is left here is genuinely this screen's:
-    the repository scope, the view switch, the side-pane toggles, and the
+    the repository scope, the view switch, the Inbox and Devbook toggles, and the
     surfaces they choose between. The `.shell` class on the wrapper is the older name and stays,
     because it is what every layout rule in app.css is written against.
 
-    There are six, and exactly one of them renders: the workspace — the main view
-    the view switch picks, Tasks or Roadmap, with the Devbook beside it — the tools
-    surface, the dashboard, the session list, the pull requests list and the Inbox.
-    The Inbox took the screen when triage outgrew a side pane; the four before it
-    are takeovers — Dev PC Management, the Dashboard and
+    There are seven, and exactly one of them renders: the workspace — the main view
+    the view switch picks, Tasks or Roadmap — the tools surface, the dashboard, the
+    session list, the pull requests list, the Inbox and the Devbook. The Inbox and
+    then the Devbook took the screen when each outgrew a side pane (local ADR 0022,
+    amendments of 2026-10-12 and 2026-10-15); the four before them are takeovers —
+    Dev PC Management, the Dashboard and
     Sessions are whole domains, and opening one means the reader has stopped
     looking at the backlog, so it takes the screen and hides every other domain
     concern rather than docking beside them. The roadmap was one of them until it
@@ -48,10 +55,10 @@
     control whose something is off screen is a dead button: the GitHub check
     refreshes the task list, and Ask AI answers from the content of an open area —
     so each of them renders only while what it acts on does. The view switch, the
-    side-pane toggles, the takeover groups and the identity region stay, because
-    they are true of the screen whatever is on it; during a takeover the view
-    switch and the side-pane toggles are the way back, since pressing one closes
-    the takeover and shows the workspace.
+    Inbox and Devbook toggles, the takeover groups and the identity region stay,
+    because they are true of the screen whatever is on it; during a takeover the
+    view switch is the way back, since pressing a view closes the takeover and
+    shows the workspace.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
     Management, Devbook, Roadmap, Dev PC Management, Sessions and the
@@ -59,6 +66,10 @@
     that crosses between them here is the repository scope handed to the knowledge
     pane and the dashboard, and the triaged item handed back from the inbox.
 *@
+
+@* Read as this render begins, so a change that lands after it is compared with
+   what this render drew — see HandleStateChanged. *@
+@{ _drawnShellInputs = ReadShellInputs(); }
 
 <div class="shell shell--wide">
     @* The header is four regions rather than one row of controls: who you are and
@@ -69,8 +80,17 @@
        multi-select, an exclusive view switch, a panel disclosure and two modal
        utilities look like the same kind of control. Grouping them is the whole
        change — almost every behaviour below is the behaviour that was already
-       here. *@
-    <header class="app-header">
+       here.
+
+       One row at every width. When the row runs out of room the navigation
+       options give up their words before anything wraps, in tiers — the
+       Dashboard first, then the work in progress, then the Inbox, then the view
+       switch — and keep their glyphs. backlogHeaderFit in app.js measures the row
+       and picks the fewest tiers that fit; the word stays in the button as a
+       visually hidden span, so the option's name does not change, and its title
+       says what it does on hover. Only when every tier is folded and the row still does
+       not fit does the header wrap. *@
+    <header class="app-header" @ref="_header">
         @* Region A. It used to open with a "Backlog" wordmark, set smaller than the
            other screens' `.app-header h1` to say it was chrome rather than a page
            title. The window border says the name already, so the wordmark was the
@@ -78,8 +98,10 @@
            word to do it — the region now opens on the repository scope, which is
            what the identity region was actually for. *@
         <div class="app-header__identity">
-            @if (State.Repositories.Count > 0)
-            {
+            @* The scope renders always, with the Brain chip alone when no repository is
+               configured (local ADR 0027): the Brain depends on no machine and no
+               repository, so a person with only the Brain still has a working header. *@
+            @{
                 @* One repository on a plain press, one more with Ctrl held — while the
                    task list, the dashboard or the session list is on screen; see ScopeRepository below.
                    The anchor — the first one taken, the one Devbook reads — is marked only
@@ -96,20 +118,57 @@
                    classes, because the active fill, the identity edge and the anchor
                    mark all key on those. *@
                 <ButtonGroup CssClass="header-group app-header__repository-scope" AriaLabel="Repository scope">
+                    @* The Brain leads the scope, first and permanent: the scope of
+                       everything filed against no repository (local ADR 0027). It presses
+                       as a repository chip does, Ctrl included, and the anchor rules are
+                       the repositories' own. It wears band 2 as its identity edge whether
+                       or not the Colors switch is on, because it marks a place that is
+                       always there rather than a hue somebody chose
+                       (.devbook/design/color-scheme.md#the-brains-accent); the word and the
+                       first place carry the meaning, never the colour alone. No remove
+                       control: there is nothing to remove it from. *@
+                    @{
+                        var brainSelected = State.BrainInScope;
+                        var brainAnchor = brainSelected && State.SelectedRepositoryAliases.Count > 1 && State.BrainIsAnchor;
+                    }
+                    <ToggleButton BaseClass="chip chip--scope"
+                                  CssClass="@BrainScopeChipClass(brainAnchor)"
+                                  PressedCssClass="chip--active"
+                                  Pressed="brainSelected"
+                                  TestId="brain-scope-option"
+                                  Title="@BrainScopeChipTitle(brainSelected, brainAnchor)"
+                                  aria-current="@(brainAnchor ? "true" : null)"
+                                  OnClick="ScopeBrain">
+                        <BrainIcon CssClass="chip__icon" />@BrainChipLabel
+                    </ToggleButton>
+                    @* The divider that sets the Brain off from the repositories, inside
+                       the same border: one fused set, its leading member apart. Only
+                       while there is a repository to set it off from. *@
+                    @if (State.Repositories.Count > 0)
+                    {
+                        <span class="app-header__scope-divider" aria-hidden="true" data-testid="brain-scope-divider"></span>
+                    }
                     @foreach (var repository in State.Repositories)
                     {
                         var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
                         var anchor = selected && State.SelectedRepositoryAliases.Count > 1
                             && string.Equals(State.AnchorRepositoryAlias, repository.Alias, StringComparison.Ordinal);
+                        @* An archived repository is only here while show archived is on,
+                           and then says so in words, not by a shade alone (local ADR 0029). *@
                         <ToggleButton BaseClass="chip chip--scope"
-                                      CssClass="@RepositoryScopeChipClass(repository.Alias, anchor)"
+                                      CssClass="@RepositoryScopeChipClass(repository, anchor)"
                                       PressedCssClass="chip--active"
                                       Pressed="selected"
                                       TestId="repository-filter-option"
                                       Title="@RepositoryScopeChipTitle(repository, selected, anchor)"
                                       aria-current="@(anchor ? "true" : null)"
+                                      data-archived="@(repository.Archived ? "true" : null)"
                                       OnClick="args => ScopeRepository(repository.Alias, args)">
                             @repository.Alias
+                            @if (repository.Archived)
+                            {
+                                <span class="app-header__scope-archived">@ArchivedRepositoryLabel.Suffix</span>
+                            }
                         </ToggleButton>
                     }
                 </ButtonGroup>
@@ -139,15 +198,38 @@
                    is no repository to be an identity for, and a control governing the
                    look of an empty set is a control with nothing to do — the same reason
                    the takeover group below hides itself when no takeover is
-                   offered. *@
-                <Toggle CssClass="header-switch"
-                        LabelCssClass="header-switch__label"
-                        ControlCssClass="toggle__track header-switch__track"
-                        Label="Colors"
-                        Id="repository-colours-switch"
-                        TestId="repository-colours-toggle"
-                        Checked="State.RepositoryColoursVisible"
-                        CheckedChanged="ShowRepositoryColours" />
+                   offered. The Brain's edge is not one of those hues, so it does not
+                   keep the switch on screen. *@
+                if (State.Repositories.Count > 0)
+                {
+                    <Toggle CssClass="header-switch"
+                            LabelCssClass="header-switch__label"
+                            ControlCssClass="toggle__track header-switch__track"
+                            Label="Colors"
+                            Id="repository-colours-switch"
+                            TestId="repository-colours-toggle"
+                            Checked="State.RepositoryColoursVisible"
+                            CheckedChanged="ShowRepositoryColours" />
+                }
+
+                @* Show archived (local ADR 0029, §3): whether the archived repositories
+                   are offered in the scope, the Board's columns and the pickers, and
+                   their tasks in the list. A switch beside Colors for the reason Colors
+                   is one: it answers "is this layer on" and narrows nothing itself.
+                   Kept per device, and read from that choice on every render, so a
+                   shell the Router built afresh draws what was left. Only while a
+                   repository is archived: with none there is nothing for it to show. *@
+                if (State.HasArchivedRepositories)
+                {
+                    <Toggle CssClass="header-switch"
+                            LabelCssClass="header-switch__label"
+                            ControlCssClass="toggle__track header-switch__track"
+                            Label="Show archived"
+                            Id="show-archived-repositories-switch"
+                            TestId="show-archived-toggle"
+                            Checked="State.ShowArchivedRepositories"
+                            CheckedChanged="State.SetShowArchivedRepositories" />
+                }
             }
         </div>
 
@@ -157,28 +239,28 @@
 
            The view switch is the one question every screen answers: which main
            view the workspace shows. Exactly one is always showing, so the switch has
-           no "off" and pressing the pressed option changes nothing. The Devbook is
-           not a view but a pane beside whichever view is showing, read beside the
-           list or the roadmap, not instead of it. The Inbox leads the row and is a
-           takeover: it takes the whole screen, because triage reads one item at a
-           time and wants the width, and pressing it again returns to the view that
-           was showing. Escape does not close it, unlike the other takeovers — the
-           Inbox's own keys use Escape to leave triage. The Tasks
+           no "off" and pressing the pressed option changes nothing. The Inbox leads
+           the row and the Devbook follows the switch, and both are takeovers: each
+           takes the whole screen in place of the view — triage reads one item at a
+           time and wants the width, and a chapter, its diagrams and the Brain read
+           full width too — and pressing it again returns to the view that was
+           showing. Escape closes the Devbook as it closes the other takeovers, but
+           not the Inbox, whose own keys use Escape to leave triage. The Tasks
            pane toggle that used to sit between them is gone with the "side panes
-           only" state it allowed: the task list is the Tasks view now.
+           only" state it allowed: the task list is the Tasks view now, and no side
+           pane is left at all.
 
            The shapes. A fused group is a set of sibling destinations read as one
            control — the view switch, and the work in progress (In progress,
            Sessions and Pull requests) — and the pressed
            state says which is on. A standalone option is one on-or-off of its own:
-           the two side panes. The loose group is the remaining takeovers, related
-           to each other only by being takeovers.
+           the Inbox and the Devbook. The loose group is the remaining takeovers,
+           related to each other only by being takeovers.
 
-           The view options and the side-pane toggles are also the way back from a
-           takeover: pressing one closes it and shows the workspace. During a
-           takeover none of them reads pressed, because nothing of the workspace is
-           on screen; the view and the open panes are kept underneath and come
-           back as they were. *@
+           The view options are also the way back from a takeover: pressing one
+           closes it and shows the workspace. During a takeover none of them reads
+           pressed, because nothing of the workspace is on screen; the view is kept
+           underneath and comes back as it was. *@
         <nav class="app-header__nav" aria-label="Workspace views">
             <div class="app-header__workspace" data-testid="workspace-navigation">
                 @if (InboxPaneOptionVisible)
@@ -191,7 +273,8 @@
                                   aria-controls="inbox-surface"
                                   Title="@InboxOptionTitle"
                                   OnClick="ToggleInbox">
-                        Inbox
+                        <InboxIcon />
+                        <span class="header-nav-label header-nav-label--tier-3">Inbox</span>
                         <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
                                             Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
                                             TestId="inbox-feature-status" />
@@ -213,11 +296,12 @@
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(ShellView.Tasks)"
                                   id="tasks-view-option"
+                                  Title="Tasks"
                                   TestId="tasks-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Tasks)">
                         <ListIcon />
-                        Tasks
+                        <span class="header-nav-label header-nav-label--tier-4">Tasks</span>
                     </ToggleButton>
 
                     @* The Board: the Tasks pane's filtered rows in columns of cards,
@@ -226,11 +310,12 @@
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(ShellView.Board)"
                                   id="board-view-option"
+                                  Title="Board"
                                   TestId="board-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Board)">
                         <Columns3Icon />
-                        Board
+                        <span class="header-nav-label header-nav-label--tier-4">Board</span>
                     </ToggleButton>
 
                     @* The Calendar: the Tasks pane's filtered rows on a month by due
@@ -239,11 +324,12 @@
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(ShellView.Calendar)"
                                   id="calendar-view-option"
+                                  Title="Calendar"
                                   TestId="calendar-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Calendar)">
                         <CalendarIcon />
-                        Calendar
+                        <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
                     </ToggleButton>
 
                     @if (RoadmapViewOffered)
@@ -252,11 +338,12 @@
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="ViewOptionPressed(ShellView.Roadmap)"
                                       id="roadmap-view-option"
+                                      Title="Roadmap"
                                       TestId="roadmap-view-option"
                                       aria-controls="roadmap-view"
                                       OnClick="() => ShowView(ShellView.Roadmap)">
                             <ChartGanttIcon />
-                            Roadmap
+                            <span class="header-nav-label header-nav-label--tier-4">Roadmap</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
                                                 Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
                                                 TestId="roadmap-feature-status" />
@@ -266,15 +353,20 @@
 
                 @if (DevbookPaneOptionVisible)
                 {
+                    @* Named for what the Devbook shows, open or not: the Brain's name
+                       and its accent while it reads the Brain, Devbook otherwise. The
+                       test id is older than the takeover and is kept: selectors and
+                       scenarios find the option by it. *@
                     <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
-                                  Pressed="PaneOptionPressed(GlobalPane.Devbook)"
+                                  CssClass="@(DevbookPaneShowsBrain ? "header-group__option--brain" : null)"
+                                  Pressed="DevbookVisible"
                                   id="devbook-pane-option"
                                   TestId="devbook-pane-option"
-                                  aria-controls="repository-devbook-pane"
-                                  Title="@PaneOptionTitle(GlobalPane.Devbook, "Devbook")"
-                                  OnClick="() => PressPane(GlobalPane.Devbook)">
-                        Devbook
+                                  aria-controls="devbook-surface"
+                                  Title="@DevbookOptionTitle"
+                                  OnClick="ToggleDevbook">
+                        @DevbookPaneOptionName
                         <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
                                             Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
                                             TestId="devbook-feature-status" />
@@ -294,18 +386,19 @@
                              AriaLabel="Work in progress"
                              TestId="work-in-progress-switcher">
                     @* A main view, not a takeover, though it sits with two: pressing
-                       it shows the view as a view-switch option does, the Devbook
-                       stays beside it, and nothing closes it. First,
+                       it shows the view as a view-switch option does, and nothing
+                       closes it. First,
                        because it is the summary the other two are the lists behind. *@
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(ShellView.InProgress)"
                                   id="in-progress-view-option"
+                                  Title="In progress"
                                   TestId="in-progress-view-option"
                                   aria-controls="in-progress-view"
                                   OnClick="() => ShowView(ShellView.InProgress)">
                         <ActivityIcon />
-                        In progress
+                        <span class="header-nav-label header-nav-label--tier-2">In progress</span>
                     </ToggleButton>
 
                     @if (SessionsOffered)
@@ -314,11 +407,12 @@
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="SessionsVisible"
                                       id="sessions-toggle-button"
+                                      Title="Sessions"
                                       TestId="sessions-toggle-button"
                                       aria-controls="sessions-surface"
                                       PressedChanged="ToggleSessions">
                             <SquareTerminalIcon />
-                            Sessions
+                            <span class="header-nav-label header-nav-label--tier-2">Sessions</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
                                                 Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
                                                 TestId="sessions-feature-status" />
@@ -333,11 +427,12 @@
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="PullRequestsVisible"
                                       id="pull-requests-toggle-button"
+                                      Title="Pull requests"
                                       TestId="pull-requests-toggle-button"
                                       aria-controls="pull-requests-surface"
                                       PressedChanged="TogglePullRequests">
                             <GitPullRequestIcon />
-                            Pull requests
+                            <span class="header-nav-label header-nav-label--tier-2">Pull requests</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
                                                 Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
                                                 TestId="pull-requests-feature-status" />
@@ -364,10 +459,12 @@
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="DashboardVisible"
                                       id="dashboard-toggle-button"
+                                      Title="Dashboard"
                                       TestId="dashboard-toggle-button"
                                       aria-controls="dashboard-surface"
                                       PressedChanged="ToggleDashboard">
-                            Dashboard
+                            <LayoutDashboardIcon />
+                            <span class="header-nav-label header-nav-label--tier-1">Dashboard</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
                                                 Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
                                                 TestId="dashboard-feature-status" />
@@ -412,17 +509,27 @@
                nothing when GitHub cannot be reached.
 
                Only while the task list is on screen — the list is what a check
-               refreshes, and the dashboard fetches from GitHub on its own. *@
-            @if (TasksListOnScreen && IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
+               refreshes, and the dashboard fetches from GitHub on its own.
+
+               AppButton rather than IconButton for its Busy: a check takes as long
+               as GitHub does, so the glyph gives way to a spinner and the button
+               stays focusable and ignores a second press while it runs, rather
+               than dropping out of the tab order under the native disabled
+               (interaction-guidelines.md#busy-actions). *@
+            @if (GitHubSyncOffered)
             {
-                <IconButton BaseClass="icon-link"
-                            id="github-sync-button"
-                            TestId="github-sync-button"
-                            Disabled="@State.GitHubSyncing"
-                            AriaLabel="Check GitHub for issue and pull request updates"
-                            OnClick="() => State.SyncGitHubAsync()">
-                    @(State.GitHubSyncing ? "…" : "⟳")
-                </IconButton>
+                <AppButton BaseClass="icon-link"
+                           Variant="ButtonVariant.None"
+                           IconAlone="true"
+                           id="github-sync-button"
+                           TestId="github-sync-button"
+                           Busy="@State.GitHubSyncing"
+                           BusyLabel="Checking GitHub"
+                           aria-label="Check GitHub for issue and pull request updates"
+                           title="Check GitHub for issue and pull request updates"
+                           OnClick="() => State.SyncGitHubAsync()">
+                    <Icon>⟳</Icon>
+                </AppButton>
             }
         </div>
 
@@ -498,51 +605,20 @@
                     <a class="ai-panel__settings" href="settings">Settings</a>
                 </Actions>
             </SectionHeader>
-            @* Which area answers. With several on screen the reader chooses, on a
-               row of pressed states — the same shared group and toggle the header's
-               scope chips are — and the last area they opened is pressed by default,
-               because it is the one they were just looking at. With one area there is
-               nothing to choose, so its name goes into the sentence instead: a group
+            @* Which area answers: the one on screen, named in the sentence. There
+               used to be a row of chips to choose between areas while a side pane
+               sat beside the view; one area is on screen at a time now, and a group
                of one is a control with no choice in it. *@
-            @if (OpenAiAreas.Count > 1)
-            {
-                <ButtonGroup CssClass="ai-panel__scope" AriaLabel="Ask about" TestId="ai-scope">
-                    @foreach (var area in OpenAiAreas)
-                    {
-                        <ToggleButton BaseClass="chip"
-                                      PressedCssClass="chip--active"
-                                      Pressed="@string.Equals(area.AreaKey, EffectiveAiScope, StringComparison.Ordinal)"
-                                      TestId="@($"ai-scope-{area.AreaKey}")"
-                                      OnClick="() => ChooseAiScope(area.AreaKey)">
-                            @area.AreaTitle
-                        </ToggleButton>
-                    }
-                </ButtonGroup>
-            }
             <p class="ai-panel__body">
                 @AiPanelBody
             </p>
-            @* The box keeps its own class and its own border, so the library's
-               grow wrapper is emitted without one. *@
-            <TextArea Bare="true"
-                      AutoGrow="false"
-                      GrowCssClass=""
-                      InputCssClass="ai-panel__question"
-                      AriaLabel="Ask about this content"
-                      data-testid="ai-question-input"
-                      Rows="3"
-                      Placeholder="What should I focus on next?"
-                      Value="@_aiQuestion"
-                      ValueChanged="value => _aiQuestion = value"
-                      @onkeydown="OnAiQuestionKeyDownAsync" />
-            <div class="ai-panel__actions">
-                <AppButton Variant="ButtonVariant.Secondary"
-                           data-testid="ai-ask-button"
-                           Disabled="@_aiBusy"
-                           OnClick="AskAiAsync">
-                    @(_aiBusy ? "Asking..." : "Ask")
-                </AppButton>
-            </div>
+            @* The question box and the Ask button, in a component of their own so a
+               keystroke draws the box and not this page. The question is still kept
+               here, so it outlives the panel closing. *@
+            <AskAiQuestion Question="@_aiQuestion"
+                           KeepQuestion="KeepAiQuestion"
+                           Busy="@_aiBusy"
+                           OnAsk="AskAiAsync" />
             @* The failure used to be a line under this box. It is a toast now: the
                panel is a takeover the reader opens over their work, and a refusal
                that stayed pinned inside it was still there next time they opened it.
@@ -587,7 +663,8 @@
             <DashboardPane OnClose="CloseSurface"
                            RepositoryAliases="@State.SelectedRepositoryAliases"
                            RepositoryColour="@RepositoryColourFor"
-                           OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)" />
+                           OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)"
+                           OnAskAi="@(DashboardAskAiOffered ? EventCallback.Factory.Create<string>(this, AskAboutDashboardPartAsync) : default)" />
         </main>
     }
     else if (SessionsVisible)
@@ -643,78 +720,77 @@
             @InboxPaneContent
         </main>
     }
+    else if (DevbookVisible)
+    {
+        @* The Devbook takes the screen as the takeovers above do (local ADR 0022,
+           amendment of 2026-10-15), Escape included. A key a field, a draft's
+           control or a dialog inside it handles stays there: the library's
+           Combobox and Modal end the key's walk up to this handler, so one Escape
+           closes the list or the dialog and leaves the Devbook on screen. *@
+        <main class="workspace-surface"
+              id="devbook-surface"
+              data-testid="devbook-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnSurfaceKeyDown"
+              data-escape-closes
+              aria-label="@DevbookPaneOptionName">
+            @* The anchor and not the whole scope: the Devbook reads one
+               repository's folders, and the first one taken is the one the reader
+               was already reading — unless an entry's reference asked for another;
+               see DevbookRepositoryAlias. *@
+            <DevbookPane OnClose="CloseSurface"
+                         RepositoryAlias="@DevbookRepositoryAlias"
+                         SwitchRepositoryAlias="@DevbookSwitchRepositoryAlias"
+                         ShowsBrainChanged="OnDevbookShowsBrainChanged"
+                         OpenSearchResultElsewhere="OpenDevbookSearchResult"
+                         OpenReference="@_devbookOpenRequest"
+                         OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
+                         OnOpenRepositoryChapter="OpenBrainRepoLinkAsync"
+                         TaskTitleFor="TaskTitleFor"
+                         OnOpenTask="OpenTaskFromBrainAsync" />
+        </main>
+    }
     else
     {
+        @* The main view and nothing beside it: the Devbook pane, its draggable edge
+           and the layout that split the row with it went when the Devbook took the
+           screen. *@
         <main class="workspace" id="workspace" data-testid="workspace">
-            @* The pane row: the main view, and the Devbook beside it. The class,
-               the width variable and the test id are unchanged from when it was
-               the <main> itself, because the resizer's JavaScript finds the layout
-               by that test id. *@
-            <div class="devbook-layout @(DevbookPaneVisible ? "devbook-layout--side-open" : "devbook-layout--side-closed")" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
-                @if (RoadmapViewVisible)
-                {
-                    @* No Escape-to-close here, unlike the takeovers: the roadmap is a
-                       view, which the switch replaces and nothing closes — and Escape
-                       already means something on it: it puts a grabbed bar back and
-                       dismisses the planning dialogs. The roadmap carries its own
-                       Planning heading row and no Tasks filter bar; the filter bar is
-                       the Tasks view's. *@
-                    <div class="roadmap-view" id="roadmap-view" data-testid="roadmap-view">
-                        <RoadmapBand />
-                    </div>
-                }
-                else if (InProgressViewVisible)
-                {
-                    @* A view like the roadmap: no Escape, no filter bar. *@
-                    <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
-                        <InProgressView Reader="_work"
-                                        OnOpenTask="OpenEntryAsync"
-                                        OnOpenSession="OpenSessionAsync"
-                                        OnOpenPullRequest="OpenPullRequestAsync"
-                                        ShowSessions="SessionsOffered"
-                                        ShowPullRequests="PullRequestsOffered"
-                                        NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
-                                        NeedsYouFirstChanged="OnNeedsYouFirstChanged"
-                                        IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
-                                        IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
-                    </div>
-                }
-                else
-                {
-                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
-                }
-
-                @if (DevbookPaneVisible)
-                {
-                    @* The pane edge is the handle. Dragging it is the obvious gesture, so
-                       the slider that used to sit inside the pane is gone; arrow keys on
-                       the same separator carry the keyboard equivalent. *@
-                    <div class="pane-resizer"
-                         data-testid="side-pane-resizer"
-                         data-pane-resizer="true"
-                         role="separator"
-                         aria-orientation="vertical"
-                         aria-label="Side pane width"
-                         aria-valuemin="@MinSidePaneWidthRem"
-                         aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                         aria-valuenow="@_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                         tabindex="0"
-                         @onkeydown="OnResizerKeyDown"
-                         @onkeydown:preventDefault="true">
-                        <span class="pane-resizer__grip" aria-hidden="true"></span>
-                    </div>
-
-                    <aside @key=@("side-pane-stack") class="side-pane-stack" data-testid="side-pane-stack" aria-label="Side panes">
-                        @* The anchor and not the whole scope: the pane reads one
-                           repository's folders, and the first one taken is the one
-                           the reader was already reading beside — unless an entry's
-                           reference asked for another; see DevbookRepositoryAlias. *@
-                        <DevbookPane RepositoryAlias="@DevbookRepositoryAlias"
-                                     OpenReference="@_devbookOpenRequest"
-                                     OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
-                    </aside>
-                }
-            </div>
+            @if (RoadmapViewVisible)
+            {
+                @* No Escape-to-close here, unlike the takeovers: the roadmap is a
+                   view, which the switch replaces and nothing closes — and Escape
+                   already means something on it: it puts a grabbed bar back and
+                   dismisses the planning dialogs. The roadmap carries its own
+                   Planning heading row and no Tasks filter bar; the filter bar is
+                   the Tasks view's. *@
+                <div class="roadmap-view" id="roadmap-view" data-testid="roadmap-view">
+                    <RoadmapBand OnOpenTasks="OpenPlanTasks" />
+                </div>
+            }
+            else if (InProgressViewVisible)
+            {
+                @* A view like the roadmap: no Escape, no filter bar. The tab is the
+                   view by task and, while the scope holds a repository in a sprint
+                   series, the sprint view beside it (InProgressTab). *@
+                <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
+                    <InProgressTab Reader="_work"
+                                   OnOpenTask="OpenEntryAsync"
+                                   OnOpenSession="OpenSessionAsync"
+                                   OnOpenPullRequest="OpenPullRequestAsync"
+                                   ShowSessions="SessionsOffered"
+                                   ShowPullRequests="PullRequestsOffered"
+                                   NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
+                                   NeedsYouFirstChanged="OnNeedsYouFirstChanged"
+                                   IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
+                                   IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
+                </div>
+            }
+            else
+            {
+                <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" BrainNotesFor="@BrainNotesForTask" DevbookImagesFor="@DevbookImagesForEntry" OnOpenBrainNote="OpenBrainNoteAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
+            }
         </main>
     }
 </div>
@@ -726,27 +802,16 @@
     /// closing the takeover shows the view the reader left.</summary>
     private ShellView _view = ShellView.Tasks;
     private bool _aiExpanded;
-    private GlobalPaneSelection _globalPanes = new();
-    private double _devbookPanelWidthRem = SidePaneWidth.DefaultRem;
-    private double _maxSidePaneWidthRem = SidePaneWidth.MaxRem;
     private DotNetObjectReference<Home>? _selfReference;
+
+    /// <summary>The header row backlogHeaderFit folds the navigation's words in.</summary>
+    private ElementReference _header;
     private ElementReference _surfaceElement;
     private bool _focusSurfacePending;
-    private bool _workspaceWasHidden;
 
-    private const double MinSidePaneWidthRem = SidePaneWidth.MinRem;
     private string _aiQuestion = string.Empty;
     private string? _aiAnswer;
     private bool _aiBusy;
-
-    /// <summary>The area the reader chose to ask about, by key, or null before
-    /// any choice. Session-only and unpersisted on purpose: it is "the one I was
-    /// just looking at", which a relaunch cannot know. Every gesture that opens
-    /// an area writes it — see <see cref="RememberAiScope"/> — so the default is
-    /// the last-opened area, and a pressed chip overrides that until the next
-    /// open. Resolved through <see cref="EffectiveAiScope"/>, which falls back to
-    /// the first open area when this one has since been closed.</summary>
-    private string? _aiScope;
 
     /// <summary>The sources by area key, taken once: the collection is what a
     /// host composed and does not change while the page is up.</summary>
@@ -759,6 +824,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _linkedWork = BuildLinkedWork();
+
         // Reopen on the surface the reader was last looking at rather than
         // always defaulting to the workspace panes. An unrecognised or absent
         // value — first launch included — leaves the field defaults in place.
@@ -780,20 +847,11 @@
             _view = ShellView.Roadmap;
         }
 
-        // Same restore for which side panes were open — "Tasks" among them, from
-        // a file written before the view switch, names no pane and is skipped. This
-        // is what makes it survive
+        // The side panes a file from before the Devbook took the screen had open
+        // are read by the store, which turns a Devbook that was on screen into the
+        // Devbook surface restored above. That restore is what makes it survive
         // Settings and back, not only a full relaunch: the Router disposes and
-        // reconstructs this component on every route change, so a fresh
-        // GlobalPaneSelection is exactly what a bare `new()` field initializer
-        // would otherwise hand back.
-        var restoredPanes = ShellNavigation.LastEnabledPanes
-            .Select(name => GlobalPaneSelection.TryParsePersistedPane(name, out var pane) ? pane : (GlobalPane?)null)
-            .Where(pane => pane.HasValue)
-            .Select(pane => pane!.Value)
-            .ToArray();
-
-        _globalPanes = new GlobalPaneSelection(restoredPanes);
+        // reconstructs this component on every route change.
 
         // And the repository scope, anchor first, so the Devbook option — which reads
         // the anchor — is there without pressing a chip. Before the state is
@@ -815,6 +873,25 @@
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
         State.Changed += HandleStateChanged;
+
+        // Optional, the way Settings reads it: a host that composes no Brain store
+        // shows the chip as not yet set up, which still scopes.
+        _brainSettings = Services.GetService<IBrainSettings>();
+        if (_brainSettings is not null) _brainSettings.Changed += HandleBrainSettingsChanged;
+
+        // The Brain the Devbook pane reads. Optional for the same reason: a host
+        // that composes none offers the pane for repositories only.
+        _brainFolders = Services.GetService<IBrainFolderSource>();
+
+        // The notes of the owner's Brain that name tasks, for the rows' Brain
+        // badges (local ADR 0026 §3). Read again whenever the Brain announces a
+        // change, which is also how a rebuilt database is announced.
+        _brainTaskLinks = Services.GetService<IBrainTaskLinks>();
+        if (_brainFolders is not null && _brainTaskLinks is not null)
+        {
+            _brainFolders.Changed += HandleBrainFoldersChanged;
+            _ = ReadBrainNotesByTaskAsync();
+        }
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
@@ -833,10 +910,17 @@
         // simply is not asked, which is the correct behaviour rather than a gap.
         _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
 
+        // The scenario screenshots an entry's body names, answered for the Tasks
+        // pane, which may not reach the scenario pages. A host that composed no
+        // scenario store gets no source, and an entry's images render as before.
+        _devbookImages = new global::Backlog.Desktop.UI.Devbook.DevbookScenarioImageSources(
+            Services.GetService<global::Backlog.Desktop.UI.Devbook.DevbookScenarioStore>());
+        _devbookImages.Changed += HandleDevbookImagesChanged;
+
         _work = WorkInProgressReader.From(Services);
 
         await State.InitializeAsync();
-        SynchronizePaneAvailability();
+        SynchronizeDevbookAvailability();
         CheckPullRequestsAfterLoad();
     }
 
@@ -865,14 +949,6 @@
         if (firstRender)
         {
             _selfReference = DotNetObjectReference.Create(this);
-            try
-            {
-                await JS.InvokeVoidAsync("backlogPaneResizer.initialize", _selfReference);
-            }
-            catch (Exception)
-            {
-                // Without the interop the separator still resizes by keyboard.
-            }
 
             try
             {
@@ -882,6 +958,16 @@
             {
                 // Without it Escape still closes a surface from inside the surface;
                 // only the press after focus fell to <body> goes unheard.
+            }
+
+            try
+            {
+                await JS.InvokeVoidAsync("backlogHeaderFit.observe", _header);
+            }
+            catch (Exception)
+            {
+                // Without it every option keeps its word and a narrow window
+                // overflows the row instead of folding it.
             }
         }
 
@@ -912,33 +998,8 @@
         if (WorkspaceVisible)
         {
             _focusSurfacePending = false;
-
-            if (_workspaceWasHidden)
-            {
-                _workspaceWasHidden = false;
-
-                // A takeover unmounts the pane layout, and the bounds are measured
-                // from that element, so the window's resize listener has nothing to
-                // report for as long as one is open. Without this, a window resized
-                // during a takeover would leave the pane capacity describing the
-                // window as it was before — until the next resize happened to
-                // correct it. Re-measuring here applies the capacity rule for the
-                // window the reader actually came back to.
-                try
-                {
-                    await JS.InvokeVoidAsync("backlogPaneResizer.refresh");
-                }
-                catch (Exception)
-                {
-                    // Non-fatal for the same reason initialize is: without the
-                    // interop the capacity simply stays where it was.
-                }
-            }
-
             return;
         }
-
-        _workspaceWasHidden = true;
 
         // Moving focus onto the surface is what announces the context change and
         // makes Escape work without a click first. Once per open — guarded on the
@@ -963,11 +1024,9 @@
         }
     }
 
-    /// <summary>Whether the tools surface is on screen. Unlike the three global
-    /// panes this is a plain disclosure with no capacity rule — it takes the whole
-    /// screen instead of a place in the side stack, so nothing else renders beside
-    /// it — but it is still gated on the feature, so turning the feature off
-    /// returns the reader to the workspace.</summary>
+    /// <summary>Whether the tools surface is on screen. It takes the whole screen,
+    /// so nothing else renders beside it, and it is gated on the feature, so turning
+    /// the feature off returns the reader to the workspace.</summary>
     private bool ToolsVisible => _surface == WorkspaceSurface.Tools && IsFeatureEnabled(DevPcFeatures.SystemTools);
 
     /// <summary>Whether the dashboard is on screen. The same shape as
@@ -990,10 +1049,10 @@
 
     private bool PullRequestsOffered => IsFeatureEnabled(SessionFeatures.PullRequests);
 
-    /// <summary>Whether the workspace — the main view and its side panes — is on
-    /// screen. Anything that is not a takeover is the workspace, including a
-    /// surface whose feature has been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible;
+    /// <summary>Whether the workspace — the main view — is on screen. Anything that
+    /// is not a takeover is the workspace, including a surface whose feature has
+    /// been switched off.</summary>
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible;
 
     /// <summary>The view the workspace shows: the one chosen, unless its feature
     /// has since been switched off — then Tasks, which is always offered. The
@@ -1017,6 +1076,11 @@
     /// the workspace, not merely chosen underneath a takeover. The GitHub check acts
     /// on the list and is offered on this answer; so is the Tasks area of Ask AI.</summary>
     private bool TasksListOnScreen => WorkspaceVisible && EffectiveView is ShellView.Tasks or ShellView.Board or ShellView.Calendar;
+
+    /// <summary>Whether the header offers the GitHub check: the list is on screen,
+    /// the integration is on and configured, and a row links to GitHub. Read by the
+    /// markup and by <see cref="ReadShellInputs"/>, so the two cannot drift.</summary>
+    private bool GitHubSyncOffered => TasksListOnScreen && IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows;
 
     /// <summary>How the Tasks pane lays out its filtered rows: columns of cards on
     /// the Board view, the month calendar on the Calendar view, the list otherwise.</summary>
@@ -1073,103 +1137,54 @@
     /// and the Inbox, which shows none but routes into the list: it sat beside the
     /// list before it took the screen, and a triage session must not cost the reader
     /// the scope the list goes back to.
-    /// Devbook reads one, and Tools reads none, so on those a chip is a single
-    /// select and the scope is kept to its anchor.</summary>
+    /// The Devbook too, for the same reason and one of its own: it reads the anchor,
+    /// but it sat beside the list until it took the screen (local ADR 0022,
+    /// amendment of 2026-10-15), and with the Brain and a repository both pressed it
+    /// offers its <c>Brain | repo</c> switch (local ADR 0027, §4), which a scope
+    /// narrowed to the anchor would take away. Tools reads none, so there a chip is a
+    /// single select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || InProgressViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible;
+        TasksListOnScreen || InProgressViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
     /// follows whichever of them is on screen.</summary>
-    private bool AiAssistantOffered => IsFeatureEnabled(AppFeatures.AiAssistant) && OpenAiAreas.Count > 0;
+    private bool AiAssistantOffered => IsFeatureEnabled(AppFeatures.AiAssistant) && OpenAiArea is not null;
 
     /// <summary>
-    /// The areas on screen that have a source behind them, in a fixed order.
+    /// The area on screen, when a source answers for it; null otherwise.
     /// <para>
-    /// The order is the shell's, not the reader's: the chips would otherwise
-    /// reorder themselves as panes opened and closed, and a row that shuffles
-    /// under the pointer is a row nobody can aim at. It reads the way the
-    /// workspace does — the panes left to right, then the takeovers — and only the keys a host actually composed a source for
-    /// count, so a host without a Devbook source never offers a Devbook chip.
+    /// One at a time: every area is a view or a surface, and the shell shows one of
+    /// each kind's at most, never two. The side panes once put a second area beside
+    /// the view and a row of chips chose between them; both went when the Devbook
+    /// took the screen. Only the keys a host actually composed a source for count,
+    /// so a host without a Devbook source offers no Ask AI on the Devbook.
     /// </para>
     /// </summary>
-    private IReadOnlyList<IAiContentSource> OpenAiAreas
+    private IAiContentSource? OpenAiArea
     {
         get
         {
-            var keys = new List<string>(7);
-            if (InboxVisible) keys.Add("inbox");
-            if (TasksListOnScreen) keys.Add("tasks");
-            if (RoadmapViewVisible) keys.Add("roadmap");
-            if (WorkspaceVisible && DevbookPaneVisible) keys.Add("devbook");
-            if (DashboardVisible) keys.Add("dashboard");
-            if (SessionsVisible) keys.Add("sessions");
-            if (ToolsVisible) keys.Add("tools");
+            string? key =
+                InboxVisible ? "inbox"
+                : TasksListOnScreen ? "tasks"
+                : RoadmapViewVisible ? "roadmap"
+                : DevbookVisible ? "devbook"
+                : DashboardVisible ? "dashboard"
+                : SessionsVisible ? "sessions"
+                : ToolsVisible ? "tools"
+                : null;
 
-            return [.. keys.Where(_aiSources.ContainsKey).Select(key => _aiSources[key])];
+            return key is not null && _aiSources.TryGetValue(key, out var source) ? source : null;
         }
     }
 
-    /// <summary>The area a question goes to: the chosen one while it is still on
-    /// screen, else the first open one, else nothing — in which case the panel
-    /// is not offered at all.</summary>
-    private string? EffectiveAiScope
-    {
-        get
-        {
-            var open = OpenAiAreas;
-            if (open.Count == 0) return null;
+    /// <summary>The area a question goes to: the one on screen, or nothing — in
+    /// which case the panel is not offered at all.</summary>
+    private string? EffectiveAiScope => OpenAiArea?.AreaKey;
 
-            return _aiScope is not null && open.Any(area => string.Equals(area.AreaKey, _aiScope, StringComparison.Ordinal))
-                ? _aiScope
-                : open[0].AreaKey;
-        }
-    }
-
-    /// <summary>The sentence under the panel's title. It names the area when
-    /// there is one, because with one area there are no chips to name it.</summary>
-    private string AiPanelBody
-    {
-        get
-        {
-            var open = OpenAiAreas;
-            if (open.Count == 1) return $"Answers from the {open[0].AreaTitle} content.";
-
-            return "Answers from the content of the area chosen above.";
-        }
-    }
-
-    /// <summary>A press on a scope chip. A choice, held until the next area
-    /// opens — see <see cref="_aiScope"/>.</summary>
-    private void ChooseAiScope(string areaKey) => _aiScope = areaKey;
-
-    /// <summary>The reader opened an area, so it becomes the default scope. Called
-    /// from every gesture that opens one: the pane presses and the surface switch.
-    /// Only opens count — closing a pane
-    /// says nothing about what the reader wants to ask about, and the fallback in
-    /// <see cref="EffectiveAiScope"/> handles a scope that has since gone.</summary>
-    private void RememberAiScope(string areaKey) => _aiScope = areaKey;
-
-    private static string AiScopeFor(GlobalPane pane) => pane switch
-    {
-        GlobalPane.Devbook => "devbook",
-        // Exhaustive on purpose: a pane added without an area is a pane whose
-        // press would silently point Ask AI at the wrong content, and a throw
-        // here is found by the first test that presses it.
-        _ => throw new ArgumentOutOfRangeException(nameof(pane), pane, "No Ask AI area is defined for this pane.")
-    };
-
-    private static string AiScopeFor(ShellView view) => view switch
-    {
-        ShellView.Tasks => "tasks",
-        ShellView.Board => "tasks",
-        ShellView.Calendar => "tasks",
-        ShellView.Roadmap => "roadmap",
-        // No Ask AI source answers for it yet, so the panel falls back to the
-        // first open area rather than pointing at this one.
-        ShellView.InProgress => "in-progress",
-        _ => throw new ArgumentOutOfRangeException(nameof(view), view, "No Ask AI area is defined for this view.")
-    };
+    /// <summary>The sentence under the panel's title, naming the area that answers.</summary>
+    private string AiPanelBody => $"Answers from the {OpenAiArea?.AreaTitle} content.";
 
     /// <summary>Whether the loose takeover group — the Dashboard and Tools — is
     /// offered at all: with both features off it would be an empty group. Sessions
@@ -1194,8 +1209,8 @@
     /// a takeover that was up closes, so the press is also the way back.
     /// <para>
     /// The option already pressed changes nothing — one view is always showing, so
-    /// there is nothing to switch off to. The Devbook stays as it was: it is a
-    /// pane beside the view, whichever it is.
+    /// there is nothing to switch off to. The Devbook and the Inbox are takeovers,
+    /// so a view option is the way back from them as from the others.
     /// </para>
     /// </summary>
     private void ShowView(ShellView view)
@@ -1205,15 +1220,13 @@
         SetView(view);
     }
 
-    /// <summary>Makes <paramref name="view"/> the main view, remembers it for the
-    /// next fresh shell instance by its enum name, and points Ask AI at it.</summary>
+    /// <summary>Makes <paramref name="view"/> the main view and remembers it for the
+    /// next fresh shell instance by its enum name. Ask AI follows it by itself:
+    /// it answers from whichever area is on screen.</summary>
     private void SetView(ShellView view)
     {
         _view = view;
         ShellNavigation.SetLastView(view.ToString());
-
-        // A view with no Ask AI source leaves the reader's chosen area alone.
-        if (_aiSources.ContainsKey(AiScopeFor(view))) RememberAiScope(AiScopeFor(view));
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
 
@@ -1275,6 +1288,36 @@
     /// <summary>What the Inbox option's press will do.</summary>
     private string InboxOptionTitle => InboxVisible ? $"Back to {EffectiveView}" : "Open the Inbox";
 
+    /// <summary>The Devbook option: opens the Devbook in place of the main view, or
+    /// returns to that view when the Devbook is already on screen. During another
+    /// takeover the press opens the Devbook in its place, as any takeover option
+    /// does.</summary>
+    private void ToggleDevbook() => ToggleSurface(WorkspaceSurface.Devbook);
+
+    /// <summary>What the Devbook option's press will do, named for what it shows —
+    /// the Brain or the Devbook.</summary>
+    private string DevbookOptionTitle =>
+        DevbookVisible ? $"Back to {EffectiveView}" : $"Open the {DevbookPaneOptionName}";
+
+    /// <summary>
+    /// The Devbook on screen for something opened from outside it — an entry's
+    /// reference, a Brain note's badge — unless it already is. Opened over the
+    /// view, which waits underneath, so the Devbook option or Escape goes back to
+    /// the list the reader pressed it from.
+    /// <para>
+    /// Never onto a Devbook the shell does not offer — its flag off, or nothing for
+    /// it to show: the surface would not render, yet it would be remembered, and the
+    /// flag coming back would put the reader in the Devbook unasked. The callers say
+    /// why out loud before they get here; this is the backstop.
+    /// </para>
+    /// </summary>
+    private void ShowDevbook()
+    {
+        if (!DevbookPaneOptionVisible || _surface == WorkspaceSurface.Devbook) return;
+
+        ToggleSurface(WorkspaceSurface.Devbook);
+    }
+
     /// <summary>Opens a surface, or returns to the workspace if it was already the
     /// one on screen. Assigning rather than flipping a flag is what makes the
     /// takeovers exclusive: opening one is the same act as closing the other.</summary>
@@ -1286,29 +1329,10 @@
         _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
-
-        // Opening a takeover opens its area. Returning to the workspace is not an
-        // open, and the scope the reader had there before is what the fallback
-        // returns to.
-        switch (_surface)
-        {
-            case WorkspaceSurface.Tools:
-                RememberAiScope("tools");
-                break;
-            case WorkspaceSurface.Dashboard:
-                RememberAiScope("dashboard");
-                break;
-            case WorkspaceSurface.Sessions:
-                RememberAiScope("sessions");
-                break;
-            case WorkspaceSurface.Inbox:
-                RememberAiScope("inbox");
-                break;
-        }
     }
 
-    /// <summary>Back to the workspace. The view and the side panes were never
-    /// touched, so there is nothing to restore — they are simply visible again.</summary>
+    /// <summary>Back to the workspace. The view was never touched, so there is
+    /// nothing to restore — it is simply visible again.</summary>
     private void CloseSurface()
     {
         _focusSessionId = null;
@@ -1412,19 +1436,80 @@
         await State.SelectAsync(row);
     }
 
+    /// <summary>
+    /// A roadmap item's "Open in Tasks": the Tasks view on screen, listing every entry
+    /// the roadmap gathers under the item — its linked task and whatever wears its tag —
+    /// across every repository.
+    /// <para>
+    /// The request's repositories are the bar's, and are not used to scope the list: the
+    /// roadmap gathers an item's work wherever it is filed, so the only scope that cannot
+    /// hide some of what the bar counted is every repository
+    /// (<see cref="TasksDesktopState.ShowPlan"/>).
+    /// </para>
+    /// <para>
+    /// The view first, then the filter, then the same narrowing every path that changes
+    /// what is on screen follows — a no-op on the empty scope the plan leaves, kept so
+    /// this path cannot drift from the others. The scope is remembered through the
+    /// state's change, as a press on a chip is.
+    /// </para>
+    /// </summary>
+    private void OpenPlanTasks(RoadmapTasksRequest request)
+    {
+        ShowView(ShellView.Tasks);
+
+        State.ShowPlan(request.PlanTag, request.LinkedTaskId);
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
+    }
+
     /// <summary>The Tasks detail panel's "Sessions and pull requests", for the
     /// selected entry. Offered while the In progress view is: the section is that
-    /// view's cards for one entry, and its "Open in In progress" leads there.</summary>
-    private RenderFragment<EntryRow>? LinkedWorkFor => InProgressViewOffered
-        ? row => @<LinkedWorkSection @key="row.Key"
-                                     Row="row"
-                                     Reader="_work"
-                                     OnOpenSession="OpenSessionAsync"
-                                     OnOpenPullRequest="OpenPullRequestAsync"
-                                     OnOpenInProgress="() => ShowView(ShellView.InProgress)"
-                                     ShowSessions="SessionsOffered"
-                                     ShowPullRequests="PullRequestsOffered" />
-        : null;
+    /// view's cards for one entry, and its "Open in In progress" leads there. Built
+    /// once, and again on every feature change, rather than as a new fragment on
+    /// every render — see <see cref="BuildLinkedWork"/>.</summary>
+    private RenderFragment<EntryRow>? LinkedWorkFor => _linkedWork;
+
+    private RenderFragment<EntryRow>? _linkedWork;
+
+    /// <summary>The fragment behind <see cref="LinkedWorkFor"/>. It reads the flags
+    /// and the reader as it draws, so only whether it is offered at all is decided
+    /// here, and that is a feature's to change.
+    /// <para>
+    /// The slot carries the entry's Sprint section too, composed from Progress UI the
+    /// same way (<c>.devbook/domain/progress/features.md#planning-from-a-task</c>): the
+    /// Tasks pane draws whatever the shell hands it and gains no sprint field (local
+    /// ADR 0028). The section draws nothing while the entry's repositories are in no
+    /// series switched on.
+    /// </para></summary>
+    private RenderFragment<EntryRow>? BuildLinkedWork()
+    {
+        var linked = InProgressViewOffered;
+        var sprint = SprintSectionOffered;
+        if (!linked && !sprint) return null;
+
+        return row => builder =>
+        {
+            if (linked) builder.AddContent(0, LinkedWorkSectionFor(row));
+            if (sprint) builder.AddContent(1, SprintSectionFor(row));
+        };
+    }
+
+    private RenderFragment LinkedWorkSectionFor(EntryRow row) =>
+        @<LinkedWorkSection @key="row.Key"
+                            Row="row"
+                            Reader="_work"
+                            OnOpenSession="OpenSessionAsync"
+                            OnOpenPullRequest="OpenPullRequestAsync"
+                            OnOpenInProgress="() => ShowView(ShellView.InProgress)"
+                            ShowSessions="SessionsOffered"
+                            ShowPullRequests="PullRequestsOffered" />;
+
+    private RenderFragment SprintSectionFor(EntryRow row) =>
+        @<Backlog.Modules.Progress.UI.Planning.TaskSprintSection @key="row.Key"
+                                                                Candidate="SprintCandidates.Of(State, row)" />;
+
+    /// <summary>Whether an entry's side panel carries its Sprint section: while the
+    /// Progress area is on.</summary>
+    private bool SprintSectionOffered => IsFeatureEnabled(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Progress);
 
     /// <summary>
     /// The repository an entry's reference asked the Devbook pane to read, and the
@@ -1439,10 +1524,38 @@
     /// exactly as long as the scope the reader left alone: choosing a repository in
     /// the header is choosing what the pane reads, and the request is forgotten.
     /// </para>
+    /// <para>
+    /// The anchor is <see cref="DevbookRequestAnchor"/>, never
+    /// <see cref="TasksDesktopState.AnchorRepositoryAlias"/>: that one is the empty
+    /// string both with nothing pressed and with the Brain as anchor, so a request
+    /// asked under one outlived a press to the other and the Brain chip could not
+    /// bring the Brain back. And forgotten means dropped
+    /// (<see cref="ForgetDevbookRepositoryRequestLeftBehind"/>), not set aside: a
+    /// request merely ignored while the anchor differed came back with it.
+    /// </para>
     /// </summary>
     private DevbookRepositoryRequest? _devbookRepositoryRequest;
 
-    private sealed record DevbookRepositoryRequest(string Anchor, string RepositoryAlias);
+    private sealed record DevbookRepositoryRequest(string? Anchor, string RepositoryAlias);
+
+    /// <summary>The scope's anchor as a request is keyed on it: the first member,
+    /// <see cref="BrainScope.Value"/> for the Brain, or null when nothing is pressed —
+    /// the two states <see cref="TasksDesktopState.AnchorRepositoryAlias"/> spells
+    /// alike.</summary>
+    private string? DevbookRequestAnchor =>
+        State.SelectedRepositoryAliases is [var first, ..] ? first : null;
+
+    /// <summary>Drops the pane's repository request once the scope's anchor has moved
+    /// off the one it was asked under, so returning to that anchor later finds the
+    /// pane on the anchor rather than on a chapter followed long before.</summary>
+    private void ForgetDevbookRepositoryRequestLeftBehind()
+    {
+        if (_devbookRepositoryRequest is { } asked
+            && !string.Equals(asked.Anchor, DevbookRequestAnchor, StringComparison.Ordinal))
+        {
+            _devbookRepositoryRequest = null;
+        }
+    }
 
     /// <summary>The reference handed to the Devbook pane and not yet followed,
     /// numbered so the same one pressed twice is two requests. See
@@ -1472,20 +1585,69 @@
     /// anchor.</summary>
     private string DevbookRepositoryAlias =>
         _devbookRepositoryRequest is { } asked
-        && string.Equals(asked.Anchor, State.AnchorRepositoryAlias, StringComparison.Ordinal)
+        && string.Equals(asked.Anchor, DevbookRequestAnchor, StringComparison.Ordinal)
             ? asked.RepositoryAlias
-            : State.AnchorRepositoryAlias;
+            : _devbookSwitch is { } chosen
+              && string.Equals(chosen.Scope, DevbookSwitchScope, StringComparison.Ordinal)
+              && DevbookSwitchRepositoryAlias is { } partner
+                ? chosen.ShowsBrain ? BrainScope.Value : partner
+                : State.AnchorRepositoryAlias;
 
     /// <summary>
-    /// One of an entry's Devbook references, opened from the entry: the Devbook pane
-    /// on screen beside the list, reading the entry's repository, on that chapter.
+    /// Which side of the Devbook pane's <c>Brain | repo</c> switch the reader
+    /// pressed, and the scope it was pressed under (local ADR 0027 §4).
+    /// <para>
+    /// Shell state beside <see cref="_devbookRepositoryRequest"/>, for the same
+    /// reason: it chooses what the pane reads and must not touch what the header
+    /// scopes, so it never goes near the scope or the task filter. Keyed on the
+    /// whole scope, so any chip press drops it and the pane reopens on the anchor;
+    /// and not remembered across a restart, which keeps the scope alone (ADR 0027
+    /// §5).
+    /// </para>
+    /// </summary>
+    private DevbookSwitchChoice? _devbookSwitch;
+
+    private sealed record DevbookSwitchChoice(string Scope, bool ShowsBrain);
+
+    /// <summary>The scope as one string, in its order, to key the switch on.</summary>
+    private string DevbookSwitchScope => string.Join("|", State.SelectedRepositoryAliases);
+
+    /// <summary>
+    /// The repository on the other side of the switch: drawn only while the Brain
+    /// and at least one repository are in the scope, in a host that composes a
+    /// Brain. The anchor when a repository is the anchor; with the Brain as anchor,
+    /// the first repository taken after it — both are the first repository in the
+    /// scope's order.
+    /// </summary>
+    private string? DevbookSwitchRepositoryAlias =>
+        _brainFolders is not null
+        && IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
+        && State.BrainInScope
+        && BrainScope.Repositories(State.SelectedRepositoryAliases) is [var first, ..]
+            ? first
+            : null;
+
+    /// <summary>A press on the pane's switch. It changes what the pane reads and
+    /// nothing else; an entry's reference the pane was following gives way to it,
+    /// because the reader just chose.</summary>
+    private void OnDevbookShowsBrainChanged(bool showsBrain)
+    {
+        if (DevbookSwitchRepositoryAlias is null) return;
+
+        _devbookSwitch = new DevbookSwitchChoice(DevbookSwitchScope, showsBrain);
+        _devbookRepositoryRequest = null;
+    }
+
+    /// <summary>
+    /// One of an entry's Devbook references, opened from the entry: the Devbook
+    /// on screen, reading the entry's repository, on that chapter.
     /// <para>
     /// The mirror of <see cref="OpenSessionAsync"/>: the entry belongs to Tasks and
     /// the chapter to Devbook, and the shell is the one place holding both. Opened
-    /// beside the view — the reader pressed it from the list and is still working in
-    /// it.
+    /// over the view, which waits underneath — the Devbook option or Escape goes
+    /// back to the list the reader pressed it from.
     /// A repository with no devbook to show, or the Devbook switched off, is said out
-    /// loud rather than opening an empty pane.
+    /// loud rather than opening an empty Devbook.
     /// </para>
     /// </summary>
     private Task OpenDevbookReferenceAsync(DevbookReferenceRequest request)
@@ -1509,20 +1671,66 @@
 
         _devbookRepositoryRequest = string.Equals(alias, State.AnchorRepositoryAlias, StringComparison.Ordinal)
             ? null
-            : new DevbookRepositoryRequest(State.AnchorRepositoryAlias, alias);
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, alias);
         _devbookOpenRequest = new DevbookOpenRequest(request.Reference, ++_devbookOpenSequence);
 
-        // The pane's option may only now be on offer: with nothing scoped there was
-        // no repository to read until the request named one.
-        SynchronizePaneAvailability();
-        _globalPanes.TryOpen(GlobalPane.Devbook);
-        RememberAiScope(AiScopeFor(GlobalPane.Devbook));
-        PersistPaneSelection();
+        // The option may only now be on offer: with nothing scoped there was no
+        // repository to read until the request named one.
+        ShowDevbook();
 
         return Task.CompletedTask;
     }
 
     private const string DevbookUnavailableTestId = "tasks-devbook-unavailable";
+
+    /// <summary>
+    /// A Brain note's <c>repo:</c> link, followed (local ADR 0027 §6): that
+    /// repository's devbook in the pane, at the chapter. The same road a task's
+    /// reference takes, so the header scope stays as the reader left it and the
+    /// pane's switch, or the scope, brings the Brain back.
+    /// </summary>
+    private Task OpenBrainRepoLinkAsync(BrainRepoLink link) => OpenRepositoryChapterAsync(link.Alias, link.Reference);
+
+    /// <summary>
+    /// A search result from a devbook the pane is not showing: the pane reads that
+    /// devbook — another repository, or the Brain — and opens the result there.
+    /// <para>
+    /// A repository's result takes the road a <c>repo:</c> link takes
+    /// (<see cref="OpenRepositoryChapterAsync"/>). The Brain is no repository, so
+    /// a Brain result is asked of the pane directly, the same way: it changes what
+    /// the pane reads and never the header's scope or the task filter, holds only
+    /// while the scope it was asked under stands, and the switch the reader may
+    /// have pressed gives way to it.
+    /// </para>
+    /// </summary>
+    private Task OpenDevbookSearchResult(DevbookSearchOpen result)
+    {
+        if (!result.Source.IsBrain) return OpenRepositoryChapterAsync(result.Source.Key, result.Reference);
+
+        _devbookSwitch = null;
+        _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
+            ? null
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
+        _devbookOpenRequest = new DevbookOpenRequest(result.Reference, ++_devbookOpenSequence);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// One repository's devbook in the pane, at a chapter, for a reader who chose it
+    /// from outside the pane's own menu — a Brain note's link or a search result.
+    /// </summary>
+    private Task OpenRepositoryChapterAsync(string repositoryAlias, string reference)
+    {
+        // The pane was on the Brain, perhaps through the switch: the reader just
+        // chose a repository, so the switch's choice gives way — else a chapter of
+        // the anchor repository would leave the pane on the Brain.
+        _devbookSwitch = null;
+
+        // The alias as configured, not as it was spelled: a link resolves
+        // case-insensitively, and the shell compares aliases exactly.
+        var alias = Devbook.Repository(repositoryAlias)?.Alias ?? repositoryAlias;
+        return OpenDevbookReferenceAsync(new DevbookReferenceRequest(alias, reference));
+    }
 
     /// <summary>
     /// The Backlog entry a delivery run was started from, opened from the sessions
@@ -1715,8 +1923,59 @@
         return Task.CompletedTask;
     }
 
-    private async Task AskAiAsync()
+    /// <summary>The question box's text, kept so the panel reopens with it. Not a
+    /// render: see <see cref="AskAiQuestion"/>.</summary>
+    private void KeepAiQuestion(string question) => _aiQuestion = question;
+
+    /// <summary>Whether the Dashboard's parts offer Ask AI: the assistant is on and a
+    /// Dashboard source was composed, so the panel the control opens can answer.</summary>
+    private bool DashboardAskAiOffered =>
+        IsFeatureEnabled(AppFeatures.AiAssistant) && _aiSources.ContainsKey("dashboard");
+
+    /// <summary>
+    /// A dashboard part's Ask AI: the panel opens on the Dashboard with a question
+    /// that names the part, for the reader to finish.
+    /// <para>
+    /// The chart goes into the question and not into the content. The Dashboard's
+    /// source sends every tab's figures whichever part was pressed, because what is on
+    /// screen is not a source's business; the reader's question is where something
+    /// about the screen belongs, and the prefix is just the start of one. A question
+    /// already begun about the same part is kept rather than reset, so a second press
+    /// does not throw away what was typed. The answer to an earlier question goes:
+    /// it was about something else — and so does an ask still in flight, ended the
+    /// way closing the panel ends one, or it would land under the new question and
+    /// read as the answer to it.
+    /// </para>
+    /// </summary>
+    private async Task AskAboutDashboardPartAsync(string title)
     {
+        var prefix = $"About the \"{title}\" chart: ";
+
+        CancelAsk();
+        _aiExpanded = true;
+        if (!_aiQuestion.StartsWith(prefix, StringComparison.Ordinal)) _aiQuestion = prefix;
+        _aiAnswer = null;
+        StateHasChanged();
+
+        try
+        {
+            // The box is drawn by the render just requested, and backlogFocus waits a
+            // few frames for it, so the reader can type straight after the prefix.
+            await JS.InvokeVoidAsync("backlogFocus", AskAiQuestion.InputId, false);
+        }
+        catch (Exception)
+        {
+            // Focus is an improvement on where the browser would have left it, not
+            // something the panel depends on — the same rule the surfaces' focus keeps.
+        }
+    }
+
+    /// <summary>An ask, from the box's button or its Ctrl+Enter. The question is
+    /// the one the box already kept here; the text it was asked with is taken
+    /// again so the two cannot differ.</summary>
+    private async Task AskAiAsync(string question)
+    {
+        _aiQuestion = question;
         if (EffectiveAiScope is not { } scope || !_aiSources.TryGetValue(scope, out var source)) return;
 
         // One token per ask, and a new ask ends the one before it: an answer to
@@ -1810,9 +2069,6 @@
         ask.Dispose();
     }
 
-    private Task OnAiQuestionKeyDownAsync(KeyboardEventArgs e) =>
-        e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? AskAiAsync() : Task.CompletedTask;
-
     private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatures.InboxPane);
 
     private bool InboxPaneOptionVisible => InboxFeatureEnabled;
@@ -1829,9 +2085,36 @@
     /// rather than working it out from folder settings itself.</summary>
     private bool DevbookPaneOptionVisible =>
         IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
-        && Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0;
+        && (DevbookBrainOffered || Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0);
 
-    private bool DevbookPaneVisible => DevbookPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Devbook);
+    /// <summary>
+    /// Whether the pane has the Brain to offer (local ADR 0027 §4): it reads the
+    /// Brain whenever nothing is pressed or the Brain is the anchor, and offers it
+    /// beside a repository through the switch. Needs no folder — the Brain is always
+    /// in the scope, and a pane on a Brain with no folder is where the person is
+    /// asked for one. A host that composes no Brain offers none.
+    /// </summary>
+    private bool DevbookBrainOffered =>
+        _brainFolders is not null
+        && (BrainScope.Is(DevbookRepositoryAlias) || DevbookSwitchRepositoryAlias is not null);
+
+    /// <summary>
+    /// Whether the Devbook pane shows the Brain rather than a repository — the
+    /// shell's side of <c>DevbookPane.BrainMode</c>, so the header option can say so
+    /// before the pane is open. <see cref="DevbookRepositoryAlias"/> already folds in
+    /// nothing pressed, a Brain anchor, an entry's reference and the pane's
+    /// <c>Brain | repo</c> switch, so this asks only whether that alias is the Brain
+    /// in a host that composes one.
+    /// </summary>
+    private bool DevbookPaneShowsBrain => _brainFolders is not null && BrainScope.Is(DevbookRepositoryAlias);
+
+    /// <summary>The Devbook option's word, and the name its title acts on.</summary>
+    private string DevbookPaneOptionName => DevbookPaneShowsBrain ? BrainScope.Name : "Devbook";
+
+    /// <summary>Whether the Devbook has the screen. The same shape as the takeovers
+    /// above: with its flag switched off, or nothing left for it to show, the reader
+    /// is back on the workspace.</summary>
+    private bool DevbookVisible => _surface == WorkspaceSurface.Devbook && DevbookPaneOptionVisible;
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
@@ -1849,16 +2132,99 @@
     private string? FeatureStatusTitle(string featureKey) =>
         AppFeatureStatusBadge.TitleFor(AppFeatures.All, Features, featureKey);
 
+    /// <summary>
+    /// A Tasks or Inbox change: the shell keeps its own state in step with it, and
+    /// draws itself again only when the change moved something it draws.
+    /// <para>
+    /// The Tasks state announces every keystroke in an entry's body and every move
+    /// of the selection, and the shell drew the whole page for each — the header, and
+    /// every pane under it that takes a parameter Blazor cannot compare, the Tasks
+    /// pane among them, which then drew a second time for its own subscription. The
+    /// header draws none of what those change. So the side effects below run for
+    /// every change, and the redraw only when <see cref="ShellInputs"/> differ from
+    /// what the last render drew.
+    /// </para>
+    /// <para>
+    /// Compared after the side effects, because they can move an input themselves:
+    /// narrowing the scope to its anchor raises another change, and a Devbook that
+    /// lost what it shows leaves the screen. And always drawn while the session
+    /// or pull request list is on screen: those read their tasks through this page's
+    /// delegates and listen to nothing, so a row whose link or status moved in place
+    /// reaches their cells only through this render.
+    /// </para>
+    /// </summary>
     private void HandleStateChanged() => _ = InvokeAsync(() =>
     {
         // A row's links, status or assignee can change in place, which the list's
         // identity would not show, so any change rebuilds the pull request matcher.
         _pullRequestMatcher = null;
-        SynchronizePaneAvailability();
+        SynchronizeDevbookAvailability();
+        ForgetDevbookRepositoryRequestLeftBehind();
 
         RememberRepositoryScope();
-        StateHasChanged();
+
+        if (SessionsVisible || PullRequestsVisible || !ReadShellInputs().Matches(_drawnShellInputs)) StateHasChanged();
     });
+
+    /// <summary>What the last render drew of <see cref="ShellInputs"/>, read as it
+    /// began; null before the first.</summary>
+    private ShellInputs? _drawnShellInputs;
+
+    private ShellInputs ReadShellInputs() => new(
+        Scope: [.. State.SelectedRepositoryAliases],
+        Repositories: [.. State.Repositories.Select(repository => (repository.Alias, repository.FullName))],
+        Colours: [.. State.RepositoryColours.OrderBy(colour => colour.Key, StringComparer.Ordinal).Select(colour => (colour.Key, colour.Value))],
+        ColoursVisible: State.RepositoryColoursVisible,
+        ShowArchived: State.ShowArchivedRepositories,
+        HasArchived: State.HasArchivedRepositories,
+        GitHubSyncOffered: GitHubSyncOffered,
+        GitHubSyncing: State.GitHubSyncing,
+        DevbookOptionVisible: DevbookPaneOptionVisible,
+        DevbookVisible: DevbookVisible,
+        DevbookRepositoryAlias: DevbookRepositoryAlias,
+        DevbookSwitchRepositoryAlias: DevbookSwitchRepositoryAlias);
+
+    /// <summary>
+    /// Everything the shell draws that a Tasks or Inbox change can move without one
+    /// of the shell's own events firing: the scope chips and the Brain chip, the
+    /// Colors switch and the identity marks, the GitHub check, the Devbook option and
+    /// surface and what the Devbook reads — and through the scope, what the Dashboard and
+    /// the two lists are handed. The rest of the page moves only by the shell's own
+    /// handlers, which draw it anyway.
+    /// <para>
+    /// Copies, never the live lists: the scope the state holds is narrowed in place,
+    /// and a snapshot that shared it would always match.
+    /// </para>
+    /// </summary>
+    private sealed record ShellInputs(
+        string[] Scope,
+        (string Alias, string FullName)[] Repositories,
+        (string Alias, int Colour)[] Colours,
+        bool ColoursVisible,
+        bool ShowArchived,
+        bool HasArchived,
+        bool GitHubSyncOffered,
+        bool GitHubSyncing,
+        bool DevbookOptionVisible,
+        bool DevbookVisible,
+        string DevbookRepositoryAlias,
+        string? DevbookSwitchRepositoryAlias)
+    {
+        public bool Matches(ShellInputs? drawn) =>
+            drawn is not null
+            && Scope.SequenceEqual(drawn.Scope, StringComparer.Ordinal)
+            && Repositories.SequenceEqual(drawn.Repositories)
+            && Colours.SequenceEqual(drawn.Colours)
+            && ColoursVisible == drawn.ColoursVisible
+            && ShowArchived == drawn.ShowArchived
+            && HasArchived == drawn.HasArchived
+            && GitHubSyncOffered == drawn.GitHubSyncOffered
+            && GitHubSyncing == drawn.GitHubSyncing
+            && DevbookOptionVisible == drawn.DevbookOptionVisible
+            && DevbookVisible == drawn.DevbookVisible
+            && string.Equals(DevbookRepositoryAlias, drawn.DevbookRepositoryAlias, StringComparison.Ordinal)
+            && string.Equals(DevbookSwitchRepositoryAlias, drawn.DevbookSwitchRepositoryAlias, StringComparison.Ordinal);
+    }
 
     /// <summary>Whether the remembered repository scope is still to be handed to the
     /// state: true until a pass finds the repository registry readable.</summary>
@@ -1893,7 +2259,8 @@
 
     private void HandleFeaturesChanged() => _ = InvokeAsync(() =>
     {
-        SynchronizePaneAvailability();
+        _linkedWork = BuildLinkedWork();
+        SynchronizeDevbookAvailability();
 
         // Switched on after the list loaded: check now rather than at a reload
         // that may not come. Only on the switch, so another flag moving does not
@@ -1945,13 +2312,19 @@
     }
 
     /// <summary>A pull may have delivered a capture or another device's edits.
-    /// Reloading either pane is a database read, so the Inbox is re-read only
-    /// once it has loaded at all — before that the first load will read
-    /// whatever arrived — and the Tasks pane only when a cycle actually
-    /// applied something it had not applied before. The worker raises this at
-    /// both ends of a cycle and for cycles that changed nothing, and a list
-    /// that started over on every one of those would replace its rows every
-    /// five minutes for no reader's benefit.
+    /// Reloading either pane is a database read, so both are re-read only for a
+    /// cycle that has finished and applied something it had not applied before —
+    /// the Inbox, besides, only once it has loaded at all, since before that the
+    /// first load will read whatever arrived. The worker raises this at both ends
+    /// of a cycle and for cycles that changed nothing, and a list that started over
+    /// on every one of those would replace its rows every five minutes for no
+    /// reader's benefit.
+    /// <para>
+    /// The Inbox is re-read after a cycle that failed as well. A failure leaves the
+    /// last summary as it was, so it cannot say whether pages merged before the
+    /// failure — a pull that failed part-way has written them — and a capture that
+    /// arrived in them is what the Inbox is for.
+    /// </para>
     /// <para>
     /// The Tasks reload is what the timestamp poll used to do — a pull writes
     /// the same database the poll watched — and the state keeps that poll's
@@ -1967,9 +2340,16 @@
     /// </para></summary>
     private void HandleTaskSyncChanged() => _ = InvokeAsync(async () =>
     {
-        if (_taskSync is { IsSyncing: false, LastSummary: { Applied: > 0 } summary } && summary.At != _lastAppliedSyncAt)
+        if (_taskSync is not { IsSyncing: false } sync) return;
+
+        // Read once: the worker writes it from its own thread.
+        var summary = sync.LastSummary;
+        var applied = summary is { Applied: > 0 } && summary.At != _lastAppliedSyncAt;
+        var failed = sync.LastError is not null;
+
+        if (applied)
         {
-            _lastAppliedSyncAt = summary.At;
+            _lastAppliedSyncAt = summary!.At;
 
             try
             {
@@ -1982,7 +2362,7 @@
             }
         }
 
-        if (!_inboxInitialized) return;
+        if (!_inboxInitialized || !(applied || failed)) return;
 
         try
         {
@@ -1994,9 +2374,9 @@
         }
     });
 
-    /// <summary>The cycle whose applied changes the Tasks pane last reloaded
-    /// for, so the raise at the end of that same cycle — and every raise for
-    /// a cycle that applied nothing since — reloads it no second time.</summary>
+    /// <summary>The cycle whose applied changes the Tasks pane and the Inbox last
+    /// reloaded for, so the other raise of that same cycle — and every raise for a
+    /// cycle that applied nothing since — reloads neither a second time.</summary>
     private DateTimeOffset? _lastAppliedSyncAt;
 
     /// <summary>
@@ -2160,21 +2540,19 @@
         return $"{sources} {total}";
     }
 
-    private void SynchronizePaneAvailability()
+    /// <summary>
+    /// Keeps the Devbook surface honest about what it can show, after the load and
+    /// on every Tasks, Inbox or feature change. With its flag switched off, or
+    /// nothing left for it to read — no Brain and no repository devbook — the
+    /// Devbook leaves the screen for the workspace and is remembered so, as the
+    /// side pane closed for the same reasons; it does not come back by itself when
+    /// the reason goes. Then the scope is kept to what the screen can show.
+    /// </summary>
+    private void SynchronizeDevbookAvailability()
     {
-        _globalPanes.TrySetAvailable(GlobalPane.Devbook, DevbookPaneOptionVisible);
-        PersistPaneSelection();
-    }
+        if (_surface == WorkspaceSurface.Devbook && !DevbookPaneOptionVisible) CloseSurface();
 
-    /// <summary>Remembers which side panes are open, so the next fresh shell
-    /// instance — a relaunch, or the Router rebuilding this component after a
-    /// trip to Settings — reopens with them beside its view.</summary>
-    private void PersistPaneSelection()
-    {
         KeepRepositoryScopeSingleWhereOnlyOneFits();
-
-        var enabled = _globalPanes.Enabled.Select(pane => pane.ToString()).ToArray();
-        ShellNavigation.SetLastPanes(enabled);
     }
 
     /// <summary>
@@ -2182,64 +2560,17 @@
     /// several — see <see cref="RepositoryScopeTakesSeveral"/>.
     /// <para>
     /// Several at once is a list affordance: the backlog list and the dashboard can
-    /// show more than one repository, and the Devbook pane reads exactly one. So
-    /// when the list goes — closed by the reader, trimmed by a window that no longer
-    /// fits it, or left behind for a surface that reads one — the scope drops back
-    /// to the anchor, and what the Devbook pane was reading is what it keeps
-    /// reading. Called from every path that changes what is on screen: the pane
-    /// toggles and the restore go through <see cref="PersistPaneSelection"/>, the
-    /// surface switches call it themselves, and so does the capacity trim, because
-    /// a trim is deliberately not persisted.
+    /// show more than one repository, and Tools shows none. So when the list goes —
+    /// left behind for a screen that cannot show several — the scope drops back to
+    /// the anchor, the repository the Devbook reads. Called from every path that
+    /// changes what is on screen: the view and
+    /// surface switches call it themselves, and the restore and every state change
+    /// through <see cref="SynchronizeDevbookAvailability"/>.
     /// </para>
     /// </summary>
     private void KeepRepositoryScopeSingleWhereOnlyOneFits()
     {
         if (!RepositoryScopeTakesSeveral) State.NarrowRepositoryScopeToAnchor();
-    }
-
-    /// <summary>Whether a side pane's toggle reads pressed: its pane is open and on
-    /// screen. During a takeover no pane is on screen, so none reads pressed — the
-    /// selection is kept underneath, and shows again on the way back.</summary>
-    private bool PaneOptionPressed(GlobalPane pane) => WorkspaceVisible && _globalPanes.IsEnabled(pane);
-
-    /// <summary>
-    /// A press on a side pane's toggle: the pane opens beside the main view, or
-    /// closes. Closing is always allowed — the view stays on screen — and opening
-    /// into a window with no room for one more closes the first open side pane.
-    /// <para>
-    /// During a takeover the press is first the way back: it closes the takeover,
-    /// as <see cref="CloseSurface"/> does for Escape. A pane already open is then
-    /// simply shown again with the workspace as it was — closing it would answer
-    /// "show me the Devbook" by hiding the Devbook.
-    /// </para>
-    /// </summary>
-    private void PressPane(GlobalPane pane)
-    {
-        if (!WorkspaceVisible)
-        {
-            CloseSurface();
-            _globalPanes.TryOpen(pane);
-        }
-        else
-        {
-            _globalPanes.Toggle(pane);
-        }
-
-        // A press that left the pane open opened it, and that is the area the
-        // reader wants to ask about next.
-        if (_globalPanes.IsEnabled(pane)) RememberAiScope(AiScopeFor(pane));
-
-        PersistPaneSelection();
-    }
-
-    /// <summary>What the press will do, named beside the view it acts on.</summary>
-    private string PaneOptionTitle(GlobalPane pane, string name)
-    {
-        if (!WorkspaceVisible) return $"Back to the workspace with {name} open";
-
-        return _globalPanes.IsEnabled(pane)
-            ? $"Close {name}"
-            : $"Open {name} beside {EffectiveView}";
     }
 
     /// <summary>Triage: the Inbox turned an item into backlog entries, and the
@@ -2370,19 +2701,220 @@
         State.SetRepositoryFilter(alone ? string.Empty : repositoryAlias);
     }
 
-    /// <summary>The identity mark, plus the anchor's own class while there is a
-    /// second chip for it to be distinct from.</summary>
-    private string? RepositoryScopeChipClass(string alias, bool anchor)
-    {
-        var mark = RepositoryMarkClass(alias);
-        if (!anchor) return mark;
+    /// <summary>Where the Brain folder is kept, or null in a host that composes none.
+    /// Read for the chip's word: until a folder is set it reads "Set up your Brain".</summary>
+    private IBrainSettings? _brainSettings;
 
-        return mark is null ? "chip--anchor" : mark + " chip--anchor";
+    /// <summary>The Brain the Devbook pane reads, or null in a host that composes none.</summary>
+    private IBrainFolderSource? _brainFolders;
+
+    /// <summary>Where the Brain's task links are read, or null in a host that
+    /// composes none — which then draws no Brain badge on any row.</summary>
+    private IBrainTaskLinks? _brainTaskLinks;
+
+    /// <summary>The owner's Brain notes by the task id they name, as last read.</summary>
+    private IReadOnlyDictionary<string, IReadOnlyList<BrainTaskNote>> _brainNotesByTask =
+        new Dictionary<string, IReadOnlyList<BrainTaskNote>>();
+
+    /// <summary>Only the latest read lands.</summary>
+    private int _brainNotesRead;
+
+    /// <summary>
+    /// Reads which Brain notes name which tasks. A Brain that cannot be read leaves
+    /// the badges as they were: they are a convenience, and the next change reads
+    /// again.
+    /// </summary>
+    private async Task ReadBrainNotesByTaskAsync()
+    {
+        if (_brainTaskLinks is null) return;
+
+        var read = ++_brainNotesRead;
+        IReadOnlyDictionary<string, IReadOnlyList<BrainTaskNote>> notes;
+        try
+        {
+            notes = await _brainTaskLinks.NotesByTaskAsync();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException)
+        {
+            return;
+        }
+
+        if (read != _brainNotesRead) return;
+        _brainNotesByTask = notes;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void HandleBrainFoldersChanged()
+    {
+        try
+        {
+            await InvokeAsync(ReadBrainNotesByTaskAsync);
+        }
+        catch (Exception)
+        {
+            // An async void handler: a badge is not worth the process.
+        }
+    }
+
+    private global::Backlog.Desktop.UI.Devbook.DevbookScenarioImageSources? _devbookImages;
+
+    /// <summary>The image source for an entry's repository, which the Tasks pane
+    /// cascades over the entry's body.</summary>
+    private Backlog.UI.Components.Devbook.IDevbookImageSource? DevbookImagesForEntry(string? repositoryAlias) =>
+        _devbookImages?.For(repositoryAlias);
+
+    /// <summary>A repository's scenario catalog arrived or moved: the entry on
+    /// screen draws its screenshots again.</summary>
+    private async void HandleDevbookImagesChanged()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // An async void handler: a screenshot is not worth the process.
+        }
+    }
+
+    /// <summary>A task row's Brain notes, by the row's stored id.</summary>
+    private IReadOnlyList<Backlog.UI.Components.Brain.BrainNoteLink> BrainNotesForTask(string taskId) =>
+        _brainNotesByTask.TryGetValue(taskId, out var notes)
+            ? [.. notes.Select(note => new Backlog.UI.Components.Brain.BrainNoteLink(note.NotePath, note.Title))]
+            : [];
+
+    /// <summary>
+    /// A Brain note opened from a task row's badge: the Devbook on screen, on the
+    /// Brain side, at the note. The road a Brain search result takes, plus the
+    /// Devbook opened over the view — the reader pressed it from the list, which
+    /// waits underneath.
+    /// </summary>
+    private Task OpenBrainNoteAsync(Backlog.UI.Components.Brain.BrainNoteLink note)
+    {
+        // The badges are read whatever the Devbook's flag says, so a press can come
+        // while there is no Devbook to open it in: said out loud, as an entry's
+        // reference says it, rather than a press that does nothing.
+        if (!IsFeatureEnabled(DevbookFeatures.RepositoryDevbook) || _brainFolders is null)
+        {
+            Toasts.Publish(ToastMessage.Warning(
+                "The Devbook is not available here, so this Brain note cannot be opened.",
+                DevbookUnavailableTestId));
+
+            return Task.CompletedTask;
+        }
+
+        _devbookSwitch = null;
+        _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
+            ? null
+            : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
+        _devbookOpenRequest = new DevbookOpenRequest(note.Path, ++_devbookOpenSequence);
+
+        ShowDevbook();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The title of the task with this id in this backlog, or null — a
+    /// Brain note's Tasks section draws that one as "not in this backlog".</summary>
+    private string? TaskTitleFor(string taskId) =>
+        Guid.TryParse(taskId, out var id) && State.Rows.FirstOrDefault(row => row.Id == id) is { } row
+            ? row.PreviewTitle
+            : null;
+
+    /// <summary>A task followed out of a Brain note: the task list on screen, that
+    /// task selected — as a session's entry is opened.</summary>
+    private async Task OpenTaskFromBrainAsync(string taskId)
+    {
+        if (!Guid.TryParse(taskId, out var id) || State.Rows.FirstOrDefault(row => row.Id == id) is not { } row) return;
+
+        ShowView(ShellView.Tasks);
+        await State.SelectAsync(row);
+    }
+
+    private void HandleBrainSettingsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>The Brain chip's word: "Brain", or "Set up your Brain" while no folder
+    /// is set — the words <see cref="BrainSetup"/> keeps for the chip and the Settings
+    /// card alike.</summary>
+    private string BrainChipLabel => _brainSettings is { IsSet: true } ? BrainSetup.Label : BrainSetup.SetUpLabel;
+
+    /// <summary>
+    /// A press on the Brain chip — <see cref="ScopeRepository"/>'s rules, for the Brain:
+    /// a plain press picks it alone, or clears the scope when it already was alone; Ctrl
+    /// adds it beside the repositories already pressed, or takes it back out, while a
+    /// surface that can show several is on screen.
+    /// <para>
+    /// It scopes whether or not a folder is set (local ADR 0027, §1): the tasks filed
+    /// against no repository are there either way. Its tooltip says where the folder is
+    /// set; the Devbook pane on the Brain asks for one.
+    /// </para>
+    /// </summary>
+    private void ScopeBrain(MouseEventArgs args)
+    {
+        if ((args.CtrlKey || args.MetaKey) && RepositoryScopeTakesSeveral)
+        {
+            State.ToggleBrainInScope();
+            return;
+        }
+
+        if (State.SelectedRepositoryAliases is [var only] && BrainScope.Is(only))
+        {
+            State.SetRepositoryFilter(null);
+            return;
+        }
+
+        State.SetBrainFilter();
+    }
+
+    /// <summary>The Brain's identity edge, always band 2, plus the anchor's class while
+    /// there is a second chip for it to be distinct from.</summary>
+    private static string BrainScopeChipClass(bool anchor) =>
+        anchor ? "repo-mark repo-mark--2 app-header__brain-chip chip--anchor" : "repo-mark repo-mark--2 app-header__brain-chip";
+
+    /// <summary>What the Brain chip does next, worded as a repository chip's is, and
+    /// where its folder is set while none is.</summary>
+    private string BrainScopeChipTitle(bool selected, bool anchor)
+    {
+        const string What = "Brain: the tasks filed against no repository";
+        var setUp = _brainSettings is { IsSet: true } ? string.Empty : $" Set up your Brain folder in Settings › Storage.";
+
+        string next;
+        if (!RepositoryScopeTakesSeveral) next = selected ? $"Deselect {What}." : $"{What}.";
+        else if (!selected) next = $"{What}. Ctrl+click to add it to the scope.";
+        else if (State.SelectedRepositoryAliases.Count == 1) next = $"Deselect {What}.";
+        else
+        {
+            var name = anchor ? $"{What} — Devbook follows this one" : What;
+            next = $"{name}. Click to scope to it alone, Ctrl+click to remove it from the scope.";
+        }
+
+        return next + setUp;
+    }
+
+    /// <summary>The identity mark, plus the anchor's own class while there is a
+    /// second chip for it to be distinct from, and the archived one while an archived
+    /// repository is offered.</summary>
+    private string? RepositoryScopeChipClass(GitHubRepositoryRef repository, bool anchor)
+    {
+        string?[] classes =
+        [
+            RepositoryMarkClass(repository.Alias),
+            anchor ? "chip--anchor" : null,
+            repository.Archived ? "chip--archived" : null
+        ];
+
+        var joined = string.Join(' ', classes.OfType<string>());
+        return joined.Length == 0 ? null : joined;
     }
 
     /// <summary>What the chip does next, since the modifier is the one thing about
     /// the strip nothing on screen shows.</summary>
-    private string RepositoryScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor)
+    private string RepositoryScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor) =>
+        repository.Archived
+            ? $"Archived. {ScopeChipTitle(repository, selected, anchor)}"
+            : ScopeChipTitle(repository, selected, anchor);
+
+    private string ScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor)
     {
         // Nothing to show several in, no modifier to name: the chip says what a
         // single select says.
@@ -2395,62 +2927,16 @@
         return $"{name}. Click to scope to it alone, Ctrl+click to remove it from the scope";
     }
 
-    [JSInvokable]
-    public Task SetSidePaneWidthAsync(double widthRem)
-    {
-        var clamped = SidePaneWidth.Clamp(widthRem, _maxSidePaneWidthRem);
-        if (Math.Abs(clamped - _devbookPanelWidthRem) < 0.001) return Task.CompletedTask;
-
-        _devbookPanelWidthRem = clamped;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    // How wide the pane may actually get depends on the window, which only the
-    // browser knows; without it the separator would keep counting past the edge.
-    [JSInvokable]
-    public Task SetSidePaneMaxWidthAsync(double maxRem)
-    {
-        var clamped = SidePaneWidth.Clamp(maxRem, SidePaneWidth.MaxRem);
-        var width = Math.Min(_devbookPanelWidthRem, clamped);
-        if (Math.Abs(clamped - _maxSidePaneWidthRem) < 0.001 && Math.Abs(width - _devbookPanelWidthRem) < 0.001)
-        {
-            return Task.CompletedTask;
-        }
-
-        _maxSidePaneWidthRem = clamped;
-        _devbookPanelWidthRem = width;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    [JSInvokable]
-    public Task SetGlobalPaneCapacityAsync(int capacity)
-    {
-        if (!_globalPanes.TrySetCapacity(capacity))
-        {
-            return Task.CompletedTask;
-        }
-
-        KeepRepositoryScopeSingleWhereOnlyOneFits();
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    // The drag lives in JavaScript because pointer capture does; the keyboard
-    // equivalent stays here so the separator has one clamped source of truth.
-    private void OnResizerKeyDown(KeyboardEventArgs e) =>
-        _devbookPanelWidthRem = SidePaneWidth.Adjust(_devbookPanelWidthRem, e.Key, _maxSidePaneWidthRem);
-
-    // Asynchronous, because leaving the shell has an interop call to make on the
-    // way out. The resizer holds a map of owners and invokes every one of them on
-    // each window resize, so a Home that registered and never unregistered is a
-    // dead reference the next resize calls into — the page still on screen throws
-    // on a window drag because a page that is gone is still in the map.
+    // Asynchronous, because leaving the shell has interop calls to make on the
+    // way out: the takeover Escape listener and the header fit hold this page, and
+    // a Home that registered and never unregistered is a dead reference the next
+    // Escape or resize calls into.
     public async ValueTask DisposeAsync()
     {
         CancelAsk();
         State.Changed -= HandleStateChanged;
+        if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
+        if (_brainFolders is not null && _brainTaskLinks is not null) _brainFolders.Changed -= HandleBrainFoldersChanged;
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;
@@ -2458,6 +2944,11 @@
         InboxState.RouteUndone -= HandleInboxRouteUndone;
         Features.Changed -= HandleFeaturesChanged;
         if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
+        if (_devbookImages is not null)
+        {
+            _devbookImages.Changed -= HandleDevbookImagesChanged;
+            _devbookImages.Dispose();
+        }
 
         // Detached before anything else of this component goes, for the reason the
         // JS reference below is: the activator holds a delegate over this instance,
@@ -2473,18 +2964,14 @@
         {
             try
             {
-                // No key, matching the keyless initialize above: the resizer reads
-                // an omitted key as the empty slot, which is the app's own layout —
-                // it carries no data-pane-owner because it predates the key. A key
-                // invented here would delete nothing and leave this owner in place.
-                //
-                // The empty slot is shared with any future Home, so this would take
-                // a newer instance's registration out if disposal of the old one ran
-                // after the new one registered. The router disposes the outgoing page
-                // before rendering the incoming one, so it does not — stated here so
-                // that a change to that ordering is read as breaking this.
-                await JS.InvokeVoidAsync("backlogPaneResizer.dispose");
+                // The Escape listener's one slot is shared with any future Home, so
+                // this would take a newer instance's registration out if disposal of
+                // the old one ran after the new one registered. The router disposes
+                // the outgoing page before rendering the incoming one, so it does
+                // not — stated here so that a change to that ordering is read as
+                // breaking this.
                 await JS.InvokeVoidAsync("backlogTakeoverEscape.unregister");
+                await JS.InvokeVoidAsync("backlogHeaderFit.disconnect", _header);
             }
             catch (JSException)
             {
@@ -2494,8 +2981,8 @@
             }
             catch (InvalidOperationException)
             {
-                // Disposed from a prerender: the resizer was never initialized,
-                // so there is nothing to dispose.
+                // Disposed from a prerender: nothing was ever registered, so
+                // there is nothing to unregister.
             }
         }
 

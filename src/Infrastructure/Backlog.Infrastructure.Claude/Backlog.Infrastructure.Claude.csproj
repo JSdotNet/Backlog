@@ -14,6 +14,8 @@
     <!-- AddHttpClient, for the typed Admin API transport ClaudeRegistration
          registers. -->
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- DPAPI, for the linked SecretEnvelope below (local ADR 0030). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +37,9 @@
          Compiled in from the GitHub adapter rather than referenced, so this
          adapter stays free of GitHub's dependencies and the copy cannot drift. -->
     <Compile Include="..\Backlog.Infrastructure.GitHub\IsoTimestamps.cs" Link="IsoTimestamps.cs" />
+    <!-- The one envelope every settings file seals its secret in (local ADR 0030),
+         compiled in for the same reason. -->
+    <Compile Include="..\Backlog.Infrastructure.GitHub\SecretEnvelope.cs" Link="SecretEnvelope.cs" />
   </ItemGroup>
 
 </Project>

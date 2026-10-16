@@ -1,5 +1,6 @@
 @using Backlog.Modules.Sessions.Abstractions
 @using Backlog.UI.Components.Integrations
+@using Backlog.SharedKernel
 @inject IServiceProvider Services
 @inject IJSRuntime JS
 @implements IDisposable
@@ -62,7 +63,8 @@
     them: a pin is somebody saying "keep this one in front of me". It is read by
     number beside the open list, so it stays — merged or closed, with no act and no
     place in a stack — until it is unpinned, and it sits in a Pinned group of its own
-    at the top.
+    at the top. An open pinned one in a stack keeps its indent and its "waits on"
+    line there, so the pin never hides what has to merge first.
 *@
 
 <section @key=@("pull-requests-pane") class="pull-requests-panel" id="pull-requests-pane" aria-labelledby="pull-requests-title" data-testid="pull-requests-panel">
@@ -138,11 +140,14 @@
             </div>
 
             <div class="pull-requests-filter pull-requests-filter--end">
+                @* Busy rather than disabled, so focus stays on it through the read;
+                   the list keeps its rows and dims under aria-busy (#scoped-loading). *@
                 <AppButton Variant="ButtonVariant.Secondary"
-                           Disabled="@Loading"
+                           Busy="@Loading"
+                           BusyLabel="Reading"
                            TestId="pull-requests-refresh"
                            OnClick="RefreshViewAsync">
-                    @(Loading ? "Reading..." : "Refresh")
+                    Refresh
                 </AppButton>
             </div>
         </div>
@@ -356,10 +361,11 @@
     /// the first row shown — so letting the filter go brings the pick back.</summary>
     private string? _selected;
 
-    /// <summary>The rows an act is running on, by <see cref="Key"/>. Their actions
-    /// are disabled until the re-read after the act has landed, because a second act
-    /// started in between would act on a row the first has just made stale.</summary>
-    private readonly HashSet<string> _busy = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The rows an act is running on, by <see cref="Key"/>, and the act
+    /// pressed. That act's button is busy and the row's other acts are disabled until
+    /// the re-read after it has landed, because a second act started in between would
+    /// act on a row the first has just made stale.</summary>
+    private readonly Dictionary<string, PullRequestAct> _busy = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>An act's outcome, where the host composed no toast channel.</summary>
     private string? _notice;
@@ -471,7 +477,7 @@
         _reads++;
         try
         {
-            var listing = await gitHub.ListPinnedPullRequestsAsync([pin]);
+            var listing = await Task.Run(() => gitHub.ListPinnedPullRequestsAsync([pin]));
             if (!string.Equals(focus, FocusPullRequest, StringComparison.OrdinalIgnoreCase)) return;
 
             _focused = listing;
@@ -599,7 +605,11 @@
     {
         if (_gitHub is not { } gitHub || _pins is not { Pins.Count: > 0 } pins) return GitHubPullRequestListing.Empty;
 
-        return await gitHub.ListPinnedPullRequestsAsync(pins.Pins);
+        // On the pool for the reason the open list's read is: the CLI transport
+        // starts gh before its first await. The pins are taken here, on the
+        // dispatcher, and the caller's generation check stays there too.
+        var asked = pins.Pins.ToList();
+        return await Task.Run(() => gitHub.ListPinnedPullRequestsAsync(asked));
     }
 
     private bool IsPinned(string repositoryFullName, int number) => _pins?.IsPinned(repositoryFullName, number) == true;
@@ -672,8 +682,11 @@
         try
         {
             // Both in flight together: GitHub and the session folders are two
-            // readers that need nothing from each other until both are in.
-            var listing = gitHub.ListOpenPullRequestsAsync(gitHub.Repositories);
+            // readers that need nothing from each other until both are in. The list
+            // is started on the pool: the CLI transport starts its gh process before
+            // its first real await, which on the UI thread would hold Refresh's busy
+            // state back until the process was up.
+            var listing = Task.Run(() => gitHub.ListOpenPullRequestsAsync(gitHub.ActiveRepositories));
             var pinned = ReadPinnedAsync();
             var sessions = ReadSessionsAsync();
 
@@ -706,7 +719,8 @@
 
         try
         {
-            var merged = gitHub.ListMergedPullRequestsAsync(gitHub.Repositories);
+            // On the pool for the reason the open list's read is.
+            var merged = Task.Run(() => gitHub.ListMergedPullRequestsAsync(gitHub.ActiveRepositories));
             var sessions = ReadSessionsAsync();
 
             var listing = await merged;
@@ -731,11 +745,12 @@
     {
         _sessionsUnreadable = false;
 
-        if (_sessionSource is null) return [];
+        if (_sessionSource is not { } source) return [];
 
         try
         {
-            return (await _sessionSource.GetSessionsAsync()).Sessions;
+            // On the pool: a warm cache answers synchronously off the disk.
+            return (await Task.Run(() => source.GetSessionsAsync())).Sessions;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -764,7 +779,7 @@
         var hasPins = _pins?.Pins.Any(pin => string.Equals(pin.RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase)) == true;
         var rereadPins = hasPins ? ReadPinnedAsync() : null;
 
-        var reread = await gitHub.ListOpenPullRequestsAsync([repository]);
+        var reread = await Task.Run(() => gitHub.ListOpenPullRequestsAsync([repository]));
         if (rereadPins is not null) await rereadPins;
 
         bool Other(string fullName) => !string.Equals(fullName, repositoryFullName, StringComparison.OrdinalIgnoreCase);
@@ -783,22 +798,22 @@
     }
 
     private Task UpdateBranchAsync(GitHubOpenPullRequest pull) =>
-        ActAsync(pull, gitHub => gitHub.UpdateBranchAsync(pull), $"Asked GitHub to update the branch of {Subject(pull)}.");
+        ActAsync(pull, PullRequestAct.UpdateBranch, gitHub => gitHub.UpdateBranchAsync(pull), $"Asked GitHub to update the branch of {Subject(pull)}.");
 
     private Task RerunFailedAsync(GitHubOpenPullRequest pull) =>
-        ActAsync(pull, gitHub => gitHub.RerunFailedChecksAsync(pull), $"Asked GitHub to re-run the failed checks of {Subject(pull)}.");
+        ActAsync(pull, PullRequestAct.RerunFailed, gitHub => gitHub.RerunFailedChecksAsync(pull), $"Asked GitHub to re-run the failed checks of {Subject(pull)}.");
 
     private Task MarkReadyAsync(GitHubOpenPullRequest pull) =>
-        ActAsync(pull, gitHub => gitHub.MarkReadyForReviewAsync(pull), $"{Subject(pull)} is ready for review.");
+        ActAsync(pull, PullRequestAct.ReadyForReview, gitHub => gitHub.MarkReadyForReviewAsync(pull), $"{Subject(pull)} is ready for review.");
 
     /// <summary>The merge act, re-derived at the click from the row as it stands —
     /// the same answer as when the button was drawn unless a read landed in between,
     /// and then the newer one is the one to act on.</summary>
     private Task MergeAsync(GitHubOpenPullRequest pull) => OfferedMergeFor(pull) switch
     {
-        PullRequestMerge.Now => ActAsync(pull, gitHub => gitHub.MergePullRequestAsync(pull.ToStatus()), $"Merged {Subject(pull)}."),
-        PullRequestMerge.WhenChecksPass => ActAsync(pull, gitHub => gitHub.EnableAutoMergeAsync(pull.ToStatus()), $"{Subject(pull)} will merge when it is ready."),
-        PullRequestMerge.CancelAutoMerge => ActAsync(pull, gitHub => gitHub.DisableAutoMergeAsync(pull.ToStatus()), $"Cancelled auto-merge for {Subject(pull)}."),
+        PullRequestMerge.Now => ActAsync(pull, PullRequestAct.Merge, gitHub => gitHub.MergePullRequestAsync(pull.ToStatus()), $"Merged {Subject(pull)}."),
+        PullRequestMerge.WhenChecksPass => ActAsync(pull, PullRequestAct.Merge, gitHub => gitHub.EnableAutoMergeAsync(pull.ToStatus()), $"{Subject(pull)} will merge when it is ready."),
+        PullRequestMerge.CancelAutoMerge => ActAsync(pull, PullRequestAct.Merge, gitHub => gitHub.DisableAutoMergeAsync(pull.ToStatus()), $"Cancelled auto-merge for {Subject(pull)}."),
         _ => Task.CompletedTask
     };
 
@@ -808,15 +823,18 @@
     /// a row that had moved on since it was drawn. The refusal itself arrives already
     /// worded by the adapter, naming the act and the pull request.
     /// </summary>
-    private async Task ActAsync(GitHubOpenPullRequest pull, Func<GitHubIntegration, Task> act, string done)
+    private async Task ActAsync(GitHubOpenPullRequest pull, PullRequestAct pressed, Func<GitHubIntegration, Task> act, string done)
     {
-        if (_gitHub is not { } gitHub || !_busy.Add(Key(pull))) return;
+        if (_gitHub is not { } gitHub || !_busy.TryAdd(Key(pull), pressed)) return;
 
         try
         {
             try
             {
-                await act(gitHub);
+                // Started on the pool: the CLI transport starts a gh process before its
+                // first real await, and on the UI thread that would hold the window
+                // still before the pressed button could show it is busy.
+                await Task.Run(() => act(gitHub));
                 Publish(ToastMessage.Info(done, "pull-requests-act-done"));
             }
             catch (Exception exception) when (exception is GitHubException or GitHubNotConfiguredException or HttpRequestException)
@@ -851,7 +869,17 @@
         _notice = message.Message;
     }
 
-    private bool Busy(GitHubOpenPullRequest pull) => _busy.Contains(Key(pull));
+    private bool Busy(GitHubOpenPullRequest pull) => _busy.ContainsKey(Key(pull));
+
+    /// <summary>The aria-disabled value of a control a running act blocks: "true", or
+    /// null to leave the attribute off.</summary>
+    private static string? Blocked(bool blocked) => blocked ? "true" : null;
+
+    /// <summary>Whether this act is the one running on the row — the merge acts as
+    /// one, since the button's label is whichever merge GitHub would accept.</summary>
+    private bool Pressed(GitHubOpenPullRequest pull, PullRequestAct act) =>
+        _busy.TryGetValue(Key(pull), out var pressed)
+        && (pressed == act || (IsMergeAct(pressed) && IsMergeAct(act)));
 
     private static string Key(GitHubOpenPullRequest pull) => Key(pull.RepositoryFullName, pull.Number);
 
@@ -899,9 +927,14 @@
 
     // --- What is read, narrowed ------------------------------------------------
 
-    private bool Scoped => RepositoryScope.Count > 0;
+    /// <summary>The scope's repositories, the Brain left out. Every pull request
+    /// belongs to a repository, so the list reads the scope without the Brain, and the
+    /// Brain alone reads as nothing pressed (local ADR 0027, §2).</summary>
+    private IReadOnlyList<string> ScopedRepositories => BrainScope.Repositories(RepositoryScope);
 
-    private string ScopeLabel => string.Join(", ", RepositoryScope);
+    private bool Scoped => ScopedRepositories.Count > 0;
+
+    private string ScopeLabel => BrainScope.Label(ScopedRepositories);
 
     /// <summary>The alias a repository goes by here: the shell's answer, else the
     /// adapter's registry, else nothing.</summary>
@@ -915,9 +948,14 @@
                 || string.Equals(candidate.Alias, repository, StringComparison.OrdinalIgnoreCase))?.Alias;
     }
 
+    /// <summary>Whether a repository is in the scope.</summary>
     private bool InScope(string repositoryFullName) =>
         !Scoped
-        || (AliasOf(repositoryFullName) is { } alias && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
+        || (AliasOf(repositoryFullName) is { } alias && ScopedRepositories.Contains(alias, StringComparer.OrdinalIgnoreCase));
+
+    private bool InScope(GitHubOpenPullRequest pull) => InScope(pull.RepositoryFullName);
+
+    private bool InScope(GitHubMergedPullRequest pull) => InScope(pull.RepositoryFullName);
 
     /// <summary>A repository's label filter, empty for none — read from the registry on
     /// every render, so a filter changed in Settings narrows the rows already read.</summary>
@@ -971,7 +1009,7 @@
     }
 
     /// <summary>The scope decides which repositories exist here at all.</summary>
-    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. OpenRows.Where(pull => InScope(pull.RepositoryFullName))];
+    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. OpenRows.Where(InScope)];
 
     /// <summary>What the label filters leave of the scope.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> LabelledRows => [.. InScopeRows.Where(pull => PassesLabels(pull.RepositoryFullName, pull.Labels))];
@@ -981,7 +1019,7 @@
     /// this leaves, and the board narrows it.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> Visible =>
         [.. OpenRows.Where(pull => IsPinned(pull) || IsFocused(pull)
-            || (InScope(pull.RepositoryFullName)
+            || (InScope(pull)
                 && PassesLabels(pull.RepositoryFullName, pull.Labels)
                 && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
 
@@ -998,7 +1036,7 @@
             var of = (_listing, _pinned, ScopeLabel, _pinsVersion);
             if (_stacks is null || _stacksOf != of)
             {
-                _stacks = PullRequestStacks.Of(OpenRows.Where(pull => pull.IsOpen && (IsPinned(pull) || InScope(pull.RepositoryFullName))));
+                _stacks = PullRequestStacks.Of(OpenRows.Where(pull => pull.IsOpen && (IsPinned(pull) || InScope(pull))));
                 _stacksOf = of;
             }
 
@@ -1041,14 +1079,14 @@
     /// <summary>The merged view's rows, narrowed the same ways. Newest merge first, as
     /// the adapter ordered them.</summary>
     private IReadOnlyList<GitHubMergedPullRequest> MergedInScopeRows =>
-        [.. MergedRows.Where(pull => InScope(pull.RepositoryFullName))];
+        [.. MergedRows.Where(InScope)];
 
     private IReadOnlyList<GitHubMergedPullRequest> MergedLabelledRows =>
         [.. MergedInScopeRows.Where(pull => PassesLabels(pull.RepositoryFullName, pull.Labels))];
 
     private IReadOnlyList<GitHubMergedPullRequest> MergedVisible =>
         [.. MergedRows.Where(pull => IsPinned(pull.RepositoryFullName, pull.Number)
-            || (InScope(pull.RepositoryFullName)
+            || (InScope(pull)
                 && PassesLabels(pull.RepositoryFullName, pull.Labels)
                 && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
 
@@ -1064,12 +1102,12 @@
                MergedInScopeRows.Count,
                MergedLabelledRows.Count,
                MergedVisible.Count,
-               MergedRows.Count(pull => InScope(pull.RepositoryFullName) || IsPinned(pull.RepositoryFullName, pull.Number)))
+               MergedRows.Count(pull => InScope(pull) || IsPinned(pull.RepositoryFullName, pull.Number)))
             : (OpenRows.Count,
                InScopeRows.Count,
                LabelledRows.Count,
                Visible.Count,
-               OpenRows.Count(pull => InScope(pull.RepositoryFullName) || IsPinned(pull)));
+               OpenRows.Count(pull => InScope(pull) || IsPinned(pull)));
 
     /// <summary>Every repository a read of this view could not complete — the pinned
     /// read's too on the open view — each named once.</summary>
@@ -1180,8 +1218,9 @@
     /// merging.</param>
     /// <param name="Parent">The open pull request it waits on, for an open one in a
     /// stack above its bottom.</param>
-    /// <param name="Depth">Its level in its stack, for an open one in a stack that is
-    /// not pinned — a pinned one sits with the pins rather than in its tree.</param>
+    /// <param name="Depth">Its level in its stack, for an open one in a stack — pinned
+    /// or not: a pinned one sits with the pins rather than in its tree, but keeps its
+    /// indent and its "waits on" line, so it still says what has to merge first.</param>
     private sealed record BoardRow(
         string Key,
         GitHubOpenPullRequest? Open,
@@ -1279,9 +1318,9 @@
             Key(pull),
             pull,
             null,
-            PullRequestVerdict.Of(pull, parent, pull.CanRerunFailed),
+            PullRequestVerdict.Of(pull, parent),
             parent,
-            pinned ? null : stacks.DepthOf(pull),
+            stacks.DepthOf(pull),
             pinned);
     }
 
@@ -1650,7 +1689,7 @@
 
     /// <summary>A stack member's verdict, read the way its own row reads it.</summary>
     private PullRequestVerdict? MemberVerdict(GitHubOpenPullRequest member) =>
-        PullRequestVerdict.Of(member, Stacks.ParentOf(member), member.CanRerunFailed);
+        PullRequestVerdict.Of(member, Stacks.ParentOf(member));
 
     /// <summary>Who opened it and how long ago it moved — or merged, for a merged one.</summary>
     private string Byline(BoardRow row)
@@ -1726,7 +1765,13 @@
     private RenderFragment ActButton(GitHubOpenPullRequest pull, PullRequestAct act, bool primary) => __builder =>
     {
         var variant = primary ? ButtonVariant.Primary : ButtonVariant.Secondary;
-        var busy = Busy(pull);
+
+        // The act pressed is busy — focus stays on it and a second press is dropped
+        // (#busy-actions). The row's other acts wait on it, blocked with aria-disabled
+        // rather than the native attribute so they keep their place in the tab order
+        // (#accessibility); ActAsync drops their press, the row being taken.
+        var pressed = Pressed(pull, act);
+        var rowBusy = Busy(pull);
 
         switch (act)
         {
@@ -1737,19 +1782,19 @@
                 <AppButton Href="@($"{pull.Url}/files")" Variant="variant" TestId="pull-request-open-review">Open review on GitHub</AppButton>
                 break;
             case PullRequestAct.RerunFailed:
-                <AppButton Variant="variant" Disabled="@busy" TestId="pull-request-rerun-failed" OnClick="() => RerunFailedAsync(pull)">Re-run failed</AppButton>
+                <AppButton Variant="variant" Busy="@pressed" BusyLabel="Re-running" aria-disabled="@Blocked(rowBusy)" TestId="pull-request-rerun-failed" OnClick="() => RerunFailedAsync(pull)">Re-run failed</AppButton>
                 break;
             case PullRequestAct.UpdateBranch:
-                <AppButton Variant="variant" Disabled="@busy" TestId="pull-request-update-branch" OnClick="() => UpdateBranchAsync(pull)">Update branch</AppButton>
+                <AppButton Variant="variant" Busy="@pressed" BusyLabel="Updating" aria-disabled="@Blocked(rowBusy)" TestId="pull-request-update-branch" OnClick="() => UpdateBranchAsync(pull)">Update branch</AppButton>
                 break;
             case PullRequestAct.ReadyForReview:
-                <AppButton Variant="variant" Disabled="@busy" TestId="pull-request-ready" OnClick="() => MarkReadyAsync(pull)">Ready for review</AppButton>
+                <AppButton Variant="variant" Busy="@pressed" BusyLabel="Marking ready" aria-disabled="@Blocked(rowBusy)" TestId="pull-request-ready" OnClick="() => MarkReadyAsync(pull)">Ready for review</AppButton>
                 break;
             case PullRequestAct.MergeWhenReady:
             case PullRequestAct.Merge:
                 if (OfferedMergeFor(pull) is { } merge)
                 {
-                    <AppButton Variant="variant" Disabled="@busy" TestId="pull-request-merge" OnClick="() => MergeAsync(pull)">@MergeLabel(merge)</AppButton>
+                    <AppButton Variant="variant" Busy="@pressed" BusyLabel="Merging" aria-disabled="@Blocked(rowBusy)" TestId="pull-request-merge" OnClick="() => MergeAsync(pull)">@MergeLabel(merge)</AppButton>
                 }
                 break;
         }

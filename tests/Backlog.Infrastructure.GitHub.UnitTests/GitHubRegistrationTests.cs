@@ -21,6 +21,7 @@ public sealed class GitHubRegistrationTests
     [InlineData(typeof(IGitHubAccountProbe))]
     [InlineData(typeof(IGitHubBranchCatalog))]
     [InlineData(typeof(IGitHubTreeClient))]
+    [InlineData(typeof(IGitHubBranchComparison))]
     [InlineData(typeof(ILocalGitRepositoryService))]
     [InlineData(typeof(IGitFileHistoryService))]
     [InlineData(typeof(IGitHubClient))]

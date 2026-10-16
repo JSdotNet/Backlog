@@ -13,9 +13,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>
-/// The ingest test: a captured Claude Code OTLP export replayed over HTTP at the
-/// harness's <c>/v1/logs</c>, through the harness's own pipeline and composition, into
-/// the <c>backlog.db</c> of the test's own workspace (local ADR 0024).
+/// The ingest test: a Claude Code OTLP export whose two <c>api_request</c> records were
+/// added by hand — the rest of it is a real capture, whose session made no request that
+/// succeeded — replayed over HTTP at the harness's <c>/v1/logs</c>, through the harness's
+/// own pipeline and composition, into the <c>backlog.db</c> of the test's own workspace
+/// (local ADR 0024).
 /// <para>
 /// Nothing is replaced but the workspace: the route, the reader and the SQLite store
 /// are the ones the harness composes, so what is asserted is what lands in the app's
@@ -61,7 +63,7 @@ public class ClaudeCodeLogsEndpointGateTests
     [Theory]
     [InlineData("claude-code-logs.json", "application/json")]
     [InlineData("claude-code-logs.pb", "application/x-protobuf")]
-    public async Task A_captured_export_lands_its_api_requests_in_the_local_database_once(string fixture, string contentType)
+    public async Task An_export_with_hand_added_api_requests_lands_them_in_the_local_database_once(string fixture, string contentType)
     {
         using var harness = new Harness();
         using var client = harness.CreateClient();

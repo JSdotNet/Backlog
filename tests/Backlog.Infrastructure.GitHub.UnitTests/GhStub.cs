@@ -105,6 +105,26 @@ internal sealed class GhStub : IDisposable
         return this;
     }
 
+    /// <summary>Answers every call whose first argument is <paramref name="verb"/>
+    /// — <c>api</c> or <c>auth</c> — with this on stdout instead of what
+    /// <see cref="Answers"/> set, so <c>gh api user</c> and <c>gh auth token</c>
+    /// can say different things to one transport.</summary>
+    public GhStub AnswersTo(string verb, string standardOutput)
+    {
+        File.WriteAllText(Path.Combine(_directory, $"stdout-{verb}.txt"), standardOutput);
+        return this;
+    }
+
+    /// <summary>Ends every call whose first argument is <paramref name="verb"/> with
+    /// this exit code, whatever <see cref="Fails"/> or <see cref="Answers"/> set for
+    /// the rest — a <c>gh</c> signed in for <c>gh api</c> that has no token to hand
+    /// over.</summary>
+    public GhStub FailsTo(string verb, int exitCode = 1)
+    {
+        Set($"exit-code-{verb}.txt", exitCode.ToString());
+        return this;
+    }
+
     /// <summary>Ends every call with this exit code, having written
     /// <paramref name="standardError"/> — empty for the CLI that fails and says
     /// nothing about it.</summary>

@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
@@ -123,6 +124,18 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// The port decides by the note's own stamp. A head composed without it holds
 /// notes on the replica, as it holds captures.
 /// </para>
+/// <para>
+/// <b>Nor is a sprint series.</b> A <c>sprint-series</c> document is one of
+/// Progress's series, whole, and goes to its replication port on the terms the
+/// roadmap's documents do: the port decides by the series' own stamp, and a head
+/// without it skips the document.
+/// </para>
+/// <para>
+/// <b>Nor are the My Day preferences.</b> A <c>my-day-preferences</c> document goes to
+/// the preferences port on the same terms (local ADR 0032, §3): before the local task is
+/// read, decided by its own stamp, and Skipped on a head without the port — which is
+/// what an older desktop build does with it.
+/// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
@@ -132,7 +145,9 @@ public sealed class TaskReplicaMerge(
     ITaskChangeSignal? changes = null,
     IRoadmapReplication? roadmap = null,
     IGitHubSettingsReplication? github = null,
-    IInboxNoteReplication? notes = null)
+    IInboxNoteReplication? notes = null,
+    ISprintSeriesReplication? sprints = null,
+    IMyDayPreferencesReplication? myDay = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -160,6 +175,15 @@ public sealed class TaskReplicaMerge(
     /// <summary>Where a note goes, or null on a head without an inbox store,
     /// which leaves notes on the replica.</summary>
     private readonly IInboxNoteReplication? _notes = notes;
+
+    /// <summary>Where a sprint series goes, or null on a head without Progress — the
+    /// phone, or a build from before the port.</summary>
+    private readonly ISprintSeriesReplication? _sprints = sprints;
+
+    /// <summary>Where the My Day preferences go, or null on a head that keeps none — an
+    /// older desktop build. The phone folds the document itself and composes no
+    /// merge.</summary>
+    private readonly IMyDayPreferencesReplication? _myDay = myDay;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -241,21 +265,34 @@ public sealed class TaskReplicaMerge(
         var applied = 0;
         var skipped = 0;
 
-        foreach (var record in Winners(page))
+        // What the page wrote, recorded once when it stops, so the footer redraws
+        // once per page. In a finally because a write that throws part way leaves
+        // the ones before it written, and the log should still say so. A local
+        // rather than a field: the merge must stay safe for concurrent pages.
+        var moved = new List<SyncActivityEntry>();
+
+        try
         {
-            switch (await ApplyOneAsync(record, cancellationToken).ConfigureAwait(false))
+            foreach (var record in Winners(page))
             {
-                case ApplyOutcome.Written:
-                    applied++;
-                    break;
+                switch (await ApplyOneAsync(record, moved, cancellationToken).ConfigureAwait(false))
+                {
+                    case ApplyOutcome.Written:
+                        applied++;
+                        break;
 
-                case ApplyOutcome.Unreadable:
-                    skipped++;
-                    break;
+                    case ApplyOutcome.Unreadable:
+                        skipped++;
+                        break;
 
-                default:
-                    break;
+                    default:
+                        break;
+                }
             }
+        }
+        finally
+        {
+            _activity?.RecordRange(moved);
         }
 
         return new TaskMergeOutcome(applied, skipped);
@@ -465,6 +502,15 @@ public sealed class TaskReplicaMerge(
         return winners.Values;
     }
 
+    /// <summary>Adds a document this page wrote to <paramref name="moved"/>, for
+    /// <see cref="ApplyAsync"/> to record with the rest of the page. Nothing on a
+    /// head with no activity log.</summary>
+    private void Moved(
+        List<SyncActivityEntry> moved, SyncDirection direction, SyncItemKind kind, string id, string title, string? note = null)
+    {
+        if (_activity is not null) moved.Add(_activity.Entry(direction, kind, id, title, note));
+    }
+
     /// <summary>
     /// Writes one record, unless the local row is already at least that version.
     /// <para>
@@ -499,6 +545,7 @@ public sealed class TaskReplicaMerge(
     /// </summary>
     private async Task<ApplyOutcome> ApplyOneAsync(
         TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
         CancellationToken cancellationToken)
     {
         // Only a document carrying the capture kind token takes this branch. A
@@ -544,13 +591,13 @@ public sealed class TaskReplicaMerge(
             switch (outcome)
             {
                 case InboxIntakeOutcome.Received:
-                    _activity?.Record(
-                        SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                    Moved(
+                        moved, SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title);
                     return ApplyOutcome.Written;
 
                 case InboxIntakeOutcome.Withdrawn:
-                    _activity?.Record(
-                        SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "withdrawn");
+                    Moved(
+                        moved, SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "withdrawn");
                     return ApplyOutcome.Written;
 
                 default:
@@ -560,17 +607,27 @@ public sealed class TaskReplicaMerge(
 
         if (NoteReplicaDocuments.IsNote(record.Change))
         {
-            return await ApplyNoteAsync(record, cancellationToken).ConfigureAwait(false);
+            return await ApplyNoteAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
         if (RoadmapReplicaDocuments.KindOf(record.Change.Task.Type) is { } document)
         {
-            return await ApplyRoadmapAsync(record, document, cancellationToken).ConfigureAwait(false);
+            return await ApplyRoadmapAsync(record, document, moved, cancellationToken).ConfigureAwait(false);
         }
 
         if (GitHubReplicaDocuments.KindOf(record.Change.Task.Type) is { } settings)
         {
-            return await ApplyGitHubSettingsAsync(record, settings, cancellationToken).ConfigureAwait(false);
+            return await ApplyGitHubSettingsAsync(record, settings, moved, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (SprintReplicaDocuments.IsSeries(record.Change))
+        {
+            return await ApplySprintSeriesAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (MyDayReplicaDocuments.Is(record.Change))
+        {
+            return await ApplyMyDayPreferencesAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
         var local = await _tasks
@@ -607,8 +664,8 @@ public sealed class TaskReplicaMerge(
             await _tasks.SaveAsync(task, cancellationToken).ConfigureAwait(false);
         }
 
-        _activity?.Record(
-            SyncDirection.Received, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+        Moved(
+            moved, SyncDirection.Received, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
             task.DeletedAt is null ? null : "deleted");
 
         await SpawnOccurrenceAsync(local, task, cancellationToken).ConfigureAwait(false);
@@ -665,6 +722,7 @@ public sealed class TaskReplicaMerge(
     private async Task<ApplyOutcome> ApplyRoadmapAsync(
         TaskChangeRecord record,
         RoadmapReplicaDocument document,
+        List<SyncActivityEntry> moved,
         CancellationToken cancellationToken)
     {
         if (_roadmap is null)
@@ -687,8 +745,8 @@ public sealed class TaskReplicaMerge(
         switch (outcome)
         {
             case RoadmapReplicaOutcome.Taken:
-                _activity?.Record(
-                    SyncDirection.Received, SyncItemKind.Roadmap, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.Roadmap, record.Change.Id.ToString("D"), record.Change.Task.Title);
                 return ApplyOutcome.Written;
 
             case RoadmapReplicaOutcome.Unreadable:
@@ -711,7 +769,7 @@ public sealed class TaskReplicaMerge(
     /// wrong with the document. A note the Inbox cannot take is skipped rather
     /// than thrown on, for the reason the task path gives.
     /// </summary>
-    private async Task<ApplyOutcome> ApplyNoteAsync(TaskChangeRecord record, CancellationToken cancellationToken)
+    private async Task<ApplyOutcome> ApplyNoteAsync(TaskChangeRecord record, List<SyncActivityEntry> moved, CancellationToken cancellationToken)
     {
         if (_notes is null) return ApplyOutcome.Held;
 
@@ -738,17 +796,109 @@ public sealed class TaskReplicaMerge(
         switch (outcome)
         {
             case InboxIntakeOutcome.Received:
-                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title);
+                Moved(moved, SyncDirection.Received, SyncItemKind.Note, id, title);
                 return ApplyOutcome.Written;
 
             case InboxIntakeOutcome.Updated:
-                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title, "edited");
+                Moved(moved, SyncDirection.Received, SyncItemKind.Note, id, title, "edited");
                 return ApplyOutcome.Written;
 
             case InboxIntakeOutcome.Withdrawn:
-                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title, "archived");
+                Moved(moved, SyncDirection.Received, SyncItemKind.Note, id, title, "archived");
                 return ApplyOutcome.Written;
 
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands a sprint series document to Progress's port and counts what it answered,
+    /// exactly as <see cref="ApplyRoadmapAsync"/> does for the roadmap's.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplySprintSeriesAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        // Skipped, not held, on a head without the port, for the reason the roadmap's
+        // documents give: the series will not land until this build can take it.
+        if (_sprints is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no sprint series.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _sprints
+            .ApplyAsync(SprintReplicaDocuments.ToCopy(record.Change), cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case SprintSeriesReplicaOutcome.Taken:
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.SprintSeries, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case SprintSeriesReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that series. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
+            // An echo or an older copy: the local one stands, as it does for a task.
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands the My Day preferences document to its port and counts what it answered,
+    /// exactly as <see cref="ApplyRoadmapAsync"/> does for the roadmap's.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyMyDayPreferencesAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        // Skipped, not held, on a head without the port, for the reason the roadmap's
+        // documents give: the preferences will not land until this build can take them.
+        if (_myDay is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no My Day preferences.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _myDay
+            .ApplyAsync(MyDayReplicaDocuments.ToCopy(record.Change), cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case MyDayPreferencesReplicaOutcome.Taken:
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.MyDayPreferences, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case MyDayPreferencesReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as the My Day preferences. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
+            // An echo or an older copy: the local one stands, as it does for a task.
             default:
                 return ApplyOutcome.Held;
         }
@@ -761,6 +911,7 @@ public sealed class TaskReplicaMerge(
     private async Task<ApplyOutcome> ApplyGitHubSettingsAsync(
         TaskChangeRecord record,
         GitHubReplicaDocument document,
+        List<SyncActivityEntry> moved,
         CancellationToken cancellationToken)
     {
         if (_github is null)
@@ -783,8 +934,8 @@ public sealed class TaskReplicaMerge(
         switch (outcome)
         {
             case GitHubReplicaOutcome.Taken:
-                _activity?.Record(
-                    SyncDirection.Received, SyncItemKind.GitHubSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.GitHubSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
                 return ApplyOutcome.Written;
 
             case GitHubReplicaOutcome.Unreadable:

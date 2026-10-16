@@ -5,7 +5,8 @@
 @implements IDisposable
 
 @*
-    The phone's shell: a title bar that says where sync stands, the page, and a
+    The phone's shell: a title bar that names the app and its version - the
+    way into the update window - and says where sync stands, the page, and a
     row of tabs along the bottom where a thumb already is. The BlazorWebView
     fills the MAUI page edge to edge, so nothing else names the app on screen.
 
@@ -23,7 +24,7 @@
     <LifecycleBridge />
 
     <header class="app-bar">
-        <span class="app-bar__title">Backlog</span>
+        <AppUpdateControl />
         <SyncStatus />
     </header>
 

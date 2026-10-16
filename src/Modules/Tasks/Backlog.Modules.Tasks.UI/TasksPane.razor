@@ -78,7 +78,7 @@
                FixedWidthRemChanged="rem => _detailWidthRem = rem"
                MinRem="24">
         <Start>
-            <div class="backlog-list" aria-busy="@(State.IsLoading ? "true" : null)">
+            <div class="backlog-list">
                 @* Tags are the second label on an entry that already has one, so the
                    group is built from what people typed and sits in the middle.
                    Status narrows what is already in view, so it sits on the right. *@
@@ -94,7 +94,7 @@
                        more way of narrowing the list.
 
                        A ToggleButton wearing the same chip classes, because it is
-                       the same gesture as My Day and No repo: a state that stays
+                       the same gesture as My Day and Ready in a plan: a state that stays
                        on until it is pressed again, with aria-pressed saying so.
                        Matching their shape is also what gives it their focus ring
                        rather than a second one written here.
@@ -141,8 +141,8 @@
                         </ToggleButton>
                     </div>
 
-                    @* Two scopes rather than one of a set, so each holds a state of
-                       its own: both narrow whatever the repository scope, the tags
+                    @* Scopes rather than one of a set, so each holds a state of
+                       its own: each narrows whatever the repository scope, the tags
                        and the status have already left in view instead of replacing
                        any of them. That is what makes them ToggleButtons with
                        aria-pressed beside one radiogroup — the statuses', now the only
@@ -150,7 +150,7 @@
                        in the semantics, not just in the shape.
 
                        They are not exclusive with each other either. "In today's My
-                       Day and filed nowhere" is a real question, and it is the one
+                       Day and ready in a plan" is a real question, and it is the one
                        both chips pressed asks.
 
                        Each wears a glyph in place of its word, so the group costs
@@ -169,24 +169,9 @@
                             <SunIcon CssClass="chip__icon" /><span class="sr-only">My Day</span><span class="chip__count">@MyDayCount</span>
                         </ToggleButton>
 
-                        @* The one scope the header's repository chips cannot express:
-                           they name the repositories that exist, and this names their
-                           absence. It wears no identity hue for the same reason —
-                           there is no repository here whose colour it could be.
-
-                           With a repository selected in the header the two ask for
-                           opposite things and this count reads 0, which is the chip
-                           saying so before it is pressed rather than an empty list
-                           afterwards. *@
-                        <ToggleButton BaseClass="chip chip--filter chip--scope"
-                                      PressedCssClass="chip--active"
-                                      Pressed="@State.NoRepositoryOnly"
-                                      TestId="norepo-filter-option"
-                                      Title="@(State.NoRepositoryOnly ? "Show everything again" : "Show only what is filed against no repository")"
-                                      PressedChanged="State.SetNoRepositoryFilter">
-                            <FolderOffIcon CssClass="chip__icon" /><span class="sr-only">No repo</span><span class="chip__count">@NoRepositoryCount</span>
-                        </ToggleButton>
-
+                        @* No "No repo" chip here any more: the header's Brain chip is the
+                           one place that says "no repository" (local ADR 0027), and it
+                           is remembered where this chip never was. *@
                         @* What a plan has lined up to pick up: entries marked
                            `!ready` and filed under a `+plan` — see
                            TasksDesktopState.ReadyInPlanOnly. *@
@@ -312,6 +297,26 @@
                                    OnClick="() => _tagStripExpanded = !_tagStripExpanded">
                             @(_tagStripExpanded ? "Fewer" : "More")
                         </AppButton>
+
+                        @* The plan in view, one press from the clipboard — a reader
+                           filters to a plan and then pastes its name somewhere else.
+                           The tag verbatim, + and all, because that is how a plan is
+                           written everywhere it is typed. Only while a plan is pressed,
+                           so the chip a click toggles stays a toggle and the strip
+                           carries no button per chip. The status line is announced
+                           and not drawn: the glyph's check is the sighted
+                           confirmation, and a sentence appearing would shove the
+                           statuses along the bar. *@
+                        @if (State.SelectedPlan is { } plan)
+                        {
+                            <CopyButton Text="@plan"
+                                        Label="@($"Copy {plan}")"
+                                        CssClass="filter-bar__copy-plan"
+                                        StatusCssClass="sr-only"
+                                        TestId="tag-filter-copy-plan"
+                                        ButtonTestId="tag-filter-copy-plan-button"
+                                        StatusTestId="tag-filter-copy-plan-status" />
+                        }
                     }
 
                     @* Off the bar on the Board while its columns are the statuses:
@@ -381,6 +386,19 @@
                             <span class="open-work-summary__number">@OpenWork.Open</span><span class="open-work-summary__noun"> open</span><span class="open-work-summary__detail">@OpenWorkTail</span>
                         </AppButton>
                     </div>
+
+                    @* The list refreshing in place over rows it already has — the shell
+                       remounted, Settings and back — says so here, in the header of
+                       the region, and only once the wait is worth a loader: the
+                       spinner is held invisible for its first ~300 ms
+                       (interaction-guidelines.md#scoped-loading, Refresh; #timing). *@
+                    @if (State.IsLoading && State.Rows.Count > 0)
+                    {
+                        <Spinner Size="SpinnerSize.Small"
+                                 Label="Refreshing the tasks"
+                                 CssClass="region-refresh"
+                                 TestId="backlog-refreshing" />
+                    }
                 </div>
 
                 @* Everything below the filter bar scrolls, and the bar does not. The
@@ -390,7 +408,9 @@
                    the scroller now, so the bar stays at the top of the column and
                    the scrollbar starts under it; the bulk bar and the add-entry row
                    stick to this rather than to the half. *@
-                <div class="backlog-list__scroll" data-testid="backlog-list-scroll">
+                <div class="backlog-list__scroll"
+                     data-testid="backlog-list-scroll"
+                     aria-busy="@(State.IsLoading ? "true" : null)">
                     @* Between the filters and the list, and only while the reader is
                        picking. Above the rows rather than floating over them: the bar is
                        about a set the reader assembled out of that column, and a
@@ -424,14 +444,22 @@
                                       @onkeydown="OnSelectionBarKeyDown" />
                     }
 
-                    @if (State.IsLoading)
+                    @if (State.IsLoading && State.Rows.Count == 0)
                     {
                         @* The backlog is still being read. Placeholder rows in the
                            list's shape rather than "Nothing here yet.", which is an
                            answer the pane does not have yet
                            (.devbook/design/interaction-guidelines.md, Loading States).
                            Hidden in one piece, like every skeleton; aria-busy on the
-                           list half says it is on its way. *@
+                           scroller says it is on its way.
+
+                           Only on a first load. A shell that remounts — Settings
+                           and back — reads the backlog again over rows already in
+                           memory, and blanking those to placeholders is a reload
+                           that throws away what was on screen. They stay, dimmed by
+                           the scroller's aria-busy, with a spinner in the filter
+                           bar, until the read lands
+                           (interaction-guidelines.md#scoped-loading, Refresh). *@
                         <div class="backlog-list__loading" data-testid="backlog-loading" aria-hidden="true">
                             @foreach (var width in SkeletonWidths)
                             {
@@ -477,6 +505,8 @@
                                     {
                                         @RenderRowDevbook(entry)
                                     }
+
+                                    @RenderRowBrainNotes(entry)
                                 }
                             </Badges>
                         </TaskBoard>
@@ -619,6 +649,8 @@
                                     {
                                         @RenderRowDevbook(entry)
                                     }
+
+                                    @RenderRowBrainNotes(entry)
                                 }
                             </RowBadges>
                             <AfterOpenRows>
@@ -1303,6 +1335,33 @@
     [Parameter]
     public RenderFragment<EntryRow>? LinkedWork { get; set; }
 
+    /// <summary>
+    /// The owner's Brain notes that name an entry in their <c>tasks</c> field (local
+    /// ADR 0026 §3), asked by the entry's stored id in its lower-case GUID spelling.
+    /// The host's to answer for the reason <see cref="LinkedWork"/> is: the notes are
+    /// the Devbook's, read from the owner's own Brain, and this pane may not reach
+    /// them. Unset, or answering none, a row carries no Brain badge — which is what
+    /// another reader of the same backlog sees (ADR 0027 §6).
+    /// </summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<Backlog.UI.Components.Brain.BrainNoteLink>>? BrainNotesFor { get; set; }
+
+    /// <summary>
+    /// What draws an image an entry names by scheme — <c>scenario:&lt;stem&gt;#&lt;label&gt;</c>,
+    /// a scenario page's screenshot — asked by the repository the entry's references
+    /// resolve against (<see cref="TasksDesktopState.DevbookRepositoryAliasFor"/>). The
+    /// host's for the reason <see cref="OnOpenDevbookReference"/> is: the scenario pages
+    /// and their runs are the Devbook's, and this pane may not reach them. Unset, or
+    /// answering null, every image in an entry renders as it always has.
+    /// </summary>
+    [Parameter]
+    public Func<string?, IDevbookImageSource?>? DevbookImagesFor { get; set; }
+
+    /// <summary>Raised with the note a row's Brain badge opens; the host shows it
+    /// in the Devbook pane, Brain side.</summary>
+    [Parameter]
+    public EventCallback<Backlog.UI.Components.Brain.BrainNoteLink> OnOpenBrainNote { get; set; }
+
     /// <summary>The session opener handed to the link, or none when the host wired
     /// nothing, so an unopenable session is inert text.</summary>
     private EventCallback<IntegrationLinkRef> SessionOpener =>
@@ -1501,24 +1560,29 @@
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(TasksFeatures.AdditionalRepositories);
 
-    /// <summary>The repositories an entry may be filed against. Without the
-    /// additional-repositories feature there is only ever the first one.</summary>
+    /// <summary>The repositories an entry may be filed against: the ones the scope
+    /// offers, so an archived repository only while show archived is on. Without the
+    /// additional-repositories feature there is only ever the default one, the
+    /// first active repository (local ADR 0029).</summary>
     private IReadOnlyList<GitHubRepositoryRef> DevbookRepositories
     {
         get
         {
-            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
+            if (AdditionalRepositoriesEnabled) return State.Repositories;
 
-            var repository = GitHub.Repositories.FirstOrDefault();
+            var repository = GitHub.DefaultRepository;
             return repository is null ? [] : [repository];
         }
     }
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
-        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
+        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.DefaultRepository;
 
+    /// <summary>The repository picker's options. An archived one, offered while show
+    /// archived is on, says so in its label: a native list draws no hint.</summary>
     private IReadOnlyList<SelectorOption> RepositoryOptions() =>
-        [.. DevbookRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
+        [.. DevbookRepositories.Select(repository =>
+            new SelectorOption(repository.Alias, ArchivedRepositoryLabel.Of(repository.Alias, repository.Archived)))];
 
     /// <summary>The split's classes, and with nothing selected the modifier that
     /// gives the list the whole width. A class rather than a different component:
@@ -1625,9 +1689,11 @@
             Source: State.LinkedSources.ToTaskSource(row.SourceRef))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence),
-            // Only while the row is in today's My Day, the same test the sun
-            // beside it passes: a slot in yesterday's plan is no slot today.
-            Agenda = IsInMyDay(row) ? FormatAgenda(row.PreviewAgendaTime) : null
+            // Only while the row was put in My Day today: a slot belongs to the
+            // stamp's day, so a slot in yesterday's plan is no slot today, even on
+            // a task Clear My Day overnight being off has carried into today's list
+            // (local ADR 0032, §5).
+            Agenda = IsPlannedForToday(row) ? FormatAgenda(row.PreviewAgendaTime) : null
         })];
 
     /// <summary>
@@ -1751,7 +1817,7 @@
                 @* The same list, the same resolve and the same write the panel's
                    picker uses, so the additional-repositories feature is honoured
                    here by construction rather than by a second reading of it. *@
-                <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                     Options="@RepositoryOptions()"
                                     Label="@($"Change repository of {title}")"
                                     TestId="row-repo-badge"
@@ -1893,6 +1959,8 @@
                                 Prominent="true"
                                 OnSet="OnBulkMyDaySetAsync"
                                 OnClear="OnBulkMyDayClearAsync"
+                                Busy="@(IsBulkRunning(BulkAct.MyDaySet) || IsBulkRunning(BulkAct.MyDayClear))"
+                                Blocked="@(_bulkRunning is not null)"
                                 TestId="bulk-action-myday" />
                 </TaskActionGroup>
 
@@ -1913,6 +1981,7 @@
                         @if (IsBulkGroupOpen(BulkGroup.Filing))
                         {
                             <span class="backlog-bulk__controls"
+                                  @key="_droppedPicks"
                                   id="@BulkGroupControlsId(BulkGroup.Filing)"
                                   @onkeydown:stopPropagation="true">
                                 <RepositorySelector CurrentValue=""
@@ -1938,6 +2007,7 @@
                     @if (IsBulkGroupOpen(BulkGroup.Classification))
                     {
                         <span class="backlog-bulk__controls"
+                              @key="_droppedPicks"
                               id="@BulkGroupControlsId(BulkGroup.Classification)"
                               @onkeydown:stopPropagation="true">
                             @* Slug is handed over empty rather than left to be derived:
@@ -1985,6 +2055,8 @@
                                            Size="ButtonSize.Small"
                                            AriaLabel="Mark the selected tasks as blocked"
                                            TestId="bulk-blocked-set"
+                                           Busy="@IsBulkRunning(BulkAct.BlockedSet)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkBlockedSetAsync">
                                     Mark as blocked
                                 </AppButton>
@@ -1992,6 +2064,8 @@
                                            Size="ButtonSize.Small"
                                            AriaLabel="Unblock the selected tasks"
                                            TestId="bulk-blocked-clear"
+                                           Busy="@IsBulkRunning(BulkAct.BlockedClear)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkBlockedClearAsync">
                                     Unblock
                                 </AppButton>
@@ -2012,6 +2086,7 @@
                     @if (IsBulkGroupOpen(BulkGroup.Scheduling))
                     {
                         <span class="backlog-bulk__controls"
+                              @key="_droppedPicks"
                               id="@BulkGroupControlsId(BulkGroup.Scheduling)"
                               @onkeydown:stopPropagation="true">
                             @* @onchange rather than ValueChanged, for the reason the
@@ -2037,6 +2112,8 @@
                                            Size="ButtonSize.Small"
                                            AriaLabel="Clear the due date of the selected tasks"
                                            TestId="bulk-due-clear"
+                                           Busy="@IsBulkRunning(BulkAct.DueClear)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkDueClearAsync">
                                     Clear due date
                                 </AppButton>
@@ -2054,6 +2131,8 @@
                                            Size="ButtonSize.Small"
                                            AriaLabel="Clear the reminder on the selected tasks"
                                            TestId="bulk-remind-clear"
+                                           Busy="@IsBulkRunning(BulkAct.ReminderClear)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkReminderClearAsync">
                                     Clear reminder
                                 </AppButton>
@@ -2080,6 +2159,7 @@
                     @if (IsBulkGroupOpen(BulkGroup.Tags))
                     {
                         <span class="backlog-bulk__controls"
+                              @key="_droppedPicks"
                               id="@BulkGroupControlsId(BulkGroup.Tags)"
                               @onkeydown:stopPropagation="true">
                             @* Picked first, applied on the button. Unlike every other
@@ -2100,6 +2180,8 @@
                                 <AppButton Size="ButtonSize.Small"
                                            Disabled="@(_bulkTags.Count == 0)"
                                            TestId="bulk-tags-apply"
+                                           Busy="@IsBulkRunning(BulkAct.AddTags)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkAddTagsAsync">
                                     Add tags
                                 </AppButton>
@@ -2132,6 +2214,8 @@
                                   Label="@($"Delete {State.SelectionCount} {TaskWord(State.SelectionCount)}")"
                                   AriaLabel="@($"Delete the {State.SelectionCount} selected {TaskWord(State.SelectionCount)}")"
                                   TestId="bulk-delete"
+                                  Busy="@IsBulkRunning(BulkAct.Delete)"
+                                  aria-disabled="@BulkBlocked"
                                   OnClick="OnBulkDeleteAsync" />
                 </TaskActionGroup>
             </Groups>
@@ -2277,6 +2361,46 @@
     /// band two lines rather than however many groups a reader has poked.</summary>
     private BulkGroup? _openBulkGroup;
 
+    /// <summary>The bulk acts, so the act a button raises and the act its Busy reads
+    /// are one name rather than two strings that can drift apart. <see cref="Pick"/>
+    /// is any choice from a select or a date field: those show no spinner of their
+    /// own, but they are acts all the same and are blocked like the rest.</summary>
+    private enum BulkAct
+    {
+        Pick,
+        MyDaySet,
+        MyDayClear,
+        BlockedSet,
+        BlockedClear,
+        DueClear,
+        ReminderClear,
+        AddTags,
+        Delete
+    }
+
+    /// <summary>The bulk change being written, or null while none is. Its button
+    /// shows Busy; every other bulk control reads blocked and is ignored.</summary>
+    private BulkAct? _bulkRunning;
+
+    private bool IsBulkRunning(BulkAct act) => _bulkRunning == act;
+
+    /// <summary>
+    /// <c>aria-disabled</c> for every bulk button while a batch is written — the
+    /// running one too, which its Busy says anyway. Not the native <c>disabled</c>:
+    /// a control blocked while busy stays in the tab order
+    /// (interaction-guidelines.md#accessibility, "Tab order").
+    /// </summary>
+    private string? BulkBlocked => _bulkRunning is null ? null : "true";
+
+    /// <summary>
+    /// Counts the picks dropped because a batch was already being written. The
+    /// open group's controls are keyed on it, so a select or a date field whose
+    /// pick was dropped is drawn again showing nothing picked, rather than showing a
+    /// value that was never written (interaction-guidelines.md#press-feedback,
+    /// "No double fire").
+    /// </summary>
+    private int _droppedPicks;
+
     /// <summary>The groups that have controls to open. My Day is not one of them:
     /// it applies on the press, so there is nothing for it to be open
     /// <em>into</em>.</summary>
@@ -2346,13 +2470,13 @@
             ? ApplyBulkAsync(() => State.BulkChangeTypeAsync(type))
             : Task.CompletedTask;
 
-    private Task OnBulkMyDaySetAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(Today));
+    private Task OnBulkMyDaySetAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(Today), act: BulkAct.MyDaySet);
 
-    private Task OnBulkMyDayClearAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(null));
+    private Task OnBulkMyDayClearAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(null), act: BulkAct.MyDayClear);
 
-    private Task OnBulkBlockedSetAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(true, Today));
+    private Task OnBulkBlockedSetAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(true, Today), act: BulkAct.BlockedSet);
 
-    private Task OnBulkBlockedClearAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(false, Today));
+    private Task OnBulkBlockedClearAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(false, Today), act: BulkAct.BlockedClear);
 
     private Task OnBulkDuePickedAsync(ChangeEventArgs e) =>
         DateOnly.TryParseExact(
@@ -2364,7 +2488,7 @@
             ? ApplyBulkAsync(() => State.BulkChangeDueAsync(due))
             : Task.CompletedTask;
 
-    private Task OnBulkDueClearAsync() => ApplyBulkAsync(() => State.BulkChangeDueAsync(null));
+    private Task OnBulkDueClearAsync() => ApplyBulkAsync(() => State.BulkChangeDueAsync(null), act: BulkAct.DueClear);
 
     private Task OnBulkReminderPickedAsync(ChangeEventArgs e) =>
         DateTime.TryParseExact(
@@ -2376,19 +2500,19 @@
             ? ApplyBulkAsync(() => State.BulkChangeReminderAsync(remindAt))
             : Task.CompletedTask;
 
-    private Task OnBulkReminderClearAsync() => ApplyBulkAsync(() => State.BulkChangeReminderAsync(null));
+    private Task OnBulkReminderClearAsync() => ApplyBulkAsync(() => State.BulkChangeReminderAsync(null), act: BulkAct.ReminderClear);
 
     private async Task OnBulkAddTagsAsync()
     {
         var picked = _bulkTags;
 
-        await ApplyBulkAsync(() => State.BulkAddTagsAsync(picked));
+        await ApplyBulkAsync(() => State.BulkAddTagsAsync(picked), act: BulkAct.AddTags);
 
         // Emptied after the write rather than before it, and the reason is that
         // the picked set is what the write is about: the closure above reads it,
         // so clearing first would hand the batch an empty list. Not for the
-        // reader's sake — ApplyBulkAsync closes the group before its first await,
-        // so the chips are off screen either way.
+        // reader's sake — ApplyBulkAsync closes the group once the write is back,
+        // so the chips go off screen with it either way.
         _bulkTags = [];
     }
 
@@ -2398,7 +2522,7 @@
             : ApplyBulkAsync(() => State.BulkRemoveTagAsync(tag));
 
     private Task OnBulkDeleteAsync() =>
-        ApplyBulkAsync(State.BulkDeleteAsync, did: "deleted", none: "No tasks deleted", refused: "could not be deleted");
+        ApplyBulkAsync(State.BulkDeleteAsync, did: "deleted", none: "No tasks deleted", refused: "could not be deleted", act: BulkAct.Delete);
 
     /// <summary>Runs one bulk change and says what it did. Nothing selected says
     /// nothing at all rather than raising a toast about no rows.
@@ -2409,15 +2533,40 @@
         Func<Task<BulkEditOutcome>> change,
         string did = "updated",
         string none = "No tasks changed",
-        string refused = "could not be saved")
+        string refused = "could not be saved",
+        BulkAct act = BulkAct.Pick)
     {
-        // The group that opened these controls has had its answer, so it closes —
-        // the same close-on-commit the detail pane's own date and select handlers
-        // do, and what puts the bar back to one line rather than leaving it on
-        // whatever the reader last touched.
-        _openBulkGroup = null;
+        // One batch at a time: a press — or a pick — while one is being written
+        // is a second press of an act already running, and twenty rows written
+        // twice over is worse than a press that did nothing
+        // (interaction-guidelines.md#press-feedback, "No double fire").
+        if (_bulkRunning is not null)
+        {
+            if (act == BulkAct.Pick) _droppedPicks++;
+            return;
+        }
 
-        var outcome = await change();
+        _bulkRunning = act;
+        var group = _openBulkGroup;
+        BulkEditOutcome outcome;
+        try
+        {
+            outcome = await change();
+        }
+        finally
+        {
+            _bulkRunning = null;
+
+            // The group that opened these controls has had its answer, so it
+            // closes — the same close-on-commit the detail pane's own date and
+            // select handlers do, and what puts the bar back to one line rather
+            // than leaving it on whatever the reader last touched. After the write
+            // rather than before it, so the button pressed stays where it was and
+            // shows its spinner while the rows are written
+            // (interaction-guidelines.md#busy-actions, "Stays in place"); and only
+            // if it is still the open one, since a reader may have opened another.
+            if (_openBulkGroup == group) _openBulkGroup = null;
+        }
 
         if (outcome.Total == 0) return;
 
@@ -2895,20 +3044,14 @@
     private bool MyDayOnly => State.MyDayOn is not null;
 
     /// <summary>How many open entries are in today's My Day, counted off the rows the
-    /// repository scope leaves in view — the same pool the No repo chip counts, so
-    /// neither number changes meaning when a tag or a status is picked. Open, as on a
+    /// repository scope leaves in view — the same pool the Ready in a plan chip counts,
+    /// so neither number changes meaning when a tag or a status is picked. Open, as on a
     /// tag chip's face: a ticked-off entry stays in My Day and stays listed, but it is
     /// no longer something to do. Derived here because this is where the clock is.</summary>
     private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && IsInMyDay(row));
 
-    /// <summary>How many of those same open rows are filed against no repository. It
-    /// is the state that decides what "no repository" means — see
-    /// <c>TasksDesktopState.NoRepositoryOnly</c> — so the count asks it rather than
-    /// working the answer out a second way here.</summary>
-    private int NoRepositoryCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && State.RepositoryFor(row) is null);
-
-    /// <summary>How many of those same rows are ready in a plan. The same
-    /// arrangement as No repo: the state decides, and the count asks it — see
+    /// <summary>How many of those same rows are ready in a plan. The state decides,
+    /// and the count asks it — see
     /// <c>TasksDesktopState.IsReadyInPlan</c>, which already leaves finished rows
     /// out.</summary>
     private int ReadyInPlanCount => State.ScopedRows.Count(State.IsReadyInPlan);
@@ -3181,7 +3324,18 @@
     /// </para>
     /// </summary>
     private RenderFragment RenderBodyViews(EntryRow row) =>
-        @<div class="entry-detail__body">
+        @<CascadingValue TValue="IDevbookImageSource"
+                         Value="@BodyImagesFor(row)"
+                         IsFixed="true">
+        @* A scenario: image in the opening text or a step's note draws the
+           screenshot a chapter would. Cascaded rather than handed to every view, as
+           the Devbook pane does, and fixed for the reason it is: a cascade that is not
+           fixed re-renders every view under it on every render of this pane, and that
+           takes a note being typed with it. What is cascaded is this pane's own
+           stand-in, pointed at the open entry's repository on every render, so an
+           entry from another repository — or a repository resolved late — reaches
+           the views without remounting the editor or the step composer beside them. *@
+        <div class="entry-detail__body">
 
             @* Tabs, not a pressed strip. Two readings of one text, one of them on
                screen at a time and the other reachable by name — that is a tab
@@ -3270,6 +3424,19 @@
                        entry the reader opens, and a half-typed step would follow them to
                        the next one and be committed there — which is what the composer's
                        reset on selection used to prevent. *@
+                    @if (row.StepsViewHidesProse)
+                    {
+                        @* The text an entry opens with, before its first chapter, read
+                           rather than edited: the steps view lists chapters and this
+                           prose is not one, so a view that left it off would make the
+                           entry look like it had lost text. Rendered here, a scenario
+                           image in it shows its screenshot the way a chapter does; the
+                           Markdown tab stays where it is written. *@
+                        <div class="entry-detail__prose" data-testid="entry-view-prose">
+                            <MarkdownView Blocks="@row.PreviewBlocks" />
+                        </div>
+                    }
+
                     <TaskListView @key="row.Key"
                                   Tasks="@StepTasks(row)"
                                   OnToggle="index => OnStepToggledAsync(row, index)"
@@ -3288,24 +3455,6 @@
                                   EmptyMessage=""
                                   TestId="subitem-list" />
 
-                    @if (row.StepsViewHidesProse)
-                    {
-                        @* Said out loud rather than hidden. The steps view lists
-                           chapters, and the prose an entry opens with is not one — so
-                           this view is showing less than the entry holds, and a reader
-                           with no way to know that would read the missing paragraph as
-                           text the app had lost. Quiet, one line, and the block that
-                           does show it is the press at the end of the sentence. *@
-                        <p class="entry-detail__elsewhere" data-testid="entry-view-elsewhere">
-                            <span>There is text on this entry the steps do not show.</span>
-                            <AppButton BaseClass="entry-detail__elsewhere-link"
-                                       Variant="ButtonVariant.None"
-                                       TestId="entry-view-elsewhere-link"
-                                       OnClick="() => State.ChangeViewAsync(row, EntryView.Notes)">
-                                Show the markdown
-                            </AppButton>
-                        </p>
-                    }
                 </TabPanel>
 
                 <TabPanel Id="@NotesViewId"
@@ -3320,7 +3469,7 @@
                        Not the note alone — a writer scoped to the prose half would
                        silently drop a `##` chapter typed into the block, and this block's
                        whole promise is that it is the text. *@
-                    <MarkdownEditor Value="@EntryTextParser.Parse(row.RawText).Body"
+                    <MarkdownEditor Value="@row.PreviewBody"
                                     ValueChanged="body => State.ChangeBody(row, body)"
                                     AriaLabel="Markdown"
                                     ToolbarLabel="Formatting for the entry's markdown"
@@ -3330,7 +3479,33 @@
                                     TestId="entry-body-editor" />
                 </TabPanel>
             </Tabs>
-        </div>;
+        </div>
+        </CascadingValue>;
+
+    private readonly BodyImageSource _bodyImages = new();
+
+    /// <summary>The stand-in the body cascades, pointed at the source for the
+    /// repository the entry's references resolve against — the one its Devbook
+    /// references open in.</summary>
+    private IDevbookImageSource BodyImagesFor(EntryRow row)
+    {
+        _bodyImages.Current = DevbookImagesFor?.Invoke(State.DevbookRepositoryAliasFor(row));
+        return _bodyImages;
+    }
+
+    /// <summary>
+    /// One instance for the pane's lifetime, so the fixed cascade never needs a new
+    /// value: it asks whichever source the open entry's repository has now. With no
+    /// source it declines every image, which leaves every image to the plain rule —
+    /// what an entry's body drew before any source existed.
+    /// </summary>
+    private sealed class BodyImageSource : IDevbookImageSource
+    {
+        public IDevbookImageSource? Current { get; set; }
+
+        public RenderFragment? Image(string target, string caption, string? documentPath) =>
+            Current?.Image(target, caption, documentPath);
+    }
 
     private const string StepsViewId = "steps";
     private const string NotesViewId = "notes";
@@ -3350,13 +3525,25 @@
     /// the nth <c>##</c> chapter. The id is the index, because a step has no
     /// identity of its own in the markdown: it is the chapter written in that
     /// position, which is also why moving one is a rewrite.
+    /// <para>
+    /// Titles and notes come from the row's one reading of its steps
+    /// (<see cref="EntryRow.PreviewStepTexts"/>), read again only when the text
+    /// changes, rather than two passes over the whole text per step per render. A
+    /// step past the end of that reading has no title or notes, which is what the
+    /// per-index reads answer for it.
+    /// </para>
     /// </summary>
-    private IReadOnlyList<TaskRow> StepTasks(EntryRow row) =>
-        [.. Enumerable.Range(0, row.PreviewSubItems.Count).Select(index => new TaskRow(
+    private IReadOnlyList<TaskRow> StepTasks(EntryRow row)
+    {
+        var steps = row.PreviewSubItems;
+        var texts = row.PreviewStepTexts;
+
+        return [.. Enumerable.Range(0, steps.Count).Select(index => new TaskRow(
             index.ToString(CultureInfo.InvariantCulture),
-            EntryTextParser.GetSubItemTitle(row.RawText, index),
-            Done: row.PreviewSubItems[index].Done,
-            Body: EntryTextParser.GetSubItemNote(row.RawText, index) is { Length: > 0 } note ? note : null))];
+            index < texts.Count ? texts[index].Title : string.Empty,
+            Done: steps[index].Done,
+            Body: index < texts.Count && texts[index].Note is { Length: > 0 } note ? note : null))];
+    }
 
     private static int StepIndex(string id) =>
         int.TryParse(id, CultureInfo.InvariantCulture, out var index) ? index : -1;
@@ -3448,7 +3635,7 @@
 
                 @if (DevbookRepositories.Count > 0)
                 {
-                    <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                    <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                         Options="@RepositoryOptions()"
                                         Label="Change repository"
                                         TestId="repo-badge"
@@ -3646,8 +3833,10 @@
                    and borrows My Day's, so outside today's My Day there is nothing
                    for it to be a time of (.devbook/domain/tasks/domain.md#agenda-time).
                    In the lead rather than a group because it is part of the same
-                   morning decision, and it appears only once that decision is made. *@
-                @if (IsInMyDay(row))
+                   morning decision, and it appears only once that decision is made.
+                   Made today: a task carried over from an earlier day is in My Day
+                   with no slot, since its slot was that day's (local ADR 0032, §5). *@
+                @if (IsPlannedForToday(row))
                 {
                     <TaskAction Icon="🕒"
                                 Label="@(row.PreviewAgendaTime is null ? "Set a time" : "Planned for")"
@@ -4070,7 +4259,7 @@
                 {
                     <div class="entry-doc__acceptance">
                         <ScenarioPartChecklist Parts="@ChecklistParts(acceptance)"
-                                               Heading="Acceptance"
+                                               Heading="Acceptance · scenario parts"
                                                ShowProved="true"
                                                OnOpen="@AcceptanceOpener(row)"
                                                TestId="entry-acceptance" />
@@ -4145,6 +4334,13 @@
                aria-label="@DevbookCountLabel(row.DevbookReferences.Count)"
                title="@DevbookCountLabel(row.DevbookReferences.Count)"
                data-testid="entry-devbook-indicator"><span aria-hidden="true">📖 @row.DevbookReferences.Count</span></span>;
+
+    /// <summary>The row's Brain notes as a teal badge, or nothing when the host
+    /// wired no Brain or no note names the entry.</summary>
+    private RenderFragment? RenderRowBrainNotes(EntryRow row) =>
+        BrainNotesFor is not null && row.Id is { } id && BrainNotesFor(id.ToString("D")) is { Count: > 0 } notes
+            ? @<Backlog.UI.Components.Brain.BrainNotesBadge Notes="@notes" OnOpen="OnOpenBrainNote" TestId="entry-brain-notes" />
+            : null;
 
     private static string? DevbookCountLabel(int count) =>
         count switch
@@ -4243,15 +4439,19 @@
             _ => null
         };
 
-    /// <summary>The acceptance checklist's rows: part, state, page, last run.</summary>
+    /// <summary>The acceptance checklist's rows: part, state, the page's stem, last
+    /// run and — for a failed part — the step it stopped on. The stem rather than the
+    /// page title: it is the name the run folder, the spec and every screenshot path
+    /// carry, so the row reads the same as the evidence behind it.</summary>
     private static IReadOnlyList<ScenarioChecklistPart> ChecklistParts(ScenarioAcceptance acceptance) =>
         [
             .. acceptance.Parts.Select(part => new ScenarioChecklistPart(
                 part.Title,
                 part.State.ToWire(),
-                part.PageTitle,
-                part.LastRun is { } ranAt ? $"Ran {ranAt.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)}" : null,
-                part.Reference))
+                part.Stem,
+                part.LastRun is { } ranAt ? ranAt.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture) : null,
+                part.Reference,
+                part.FailedStep))
         ];
 
     /// <summary>Opens a checklist part in the Devbook pane, at the part — or
@@ -4453,11 +4653,18 @@
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
-    /// <summary>An entry is in My Day exactly while its stamp is today's local
-    /// date. A stamp from yesterday is not "in My Day yesterday" — it is simply
-    /// not in My Day, which is what lets the list clear itself overnight with no
-    /// timer and nothing to sweep.</summary>
-    private static bool IsInMyDay(EntryRow row) => row.PreviewInMyDayOn == Today;
+    /// <summary>An entry is in My Day while its stamp is today's local date. A
+    /// stamp from yesterday is not "in My Day yesterday" — with Clear My Day
+    /// overnight on, it is simply not in My Day, which is what lets the list clear
+    /// itself overnight with no timer and nothing to sweep. With it off, an
+    /// unfinished task carries over, as does one finished today. The state holds
+    /// the rule and the switch; this is where the clock is.</summary>
+    private bool IsInMyDay(EntryRow row) => State.IsInMyDay(row, Today);
+
+    /// <summary>Whether the entry was put in My Day today rather than carried
+    /// over: the only case that owns an agenda slot, since a slot belongs to the
+    /// stamp's day (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    private static bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
 
     private async Task OnMyDayToggledAsync(EntryRow row)
     {

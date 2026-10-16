@@ -39,6 +39,19 @@ public static class TaskFold
     /// <inheritdoc cref="RepositoryRegistryType"/>
     public const string GitHubAccountsType = "github-accounts";
 
+    /// <summary>The kind token of a sprint series — Progress's whole series, synced
+    /// between desktops the way the roadmap's plan is. The phone keeps no sprints, so it
+    /// keeps no row for one. A literal duplicated for the reason
+    /// <see cref="CaptureType"/> is.</summary>
+    public const string SprintSeriesType = "sprint-series";
+
+    /// <summary>The kind token of the My Day preferences — Clear My Day overnight, set
+    /// on a desktop (.devbook/arc42/adr/0032). Never a row: the projection keeps the
+    /// document whole beside the rows, as <see cref="MyDayPreferencesDocument"/>. A
+    /// literal duplicated for the reason <see cref="CaptureType"/> is; persisted on
+    /// every replica, so never to be renamed.</summary>
+    public const string MyDayPreferencesType = "my-day-preferences";
+
     /// <summary>Every kind the Tasks tab never lists. A note is the Inbox's, and
     /// <see cref="Notes.NoteFold"/> folds it into its own view.</summary>
     private static readonly HashSet<string> NotTasks = new(StringComparer.OrdinalIgnoreCase)
@@ -49,6 +62,8 @@ public static class TaskFold
         PlanningPaceType,
         RepositoryRegistryType,
         GitHubAccountsType,
+        SprintSeriesType,
+        MyDayPreferencesType,
     };
 
     /// <summary>Folds <paramref name="records"/> into <paramref name="rows"/>, and

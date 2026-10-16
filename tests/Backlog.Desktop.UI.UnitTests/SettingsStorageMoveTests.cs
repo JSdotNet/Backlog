@@ -8,6 +8,7 @@ using Backlog.Modules.Tasks.DomainModels;
 
 using Bunit;
 
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,7 +38,7 @@ public sealed class SettingsStorageMoveTests
         OpenStorageTab(settings.Component);
         var target = Path.Combine(settings.Root, "elsewhere");
 
-        Commit(settings.Component, target);
+        await Commit(settings.Component, target);
 
         Assert.Equal(target, settings.Store.RootDirectory);
         Assert.NotNull(await new SqliteTaskRepository(target).GetAsync(task.Id, TestContext.Current.CancellationToken));
@@ -54,7 +55,7 @@ public sealed class SettingsStorageMoveTests
         await new SqliteTaskRepository(previous).SaveAsync(new TaskItem("Any", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
         OpenStorageTab(settings.Component);
 
-        Commit(settings.Component, Path.Combine(settings.Root, "elsewhere"));
+        await Commit(settings.Component, Path.Combine(settings.Root, "elsewhere"));
 
         var status = Status(settings.Component);
         Assert.Contains("Moved", status, StringComparison.Ordinal);
@@ -78,8 +79,8 @@ public sealed class SettingsStorageMoveTests
 
         var field = settings.Component.Find(StoragePathInput);
         field.Input(target);
-        field.KeyDown("Enter");
-        settings.Component.Find(StoragePathInput).KeyDown("Enter");
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+        await settings.Component.Find(StoragePathInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
 
         Assert.Equal(target, settings.Store.RootDirectory);
         var status = Status(settings.Component);
@@ -113,6 +114,43 @@ public sealed class SettingsStorageMoveTests
         Assert.False(File.Exists(Path.Combine(target, "backlog.db")));
     }
 
+    /// <summary>
+    /// Browse puts the picked folder in the field and nothing more, for the
+    /// reason leaving the field moves nothing: which of Move and Switch applies
+    /// it is still the reader's choice.
+    /// </summary>
+    [Fact]
+    public async Task Browsing_fills_the_field_and_moves_nothing()
+    {
+        var picker = new FixedPicker();
+        using var settings = RenderSettings(picker);
+        var previous = settings.Store.RootDirectory;
+        await new SqliteTaskRepository(previous).SaveAsync(new TaskItem("Stays put", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        OpenStorageTab(settings.Component);
+        picker.Folder = Path.Combine(settings.Root, "picked");
+
+        settings.Component.Find("[data-testid='storage-path-browse']").Click();
+
+        Assert.Equal(picker.Folder, settings.Component.Find(StoragePathInput).GetAttribute("value"));
+        Assert.Equal(previous, settings.Store.RootDirectory);
+        Assert.False(settings.Component.Find(MoveButton).HasAttribute("disabled"));
+
+        await settings.Component.Find(MoveButton).ClickAsync(new());
+
+        Assert.Equal(picker.Folder, settings.Store.RootDirectory);
+    }
+
+    /// <summary>A host with no folder picker draws no Browse, rather than a
+    /// button that can do nothing.</summary>
+    [Fact]
+    public void Without_a_folder_picker_there_is_no_browse()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        Assert.Empty(settings.Component.FindAll("[data-testid='storage-path-browse']"));
+    }
+
     /// <summary>The move has a button of its own, live once the field names
     /// a folder other than the one the app is in. "Move to the default
     /// folder" used to be the only move with a button, and the folder
@@ -130,6 +168,53 @@ public sealed class SettingsStorageMoveTests
         Assert.False(settings.Component.Find(MoveButton).HasAttribute("disabled"));
     }
 
+    /// <summary>
+    /// The copy runs off the UI thread, and until it is done Move is busy and
+    /// the other two say they are blocked - still in the tab order, not
+    /// natively disabled - and a press on any of them changes nothing.
+    /// <para>
+    /// Looked at from inside the renderer's own thread: the move's continuation
+    /// needs that thread, so while the test holds it the move cannot finish, and
+    /// the busy frame is there to be read rather than raced for.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Moving_is_busy_until_the_copy_is_done_and_every_other_press_meanwhile_is_dropped()
+    {
+        using var settings = RenderSettings();
+        var previous = settings.Store.RootDirectory;
+        await new SqliteTaskRepository(previous).SaveAsync(new TaskItem("Any", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        OpenStorageTab(settings.Component);
+        var target = Path.Combine(settings.Root, "elsewhere");
+        settings.Component.Find(StoragePathInput).Input(target);
+
+        Task move = Task.CompletedTask;
+        await settings.Component.InvokeAsync(() =>
+        {
+            move = settings.Component.Find(MoveButton).ClickAsync(new());
+
+            var moving = settings.Component.Find(MoveButton);
+            Assert.Equal("true", moving.GetAttribute("aria-busy"));
+            Assert.False(moving.HasAttribute("disabled"));
+
+            var switching = settings.Component.Find("[data-testid='switch-storage-path']");
+            Assert.Equal("true", switching.GetAttribute("aria-disabled"));
+            Assert.False(switching.HasAttribute("disabled"));
+
+            settings.Component.Find(MoveButton).Click();
+            settings.Component.Find("[data-testid='switch-storage-path']").Click();
+            settings.Component.Find("[data-testid='reset-storage-path']").Click();
+        });
+        await move;
+
+        Assert.Equal(target, settings.Store.RootDirectory);
+        var status = Status(settings.Component);
+        Assert.Contains("Moved", status, StringComparison.Ordinal);
+        Assert.Contains("copied", status, StringComparison.Ordinal);
+        Assert.Null(settings.Component.Find(MoveButton).GetAttribute("aria-busy"));
+        Assert.Null(settings.Component.Find("[data-testid='switch-storage-path']").GetAttribute("aria-disabled"));
+    }
+
     /// <summary>The button that lost the backlog. It is the same move now, with
     /// the default folder typed in for you.</summary>
     [Fact]
@@ -142,7 +227,7 @@ public sealed class SettingsStorageMoveTests
         await new SqliteTaskRepository(elsewhere).SaveAsync(task, TestContext.Current.CancellationToken);
         OpenStorageTab(settings.Component);
 
-        settings.Component.Find("[data-testid='reset-storage-path']").Click();
+        await settings.Component.Find("[data-testid='reset-storage-path']").ClickAsync(new());
 
         Assert.True(settings.Store.IsDefaultRoot);
         Assert.NotNull(await new SqliteTaskRepository(settings.Store.RootDirectory).GetAsync(task.Id, TestContext.Current.CancellationToken));
@@ -161,7 +246,7 @@ public sealed class SettingsStorageMoveTests
         await new SqliteTaskRepository(occupied).SaveAsync(theirs, TestContext.Current.CancellationToken);
         OpenStorageTab(settings.Component);
 
-        Commit(settings.Component, occupied);
+        await Commit(settings.Component, occupied);
 
         Assert.Equal(previous, settings.Store.RootDirectory);
         Assert.Contains("already holds a backlog", Status(settings.Component), StringComparison.Ordinal);
@@ -181,7 +266,7 @@ public sealed class SettingsStorageMoveTests
         var target = Path.Combine(settings.Root, "elsewhere");
 
         settings.Component.Find(StoragePathInput).Input(target);
-        settings.Component.Find("[data-testid='switch-storage-path']").Click();
+        await settings.Component.Find("[data-testid='switch-storage-path']").ClickAsync(new());
 
         Assert.Equal(target, settings.Store.RootDirectory);
         Assert.False(File.Exists(Path.Combine(target, "backlog.db")));
@@ -201,7 +286,7 @@ public sealed class SettingsStorageMoveTests
         // Collapsed, because the note wraps in the markup wherever it wraps
         // and a phrase must not fail for landing on a line break.
         var tab = System.Text.RegularExpressions.Regex.Replace(
-            settings.Component.Find("#tabpanel-storage").TextContent, @"\s+", " ");
+            settings.Component.Find("section[aria-label='Storage settings']").TextContent, @"\s+", " ");
 
         Assert.DoesNotContain("does not copy anything", tab, StringComparison.Ordinal);
         Assert.Contains("copied there", tab, StringComparison.Ordinal);
@@ -221,19 +306,20 @@ public sealed class SettingsStorageMoveTests
 
     /// <summary>Types a folder in and moves to it, the way the screen is
     /// wired: the value follows every keystroke and the button is what
-    /// applies it.</summary>
-    private static void Commit(IRenderedComponent<Settings> component, string path)
+    /// applies it. Awaited, because the move yields once to show its busy
+    /// button before it starts.</summary>
+    private static Task Commit(IRenderedComponent<Settings> component, string path)
     {
         component.Find(StoragePathInput).Input(path);
-        component.Find(MoveButton).Click();
+        return component.Find(MoveButton).ClickAsync(new());
     }
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
+        SettingsMenu.Open(component, "Storage & backup");
 
     /// <summary>Renders the screen over a throwaway workspace with a sync probe
     /// that finds nothing, for the reason SettingsStorageCopyTests gives.</summary>
-    private static SettingsRenderContext RenderSettings()
+    private static SettingsRenderContext RenderSettings(IBrainFolderPicker? picker = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-storage-move-tests", Guid.NewGuid().ToString("n"));
 
@@ -265,8 +351,17 @@ public sealed class SettingsStorageMoveTests
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        if (picker is not null) context.Services.AddSingleton(picker);
 
         return new SettingsRenderContext(root, store, context, context.Render<Settings>());
+    }
+
+    private sealed class FixedPicker : IBrainFolderPicker
+    {
+        public string? Folder { get; set; }
+
+        public Task<string?> PickFolderAsync(string? startFolder, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Folder);
     }
 
     private sealed class NoGitHub : IGitHubClient

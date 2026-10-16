@@ -22,29 +22,7 @@ public sealed class ShellNavigationStoreTests
 
             Assert.Null(store.LastSurface);
             Assert.Equal("Tasks", store.LastView);
-            Assert.Empty(store.LastEnabledPanes);
             Assert.Equal(path, store.SettingsPath);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    [Fact]
-    public void The_last_panes_survive_a_restart()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            var store = new ShellNavigationStore(path);
-
-            store.SetLastPanes(["Devbook"]);
-
-            var restarted = new ShellNavigationStore(path);
-
-            Assert.Equal(["Devbook"], restarted.LastEnabledPanes);
         }
         finally
         {
@@ -54,10 +32,11 @@ public sealed class ShellNavigationStoreTests
 
     /// <summary>
     /// The header used to hold a pin on each pane, and the file carried the pinned
-    /// subset under its own key. Pins are gone — a modifier on the option itself now
-    /// says "this one too" — so a file from before still reads, the open panes come
-    /// back, and the next save writes it without the key rather than carrying dead
-    /// state forward.
+    /// subset under its own key. Pins are gone, and so are the side panes (local ADR
+    /// 0022, amendment of 2026-10-15), so a file from before still reads — the
+    /// Devbook it had open beside the view comes back as the Devbook surface — and
+    /// the next save writes it with neither key rather than carrying dead state
+    /// forward.
     /// </summary>
     [Fact]
     public void A_file_from_before_pins_left_still_reads_and_is_rewritten_without_them()
@@ -77,12 +56,13 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal(["Backlog", "Devbook"], store.LastEnabledPanes);
+            Assert.Equal("Devbook", store.LastSurface);
 
-            store.SetLastPanes(["Devbook"]);
+            store.SetLastView("Board");
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.False(document.RootElement.TryGetProperty("lastPinnedPanes", out _));
+            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
         {
@@ -92,12 +72,13 @@ public sealed class ShellNavigationStoreTests
 
     /// <summary>
     /// The regression this pins: an earlier version of this store wrote the
-    /// surface and the panes through two separate serializations, each holding
+    /// surface and the side panes through two separate serializations, each holding
     /// only its own field — so setting one silently erased whatever the other
-    /// had just remembered. Both have to survive being set in either order.
+    /// had just remembered. The panes are gone; the surface and the view it sits
+    /// over have to survive being set in either order.
     /// </summary>
     [Fact]
-    public void Setting_the_surface_does_not_erase_the_remembered_panes_or_the_reverse()
+    public void Setting_the_surface_does_not_erase_the_remembered_view_or_the_reverse()
     {
         var path = NewSettingsPath();
 
@@ -105,47 +86,25 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
 
-            store.SetLastPanes(["Devbook"]);
+            store.SetLastView("Board");
             store.SetLastSurface("Dashboard");
 
             Assert.Equal("Dashboard", store.LastSurface);
-            Assert.Equal(["Devbook"], store.LastEnabledPanes);
+            Assert.Equal("Board", store.LastView);
 
             var restarted = new ShellNavigationStore(path);
 
             Assert.Equal("Dashboard", restarted.LastSurface);
-            Assert.Equal(["Devbook"], restarted.LastEnabledPanes);
+            Assert.Equal("Board", restarted.LastView);
 
             restarted.SetLastSurface("Workspace");
 
-            Assert.Equal(["Devbook"], restarted.LastEnabledPanes);
+            Assert.Equal("Board", restarted.LastView);
 
             var restartedAgain = new ShellNavigationStore(path);
 
             Assert.Equal("Workspace", restartedAgain.LastSurface);
-            Assert.Equal(["Devbook"], restartedAgain.LastEnabledPanes);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    [Fact]
-    public void Setting_the_same_panes_again_is_a_no_op()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            store.SetLastPanes(["Devbook"]);
-
-            var changes = 0;
-            store.Changed += () => changes++;
-            store.SetLastPanes(["Devbook"]);
-
-            Assert.Equal(0, changes);
+            Assert.Equal("Board", restartedAgain.LastView);
         }
         finally
         {
@@ -234,7 +193,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Null(store.LastSurface);
-            Assert.Empty(store.LastEnabledPanes);
+            Assert.Equal("Tasks", store.LastView);
         }
         finally
         {
@@ -259,7 +218,7 @@ public sealed class ShellNavigationStoreTests
     }
 
     [Fact]
-    public void The_file_holds_the_surface_and_the_panes_under_their_own_keys()
+    public void The_file_holds_the_surface_under_its_own_key_and_no_pane_list()
     {
         var path = NewSettingsPath();
 
@@ -267,14 +226,11 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
             store.SetLastSurface("Tools");
-            store.SetLastPanes(["Backlog", "Devbook"]);
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
 
             Assert.Equal("Tools", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.Equal(
-                ["Backlog", "Devbook"],
-                document.RootElement.GetProperty("lastEnabledPanes").EnumerateArray().Select(e => e.GetString()));
+            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
         {
@@ -298,7 +254,7 @@ public sealed class ShellNavigationStoreTests
             Assert.True(store.RoadmapHoursShown);
 
             store.SetLastSurface("Tools");
-            using (var on = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var on = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(on.RootElement.TryGetProperty("roadmapHoursShown", out _));
             }
@@ -311,6 +267,38 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetRoadmapHoursShown(true);
             Assert.True(new ShellNavigationStore(path).RoadmapHoursShown);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The roadmap's Completed switch shows finished work until somebody turns it off,
+    /// and off survives a restart. Like Hours, the key is written only while it is off.
+    /// </summary>
+    [Fact]
+    public void The_roadmap_completed_switch_is_on_until_turned_off_and_off_survives_a_restart()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.True(store.RoadmapCompletedShown);
+
+            store.SetLastSurface("Tools");
+            using (var on = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(on.RootElement.TryGetProperty("roadmapCompletedShown", out _));
+            }
+
+            store.SetRoadmapCompletedShown(false);
+            Assert.False(new ShellNavigationStore(path).RoadmapCompletedShown);
+
+            store.SetRoadmapCompletedShown(true);
+            Assert.True(new ShellNavigationStore(path).RoadmapCompletedShown);
         }
         finally
         {
@@ -333,13 +321,13 @@ public sealed class ShellNavigationStoreTests
             Assert.False(store.CalendarPlansShown);
 
             store.SetLastSurface("Tools");
-            using (var off = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var off = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(off.RootElement.TryGetProperty("calendarPlansShown", out _));
             }
 
             store.SetCalendarPlansShown(true);
-            using (var on = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var on = JsonDocument.Parse(Written(path)))
             {
                 Assert.True(on.RootElement.GetProperty("calendarPlansShown").GetBoolean());
             }
@@ -397,7 +385,7 @@ public sealed class ShellNavigationStoreTests
             Assert.Empty(store.RoadmapCollapsedGroups);
 
             store.SetLastSurface("Tools");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
             }
@@ -410,7 +398,7 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetRoadmapCollapsedGroups([]);
             Assert.Empty(new ShellNavigationStore(path).RoadmapCollapsedGroups);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
         }
         finally
@@ -431,7 +419,7 @@ public sealed class ShellNavigationStoreTests
             store.SetLastView("Roadmap");
 
             Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
         }
         finally
@@ -456,7 +444,7 @@ public sealed class ShellNavigationStoreTests
             Assert.Equal("Status", store.BoardColumns);
 
             store.SetLastView("Board");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("boardColumns", out _));
             }
@@ -469,7 +457,7 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetBoardColumns("Status");
             Assert.Equal("Status", new ShellNavigationStore(path).BoardColumns);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("boardColumns", out _));
         }
         finally
@@ -493,13 +481,13 @@ public sealed class ShellNavigationStoreTests
             Assert.Equal("Month", store.CalendarRange);
 
             store.SetLastView("Calendar");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("calendarRange", out _));
             }
 
             store.SetCalendarRange("Week");
-            using (var week = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var week = JsonDocument.Parse(Written(path)))
             {
                 Assert.Equal("Week", week.RootElement.GetProperty("calendarRange").GetString());
             }
@@ -510,7 +498,7 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetCalendarRange("Month");
             Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("calendarRange", out _));
         }
         finally
@@ -536,7 +524,7 @@ public sealed class ShellNavigationStoreTests
             Assert.False(store.InProgressIncludeFinishedToday);
 
             store.SetLastView("InProgress");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
                 Assert.False(none.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
@@ -544,7 +532,7 @@ public sealed class ShellNavigationStoreTests
 
             store.SetInProgressNeedsYouFirst(false);
             store.SetInProgressIncludeFinishedToday(true);
-            using (var changed = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var changed = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(changed.RootElement.GetProperty("inProgressNeedsYouFirst").GetBoolean());
                 Assert.True(changed.RootElement.GetProperty("inProgressIncludeFinishedToday").GetBoolean());
@@ -560,7 +548,7 @@ public sealed class ShellNavigationStoreTests
             var restartedAgain = new ShellNavigationStore(path);
             Assert.True(restartedAgain.InProgressNeedsYouFirst);
             Assert.False(restartedAgain.InProgressIncludeFinishedToday);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
             Assert.False(cleared.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
         }
@@ -586,13 +574,13 @@ public sealed class ShellNavigationStoreTests
             Assert.Empty(store.RepositoryScope);
 
             store.SetLastSurface("Tools");
-            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var none = JsonDocument.Parse(Written(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("repositoryScope", out _));
             }
 
             store.SetRepositoryScope(["docs", "backlog"]);
-            using (var scoped = JsonDocument.Parse(File.ReadAllText(path)))
+            using (var scoped = JsonDocument.Parse(Written(path)))
             {
                 Assert.Equal(
                     ["docs", "backlog"],
@@ -604,8 +592,91 @@ public sealed class ShellNavigationStoreTests
 
             restarted.SetRepositoryScope([]);
             Assert.Empty(new ShellNavigationStore(path).RepositoryScope);
-            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            using var cleared = JsonDocument.Parse(Written(path));
             Assert.False(cleared.RootElement.TryGetProperty("repositoryScope", out _));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The Brain rides the scope as its reserved empty value, in its place, through a
+    /// restart (local ADR 0027, §5): the store keeps it as written and never drops it.
+    /// </summary>
+    [Fact]
+    public void The_brain_survives_a_restart_as_the_empty_value_in_its_place()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            store.SetRepositoryScope([BrainScope.Value, "backlog"]);
+
+            using (var scoped = JsonDocument.Parse(Written(path)))
+            {
+                Assert.Equal(
+                    ["", "backlog"],
+                    scoped.RootElement.GetProperty("repositoryScope").EnumerateArray().Select(e => e.GetString()));
+            }
+
+            Assert.Equal([BrainScope.Value, "backlog"], new ShellNavigationStore(path).RepositoryScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The retired "No repo" chip's state, under the name it went by, reopens as the
+    /// Brain alone, whatever scope sat beside it — and the next save writes the old key
+    /// no more.
+    /// </summary>
+    [Fact]
+    public void A_remembered_no_repository_only_state_migrates_to_the_brain()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                {
+                  "lastView": "Tasks",
+                  "repositoryScope": ["backlog"],
+                  "noRepositoryOnly": true
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+            Assert.Equal([BrainScope.Value], store.RepositoryScope);
+
+            store.SetLastView("Board");
+
+            Assert.DoesNotContain("noRepositoryOnly", Written(path), StringComparison.Ordinal);
+            Assert.Equal([BrainScope.Value], new ShellNavigationStore(path).RepositoryScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The old flag turned off is no scope at all: the scope beside it stands.</summary>
+    [Fact]
+    public void A_remembered_no_repository_state_that_was_off_leaves_the_scope_alone()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """{ "repositoryScope": ["backlog"], "noRepositoryOnly": false }""");
+
+            Assert.Equal(["backlog"], new ShellNavigationStore(path).RepositoryScope);
         }
         finally
         {
@@ -643,9 +714,9 @@ public sealed class ShellNavigationStoreTests
             Assert.Empty(store.RepositoryScope);
             Assert.Equal("Plan", store.BoardColumns);
 
-            store.SetLastPanes([]);
+            store.SetLastView("Tasks");
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.False(document.RootElement.TryGetProperty("calendarRange", out _));
             Assert.False(document.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
             Assert.False(document.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
@@ -796,13 +867,12 @@ public sealed class ShellNavigationStoreTests
 
             // The roadmap takeover covered the Inbox pane, so the Inbox was not on
             // screen: it does not become the surface, and leaves the pane list.
-            Assert.Empty(store.LastEnabledPanes);
+            store.SetBoardColumns("Plan");
 
-            store.SetLastPanes(["Devbook"]);
-
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
             Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
+            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
         {
@@ -825,7 +895,7 @@ public sealed class ShellNavigationStoreTests
 
             Assert.Equal("Workspace", store.LastSurface);
             Assert.Equal("Roadmap", store.LastView);
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
         }
         finally
@@ -837,7 +907,9 @@ public sealed class ShellNavigationStoreTests
     /// <summary>
     /// The Inbox was a side pane beside the main view before it took the whole
     /// screen. A file from then with it open over the workspace reopens on the Inbox
-    /// surface, with the view underneath kept, and the pane list loses the name.
+    /// surface, with the view underneath kept, and the pane list loses the name. A
+    /// Devbook open beside it does not win the screen: from when the Inbox took the
+    /// screen until the Devbook did, the Inbox surface covered the Devbook pane.
     /// </summary>
     [Theory]
     [InlineData("\"lastSurface\": \"Workspace\",")]
@@ -861,7 +933,6 @@ public sealed class ShellNavigationStoreTests
 
             Assert.Equal("Inbox", store.LastSurface);
             Assert.Equal("Board", store.LastView);
-            Assert.Equal(["Devbook"], store.LastEnabledPanes);
         }
         finally
         {
@@ -889,7 +960,6 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Equal("Dashboard", store.LastSurface);
-            Assert.Empty(store.LastEnabledPanes);
         }
         finally
         {
@@ -914,11 +984,9 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
             store.SetLastView("Calendar");
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Inbox", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.Equal(
-                ["Devbook"],
-                document.RootElement.GetProperty("lastEnabledPanes").EnumerateArray().Select(e => e.GetString()));
+            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
         {
@@ -943,6 +1011,234 @@ public sealed class ShellNavigationStoreTests
         {
             DeleteSettingsDirectory(path);
         }
+    }
+
+    /// <summary>
+    /// The Devbook was a side pane beside the main view before it took the whole
+    /// screen (local ADR 0022, amendment of 2026-10-15), stored as <c>Devbook</c> or,
+    /// before the context was renamed, <c>Knowledge</c>. A file from then with it
+    /// open over the workspace reopens on the Devbook surface, the view underneath
+    /// kept.
+    /// </summary>
+    [Theory]
+    [InlineData("Devbook", "\"lastSurface\": \"Workspace\",")]
+    [InlineData("Devbook", "")]
+    [InlineData("Knowledge", "\"lastSurface\": \"Workspace\",")]
+    [InlineData("Knowledge", "")]
+    public void A_devbook_pane_open_over_the_workspace_reads_as_the_devbook_surface(string pane, string surfaceLine)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, $$"""
+                {
+                  {{surfaceLine}}
+                  "lastView": "Board",
+                  "lastEnabledPanes": ["{{pane}}"]
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal("Devbook", store.LastSurface);
+            Assert.Equal("Board", store.LastView);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>A takeover stored over the Devbook pane was what the reader saw, so it
+    /// stays the surface — the roadmap takeover as the Roadmap view, as ever.</summary>
+    [Theory]
+    [InlineData("Devbook", "Dashboard", "Dashboard", "Calendar")]
+    [InlineData("Knowledge", "Sessions", "Sessions", "Calendar")]
+    [InlineData("Devbook", "Tools", "Tools", "Calendar")]
+    [InlineData("Knowledge", "Roadmap", "Workspace", "Roadmap")]
+    public void A_devbook_pane_under_another_surface_leaves_that_surface(
+        string pane, string storedSurface, string surface, string view)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, $$"""
+                {
+                  "lastSurface": "{{storedSurface}}",
+                  "lastView": "Calendar",
+                  "lastEnabledPanes": ["{{pane}}"]
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal(surface, store.LastSurface);
+            Assert.Equal(view, store.LastView);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The migration is what the next save writes: the Devbook as the
+    /// surface, and no pane list at all — that key is never written again.</summary>
+    [Fact]
+    public void A_migrated_devbook_pane_is_written_back_as_the_surface_and_the_pane_list_never_again()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                { "lastSurface": "Workspace", "lastEnabledPanes": ["Tasks", "Knowledge"] }
+                """);
+
+            var store = new ShellNavigationStore(path);
+            store.SetLastView("Calendar");
+
+            using var document = JsonDocument.Parse(Written(path));
+            Assert.Equal("Devbook", document.RootElement.GetProperty("lastSurface").GetString());
+            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
+
+            store.SetLastSurface("Workspace");
+
+            using var after = JsonDocument.Parse(Written(path));
+            Assert.Equal("Workspace", after.RootElement.GetProperty("lastSurface").GetString());
+            Assert.False(after.RootElement.TryGetProperty("lastEnabledPanes", out _));
+            Assert.Equal("Workspace", new ShellNavigationStore(path).LastSurface);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void The_devbook_surface_survives_a_restart()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+
+            store.SetLastSurface("Devbook");
+
+            Assert.Equal("Devbook", new ShellNavigationStore(path).LastSurface);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The tools pane's tab and host filter survive a restart, and neither key is
+    /// written until the pane has been on a tab or a filter, so an older file keeps
+    /// its shape.
+    /// </summary>
+    [Fact]
+    public void The_tools_tab_and_host_filter_survive_a_restart_and_write_no_key_until_chosen()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.Null(store.ToolsTab);
+            Assert.Null(store.ToolsHostFilter);
+
+            store.SetLastSurface("Tools");
+            using (var none = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("toolsTab", out _));
+                Assert.False(none.RootElement.TryGetProperty("toolsHostFilter", out _));
+            }
+
+            store.SetToolsTab("checklist");
+            store.SetToolsHostFilter("claude");
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.Equal("checklist", restarted.ToolsTab);
+            Assert.Equal("claude", restarted.ToolsHostFilter);
+            Assert.Equal("Tools", restarted.LastSurface);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The setters are on the click path, so the file is written off it, and a
+    /// burst of presses — the view options pressed in quick succession — still
+    /// leaves the last one on disk, never an earlier one that finished later.
+    /// </summary>
+    [Fact]
+    public void A_burst_of_choices_leaves_the_last_one_written()
+    {
+        var path = NewSettingsPath();
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            string[] views = ["Board", "Calendar", "Roadmap", "InProgress", "Tasks", "Board", "Calendar"];
+
+            foreach (var view in views)
+            {
+                store.SetLastView(view);
+                Assert.Equal(view, store.LastView);
+            }
+
+            store.Flush();
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("Calendar", document.RootElement.GetProperty("lastView").GetString());
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>A shell that remounts — Settings and back — or a second store on
+    /// the same file reads the choice just made, even while its write is still
+    /// in the pool's hands.</summary>
+    [Fact]
+    public void A_store_opened_on_the_path_reads_the_choice_just_made()
+    {
+        var path = NewSettingsPath();
+        try
+        {
+            var store = new ShellNavigationStore(path);
+
+            for (var press = 0; press < 20; press++)
+            {
+                var surface = press % 2 == 0 ? "Sessions" : "Dashboard";
+                store.SetLastSurface(surface);
+
+                Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
+            }
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The file as written once every queued write has landed. The
+    /// setters return before the write, so a test that reads the file rather than
+    /// the properties waits for it first.</summary>
+    internal static string Written(string path)
+    {
+        ShellNavigationStore.WaitForPendingWrites(path);
+        return File.ReadAllText(path);
     }
 
     private static string NewSettingsPath() =>

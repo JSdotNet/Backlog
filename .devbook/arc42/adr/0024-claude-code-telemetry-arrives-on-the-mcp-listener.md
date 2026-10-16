@@ -15,10 +15,10 @@ as a row of `backlog.db`, once per `request_id`.
 ```meta
 ```
 
-Proposed, 2026-10-08, and built in the same change: the `cost-receiver` item of the
-`pr-session-pages-redesign` plan, run unattended. It becomes accepted when the
-repository owner approves that change at its Personal Validation gate, on its draft
-pull request.
+Accepted, 2026-10-14, by the repository owner at the Personal Validation gate of the
+`sessions-chapter-status` item of the `pr-session-pages-redesign` plan. Proposed
+2026-10-08 and built in the same change, the plan's `cost-receiver` item, run
+unattended.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below means
 the local one. It extends ADR 0012 with a second protocol on the same listener, and
@@ -107,8 +107,9 @@ duplicate, because an OTLP exporter retries a batch it did not see acknowledged 
 first copy is the one kept. An api_request without a `request_id` is dropped: it could
 not be told from its own retry.
 
-The table is created by idempotent DDL on every open, as ADR 0003 and ADR 0006 have the
-other tables created. Nothing replicates it.
+The table is created by idempotent DDL on any open whose file is not stamped with the
+store's current schema, as ADR 0003 and ADR 0006 have the other tables created. Nothing
+replicates it.
 
 ### 5. Settings shows what to paste
 

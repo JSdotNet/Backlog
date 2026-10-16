@@ -220,7 +220,8 @@ outstanding as a new entry.
 `task` `!ready` `@repos` `+vscode-desktop-rollout` `id:sign-off-plan` `after:review-plan` `repo:backlog-desktop` `effort:1`
 
 Read the review's outcome. Confirm the plan is complete, or pick up the follow-up entries
-it wrote.
+it wrote. Where the plan landed on a plan branch, merging the closing pull request linked
+here is the confirmation.
 ```
 
 A roadmap-level document is `plan` entries alone, one per feature, ordered by `after:`:

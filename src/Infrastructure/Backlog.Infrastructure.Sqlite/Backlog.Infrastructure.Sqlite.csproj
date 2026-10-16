@@ -2,7 +2,8 @@
 
   <!--
     Cross-cutting SQLite adapter: the canonical local store for Backlog
-    Management's tasks, for Roadmap Planning's stored plan, and for the Inbox's
+    Management's tasks, for Roadmap Planning's stored plan, for Progress's sprint
+    series, and for the Inbox's
     items, lists and groups. Implements ports declared by those modules; no
     module may reference this project except through its own port interfaces.
 
@@ -27,6 +28,9 @@
          module implementation is the normal direction; the module never sees this
          project. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <!-- Progress's ISprintSeriesRepository, answered under Progress/ by the
+         progress_series table in the same database. Same direction. -->
+    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress\Backlog.Modules.Progress.csproj" />
     <!-- The Inbox module's two repository ports, answered under Inbox/ by three
          tables in the same database. Same direction, same reasoning. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />

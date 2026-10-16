@@ -1,12 +1,14 @@
 using System.Net;
 using System.Text.Json;
 
+using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Services;
 using Backlog.Modules.Tasks.DomainModels;
 
@@ -572,6 +574,54 @@ public sealed class TaskSyncWorkerTests
         Assert.Equal("repository-registry", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
     }
 
+    /// <summary>A sprint series changed here is pushed after the same settle delay a
+    /// task write is.</summary>
+    [Fact]
+    public async Task A_sprint_series_change_runs_a_cycle_after_the_settle_delay()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: true, sprints: new RecordingSprintSeriesReplication());
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        fixture.Sprints!.Hold(new SprintSeriesReplicaCopyDto(Guid.NewGuid(), "Platform", "{}", Noon.AddMinutes(1)));
+        fixture.Sprints.RaiseChanged();
+
+        var settled = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay);
+        await settled.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("sprint-series", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
+    }
+
+    /// <summary>"Republish everything" offers every sprint series again too.</summary>
+    [Fact]
+    public async Task Republishing_offers_every_sprint_series_again()
+    {
+        var sprints = new RecordingSprintSeriesReplication();
+        var series = new SprintSeriesReplicaCopyDto(Guid.NewGuid(), "Platform", "{}", Noon);
+        sprints.Hold(series);
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon.AddHours(1), "cursor-1").WithDocumentWatermark(SprintReplicaDocuments.MarkOf(series.Id), Noon),
+            sprints: sprints);
+
+        var caughtUp = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await caughtUp.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        var republished = fixture.NextCycle();
+        fixture.Worker.RepublishEverything();
+        await republished.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(series.Id, Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Id);
+    }
+
     /// <summary>A disposed worker stops listening, so a settings change after the
     /// window closed arms nothing.</summary>
     [Fact]
@@ -584,6 +634,153 @@ public sealed class TaskSyncWorkerTests
 
         Assert.False(github.HasListeners);
     }
+
+    // --- The My Day preferences (local ADR 0032) -------------------------------
+
+    /// <summary>The switch flipped here is pushed after the same settle delay a task
+    /// write is.</summary>
+    [Fact]
+    public async Task A_my_day_preferences_change_runs_a_cycle_after_the_settle_delay()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon, "cursor-1").WithFeedReplay(MyDayReplicaDocuments.PreferencesType),
+            myDay: new RecordingMyDayPreferencesReplication());
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        fixture.MyDay!.Held = new MyDayPreferencesCopyDto("""{"clearsOvernight":false}""", Noon.AddMinutes(1));
+        fixture.MyDay.RaiseChanged();
+
+        var settled = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay);
+        await settled.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("my-day-preferences", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
+    }
+
+    [Fact]
+    public void A_disposed_worker_no_longer_listens_to_my_day_preferences_changes()
+    {
+        var myDay = new RecordingMyDayPreferencesReplication();
+        var fixture = Fixture.Create(featureOn: true, paired: true, myDay: myDay);
+        Assert.True(myDay.HasListeners);
+
+        fixture.Dispose();
+
+        Assert.False(myDay.HasListeners);
+    }
+
+    /// <summary>
+    /// ADR 0032 Verification 10: a device upgraded to a build that knows the
+    /// preferences reads the feed from the start once, so it takes a document its
+    /// cursor had already passed while it skipped the kind. The replay is recorded, so
+    /// it happens once.
+    /// </summary>
+    [Fact]
+    public async Task An_upgraded_device_replays_the_feed_once_and_takes_preferences_its_cursor_had_passed()
+    {
+        var preferences = MyDayReplicaDocuments.ToChange(
+            new MyDayPreferencesCopyDto("""{"clearsOvernight":false}""", Noon.AddHours(-1)));
+        var page = JsonSerializer.Serialize(new
+        {
+            tasks = new[] { new { change = preferences, deviceId = Guid.NewGuid(), serverTimestamp = 100L } },
+            since = "cursor-2",
+            hasMore = false
+        });
+        var myDay = new RecordingMyDayPreferencesReplication();
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon, "cursor-1"),
+            respond: ReplayingFeed(page),
+            myDay: myDay);
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(Noon.AddHours(-1), Assert.Single(myDay.Offered).UpdatedAt);
+        Assert.Equal("cursor-2", fixture.State.Current.PullCursor);
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(MyDayReplicaDocuments.PreferencesType));
+
+        // The next cycle resumes from the cursor: nothing is replayed again.
+        var second = fixture.NextCycle();
+        fixture.Worker.RequestSync();
+        await second.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Single(myDay.Offered);
+    }
+
+    /// <summary>A device that has replayed already — this build, started again — keeps
+    /// its cursor.</summary>
+    [Fact]
+    public async Task A_device_that_has_replayed_keeps_its_cursor_when_it_starts_again()
+    {
+        var myDay = new RecordingMyDayPreferencesReplication();
+        var page = JsonSerializer.Serialize(new
+        {
+            tasks = new[]
+            {
+                new
+                {
+                    change = MyDayReplicaDocuments.ToChange(new MyDayPreferencesCopyDto("{}", Noon)),
+                    deviceId = Guid.NewGuid(),
+                    serverTimestamp = 100L
+                }
+            },
+            since = "cursor-2",
+            hasMore = false
+        });
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon, "cursor-1").WithFeedReplay(MyDayReplicaDocuments.PreferencesType),
+            respond: ReplayingFeed(page),
+            myDay: myDay);
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Empty(myDay.Offered);
+        Assert.Equal("cursor-1", fixture.State.Current.PullCursor);
+    }
+
+    /// <summary>A head that keeps no preferences has nothing to catch up on, and keeps
+    /// its cursor.</summary>
+    [Fact]
+    public async Task A_head_without_the_preferences_port_does_not_replay_the_feed()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon, "cursor-1"),
+            respond: ReplayingFeed("""{"tasks":[],"since":"cursor-2","hasMore":false}"""));
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("cursor-1", fixture.State.Current.PullCursor);
+        Assert.False(fixture.State.Current.HasReplayedFeedFor(MyDayReplicaDocuments.PreferencesType));
+    }
+
+    /// <summary>A replica whose feed is caught up for a pull that carries a cursor and
+    /// answers <paramref name="fromTheStart"/> to one that carries none — the shape the
+    /// rehydrate test uses.</summary>
+    private static Func<HttpRequestMessage, int, HttpResponseMessage> ReplayingFeed(string fromTheStart) =>
+        (request, _) => request.Method == HttpMethod.Post
+            ? StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}""")
+            : request.RequestUri!.Query.Contains("since=", StringComparison.Ordinal)
+                ? StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"tasks":[],"since":"cursor-1","hasMore":false}""")
+                : StubHttpMessageHandler.Json(HttpStatusCode.OK, fromTheStart);
 
     /// <summary>"Republish everything" offers the roadmap's documents again too.</summary>
     [Fact]
@@ -861,13 +1058,17 @@ public sealed class TaskSyncWorkerTests
             List<string> pushedBodies,
             RecordingRoadmapReplication? roadmap,
             RecordingGitHubSettingsReplication? github,
-            TokenPipeline? tokens)
+            TokenPipeline? tokens,
+            RecordingSprintSeriesReplication? sprints,
+            RecordingMyDayPreferencesReplication? myDay)
         {
             _http = http;
             _repository = repository;
             _tokens = tokens;
             Roadmap = roadmap;
             GitHub = github;
+            Sprints = sprints;
+            MyDay = myDay;
 
             Handler = handler;
             Tasks = tasks;
@@ -886,10 +1087,20 @@ public sealed class TaskSyncWorkerTests
                 clock,
                 changes: Changes,
                 roadmap: roadmap,
-                github: github);
+                github: github,
+                sprints: sprints,
+                myDay: myDay);
         }
 
         public TaskSyncWorker Worker { get; }
+
+        /// <summary>The My Day preferences port, where a test composed one, handed to the
+        /// merge, the session and the worker alike.</summary>
+        public RecordingMyDayPreferencesReplication? MyDay { get; }
+
+        /// <summary>Progress's replication port, where a test composed one, handed to the
+        /// merge, the session and the worker alike.</summary>
+        public RecordingSprintSeriesReplication? Sprints { get; }
 
         /// <summary>The GitHub settings replication port, where a test composed one,
         /// handed to the merge, the session and the worker alike.</summary>
@@ -943,7 +1154,9 @@ public sealed class TaskSyncWorkerTests
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
             RecordingRoadmapReplication? roadmap = null,
             bool authenticated = false,
-            RecordingGitHubSettingsReplication? github = null)
+            RecordingGitHubSettingsReplication? github = null,
+            RecordingSprintSeriesReplication? sprints = null,
+            RecordingMyDayPreferencesReplication? myDay = null)
         {
             var tasks = new InMemoryTaskStore();
             seed?.Invoke(tasks);
@@ -1008,7 +1221,9 @@ public sealed class TaskSyncWorkerTests
                 pushedBodies,
                 roadmap,
                 github,
-                tokens);
+                tokens,
+                sprints,
+                myDay);
         }
 
         /// <summary>
@@ -1067,13 +1282,15 @@ public sealed class TaskSyncWorkerTests
 
             return new TaskSyncSession(
                 new TaskSyncClient(_http),
-                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub),
+                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub, sprints: Sprints, myDay: MyDay),
                 _repository,
                 State,
                 Credentials,
                 Clock,
                 roadmap: Roadmap,
-                github: GitHub);
+                github: GitHub,
+                sprints: Sprints,
+                myDay: MyDay);
         }
     }
 

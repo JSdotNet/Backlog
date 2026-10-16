@@ -33,6 +33,16 @@ public sealed record DevbookNodeRow(
 /// endpoints and the type, and nothing joins on it.</summary>
 public sealed record DevbookEdgeRow(string Id, string Type, string Source, string Target);
 
+/// <summary>One edge a Brain note draws into a repository devbook, with the
+/// note it comes from: <see cref="SourceType"/> is <c>file</c> or <c>chapter</c>,
+/// <see cref="NotePath"/> the file the source is in, <see cref="SourceLabel"/>
+/// the source node's label and <see cref="NoteTitle"/> the file's title.</summary>
+public sealed record DevbookRepoLinkRow(string Type, string Source, string Target, string SourceType, string NotePath, string? SourceLabel, string? NoteTitle);
+
+/// <summary>One value of a Brain note's <c>tasks</c> field, as written, with the
+/// file it is in and the file's title.</summary>
+public sealed record DevbookTaskLinkRow(string NotePath, string Value, string? NoteTitle);
+
 /// <summary>One row of <c>node_attribute</c> — a list-valued field of a
 /// <c>meta</c> block flattened to one row per value.</summary>
 public sealed record DevbookNodeAttributeRow(string NodeId, string Name, string Value);

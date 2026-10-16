@@ -49,20 +49,21 @@ related: [".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-deve
 The distribution unit for every agent, skill, hook, and MCP server this
 repository uses.
 
-- **Used for** — three marketplaces: `JSdotNet/devbook` (`jsdotnet-devbook`)
-  for the delivery engine, its schedules and surfaces, and the devbook
-  convention; `JSdotNet/ai-plugins` for the specialist agents the delivery roles
-  bind to; and this repository itself for
-  [`backlog-tools`](#backlog-tools-plugin). `.claude/settings.json` declares the
-  `jsdotnet-devbook` marketplace and enables `delivery`, `delivery-schedule`,
-  and `devbook` for everyone who opens the repository; the surfaces,
-  `devbook-config`, and the `JSdotNet/ai-plugins` agents are installed per
-  machine.
-- **Not used** — `devbook-derived` from the same marketplace: local ADR 0004
-  keeps the derived layer a build output, so nothing under `_meta/` is
-  committed. The earlier `knowledge-base` and `claude-desktop` plugins are gone
-  from the repository and from every instruction file. `devbook-procedures` is
-  gone too: devbook 1.19.0 folded it into the `devbook` plugin.
+- **Used for** — three marketplaces:
+  - `JSdotNet/devbook` (`jsdotnet-devbook`), for the delivery engine, its
+    schedules and surfaces, and the devbook convention;
+  - `JSdotNet/ai-plugins`, for the specialist agents the delivery roles bind to;
+  - this repository itself, for [`backlog-tools`](#backlog-tools-plugin).
+
+  `.claude/settings.json` declares the `jsdotnet-devbook` marketplace and
+  enables `delivery`, `delivery-schedule`, and `devbook` for everyone who opens
+  the repository. The surfaces, `devbook-config`, and the `JSdotNet/ai-plugins`
+  agents are installed per machine.
+- **Not used** — `devbook-derived` from the same marketplace, because local ADR
+  0004 keeps the derived layer a build output and nothing under `_meta/` is
+  committed. Neither the `knowledge-base` nor the `claude-desktop` plugin appears
+  in the repository or in any instruction file. `devbook-procedures` is
+  [retired](#devbook-procedures).
 - **Known gap** — `.tools/ai-tools.json` still records the retired
   `JSdotNet/Copilot` marketplace and its plugin set, not the three above. It is
   the stale inventory, not a description of what runs.
@@ -81,10 +82,10 @@ related: [".devbook/tech/ai-development.md#repository-instruction-files"]
 `SKILL.md` — a Markdown file with YAML front matter, loaded on demand by name.
 
 - **Used for** — the plugin-provided `flow-*`, `phase-*`, and `schedule-*`
-  skills; the repository-owned procedures (the `run` recipe at
-  `.claude/skills/run-backlog/SKILL.md`, and `capture`, `diagnose`, and
-  `estimate` under `.agents/skills/`) with their wrappers; the five Aspire
-  skills beside them; and the `update-devbook-index` command.
+  skills, and the repository-owned procedures with their wrappers. The `run`
+  recipe is at `.claude/skills/run-backlog/SKILL.md`; `capture`, `diagnose`, and
+  `estimate` are under `.agents/skills/`. The `update-devbook-index` command sits
+  beside them.
 - **Why** — a skill is loaded only when its name is invoked, so a large body of
   procedure costs nothing until it is needed.
 
@@ -126,8 +127,7 @@ through, and the stack config they read.
   beside them. Its release is stamped under `components.delivery` in
   `.devbook/config.json`. The same file holds the tracker binding, the policy,
   and one `phases` map per flow, which names the agent, skill, MCP servers, or
-  app each phase uses. Delivery 1.18.0 wrote those maps from the earlier
-  `extensions`, `delivery.roles`, and `delivery.mcp` keys.
+  app each phase uses.
 - **Why** — one engine for every change, configured by the repository rather
   than rewritten in it.
 
@@ -225,10 +225,11 @@ related: [".devbook/tech/tooling.md#powershell", ".devbook/tech/shared.md#nodejs
 Deterministic commands the harness runs around a session event or a tool call.
 
 - **Used for** — the hooks the enabled plugins ship; `.claude/settings.json`
-  registers none of its own. What each one does, and at which stage, is recorded as a
-  `hook` chapter in the adoption record.
-- **Why** — a hook executes whether or not the model decides to; anything that
-  must happen every time belongs here rather than in an instruction file.
+  registers none of its own. The adoption record keeps a `hook` chapter for each
+  one, saying what it does and at which stage.
+- **Why** — a hook executes whether or not the model decides to. Why that
+  matters is the adoption record's concept
+  [Deterministic where it must happen](../ai/concepts.md#deterministic-where-it-must-happen).
 
 ## Backlog Tools Plugin
 
@@ -237,15 +238,17 @@ status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#claude-code-hooks"]
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
-version: "0.11.2"
+version: "0.17.0"
 ```
 
 This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manifest.
 
-- **Used for** — five skills (`import-plan`, `run-plan-item`, `execute-plan`,
-  `import-inbox`, `handle-remarks`) and two hooks (the plan-item nudge and the telemetry
-  forwarder). Installed on demand from this repository as a marketplace; see
-  its `README.md`.
+- **Used for** — five skills: `import-plan`, `run-plan-item`, `execute-plan`,
+  `import-inbox`, and `handle-remarks`. It also ships three hooks: the plan-item
+  nudge, the telemetry forwarder, and the function-hook module
+  `hooks/register.tsx`, which draws the plan-progress band and pane. It is
+  installed on demand from this repository as a marketplace; see its
+  `README.md`.
 - **Why** — the skills speak Backlog's own entry grammar and MCP tools, so they
   ship with the product rather than in a general-purpose marketplace.
 
@@ -256,21 +259,24 @@ status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/shared.md#nodejs"]
 related: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/shared.md#net-aspire", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
-version: "1.19.0"
-date: 2026-10-06
+version: "1.24.0"
+date: 2026-10-13
 ```
 
 The `devbook` plugin from `JSdotNet/devbook`, which owns the devbook folder
 convention this repository follows and the repository procedures.
 
-- **Used for** — all five folders under `.devbook/` at contract 29; the folder
-  rules installed as `.agents/rules/devbook-*.md` with a wrapper per host; the
-  checker at `.devbook/_tools/devbook-meta/` and the inventory scripts at
-  `.devbook/_tools/devbook-tech/`; and the chapter skills (`validate`,
-  `capture-specs`, `apply-change`, `verify-change`, `prose-check`,
-  `tech-update`). Its release, contract, adopted folders, materialized files,
-  and migration ledger are stamped under `components.devbook` in
-  `.devbook/config.json`.
+- **Used for** — all five folders under `.devbook/` at contract 30, and:
+  - the folder rules installed as `.agents/rules/devbook-*.md`, with a wrapper
+    per host;
+  - the checker at `.devbook/_tools/devbook-meta/`, the inventory scripts at
+    `.devbook/_tools/devbook-tech/`, and the scenario tools at
+    `.devbook/_tools/scenarios/`;
+  - the chapter skills `validate`, `capture-specs`, `apply-change`,
+    `verify-change`, `prose-check`, and `tech-update`.
+
+  Its release, contract, adopted folders, materialized files, and migration
+  ledger are stamped under `components.devbook` in `.devbook/config.json`.
 - **Procedures** — `run`, `capture`, `diagnose`, and `estimate`, listed under
   `components.devbook.procedures`. Each one has a body this repository wrote from
   what it actually does, and a managed wrapper per host that the plugin
@@ -299,10 +305,10 @@ date: 2026-10-06
 The `devbook-config` plugin: the owner of `.devbook/config.json` as a whole and
 of the personal overlay beside it.
 
-- **Used for** — `update` moved this repository's stack forward and fanned out
-  to each component's own update; `doctor` reads every stamp against the disk;
-  `adoption` checks the `ai/` record against what is installed; `local` writes
-  the per-machine overlay outside the clone.
+- **Used for** — four skills. `update` moved this repository's stack forward and
+  fanned out to each component's own update. `doctor` reads every stamp against
+  the disk. `adoption` checks the `ai/` record against what is installed.
+  `local` writes the per-machine overlay outside the clone.
 - **Why** — one skill reads every component's stamp, so no single component has
   to know about the others.
 

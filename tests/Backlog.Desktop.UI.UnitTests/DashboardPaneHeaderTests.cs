@@ -125,6 +125,34 @@ public sealed class DashboardPaneHeaderTests
             Assert.Equal("9 pull requests merged, 0% came back", pane.Find("#dashboard-title").TextContent.Trim()));
     }
 
+    /// <summary>A tab left while its sentence was still being read never takes the header
+    /// of the tab chosen next: QA kept "No unit verified yet, 11 drift issues open" on the
+    /// Cost tab when Devbook answered after Cost had.</summary>
+    [Fact]
+    public async Task A_sentence_read_for_a_tab_already_left_never_reaches_the_header()
+    {
+        var drift = new DeferredDrift();
+        using var context = Context(services =>
+        {
+            services.AddSingleton<IDriftInsights>(drift);
+            services.AddSingleton<ICostInsights>(new ProjectedCost());
+        });
+
+        var pane = context.Render<DashboardPane>();
+        pane.Find("[data-testid='dashboard-tab-devbook']").Click();
+        pane.Find("[data-testid='dashboard-tab-cost']").Click();
+        pane.WaitForAssertion(() =>
+            Assert.Equal("€212 this month, heading for €312", pane.Find("#dashboard-title").TextContent.Trim()));
+
+        await pane.InvokeAsync(() => drift.Answer(new DriftInsight([], [new DriftIssue("backlog", 1, "[Devbook drift] x", "u", false)], null)));
+        // The late read resumes on the renderer's queue, behind the answer: one more turn
+        // of that queue lets it land before the header is read.
+        await pane.InvokeAsync(() => { });
+
+        Assert.Equal("Dashboard · Cost", pane.Find(".dashboard-panel__eyebrow").TextContent.Trim());
+        Assert.Equal("€212 this month, heading for €312", pane.Find("#dashboard-title").TextContent.Trim());
+    }
+
     /// <summary>On the Devbook tab the window and the machine reach nothing, and the
     /// header says so beside two disabled controls; on any other tab both come back
     /// (AC3).</summary>
@@ -172,7 +200,7 @@ public sealed class DashboardPaneHeaderTests
     [Fact]
     public void At_phone_width_the_strip_scrolls_in_one_row_and_the_tasks_split_does_not_clip()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         var strip = Block(css, ".dashboard-tabs__strip {");
         Assert.Contains("overflow-x: auto;", strip, StringComparison.Ordinal);
@@ -195,7 +223,7 @@ public sealed class DashboardPaneHeaderTests
     [Fact]
     public void The_tab_strip_contains_its_absolutely_positioned_screen_reader_text()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         var strip = Block(css, ".dashboard-tabs__strip {");
         Assert.Contains("position: relative;", strip, StringComparison.Ordinal);
@@ -232,14 +260,14 @@ public sealed class DashboardPaneHeaderTests
     [Fact]
     public void The_heatmap_legend_and_the_more_fold_title_wrap_at_phone_width()
     {
-        var app = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var dashboard = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
         var components = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
 
         var item = Block(components, ".metric-heatmap__legend-item {");
         Assert.DoesNotContain("white-space: nowrap;", item, StringComparison.Ordinal);
         Assert.Contains("min-width: 0;", item, StringComparison.Ordinal);
 
-        var title = Block(app, ".dashboard-section__more-title {");
+        var title = Block(dashboard, ".dashboard-section__more-title {");
         Assert.Contains("overflow-wrap: anywhere;", title, StringComparison.Ordinal);
         Assert.Contains("min-width: 0;", title, StringComparison.Ordinal);
     }
@@ -254,13 +282,13 @@ public sealed class DashboardPaneHeaderTests
     [Fact]
     public void The_dashboard_more_fold_label_wraps_and_other_folds_keep_theirs()
     {
-        var app = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var dashboard = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
         var components = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
 
-        var label = Block(app, ".dashboard-section__more .fold__label {");
+        var label = Block(dashboard, ".dashboard-section__more .fold__label {");
         Assert.Contains("white-space: normal;", label, StringComparison.Ordinal);
         Assert.Contains("overflow-wrap: anywhere;", label, StringComparison.Ordinal);
-        Assert.Contains("max-width: 100%;", Block(app, ".dashboard-section__more .fold__trigger {"), StringComparison.Ordinal);
+        Assert.Contains("max-width: 100%;", Block(dashboard, ".dashboard-section__more .fold__trigger {"), StringComparison.Ordinal);
 
         Assert.Contains("white-space: nowrap;", Block(components, ".fold__label {\n    min-width: 0;\n    overflow: hidden;"), StringComparison.Ordinal);
 
@@ -302,6 +330,57 @@ public sealed class DashboardPaneHeaderTests
 
         var end = css.IndexOf('}', start);
         return css[start..(end + 1)];
+    }
+
+    /// <summary>A drift read that answers only when the test says so, the way a slow
+    /// devbook read does in the harness.</summary>
+    private sealed class DeferredDrift : IDriftInsights
+    {
+        private readonly TaskCompletionSource<InsightResult<DriftInsight>> _answer = new();
+
+        public Task<InsightResult<DriftInsight>> GetDriftAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
+            _answer.Task;
+
+        public void Answer(DriftInsight drift) => _answer.SetResult(InsightResult<DriftInsight>.Ready(drift));
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    /// <summary>One provider's projection, read at once; every other cost figure is
+    /// unavailable, which the Cost tab's parts say for themselves.</summary>
+    private sealed class ProjectedCost : ICostInsights
+    {
+        public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendProjectionInsight>.Ready(new SpendProjectionInsight(
+            [
+                new SpendProjection(
+                    SpendProvider.AzureFoundry,
+                    new DashboardMoney(212m, "EUR"),
+                    new DashboardMoney(1m, "EUR"),
+                    new DashboardMoney(312m, "EUR"),
+                    null,
+                    new DateOnly(2026, 10, 12),
+                    19,
+                    IsEstimate: false)
+            ])));
+
+        public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendThisMonthInsight>.Unavailable("Not configured."));
+
+        public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByModelInsight>.Unavailable("Not configured."));
+
+        public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByDayInsight>.Unavailable("Not configured."));
+
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable("Not configured."));
+
+        public void Invalidate()
+        {
+        }
     }
 
     private sealed class Scopes(ProductivityHeadline? headline = null) : IProductivityInsights

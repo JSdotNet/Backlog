@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -86,6 +86,12 @@ public sealed class DesktopCompositionOptions
     /// <see cref="WorkingHoursSettingsStore"/>.</summary>
     public required Func<IServiceProvider, PlanningVelocitySettingsStore> PlanningVelocitySettings { get; init; }
 
+    /// <summary>The person's My Day preferences — Clear My Day overnight — which the
+    /// Tasks screens read and the task feed carries between desktops (local ADR 0032).
+    /// The per-user file in the installed app; one under the content root in the
+    /// harness, so a switch flipped there is not the installed app's.</summary>
+    public required Func<IServiceProvider, MyDayPreferencesStore> MyDayPreferences { get; init; }
+
     /// <summary>Which surface the shell was last showing.</summary>
     public required Func<IServiceProvider, ShellNavigationStore> ShellNavigation { get; init; }
 
@@ -130,6 +136,12 @@ public sealed class DesktopCompositionOptions
     /// <summary>Dev PC Management's tools adapter: the full one that runs the CLIs
     /// in the installed app, the catalog-only one in the harness.</summary>
     public required Func<IServiceProvider, IDevToolService> DevToolService { get; init; }
+
+    /// <summary>Where the Brain folder setting is kept (local ADR 0026): the
+    /// per-user file beside the workspace settings in the installed app; one under
+    /// the content root in the harness, so a folder picked there is not the
+    /// installed app's.</summary>
+    public required Func<IServiceProvider, BrainSettingsStore> BrainSettings { get; init; }
 
     /// <summary>What opens a devbook folder in an editor.</summary>
     public required Func<IServiceProvider, IFolderEditorLauncher> FolderEditorLauncher { get; init; }

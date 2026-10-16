@@ -25,7 +25,7 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
     private static readonly DateOnly Thursday24September = new(2026, 9, 24);
 
     /// <summary>
-    /// ADR 0019 Verification 23, and requirement "A day head is a toggle": pressing a
+    /// ADR 0019 Verification 31, and requirement "A day head is a toggle": pressing a
     /// worked day's head inside an effort-placed window blocks the date, and the bar
     /// lengthens by one worked date without a reload — the pace changed, and the band
     /// re-reads on that as it does for a typed pace.
@@ -126,6 +126,80 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
         Assert.Equal("0h", HoursLine(band, PaceToday));
         Assert.Equal("8.5h", HoursLine(band, Monday28September));
         Assert.EndsWith(" · 8.5h", DayHead(band, Monday28September).GetAttribute("title"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// ADR 0019 Verification 27, "Actual hours move nothing": adding a stretch to a past
+    /// date changes no bar and no measured pace.
+    /// <para>
+    /// The band is the one place the actual hours and the placement meet — it reads both
+    /// ports, and the pace service has no actual-hours input at all — so the proof is
+    /// here, over both paths that place the bars again once the stretches exist: an open
+    /// band that already shows them redrawing for a task change (the reload reads the
+    /// pace and lays the plan out again, with the hours already held), and a band opened
+    /// fresh over them (the first layout, the paces read again from scratch). Each must
+    /// draw the window and the measured pace a band over no stretches drew. Showing the
+    /// hours alone, as a switch off and on does, would recompute nothing and prove
+    /// nothing.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Actual_hours_added_to_a_past_date_move_no_bar_and_no_measured_pace()
+    {
+        Configure("JSdotNet/Backlog");
+        Finished.Add(new CompletedEffortDto(PaceToday, 28) { RepositoryAliases = ["backlog"] }); // 14 a week
+        var plan = await ImportedAsync("plan-a");
+        ActualHours.Answer = new Dictionary<DateOnly, TimeSpan>();
+
+        using var context = GatheringContext(14);
+        var band = Drawn(context, PaceToday);
+
+        // The baseline: a band over no stretches at all, every past head at "0h".
+        band.WaitForAssertion(() =>
+        {
+            Assert.Equal("0h", HoursLine(band, Thursday24September));
+            Assert.Equal("true", MeasuredPace(band).GetAttribute("aria-pressed"));
+        });
+        var baseline = Placed(band, plan.Id);
+
+        // 14 points at the measured 14 a week: one working week, Friday 25 September to
+        // Thursday 1 October.
+        Assert.Equal((plan.Start, 7), baseline.Window);
+        Assert.Equal("14", baseline.Pace);
+        Assert.Contains("Placing at 14 pt/wk", baseline.Hint, StringComparison.Ordinal);
+
+        // Stretches land on two past dates, and the open band reads them.
+        ActualHours.Answer = new Dictionary<DateOnly, TimeSpan>
+        {
+            [Thursday24September] = TimeSpan.FromHours(6.2),
+            [Thursday24September.AddDays(-3)] = TimeSpan.FromHours(9)
+        };
+        HoursSwitch(band).Click();
+        HoursSwitch(band).Click();
+        band.WaitForAssertion(() => Assert.Equal("6.2h", HoursLine(band, Thursday24September)));
+
+        // A task change makes the open band read the paces and place the plan again, now
+        // with the stretches in hand. Wait for that layout to land, not just to start.
+        var rendersBefore = band.RenderCount;
+        var readsBefore = ReadsOfFinished;
+        WorkChanges.Raise();
+        band.WaitForAssertion(() =>
+        {
+            Assert.True(ReadsOfFinished > readsBefore, "The reload never read the paces.");
+            Assert.True(band.RenderCount > rendersBefore, "The reload never drew.");
+        });
+
+        Assert.Equal(baseline, Placed(band, plan.Id));
+        Assert.Equal("true", MeasuredPace(band).GetAttribute("aria-pressed"));
+        Assert.Equal("6.2h", HoursLine(band, Thursday24September));
+
+        // A band opened fresh over the stretches lays the plan out from scratch.
+        using var reopened = GatheringContext(14);
+        var fresh = Drawn(reopened, PaceToday);
+        fresh.WaitForAssertion(() => Assert.Equal("6.2h", HoursLine(fresh, Thursday24September)));
+
+        Assert.Equal(baseline, Placed(fresh, plan.Id));
+        Assert.Equal("true", MeasuredPace(fresh).GetAttribute("aria-pressed"));
     }
 
     /// <summary>The actual hours are read once the plan is drawn and again when the pace
@@ -263,6 +337,25 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
     /// <summary>The Hours switch on the toolbar.</summary>
     private static AngleSharp.Dom.IElement HoursSwitch(IRenderedComponent<RoadmapBand> band) =>
         band.Find("[data-testid='roadmap-band-hours'] button[role='switch']");
+
+    /// <summary>The backlog band's pace slider, its thumb at the pace in use.</summary>
+    private static AngleSharp.Dom.IElement PaceSlider(IRenderedComponent<RoadmapBand> band) =>
+        band.Find("input[data-testid='roadmap-pace-slider-backlog']");
+
+    /// <summary>The backlog band's "Measured", pressed while the measured pace places it.</summary>
+    private static AngleSharp.Dom.IElement MeasuredPace(IRenderedComponent<RoadmapBand> band) =>
+        band.Find("[data-testid='roadmap-pace-measured-backlog']");
+
+    /// <summary>The backlog band's info mark: the effort managed and what places the lane.</summary>
+    private static string PaceHint(IRenderedComponent<RoadmapBand> band) =>
+        band.Find("[data-testid='roadmap-pace-hint-text-backlog']").TextContent;
+
+    /// <summary>What actual hours must never move: where the chart draws an item, and the
+    /// backlog band's pace in use and what its info mark says places the lane.</summary>
+    private static ((DateOnly Start, int Days) Window, string? Pace, string Hint) Placed(
+        IRenderedComponent<RoadmapBand> band,
+        Guid itemId) =>
+        (DrawnWindow(band, itemId), PaceSlider(band).GetAttribute("value"), PaceHint(band));
 
     /// <summary>Where the chart draws an item: the first day of its first bar and how
     /// many days its bars cover.</summary>

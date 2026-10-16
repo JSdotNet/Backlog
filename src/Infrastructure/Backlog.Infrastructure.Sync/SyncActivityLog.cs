@@ -29,6 +29,14 @@ public enum SyncItemKind
 
     /// <summary>A note: the one Inbox item that syncs both ways with the phone.</summary>
     Note,
+
+    /// <summary>A sprint series: its cadence, its sprints and what each holds, as one
+    /// whole document.</summary>
+    SprintSeries,
+
+    /// <summary>The My Day preferences: the Clear My Day overnight switch, as one whole
+    /// document (local ADR 0032).</summary>
+    MyDayPreferences,
 }
 
 /// <summary>
@@ -104,9 +112,10 @@ public sealed class SyncActivityLog
         _time = time ?? TimeProvider.System;
     }
 
-    /// <summary>Raised after every entry, on the recording thread. A renderer
-    /// subscribing to it has to marshal, the way it does for the workers'
-    /// <c>Changed</c>.</summary>
+    /// <summary>Raised after every <see cref="Record(SyncActivityEntry)"/>, and
+    /// once after every <see cref="RecordRange"/> that held anything, on the
+    /// recording thread. A renderer subscribing to it has to marshal, the way it
+    /// does for the workers' <c>Changed</c>.</summary>
     public event Action? Changed;
 
     /// <summary>How many entries are held right now, capped at
@@ -121,19 +130,68 @@ public sealed class SyncActivityLog
 
     /// <summary>Records one document's move, stamped now.</summary>
     public void Record(SyncDirection direction, SyncItemKind kind, string id, string title, string? note = null) =>
-        Record(new SyncActivityEntry(_time.GetUtcNow(), direction, kind, id, title, note));
+        Record(Entry(direction, kind, id, title, note));
 
     /// <summary>Records one document's move, stamped by the caller.</summary>
     public void Record(SyncActivityEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
 
+        lock (_gate) Keep(entry);
+
+        Write(entry);
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Records a batch or a page of moves, in order, as if each had been passed
+    /// to <see cref="Record(SyncActivityEntry)"/> in turn — one logger line each,
+    /// the last read back first — but raises <see cref="Changed"/> once, and not
+    /// at all for an empty batch.
+    /// <para>
+    /// Once because the footer is the subscriber, and every <c>Changed</c> has it
+    /// copy the whole window and redraw: a first sync recording two hundred
+    /// documents one at a time was two hundred redraws of a list nobody had time
+    /// to read.
+    /// </para>
+    /// </summary>
+    public void RecordRange(IEnumerable<SyncActivityEntry> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+
+        // Copied before the lock: the enumeration is the caller's and may be a
+        // query, and a null found half way would leave half a batch kept.
+        SyncActivityEntry[] batch = [.. entries];
+
+        if (batch.Length == 0) return;
+        foreach (var entry in batch) ArgumentNullException.ThrowIfNull(entry, nameof(entries));
+
         lock (_gate)
         {
-            _entries.AddFirst(entry);
-            if (_entries.Count > Capacity) _entries.RemoveLast();
+            foreach (var entry in batch) Keep(entry);
         }
 
+        foreach (var entry in batch) Write(entry);
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>An entry for one document's move, stamped now by this log's
+    /// clock, for a caller collecting a batch to pass to
+    /// <see cref="RecordRange"/>. Builds the entry; records nothing.</summary>
+    public SyncActivityEntry Entry(SyncDirection direction, SyncItemKind kind, string id, string title, string? note = null) =>
+        new(_time.GetUtcNow(), direction, kind, id, title, note);
+
+    /// <summary>Puts one entry on top of the window and lets the oldest go.
+    /// Called under the lock.</summary>
+    private void Keep(SyncActivityEntry entry)
+    {
+        _entries.AddFirst(entry);
+        if (_entries.Count > Capacity) _entries.RemoveLast();
+    }
+
+    private void Write(SyncActivityEntry entry) =>
         // Information rather than Debug: this is the line the feature exists to
         // write, and a level nobody sees by default would leave the dashboard
         // with the counts and nothing else. The title goes in quoted because a
@@ -145,9 +203,6 @@ public sealed class SyncActivityLog
             entry.Id,
             entry.Title,
             entry.Note is null ? string.Empty : $" ({entry.Note})");
-
-        Changed?.Invoke();
-    }
 
     /// <summary>The entries held, newest first, as a copy the caller may keep
     /// while more arrive.</summary>

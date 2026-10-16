@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Sessions.UI.Extensions;
+using Backlog.UI.Components.Settings;
 
 using Bunit;
 
@@ -76,6 +77,63 @@ public sealed class ClaudeCodeTelemetrySettingsTests
         Assert.Equal("http://127.0.0.1:5757/v1/logs", env.GetProperty("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT").GetString());
         Assert.Equal("Authorization=Bearer t", env.GetProperty("OTEL_EXPORTER_OTLP_LOGS_HEADERS").GetString());
         Assert.False(env.TryGetProperty("OTEL_EXPORTER_OTLP_HEADERS", out _));
+    }
+
+    /// <summary>Without it Claude Code redacts <c>agent.name</c>, no request can be told
+    /// to a stage's sub-agent, and a stage could be priced from its main loop alone.</summary>
+    [Fact]
+    public void The_settings_block_asks_for_the_tool_details_that_name_each_requests_sub_agent()
+    {
+        foreach (var token in new[] { "t", null })
+        {
+            using var document = JsonDocument.Parse(ClaudeCodeTelemetrySnippet.Settings(new Uri("http://127.0.0.1:5757/v1/logs"), token));
+
+            Assert.Equal("1", document.RootElement.GetProperty("env").GetProperty("OTEL_LOG_TOOL_DETAILS").GetString());
+        }
+
+        using var context = new BunitContext();
+        var page = Render(context);
+
+        Assert.Contains("OTEL_LOG_TOOL_DETAILS", page.Find("[data-testid='claude-code-telemetry-settings']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("OTEL_LOG_TOOL_DETAILS", page.Markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>Inside the settings frame the page writes its own sentence over the
+    /// title the frame would otherwise show.</summary>
+    [Fact]
+    public void The_page_supplies_its_headline_to_the_frame()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var frame = context.Render<SettingsFrame>(parameters => parameters
+            .Add(f => f.Title, "Claude Code")
+            .AddChildContent<ClaudeCodeTelemetrySettings>());
+
+        Assert.Equal(
+            "How Claude Code reports what each session cost.",
+            frame.Find("[data-testid='settings-headline']").TextContent.Trim());
+    }
+
+    /// <summary>The page draws one card, the one its section declares, and the card's
+    /// heading still names the endpoint and the settings block under it.</summary>
+    [Fact]
+    public void The_card_on_the_page_is_the_one_its_section_declares()
+    {
+        var services = new ServiceCollection();
+        services.AddSessionsSettings();
+        var section = services.Select(d => d.ImplementationInstance).OfType<SettingsSection>().Single(s => s.Id == "claude-code");
+
+        using var context = new BunitContext();
+        var page = Render(context);
+
+        Assert.Equal(["Cost from Claude Code"], section.CardTitles!);
+        Assert.Equal(section.CardTitles!, page.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()));
+
+        var card = page.Find("section.settings-card[data-testid='claude-code-telemetry-card']");
+        Assert.Equal("claude-code-telemetry-title", card.GetAttribute("aria-labelledby"));
+        Assert.NotNull(card.QuerySelector("[data-testid='claude-code-telemetry-endpoint']"));
+        Assert.NotNull(card.QuerySelector("[data-testid='claude-code-telemetry-settings']"));
     }
 
     [Fact]

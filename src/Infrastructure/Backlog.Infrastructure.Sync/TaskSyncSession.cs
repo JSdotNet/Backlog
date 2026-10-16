@@ -1,9 +1,11 @@
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.SharedKernel.Results;
 
@@ -62,6 +64,8 @@ public sealed class TaskSyncSession
     private readonly IRoadmapReplication? _roadmap;
     private readonly IGitHubSettingsReplication? _github;
     private readonly IInboxNoteReplication? _notes;
+    private readonly ISprintSeriesReplication? _sprints;
+    private readonly IMyDayPreferencesReplication? _myDay;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -79,6 +83,11 @@ public sealed class TaskSyncSession
     /// <param name="github">Where the repository registry and the GitHub accounts are
     /// read from for the push (local ADR 0021), or null on a head that keeps no GitHub
     /// settings. Optional for the same reason.</param>
+    /// <param name="sprints">Where every sprint series is read from for the push, or
+    /// null on a head without Progress. Optional for the same reason.</param>
+    /// <param name="myDay">Where the My Day preferences are read from for the push
+    /// (local ADR 0032), or null on a head that keeps none. Optional for the same
+    /// reason.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -90,7 +99,9 @@ public sealed class TaskSyncSession
         SyncActivityLog? activity = null,
         IRoadmapReplication? roadmap = null,
         IGitHubSettingsReplication? github = null,
-        IInboxNoteReplication? notes = null)
+        IInboxNoteReplication? notes = null,
+        ISprintSeriesReplication? sprints = null,
+        IMyDayPreferencesReplication? myDay = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -110,6 +121,8 @@ public sealed class TaskSyncSession
         _roadmap = roadmap;
         _github = github;
         _notes = notes;
+        _sprints = sprints;
+        _myDay = myDay;
     }
 
     /// <summary>
@@ -145,7 +158,9 @@ public sealed class TaskSyncSession
         var state = _state.Current;
         if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
 
-        _state.Save(new TaskSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
+        // The feed replays are kept: starting over reads the new owner's feed from the
+        // start anyway, so each is as done for it as it was for the old one.
+        _state.Save(new TaskSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId) { FeedReplays = state.FeedReplays });
     }
 
     /// <summary>
@@ -196,7 +211,8 @@ public sealed class TaskSyncSession
     /// <b>Last, the roadmap's two documents</b> (local ADR 0018): the plan and the
     /// pace, each sent whole when its stamp is later than the one this device last
     /// had accepted for it — see <see cref="PushRoadmapAsync"/>. A device that never
-    /// saved either sends nothing.
+    /// saved either sends nothing. Then the GitHub settings' two, and every sprint
+    /// series, on the same terms with a mark per series.
     /// </para>
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
@@ -238,14 +254,12 @@ public sealed class TaskSyncSession
             // shortfall on every line, because the response cannot say which of
             // them stayed behind; the all-or-nothing echo is the case that
             // happens on every cycle, and it is listed nowhere.
-            if (response.Value.Accepted > 0)
+            // One RecordRange per batch, so the footer redraws once per request.
+            if (response.Value.Accepted > 0 && _activity is { } activity)
             {
-                foreach (var task in batch)
-                {
-                    _activity?.Record(
-                        SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
-                        SentNote(task.DeletedAt is null ? null : "deleted", refusedInBatch, batch.Count));
-                }
+                activity.RecordRange(batch.Select(task => activity.Entry(
+                    SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+                    SentNote(task.DeletedAt is null ? null : "deleted", refusedInBatch, batch.Count))));
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, task => task.UpdatedAt) is { } advanced)
@@ -284,17 +298,11 @@ public sealed class TaskSyncSession
 
                 pushed += response.Value.Accepted;
 
-                foreach (var ack in batch)
+                if (_activity is { } activity)
                 {
-                    if (IsNoteAcknowledgement(ack))
-                    {
-                        _activity?.Record(
-                            SyncDirection.Sent, SyncItemKind.Note, ack.CaptureId.ToString("D"), ack.Title, "archived");
-                        continue;
-                    }
-
-                    _activity?.Record(
-                        SyncDirection.Sent, SyncItemKind.Capture, ack.CaptureId.ToString("D"), ack.Title, "acknowledged");
+                    activity.RecordRange(batch.Select(ack => IsNoteAcknowledgement(ack)
+                        ? activity.Entry(SyncDirection.Sent, SyncItemKind.Note, ack.CaptureId.ToString("D"), ack.Title, "archived")
+                        : activity.Entry(SyncDirection.Sent, SyncItemKind.Capture, ack.CaptureId.ToString("D"), ack.Title, "acknowledged")));
                 }
 
                 await _outbox
@@ -321,8 +329,44 @@ public sealed class TaskSyncSession
             refused += documents.Value.Refused;
         }
 
+        if (_sprints is not null)
+        {
+            var documents = await PushSprintSeriesAsync(_sprints, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
+        if (_myDay is not null)
+        {
+            var documents = await PushMyDayPreferencesAsync(_myDay, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
         return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
+
+    /// <summary>
+    /// Sends the My Day preferences as one whole document when their stamp is later
+    /// than the one this device last had accepted (local ADR 0032, §3) — on the terms
+    /// <see cref="PushRoadmapAsync"/> gives for the roadmap's, the kind token as the
+    /// mark. A device that never set the switch has no document and sends nothing, so a
+    /// newly paired desktop takes the other's choice rather than the default.
+    /// </summary>
+    private Task<Result<(int Pushed, int Refused)>> PushMyDayPreferencesAsync(
+        IMyDayPreferencesReplication myDay,
+        CancellationToken cancellationToken) =>
+        PushWholeDocumentsAsync(
+            new[] { MyDayReplicaDocuments.PreferencesType },
+            async _ => await myDay.ReadAsync(cancellationToken).ConfigureAwait(false) is { } copy
+                ? MyDayReplicaDocuments.ToChange(copy)
+                : null,
+            SyncItemKind.MyDayPreferences,
+            cancellationToken);
 
     /// <summary>
     /// Sends the roadmap plan and the planning pace, each as one whole document, when
@@ -355,16 +399,19 @@ public sealed class TaskSyncSession
             cancellationToken);
 
     /// <summary>
-    /// The loop both kinds of whole document share: one request per document whose
-    /// copy is later than its mark, the mark moved past whatever was offered, and the
-    /// accepted and refused counts kept apart. <paramref name="read"/> answers the
-    /// document as a change, or null for one this device never saved.
+    /// The loop every kind of whole document shares — the roadmap's, the GitHub
+    /// settings' and the sprint series: one request per document whose copy is later
+    /// than its mark, the mark moved past whatever was offered, and the accepted and
+    /// refused counts kept apart. <paramref name="read"/> answers the document as a
+    /// change, or null for one this device never saved. <paramref name="markOf"/> names
+    /// the mark where a kind has many documents; without it the kind token is the mark.
     /// </summary>
     private async Task<Result<(int Pushed, int Refused)>> PushWholeDocumentsAsync<TDocument>(
         IEnumerable<TDocument> documents,
         Func<TDocument, Task<TaskChange?>> read,
         SyncItemKind itemKind,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<TaskChange, string>? markOf = null)
     {
         var pushed = 0;
         var refused = 0;
@@ -373,7 +420,9 @@ public sealed class TaskSyncSession
         {
             if (await read(document).ConfigureAwait(false) is not { } change) continue;
 
-            var kind = change.Task.Type;
+            // Keyed by the kind token where a kind has one document, and by whatever
+            // the caller names where it has many.
+            var kind = markOf?.Invoke(change) ?? change.Task.Type;
             if (_state.Current.DocumentWatermark(kind) is { } sent && change.UpdatedAt <= sent) continue;
 
             var response = await _client.PushAsync([change], cancellationToken).ConfigureAwait(false);
@@ -414,6 +463,27 @@ public sealed class TaskSyncSession
                 : null,
             SyncItemKind.GitHubSettings,
             cancellationToken);
+
+    /// <summary>
+    /// Sends every sprint series, each as one whole document, when its stamp is later
+    /// than the one this device last had accepted for that series — on the terms
+    /// <see cref="PushRoadmapAsync"/> gives for the roadmap's, with a mark per series
+    /// rather than per kind, because each series is a document of its own. A device
+    /// that never set up a series sends nothing.
+    /// </summary>
+    private async Task<Result<(int Pushed, int Refused)>> PushSprintSeriesAsync(
+        ISprintSeriesReplication sprints,
+        CancellationToken cancellationToken)
+    {
+        var held = await sprints.ReadAllAsync(cancellationToken).ConfigureAwait(false);
+
+        return await PushWholeDocumentsAsync(
+            held,
+            copy => Task.FromResult<TaskChange?>(SprintReplicaDocuments.ToChange(copy)),
+            SyncItemKind.SprintSeries,
+            cancellationToken,
+            change => SprintReplicaDocuments.MarkOf(change.Id)).ConfigureAwait(false);
+    }
 
     /// <summary>The note a sent task's log line carries: what was already known
     /// about it, and — when the replica took the batch only in part — how much
@@ -586,12 +656,10 @@ public sealed class TaskSyncSession
 
             pushed += response.Value.Accepted;
 
-            if (response.Value.Accepted > 0)
+            if (response.Value.Accepted > 0 && _activity is { } activity)
             {
-                foreach (var note in batch)
-                {
-                    _activity?.Record(SyncDirection.Sent, SyncItemKind.Note, note.Id.ToString("D"), note.Title);
-                }
+                activity.RecordRange(batch.Select(note => activity.Entry(
+                    SyncDirection.Sent, SyncItemKind.Note, note.Id.ToString("D"), note.Title)));
             }
 
             await notes.MarkPushedAsync(batch, cancellationToken).ConfigureAwait(false);

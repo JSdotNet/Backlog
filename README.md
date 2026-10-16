@@ -93,11 +93,13 @@ references it. A module with a desktop face owns a `.UI` project beside its othe
 projects — `src/Modules/Inbox/Backlog.Modules.Inbox.UI` and its siblings — so a
 context's screens ship with the context instead of inside the shell.
 
-`Sync` is the one module that is not a bounded context from
-[`.devbook/domain/context-map.md`](.devbook/domain/context-map.md). It owns no domain — it
-pairs devices and carries between them the replicas other contexts sync: tasks, session
-records, devbook annotations, and Inbox captures with their attachments. If it ever grows
-rules of its own, it needs an entry in the context map before it grows projects.
+`Sync` is the Sync bounded context in
+[`.devbook/domain/context-map.md`](.devbook/domain/context-map.md), described in
+[`.devbook/domain/sync/context.md`](.devbook/domain/sync/context.md). It owns the devices,
+their pairing and the owner-scoped replicas, and carries between devices the documents
+other contexts sync: tasks, session records, devbook annotations, and Inbox captures with
+their attachments. It never reads what those documents say; their meaning stays with
+the context that wrote them.
 
 Development-time hosts live under `src/Harness/` so runnable project hosts stay below
 `src/`, and automated test projects live in `tests/`.
@@ -122,6 +124,9 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap` | Roadmap module — the plan and its items, the sequencing rules between them, and the `IRoadmapPlanRepository` port |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions` | The Roadmap module's published surface — the plan DTOs, `IRoadmapPlanning`, and `RoadmapFeatures` |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
+| `src/Modules/Progress/Backlog.Modules.Progress` | Progress module — the sprint series and their sprints, the series assignment and sprint progress services, and the `ISprintSeriesRepository` port |
+| `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `ISprintPullRequestReader` ports, and `ProgressFeatures` |
+| `src/Modules/Progress/Backlog.Modules.Progress.UI` | Progress's desktop face — today the `ProgressOnly` switch every sprint screen is drawn under |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions` | Sessions' published surface — the session record, its states and groupings, and the `IAgentSessionSource` port |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions' desktop face — the full-screen session list over the readers `Backlog.Infrastructure.Sessions` provides |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.Abstractions` | Dev PC Management's published surface — `DevPcFeatures` and the types its screens exchange |
@@ -129,10 +134,10 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard` | Dashboard module — the derivations behind the dashboard: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
-| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local store, one SQLite database holding the tasks behind `ITaskRepository` and the roadmap plan behind `IRoadmapPlanRepository` as a single document row. Two tables with an owner each: they share the file, not the schema. See [ADR 0003](.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
+| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local store, one SQLite database holding the tasks behind `ITaskRepository`, the roadmap plan behind `IRoadmapPlanRepository` as a single document row, and the sprint series behind `ISprintSeriesRepository` as a document row each. Tables with an owner each: they share the file, not the schema. See [ADR 0003](.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
 | `src/Infrastructure/Backlog.Infrastructure.Devbook` | Cross-cutting adapter — the generated devbook database: the reference graph, reading outline, chapter text, full-text index and Archify rows. The app builds it itself, one per repository path, into its own storage rather than any repository, and every read degrades to the Markdown rather than failing. See [ADR 0004](.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md) and [ADR 0015](.devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md) |
 | `src/Infrastructure/Backlog.Infrastructure.DevPc` | Dev PC Management's adapter — the one `IDevToolService` both hosts compose: the desktop app runs the Copilot, Claude, dotnet and winget CLIs through it, and the web harness uses its catalog-only configuration, which reads the catalog JSON and starts no process. The command lines it runs and the refresh ordering live beside it |
-| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IDevbookFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins, which are lookups rather than storage |
+| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IDevbookFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins and Progress's read of a sprint's tasks, which are lookups rather than storage |
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
@@ -168,7 +173,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Modules.Sync.Api.UnitTests` | Unit tests for the sync service's endpoints — tasks, sessions, annotations, attachments, captures, device pairing, and authentication |
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
-| `tests/Backlog.Modules.Sessions.UnitTests` | Unit tests for the Sessions module — the grouping, views and environments, delivery-run merging, the Sessions pane and its run stages and diagram, the economics page, the Ask AI source, and the two settings pages |
+| `tests/Backlog.Modules.Progress.UnitTests` | Unit tests for the Progress module — one per sprint series invariant, the sprint progress reading, and the published ports behind the `progress` switch |
+| `tests/Backlog.Modules.Sessions.UnitTests` | Unit tests for the Sessions module — the grouping, views and environments, delivery-run merging, the Sessions pane and its run stages, the economics page, the Ask AI source, and the two settings pages |
 | `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite store — round-tripping a task aggregate and rank order, and round-tripping the roadmap plan document, its `updated_at` stamp, and the two tables coexisting in one file |
 | `tests/Backlog.Infrastructure.Devbook.UnitTests` | Unit tests for the devbook database — every rung of the degradation ladder, the scope projection, and the cross-language schema contract, whose fixtures are built from the writer's own DDL text so the two languages cannot drift apart silently |
 | `tests/Backlog.Infrastructure.DevPc.UnitTests` | Unit tests for the tools adapter and the catalog it reads — the command lines, the catalog merge, the Claude desktop config, the version comparison and the plugin cache |
@@ -202,6 +208,7 @@ rather than a folder inside the shell. The split follows
 | `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks — the task pane and its GitHub and Copilot CLI projections |
 | `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning — the forward plan, as a band above the panes |
+| `src/Modules/Progress/Backlog.Modules.Progress.UI` | Progress — the sprints a set of repositories works in. Reads tasks only through a port its own module publishes; draws nothing while the `progress` switch is off |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | Dashboard — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management — the tools surface: plugins, repository tools, and MCP servers |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions — what the coding agents have been doing on this PC. Reads the profile; writes nothing |

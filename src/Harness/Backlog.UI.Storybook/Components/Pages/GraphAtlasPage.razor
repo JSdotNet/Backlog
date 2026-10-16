@@ -40,6 +40,34 @@
                     IndexLabel="Tones" />
     </Story>
 
+    @*
+        An edge may carry words and a dash, both the host's. The app's Brain atlas
+        writes a repository alias on each link into a repository devbook and
+        dashes the ones this machine cannot follow; here a supplier is written on
+        each delivery and a supplier who has stopped delivering is dashed.
+    *@
+    <Story Name="Labelled and dashed edges"
+           Description="An edge's label is drawn at the middle of its curve, on a wash of the surface so it reads over the lines behind it, and only for an edge not dimmed by a selection elsewhere. A dashed edge is one the host says cannot be followed; the node at its end is a hollow ring, so the dash is not the only thing saying so."
+           Code="@LabelledCode">
+        <GraphAtlas Title="Kitchen — who delivers what"
+                    Description="Suppliers on the deliveries, dashed where the supplier has stopped."
+                    Data="DeliveryModel"
+                    Nodes="DeliveryNodes"
+                    AriaLabel="Kitchen deliveries atlas"
+                    IndexLabel="Deliveries" />
+    </Story>
+
+    <Story Name="Crowded edge labels"
+           Description="A crowded layout — eight nodes in two groups, most of them linked and every edge labelled — where the middle of a curve often falls on a node's label or on another edge's. An edge's label then steps along its curve, or just above or below it, to the first seat that overlaps nothing; an edge with no free seat goes unlabelled, because the node labels are what the reader navigates by. Selecting a node shows only its own edges' labels, which then have room."
+           Code="@LabelledCode">
+        <GraphAtlas Title="Market — who trades with whom"
+                    Description="Eight stalls in two halls, each edge labelled with its two stalls."
+                    Data="CrowdedModel"
+                    Nodes="CrowdedNodes"
+                    AriaLabel="Market trades atlas"
+                    IndexLabel="Stalls" />
+    </Story>
+
     <Story Name="Nothing to draw"
            Description="An empty model is a sentence, not a blank canvas. The message is the caller's, because only the caller knows what is missing."
            Code="@EmptyCode">
@@ -331,6 +359,112 @@
             volume.Shelf,
             LibraryInDegree(volume.Id),
             LibraryOutDegree(volume.Id)))
+    ];
+
+    private sealed record Delivery(string Source, string Target, string Supplier, bool Stopped);
+
+    private static readonly Delivery[] Deliveries =
+    [
+        new("pantry", "flour", "Mill & Co", false),
+        new("pantry", "sugar", "Mill & Co", false),
+        new("dairy", "butter", "Green Farm", false),
+        new("dairy", "eggs", "Old Coop", true)
+    ];
+
+    private static readonly (string Id, string Label, string Group, string Tone)[] DeliveryStops =
+    [
+        ("pantry", "Pantry", "Kitchen", "active"),
+        ("dairy", "Dairy fridge", "Kitchen", "active"),
+        ("flour", "Flour", "Suppliers", "active"),
+        ("sugar", "Sugar", "Suppliers", "active"),
+        ("butter", "Butter", "Suppliers", "active"),
+        ("eggs", "Eggs", "Suppliers", "")
+    ];
+
+    private static readonly object DeliveryModel = new
+    {
+        nodes = DeliveryStops.Select((stop, index) => new
+        {
+            id = stop.Id,
+            label = stop.Label,
+            kind = "stop",
+            status = string.Empty,
+            toneSlug = stop.Tone,
+            group = stop.Group,
+            groupIndex = stop.Group == "Kitchen" ? 0 : 1,
+            ordinal = index,
+            inDegree = Deliveries.Count(edge => edge.Target == stop.Id),
+            outDegree = Deliveries.Count(edge => edge.Source == stop.Id)
+        }).ToArray(),
+        edges = Deliveries.Select(edge => new { source = edge.Source, target = edge.Target, label = edge.Supplier, dashed = edge.Stopped }).ToArray(),
+        emptyMessage = "No deliveries were handed over."
+    };
+
+    private static readonly IReadOnlyList<GraphAtlasNode> DeliveryNodes =
+    [
+        .. DeliveryStops.Select(stop => new GraphAtlasNode(
+            stop.Id,
+            stop.Label,
+            "stop",
+            string.Empty,
+            stop.Tone,
+            stop.Group,
+            Deliveries.Count(edge => edge.Target == stop.Id),
+            Deliveries.Count(edge => edge.Source == stop.Id)))
+    ];
+
+    private const string LabelledCode = """
+        // label and dashed are optional on every edge; an edge without them draws
+        // as it always did.
+        edges = new[]
+        {
+            new { source = "pantry", target = "flour", label = "Mill & Co", dashed = false },
+            new { source = "dairy", target = "eggs", label = "Old Coop", dashed = true }
+        }
+        """;
+
+    // Two halls, most stalls trading with most others: a flat, crowded layout
+    // where the middle of many curves lands on a node's own label.
+    private static readonly string[] Stalls = ["Bakery", "Butcher", "Cheese", "Fish", "Greens", "Spices", "Tea", "Wine"];
+
+    private static readonly (string Source, string Target, string Label)[] Trades =
+    [
+        .. Stalls.SelectMany((source, from) => Stalls
+            .Select((target, to) => (from, to, target))
+            .Where(pair => pair.to > pair.from && (pair.to - pair.from) % 3 != 0)
+            .Select(pair => (source.ToLowerInvariant(), pair.target.ToLowerInvariant(), $"{source[..2]}→{pair.target[..2]}")))
+    ];
+
+    private static readonly object CrowdedModel = new
+    {
+        nodes = Stalls.Select((stall, index) => new
+        {
+            id = stall.ToLowerInvariant(),
+            label = stall,
+            kind = "stall",
+            status = string.Empty,
+            toneSlug = "active",
+            group = index % 2 == 0 ? "Market" : "Hall",
+            groupIndex = index % 2,
+            ordinal = index,
+            inDegree = Trades.Count(trade => trade.Target == stall.ToLowerInvariant()),
+            outDegree = Trades.Count(trade => trade.Source == stall.ToLowerInvariant())
+        }).ToArray(),
+        edges = Trades.Select(trade => new { source = trade.Source, target = trade.Target, label = trade.Label, dashed = false }).ToArray(),
+        emptyMessage = "No trades were handed over."
+    };
+
+    private static readonly IReadOnlyList<GraphAtlasNode> CrowdedNodes =
+    [
+        .. Stalls.Select((stall, index) => new GraphAtlasNode(
+            stall.ToLowerInvariant(),
+            stall,
+            "stall",
+            string.Empty,
+            "active",
+            index % 2 == 0 ? "Market" : "Hall",
+            Trades.Count(trade => trade.Target == stall.ToLowerInvariant()),
+            Trades.Count(trade => trade.Source == stall.ToLowerInvariant())))
     ];
 
     private static readonly object EmptyModel = new

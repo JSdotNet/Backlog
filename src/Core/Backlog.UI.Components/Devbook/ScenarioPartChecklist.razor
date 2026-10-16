@@ -1,17 +1,18 @@
 @*
     Scenario parts as a checklist: one row per part with the four-state dot, the
-    part, the page it belongs to and when it last ran, under a count of how many
-    pass. What a task shows as its acceptance evidence, and what a delivery run
-    shows against the verify stage that ran them.
+    part, and under it a quiet line naming the page by its stem and when it last ran — and,
+    for a failed part, the step it stopped on — under a count of how many pass.
+    What a task shows as its acceptance evidence, and what a delivery run shows
+    against the verify stage that ran them.
 
     The dot is the Devbook pane's own (ScenarioStateDot), told apart by shape
     as well as colour and named to a screen reader, so a part reads the same in the
     knowledge view, on a task and on a run.
 
-    "Proved" is said only when the host asks for it (ShowProved) and every part
-    passed — a part that passed on a page edited since is stale, not passed, so the
-    host has already folded the signature into the state. It is a badge and nothing
-    else: the checklist moves nothing.
+    The verdict — "proved" or "not proved" after the count — is said only when the
+    host asks for it (ShowProved). A part that passed on a page edited since is
+    stale, not passed, so the host has already folded the signature into the
+    state. It is words and nothing else: the checklist moves nothing.
 *@
 
 @if (Parts.Count > 0)
@@ -19,33 +20,46 @@
     <section class="scenario-checklist" aria-label="@Heading" data-testid="@TestId">
         <header class="scenario-checklist__head">
             <span class="scenario-checklist__heading">@Heading</span>
-            <span class="scenario-checklist__count" data-testid="@($"{TestId}-count")">@Summary</span>
-            @if (ShowProved && IsProved)
-            {
-                <span class="badge badge--scenario-proved scenario-checklist__proved"
-                      title="Every part passed on the page as it stands. This does not move the item."
-                      data-testid="@($"{TestId}-proved")">Proved</span>
-            }
+            <span class="scenario-checklist__count" data-testid="@($"{TestId}-count")">@SummaryOf(Parts)@if (ShowProved)
+                {
+                    if (IsProved)
+                    {
+                        <span class="scenario-checklist__verdict scenario-checklist__verdict--proved"
+                              title="Every part passed on the page as it stands. This does not move the item."
+                              data-testid="@($"{TestId}-proved")"> · proved</span>
+                    }
+                    else
+                    {
+                        <span class="scenario-checklist__verdict"
+                              title="Not every part passed on the page as it stands."
+                              data-testid="@($"{TestId}-not-proved")"> · not proved</span>
+                    }
+                }</span>
         </header>
         <ul class="scenario-checklist__list">
             @foreach (var part in Parts)
             {
                 var slug = ScenarioStateDot.SlugOf(part.State);
+                var line = LineOf(part);
                 <li class="scenario-checklist__row" @key="part.Key" data-state="@slug" data-testid="@($"{TestId}-part")">
                     <ScenarioStateDot State="@slug" TestId="@null" />
-                    @if (OnOpen.HasDelegate && part.Reference is { Length: > 0 } reference)
-                    {
-                        <button type="button"
-                                class="scenario-checklist__part scenario-checklist__part--link"
-                                title="@reference"
-                                @onclick="() => OnOpen.InvokeAsync(reference)">@part.Title</button>
-                    }
-                    else
-                    {
-                        <span class="scenario-checklist__part" title="@part.Reference">@part.Title</span>
-                    }
-                    <span class="scenario-checklist__page">@part.Page</span>
-                    <span class="scenario-checklist__run">@(part.LastRun ?? "Never run")</span>
+                    @* The part, then its quiet line under it: one column beside
+                       the dot, so the line keeps its whole text and wraps rather
+                       than losing its end — the failed step — to an ellipsis. *@
+                    <span class="scenario-checklist__body">
+                        @if (OnOpen.HasDelegate && part.Reference is { Length: > 0 } reference)
+                        {
+                            <button type="button"
+                                    class="scenario-checklist__part scenario-checklist__part--link"
+                                    title="@reference"
+                                    @onclick="() => OnOpen.InvokeAsync(reference)">@part.Title</button>
+                        }
+                        else
+                        {
+                            <span class="scenario-checklist__part" title="@part.Reference">@part.Title</span>
+                        }
+                        <span class="scenario-checklist__run">@line</span>
+                    </span>
                 </li>
             }
         </ul>
@@ -61,7 +75,10 @@
     [Parameter]
     public string Heading { get; set; } = "Acceptance";
 
-    /// <summary>Whether to say "Proved" when every part passed.</summary>
+    /// <summary>Whether the count ends in a verdict — " · proved" when every part
+    /// passed, " · not proved" otherwise. A task asks for it; a delivery run's
+    /// evidence is what one run did rather than an entry's acceptance, and does
+    /// not.</summary>
     [Parameter]
     public bool ShowProved { get; set; }
 
@@ -72,9 +89,37 @@
     [Parameter]
     public string TestId { get; set; } = "scenario-checklist";
 
-    private int Passing => Parts.Count(part => ScenarioStateDot.SlugOf(part.State) == "passed");
+    private bool IsProved => Parts.Count > 0 && PassingOf(Parts) == Parts.Count;
 
-    private bool IsProved => Parts.Count > 0 && Passing == Parts.Count;
+    /// <summary>How many of the parts passed, as the checklist counts them, for a
+    /// host that says it where the list itself is folded away.</summary>
+    public static string SummaryOf(IReadOnlyList<ScenarioChecklistPart> parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        return $"{PassingOf(parts)} of {parts.Count} passing";
+    }
 
-    private string Summary => $"{Passing} of {Parts.Count} passing";
+    /// <summary>
+    /// A row's quiet line: the page's stem, when the part last ran — "Never run"
+    /// when it never has — and " · step N" for a failed part whose run recorded the
+    /// step. Only a failed part carries a step: a stale run's step numbers a page
+    /// that has changed since, so it names nothing on the page as it stands.
+    /// </summary>
+    public static string LineOf(ScenarioChecklistPart part)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+
+        var segments = new List<string>(3);
+        if (!string.IsNullOrWhiteSpace(part.Stem)) segments.Add(part.Stem);
+        segments.Add(part.LastRun ?? "Never run");
+        if (part.LastRun is not null && part.FailedStep is { } step && ScenarioStateDot.SlugOf(part.State) == "failed")
+        {
+            segments.Add($"step {step.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+
+        return string.Join(" · ", segments);
+    }
+
+    private static int PassingOf(IReadOnlyList<ScenarioChecklistPart> parts) =>
+        parts.Count(part => ScenarioStateDot.SlugOf(part.State) == "passed");
 }

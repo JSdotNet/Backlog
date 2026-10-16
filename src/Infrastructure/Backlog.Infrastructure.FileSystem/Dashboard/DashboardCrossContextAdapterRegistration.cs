@@ -1,5 +1,6 @@
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,7 +9,8 @@ namespace Backlog.Infrastructure.FileSystem.Dashboard;
 
 /// <summary>
 /// The cross-context join the dashboard takes part in: the Sessions context supplies
-/// the assistant-session facts the Dashboard's productivity half reports on.
+/// the assistant-session facts the Dashboard's productivity half reports on, and the
+/// Progress context the sprints its weekly brief's Sprint block reports.
 /// <para>
 /// Registered here — in one place both hosts call — so the lifetime cannot drift
 /// between the desktop app and the web harness, exactly as
@@ -65,6 +67,15 @@ public static class DashboardCrossContextAdapterRegistration
         // Sessions surface still resolves the port and it answers that it keeps none.
         services.AddSingleton<IDriftUnitSource>(sp =>
             new SyncVerdictDriftUnitSource(sp.GetService<IDevbookSyncVerdicts>()));
+
+        // The sprints the weekly brief's Sprint block reports. Scoped, because the
+        // Progress ports it reads are; each optional, so a host that composed no
+        // Progress still resolves the port and it answers with no sprint.
+        services.AddScoped<ISprintBriefSource>(sp =>
+            new ProgressSprintBriefSource(
+                sp.GetService<ISprintSeriesPlanning>(),
+                sp.GetService<ISprintProgress>(),
+                sp.GetService<IAppFeatureSettings>()));
 
         return services;
     }

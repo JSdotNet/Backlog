@@ -39,7 +39,7 @@ internal static partial class DevbookChapterText
 
     /// <summary>Whether each line is inside a fenced block, fences included,
     /// computed over the whole document.</summary>
-    private static bool[] FenceMask(string[] lines)
+    public static bool[] FenceMask(string[] lines)
     {
         var fenced = new bool[lines.Length];
         char? openCharacter = null;

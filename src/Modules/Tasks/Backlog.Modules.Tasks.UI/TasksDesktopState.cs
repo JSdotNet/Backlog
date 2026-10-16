@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
 using System.Globalization;
@@ -114,6 +115,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// host that composes none. See <see cref="OnTaskWritten"/>.</summary>
     private readonly ITaskChangeSignal? _taskWrites;
 
+    /// <summary>Show archived, per device (local ADR 0029, §3); null in a host that
+    /// composes none, where <see cref="_showArchivedHere"/> holds it for this instance.</summary>
+    private readonly IShowArchivedRepositories? _showArchived;
+    private bool _showArchivedHere;
+    /// <summary>The person's Clear My Day overnight switch, which decides how a
+    /// <c>myday:</c> stamp from an earlier day reads (local ADR 0032, §5).
+    /// <see cref="DefaultMyDayPreferences"/> in a host that keeps none, which reads
+    /// every stamp the way the list always has. See <see cref="IsInMyDay"/>.</summary>
+    private readonly IMyDayPreferences _myDayPreferences;
+
     /// <summary>Set inside the asynchronous flow of each write this list makes,
     /// so the signal that write raises can be told from one raised by somebody
     /// else. See <see cref="SelfAttributedTaskItems"/>.</summary>
@@ -214,8 +225,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         TimeProvider? timeProvider = null,
         IDevbookReferenceResolver? devbookReferences = null,
         LinkedTaskSources? linkedSources = null,
-        ILinkedSessionStates? sessionStates = null)
+        ILinkedSessionStates? sessionStates = null,
+        IShowArchivedRepositories? showArchived = null,
+        IMyDayPreferences? myDayPreferences = null)
     {
+        // First, so it runs before any component's handler can queue a render
+        // that reads the index — see DependencyIndex.
+        Changed += ForgetDependencyIndex;
+
         _store = store;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _entryUseCases = new SelfAttributedTaskItems(entryUseCases, _writingHere);
@@ -233,6 +250,51 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         LinkedSources = linkedSources ?? LinkedTaskSources.None;
         _sessionStates = sessionStates;
+
+        _showArchived = showArchived;
+        if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
+        _myDayPreferences = myDayPreferences ?? DefaultMyDayPreferences.Instance;
+        _myDayPreferences.Changed += OnMyDayPreferencesChanged;
+    }
+
+    /// <summary>Whether a task stamped for an earlier day has left My Day: the
+    /// person's Clear My Day overnight switch, on unless they turned it off.</summary>
+    public bool ClearsMyDayOvernight => _myDayPreferences.ClearsOvernight;
+
+    /// <summary>
+    /// Whether <paramref name="row"/> is in the My Day of <paramref name="today"/>,
+    /// under the one rule both heads read (<see cref="MyDay.Includes"/>, local ADR
+    /// 0032 §5): stamped today, or — with Clear My Day overnight off — stamped
+    /// earlier and either unfinished or finished today.
+    /// <para>
+    /// The caller says what today is, for the reason <see cref="MyDayOn"/> gives:
+    /// the clock is the pane's. The My Day scope, <see cref="Reveal"/>, the chip's
+    /// count, the row's sun and the detail pane all ask this, so none of them can
+    /// disagree about a carried task.
+    /// </para>
+    /// </summary>
+    public bool IsInMyDay(EntryRow row, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return MyDay.Includes(row.PreviewInMyDayOn, row.PreviewCompletedOn, today, _myDayPreferences.ClearsOvernight);
+    }
+
+    /// <summary>
+    /// The switch moved — here, or in a copy a sync pull took from another desktop.
+    /// The My Day scope is drawn again under the new reading.
+    /// <para>
+    /// Raised on whichever thread changed it, the sync loop's for a pulled copy, as
+    /// <see cref="OnRootChanged"/> is; the pane's <see cref="Changed"/> handler
+    /// marshals the render onto its dispatcher. Nothing is written: the switch
+    /// changes how a stamp reads, never the stamp.
+    /// </para>
+    /// </summary>
+    private void OnMyDayPreferencesChanged()
+    {
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        ApplyFilter();
+        Changed?.Invoke();
     }
 
     /// <summary>The installed connectors and connected targets the source badge
@@ -405,43 +467,39 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private readonly List<string> _selectedRepositoryAliases = [];
 
-    /// <summary>The first repository in the scope, or empty when nothing is scoped.
-    /// It is the one the Devbook pane reads and the one a new entry is filed
-    /// under, because every reader that can take one repository and not several
-    /// takes this one.</summary>
+    /// <summary>The first repository in the scope, or empty when nothing is scoped —
+    /// and empty too when the anchor is the Brain, whose reserved value
+    /// (<see cref="BrainScope.Value"/>) is the empty string. It is the one the Devbook
+    /// pane reads and the one a new entry is filed under, because every reader that
+    /// can take one repository and not several takes this one; an anchor of Brain
+    /// names no repository to read or to file under, which is what Brain means.
+    /// <see cref="BrainIsAnchor"/> tells the two empties apart.</summary>
     public string AnchorRepositoryAlias =>
         _selectedRepositoryAliases.Count > 0 ? _selectedRepositoryAliases[0] : string.Empty;
 
     /// <summary>
-    /// True while the view is narrowed to the entries filed against no repository.
+    /// Whether the Brain is in the scope (local ADR 0027): the scope of everything
+    /// filed against no repository.
     /// <para>
-    /// A scope of its own rather than a value <see cref="SelectedRepositoryAliases"/>
-    /// could hold, because "no repository" is not a repository and every reader of
-    /// that set would have to be taught the exception. A sentinel there would be
-    /// handed to the Devbook pane, which answers an unresolvable alias with
-    /// "select a configured repository"; written into a new draft as
-    /// <c>`repo:`</c>; and wiped by <see cref="ForgetStaleRepositoryScope"/> on the
-    /// next pass, which resolves an alias against settings and finds nothing. A bool
-    /// here is read by the one place that means it.
-    /// </para>
-    /// <para>
-    /// It narrows what the repository scope already left in view rather than
-    /// replacing it — the same composition My Day has. With a repository selected
-    /// the two ask for opposite things and the result is empty, which is honest:
-    /// the chip's count says zero before the reader presses it.
+    /// A member of <see cref="SelectedRepositoryAliases"/> rather than a scope of its
+    /// own, held there as the reserved <see cref="BrainScope.Value"/>, so it takes
+    /// part in the anchor, Ctrl and the remembered order exactly as a repository
+    /// does. It replaces the old <c>NoRepositoryOnly</c> flag, which narrowed the same
+    /// rows beside the scope under a second name and was never remembered.
     /// </para>
     /// </summary>
-    public bool NoRepositoryOnly { get; private set; }
+    public bool BrainInScope => _selectedRepositoryAliases.Contains(BrainScope.Value, StringComparer.Ordinal);
+
+    /// <summary>Whether the Brain is the scope's anchor — the first chip taken.</summary>
+    public bool BrainIsAnchor => _selectedRepositoryAliases is [var first, ..] && BrainScope.Is(first);
 
     /// <summary>
-    /// The rows the whole repository scope leaves in view — <see cref="ScopedRows"/>,
-    /// narrowed to the entries filed against no repository while
-    /// <see cref="NoRepositoryOnly"/> — for a view beside the list that draws its own
-    /// selection from the scope, such as In progress. Asked the way the list asks it:
-    /// "resolves to no configured repository".
+    /// The rows the whole repository scope leaves in view — the same rows as
+    /// <see cref="ScopedRows"/>, the Brain included — for a view beside the list that
+    /// draws its own selection from the scope, such as In progress. Asked the way the
+    /// list asks it: a row is the Brain's when it resolves to no configured repository.
     /// </summary>
-    public IEnumerable<EntryRow> RowsInRepositoryScope =>
-        NoRepositoryOnly ? ScopedRows.Where(row => RepositoryFor(row) is null) : ScopedRows;
+    public IEnumerable<EntryRow> RowsInRepositoryScope => ScopedRows;
 
     /// <summary>
     /// True while the view is narrowed to the entries marked <c>!ready</c> that
@@ -455,7 +513,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </para>
     /// <para>
     /// A ticked-off row is out, whatever its status still says. Composes with
-    /// every other scope the way My Day and "no repository" do.
+    /// every other scope the way My Day and the repository scope do.
     /// </para>
     /// </summary>
     public bool ReadyInPlanOnly { get; private set; }
@@ -499,6 +557,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public bool IsTagSelected(string? tag) =>
         !string.IsNullOrEmpty(tag) && _selectedTags.Contains(tag);
 
+    /// <summary>The plan tag pressed on the bar, <c>+</c> and all, or null while none
+    /// is — "No plan" names no plan. At most one: pressing a plan lets go of the
+    /// other, see <see cref="ToggleTagFilter"/>.</summary>
+    public string? SelectedPlan =>
+        _selectedTags.FirstOrDefault(tag => TagText.Kind(tag) is TagKind.Plan);
+
     /// <summary>Sentinel for "entries with no tags" — a real tag can never be this
     /// because the parser strips the leading <c>#</c>, lower-cases, and would never
     /// produce a leading space.</summary>
@@ -531,7 +595,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <para>
     /// Unlike a status, an entry has any number of tags, so a row is counted under
     /// every tag it wears. The counts are occurrences rather than a partition, taken
-    /// over the same pool the My Day and No repo chips count against — see
+    /// over the same pool the My Day chip counts against — see
     /// <see cref="ScopedRows"/>. Nothing in the group counts rows, because the chip
     /// that used to is gone: with the chips pressable, "all of them" is no chip at
     /// all.
@@ -539,7 +603,96 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     public List<TagFilterOption> TagFilters { get; private set; } = [];
 
-    public IReadOnlyList<GitHubRepositoryRef> Repositories => _gitHub.Repositories;
+    /// <summary>
+    /// The repositories the scope chips, the Board's columns and the pickers offer, in
+    /// the configured order: every one while <see cref="ShowArchivedRepositories"/> is
+    /// on, the active ones otherwise (local ADR 0029, §3). An archived one stays
+    /// configured either way: its tasks still resolve, wear its hue and count. It is
+    /// only not offered.
+    /// </summary>
+    public IReadOnlyList<GitHubRepositoryRef> Repositories =>
+        ShowArchivedRepositories ? _gitHub.Repositories : _gitHub.ActiveRepositories;
+
+    /// <summary>Whether any configured repository is archived: the show archived switch
+    /// has something to show only then.</summary>
+    public bool HasArchivedRepositories => _gitHub.Repositories.Any(repository => repository.Archived);
+
+    /// <summary>
+    /// Show archived (local ADR 0029, §3): whether the archived repositories, and the
+    /// tasks filed only under them, are offered where they are otherwise hidden. Read
+    /// from the device's choice on every access rather than held, so a shell the Router
+    /// built afresh draws what was left.
+    /// </summary>
+    public bool ShowArchivedRepositories => _showArchived?.Shown ?? _showArchivedHere;
+
+    /// <summary>
+    /// Turns show archived on or off on this device. Turning it off takes an archived
+    /// repository out of the scope (<see cref="ForgetStaleRepositoryScope"/>) and the
+    /// tasks filed only under it out of the list, the Board and the Calendar.
+    /// </summary>
+    public void SetShowArchivedRepositories(bool shown)
+    {
+        if (shown == ShowArchivedRepositories) return;
+
+        if (_showArchived is not null)
+        {
+            // The port announces the change, and OnShowArchivedChanged applies it.
+            _showArchived.SetShown(shown);
+            return;
+        }
+
+        _showArchivedHere = shown;
+        OnShowArchivedChanged();
+    }
+
+    private void OnShowArchivedChanged()
+    {
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Whether <paramref name="repository"/> is offered right now: active, or
+    /// archived while <see cref="ShowArchivedRepositories"/> is on.</summary>
+    public bool IsRepositoryShown(GitHubRepositoryRef repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        return !repository.Archived || ShowArchivedRepositories;
+    }
+
+    /// <summary>The first of the row's repositories that is offered right now, which is
+    /// the column the Board's by-repository layout files it in; null when it names
+    /// none.</summary>
+    public GitHubRepositoryRef? ShownRepositoryFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return row.PreviewRepoIds
+            .Select(_gitHub.ResolveRepository)
+            .FirstOrDefault(repository => repository is not null && IsRepositoryShown(repository));
+    }
+
+    /// <summary>
+    /// Whether the row is filed only under archived repositories while show archived is
+    /// off. Such a task leaves the list, the Board and the Calendar with its repository
+    /// (local ADR 0029; the person's answer on the task list). A row that also names an
+    /// active repository stays, under that one; a row that resolves to none is the
+    /// Brain's.
+    /// </summary>
+    private bool RowHiddenWithArchivedRepository(EntryRow row)
+    {
+        if (ShowArchivedRepositories) return false;
+
+        var resolved = false;
+        foreach (var target in row.PreviewRepoIds)
+        {
+            if (_gitHub.ResolveRepository(target) is not { } repository) continue;
+            if (!repository.Archived) return false;
+
+            resolved = true;
+        }
+
+        return resolved;
+    }
 
     /// <summary>Which identity hue each configured repository wears, keyed by alias,
     /// and empty while the visualization is off. Read from the settings store rather
@@ -1115,7 +1268,32 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var alias = ResolveAlias(repositoryAlias);
         if (alias.Length == 0) return;
 
-        if (!_selectedRepositoryAliases.Remove(alias)) _selectedRepositoryAliases.Add(alias);
+        ToggleInScope(alias);
+    }
+
+    /// <summary>Scopes the backlog to the Brain alone — the entries filed against no
+    /// repository — replacing whatever the scope held. The plain press on the Brain
+    /// chip; nothing to do, and nothing announced, when the Brain is already alone.
+    /// <see cref="SetRepositoryFilter"/> with nothing clears the scope instead.</summary>
+    public void SetBrainFilter()
+    {
+        if (_selectedRepositoryAliases is [var only] && BrainScope.Is(only)) return;
+
+        _selectedRepositoryAliases.Clear();
+        _selectedRepositoryAliases.Add(BrainScope.Value);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Takes the Brain into the scope beside the repositories already there,
+    /// or back out of it — the Ctrl-press on the Brain chip, the same gesture
+    /// <see cref="ToggleRepositoryInScope"/> is for a repository.</summary>
+    public void ToggleBrainInScope() => ToggleInScope(BrainScope.Value);
+
+    private void ToggleInScope(string member)
+    {
+        if (!_selectedRepositoryAliases.Remove(member)) _selectedRepositoryAliases.Add(member);
 
         ApplyFilter();
         Changed?.Invoke();
@@ -1138,8 +1316,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Replaces the scope with a remembered one, in its order, so the anchor it was
-    /// written with comes back first. An alias nothing is configured under any more
-    /// is dropped, and a repeat is kept once; nothing left means every repository.
+    /// written with comes back first. The Brain's reserved value
+    /// (<see cref="BrainScope.Value"/>) comes back as the Brain in its place; an alias
+    /// nothing is configured under any more is dropped, and a repeat is kept once;
+    /// nothing left means every repository.
     /// <para>
     /// One call rather than a <see cref="ToggleRepositoryInScope"/> per alias,
     /// because each toggle filters the list again and announces a change, and a
@@ -1157,9 +1337,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // remembered scope until it can be resolved.
         if (!RepositoryRegistryReadable) return;
 
+        // A repository archived since is dropped the same way while show archived is
+        // off (local ADR 0029, §3): there is no chip for it to be pressed on.
         var restored = repositoryAliases
-            .Select(ResolveAlias)
-            .Where(alias => alias.Length > 0)
+            .Select(member => BrainScope.Is(member) ? BrainScope.Value : ResolveAliasOrNull(member))
+            .OfType<string>()
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
@@ -1180,20 +1362,18 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>The configured spelling of an alias, or empty when nothing is
     /// configured under it.</summary>
-    private string ResolveAlias(string? repositoryAlias) =>
-        string.IsNullOrEmpty(repositoryAlias)
-            ? string.Empty
-            : _gitHub.Settings.Current.Find(repositoryAlias)?.Alias ?? string.Empty;
+    private string ResolveAlias(string? repositoryAlias) => ResolveAliasOrNull(repositoryAlias) ?? string.Empty;
 
-    /// <summary>Turns the "no repository" scope on or off. See
-    /// <see cref="NoRepositoryOnly"/> for why this is a scope of its own and not a
-    /// value <see cref="SelectedRepositoryAliases"/> holds.</summary>
-    public void SetNoRepositoryFilter(bool only)
-    {
-        NoRepositoryOnly = only;
-        ApplyFilter();
-        Changed?.Invoke();
-    }
+    /// <summary>The configured spelling of an alias, or null when nothing is
+    /// configured under it, or when what is configured under it is archived and not
+    /// shown, since there is no chip for it then. Never the Brain's empty value, which
+    /// no alias is.</summary>
+    private string? ResolveAliasOrNull(string? repositoryAlias) =>
+        string.IsNullOrEmpty(repositoryAlias)
+            ? null
+            : _gitHub.Settings.Current.Find(repositoryAlias) is { } repository && IsRepositoryShown(repository)
+                ? repository.Alias
+                : null;
 
     /// <summary>Turns the "ready in a plan" scope on or off. See
     /// <see cref="ReadyInPlanOnly"/> for what it keeps.</summary>
@@ -1217,6 +1397,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         if (string.IsNullOrEmpty(tag)) return;
 
+        // Any press in the plan group is the reader taking the plan back, so a plan
+        // ShowPlan held on the bar is held no longer.
+        if (IsPlanFilter(tag)) LetGoOfShownPlan();
+
         if (!_selectedTags.Remove(tag))
         {
             if (IsPlanFilter(tag)) _selectedTags.RemoveWhere(IsPlanFilter);
@@ -1229,6 +1413,74 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private static bool IsPlanFilter(string tag) =>
         tag == NoPlanTag || TagText.Kind(tag) is TagKind.Plan;
+
+    /// <summary>
+    /// Shows one plan's work: <paramref name="planTag"/> becomes the one plan chip
+    /// pressed, and the list shows every entry the roadmap gathers under the item — what
+    /// a roadmap item's "Open in Tasks" asks for.
+    /// <para>
+    /// Gathered by the roadmap's own rule
+    /// (<c>.devbook/domain/roadmap/domain.md#roadmap-item-gathering</c>): the task the
+    /// item links, <paramref name="linkedTaskId"/>, and every entry wearing the plan's
+    /// tag with or without its <c>+</c> (<see cref="PlanTagMatch.Carries"/>). The chip
+    /// alone asks only for <c>+slug</c>, so while the list kept that narrower rule an
+    /// entry wearing the bare slug, or the linked task carrying no tag, was counted on
+    /// the bar and missing from the list opened off it — "Nothing matches these filters"
+    /// under a bar that said it had tasks (<see cref="InShownPlan"/>).
+    /// </para>
+    /// <para>
+    /// Every other scope that could hide some of that work is let go: the repository
+    /// scope becomes every repository — never the Brain, which would hide the plan's
+    /// filed work — because repository plays no part in what the roadmap gathers; and
+    /// My Day, Ready in a plan, the source, the type and the status go back to all,
+    /// the same treatment <see cref="Reveal"/> gives a scope in the way of a row. People
+    /// and general tags stay pressed, as a plan chip's press leaves them: the tag group
+    /// is a union, so they can add rows beside the plan's but never hide one of them.
+    /// The list has no search text of its own to clear.
+    /// </para>
+    /// <para>
+    /// Not a <see cref="ToggleTagFilter"/>: asking for the plan already shown leaves it
+    /// shown rather than letting go of it. Any other plan pressed before is let go.
+    /// </para>
+    /// <para>
+    /// One decision, so the list is filtered once and the change announced once.
+    /// </para>
+    /// <para>
+    /// The plan is held on the bar until the reader lets go of it — pressing it, or
+    /// another plan — even while no open task carries it: its chip stays, pressed with
+    /// a count of 0, so the empty list under it says why it is empty
+    /// (<see cref="RebuildTagFilters"/>). Held or counted, the chip leads the whole
+    /// one-row strip, so it is never the chip the strip clips. A plan chip the
+    /// reader pressed is not held, and keeps its place.
+    /// </para>
+    /// </summary>
+    /// <param name="planTag">The plan tag with its <c>+</c>, as a chip's value.</param>
+    /// <param name="linkedTaskId">The task the roadmap item links, when it links one;
+    /// listed whether or not it carries the tag.</param>
+    public void ShowPlan(string planTag, Guid? linkedTaskId = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(planTag);
+
+        if (TagText.Kind(planTag) is not TagKind.Plan)
+        {
+            throw new ArgumentException($"'{planTag}' is not a plan tag.", nameof(planTag));
+        }
+
+        _shownPlan = planTag.ToLowerInvariant();
+        _shownPlanTask = linkedTaskId;
+        _selectedTags.RemoveWhere(IsPlanFilter);
+        _selectedTags.Add(_shownPlan);
+
+        _selectedRepositoryAliases.Clear();
+        MyDayOn = null;
+        ReadyInPlanOnly = false;
+        SelectedSource = null;
+        SelectedType = null;
+        SelectedStatusFilterWire = string.Empty;
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
 
     /// <summary>Turns the My Day scope on for a date, or off when handed null. The
     /// caller supplies the date because the caller is what has the clock; see
@@ -1270,21 +1522,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         var widened = false;
 
-        if (_selectedRepositoryAliases.Count > 0 && !RowBelongsToSelectedRepository(row))
+        if (_selectedRepositoryAliases.Count > 0 && !RowInRepositoryScope(row))
         {
             _selectedRepositoryAliases.Clear();
             widened = true;
         }
 
-        if (MyDayOn is { } myDay && row.PreviewInMyDayOn != myDay)
+        if (MyDayOn is { } myDay && !IsInMyDay(row, myDay))
         {
             MyDayOn = null;
-            widened = true;
-        }
-
-        if (NoRepositoryOnly && RepositoryFor(row) is not null)
-        {
-            NoRepositoryOnly = false;
             widened = true;
         }
 
@@ -1343,9 +1589,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// filed by typing, which is how areas have always been made.
     /// </para>
     /// <para>
-    /// The "no repository" scope seeds nothing either, and does not need to: an
-    /// entry with no <c>`repo:`</c> token already belongs to it, so a draft created
-    /// under it stays in view without being told to.
+    /// An anchor of Brain seeds nothing either, and does not need to: an entry with
+    /// no <c>`repo:`</c> token already belongs to the Brain, so a draft created under
+    /// it stays in view without being told to. <see cref="AnchorRepositoryAlias"/> is
+    /// empty then, which is what keeps the token out.
     /// </para>
     /// <para>
     /// A <paramref name="status"/> seeds the entry in that status — the Board's
@@ -2085,7 +2332,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     private List<EntryRow> StatusSortOrder(List<EntryRow> visible)
     {
-        var candidates = DependencyCandidates();
+        var dependencies = DependencyIndex();
         var byId = new Dictionary<string, EntryRow>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in Rows.Where(row => row.Id is not null))
         {
@@ -2095,7 +2342,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var visibleSet = visible.ToHashSet();
         var waitsFor = visible.ToDictionary(
             row => row,
-            row => OpenVisiblePredecessors(row, byId, visibleSet, candidates));
+            row => OpenVisiblePredecessors(row, byId, visibleSet, dependencies));
 
         var rank = visible.ToDictionary(row => row, row => StatusSortRank(row.PreviewStatus));
         foreach (var (row, predecessors) in waitsFor)
@@ -2134,16 +2381,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         EntryRow row,
         Dictionary<string, EntryRow> byId,
         HashSet<EntryRow> visibleSet,
-        List<DependencyResolution.Candidate> candidates)
+        DependencyResolution.CandidateIndex dependencies)
     {
         var found = new HashSet<EntryRow>();
         var seen = new HashSet<EntryRow> { row };
         var pending = new Stack<EntryRow>([row]);
         while (pending.TryPop(out var current))
         {
-            var dependsOn = current.PreviewDependsOn.Count == 0
-                ? current.PreviewDependsOn
-                : DependencyResolution.ResolveAll(current.PreviewDependsOn, candidates, current.ImportPlanId, current.PreviewTags);
+            var dependsOn = ResolvedDependsOn(current, dependencies);
 
             foreach (var id in dependsOn)
             {
@@ -2460,7 +2705,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ArgumentNullException.ThrowIfNull(row);
 
         var chosen = string.IsNullOrWhiteSpace(repositoryAlias) ? null : repositoryAlias.Trim();
-        var shown = RepositoryFor(row);
+
+        // The repository the picker shows, which is the one a pick replaces: the first
+        // one offered right now, so an archived repository hidden by show archived is
+        // kept rather than silently swapped out (local ADR 0029, §3).
+        var shown = ShownRepositoryFor(row) ?? RepositoryFor(row);
 
         var targets = new List<string>();
         var replaced = false;
@@ -2571,17 +2820,86 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         ArgumentNullException.ThrowIfNull(row);
 
+        return row.PreviewDependsOn.Count == 0
+            ? row.PreviewDependsOn
+            : ResolvedDependsOn(row, DependencyIndex());
+    }
+
+    private static IReadOnlyList<string> ResolvedDependsOn(EntryRow row, DependencyResolution.CandidateIndex index)
+    {
         var dependsOn = row.PreviewDependsOn;
         if (dependsOn.Count == 0) return dependsOn;
 
-        return DependencyResolution.ResolveAll(dependsOn, DependencyCandidates(), row.ImportPlanId, row.PreviewTags);
+        return DependencyResolution.ResolveAll(dependsOn, index, row.ImportPlanId, row.PreviewTags);
     }
 
-    /// <summary>Every persisted row as the resolver sees it. Built per call
-    /// rather than cached: the rows change under every save, and a chain is read
-    /// a handful of times per render, not per keystroke.</summary>
-    private List<DependencyResolution.Candidate> DependencyCandidates() =>
-        [.. Rows
+    /// <summary>One reading of the rows for the resolver, and what it was read
+    /// from. Published as one object so a reader on another thread never pairs
+    /// one change's index with another change's stamp.</summary>
+    private sealed record DependencyIndexCache(
+        List<EntryRow> Rows,
+        int Count,
+        int Version,
+        int EditStamp,
+        DependencyResolution.CandidateIndex Index);
+
+    private volatile DependencyIndexCache? _dependencyIndex;
+
+    /// <summary>Moved on by every <see cref="Changed"/> and every
+    /// <see cref="ApplyFilter"/>; a cached index built under an earlier value is
+    /// not read again.</summary>
+    private int _dependencyIndexVersion;
+
+    private void ForgetDependencyIndex() => Interlocked.Increment(ref _dependencyIndexVersion);
+
+    /// <summary>
+    /// The resolver's index over the rows as they stand, built at most once per
+    /// change rather than once per row asked.
+    /// <para>
+    /// A row's chain, its "Waiting for" line and the picker's chips each resolve
+    /// on every render, and a render follows every keystroke, so building the
+    /// candidates per call made one render quadratic in the rows.
+    /// </para>
+    /// <para>
+    /// The index is read again whenever anything it was built from may have
+    /// moved: a row's text, id or plan (<see cref="EntryRow.EditStamp"/>, which
+    /// also covers a keystroke in the raw editor that raises nothing), the list
+    /// being replaced or growing or shrinking, a reorder in place
+    /// (<see cref="NormalizeOrderAsync"/>), which moves which of two same-named
+    /// steps counts as the first, and every <see cref="Changed"/> and
+    /// <see cref="ApplyFilter"/>.
+    /// </para>
+    /// <para>
+    /// The stamps are read before the build and stored with it: a change landing
+    /// on another thread while this one builds leaves stamps that no longer
+    /// match, so the next read builds again instead of keeping a stale index.
+    /// </para>
+    /// </summary>
+    private DependencyResolution.CandidateIndex DependencyIndex()
+    {
+        var rows = Rows;
+        var count = rows.Count;
+        var version = Volatile.Read(ref _dependencyIndexVersion);
+        var edits = EntryRow.EditStamp;
+
+        var cached = _dependencyIndex;
+        if (cached is not null
+            && cached.Version == version
+            && cached.EditStamp == edits
+            && ReferenceEquals(cached.Rows, rows)
+            && cached.Count == count)
+        {
+            return cached.Index;
+        }
+
+        var index = new DependencyResolution.CandidateIndex(DependencyCandidates(rows));
+        _dependencyIndex = new DependencyIndexCache(rows, count, version, edits, index);
+        return index;
+    }
+
+    /// <summary>Every persisted row as the resolver sees it.</summary>
+    private static List<DependencyResolution.Candidate> DependencyCandidates(List<EntryRow> rows) =>
+        [.. rows
             .Where(row => row.Id is not null)
             .Select(row => new DependencyResolution.Candidate(row.Id!.Value, row.PreviewImportItemId, row.ImportPlanId))];
 
@@ -2974,6 +3292,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         _store.RootChanged -= OnRootChanged;
         if (_taskWrites is not null) _taskWrites.Changed -= OnTaskWritten;
+        if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
+        _myDayPreferences.Changed -= OnMyDayPreferencesChanged;
 
         _lifetime.Cancel();
 
@@ -4808,6 +5128,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// actually moved is the module's problem, not the list's.</summary>
     private async Task NormalizeOrderAsync()
     {
+        // Every reorder of the list in place comes through here, and a reorder
+        // keeps the list, its count and every row's text: none of them tells the
+        // dependency index that which of two same-named steps comes first has
+        // moved. Dropped before the write's await, because a render can land in it.
+        ForgetDependencyIndex();
+
         var ids = Rows.Select(row => row.Id).OfType<Guid>().ToList();
         if (ids.Count == 0) return;
 
@@ -5035,36 +5361,43 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private void ApplyFilter()
     {
+        // Every caller has just changed what the rows say. Dropping the
+        // resolver's cached index here as well means its freshness does not rest
+        // on a Changed following each of them.
+        ForgetDependencyIndex();
         _readyTaskIds = ReadyTaskIds();
 
         IEnumerable<EntryRow> rows = Rows;
 
+        // Before every scope: a task filed only under an archived repository is out of
+        // view while show archived is off, whatever the chips hold (local ADR 0029).
+        if (!ShowArchivedRepositories)
+        {
+            rows = rows.Where(row => !RowHiddenWithArchivedRepository(row));
+        }
+
+        // The scope is pruned before the rows are filtered by it, never after: turning
+        // show archived off, or a repository removed or archived in Settings, can empty
+        // it, and rows filtered by the old scope would sit under chips that say every
+        // repository until the next filter change.
+        ForgetStaleRepositoryScope();
+
         if (_selectedRepositoryAliases.Count > 0)
         {
-            rows = rows.Where(RowBelongsToSelectedRepository);
+            rows = rows.Where(RowInRepositoryScope);
         }
 
         var repositoryScopedRows = rows.ToList();
-        ForgetStaleRepositoryScope();
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
         // My Day narrows what the repository scope and status have already left in
         // view rather than replacing either: it is a decision about today taken on
-        // top of wherever the reader is looking, so all three compose.
+        // top of wherever the reader is looking, so all three compose. In My Day by
+        // the one rule, so a task carried over with Clear My Day overnight off is in.
         if (MyDayOn is { } myDay)
         {
-            rows = rows.Where(x => x.PreviewInMyDayOn == myDay);
-        }
-
-        // And so does the "no repository" scope, on the same terms — see
-        // NoRepositoryOnly. Asked as "resolves to no configured repository" rather
-        // than "carries no `repo:` token", because that is the question the row
-        // itself answers: a token naming something that is not configured shows no
-        // repository on the row, so the reader who filed it here is right.
-        if (NoRepositoryOnly)
-        {
-            rows = rows.Where(x => RepositoryFor(x) is null);
+            rows = rows.Where(x => IsInMyDay(x, myDay));
         }
 
         // And the "ready in a plan" scope, on the same terms again.
@@ -5128,14 +5461,23 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // would not be hiding an entry, it would be losing one. Only while it is
         // unsaved: once it exists, it is an entry like any other and the rule below
         // applies to it.
-        FilteredRows =
-        [
-            .. rows
-                .Union(Rows.Where(r =>
-                    ReferenceEquals(r, EditingRow)
-                    || (ReferenceEquals(r, SelectedRow) && !r.IsPersisted)))
-                .OrderBy(Rows.IndexOf)
-        ];
+        //
+        // Every row kept comes out of Rows, so walking Rows once and taking each
+        // kept row the first time it appears is the list order — the same answer
+        // ordering by Rows.IndexOf gave, without a linear search per row.
+        var kept = new HashSet<EntryRow>(rows, ReferenceEqualityComparer.Instance);
+        foreach (var row in Rows)
+        {
+            if (ReferenceEquals(row, EditingRow) || (ReferenceEquals(row, SelectedRow) && !row.IsPersisted)) kept.Add(row);
+        }
+
+        var filtered = new List<EntryRow>(kept.Count);
+        foreach (var row in Rows)
+        {
+            if (kept.Remove(row)) filtered.Add(row);
+        }
+
+        FilteredRows = filtered;
 
         // Selection follows the list, which is the only way the pane beside it can
         // be about something. Deleting an entry already closed the pane; changing
@@ -5172,6 +5514,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
     }
 
+    /// <summary>A row is in the repository scope when the Brain is scoped and the row
+    /// resolves to no configured repository, or when it belongs to a scoped
+    /// repository. Asked as "resolves to no configured repository" rather than
+    /// "carries no <c>`repo:`</c> token", because that is the question the row itself
+    /// answers: a token naming something that is not configured shows no repository
+    /// on the row, so the reader who filed it under the Brain is right.</summary>
+    private bool RowInRepositoryScope(EntryRow row) =>
+        (BrainInScope && RepositoryFor(row) is null) || RowBelongsToSelectedRepository(row);
+
     /// <summary>A row is in the scope when one of its targets names a scoped
     /// repository. Any rather than the first, because an entry that targets two
     /// repositories belongs to both scopes — hiding it from one would be the scope
@@ -5188,16 +5539,23 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// repository scoped, is the same answer <see cref="SetRepositoryFilter"/>
     /// gives an alias it cannot resolve.
     /// <para>
-    /// <see cref="NoRepositoryOnly"/> needs no equivalent: it names no repository,
-    /// so there is nothing settings can take away from it.
+    /// The Brain (<see cref="BrainScope.Value"/>) is never stale: it names no
+    /// repository, so there is nothing settings can take away from it.
+    /// </para>
+    /// <para>
+    /// An archived repository leaves it the same way while show archived is off (local
+    /// ADR 0029, §3), since its chip is gone too. Turning the switch off therefore takes
+    /// it out of the live scope as well, which is intended.
     /// </para>
     /// </summary>
     private void ForgetStaleRepositoryScope() =>
-        _selectedRepositoryAliases.RemoveAll(alias => _gitHub.Settings.Current.Find(alias) is null);
+        _selectedRepositoryAliases.RemoveAll(alias =>
+            !BrainScope.Is(alias)
+            && (_gitHub.Settings.Current.Find(alias) is not { } repository || !IsRepositoryShown(repository)));
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group
-    /// is rebuilt from what the scopes — the repository, My Day, No repo and Not
+    /// is rebuilt from what the scopes — the repository and Brain, My Day and Not
     /// waiting — leave in view, and disappears entirely while nothing in scope
     /// carries a tag. A bar that grew a fourth group
     /// with nothing pressable in it would be charging every reader for a feature only
@@ -5250,12 +5608,18 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     private HashSet<string> ReadyTaskIds()
     {
-        var tasks = Rows
+        // Built here rather than read through DependencyIndex: the one caller,
+        // ApplyFilter, has just dropped the cached index, and the Changed that
+        // follows the mutation drops it again — so storing this build in the
+        // cache would buy no later read anything.
+        var rows = Rows;
+        var dependencies = new DependencyResolution.CandidateIndex(DependencyCandidates(rows));
+        var tasks = rows
             .Select(row => new TaskRow(
                 row.TaskId,
                 string.Empty,
                 Done: row.IsPreviewCompleted,
-                DependsOn: ResolvedDependsOn(row)))
+                DependsOn: ResolvedDependsOn(row, dependencies)))
             .ToList();
 
         return TaskChain.Resolve(tasks)
@@ -5264,8 +5628,61 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             .ToHashSet(StringComparer.Ordinal);
     }
 
+    /// <summary>The plan <see cref="ShowPlan"/> asked for, held on the bar while it is
+    /// still pressed; null once the reader lets go of it or presses another plan. While
+    /// held, its chip lists what the roadmap gathers under the item rather than only
+    /// what wears this spelling — see <see cref="InShownPlan"/>.</summary>
+    private string? _shownPlan;
+
+    /// <summary>The task the roadmap item behind <see cref="_shownPlan"/> links, listed
+    /// under the plan whether or not it carries the tag. Held and let go with it, never
+    /// apart: a chip the reader pressed themselves knows no linked task.</summary>
+    private Guid? _shownPlanTask;
+
+    private void LetGoOfShownPlan()
+    {
+        _shownPlan = null;
+        _shownPlanTask = null;
+    }
+
+    /// <summary>
+    /// Whether the plan <see cref="ShowPlan"/> holds gathers <paramref name="row"/>, by
+    /// the roadmap's rule rather than the chip's: the item's linked task, or any tag that
+    /// is the slug with or without its <c>+</c> (<see cref="PlanTagMatch.Carries"/>). A
+    /// person tag spelling the slug is not it.
+    /// <para>
+    /// The one question the list, the held chip's count and <see cref="Reveal"/> all ask
+    /// of the shown plan, so the bar cannot count a row the list leaves out, nor Reveal
+    /// let go of the plan to show a row the plan already lists.
+    /// </para>
+    /// </summary>
+    private bool InShownPlan(EntryRow row) =>
+        _shownPlan is { } shown
+        && ((_shownPlanTask is { } linked && row.Id == linked)
+            || row.PreviewTags.Any(tag => PlanTagMatch.Carries(tag, shown[1..])));
+
+    /// <summary>The chip for the plan <see cref="ShowPlan"/> holds, counted by what it
+    /// gathers rather than by who wears its spelling — the bare slug and the linked task
+    /// are under it as the <c>+</c> is, so a plan whose work wears only those does not
+    /// read "0" over a list of it. Open and finished split as on every other chip, so a
+    /// finished plan's chip is not "0" over a list of its finished tasks either.</summary>
+    private TagFilterOption ShownPlanChip(string plan, IReadOnlyList<EntryRow> scopedRows)
+    {
+        var gathered = scopedRows.Where(InShownPlan).ToList();
+
+        return new(
+            TagText.Display(plan),
+            plan,
+            gathered.Count(row => !IsFinished(row)),
+            gathered.Count(IsFinished));
+    }
+
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
     {
+        // Held only while it is still pressed: a widening that cleared the selection
+        // let go of it as surely as a press would.
+        if (_shownPlan is not null && !_selectedTags.Contains(_shownPlan)) LetGoOfShownPlan();
+
         var live = scopedRows.Where(row => !IsFinished(row)).ToList();
 
         // What the bar is allowed to name. Built from the live rows, then used to
@@ -5278,6 +5695,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         if (offered.Count == 0)
         {
+            if (_shownPlan is { } held)
+            {
+                TagFilters = [ShownPlanChip(held, scopedRows)];
+                _selectedTags.RemoveWhere(tag => !string.Equals(tag, held, StringComparison.OrdinalIgnoreCase));
+                return;
+            }
+
             TagFilters = [];
             _selectedTags.Clear();
             return;
@@ -5313,7 +5737,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         // "No plan" leads the group, so however many plans follow it the one-row
-        // strip never clips it. It earns its place off both halves: a live entry in
+        // strip never clips it — unless a plan opened from the roadmap is shown, which
+        // takes the lead below. It earns its place off both halves: a live entry in
         // some plan, or there is nothing to exclude, and a live entry in none, or
         // pressing it would empty the list.
         var unplanned = scopedRows.Where(row => !HasPlan(row)).ToList();
@@ -5340,6 +5765,25 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 untagged.Count(IsFinished)));
         }
 
+        // A plan the reader asked to see leads the strip, ahead of "No plan" too: the
+        // strip is one row and clips whole chips off its end, and with every repository
+        // in scope it has room for one chip. This is the one that says why the list is
+        // short and the one press that lets go of it, so it takes that room; "No plan"
+        // is a filter not in use and waits behind More. Wherever its name sorts, it is
+        // moved up — and while nothing open carries it, it is held there, pressed at 0,
+        // rather than being let go below with no chip to say why the list it asked for
+        // is not the list on screen. A plan the reader pressed keeps its place: a chip does not
+        // jump out from under the pointer that pressed it. Counted by what the plan gathers
+        // rather than by who wears its spelling, so the number on it is the list under it.
+        if (_shownPlan is { } shown)
+        {
+            var at = options.FindIndex(option => string.Equals(option.Value, shown, StringComparison.OrdinalIgnoreCase));
+
+            if (at >= 0) options.RemoveAt(at);
+
+            options.Insert(0, ShownPlanChip(shown, scopedRows));
+        }
+
         TagFilters = options;
 
         // A tag leaves the bar when the last entry wearing it drops it — or finishes
@@ -5363,11 +5807,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.PreviewTags.Any(tag => TagText.Kind(tag) is TagKind.Plan);
 
     /// <summary>The union the tag group asks for: a row wearing any pressed tag, or
-    /// matching a pressed sentinel.</summary>
+    /// matching a pressed sentinel, or gathered by the plan <see cref="ShowPlan"/> holds
+    /// (<see cref="InShownPlan"/>).</summary>
     private bool MatchesSelectedTags(EntryRow row) =>
         (row.PreviewTags.Count == 0 && _selectedTags.Contains(UntaggedTag))
         || (_selectedTags.Contains(NoPlanTag) && !HasPlan(row))
-        || row.PreviewTags.Any(_selectedTags.Contains);
+        || row.PreviewTags.Any(_selectedTags.Contains)
+        || InShownPlan(row);
 
     private static string StatusWire(EntryStatus status) => status switch
     {
@@ -5457,7 +5903,17 @@ public sealed class EntryRow
 
     public Guid Key { get; init; } = Guid.NewGuid();
 
-    public Guid? Id { get; set; }
+    public Guid? Id
+    {
+        get => _id;
+        set
+        {
+            _id = value;
+            Interlocked.Increment(ref _edits);
+        }
+    }
+
+    private Guid? _id;
 
     /// <summary>
     /// How a list names this row: its stored id once it has one, and its
@@ -5472,7 +5928,26 @@ public sealed class EntryRow
     /// </summary>
     public string TaskId => (Id ?? Key).ToString();
 
-    public string RawText { get; set; } = string.Empty;
+    public string RawText
+    {
+        get => _rawText;
+        set
+        {
+            _rawText = value;
+            Interlocked.Increment(ref _edits);
+        }
+    }
+
+    private string _rawText = string.Empty;
+
+    /// <summary>Moved by every write to <see cref="RawText"/>, <see cref="Id"/>
+    /// or <see cref="ImportPlanId"/> on any row — the fields the dependency
+    /// resolver reads. Shared rather than per row so a list can tell whether any
+    /// of its rows changed without visiting each one; a write to a row in another
+    /// list only costs that list one rebuild.</summary>
+    internal static int EditStamp => Volatile.Read(ref _edits);
+
+    private static int _edits;
 
     /// <summary>Whether the last save of this row was refused for being a
     /// <c>plan</c> entry. Held so the toast is raised on the way into that state
@@ -5581,7 +6056,17 @@ public sealed class EntryRow
     /// entry rather than the parse, like <see cref="CreatedAt"/>: the plan id is
     /// the tag the whole import shared, and nothing in this entry's own text says
     /// which of its tags that was.</summary>
-    public string? ImportPlanId { get; set; }
+    public string? ImportPlanId
+    {
+        get => _importPlanId;
+        set
+        {
+            _importPlanId = value;
+            Interlocked.Increment(ref _edits);
+        }
+    }
+
+    private string? _importPlanId;
 
     /// <summary>The local <c>id:</c> this entry goes by inside its plan, or null.
     /// A preview like the scheduling fields, because the token is in the text and
@@ -5633,6 +6118,49 @@ public sealed class EntryRow
     public IReadOnlyList<MdSubItem> PreviewSubItems
     {
         get { Render(); return _subItems; }
+    }
+
+    /// <summary>The body under the title and metadata line — what the pane's
+    /// Markdown editor edits — off the cached parse, so drawing the editor does
+    /// not parse the whole text again.</summary>
+    public string PreviewBody
+    {
+        get { Render(); return _parsed!.Body; }
+    }
+
+    /// <summary>One reading of the steps and the text it was read from, published
+    /// together so another thread never pairs one text with another's steps.</summary>
+    private sealed record StepTextsCache(string From, IReadOnlyList<EntryTextParser.SubItemTitleAndNote> Steps);
+
+    private volatile StepTextsCache? _stepTexts;
+
+    /// <summary>
+    /// Every step's title and notes as <see cref="EntryTextParser.GetSubItemTitle"/>
+    /// and <see cref="EntryTextParser.GetSubItemNote"/> read them, indexed the
+    /// same way — read once per text rather than twice per step per render.
+    /// <para>
+    /// Not <see cref="PreviewSubItems"/>: that list is the Markdown preview's own
+    /// reading of the body, while the steps list writes back by the parser's
+    /// index. Where the two counts differ, an index past the end here is a step
+    /// with no title or notes, which is what the per-index reads return for it.
+    /// </para>
+    /// <para>
+    /// Kept apart from <see cref="Render"/> and built only when asked, because
+    /// only the open entry's steps list reads it.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<EntryTextParser.SubItemTitleAndNote> PreviewStepTexts
+    {
+        get
+        {
+            var text = RawText;
+            var cached = _stepTexts;
+            if (cached is not null && string.Equals(cached.From, text, StringComparison.Ordinal)) return cached.Steps;
+
+            var steps = EntryTextParser.GetSubItemTitlesAndNotes(text);
+            _stepTexts = new StepTextsCache(text, steps);
+            return steps;
+        }
     }
 
     public bool HasExpandableContent
@@ -5852,11 +6380,11 @@ public sealed class EntryRow
     }
 
     /// <summary>
-    /// Whether the steps view is leaving body text off the screen.
+    /// Whether the entry opens with prose before its first chapter.
     /// <para>
     /// The steps view lists chapters, and the prose an entry opens with is not one.
     /// A view that quietly hid it would make the markdown look like it had lost
-    /// text, so the pane says so instead and puts the block one press away —
+    /// text, so the pane reads it out above the steps (<see cref="PreviewBlocks"/>) —
     /// <c>.devbook/design/content-editing.md#round-trip-fidelity</c> is about the text
     /// surviving, and a reader who cannot see it has no way to know that it did.
     /// </para>

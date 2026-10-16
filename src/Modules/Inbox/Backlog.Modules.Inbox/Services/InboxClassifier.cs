@@ -27,7 +27,7 @@ namespace Backlog.Modules.Inbox.Services;
 /// the item matches, in the order the rules are written.</item>
 /// <item><b>Destination.</b> One: archive for a newsletter, the backlog for an
 /// item already assigned a repository or a note of the reader's own, and
-/// knowledge for collected material.</item>
+/// the Brain for collected material.</item>
 /// </list>
 /// </summary>
 internal static partial class InboxClassifier
@@ -35,8 +35,6 @@ internal static partial class InboxClassifier
     /// <summary>How many tag chips an item is offered at most: enough for the
     /// words that matter, few enough that the row stays a glance.</summary>
     internal const int MaxTagSuggestions = 5;
-
-    internal const string KnowledgeNotBuilt = "Keeping an item as knowledge is not built yet.";
 
     /// <summary>The kinds that are a thought of the reader's own rather than
     /// collected material — see <c>Content Kind</c> in the domain chapter, which
@@ -64,8 +62,25 @@ internal static partial class InboxClassifier
 
         if (!item.IsOpen || item.IsRouted) return [];
 
+        return Suggest(item, InboxTagVocabulary.From(backlogTags), rules);
+    }
+
+    /// <summary>The same proposals, against a vocabulary prepared once for a
+    /// batch of items, so the backlog's tags are normalised and their patterns
+    /// built once rather than once per item.</summary>
+    public static IReadOnlyList<InboxSuggestionDto> Suggest(
+        InboxItem item,
+        InboxTagVocabulary vocabulary,
+        IReadOnlyList<InboxRoutingRule> rules)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(vocabulary);
+        ArgumentNullException.ThrowIfNull(rules);
+
+        if (!item.IsOpen || item.IsRouted) return [];
+
         var suggestions = new List<InboxSuggestionDto>();
-        suggestions.AddRange(Tags(item, backlogTags));
+        suggestions.AddRange(Tags(item, vocabulary));
         suggestions.AddRange(Repositories(item, rules));
         if (Destination(item) is { } destination) suggestions.Add(destination);
 
@@ -74,15 +89,11 @@ internal static partial class InboxClassifier
 
     // --- Tags ----------------------------------------------------------------
 
-    private static IEnumerable<InboxSuggestionDto> Tags(InboxItem item, IReadOnlyList<string> backlogTags)
+    private static IEnumerable<InboxSuggestionDto> Tags(InboxItem item, InboxTagVocabulary vocabulary)
     {
         var text = item.Title + "\n" + item.BodyMd;
         var offered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var known = backlogTags
-            .Select(tag => (tag ?? string.Empty).Trim().TrimStart('#'))
-            .Where(tag => tag.Length > 1 && char.IsLetter(tag[0]))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var known = vocabulary.Known;
         var results = new List<InboxSuggestionDto>();
 
         foreach (Match match in HashtagPattern().Matches(text))
@@ -95,9 +106,10 @@ internal static partial class InboxClassifier
             Offer(name, $"The item says #{written}.");
         }
 
-        foreach (var tag in known)
+        for (var index = 0; index < known.Count; index++)
         {
-            if (MentionsWord(text, tag)) Offer(tag, $"The backlog files entries under #{tag}, and the item mentions it.");
+            var tag = known[index];
+            if (vocabulary.Mentions(index, text)) Offer(tag, $"The backlog files entries under #{tag}, and the item mentions it.");
         }
 
         return results.Take(MaxTagSuggestions);
@@ -112,18 +124,6 @@ internal static partial class InboxClassifier
 
             results.Add(new InboxSuggestionDto(key, InboxSuggestionKind.Tag, name, reason));
         }
-    }
-
-    /// <summary>Whether the text holds the tag as a whole word — or, for a tag
-    /// of several words (<c>release-notes</c>), those words in order with any
-    /// run of spaces, hyphens or underscores between them.</summary>
-    private static bool MentionsWord(string text, string tag)
-    {
-        var words = tag.Split(['-', '_', ' '], StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length == 0) return false;
-
-        var pattern = @"(?<![\p{L}\p{N}_])" + string.Join(@"[\s_-]+", words.Select(Regex.Escape)) + @"(?![\p{L}\p{N}_])";
-        return Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(250));
     }
 
     /// <summary>A <c>#word</c> that opens with a letter and is not the tail of a
@@ -175,10 +175,7 @@ internal static partial class InboxClassifier
         var key = DestinationKey(domain);
         if (item.IsSuggestionDismissed(key)) return null;
 
-        return new InboxSuggestionDto(key, InboxSuggestionKind.Destination, InboxEnumMap.ToWire(domain), reason)
-        {
-            UnavailableReason = domain == RoutingDomain.Devbook ? KnowledgeNotBuilt : null
-        };
+        return new InboxSuggestionDto(key, InboxSuggestionKind.Destination, InboxEnumMap.ToWire(domain), reason);
     }
 
     private static (RoutingDomain Domain, string Reason) DestinationFor(InboxItem item)

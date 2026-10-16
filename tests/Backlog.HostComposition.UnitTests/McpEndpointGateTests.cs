@@ -3,6 +3,7 @@ extern alias DesktopHarness;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json.Nodes;
 
 using Backlog.Desktop.UI.Extensions;
 using Backlog.Desktop.UI.Shell;
@@ -46,14 +47,21 @@ public class McpEndpointGateTests
     /// <summary>Development for the reason <see cref="WebHarnessHostTests"/>
     /// gives — it is the only environment where the provider validates — plus the
     /// feature switch this class needs to decide.</summary>
-    private sealed class Harness(bool sessions = true) : IsolatedHarnessFactory<DesktopHarness::Program>
+    private sealed class Harness(bool sessions = true, IDeliverySurfaceLifecycle? surface = null)
+        : IsolatedHarnessFactory<DesktopHarness::Program>
     {
         protected override void ConfigureHarness(IWebHostBuilder builder)
         {
             // After the harness's own registration, so this is the one resolved:
             // the last registration of a service wins.
             builder.ConfigureServices(services =>
-                services.AddSingleton<IAppFeatureSettings>(new FixedFeatures(sessions)));
+            {
+                services.AddSingleton<IAppFeatureSettings>(new FixedFeatures(sessions));
+
+                // A recording double rather than the real run store, which files
+                // runs under this machine's shared state: a test run is not a run.
+                if (surface is not null) services.AddSingleton(surface);
+            });
         }
     }
 
@@ -325,6 +333,158 @@ public class McpEndpointGateTests
         Assert.All(
             BacklogMcpTools.Tracker.ToolNames,
             tool => Assert.Contains($"\"{tool}\"", body, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// <c>start_run</c> with its stages sent as the JSON text of the list, as an
+    /// execute-plan worker sent them: the run starts, with the stages the text
+    /// encodes. Over the real endpoint, because what decides this is the order of
+    /// the host's filters and the SDK's binding, and neither is visible below it.
+    /// </summary>
+    [Fact]
+    public async Task Start_run_takes_its_stages_as_a_JSON_encoded_string()
+    {
+        var surface = new RecordingSurface();
+        await using var harness = new Harness(surface: surface);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, DeliverySurfaceOperations.StartRun, new
+        {
+            worktree = @"D:\Repos\Backlog\.claude\worktrees\example",
+            skillId = "flow-code",
+            title = "Stages as a string",
+            stages = """["Update Base","Scope","Implement"]""",
+            // Not a start_run parameter: the worker sent it, and it is ignored.
+            resume = "false"
+        });
+
+        Assert.DoesNotContain("\"isError\":true", body, StringComparison.Ordinal);
+        Assert.Contains("run-1", body, StringComparison.Ordinal);
+        Assert.Equal(["Update Base", "Scope", "Implement"], surface.Stages);
+    }
+
+    /// <summary>
+    /// <c>start_run</c> with no worktree is refused naming the worktree, rather than
+    /// with "An error occurred invoking 'start_run'." — which is all the SDK says
+    /// about a binding failure, and all that worker was told.
+    /// </summary>
+    [Fact]
+    public async Task Start_run_without_a_worktree_is_refused_naming_it()
+    {
+        var surface = new RecordingSurface();
+        await using var harness = new Harness(surface: surface);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, DeliverySurfaceOperations.StartRun, new
+        {
+            skillId = "flow-code",
+            title = "No worktree",
+            stages = new[] { "Scope" }
+        });
+
+        Assert.Contains("\"isError\":true", body, StringComparison.Ordinal);
+        Assert.Contains("start_run needs worktree", body, StringComparison.Ordinal);
+        Assert.Null(surface.Stages);
+    }
+
+    /// <summary>
+    /// The feature gate answers before the arguments are read: a switched-off
+    /// <c>start_run</c> is an unknown tool, not one asking for its worktree — which
+    /// would describe a tool the gate exists to deny.
+    /// </summary>
+    [Fact]
+    public async Task A_switched_off_start_run_is_unknown_before_its_arguments_are_read()
+    {
+        await using var harness = new Harness(sessions: false, surface: new RecordingSurface());
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, DeliverySurfaceOperations.StartRun, new { skillId = "flow-code" });
+
+        Assert.Contains("Unknown tool", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("needs worktree", body, StringComparison.Ordinal);
+    }
+
+    /// <summary>One stateless <c>tools/call</c>, as its body.</summary>
+    private static async Task<string> CallToolAsync(HttpClient client, string name, object arguments)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, BacklogMcpServerRegistration.EndpointPath)
+        {
+            Content = JsonContent.Create(new
+            {
+                jsonrpc = "2.0",
+                id = 1,
+                method = "tools/call",
+                @params = new { name, arguments }
+            })
+        };
+
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(
+            response.IsSuccessStatusCode,
+            $"{name} answered {(int)response.StatusCode} {response.StatusCode}. Body:\n{body}");
+
+        return body;
+    }
+
+    /// <summary>Records the stages <c>start_run</c> reached the port with, and
+    /// answers every other operation with nothing much.</summary>
+    private sealed class RecordingSurface : IDeliverySurfaceLifecycle
+    {
+        public IReadOnlyList<string>? Stages { get; private set; }
+
+        public Task<DeliverySurfaceOpened> OpenDashboardAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DeliverySurfaceOpened(DeliverySurfaceActivation.Available, "Recording."));
+
+        public Task<DeliveryRunStarted> StartRunAsync(
+            string worktree,
+            string skillId,
+            string title,
+            IReadOnlyList<string> stages,
+            string? changeKind = null,
+            string? sessionId = null,
+            string? trigger = null,
+            string? schedule = null,
+            string? repository = null,
+            CancellationToken cancellationToken = default)
+        {
+            Stages = stages;
+            return Task.FromResult(new DeliveryRunStarted("run-1", Resumed: false, SessionTitle: title));
+        }
+
+        public Task RecordPromptAsync(string worktree, string runId, string prompt, string? kind = null, string? label = null, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task SetRunContextAsync(string worktree, string runId, string? changeKind = null, string? approval = null, string? approvalNote = null, string? model = null, JsonObject? runContext = null, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task<DeliveryStageUpdated> UpdateStageAsync(
+            string worktree,
+            string runId,
+            int stageIndex,
+            string status,
+            string? output = null,
+            IReadOnlyList<DeliveryStageLink>? links = null,
+            IReadOnlyList<DeliveryScenario>? scenarios = null,
+            DeliveryMonitoring? monitoring = null,
+            JsonObject? execution = null,
+            IReadOnlyList<DeliveryScenarioEvidence>? evidence = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DeliveryStageUpdated(runId, stageIndex, status, DoneCount: 0, SessionTitle: null));
+
+        public Task FinishRunAsync(string worktree, string runId, string status, string? summary = null, IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null, JsonObject? quality = null, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task<IReadOnlyList<DeliveryRun>> ListRunsAsync(string worktree, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<DeliveryRun>>([]);
+
+        public Task<DeliveryRun?> GetRunAsync(string worktree, string runId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<DeliveryRun?>(null);
     }
 
     /// <summary>A stateless <c>tools/list</c>, as its body. The transport this

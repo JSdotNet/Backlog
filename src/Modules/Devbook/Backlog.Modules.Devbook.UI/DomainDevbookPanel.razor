@@ -232,6 +232,16 @@
     /// launchers rather than offering changes the next fetch would discard.</summary>
     private bool CanEdit => _view?.CanEdit ?? true;
 
+    /// <summary>Whether this repository is archived, which leaves its remarks
+    /// readable and nothing more (local ADR 0029 §4) — see
+    /// <see cref="DevbookRemarkControls"/>.</summary>
+    private bool RepositoryArchived => _view is { RepositoryArchived: true };
+
+    /// <summary>The remark controls the read view is bound to: none while
+    /// archived.</summary>
+    private DevbookRemarkCallbacks Remarks => DevbookRemarkControls.For(
+        this, RepositoryArchived, AddChapterComment, ResolveChapterComment, EditChapterComment, DeleteChapterComment);
+
     /// <summary>The open chapter's sync scope, cascaded to the records the file
     /// view draws; rebuilt with every read of the chapter, so a direction changed
     /// on its page, its context or the context map reaches the units under it.</summary>
@@ -273,6 +283,12 @@
 
     [Parameter]
     public string? SelectedPath { get; set; }
+
+    /// <summary>The heading the host opened <see cref="SelectedPath"/> at, and which
+    /// request asked for it, or null. On a scenario page it names the part to mark as
+    /// current and scroll to; on any other chapter it does nothing yet.</summary>
+    [Parameter]
+    public DevbookFocus? Focus { get; set; }
 
     /// <summary>
     /// Raised when a reader follows a reference to another chapter.
@@ -853,7 +869,7 @@
     /// blocks and mean nothing against another file's.</summary>
     private void RefreshChapterComments() =>
         _chapterComments = _chapterDocument is { } document
-            ? DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path))
+            ? DevbookRemarkControls.Shown(DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path)), RepositoryArchived)
             : [];
 
     /// <summary>The store changed under the panel — replication applied what
@@ -880,7 +896,7 @@
     /// </summary>
     private void AddChapterComment(int blockIndex)
     {
-        if (_chapterDocument is not { } document) return;
+        if (_chapterDocument is not { } document || RepositoryArchived) return;
 
         // Asked of the view rather than worked out here: it owns the block list
         // the index came from, and this panel holds the file's whole text.
@@ -900,7 +916,7 @@
     /// remark that should not stick around at all.</summary>
     private void ResolveChapterComment(string id)
     {
-        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+        if (RepositoryArchived || DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
         if (_annotations.Find(annotationId) is not { } annotation) return;
 
         _annotations.SetResolved(annotationId, !annotation.Resolved);
@@ -909,7 +925,7 @@
 
     private void EditChapterComment(MarkdownComment edited)
     {
-        if (DevbookAnnotationComments.AnnotationId(edited.Id) is not { } annotationId) return;
+        if (RepositoryArchived || DevbookAnnotationComments.AnnotationId(edited.Id) is not { } annotationId) return;
 
         _annotations.Edit(annotationId, edited.Body);
         RefreshChapterComments();
@@ -920,7 +936,7 @@
     /// leaves a tombstone behind for the other devices.</summary>
     private void DeleteChapterComment(string id)
     {
-        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+        if (RepositoryArchived || DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
 
         _annotations.Delete(annotationId);
         RefreshChapterComments();
@@ -1256,7 +1272,10 @@
                body below stays the page as written. *@
             @if (_scenarios.ForPath(document.Path) is { } scenario)
             {
-                <DevbookScenarioPage Scenario="@scenario" Images="@_scenarioImages" Store="@_scenarioStore" />
+                <DevbookScenarioPage Scenario="@scenario"
+                                     Images="@_scenarioImages"
+                                     Store="@_scenarioStore"
+                                     Focus="@Focus" />
             }
             @* Every `scenario:` image in the chapter, and a scenario page's own
                `shot:` points, resolve through this. *@
@@ -1280,10 +1299,10 @@
                       OnDevbookStatusChanged="change => ChangeChapterStatusAsync(document, change)"
                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
                       Comments="@_chapterComments"
-                      OnAddComment="index => AddChapterComment(index)"
-                      OnResolveComment="ResolveChapterComment"
-                      OnEditComment="EditChapterComment"
-                      OnDeleteComment="DeleteChapterComment"
+                      OnAddComment="@Remarks.Add"
+                      OnResolveComment="@Remarks.Resolve"
+                      OnEditComment="@Remarks.Edit"
+                      OnDeleteComment="@Remarks.Delete"
                       CanEdit="@(_chapter.Chapter is { CanEdit: true })"
                       Editing="@_editing"
                       EditingChanged="OnEditingChangedAsync"

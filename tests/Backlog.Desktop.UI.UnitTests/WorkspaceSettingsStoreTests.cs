@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Tasks.DomainModels;
 using Microsoft.Data.Sqlite;
@@ -606,6 +607,167 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
     /// "Use the default folder" and watched every task disappear, because the
     /// pointer moved and the database did not. Moving carries it.
     /// </summary>
+    /// <summary>
+    /// The move in two halves, for the settings screen: the copy runs off the UI
+    /// thread and changes nothing the app reads, and the commit is what repoints
+    /// and announces it - on whichever thread calls it, which is the screen's
+    /// dispatcher, where the listeners expect to be called.
+    /// </summary>
+    [Fact]
+    public async Task Preparing_a_move_copies_without_repointing_and_committing_repoints()
+    {
+        var store = Store();
+        var previous = store.RootDirectory;
+        var target = TempDir();
+        var task = new TaskItem("Copied first", string.Empty, EntryType.Task);
+        await new SqliteTaskRepository(previous).SaveAsync(task, TestContext.Current.CancellationToken);
+        var announced = 0;
+        store.RootChanged += () => announced++;
+
+        var prepared = await Task.Run(() => store.PrepareMoveRoot(target), TestContext.Current.CancellationToken);
+
+        Assert.Equal(previous, store.RootDirectory);
+        Assert.Equal(0, announced);
+        Assert.NotNull(await new SqliteTaskRepository(target).GetAsync(task.Id, TestContext.Current.CancellationToken));
+
+        var move = store.CommitRoot(prepared);
+
+        Assert.Null(move.Error);
+        Assert.True(move.CopiedData);
+        Assert.Equal(target, store.RootDirectory);
+        Assert.Equal(1, announced);
+    }
+
+    /// <summary>A preparation taken before the app moved somewhere else is
+    /// refused at the commit rather than quietly dropping where the other change
+    /// went: the copy was of a backlog the app no longer reads.</summary>
+    [Fact]
+    public async Task A_move_prepared_before_the_folder_changed_is_refused_at_commit()
+    {
+        var store = Store();
+        await new SqliteTaskRepository(store.RootDirectory).SaveAsync(new TaskItem("Any", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        var target = TempDir();
+        var prepared = store.PrepareMoveRoot(target);
+        var elsewhere = TempDir();
+        Assert.Null(store.TryUseRoot(elsewhere));
+
+        var move = store.CommitRoot(prepared);
+
+        Assert.False(move.Moved);
+        Assert.NotNull(move.Error);
+        Assert.Equal(elsewhere, store.RootDirectory);
+
+        // The copy is taken back out, so it cannot refuse a later move as
+        // "already holds a backlog".
+        Assert.False(File.Exists(SqliteTaskRepository.DatabasePathFor(target)));
+    }
+
+    /// <summary>
+    /// The copy is a snapshot of a backlog that stays live while it is made. A
+    /// write after it - a task edited while "Moving" spins - would be in the old
+    /// folder only once the app repointed, so the commit refuses, takes the copy
+    /// back out, and the next try carries the write along.
+    /// </summary>
+    [Fact]
+    public async Task A_write_to_the_old_folder_during_the_copy_refuses_the_move_and_a_retry_carries_it()
+    {
+        var store = Store();
+        var previous = store.RootDirectory;
+        var repository = new SqliteTaskRepository(previous);
+        await repository.SaveAsync(new TaskItem("Before", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        var target = TempDir();
+        var prepared = await Task.Run(() => store.PrepareMoveRoot(target), TestContext.Current.CancellationToken);
+
+        var during = new TaskItem("Written during the copy", string.Empty, EntryType.Task);
+        await repository.SaveAsync(during, TestContext.Current.CancellationToken);
+
+        var move = store.CommitRoot(prepared);
+
+        Assert.False(move.Moved);
+        Assert.Contains("changed while it was being moved", move.Error, StringComparison.Ordinal);
+        Assert.Equal(previous, store.RootDirectory);
+        Assert.False(File.Exists(SqliteTaskRepository.DatabasePathFor(target)));
+
+        var retry = store.TryMoveRoot(target);
+
+        Assert.Null(retry.Error);
+        Assert.Equal(target, store.RootDirectory);
+        Assert.NotNull(await new SqliteTaskRepository(target).GetAsync(during.Id, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>A journal without its database is what is left of somebody's
+    /// backlog - and SQLite would replay it into the copy - so a folder holding
+    /// one is refused like a folder holding a database, and the journal is left
+    /// exactly as it was.</summary>
+    [Theory]
+    [InlineData("-wal")]
+    [InlineData("-journal")]
+    public async Task A_folder_holding_a_stray_journal_is_refused_and_the_journal_left_alone(string suffix)
+    {
+        var store = Store();
+        var previous = store.RootDirectory;
+        await new SqliteTaskRepository(previous).SaveAsync(new TaskItem("Any", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        var target = TempDir();
+        Directory.CreateDirectory(target);
+        var journal = SqliteTaskRepository.DatabasePathFor(target) + suffix;
+        File.WriteAllText(journal, "somebody's");
+
+        var move = store.TryMoveRoot(target);
+
+        Assert.False(move.Moved);
+        Assert.Contains("journal without its database", move.Error, StringComparison.Ordinal);
+        Assert.Equal(previous, store.RootDirectory);
+        Assert.Equal("somebody's", File.ReadAllText(journal));
+    }
+
+    /// <summary>The cleanup after a refused commit takes out only what the copy
+    /// made: an <c>-shm</c> that was in the folder before stays.</summary>
+    [Fact]
+    public async Task A_refused_move_leaves_a_file_that_was_there_before()
+    {
+        var store = Store();
+        var repository = new SqliteTaskRepository(store.RootDirectory);
+        await repository.SaveAsync(new TaskItem("Before", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        var target = TempDir();
+        Directory.CreateDirectory(target);
+        var shm = SqliteTaskRepository.DatabasePathFor(target) + "-shm";
+        File.WriteAllText(shm, "was here first");
+        var prepared = store.PrepareMoveRoot(target);
+        Assert.Null(prepared.Outcome.Error);
+
+        await repository.SaveAsync(new TaskItem("During", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        var move = store.CommitRoot(prepared);
+
+        Assert.False(move.Moved);
+        Assert.False(File.Exists(SqliteTaskRepository.DatabasePathFor(target)));
+        Assert.True(File.Exists(shm));
+    }
+
+    /// <summary>A folder copy that fails after the database landed takes the
+    /// database back out too: a backlog half moved would otherwise refuse the
+    /// retry as "already holds a backlog".</summary>
+    [Fact]
+    public async Task A_failed_folder_copy_takes_the_copied_database_back_out()
+    {
+        var store = Store();
+        await new SqliteTaskRepository(store.RootDirectory).SaveAsync(new TaskItem("Any", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        var registry = Path.Combine(store.RootDirectory, GitHubSettingsStore.RegistryFolderName);
+        Directory.CreateDirectory(registry);
+        File.WriteAllText(Path.Combine(registry, "repos.json"), "[]");
+        var target = TempDir();
+        Directory.CreateDirectory(target);
+
+        // A file where the registry folder has to go: creating the folder fails.
+        File.WriteAllText(Path.Combine(target, GitHubSettingsStore.RegistryFolderName), "in the way");
+
+        var move = store.TryMoveRoot(target);
+
+        Assert.False(move.Moved);
+        Assert.Contains("Couldn't move the backlog", move.Error, StringComparison.Ordinal);
+        Assert.False(File.Exists(SqliteTaskRepository.DatabasePathFor(target)));
+        Assert.True(File.Exists(Path.Combine(target, GitHubSettingsStore.RegistryFolderName)));
+    }
+
     [Fact]
     public async Task Moving_carries_the_backlog_along()
     {

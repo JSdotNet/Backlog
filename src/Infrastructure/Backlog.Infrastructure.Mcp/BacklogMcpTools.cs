@@ -138,11 +138,14 @@ public static class BacklogMcpTools
             DevbookTools.ReadKnowledgeChapter,
             DevbookTools.ListAnnotations,
 
-            // The one write. It is in this group rather than a group of its own
-            // because §7's rule is one check per area, not one per verb: somebody
-            // who has switched the devbook off has switched off the notes it
-            // would resolve just as much as the chapters it would read.
+            // The two writes. They are in this group rather than a group of their
+            // own because §7's rule is one check per area, not one per verb:
+            // somebody who has switched the devbook off has switched off the notes
+            // it would resolve just as much as the chapters it would read. The
+            // Brain capture is here for the same reason — the Brain is a scope of
+            // this pane, behind the same key, with no switch of its own.
             DevbookTools.ResolveAnnotation,
+            DevbookTools.CaptureNote,
         ]);
 
     /// <summary>The sessions tool, behind <c>sessions</c>. Its own group because

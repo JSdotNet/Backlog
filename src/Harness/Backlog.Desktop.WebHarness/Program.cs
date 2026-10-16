@@ -3,7 +3,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
-using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
 using Backlog.Modules.Inbox.Abstractions.Services;
@@ -100,6 +100,9 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
         Path.Combine(localDevelopment, "planning-velocity.settings.json"),
         time: null,
         sp.GetRequiredService<WorkingHoursSettingsStore>()),
+    // Under the content root, never %LOCALAPPDATA%: that folder is shared by every
+    // worktree's harness and by the installed app.
+    MyDayPreferences = _ => CreateLocalDevelopmentMyDayPreferencesStore(builder.Environment.ContentRootPath),
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
@@ -116,6 +119,13 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // The desktop head's own tools adapter, configured to read the catalog and run
     // nothing: a browser session operates the pane without touching the machine.
     DevToolService = sp => DevToolService.CatalogOnly(sp.GetRequiredService<ITaskStore>()),
+    // Per worktree, like the other per-user files: a Brain folder picked in a
+    // harness session is not the installed app's. No folder picker is registered,
+    // so the card here is typed into rather than browsed.
+    BrainSettings = _ => new BrainSettingsStore(
+        Environment.GetEnvironmentVariable("BACKLOG_BRAIN_SETTINGS_PATH") is { Length: > 0 } brainSettingsPath
+            ? brainSettingsPath
+            : Path.Combine(localDevelopment, BrainSettingsStore.FileName)),
     FolderEditorLauncher = _ => new UnsupportedFolderEditorLauncher(),
     // The web host never distributes or updates the desktop app, so it always
     // reports updates as unsupported.
@@ -242,6 +252,10 @@ _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 // And the devbook database refresher: resolving it points every database reader
 // at the app's storage, so it has to exist before the first pane opens.
 _ = app.Services.GetRequiredService<DevbookDatabaseRefresher>();
+
+// And the Brain's folder watch, after the refresher, for the desktop head's
+// reason: the Brain is watched from startup and follows the setting.
+app.Services.GetRequiredService<BrainFolderWatch>().Start();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -468,6 +482,17 @@ static InboxRoutingRulesStore CreateLocalDevelopmentInboxRoutingRulesStore(strin
     }
 
     return new InboxRoutingRulesStore(settingsPath);
+}
+
+static MyDayPreferencesStore CreateLocalDevelopmentMyDayPreferencesStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_MY_DAY_PREFERENCES_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "my-day-preferences.settings.json");
+    }
+
+    return new MyDayPreferencesStore(settingsPath);
 }
 
 static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsStore(string contentRootPath)

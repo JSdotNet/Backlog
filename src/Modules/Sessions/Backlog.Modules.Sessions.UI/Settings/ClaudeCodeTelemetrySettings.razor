@@ -11,60 +11,77 @@
 *@
 @namespace Backlog.Modules.Sessions.UI
 @using global::Backlog.UI.Components.Code
+@using global::Backlog.UI.Components.Settings
 @using Microsoft.Extensions.DependencyInjection
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 
-<h3 class="setting__subtitle" id="claude-code-telemetry-title">Cost from Claude Code</h3>
-<p class="setting__body">
-    Claude Code reports what each model request cost through OpenTelemetry. Point its
-    exporter at this app and every <code>claude_code.api_request</code> event - the model,
-    the effort, the cost, the tokens and how long it took - is kept in this app's local
-    database, once per request. Every other event Claude Code sends is dropped.
-</p>
+<SettingsHeadline>@Headline</SettingsHeadline>
 
-<p class="setting__label" id="claude-code-telemetry-endpoint-label">Endpoint</p>
-<div class="setting__body">
-    <code data-testid="claude-code-telemetry-endpoint" aria-labelledby="claude-code-telemetry-endpoint-label">@Endpoint</code>
-    <CopyButton Text="@Endpoint.ToString()"
-                Label="Copy the endpoint"
-                TestId="claude-code-telemetry-endpoint-copy" />
-</div>
+<SettingsCard Title="@CardTitle"
+              Id="claude-code-telemetry-title"
+              Description="Claude Code reports what each model request cost through OpenTelemetry."
+              TestId="claude-code-telemetry-card">
+    <p class="setting__body">
+        Point its exporter at this app and every <code>claude_code.api_request</code> event - the
+        model, the effort, the cost, the tokens and how long it took - is kept in this app's local
+        database, once per request. Every other event Claude Code sends is dropped.
+    </p>
 
-<p class="setting__body">
-    Paste this into <code>~/.claude/settings.json</code>, or a project's
-    <code>.claude/settings.json</code>, and start a new Claude Code session.
-</p>
-@* The block on screen hides the token and the copy carries it: the token is a
-   secret, and a page that drew it would put it in every screenshot of Settings. *@
-<CodeView Source="@ShownSnippet"
-          Language="json"
-          Title="settings.json"
-          AllowCopy="false"
-          TestId="claude-code-telemetry-settings" />
-<CopyButton Text="@Snippet"
-            Label="Copy the settings block"
-            TestId="claude-code-telemetry-settings-copy">
-    Copy the settings block
-</CopyButton>
+    <p class="setting__label" id="claude-code-telemetry-endpoint-label">Endpoint</p>
+    <div class="setting__body">
+        <code data-testid="claude-code-telemetry-endpoint" aria-labelledby="claude-code-telemetry-endpoint-label">@Endpoint</code>
+        <CopyButton Text="@Endpoint.ToString()"
+                    Label="Copy the endpoint"
+                    TestId="claude-code-telemetry-endpoint-copy" />
+    </div>
 
-<p class="setting__note" data-testid="claude-code-telemetry-note">
-    @if (_token is not null)
-    {
-        <span>
-            The endpoint answers on this machine only, on the MCP server's port, and asks for the
-            MCP server's token - the same one its registrations carry. The copied block holds the
-            token itself, where the one above shows it hidden. Moving the MCP server to another
-            port, or giving it a new token, means pasting the block again.
-        </span>
-    }
-    else
-    {
-        <span>This host asks for no token.</span>
-    }
-</p>
+    <p class="setting__body">
+        Paste this into <code>~/.claude/settings.json</code>, or a project's
+        <code>.claude/settings.json</code>, and start a new Claude Code session.
+        Keep <code>OTEL_LOG_TOOL_DETAILS</code> in it: without that key Claude Code hides which
+        sub-agent made each request, and a stage's cost can then only be estimated.
+    </p>
+    @* The block on screen hides the token and the copy carries it: the token is a
+       secret, and a page that drew it would put it in every screenshot of Settings. *@
+    <CodeView Source="@ShownSnippet"
+              Language="json"
+              Title="settings.json"
+              AllowCopy="false"
+              TestId="claude-code-telemetry-settings" />
+    <div class="setting__actions">
+        <CopyButton Text="@Snippet"
+                    Label="Copy the settings block"
+                    TestId="claude-code-telemetry-settings-copy">
+            Copy the settings block
+        </CopyButton>
+    </div>
+
+    <p class="setting__note" data-testid="claude-code-telemetry-note">
+        @if (_token is not null)
+        {
+            <span>
+                The endpoint answers on this machine only, on the MCP server's port, and asks for the
+                MCP server's token - the same one its registrations carry. The copied block holds the
+                token itself, where the one above shows it hidden. Moving the MCP server to another
+                port, or giving it a new token, means pasting the block again.
+            </span>
+        }
+        else
+        {
+            <span>This host asks for no token.</span>
+        }
+    </p>
+</SettingsCard>
 
 @code {
+    /// <summary>The sentence the frame shows over this page.</summary>
+    public const string Headline = "How Claude Code reports what each session cost.";
+
+    /// <summary>The page's one card - what its
+    /// <c>SettingsSection.CardTitles</c> declares.</summary>
+    public const string CardTitle = "Cost from Claude Code";
+
     private IClaudeCodeTelemetryEndpoint? _endpoint;
     private string? _token;
 

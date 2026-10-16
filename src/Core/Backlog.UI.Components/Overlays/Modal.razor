@@ -91,6 +91,13 @@
     [Parameter]
     public string CloseLabel { get; set; } = "Close dialog";
 
+    /// <summary>Disables the header's close button, for the moment a dialog cannot
+    /// be dismissed — ConfirmDialog while its confirmed act runs. Pair it with
+    /// <see cref="CloseOnEscape"/> and <see cref="CloseOnBackdropClick"/> off, or
+    /// the other two routes still close it.</summary>
+    [Parameter]
+    public bool CloseDisabled { get; set; }
+
     [Parameter]
     public EventCallback OnClosed { get; set; }
 
@@ -193,9 +200,17 @@
         builder.AddAttribute(8, "tabindex", "-1");
         builder.AddAttribute(9, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, OnKeyDownAsync));
         builder.AddEventStopPropagationAttribute(10, "onclick", true);
-        builder.AddMultipleAttributes(11, AdditionalAttributes);
-        builder.AddElementReferenceCapture(12, reference => _dialog = reference);
-        builder.AddContent(13, DialogContent);
+        // A key pressed in the dialog is the dialog's. The host that opened it is
+        // usually an ancestor in the DOM with a keydown handler of its own — the
+        // shell closes a whole surface on Escape from the surface's <main> — and
+        // without this boundary one Escape closed the dialog and then the surface
+        // behind it. Blazor's stopPropagation ends only its own walk up the
+        // ancestors' handlers, so a document listener still hears the key; the
+        // shell's takeover script already stands down while a modal is open.
+        builder.AddEventStopPropagationAttribute(11, "onkeydown", true);
+        builder.AddMultipleAttributes(12, AdditionalAttributes);
+        builder.AddElementReferenceCapture(13, reference => _dialog = reference);
+        builder.AddContent(14, DialogContent);
         builder.CloseElement();
     };
 
@@ -209,7 +224,7 @@
             {
                 <header class="@HeaderClassValue">
                     <h2 id="@TitleId" class="modal__title">@Title</h2>
-                    <IconButton AriaLabel="@CloseLabel" CssClass="modal__close" OnClick="CloseAsync">x</IconButton>
+                    <IconButton AriaLabel="@CloseLabel" CssClass="modal__close" Disabled="@CloseDisabled" OnClick="CloseAsync">x</IconButton>
                 </header>
             }
 

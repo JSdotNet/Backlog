@@ -1031,16 +1031,15 @@ public sealed class TasksDetailPaneTests
     }
 
     /// <summary>
-    /// The steps view says when it is not showing everything.
+    /// The steps view reads out the prose an entry opens with, above the steps.
     /// <para>
-    /// It lists chapters, and the prose an entry opens with is not one — so a reader
+    /// It lists chapters, and the prose before the first one is not one — so a reader
     /// who saw only the steps would read the missing paragraph as text the app had
-    /// lost. Announced rather than hidden, with the block that does show it one press
-    /// away, and the press is the same one the switch makes.
+    /// lost. Rendered read-only: the Markdown tab is still where it is written.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task The_steps_view_says_when_the_body_holds_prose_it_is_not_showing()
+    public async Task The_steps_view_reads_the_opening_prose_above_the_steps()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(WithSteps);
@@ -1048,23 +1047,22 @@ public sealed class TasksDetailPaneTests
         var pane = host.Render();
 
         Assert.Equal(EntryView.Steps, row.EffectiveView);
-        Assert.Contains(
-            "There is text on this entry the steps do not show.",
-            pane.Find("[data-testid='entry-view-elsewhere']").TextContent,
-            StringComparison.Ordinal);
+        var prose = pane.Find("[data-testid='entry-view-prose']");
+        Assert.Equal("Notes on the parent.", prose.TextContent.Trim());
+        Assert.Empty(prose.QuerySelectorAll("textarea, input"));
 
-        await pane.Find("[data-testid='entry-view-elsewhere-link']").ClickAsync(new());
-
-        Assert.Equal(EntryView.Notes, row.EffectiveView);
-        Assert.Single(pane.FindAll("[data-testid='entry-body-editor']"));
-        Assert.Empty(pane.FindAll("[data-testid='entry-view-elsewhere']"));
+        // Above the steps, inside the Steps tab, and not the steps' own text.
+        var panel = pane.Find("[data-testid='entry-view-steps-panel']");
+        Assert.Equal(
+            ["entry-view-prose", "subitem-list-0"],
+            panel.QuerySelectorAll("[data-testid='entry-view-prose'], [data-testid='subitem-list-0']").Select(element => element.GetAttribute("data-testid")));
+        Assert.DoesNotContain("How the store gets wired.", prose.TextContent, StringComparison.Ordinal);
     }
 
-    /// <summary>An entry whose body is nothing but chapters has no prose to leave
-    /// off the screen, so the line does not appear. A notice that showed up
-    /// regardless would be furniture rather than information.</summary>
+    /// <summary>An entry whose body is nothing but chapters has no prose to read
+    /// out, so the steps stand alone.</summary>
     [Fact]
-    public async Task Nothing_is_announced_when_the_steps_are_the_whole_body()
+    public async Task Nothing_is_read_out_when_the_steps_are_the_whole_body()
     {
         using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(
@@ -1076,7 +1074,7 @@ public sealed class TasksDetailPaneTests
         var pane = host.Render();
 
         Assert.Single(pane.FindAll("[data-testid='subitem-list-0']"));
-        Assert.Empty(pane.FindAll("[data-testid='entry-view-elsewhere']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-view-prose']"));
     }
 
     /// <summary>An entry with no chapters opens on the markdown, without anything

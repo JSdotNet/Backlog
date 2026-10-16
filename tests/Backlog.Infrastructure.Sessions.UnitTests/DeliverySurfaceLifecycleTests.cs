@@ -528,6 +528,38 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// The round, blockers and defects a pass reports ride in its execution: written to
+    /// the run file as sent and read back onto the stage. A stage that sent an execution
+    /// without them reads them as absent.
+    /// </summary>
+    [Fact]
+    public async Task A_stage_s_round_blockers_and_defects_reach_the_run_file_and_read_back()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+        var review = new JsonObject { ["mode"] = "delegate", ["agent"] = "csharp-coding:coding", ["round"] = 2, ["blockers"] = 1 };
+        var verify = new JsonObject { ["mode"] = "inline", ["defectsFound"] = 0 };
+
+        await surface.UpdateStageAsync(Worktree, started.RunId, 1, "done", execution: review, cancellationToken: TestContext.Current.CancellationToken);
+        await surface.UpdateStageAsync(Worktree, started.RunId, 2, "done", execution: verify, cancellationToken: TestContext.Current.CancellationToken);
+        await surface.UpdateStageAsync(Worktree, started.RunId, 3, "done", execution: Execution("opus"), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, StageOf(started.RunId, 1)["execution"]!["round"]!.GetValue<int>());
+        Assert.Equal(1, StageOf(started.RunId, 1)["execution"]!["blockers"]!.GetValue<int>());
+        Assert.Equal(0, StageOf(started.RunId, 2)["execution"]!["defectsFound"]!.GetValue<int>());
+
+        var run = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);
+
+        Assert.Equal((2, 1), (run!.Stages[1].Round!.Value, run.Stages[1].Blockers!.Value));
+        Assert.Null(run.Stages[1].DefectsFound);
+        Assert.Equal(0, run.Stages[2].DefectsFound);
+        Assert.Null(run.Stages[2].Round);
+        Assert.Null(run.Stages[3].Round);
+        Assert.Null(run.Stages[3].Blockers);
+        Assert.Null(run.Stages[3].DefectsFound);
+    }
+
     [Fact]
     public async Task A_run_that_sent_neither_reads_back_with_neither()
     {
@@ -671,6 +703,35 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
     }
 
     [Fact]
+    public async Task A_run_closed_with_its_quality_facts_keeps_them_and_reads_them_back_over_the_run_context()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+        var ct = TestContext.Current.CancellationToken;
+
+        // While under way, the flow-runner keeps the running count in the run context.
+        await surface.SetRunContextAsync(
+            Worktree,
+            started.RunId,
+            runContext: new JsonObject { ["quality"] = JsonNode.Parse("""{"reviewRounds":{"total":1}}""") },
+            cancellationToken: ct);
+
+        Assert.Equal(1, (await surface.GetRunAsync(Worktree, started.RunId, ct))!.Quality!.ReviewRounds);
+
+        // finish_run's totals win, and a later one replaces the earlier whole.
+        await surface.FinishRunAsync(Worktree, started.RunId, "done", quality: JsonNode.Parse("""{"reviewRounds":{"total":2},"escapedDefects":{"total":0}}""")!.AsObject(), cancellationToken: ct);
+        await surface.FinishRunAsync(Worktree, started.RunId, "done", quality: JsonNode.Parse("""{"reviewRounds":{"total":3}}""")!.AsObject(), cancellationToken: ct);
+
+        var run = await surface.GetRunAsync(Worktree, started.RunId, ct);
+        Assert.Equal(3, run!.Quality!.ReviewRounds);
+        Assert.Null(run.Quality.EscapedDefects);
+
+        // A finish without quality keeps what was there.
+        await surface.FinishRunAsync(Worktree, started.RunId, "done", cancellationToken: ct);
+        Assert.Equal(3, (await surface.GetRunAsync(Worktree, started.RunId, ct))!.Quality!.ReviewRounds);
+    }
+
+    [Fact]
     public async Task A_sweep_closes_its_run_with_verdicts_the_run_keeps_and_the_chapters_get()
     {
         var verdicts = new DevbookSyncVerdictStore(_home);
@@ -692,7 +753,7 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
             "done",
             "One group captured.",
             [SessionsUnit("code-ahead", "https://github.com/JSdotNet/Backlog/pull/950")],
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         // On the run, verbatim, as the reader hands it to the pane.
         var run = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);

@@ -94,7 +94,10 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   (`list_annotations`), writes each answer into the chapter as a devbook `annotation` fence
   through the devbook plugin's own `annotations.mjs`, and only then resolves the note
   (`resolve_annotation`). Fence first, resolve second, because that is the order whose
-  half-done state is recoverable. The two annotation kinds stay two things —
+  half-done state is recoverable. It writes nothing for an archived repository, whose devbook
+  is read-only (`list_annotations` answers `archived: true`, local ADR 0029 §4), and neither
+  does `run-plan-item`'s short form. The two
+  annotation kinds stay two things —
   `.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md` §6 is the decision,
   and the app is never the fence's writer. `run-plan-item` carries a short form of
   the same procedure for the notes an item it just ran leaves answerable.
@@ -143,7 +146,7 @@ It writes nothing and calls nothing: it reads the calls the run already makes.
 | --- | --- |
 | The entries and their statuses | `get_plan_items` and `transition`, on any MCP server |
 | Which sub-agent runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `Agent` call's prompt — change it and `parseBrief` in `hooks/parse.ts` with it |
-| Each entry's stages | `start_run`, `update_stage` and `finish_run` on any delivery surface, from the sub-agent's loop or one it spawned |
+| Each entry's stages | `start_run`, `update_stage` and `finish_run` on any delivery surface, from the sub-agent's loop or one it spawned. A call the surface answered with an error still counts, since the pane mirrors what the worker said; a call a function hook refused with `deny` never ran and does not |
 | How the entry ended | The sub-agent's one-line return: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before` |
 
 The module's state is declared in `types/index.d.ts`. `claude plugin validate plugins/backlog-tools`

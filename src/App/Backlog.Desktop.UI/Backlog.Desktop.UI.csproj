@@ -50,6 +50,9 @@
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />
+    <!-- Progress draws nothing yet; its UI carries the switch every sprint screen
+         will be drawn under, and through it the progress key the catalog lists. -->
+    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.UI\Backlog.Modules.Progress.UI.csproj" />
     <!-- Sync has no pane, only the Devices page on the settings screen, which the
          settings screen draws as the section AddSyncSettings() registers. -->
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.UI\Backlog.Modules.Sync.UI.csproj" />

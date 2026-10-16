@@ -11,6 +11,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The refresher's quiet interval, driven without waiting it out. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Backlog.Infrastructure.Devbook" />
   </ItemGroup>
 

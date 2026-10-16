@@ -1,10 +1,13 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.Features.CountTasks;
 using Backlog.Modules.Tasks.Features.DeleteTask;
+using Backlog.Modules.Tasks.Features.GetTask;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
 using Backlog.Modules.Tasks.Features.ReconcileRepositoryIds;
+using Backlog.Modules.Tasks.Features.RefileRepositoryTasks;
 using Backlog.Modules.Tasks.Features.RenameRepository;
 using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
@@ -34,10 +37,19 @@ internal sealed class TaskItems(
     ICommandHandler<RecordTaskUsageCommand> recordUsage,
     ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>> importPlan,
     ICommandHandler<ReconcileRepositoryIdsCommand, Result<int>> reconcileRepositoryIds,
-    ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository) : ITaskItems
+    ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository,
+    ICommandHandler<RefileRepositoryTasksCommand, Result<int>> refileRepositoryTasks,
+    IQueryHandler<GetTaskQuery, TaskItemDto?> get,
+    IQueryHandler<CountTasksQuery, int> count) : ITaskItems
 {
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListTasksQuery(), cancellationToken);
+
+    public Task<TaskItemDto?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+        get.Handle(new GetTaskQuery(id), cancellationToken);
+
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        count.Handle(new CountTasksQuery(), cancellationToken);
 
     public Task<Result<SavedTaskDto>> SaveFromTextAsync(
         Guid? id,
@@ -89,6 +101,9 @@ internal sealed class TaskItems(
 
     public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
         renameRepository.Handle(new RenameRepositoryCommand(oldId, newId), cancellationToken);
+
+    public Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default) =>
+        refileRepositoryTasks.Handle(new RefileRepositoryTasksCommand(repositoryId, moveToId, drop), cancellationToken);
 
     public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,

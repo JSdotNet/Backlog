@@ -138,6 +138,66 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>
+    /// Every pull request belongs to a repository, so the list reads the scope without
+    /// the Brain (local ADR 0027, §2): the Brain alone reads as nothing pressed, and
+    /// every repository's pull requests are listed.
+    /// </summary>
+    [Fact]
+    public void The_brain_alone_lists_every_pull_request()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, [BrainScope.Value]));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Archify#2", "JSdotNet/Backlog#1"], RowKeys(pane).Order());
+            Assert.DoesNotContain("Narrowed to", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>Beside a repository the Brain adds nothing: the list holds that
+    /// repository's pull requests, as if the repository were pressed alone.</summary>
+    [Fact]
+    public void The_brain_beside_a_repository_lists_that_repositorys_pull_requests()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, [BrainScope.Value, "archify"]));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Archify#2"], RowKeys(pane));
+            Assert.Contains("Narrowed to archify.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>An archived repository is not read from GitHub (local ADR 0029), so the
+    /// retired repository GitHub refuses puts no "Couldn't read" line on the pane.</summary>
+    [Fact]
+    public void An_archived_repository_is_not_read_and_names_no_failure()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
+            .Refuses("octo/broken", "Could not resolve to a Repository with the name 'octo/broken'.");
+        using var context = Context(client);
+        Assert.Null(SettingsOf(context).SetRepositoryArchived("broken", archived: true));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane)));
+        Assert.Empty(pane.FindAll("[data-testid='pull-requests-unreadable']"));
+    }
+
     /// <summary>A repository GitHub would not answer for is named, in its words, with
     /// a Retry — and every other repository is listed as if it were not there.</summary>
     [Fact]
@@ -240,6 +300,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     [InlineData("failing-other-check", "FailingChecks", new[] { "pull-request-open-on-github" }, null)]
     [InlineData("changes-requested", "ChangesRequested", new[] { "pull-request-open-review" }, null)]
     [InlineData("behind", "Behind", new[] { "pull-request-merge", "pull-request-update-branch" }, "Merge when ready")]
+    [InlineData("behind-by", "Ready", new[] { "pull-request-update-branch", "pull-request-merge" }, "Merge when ready")]
     [InlineData("draft", "Draft", new[] { "pull-request-ready" }, null)]
     [InlineData("checks-running", "ChecksRunning", new[] { "pull-request-merge" }, "Merge when ready")]
     [InlineData("review-required", "ReviewRequired", new[] { "pull-request-merge" }, "Merge when ready")]
@@ -281,6 +342,29 @@ public sealed class PullRequestsPaneTests : IDisposable
             {
                 Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1/files", review.GetAttribute("href"));
             }
+        });
+    }
+
+    /// <summary>Behind its base where the repository does not require it, a pull
+    /// request is still Ready, but the banner says how far behind — the same count the
+    /// Up to date line gives — never that it is up to date.</summary>
+    [Fact]
+    public void A_ready_pull_request_behind_its_base_says_how_far_in_the_banner_and_the_readiness_list()
+    {
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", PullIn("behind-by")));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var banner = pane.Find("[data-testid='pull-request-banner']");
+            Assert.Equal("Ready", banner.GetAttribute("data-verdict"));
+            Assert.Contains("3 commits behind main, which this repository does not require it to catch up on.", banner.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("up to date with main", banner.TextContent, StringComparison.Ordinal);
+
+            var (_, state, words) = Assert.Single(ReadinessLines(pane), entry => entry.Line == "up-to-date");
+            Assert.Equal("waiting", state);
+            Assert.Equal("3 commits behind main", words);
         });
     }
 
@@ -1458,7 +1542,10 @@ public sealed class PullRequestsPaneTests : IDisposable
         // The merged view is opened while the merge is still out: its read is sent
         // now, and answers with nothing merged yet.
         pane.Find("[data-testid='pull-requests-view-merged']").Click();
-        pane.WaitForAssertion(() => Assert.NotEmpty(client.MergedListed));
+
+        // Polled: the read is started on the pool and held at the gate, so no render
+        // follows its being sent for a render-driven wait to re-check on.
+        Assert.True(SpinWait.SpinUntil(() => { lock (client.MergedListed) return client.MergedListed.Count > 0; }, TimeSpan.FromSeconds(5)));
 
         client.Lists("JSdotNet/Backlog");
         client.Merged("JSdotNet/Backlog", MergedPull("JSdotNet/Backlog", 1, merged: Noon));
@@ -1477,6 +1564,83 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>The act pressed is the busy one — it keeps its label and its place in
+    /// the tab order, and a second press does not send it twice — while the row's
+    /// other act waits on it, disabled (.devbook/design/interaction-guidelines.md,
+    /// Busy Actions).</summary>
+    [Fact]
+    public void The_pressed_act_is_busy_until_it_lands_and_the_rows_other_act_waits()
+    {
+        var actGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var client = new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, behind: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='pull-request-update-branch']")));
+
+        client.ActGate = actGate;
+        pane.Find("[data-testid='pull-request-update-branch']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var pressed = pane.Find("[data-testid='pull-request-update-branch']");
+            Assert.Equal("true", pressed.GetAttribute("aria-busy"));
+            Assert.Equal("true", pressed.GetAttribute("aria-disabled"));
+            Assert.False(pressed.HasAttribute("disabled"));
+            Assert.Contains("Update branch", pressed.TextContent, StringComparison.Ordinal);
+
+            // Blocked, but still in the tab order.
+            var other = pane.Find("[data-testid='pull-request-merge']");
+            Assert.Equal("true", other.GetAttribute("aria-disabled"));
+            Assert.False(other.HasAttribute("disabled"));
+            Assert.Null(other.GetAttribute("aria-busy"));
+        });
+
+        // Neither a second press of the act nor a press of its blocked sibling acts.
+        pane.Find("[data-testid='pull-request-update-branch']").Click();
+        pane.Find("[data-testid='pull-request-merge']").Click();
+        actGate.SetResult();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Single(client.Acts);
+            var released = pane.Find("[data-testid='pull-request-update-branch']");
+            Assert.Null(released.GetAttribute("aria-busy"));
+            Assert.Null(released.GetAttribute("aria-disabled"));
+            Assert.Null(pane.Find("[data-testid='pull-request-merge']").GetAttribute("aria-disabled"));
+        });
+    }
+
+    /// <summary>Refresh stays focusable through the read it started and the list
+    /// keeps its rows, marked busy, rather than blanking (Scoped Loading).</summary>
+    [Fact]
+    public void Refresh_is_busy_while_its_read_is_out_and_the_rows_stay()
+    {
+        var readGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var client = new StubClient().Merged("JSdotNet/Backlog", MergedPull("JSdotNet/Backlog", 10));
+        using var context = Context(client);
+
+        var pane = OnMergedView(context);
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#10"], RowKeys(pane)));
+
+        client.MergedGate = readGate;
+        pane.Find("[data-testid='pull-requests-refresh']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var refresh = pane.Find("[data-testid='pull-requests-refresh']");
+            Assert.Equal("true", refresh.GetAttribute("aria-busy"));
+            Assert.False(refresh.HasAttribute("disabled"));
+            Assert.Equal("true", pane.Find("#pull-requests-content").GetAttribute("aria-busy"));
+            Assert.Equal(["JSdotNet/Backlog#10"], RowKeys(pane));
+        });
+
+        readGate.SetResult();
+
+        pane.WaitForAssertion(() =>
+            Assert.Null(pane.Find("[data-testid='pull-requests-refresh']").GetAttribute("aria-busy")));
+    }
+
     /// <summary>Back to Open and to Recently merged again while the first merged read
     /// is still out waits on that read rather than sending a second.</summary>
     [Fact]
@@ -1487,7 +1651,9 @@ public sealed class PullRequestsPaneTests : IDisposable
         using var context = Context(client);
 
         var pane = OnMergedView(context);
-        pane.WaitForAssertion(() => Assert.Equal(3, client.MergedListed.Count));
+        // The merged read starts on a background thread and waits at the gate, so no
+        // render follows for WaitForAssertion to re-check on: poll the count instead.
+        Assert.True(SpinWait.SpinUntil(() => client.MergedListed.Count == 3, TimeSpan.FromSeconds(5)));
 
         pane.Find("[data-testid='pull-requests-view-open']").Click();
         pane.Find("[data-testid='pull-requests-view-merged']").Click();
@@ -1633,6 +1799,32 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Equal("1", row.GetAttribute("data-stack-depth"));
             Assert.Equal("↳ Waits on #10, merge that first", WaitsOn(row));
             Assert.Empty(pane.FindAll("[data-testid='pull-request-merge']"));
+        });
+    }
+
+    /// <summary>A pin moves a stacked pull request into the Pinned group, but it keeps
+    /// its indent and its "waits on" line there, so the pin never hides what has to
+    /// merge first.</summary>
+    [Fact]
+    public void A_pinned_stacked_row_keeps_its_indent_and_what_it_waits_on()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 10),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10"));
+        using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 11)));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("pinned", Groups(pane)[0].Lane);
+            var row = Row(pane, "JSdotNet/Backlog#11");
+            Assert.Equal("true", row.GetAttribute("data-pinned"));
+            Assert.Equal("1", row.GetAttribute("data-stack-depth"));
+            Assert.Contains("pull-requests-row--stacked", row.ClassList);
+            Assert.Equal("--chain-depth: 1", row.GetAttribute("style"));
+            Assert.Equal("↳ Waits on #10, merge that first", WaitsOn(row));
         });
     }
 
@@ -2055,13 +2247,20 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         Select(pane, "JSdotNet/Backlog#10");
         pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#10", Detail(pane).GetAttribute("data-pull-request")));
+        // Each read is held at the gate, so nothing renders once the stub records it and
+        // a WaitForAssertion would check once, maybe before the pool got there, and never
+        // again. Wait on the stub itself.
+        string[] Asked() { lock (client.PinnedListed) return [.. client.PinnedListed]; }
+
         pane.Find("[data-testid='pull-request-pin']").Click();
-        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog 10"], client.PinnedListed));
+        Assert.True(SpinWait.SpinUntil(() => Asked().Length == 1, TimeSpan.FromSeconds(5)));
+        Assert.Equal(["JSdotNet/Backlog 10"], Asked());
 
         Select(pane, "JSdotNet/Backlog#11");
         pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#11", Detail(pane).GetAttribute("data-pull-request")));
         pane.Find("[data-testid='pull-request-pin']").Click();
-        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog 10", "JSdotNet/Backlog 10,11"], client.PinnedListed));
+        Assert.True(SpinWait.SpinUntil(() => Asked().Length == 2, TimeSpan.FromSeconds(5)));
+        Assert.Equal(["JSdotNet/Backlog 10", "JSdotNet/Backlog 10,11"], Asked());
 
         pane.InvokeAsync(newer.SetResult);
         pane.InvokeAsync(older.SetResult);
@@ -2342,7 +2541,17 @@ public sealed class PullRequestsPaneTests : IDisposable
         private string? _refusal;
         private int _firstReadSize;
 
-        public List<string> Acts { get; } = [];
+        private readonly List<string> _acts = [];
+
+        /// <summary>Every act, in order — a snapshot, because the pane starts its acts
+        /// on the pool while a test's wait reads them on its own thread.</summary>
+        public IReadOnlyList<string> Acts
+        {
+            get
+            {
+                lock (_acts) return [.. _acts];
+            }
+        }
 
         public List<string> Listed { get; } = [];
 
@@ -2491,7 +2700,7 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         private async Task Act(string what)
         {
-            Acts.Add(what);
+            lock (_acts) _acts.Add(what);
 
             if (ActGate is { } gate) await gate.Task;
 

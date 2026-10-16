@@ -4,14 +4,21 @@
 related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-everywhere", ".devbook/design/accessibility.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-> Binding interaction rules for the Backlog product: auto-save (there are no save
-> buttons), drag-and-drop reordering of both items and chapters with mandatory
-> keyboard equivalents, feedback/toasts, motion and reduced-motion, the
-> empty/loading/error state patterns, the desktop shell's header, panes and
-> group shapes, and the combobox. Motion tokens and interaction patterns were
-> adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
-> `09-interaction-patterns`); conflict handling aligns with the last-write-wins
-> rule in `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
+> Binding interaction rules for the Backlog product. They cover:
+>
+> - auto-save, since there are no save buttons;
+> - drag-and-drop reordering of items and chapters, with mandatory keyboard
+>   equivalents;
+> - responsiveness: press feedback, busy actions and scoped loading;
+> - feedback and toasts, motion and reduced motion;
+> - the empty, loading and error state patterns;
+> - the desktop shell's header, panes and group shapes;
+> - the combobox, action density and overflow, and timelines.
+>
+> Motion tokens and interaction patterns were adapted from the JSdotNet design
+> style guide (`04-motion-and-interaction`, `09-interaction-patterns`). Conflict
+> handling follows the last-write-wins rule in
+> `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
 > declared in `color-scheme.md` and `typography-and-layout.md`.
 
 ## Auto-Save (No Save Buttons)
@@ -20,8 +27,9 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-everywhere", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-There is **no manual save anywhere in the product**. Every edit persists
-automatically to the local canonical store first (local-first), then syncs.
+The rule that the product has no save affordance is
+`design-principles.md#no-save-buttons--auto-save-everywhere`'s. This section
+specifies how auto-save behaves.
 
 ### Save Timing and Debounce
 
@@ -30,7 +38,6 @@ automatically to the local canonical store first (local-first), then syncs.
 
 | Rule | Requirement |
 |---|---|
-| No save affordance | There MUST NOT be a Save button, menu item, or save-only keyboard gesture as the means of persistence. |
 | Text debounce | Continuous text edits MUST auto-save on a **debounce of 500 ms–1000 ms** after the last keystroke (recommended default 750 ms). |
 | Idle/blur flush | A pending save MUST be flushed immediately on field/editor **blur**, on navigation away, and on app background/close. |
 | Discrete actions | Discrete changes (reorder, toggle, checkbox, metadata edit, drop) MUST save **immediately** (no debounce). |
@@ -72,13 +79,10 @@ Rules:
   it settles to a quiet `color-text-secondary` state.
 - State transitions use motion per `#motion-and-reduced-motion`.
 - Screen-reader announcements for save state are specified in
-  `accessibility.md#screen-reader-announcements`.
+  `accessibility.md#screen-reader--announcements`.
 
-The shared `SaveIndicator` component carries three of these five states —
-`Saving` (`Saving...`), `Saved`, and `Failed` (`Could not save`) — plus an
-`Idle` state that renders nothing at all, which is how a surface with no edit in
-flight stays quiet. `Offline` and `Conflict` are specified above but not yet
-built; see `#materialization`.
+What the shared `SaveIndicator` builds of this vocabulary is in
+[Materialization](#materialization).
 
 ### Undo and History
 
@@ -118,10 +122,10 @@ related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/desi
 The product supports reordering of **two distinct things**, both with the same
 affordance language and both with mandatory keyboard equivalents:
 
-1. **Items** — files/entries in a list (e.g. tasks, inbox items,
-   knowledge notes).
-2. **Chapters** — headings/sections *within a document* (reordering a `##`
-   section moves it and all its nested content).
+1. **Items:** files or entries in a list, such as tasks, inbox items and
+   knowledge notes.
+2. **Chapters:** headings and their sections *within a document*. Reordering a
+   `##` section moves it with all its nested content.
 
 ### Drag Affordances
 
@@ -178,7 +182,7 @@ both items and chapters.
 | Grab/move model | Focus the handle, press **Space/Enter** to "pick up", **Arrow Up/Down** to move, **Space/Enter** to drop, **Escape** to cancel and restore. |
 | Explicit move commands | Additionally provide **Move up / Move down** (and **Move to top / bottom**) commands via the item's context menu and the command palette, mapped to keyboard shortcuts. |
 | Chapter indent | For chapters, **Arrow Left/Right** (or Tab/Shift+Tab while picked up) MUST change nesting depth within the allowed range. |
-| Announcements | Every keyboard move MUST announce the new position via a live region (see `accessibility.md#screen-reader-announcements`), e.g. "Moved to position 3 of 8." |
+| Announcements | Every keyboard move MUST announce the new position via a live region (see `accessibility.md#screen-reader--announcements`), e.g. "Moved to position 3 of 8." |
 | Parity | Anything achievable by dragging MUST be achievable by keyboard, including cross-container moves. |
 
 ### Autoscroll
@@ -227,6 +231,97 @@ both items and chapters.
 | Undoable | A reorder MUST be a single undo step (see `#undo-and-history`). |
 | Failure | If persistence fails, the order MUST visibly revert and surface the `Error` save state. |
 
+## Responsiveness
+
+```meta
+related: [".devbook/design/interaction-guidelines.md#loading-states", ".devbook/design/interaction-guidelines.md#error-states", ".devbook/design/interaction-guidelines.md#motion-and-reduced-motion", ".devbook/design/accessibility.md#screen-reader--announcements", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
+```
+
+A press is answered at once, whatever the work behind it costs. The control the
+reader pressed shows that it heard them, and a slow act shows that it is still
+working. A part of the screen that reloads shows its own loader, and the rest of
+the screen stays usable.
+
+```mermaid
+flowchart LR
+    P[Press] --> A[Pressed state, within one frame]
+    A --> Q{Work over ~300 ms?}
+    Q -- no --> R[Result shown]
+    Q -- yes --> B[Trigger busy, region loader]
+    B --> R
+    B --> E[Error toast or inline error, control restored]
+```
+
+### Press Feedback
+
+```meta
+```
+
+| Rule | Requirement |
+|---|---|
+| One frame | Every pressable control MUST acknowledge a press within one frame (≤ 100 ms) through its own visual state, independent of the work the press starts. |
+| Pressed state everywhere | Every button variant, chip, toggle and pressable card MUST have an `:active` pressed state. A press that changes nothing visible still shows it. |
+| Acknowledge before work | A click handler MUST render its acknowledgement before any slow work. In Blazor, set the state and yield (`await Task.Yield()`), or make the IO asynchronous or move it to `Task.Run`, before any file, git, `gh`, network or process work. |
+| No synchronous IO on the UI thread | A click handler MUST NOT do synchronous IO on the UI thread. |
+| No double fire | A press repeated while the act is busy MUST be ignored. The act runs once. |
+
+### Busy Actions
+
+```meta
+```
+
+| Rule | Requirement |
+|---|---|
+| When | An act whose work can take longer than ~300 ms MUST put its trigger into the busy state. |
+| Busy state | The trigger uses `AppButton`'s `Busy`: a spinner replaces the icon, `aria-busy="true"` is set, and clicks are blocked. The control stays focusable, and its label stays so its width does not jump. |
+| Set and clear | Busy MUST be set synchronously on the press and cleared in a `finally`, so no outcome leaves the control stuck. |
+| Failure | A failed act MUST restore the control and raise an error toast, per the *Action* row of `#error-states`. |
+| Success | A success that nothing else on screen shows MUST get an inline confirmation, per `#feedback-and-toasts`. |
+| Stays in place | A busy act MUST NOT move while it runs, per *A running act is exempt* in `#action-density-and-overflow`. |
+
+### Scoped Loading
+
+```meta
+```
+
+| Rule | Requirement |
+|---|---|
+| Scope | A loader MUST cover exactly the region whose data is reloading, nothing larger. A dashboard card, section or widget gets its own loader, a pane gets its own, and a whole page gets one only when the whole page reloads. |
+| Independent regions | Regions MUST load independently. One slow region never holds back the others, and the rest of the page stays interactive. |
+| First load | An empty region loading for the first time shows a content-shaped `Skeleton`. |
+| Refresh | A populated region that refreshes MUST keep its content and show a small `Spinner` in its header. It MAY dim the content and MUST NOT blank it. |
+| Frame first | A navigation or takeover MUST open its frame at once (header, title, close control) and load its body inside it. It never waits on data before switching the screen. |
+| Every region resolves | Each region ends in content, an empty state (`#empty-states`), or an inline section error with **Retry** (`#error-states`). |
+
+### Timing
+
+```meta
+```
+
+| Moment | Threshold | Why |
+|---|---|---|
+| Acknowledgement | ≤ 100 ms | Feels instant, per `#press-feedback`. |
+| Region loader appears | After ~300 ms of waiting | A loader for a fast load is a flash. |
+| Region loader stays | ≥ ~500 ms once shown | A loader that vanishes at once is a flicker. |
+| Give up | > ~10 s | The region moves to its error with **Retry**, per `#loading-states`. |
+| Reduced motion | Always | Spinners stop spinning, per `#motion-and-reduced-motion`. |
+
+The 300 ms delay applies to a region loader that replaces or covers content. A
+button's busy state MAY be set immediately, because it is the acknowledgement
+itself.
+
+### Accessibility
+
+```meta
+```
+
+| Rule | Requirement |
+|---|---|
+| Busy region | A region MUST carry `aria-busy="true"` while it loads. |
+| Announce on request | When a load the reader asked for finishes, such as a **Refresh**, the region SHOULD make one polite announcement. A background refresh announces nothing. How a live region speaks is `accessibility.md#screen-reader--announcements`'s. |
+| Focus stays | Focus MUST stay on the trigger through the busy state. |
+| Tab order | A control blocked while busy MUST stay in the tab order. It is never removed with the native `disabled` attribute. |
+
 ## Feedback and Toasts
 
 ```meta
@@ -240,7 +335,7 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 | Roles | Use `role="status"` for success/info toasts and `role="alert"` for warning/error (see `accessibility.md`). |
 | Dismiss | The dismiss control MUST have an accessible label ("Dismiss notification"). |
 | No redundant save toasts | Routine auto-saves MUST NOT spam toasts — the persistent save-state indicator carries that; toasts are for failures and notable events only. |
-| Inline confirmation | Prefer subtle inline confirmation (e.g. a brief `ease-bounce` flash on a saved inline edit) over a toast for small edits. |
+| Inline confirmation | Prefer subtle inline confirmation (e.g. a brief saved-confirmation flash on a saved inline edit, per `#motion-and-reduced-motion`) over a toast for small edits. |
 | Above an open dialog | A toast raised while a `Modal` is open MUST be seen above it. A modal sits in the browser's top layer (`typography-and-layout.md#z-index-scale`), so the tray is lifted into that layer above each modal as it opens and let down when the last one closes. It is visible, not interactive: the modal makes everything outside itself inert, so the dismiss control does not answer until the modal closes, and the toast's own timer still dismisses it. |
 
 ## Motion and Reduced Motion
@@ -301,7 +396,7 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 | Selection distinct from focus | Selected list items use `color-border-focus` border + optional `color-primary` accent strip; selection MUST be visually distinct from hover and from focus. |
 | Multi-select | Bulk selection shows a bulk-action bar with a live count ("3 items selected") and a clear-selection control; "Select all" uses the indeterminate state for partial selection. |
 | Entering a multi-select | A list that supports bulk selection MUST NOT put a selection control on a row until the reader has asked for one — by pressing the toggle that enters the mode, such as a Select chip — and hover or focus alone is not asking. The controls leave again with the mode. A reader who came to scan a list is not offered a selection they did not ask for, and selection never shares a paint with hover or focus (*Selection distinct from focus*). This is the argument of `design-principles.md#low-chrome-content-first` one level down: the bulk-action bar is not on screen until something is picked, and the row's checkbox is not on screen until selecting is; here it overrides that chapter's *Progressive disclosure* allowance for hover and focus. |
-| Modifier-click scope | A scope strip of pressable chips is single-select on a plain press (this one, or none when it was already alone) and additive with Ctrl (Cmd on macOS) held — the file-manager convention. When one consumer of the scope can take only one value (the Devbook pane reads one repository), it follows the **anchor**: the first chip taken, which stays put while others join. The anchor carries `aria-current="true"` and a layout-neutral mark, only while a second chip is pressed; the chip's tooltip names the modifier, since nothing else on screen does. A plural scope exists only while a surface that can show several values is on screen — in the desktop shell the Tasks, Board, Calendar and In progress views and the Dashboard, Sessions and Pull requests takeovers: when the screen turns to one that reads a single value (the Roadmap view, Tools), the scope collapses to the anchor and the modifier stops applying. |
+| Modifier-click scope | A scope strip of pressable chips is single-select on a plain press (this one, or none when it was already alone) and additive with Ctrl (Cmd on macOS) held — the file-manager convention. When one consumer of the scope can take only one value (the Devbook pane reads one devbook), it follows the **anchor**: the first chip taken, which stays put while others join. The desktop header's Brain chip is a member like any other, so an anchor of Brain shows the Brain in the Devbook pane; with nothing pressed the pane shows the Brain too, because it is always there. The anchor carries `aria-current="true"` and a layout-neutral mark, only while a second chip is pressed; the chip's tooltip names the modifier, since nothing else on screen does. A plural scope exists only while a surface that can show several values is on screen — in the desktop shell the Tasks, Board, Calendar and In progress views and the Dashboard, Sessions and Pull requests takeovers: when the screen turns to one that reads a single value (the Roadmap view, Tools), the scope collapses to the anchor and the modifier stops applying; an anchor of Brain reads there as nothing pressed. |
 | Reorder focus retention | After a keyboard reorder, focus MUST stay on the moved item's handle. |
 | Leaving a multi-select | Escape MUST leave the mode from the surfaces that are only ever about the selection — the toggle that entered it, the bulk-action bar, and any row's own line while the mode is on, whether or not that row is picked — and MUST NOT leave it from a control that owns Escape for something of its own. Where a bar holds both a group trigger and the controls that group opens, the trigger answers the key and the controls keep theirs. |
 
@@ -327,11 +422,14 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 ```meta
 ```
 
+Which region shows a loader, and when it appears, is `#scoped-loading`'s and
+`#timing`'s. This table covers what the loader looks like.
+
 | Rule | Requirement |
 |---|---|
 | Skeletons | Use content-shaped skeletons for lists/cards/tables; subtle 2 s pulse, disabled under reduced motion; fall back to error after ~10 s. |
 | Spinner | Use for action-triggered ops and page-level loads with no layout preview; never as a content placeholder where a skeleton fits. |
-| Stale refresh | When refreshing an already-populated view, keep content visible and show a subtle `icon-sm` spinner in the header — do not blank the view. |
+| Stale refresh | When refreshing an already-populated view, keep content visible and show a subtle `icon-sm` spinner in the header — do not blank the view. See *Refresh* in `#scoped-loading`. |
 | Local-first | Because data is local-first, most views SHOULD render instantly from local storage; loading states are the exception, not the norm. |
 
 ### Error States
@@ -363,9 +461,9 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 related: [".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/content-editing.md#task-structure", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
-A task row is the product's densest composition: a completion control, a title
-that can be renamed in place, a metadata line, badges and actions, all on one
-line of a list that may be hundreds long.
+A task row is the product's densest composition. One line holds a completion
+control, a title that can be renamed in place, a metadata line, badges and
+actions, and a list may hold hundreds of such rows.
 
 | Rule | Requirement |
 |---|---|
@@ -413,17 +511,16 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/devbook/features.md#brain-scope", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility"]
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
-question. Below it the workspace shows exactly one **main view**, with the
-Devbook beside it, unless a **takeover** or the Inbox has the screen (local ADR
-0022).
+question. Below it the workspace shows exactly one **main view**, unless a
+**takeover**, the Inbox or the Devbook has the screen (local ADR 0022).
 
 | Region | Answers | Holds |
 |---|---|---|
-| Identity | Over which repositories? | The repository scope, a fused group of chips (see `#focus-and-selection`, *Modifier-click scope*), and the **Colors** switch beside it. Both render only while a repository is configured. |
+| Identity | Over which repositories? | The repository scope, a fused group of chips (see `#focus-and-selection`, *Modifier-click scope*), led by the **Brain** chip, then the **Colors** switch beside it. The scope renders always, with the Brain chip alone when no repository is configured; the Colors switch renders only while a repository is configured (local ADR 0027). |
 | Navigation | What am I looking at? | Left to right: the **Inbox** toggle, the view switch, the **Devbook** toggle, the work in progress group, then the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. Ambient, the quietest region; its auto margin carries it and the utilities to the right edge. |
 | Utilities | What cuts across all of it? | **Ask AI**, the one accented control in the header, while an area with something to ask about is on screen; then the settings link. |
@@ -435,48 +532,46 @@ as its kind:
 |---|---|---|
 | View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows. Pressing the pressed option changes nothing. A view is never closed and Escape never leaves it. |
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off of its own that gives the Inbox the whole screen in place of the main view; pressed again, it returns to that view. Escape does not leave the Inbox: it is the Inbox's own key, leaving triage for the list. |
-| Side-pane toggle | `Devbook`, after the view switch | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. |
+| Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off of its own that gives the Devbook the whole screen in place of the main view; pressed again, it returns to that view, and Escape does too. See `#workspace-panes`. It is named for what the Devbook shows, open or closed: **Brain**, in the Brain's accent (`color-scheme.md#the-brains-accent`), while the Devbook reads or would open on the Brain — nothing pressed, the Brain as anchor, or the Brain side of its `Brain \| <repo>` switch — and **Devbook** otherwise. The word changes, the control does not. |
 | Work in progress group | `In progress` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the Sessions context's work. In progress acts as a view option does; Sessions and Pull requests act as takeovers. Renders while Sessions or Pull requests is offered. |
 | Remaining takeovers | `Dashboard`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. |
 
 | Rule | Requirement |
 |---|---|
 | The workspace cluster sits close | The Inbox toggle, the view switch and the Devbook toggle MUST sit at the tighter `spacing-xs` gap and the groups after them at the wider navigation gap, so the Inbox and the Devbook read as belonging to the views. |
-| A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view and the open side panes underneath; closing it shows them as they were. |
-| Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option or a side-pane toggle during a takeover MUST close it and show the workspace, with that view or that pane on screen. The Inbox is left by a second press of its option, a view option, the side-pane toggle or another takeover, never by Escape. |
-| Nothing reads pressed under a takeover | During a takeover, or while the Inbox has the screen, no view option and no side-pane toggle reads pressed, since nothing of the workspace is on screen. |
+| A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view underneath; closing it shows the view as it was. The Devbook is a takeover. |
+| Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option during a takeover MUST close it and show the workspace with that view on screen. The Inbox is left by a second press of its option, a view option or another takeover, never by Escape. |
+| Nothing reads pressed under a takeover | During a takeover, the Devbook included, and while the Inbox has the screen, no view option reads pressed, since nothing of the workspace is on screen. |
 | Takeovers are exclusive | Opening a takeover MUST replace any other takeover; a group of pressed states, not `aria-expanded`, says so. Ask AI keeps `aria-expanded`, because it is a disclosure. |
 | A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
 | The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar, a select with no visible word beside it — the grouping it shows says what the columns are — named `Columns` to assistive technology and in its tooltip. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
-| A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the side-pane toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
-| The shell reopens where it was left | The main view, the open side pane, any open takeover or the Inbox, and the repository scope MUST be restored on a fresh shell instance, including after Settings and back. The scope comes back in its order, so the anchor is still first, and a repository no longer configured is dropped from it. |
-| Views and work lead with a glyph | Each view-switch option and each member of the work in progress group MUST lead with a decorative glyph before its word: a list for Tasks, three columns for Board, a calendar for Calendar, staggered bars for Roadmap, a pulse line for In progress, a terminal prompt for Sessions and a pull-request branch for Pull requests. Each glyph is a Lucide outline per `typography-and-layout.md#iconography`, hidden from assistive technology per `accessibility.md#iconography-accessibility`, so every option's name stays its word. The Inbox toggle, the side-pane toggle and the remaining takeovers carry none. |
+| A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the Inbox and Devbook toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
+| The shell reopens where it was left | The main view, any open takeover, the Inbox or the Devbook, and the repository scope MUST be restored on a fresh shell instance, including after Settings and back. The scope comes back in its order, so the anchor is still first, Brain in its place when it was pressed, and a repository no longer configured is dropped from it. |
+| The Brain chip leads the scope | The repository scope MUST start with the **Brain** chip, then a divider, then the repository chips. The chip MUST offer no remove control, MUST wear `color-band-2` as its identity edge (`color-scheme.md#the-brains-accent`) whether or not the Colors switch is on, and MUST lead with a decorative brain glyph before its word. It presses as a repository chip does, Ctrl included, and pressed alone it scopes every view to the tasks filed against no repository. Until a Brain folder is set it reads **Set up your Brain**, still scopes, and its tooltip says where the folder is set. No *No repo* chip appears anywhere else: Brain is the one place that says "no repository". |
+| Views and work lead with a glyph | Each view-switch option and each member of the work in progress group MUST lead with a decorative glyph before its word: a list for Tasks, three columns for Board, a calendar for Calendar, staggered bars for Roadmap, a pulse line for In progress, a terminal prompt for Sessions and a pull-request branch for Pull requests. Each glyph is a Lucide outline per `typography-and-layout.md#iconography`, hidden from assistive technology per `accessibility.md#iconography-accessibility`, so every option's name stays its word. The Inbox toggle, the Devbook toggle and the remaining takeovers carry none. |
 
 Review surface: storybook → *App shell* → **Desktop header navigation**.
 
 ## Workspace Panes
 
 ```meta
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-The desktop shell has one side pane, the Devbook, and it opens beside whichever
-main view is showing (see `#shell-header`). The task list is not a pane: it is
-the Tasks view, which is never closed. That is why no pane has to stay open, and
-why the old pane strip's rules — an exclusive plain press, a Ctrl-press to add
-one beside, a disabled last option, a pin on every option — are gone with it.
-The Inbox was a side pane too, before the main view; it takes the whole screen
-now, because triage reads one item at a time and wants the width (local ADR
-0022, amendment of 2026-10-12).
+The desktop shell has no side panes. The task list is the Tasks view, which is
+never closed. The Inbox and the Devbook each take the whole screen in place of
+the main view and keep it underneath, as a takeover does (see `#shell-header`).
+Triage reads one item at a time, and a chapter or the Brain reads full width, so
+neither shares the window with the view (local ADR 0022, amendments of
+2026-10-12 and 2026-10-15).
 
 | Rule | Requirement |
 |---|---|
-| A toggle of its own | A press on a closed side pane MUST open it beside the view, and a press on an open one MUST close it. No modifier changes what a press does. |
-| No pane is an ordinary state | The shell MUST render with no side pane open, and a side-pane toggle MUST NOT be disabled. |
-| The tooltip says what the press will do | "Open Devbook beside Tasks", "Close Devbook", or during a takeover "Back to the workspace with Devbook open". |
-| The Devbook opens after the view | The Devbook MUST render after the main view, as its toggle stands in the header. |
-| A narrow window stacks, it does not close | The viewport sets how many panes fit, the main view included, and always leaves the side pane its slot: below the two-pane width the layout stacks its columns rather than closing the Devbook. |
-| The edge is the handle | The Devbook's width MUST be set by dragging the pane edge, with arrow keys on the same separator as the keyboard equivalent. |
+| A toggle of its own | A press on the Devbook toggle MUST give the Devbook the screen, and a press while it has the screen MUST return to the view underneath. No modifier changes what a press does. |
+| Never disabled | The Inbox and Devbook toggles MUST NOT be disabled. The shell showing neither is its ordinary state. |
+| The tooltip says what the press will do | "Open the Devbook", or while it has the screen "Back to Tasks", naming the view underneath. *Brain* takes the place of *Devbook* while the Devbook shows the Brain. The Inbox toggle reads the same way. |
+| A link opens the surface | A link that opens a chapter or a Brain note in the Devbook, the task row's Brain badge included, MUST give the Devbook the screen. |
+| One width | The Devbook MUST fill the workspace's width. No edge sets its width, and the viewport counts no panes. |
 
 ## Group Shape Says Cardinality
 
@@ -485,13 +580,13 @@ related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/de
 ```
 
 A group of pressable options in application chrome is drawn in one of two
-shapes, and the shape says how its options belong together — the one thing about
-a group a reader can see before pressing anything. How many are on at once is
-the pressed state's to say, not the shape's.
+shapes. The shape says how its options belong together, which is the one thing
+about a group a reader can see before pressing anything. How many are on at once
+is the pressed state's to say, not the shape's.
 
 | Rule | Requirement |
 |---|---|
-| Fused means one set | A group whose options are siblings read as one control MUST draw its members flush inside one border with hairlines between them: the desktop header's repository scope (several on with Ctrl), the view switch (exactly one on), and the work in progress group (one context's view and two lists). |
+| Fused means one set | A group whose options are siblings read as one control MUST draw its members flush inside one border with hairlines between them: the desktop header's repository scope (several on with Ctrl, its leading Brain chip set off by a divider inside the same border), the view switch (exactly one on), and the work in progress group (one context's view and two lists). |
 | Loose means related only by kind | A group whose options merely share a kind MUST draw them as standalone bordered controls with a gap between them, and MUST NOT fuse them: the desktop header's Dashboard and Tools, two takeovers from two contexts. |
 | Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's Inbox and Devbook toggles — MUST stand alone in the loose option shape, outside every group. Inside a fused group it would read as one more of its options and behave as none of them. |
 | Still one group | A loose group is still one `role="group"` with one label and one tab sequence; only the drawing changes. |
@@ -531,12 +626,21 @@ figure typed, a figure refused).
 related: [".devbook/design/typography-and-layout.md#density", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-An act the product performs on an external tool appears on a task, a
-knowledge chapter, a roadmap bar and inside a menu, and the set of acts does not
-change between them. What changes is how many of them survive the room available.
+This section uses four words in a fixed sense:
 
-Density selects a button shape, a size and a visible budget **together**, as one
-choice rather than three, so the three cannot be set inconsistently.
+- An **act** is one thing the product does on an external tool, drawn as a
+  button or a menu item.
+- The **act set** is every act a subject offers. A task, a knowledge chapter, a
+  roadmap bar and a menu show the same act set.
+- The **visible budget** is how many acts a surface shows before the rest go into
+  an overflow menu.
+- A **primary** act is pinned visible at every density; a **standard** act fills
+  the budget in the order it was given.
+
+The act set does not change between surfaces. What changes is how many acts fit
+the room available. Density selects a button shape, a size and a visible budget
+**together**, as one choice rather than three, so the three cannot be set
+inconsistently.
 
 | Density | Shape | Visible budget |
 |---|---|---|
@@ -553,25 +657,25 @@ Rules:
 - **A primary act is pinned and still counts.** It displaces a standard act rather
   than adding a slot, so the budget is the budget.
 - **A copy is pinned and does not count.** A copy is served by the clipboard
-  component, and a menu item has no clipboard interop — a copy in overflow would
+  component, and a menu item has no clipboard interop. A copy in overflow would
   claim to copy and silently not.
 - An act the host explicitly marked as overflow is removed unconditionally and is
   never pulled back out.
 - **One item never gets a menu.** Where the rule would put exactly one act into
-  overflow, it stays visible and no trigger is rendered: a menu holding a single
+  overflow, it stays visible and no trigger is rendered. A menu holding a single
   item costs a click, hides a label, and buys nothing.
 - **A running act is exempt.** Collapse is recomputed as state changes, and an act
   the reader has just pressed MUST NOT be moved out from under them.
 - **Unavailability never affects placement.** An unavailable act occupies the slot
   it would have occupied, disabled, carrying its reason. A reader who never sees an
-  act concludes the product cannot do it, and files that as a missing feature
-  rather than as an unconnected account.
-- In a menu, where a row has no room for a second line, an unavailable act's
+  act concludes the product cannot do it. They file that as a missing feature,
+  not as an account they have not connected.
+- In a menu a row has no room for a second line. There an unavailable act's
   reason MUST be folded into its label, and the item MUST be skipped by the arrow
   keys rather than focused to refuse.
 - Icon-only means **visually** icon-only. Every control keeps its accessible name,
   and is padded to the ≥ 44 × 44 px target
-  (`accessibility.md#target-sizes-and-text`) even where the glyph is 16 px — so a
+  (`accessibility.md#target-sizes-and-text`) even where the glyph is 16 px. A
   compact cluster is the same touch target with less ink in it.
 
 Review surface: storybook → *Integrations* → **Density and overflow**.
@@ -618,27 +722,46 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
-| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The edge autoscroll is one frame loop for every pointer drag: the Board's card drag and the month calendar's drag (a tray item, a chip, a shelf plan) hand themselves to it — the calendar through `window.backlogDragAutoscroll` — rather than each carrying its own bands and cap. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse**; *Task calendar*, for a drag to a day scrolled out of view |
+| Press feedback, busy actions, scoped loading | In `src/Core/Backlog.UI.Components`: `AppButton` (`Busy` keeps the button focusable through `aria-disabled`), `TaskAction` (`Busy`, `Blocked`), `ConfirmDialog` (busy until its act lands), `Modal.CloseDisabled`, `FileView.Refreshing`, `Spinner` and `Skeleton`; the generic `:active` and `[aria-busy]` rules in `components.css`. Hosts copy the dashboard's pattern: each part loads on its own, and a refresh keeps its figures under the frame's busy mark | Storybook → *Buttons*, *Overlays*, *Feedback* → **A region refreshing in place**, *File view* |
+| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The edge autoscroll is one frame loop for every pointer drag: the Board's card drag and the month calendar's drag (a tray item, a chip, a shelf plan) hand themselves to it, the calendar through `window.backlogDragAutoscroll`, rather than each carrying its own edge zones and speed cap. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse**; *Task calendar*, for a drag to a day scrolled out of view |
 
 Known gaps:
 
-- **Chapter reorder is unbuilt.** Nothing in the product reorders *chapters
-  within a document*: no grip, no keyboard move, no announcement, in the library
-  or in any host. `#keyboard-accessible-reordering` and the chapter half of
-  `#nesting--indent-rules-chapters` are therefore requirements waiting on an
-  implementation, not a built gesture falling short of them — and there is no
-  review surface to ask for until there is something to review.
-- **The roadmap drag does not autoscroll.** `#autoscroll` is written for any
-  scrollable container, and the task list satisfies it — a band at each edge,
-  a speed that rises with depth into it and stops at a cap. The timeline's own
-  gesture, `backlogRoadmapTimeline`, carries no scroll logic at all, so a bar
-  cannot be dragged past the edge of what the timeline is showing. The rule is
-  unmet there rather than misstated here.
-- **No `Offline` or `Conflict` save state.** The `SaveState` enum stops at
-  `Failed`. Both states are specified in `#save-state-indicator-vocabulary` and
-  both need building before sync ships.
+- **The indicator builds three of the five states, under different words.** The
+  `SaveState` enum is `Idle`, `Saving`, `Saved` and `Failed`. `Idle` renders
+  nothing, which is how a surface with no edit in flight stays quiet. The labels
+  are `Saving...`, `Saved` and `Could not save`, where
+  `#save-state-indicator-vocabulary` names `Saving…`, `Saved` and `Couldn't save`.
+  The vocabulary's `Error` state is the enum's `Failed`.
+- **No `Offline` or `Conflict` save state.** Both states are specified in
+  `#save-state-indicator-vocabulary`, and both need building before sync ships.
 - **The indicator has no icon.** It renders a coloured dot rather than the
-  `check-circle` / `loader-2` / `x-circle` glyphs the vocabulary names, because
-  the product has no icon set yet
-  (`typography-and-layout.md#materialization`). The dot is `aria-hidden`, so the
-  state is carried by the text, not by the colour alone.
+  `check-circle`, `loader-2` and `x-circle` glyphs the vocabulary names, because it
+  has not yet adopted the icon set (`typography-and-layout.md#materialization`).
+  The dot is `aria-hidden`, so the text carries the state and the colour does not
+  carry it alone.
+- **Chapter reorder is unbuilt.** Nothing in the product reorders *chapters
+  within a document*. No grip, keyboard move or announcement exists for it in the
+  library or in any host. `#keyboard-accessible-reordering` and the chapter half of
+  `#nesting--indent-rules-chapters` are therefore requirements waiting on an
+  implementation, not a built gesture falling short of them. There is no review
+  surface to ask for until there is something to review.
+- **The roadmap drag does not autoscroll.** `#autoscroll` is written for any
+  scrollable container, and the task list satisfies it. It has an edge zone at
+  each end of the container, where the scroll speed rises with depth into the zone
+  up to a cap. The timeline's own gesture, `backlogRoadmapTimeline`, carries no
+  scroll logic at all, so a bar cannot be dragged past the edge of what the
+  timeline is showing. The rule is unmet there, not misstated here.
+- **A dashboard part's first load does not yield.** `DashboardPartBase` yields
+  before a fetch a press started (a refresh, a filter change), but not on a
+  part's first load. A provider that does synchronous work before its first await
+  would therefore hold the takeover's frame, against *Frame first* in
+  `#scoped-loading`. No provider is known to do so.
+- **Some acts still close their dialog before the work.** The device and sync
+  forget/reset confirmations in Settings run synchronously and close at once, so
+  they show no busy state. They are quick, but they are not built to the
+  *Busy Actions* rules.
+- **A move's change check relies on write times.** Moving the storage folder
+  copies in the background and refuses the move if the backlog changed during
+  the copy. On FAT32 or exFAT, write times are coarse enough that a same-length
+  write inside that window could go unseen.

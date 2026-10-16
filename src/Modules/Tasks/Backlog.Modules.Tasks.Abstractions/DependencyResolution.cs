@@ -59,11 +59,27 @@ public static class DependencyResolution
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(tagged);
 
-        if (candidates.Any(candidate => IsRealId(candidate, value))) return value;
+        return Resolve(value, new CandidateIndex(candidates), planId, tagged);
+    }
 
-        var named = candidates
-            .Where(candidate => string.Equals(candidate.ImportItemId, value, StringComparison.Ordinal))
-            .ToList();
+    /// <summary>
+    /// <see cref="Resolve(string, IReadOnlyCollection{Candidate}, string?, IReadOnlyList{string})"/>
+    /// against an index built once over the same candidates — for a caller that
+    /// asks about many values, or many rows, between two changes to the store.
+    /// </summary>
+    public static string Resolve(
+        string value,
+        CandidateIndex index,
+        string? planId,
+        IReadOnlyList<string> tagged)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(index);
+        ArgumentNullException.ThrowIfNull(tagged);
+
+        if (index.IsRealId(value)) return value;
+
+        var named = index.Named(value);
 
         if (named.Count == 0) return value;
 
@@ -95,18 +111,79 @@ public static class DependencyResolution
     {
         ArgumentNullException.ThrowIfNull(values);
 
+        // An empty list resolves to nothing without indexing the store: the import
+        // asks once per entry it wrote, most of which wait on nothing.
+        var listed = values as IReadOnlyCollection<string> ?? [.. values];
+        if (listed.Count == 0) return [];
+
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        return ResolveAll(listed, new CandidateIndex(candidates), planId, tagged);
+    }
+
+    /// <summary>
+    /// <see cref="ResolveAll(IEnumerable{string}, IReadOnlyCollection{Candidate}, string?, IReadOnlyList{string})"/>
+    /// against an index built once over the same candidates.
+    /// </summary>
+    public static IReadOnlyList<string> ResolveAll(
+        IEnumerable<string> values,
+        CandidateIndex index,
+        string? planId,
+        IReadOnlyList<string> tagged)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        ArgumentNullException.ThrowIfNull(index);
+
         var resolved = new List<string>();
         foreach (var value in values)
         {
-            var id = Resolve(value, candidates, planId, tagged);
+            var id = Resolve(value, index, planId, tagged);
             if (!resolved.Contains(id, StringComparer.OrdinalIgnoreCase)) resolved.Add(id);
         }
 
         return resolved;
     }
 
-    /// <summary>Case-insensitive, matching how the pane already compares a
-    /// stored id against a typed one: a GUID is the same GUID in either case.</summary>
-    private static bool IsRealId(Candidate candidate, string value) =>
-        string.Equals(candidate.Id.ToString(), value, StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// The candidates a resolver asks about, read once: which values are real
+    /// ids, and which candidates carry each <c>id:</c> slug.
+    /// <para>
+    /// The real ids are compared case-insensitively, matching how the pane already
+    /// compares a stored id against a typed one: a GUID is the same GUID in either
+    /// case. They are held as the strings <see cref="Guid.ToString()"/> writes
+    /// rather than parsed values, so a slug that merely parses as a GUID in some
+    /// other format is still a slug. Each slug keeps its candidates in the order
+    /// they were given, which is what makes "the first one under the plan" the
+    /// same entry whichever overload asked.
+    /// </para>
+    /// <para>
+    /// Never changed after it is built, so one index can be read from any thread;
+    /// a change to the store is a new index.
+    /// </para>
+    /// </summary>
+    public sealed class CandidateIndex
+    {
+        private readonly HashSet<string> _realIds;
+        private readonly Dictionary<string, List<Candidate>> _bySlug = new(StringComparer.Ordinal);
+
+        public CandidateIndex(IReadOnlyCollection<Candidate> candidates)
+        {
+            ArgumentNullException.ThrowIfNull(candidates);
+
+            _realIds = new HashSet<string>(candidates.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var candidate in candidates)
+            {
+                _realIds.Add(candidate.Id.ToString());
+
+                if (candidate.ImportItemId is not { } slug) continue;
+                if (!_bySlug.TryGetValue(slug, out var named)) _bySlug[slug] = named = [];
+                named.Add(candidate);
+            }
+        }
+
+        internal bool IsRealId(string value) => _realIds.Contains(value);
+
+        internal IReadOnlyList<Candidate> Named(string slug) =>
+            _bySlug.TryGetValue(slug, out var named) ? named : [];
+    }
 }

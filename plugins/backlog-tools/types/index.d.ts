@@ -20,7 +20,8 @@ export type Worker = {
   state: WorkerState
   note: string
   flow: string
-  runId: string
+  /** The ids the surfaces answered for the run in hand, one per surface; none when no surface confirmed it. */
+  runIds: string[]
   stages: string[]
   stageStatus: string[]
   runStatus: string

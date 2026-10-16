@@ -188,9 +188,11 @@ public sealed record GitHubOpenPullRequest(
 
     /// <summary>The head commit's checks one by one — every check run and commit
     /// status, in the order GitHub lists them, up to
-    /// <see cref="GitHubClient.HeadCheckLimit"/>. Empty where it has none or the token
-    /// was refused them. <see cref="CheckCounts"/> still counts every check, so a commit
-    /// with more than the limit says how many are not listed here.</summary>
+    /// <see cref="GitHubClient.HeadCheckLimit"/>, or every one of them where a failed
+    /// check lies past that limit, so <see cref="FailedWorkflowRunIds"/> names every
+    /// failed run. Empty where it has none or the token was refused them.
+    /// <see cref="CheckCounts"/> still counts every check, so a commit with more than
+    /// the limit says how many are not listed here.</summary>
     public IReadOnlyList<GitHubCheck> HeadChecks { get; init; } = [];
 
     /// <summary>How many commits the base branch has that the head branch does not;
@@ -243,6 +245,19 @@ public sealed record GitHubOpenPullRequest(
         {
             ReviewState = ReviewState
         };
+}
+
+/// <summary>
+/// GitHub's own word on a repository: live, archived on GitHub, or not found
+/// (deleted, renamed away, or invisible to the credential). Read only to suggest
+/// Archive on the repository's row in Settings — it never archives anything, which
+/// stays the person's choice (local ADR 0029).
+/// </summary>
+public enum GitHubRepositoryState
+{
+    Active,
+    Archived,
+    NotFound,
 }
 
 /// <summary>One repository whose open pull requests could not be read, in the
@@ -384,6 +399,46 @@ public sealed record PullRequestPin(string RepositoryFullName, int Number)
     /// regard to case, the way GitHub compares it.</summary>
     public bool Names(string repositoryFullName, int number) =>
         Number == number && string.Equals(RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>One pull request a task links, by <c>owner/name</c> and number — what
+/// <see cref="GitHubIntegration.ListLinkedPullRequestsAsync"/> is asked to read.</summary>
+public sealed record GitHubPullRequestReference(string RepositoryFullName, int Number);
+
+/// <summary>
+/// One pull request a task links, as a read by number finds it: what it is called,
+/// where it stands, who opened it and when it merged.
+/// <para>
+/// Its own record rather than a <see cref="GitHubOpenPullRequest"/>, because the read
+/// that answers it asks for these facts and no others. The checks, the merge state and
+/// the branches are what an act on an open pull request needs, they cost the most to
+/// read, and a linked pull request is read for the record of its work, not to act on.
+/// </para>
+/// </summary>
+/// <param name="AuthorLogin">Who opened it; null where GitHub no longer knows the
+/// account.</param>
+/// <param name="MergedAt">When it merged; null unless <paramref name="State"/> is
+/// <see cref="GitHubItemState.Merged"/>.</param>
+/// <param name="CreatedAt">When it was opened; null where the answer did not say. Last
+/// and defaulted, so a caller written before it still constructs one.</param>
+public sealed record GitHubLinkedPullRequest(
+    int Number,
+    string Url,
+    string Title,
+    string RepositoryFullName,
+    GitHubItemState State,
+    string? AuthorLogin,
+    DateTimeOffset? MergedAt,
+    DateTimeOffset? CreatedAt = null);
+
+/// <summary>The linked pull requests of several repositories, read together, and the
+/// repositories that could not be read — failures beside the answers, as
+/// <see cref="GitHubPullRequestListing"/> keeps them.</summary>
+public sealed record GitHubLinkedPullRequestListing(
+    IReadOnlyList<GitHubLinkedPullRequest> PullRequests,
+    IReadOnlyList<GitHubRepositoryFailure> Failures)
+{
+    public static GitHubLinkedPullRequestListing Empty { get; } = new([], []);
 }
 
 /// <summary>One repository's pull requests merged since a moment, as

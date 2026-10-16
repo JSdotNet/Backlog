@@ -98,13 +98,14 @@
     {
         if (_read == (Tab, Scope)) return;
 
-        _read = (Tab, Scope);
+        var read = (Tab, Scope);
+        _read = read;
         _headline = null;
 
         string? headline;
         try
         {
-            headline = await ReadAsync(Tab, Scope);
+            headline = await ReadAsync(read.Tab, read.Scope);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -113,8 +114,10 @@
             headline = null;
         }
 
-        // A later tab or scope may have been asked for while this one was read.
-        if (_read == (Tab, Scope)) _headline = headline;
+        // A later tab or scope may have been asked for while this one was read. Compare
+        // with what this read was for, not with Tab and Scope: by now those name the later
+        // tab as _read does, and a slow read would pass for its result.
+        if (_read == read) _headline = headline;
     }
 
     private async Task<string?> ReadAsync(string? tab, DashboardScope scope) => tab switch

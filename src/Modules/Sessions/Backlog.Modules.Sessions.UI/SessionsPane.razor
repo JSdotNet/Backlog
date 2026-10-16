@@ -191,28 +191,34 @@ else
                 @* Amends every one of this machine's session records from what its
                    agents' files still hold, and asks sync to send them all again when
                    sync is on. Beside Refresh because it is the heavier version of the
-                   same question. *@
+                   same question. Busy through its own run, the read after it included,
+                   so focus stays on it (#busy-actions). Not blocked by a Refresh out
+                   already: its read queues behind that one rather than racing it. *@
                 <AppButton Variant="ButtonVariant.Secondary"
-                           Disabled="@(_loading || _updating)"
+                           Busy="@_updating"
+                           BusyLabel="Updating records"
                            TestId="sessions-update-records"
                            Title="Re-read every record from the agents' files and send them to sync again"
                            OnClick="UpdateRecordsAsync">
-                    @(_updating ? "Updating records..." : "Update records")
+                    Update records
                 </AppButton>
             }
+            @* The header's spinner for a refresh in place: the list below keeps its
+               rows and dims under aria-busy (#scoped-loading). *@
             <AppButton Variant="ButtonVariant.Secondary"
-                       Disabled="@_loading"
+                       Busy="@_loading"
+                       BusyLabel="Reading"
                        TestId="sessions-refresh"
                        OnClick="RefreshAsync">
-                @(_loading ? "Reading..." : "Refresh")
+                Refresh
             </AppButton>
         </div>
     </div>
 
-    <div class="sessions-panel__content" id="sessions-content" aria-busy="@(_loading ? "true" : null)">
+    <div class="sessions-panel__content sessions-panel__content--columns" id="sessions-content" aria-busy="@(_loading ? "true" : null)">
         @if (_recordsMessage is not null)
         {
-            <Alert Message="@_recordsMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-records-updated" />
+            <Alert Message="@_recordsMessage" BaseClass="sessions-panel__notice" Role="@(_recordsFailed ? "alert" : "status")" TestId="sessions-records-updated" />
         }
         @if (FocusMessage is { } focusMessage)
         {
@@ -254,11 +260,11 @@ else
         }
         else
         {
-            // The sections and the row in the panel, worked out once per render: the
-            // grouping sorts every row, and asking for it per row would sort the list
-            // once for each of them.
+            // The sections and the row in the panel, both kept by the derived view until
+            // an input changes: the grouping sorts every row, and asking for it per row
+            // would sort the list once for each of them.
             var sections = Sections;
-            var selected = SelectedOf(sections);
+            var selected = Selected;
             _shownKey = selected?.Key;
 
             <div class="sessions-layout">
@@ -340,7 +346,7 @@ else
                 <span aria-hidden="true">·</span>
                 <span class="sessions-row__model" data-testid="sessions-model">
                     @ModelLabel(row.Model)
-                    <EffortChip Effort="@row.Effort" TestId="sessions-effort" />
+                    <EffortChip Effort="@EffortOf(row)" TestId="sessions-effort" />
                 </span>
                 <span class="sessions-row__spacer" aria-hidden="true"></span>
                 <span class="sessions-row__tokens" title="@TokensTitle(row.Session?.ModelUsage)" data-testid="sessions-tokens">@OutputLabel(row.OutputTokens)</span>
@@ -424,7 +430,7 @@ else
                 <div class="sessions-fact">
                     <dt>Effort</dt>
                     <dd data-testid="sessions-fact-effort">
-                        @if (row.Effort is { } effort)
+                        @if (EffortOf(row) is { } effort)
                         {
                             <EffortChip Effort="@effort" TestId="sessions-fact-effort-chip" />
                         }
@@ -489,19 +495,16 @@ else
 
             @if (row.Runs.Count > 0)
             {
-                @* The run card: every run the row holds, latest first, each the line
-                   that has always drawn a run — its references, its outcome, and the
-                   fold with its stages and figures. *@
-                <section class="sessions-detail__card" aria-label="Delivery runs" data-testid="sessions-run-card">
-                    <h4 class="sessions-detail__card-title">@(row.Runs.Count == 1 ? "Delivery run" : $"Delivery runs · {row.Runs.Count}")</h4>
+                @* The run card: every run the row holds, latest first. The latest is
+                   drawn whole — its header, insight, figures, stages and footnote — and
+                   each earlier one folds to its header, so the run that matters now is
+                   the one open. Each run titles itself. *@
+                <section class="sessions-detail__card" aria-label="@(row.Runs.Count == 1 ? "Delivery run" : $"Delivery runs · {row.Runs.Count}")" data-testid="sessions-run-card">
                     <div class="sessions-runs" data-testid="sessions-runs">
-                        @foreach (var run in row.Runs)
+                        @for (var index = 0; index < row.Runs.Count; index++)
                         {
-                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" Comparison="@CostsOf(row)?.ComparisonOf(run)" OnOpenTask="OnOpenTask" OnOpenEconomics="OpenEconomicsFrom">
-                                <Usage>
-                                    <UsageShareFact Share="@SharesOf(row)?.Of(run)" Usage="@SharesOf(row)?.Usage" Run="true" TestId="sessions-run-share" />
-                                </Usage>
-                            </DeliveryRunLine>
+                            var run = row.Runs[index];
+                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" Collapsible="@(index > 0)" StartExpanded="@ReopensOnReturn(run)" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" Comparison="@CostsOf(row)?.ComparisonOf(run)" OnOpenTask="OnOpenTask" OnOpenEconomics="OpenEconomicsFrom" Usage="@UsageOf(row, run)" />
                         }
                     </div>
                 </section>
@@ -751,21 +754,29 @@ else
         !string.IsNullOrWhiteSpace(pull.Title) ? pull.Title : StatusOf(pull)?.Title;
 
     /// <summary>Asks the host about the selected row's pull requests it has not asked
-    /// about yet. Each answer redraws the panel as it lands; one that fails leaves
-    /// that card without a chip rather than failing the pane.</summary>
+    /// about yet — all of them at once — and redraws the panel once, when the last
+    /// answer is in, rather than once per answer. One that fails leaves that card
+    /// without a chip rather than failing the pane.</summary>
     private void AskAboutPullRequests()
     {
         if (PullRequestStatus is not { } read || Selected is not { } row) return;
+
+        var generation = _statusGeneration;
+        List<Task>? asks = null;
 
         foreach (var pull in PullRequestsOf(row))
         {
             var key = PullKey(pull);
             if (!_asked.Add(key)) continue;
 
-            _ = AskAsync(read, pull, key, _statusGeneration);
+            (asks ??= []).Add(AskAsync(read, pull, key, generation));
         }
+
+        if (asks is not null) _ = RedrawWhenAnsweredAsync(asks, generation);
     }
 
+    /// <summary>One read, its answer kept — unless a refresh started a new reading
+    /// while it was out. The redraw is the batch's.</summary>
     private async Task AskAsync(Func<DeliveryRunReference, Task<SessionPullRequestStatus?>> read, DeliveryRunReference pull, string key, int generation)
     {
         SessionPullRequestStatus? status;
@@ -782,16 +793,31 @@ else
         if (_disposed || generation != _statusGeneration) return;
 
         _statuses[key] = status;
-        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RedrawWhenAnsweredAsync(List<Task> asks, int generation)
+    {
+        try
+        {
+            await Task.WhenAll(asks);
+        }
+        finally
+        {
+            // Drawn even when a read was cancelled: the answers that did land are kept,
+            // and the cancellation still surfaces on this task as it did on its read.
+            if (!_disposed && generation == _statusGeneration) await InvokeAsync(StateHasChanged);
+        }
     }
 
     public void Dispose() => _disposed = true;
 
-    /// <summary>What one row cost, worked out once its requests are in.</summary>
+    /// <summary>What one row cost, worked out once its requests are in — and the effort
+    /// those requests reported, which the same read answers.</summary>
     private sealed record RowCosts(
         CostFigure? Session,
         IReadOnlyDictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>> Stages,
-        IReadOnlyDictionary<DeliveryRun, DeliveryRunCostComparison> Comparisons)
+        IReadOnlyDictionary<DeliveryRun, DeliveryRunCostComparison> Comparisons,
+        string? Effort)
     {
         public IReadOnlyList<DeliveryRunStageCost>? StagesOf(DeliveryRun run) => Stages.TryGetValue(run, out var costs) ? costs : null;
 
@@ -822,6 +848,13 @@ else
     private readonly Dictionary<string, RowShares> _shares = new(StringComparer.Ordinal);
 
     private RowShares? SharesOf(SessionRow row) => _shares.TryGetValue(row.Key, out var shares) ? shares : null;
+
+    /// <summary>A run's share of the week for its card, or null where it has none — so
+    /// the card draws no empty slot, and no gap for one, between its tiles and stages.</summary>
+    private RenderFragment? UsageOf(SessionRow row, DeliveryRun run) =>
+        SharesOf(row) is { } shares && shares.Of(run) is { } share
+            ? @<UsageShareFact Share="@share" Usage="@shares.Usage" Run="true" TestId="sessions-run-share" />
+            : null;
 
     private Task<WeeklyUsage?> WeeklyAsync() => _weekly ??= ReadWeeklyAsync();
 
@@ -879,6 +912,11 @@ else
 
     private RowCosts? CostsOf(SessionRow row) => _costs.TryGetValue(row.Key, out var costs) ? costs : null;
 
+    /// <summary>The row's effort: telemetry's once the row's requests have been read —
+    /// which <see cref="SessionRow.EffortFrom"/> already falls back from to the run files
+    /// — and the run files' until then.</summary>
+    private string? EffortOf(SessionRow row) => CostsOf(row) is { } costs ? costs.Effort : row.Effort;
+
     /// <summary>The sessions whose requests a row's costs are read from: its own, and
     /// every one its runs name.</summary>
     private static IReadOnlyList<string> CostSessionsOf(SessionRow row) =>
@@ -912,10 +950,13 @@ else
 
         if (_disposed || generation != _statusGeneration) return;
 
-        var sessionId = row.Session?.Id ?? row.Runs.SelectMany(run => run.SessionIds).FirstOrDefault();
+        var sessionId = row.OwnerSessionId;
         var stages = new Dictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>>(ReferenceEqualityComparer.Instance);
         var comparisons = new Dictionary<DeliveryRun, DeliveryRunCostComparison>(ReferenceEqualityComparer.Instance);
         CostFigure? session;
+
+        // The effort the session's own requests reported, ahead of the run files'.
+        var effort = row.EffortFrom(requests);
 
         try
         {
@@ -937,11 +978,21 @@ else
 
         // The row's own figures first: pricing the earlier runs its comparison needs
         // reads up to thirty runs' requests, and the row's cost should not wait on them.
-        _costs[row.Key] = new RowCosts(session, stages, new Dictionary<DeliveryRun, DeliveryRunCostComparison>());
+        _costs[row.Key] = new RowCosts(session, stages, new Dictionary<DeliveryRun, DeliveryRunCostComparison>(), effort);
+
+        // Whether something changed since the last redraw. A redraw is spent only
+        // before waiting on work still out, and once at the end: a row whose week and
+        // earlier pricing are already in from another row draws once, not three times.
+        var undrawn = true;
 
         // The costs are drawn before the week is read: the week reads every request,
-        // and the row's own figures should not wait on it.
-        await InvokeAsync(StateHasChanged);
+        // and the row's own figures should not wait on it. A week already read is no
+        // wait at all.
+        if (_weekly is not { IsCompleted: true })
+        {
+            await InvokeAsync(StateHasChanged);
+            undrawn = false;
+        }
 
         WeeklyUsage? weekly;
 
@@ -970,21 +1021,47 @@ else
                 // not read shows no share rather than failing the pane.
                 _shares.Remove(row.Key);
             }
+
+            undrawn = true;
         }
 
-        await InvokeAsync(StateHasChanged);
+        var comparing = CompareAllAsync(stages, comparisons, generation);
 
+        // The shares are drawn before the comparisons are worked out when those still
+        // have earlier runs to price.
+        if (undrawn && !comparing.IsCompleted)
+        {
+            await InvokeAsync(StateHasChanged);
+            undrawn = false;
+        }
+
+        if (!await comparing) return;
+
+        if (comparisons.Count > 0)
+        {
+            _costs[row.Key] = new RowCosts(session, stages, comparisons, effort);
+            undrawn = true;
+        }
+
+        if (undrawn) await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Each run's comparison into <paramref name="comparisons"/>, one run
+    /// after the other; false when the pane went or a refresh started a new reading
+    /// while one was out, which leaves nothing of this row's to draw.</summary>
+    private async Task<bool> CompareAllAsync(
+        Dictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>> stages,
+        Dictionary<DeliveryRun, DeliveryRunCostComparison> comparisons,
+        int generation)
+    {
         foreach (var (run, costs) in stages)
         {
             if (await CompareAsync(run, costs, generation) is { } comparison) comparisons[run] = comparison;
 
-            if (_disposed || generation != _statusGeneration) return;
+            if (_disposed || generation != _statusGeneration) return false;
         }
 
-        if (comparisons.Count == 0) return;
-
-        _costs[row.Key] = new RowCosts(session, stages, comparisons);
-        await InvokeAsync(StateHasChanged);
+        return true;
     }
 
     /// <summary>What each earlier run cost, by run, once asked: the baseline of a flow
@@ -1112,6 +1189,16 @@ else
 
         return drawn ? DeliveryRunInsightLine.DomId(run) : OpenEconomicsId;
     }
+
+    /// <summary>
+    /// Whether a run's card is drawn open as the list comes back from Delivery economics:
+    /// the one whose insight opened the page. An earlier run's callout is inside its fold,
+    /// and the list returns with every fold closed, so without this the focus would land
+    /// on a button inside a hidden body and fall to the document. Only on the render that
+    /// returns, so a later selection draws its runs folded as usual.
+    /// </summary>
+    private bool ReopensOnReturn(DeliveryRun run) =>
+        _focusAfterEconomics && ReferenceEquals(run, _economicsOpener);
 
     /// <summary>
     /// The runs the page reads: those of the rows the shell's repository scope admits,
@@ -1324,27 +1411,55 @@ else
 
     private string? _recordsMessage;
 
+    /// <summary>Whether <see cref="_recordsMessage"/> is a failure, announced as an
+    /// alert rather than a status.</summary>
+    private bool _recordsFailed;
+
     /// <summary>The update button: every session the files still hold, amended into
     /// its record, then the list read again.</summary>
     private async Task UpdateRecordsAsync()
     {
-        if (_keeper is null) return;
+        if (_keeper is not { } keeper || _updating) return;
 
         _updating = true;
         _recordsMessage = null;
+        _recordsFailed = false;
 
         try
         {
-            var update = await _keeper.UpdateAsync(everything: true);
+            // Off the UI thread: the keeper reads the record store and every agent's
+            // files before its first real await, and that would hold the window
+            // still with the busy state unpainted (#press-feedback).
+            var update = await Task.Run(() => keeper.UpdateAsync(everything: true));
 
             _recordsMessage = RecordsMessage(update);
+
+            // Inside the busy run, so the button stays busy through the read it asked
+            // for rather than flicking back between the two.
+            await RefreshAsync();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // The record folder could not be written — the failure KeepRecordsAsync
+            // already expects. An error toast and the button restored (#busy-actions,
+            // Failure), rather than the page's error boundary taking the screen; the
+            // pane's own notice line where the host composed no toast channel.
+            var message = $"Couldn't update the session records: {exception.Message}";
+
+            if (Services.GetService<IToastChannel>() is { } toasts)
+            {
+                toasts.Publish(ToastMessage.Error(message, "sessions-records-failed"));
+            }
+            else
+            {
+                _recordsMessage = message;
+                _recordsFailed = true;
+            }
         }
         finally
         {
             _updating = false;
         }
-
-        await RefreshAsync();
     }
 
     internal static string RecordsMessage(SessionRecordUpdate update)
@@ -1358,42 +1473,42 @@ else
             : what;
     }
 
-    private async Task RefreshAsync()
+    /// <summary>The read in flight, its queued follow-up included, or null.</summary>
+    private Task? _reading;
+
+    /// <summary>Whether a read was asked for while one was out.</summary>
+    private bool _readAgain;
+
+    /// <summary>
+    /// Refresh, Retry, and the read after Update records. A request while a read is
+    /// out does not start a second beside it — the two would race to write the list —
+    /// but queues one more read after it, since the first may have started before
+    /// whatever the asker changed (Update records' writes). Any number of requests
+    /// meanwhile fold into that one, and each caller waits until it has landed.
+    /// </summary>
+    private Task RefreshAsync()
+    {
+        if (_reading is { IsCompleted: false } running)
+        {
+            _readAgain = true;
+            return running;
+        }
+
+        return _reading = ReadUntilSettledAsync();
+    }
+
+    private async Task ReadUntilSettledAsync()
     {
         _loading = true;
 
         try
         {
-            // Both readings in flight together: neither needs the other's answer
-            // until both are in.
-            var sessions = Sessions.GetSessionsAsync();
-            var runs = Runs.GetRunsAsync();
-
-            _catalog = await sessions;
-            _runs = await runs;
-            await ReadPricesAsync();
-            _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
-            _read = true;
-            _readAt = DateTimeOffset.UtcNow;
-
-            // A re-read can lose the environment the list was narrowed to. Left in
-            // place, the select would read "All machines" over a list narrowed to
-            // nothing; widening back out is the honest reset.
-            if (_environmentId is not null && Environments.All(environment => environment.Id != _environmentId))
+            do
             {
-                _environmentId = null;
+                _readAgain = false;
+                await ReadOnceAsync();
             }
-
-            // A fresh reading may hold newer verdicts too, newer requests, and prices
-            // somebody changed in Settings since.
-            _statuses.Clear();
-            _asked.Clear();
-            _costs.Clear();
-            _costAsked.Clear();
-            _earlierCosts.Clear();
-            _shares.Clear();
-            _weekly = null;
-            _statusGeneration++;
+            while (_readAgain);
         }
         finally
         {
@@ -1401,6 +1516,42 @@ else
         }
 
         RevealFocused();
+    }
+
+    private async Task ReadOnceAsync()
+    {
+        // Both readings in flight together: neither needs the other's answer
+        // until both are in. Started on the pool, because on a warm cache both
+        // answer synchronously off the disk, and on the UI thread that read would
+        // freeze the window before Refresh could show it is busy (#press-feedback).
+        var sessions = Task.Run(() => Sessions.GetSessionsAsync());
+        var runs = Task.Run(() => Runs.GetRunsAsync());
+
+        _catalog = await sessions;
+        _runs = await runs;
+        await ReadPricesAsync();
+        _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
+        _read = true;
+        _readAt = DateTimeOffset.UtcNow;
+
+        // A re-read can lose the environment the list was narrowed to. Left in
+        // place, the select would read "All machines" over a list narrowed to
+        // nothing; widening back out is the honest reset.
+        if (_environmentId is not null && Environments.All(environment => environment.Id != _environmentId))
+        {
+            _environmentId = null;
+        }
+
+        // A fresh reading may hold newer verdicts too, newer requests, and prices
+        // somebody changed in Settings since.
+        _statuses.Clear();
+        _asked.Clear();
+        _costs.Clear();
+        _costAsked.Clear();
+        _earlierCosts.Clear();
+        _shares.Clear();
+        _weekly = null;
+        _statusGeneration++;
     }
 
     /// <summary>The <see cref="FocusSessionId"/> last acted on, so re-rendering with
@@ -1416,6 +1567,10 @@ else
 
     protected override void OnParametersSet()
     {
+        // The scope and the alias callback may answer differently now, behind the
+        // same references; the derived view is worked out again on the next ask.
+        _derived = null;
+
         if (string.Equals(FocusSessionId, _focusApplied, StringComparison.OrdinalIgnoreCase)) return;
 
         _focusApplied = FocusSessionId;
@@ -1540,7 +1695,28 @@ else
     /// admit it, else the first row the list draws. Never a row the list does not
     /// show — a panel about a session the filters hid would contradict the list.
     /// </summary>
-    private SessionRow? Selected => SelectedOf(Sections);
+    private SessionRow? Selected
+    {
+        get
+        {
+            var view = View;
+
+            if (!ReferenceEquals(_selectedFor, view) || !string.Equals(_selectedForKey, _selectedKey, StringComparison.Ordinal))
+            {
+                _selected = SelectedOf(view.Sections);
+                _selectedFor = view;
+                _selectedForKey = _selectedKey;
+            }
+
+            return _selected;
+        }
+    }
+
+    /// <summary>The row <see cref="Selected"/> last worked out, and the derived view
+    /// and the picked key it was worked out against.</summary>
+    private SessionRow? _selected;
+    private SessionsView? _selectedFor;
+    private string? _selectedForKey;
 
     private SessionRow? SelectedOf(IReadOnlyList<AgentSessionGroup> sections)
     {
@@ -1567,47 +1743,111 @@ else
     /// <summary>Whether the header has narrowed the list to some repositories.</summary>
     private bool Scoped => RepositoryScope.Count > 0;
 
-    private string ScopeLabel => string.Join(", ", RepositoryScope);
+    private string ScopeLabel => global::Backlog.SharedKernel.BrainScope.Label(RepositoryScope);
 
     /// <summary>A row in the scope: one whose repository — recorded, resolved, or named
-    /// by a run — the shell resolves to a scoped alias. With none, the row is out.</summary>
+    /// by a run — the shell resolves to a scoped alias; or, with the Brain scoped (local
+    /// ADR 0027), one that resolves to no configured repository at all — the sessions
+    /// worked against no repository. Otherwise the row is out.</summary>
     private bool InScope(SessionRow row) =>
-        !Scoped || row.Repositories.Any(Scopes);
+        !Scoped
+        || row.Repositories.Any(Scopes)
+        || (global::Backlog.SharedKernel.BrainScope.In(RepositoryScope) && !row.Repositories.Any(Configured));
+
+    private bool Configured(string? repository) => RepositoryAlias?.Invoke(repository) is not null;
 
     private bool Scopes(string? repository) =>
         RepositoryAlias?.Invoke(repository) is { } alias
         && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase);
 
-    private IReadOnlyList<SessionRow> ScopedSessions =>
-        Scoped ? [.. _rows.Where(InScope)] : _rows;
+    /// <summary>
+    /// Everything the filters derive from the reading, worked out together and kept
+    /// for the inputs it was worked out from. The markup, the tally, the badge and the
+    /// detail panel each ask for these several times a render, and every asking used
+    /// to re-filter, re-resolve each row's repository against the scope and re-sort
+    /// the sections.
+    /// </summary>
+    private sealed record SessionsView(
+        IReadOnlyList<SessionRow> Rows,
+        string? EnvironmentId,
+        bool WithRuns,
+        AgentSessionView Choice,
+        AgentSessionGrouping Grouping,
+        DateTimeOffset ReadAt,
+        IReadOnlyList<SessionRow> ScopedRows,
+        int OnEnvironment,
+        IReadOnlyList<SessionRow> Narrowed,
+        IReadOnlyList<SessionRow> Visible,
+        int LiveTally,
+        IReadOnlyList<AgentSessionGroup> Sections)
+    {
+        public bool IsFor(IReadOnlyList<SessionRow> rows, string? environmentId, bool withRuns, AgentSessionView choice, AgentSessionGrouping grouping, DateTimeOffset readAt) =>
+            ReferenceEquals(Rows, rows)
+            && string.Equals(EnvironmentId, environmentId, StringComparison.Ordinal)
+            && WithRuns == withRuns
+            && Choice == choice
+            && Grouping == grouping
+            && ReadAt == readAt;
+    }
 
-    /// <summary>The rows every filter but Show admits: the scope, the machine and the
-    /// runs toggle. What Live's tally counts the live rows of.</summary>
-    private IReadOnlyList<SessionRow> Narrowed
+    /// <summary>The derived view last worked out; null once the parent set the
+    /// parameters again, because the scope and the alias callback can answer
+    /// differently behind the same references.</summary>
+    private SessionsView? _derived;
+
+    /// <summary>How many times the derived view has been worked out — what a test
+    /// reads to tell a render that reused it from one that rebuilt it.</summary>
+    internal int ViewBuilds { get; private set; }
+
+    private SessionsView View
     {
         get
         {
-            var rows = AgentSessionEnvironments.On(ScopedSessions, _environmentId);
+            if (_derived is { } derived && derived.IsFor(_rows, _environmentId, _withRuns, _view, _grouping, _readAt)) return derived;
 
-            return _withRuns ? [.. rows.Where(row => row.Runs.Count > 0)] : rows;
+            ViewBuilds++;
+
+            IReadOnlyList<SessionRow> scoped = Scoped ? [.. _rows.Where(InScope)] : _rows;
+            var onEnvironment = AgentSessionEnvironments.On(scoped, _environmentId);
+            IReadOnlyList<SessionRow> narrowed = _withRuns ? [.. onEnvironment.Where(row => row.Runs.Count > 0)] : onEnvironment;
+            var visible = AgentSessionViews.Of(narrowed, _view);
+
+            return _derived = new SessionsView(
+                _rows,
+                _environmentId,
+                _withRuns,
+                _view,
+                _grouping,
+                _readAt,
+                scoped,
+                onEnvironment.Count,
+                narrowed,
+                visible,
+                AgentSessionViews.Of(narrowed, AgentSessionView.Live).Count,
+                AgentSessionGroups.Of(visible, _grouping, _readAt, TimeZoneInfo.Local));
         }
     }
 
+    private IReadOnlyList<SessionRow> ScopedSessions => View.ScopedRows;
+
+    /// <summary>The rows every filter but Show admits: the scope, the machine and the
+    /// runs toggle. What Live's tally counts the live rows of.</summary>
+    private IReadOnlyList<SessionRow> Narrowed => View.Narrowed;
+
     /// <summary>The rows the filters admit, before any grouping. Neither narrowing
     /// reorders, and the grouping never sees what any of them left out.</summary>
-    private IReadOnlyList<SessionRow> Visible => AgentSessionViews.Of(Narrowed, _view);
+    private IReadOnlyList<SessionRow> Visible => View.Visible;
 
     /// <summary>How many rows Live would show under the other filters.</summary>
-    private int LiveTally => AgentSessionViews.Of(Narrowed, AgentSessionView.Live).Count;
+    private int LiveTally => View.LiveTally;
 
     /// <summary>How many sessions the chosen environment has a record of, whatever the
     /// view. The number the empty state offers as the way back out.</summary>
-    private int OnEnvironment => AgentSessionEnvironments.On(ScopedSessions, _environmentId).Count;
+    private int OnEnvironment => View.OnEnvironment;
 
     /// <summary>The sections, from the module's own grouping, against the reading's
     /// clock and the reader's own time zone.</summary>
-    private IReadOnlyList<AgentSessionGroup> Sections =>
-        AgentSessionGroups.Of(Visible, _grouping, _readAt, TimeZoneInfo.Local);
+    private IReadOnlyList<AgentSessionGroup> Sections => View.Sections;
 
     /// <summary>What the reading found. The subtitle's number and the badge's total.</summary>
     private int Total => _rows.Count;
@@ -1664,7 +1904,7 @@ else
             }
 
             return Scoped
-                ? $"{reading} Narrowed to {ScopeLabel}: a session is in by the repository its agent recorded, or by its working folder lying inside a registered clone; one with neither is left out."
+                ? $"{reading} Narrowed to {ScopeLabel}: a session is in by the repository its agent recorded, or by its working folder lying inside a registered clone; {(global::Backlog.SharedKernel.BrainScope.In(RepositoryScope) ? "one with neither is the Brain's." : "one with neither is left out.")}"
                 : reading;
         }
     }

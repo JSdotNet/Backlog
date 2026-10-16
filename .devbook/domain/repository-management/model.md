@@ -17,15 +17,19 @@ classDiagram
     class RepositoryRegistry {
         <<aggregate root>>
         +Map~RepositoryId,Repository~ repositories
+        +RenameRecord[] renames
+        +RemovalRecord[] removals
         +TechBaselines baselines
         +PortfolioAnalytics analytics
     }
     class Repository {
         <<entity>>
         +RepositoryId repo_id
+        +RepositoryAlias alias
         +String repo_name
         +String repo_url
         +String clone_path
+        +Boolean archived
         +RepositoryType repo_type
         +String primary_language
         +String team_owner
@@ -111,7 +115,11 @@ classDiagram
 - Daily history value objects (`PackageFreshnessMetric`, `HealthScoreSnapshot`,
   `GitHubHealthMetric`, `TechnologySnapshot`, see `domain.md`) roll up into
   `PortfolioAnalytics`; only the root writes them.
-- `TechBaselines` is a local copy consumed from Technology Stack; repos are
-  validated against it without holding the foreign aggregate.
-- `repo_id` aligns with the Tasks `repo_ids` and the workspace `repos.json`
-  registry so a repo resolves consistently across contexts.
+- `TechBaselines` is a local copy consumed from Technology Stack. Repositories
+  are validated against it without holding the foreign aggregate.
+- `RenameRecord` and `RemovalRecord` belong to the registry rather than to a
+  repository, because each names a repository the registry no longer holds.
+- `archived` belongs to the `Repository`, because an
+  [archived repository](domain.md#archived-repository) is still held by the
+  registry. It is absent from the stored row while false, and it travels with the
+  registry to a paired device (local ADR 0029).

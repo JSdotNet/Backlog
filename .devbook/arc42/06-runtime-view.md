@@ -31,7 +31,6 @@ sequenceDiagram
         Backlog->>GitHub: POST /repos/{repo}/issues
         GitHub-->>Backlog: 201 Created (issue_number, html_url)
         Backlog->>Store: Update entry with github_issue_ids
-        Backlog->>DB: Update index with issue links
     end
 
     Backlog-->>UI: github_issue_ids available
@@ -44,8 +43,12 @@ sequenceDiagram
 related: [".devbook/arc42/05-building-block-view.md#cloud-service"]
 ```
 
-In connected mode the desktop pushes state snapshots to the cloud, the phone pulls
-deltas, and GitHub webhooks are validated and forwarded to the desktop.
+In connected mode the desktop pushes its task changes to the sync service, and the
+phone pulls them from the task feed. `.devbook/arc42/08-crosscutting-concepts.md#task-sync`
+has the reconciliation.
+
+> Webhook forwarding is not built: no route receives GitHub webhooks. The last part of
+> the diagram is the intended flow.
 
 ```mermaid
 sequenceDiagram
@@ -55,18 +58,18 @@ sequenceDiagram
     participant Phone as Phone App
     participant GH as GitHub
 
-    Desktop->>+Cloud: POST /sync/push (state snapshot)
-    Cloud->>DB: Store SyncPayload (TTL 7 days)
+    Desktop->>+Cloud: POST /api/sync/tasks (changed since watermark)
+    Cloud->>DB: Upsert documents (tasks container)
     Cloud-->>-Desktop: 200 OK
 
     Note over Phone,Cloud: Phone comes online
-    Phone->>+Cloud: GET /sync/pull?since=token
-    Cloud->>DB: Query delta for user
-    DB-->>Cloud: Changed items since token
-    Cloud-->>-Phone: 200 OK (items, next_sync_token)
+    Phone->>+Cloud: GET /api/sync/tasks?since=cursor
+    Cloud->>DB: Read the change feed from the cursor
+    DB-->>Cloud: Changed documents
+    Cloud-->>-Phone: 200 OK (documents, next cursor)
 
-    Note over GH,Cloud: GitHub webhook received
-    GH->>+Cloud: POST /webhooks/github
+    Note over GH,Cloud: Not built: GitHub webhook received
+    GH->>+Cloud: POST webhook
     Cloud->>Cloud: Validate HMAC signature
     Cloud->>DB: Store WebhookEvent (TTL 24h)
     Cloud-->>-GH: 202 Accepted
@@ -85,11 +88,11 @@ to a missing signal: it shows the item at once, marked waiting, and delivers it
 when the service answers.
 
 - **One outbox, many kinds.** Each row is `id, kind, payload, attempts,
-  last_error, created_at`. The `kind` picks the sender; `capture` is the first,
-  and later kinds join the same queue and the same order: `task`, pushed to its
-  own endpoint, and `talk-note`, one entry that is several requests — see
-  **Talk Note Upload**. Kind `note` joins them for a note the phone creates or
-  edits — see **Mobile Note Sync**.
+  last_error, created_at`. The `kind` picks the sender, and every kind shares the
+  same queue and order. `capture` is a capture; `task` is pushed to its own
+  endpoint; `note` carries a note the phone creates or edits (**Mobile Note
+  Sync**). `talk-note` drains an entry an earlier build left queued, one entry
+  that is several requests (**Talk Note Upload**).
 - **Oldest first, head of line.** A transient failure (no network, a timeout, a
   5xx, or a 401 from a service that restarted with a new signing key) stops the
   flush, so nothing overtakes it. It is retried after 2s, 4s, 8s, 16s. The fifth
@@ -152,7 +155,8 @@ related: [".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-besid
 A capture's files travel beside it rather than inside it (local ADR 0014). The
 phone uploads each file first, under an id it mints itself, and posts the
 capture that names them after; the capture document carries only their
-metadata. All three sides are built — the phone's half is the talk note, below.
+metadata. All three sides are built. On the phone, a note's files take this path
+(**Mobile Note Sync**).
 
 - **Upload, then capture.** `PUT /api/sync/attachments/{id}` carries the bytes,
   their declared `Content-Type` and their SHA-256 in `X-Attachment-Sha256`. The
@@ -171,11 +175,11 @@ metadata. All three sides are built — the phone's half is the talk note, below
   it into the item's folder under the workspace. A file that fails keeps its
   reason and waits for Retry; the item is received either way. See
   `.devbook/domain/inbox/requirements.md#capture-attachments`.
-- **Acknowledgement releases.** When the capture's tombstone is stored — the
-  phone's `POST /inbox/{id}/ack` or the desktop's pushed tombstone — the
-  service deletes the files the held capture named. A failed delete is logged
-  and left to the container's 30-day lifecycle rule; the acknowledgement never
-  fails on it.
+- **Acknowledgement releases.** The capture's tombstone arrives as the phone's
+  `POST /api/sync/inbox/{id}/ack` or as the desktop's pushed tombstone. When it is
+  stored, the service deletes the files the held capture named. A failed delete is
+  logged and left to the container's 30-day lifecycle rule; the acknowledgement
+  never fails on it.
 
 ```mermaid
 sequenceDiagram
@@ -220,19 +224,21 @@ sequenceDiagram
 related: [".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync"]
 ```
 
-A talk note is the phone's half of **Capture Attachments**: one outbox entry of
-kind `talk-note` whose payload is the capture — attachment metadata included —
-and the ids of the files already uploaded. The bytes wait beside the database
-in `talk-notes/outbox/`, since an outbox row holds JSON.
+The note replaced the talk note (`.devbook/arc42/12-glossary.md#terms`). Outbox kind
+`talk-note` now only drains entries an earlier build left queued, and its staged
+uploads are the path a note's files take too (**Mobile Note Sync**). A `talk-note`
+entry's payload is the capture, attachment metadata included, and the ids of the
+files already uploaded. The bytes wait beside the database in `talk-notes/outbox/`,
+since an outbox row holds JSON.
 
-- **Prepared once, at Send.** Each picture is downscaled (1600 px longest edge,
-  JPEG, EXIF reduced to the orientation) unless the note keeps originals; the
-  size and SHA-256 are taken from the bytes that will actually go.
+- **Prepared once, when queued.** Each picture was downscaled (1600 px longest
+  edge, JPEG, EXIF reduced to the orientation) unless the note kept originals.
+  The size and SHA-256 come from the bytes that will actually go.
 - **Uploads, checkpointed.** An attempt uploads each file not yet listed as
-  uploaded, then posts the capture. Every upload that lands is written back
-  into the entry before the next starts (`IStagedOutboxKind`), and hands the
-  entry its attempts back — so a retry resumes at the first file still to go,
-  and each file has the whole backoff budget of its own.
+  uploaded, then posts the capture. Every upload that lands is written back into
+  the entry before the next starts (`IStagedOutboxKind`), and hands the entry its
+  attempts back. A retry therefore resumes at the first file still to go, and
+  each file has the whole backoff budget of its own.
 - **One refusal refuses the note.** A 409, 413 or 415 on a file sets the entry
   aside naming the file; the capture is never posted without it.
 - **Released on delivery.** The files are deleted from the phone once the
@@ -249,10 +255,9 @@ sequenceDiagram
     participant Files as talk-notes/outbox
     participant Sync as Sync Service
 
-    ME->>App: Send to Inbox (body, speaker, tags, files)
-    App->>Files: Downscale pictures, move files; size + sha256
-    App->>Outbox: INSERT (id v7, kind=talk-note, capture + uploaded=[])
-    App-->>ME: Inbox row marked waiting; note says "waiting"
+    Note over App,Files: Queued by an earlier build: pictures downscaled, size + sha256 taken
+    App->>Outbox: Entry (id v7, kind=talk-note, capture + uploaded=[])
+    App-->>ME: Inbox row marked waiting
 
     loop Each file not yet uploaded
         Outbox->>+Sync: PUT /api/sync/attachments/{id} (X-Attachment-Sha256)
@@ -276,7 +281,7 @@ sequenceDiagram
 ## Mobile My Day and Task Push
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md"]
 ```
 
 The phone's Today tab is My Day and nothing else. It reads the owner's existing
@@ -286,29 +291,40 @@ today's My Day. Those edits are done or undone, a step ticked or unticked, and
 the task moved to tomorrow. The phone keeps no task store of its own, only a
 projection of the feed.
 
-- **Fold the feed.** `GET /api/sync/tasks?since=` is pulled from a cursor kept
-  on the phone, page after page until `hasMore` is false, and each page is kept
-  with the cursor after it in one transaction. Records fold into one row per
-  task in a local `task_view` table: the later `UpdatedAt` wins, an equal stamp
-  goes to the higher server stamp and then to the tombstone, a `DeletedAt` hides
-  the row, and a `capture`-type document is skipped (it is the Inbox's,
-  ADR 0009). A deleted task keeps its row, hidden, so the order pages arrive in
-  never changes the result.
+- **Fold the feed.** The phone pulls `GET /api/sync/tasks?since=` from a cursor it
+  keeps, page after page until `hasMore` is false. Each page is kept with the
+  cursor after it in one transaction. Records fold into one row per task in a
+  local `task_view` table:
+  - the later `UpdatedAt` wins;
+  - an equal stamp goes to the higher server stamp, and then to the tombstone;
+  - a `DeletedAt` hides the row;
+  - a document of a kind that is not a task never becomes a row. A `capture` is
+    the Inbox's (ADR 0009), and a `note` folds into its own view (ADR 0025).
+
+  A deleted task keeps its row, hidden, so the order pages arrive in never
+  changes the result.
+- **The My Day preferences are kept, not folded.** A `my-day-preferences`
+  document is taken out of the page, and the later `UpdatedAt` wins. It is saved
+  in the same transaction as the page and its cursor. The phone never writes it
+  and reads `clearsOvernight: true` until one arrives (ADR 0032).
 - **My Day is arithmetic**, as `.devbook/domain/tasks/domain.md#my-day` defines
-  it. The list is the rows whose `in_my_day_on` is the phone's current local date
-  and whose status is not `archived`. A row with `completed_on` today is in Done
-  today. The other rows are grouped by their agenda time against the phone's
-  clock into Now, Agenda and Anytime today, as
-  `.devbook/domain/tasks/features.md#my-day` describes.
+  it. With Clear My Day overnight on, the list is the rows whose `in_my_day_on` is
+  the phone's current local date and whose status is not `archived`. With it off,
+  an unfinished row with an earlier `in_my_day_on` stays in the list too. A row
+  with `completed_on` today is in Done today, and a row completed earlier is out.
+  The phone applies the same rule as the desktop (ADR 0032 §5). The other rows are
+  grouped by their agenda time against the phone's clock into Now, Agenda and
+  Anytime today, as `.devbook/domain/tasks/features.md#my-day` describes. A
+  carried row has no agenda time, so it sits in Anytime today.
 - **A rejected cursor starts over.** `sync.cursor_malformed` or
   `sync.cursor_expired` drops the cursor and pulls once from the beginning; the
   rows already kept fold to the same result. Any other failure keeps the list on
   screen with one line saying why.
-- **Adding is a push.** The task is built on the phone as a `TaskChange` with a
+- **Adding is a push.** The phone builds the task as a `TaskChange` with a
   `Guid.CreateVersion7()` id, the typed title, type `task`, status `draft`,
-  priority `medium`, `CreatedAt` now and `InMyDayOn` today — added here means
-  picked for today. It is queued as outbox kind `task` and posted to
-  `POST /api/sync/tasks` with the same order, backoff and waiting marker as a
+  priority `medium`, `CreatedAt` now and `InMyDayOn` today. Added here means
+  picked for today. The task is queued as outbox kind `task` and posted to
+  `POST /api/sync/tasks`, with the same order, backoff and waiting marker as a
   capture. A retry sends the same id, and the replica's whole-document upsert
   makes that idempotent (ADR 0005).
 - **At once, then replaced.** The row is written into `task_view` when the task
@@ -347,21 +363,6 @@ projection of the feed.
   document, not for an entry with that id. A pull that brings back an older
   copy before delivery does not undo the edit, because the edit's stamp is
   later.
-- **The desktop gives a phone-ticked repeating task its next occurrence.** The
-  phone never spawns one itself. When the desktop's replica merge writes a
-  pulled copy that ticks off a repeating task it held unticked, it runs
-  Occurrence Spawning, the use case the desktop's own tick runs. The successor
-  is a desktop write, so the next sync pushes it and the phone pulls it. A
-  re-pull of the same document changes nothing, because the merge refuses a
-  version it already holds. A task arriving already ticked, never seen before,
-  spawns nothing.
-- **Two desktops make one successor.** The successor's id is derived from the
-  ticked occurrence's id (`OccurrenceSpawning.SuccessorId`). Two desktops that
-  each see the tick therefore spawn the same task, and the replica keeps one
-  document. A desktop that already holds the successor, live or deleted, spawns
-  nothing. An untick arriving after the spawn leaves the successor in place,
-  as the desktop's own untick does
-  (`.devbook/domain/tasks/domain.md#occurrence-spawning`).
 - **A refused edit stays on the phone.** The service may refuse an edit and
   answer the same way on every retry. The outbox then sets the entry aside, and
   the phone's row keeps the edit until a later write from another device
@@ -421,6 +422,38 @@ sequenceDiagram
     Tasks->>Sync: GET /api/sync/tasks?since=cursor (fold as above)
 ```
 
+A repeating task the phone ticks gets its next occurrence from the desktop:
+
+```mermaid
+sequenceDiagram
+    participant Phone as Phone App
+    participant Sync as Sync Service
+    participant A as Desktop A
+    participant B as Desktop B
+
+    Phone->>Sync: POST /api/sync/tasks (repeating task ticked)
+    A->>Sync: GET /api/sync/tasks?since=cursor
+    Sync-->>A: Ticked copy of a task A held unticked
+    A->>A: Replica merge runs Occurrence Spawning
+    A->>Sync: POST successor (id from OccurrenceSpawning.SuccessorId)
+    B->>Sync: GET /api/sync/tasks?since=cursor
+    Sync-->>B: Ticked copy and successor
+    B->>B: Same successor id, or already held: one document
+    Phone->>Sync: GET /api/sync/tasks (successor arrives in My Day)
+```
+
+- **The phone never spawns an occurrence.** The desktop's merge runs Occurrence
+  Spawning, the use case the desktop's own tick runs. The successor is a desktop
+  write, so the next sync pushes it and the phone pulls it.
+- **Nothing spawns twice.** A re-pull of the same document changes nothing,
+  because the merge refuses a version it already holds. A task that arrives
+  already ticked, never seen before, spawns nothing. Two desktops that each see
+  the tick derive the same successor id, so the replica keeps one document. A
+  desktop that already holds the successor, live or deleted, spawns nothing.
+- **An untick leaves the successor.** An untick arriving after the spawn leaves
+  the successor in place, as the desktop's own untick does
+  (`.devbook/domain/tasks/domain.md#occurrence-spawning`).
+
 ## Sync Item Lifecycle
 
 ```meta
@@ -452,33 +485,58 @@ stateDiagram-v2
 ## IDE Context-aware Capture
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#ide-extensions"]
+related: [".devbook/arc42/05-building-block-view.md#ide-extensions", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 ```
-
-Selecting code in the IDE captures it with repo context (file, line, branch) into the
-local markdown cache and posts it to the inbox.
 
 ```mermaid
 sequenceDiagram
     actor ME
-    participant IDE as IDE Extension
-    participant Ext as Extension API
-    participant Capture as Capture Service
-    participant API as Backend API
-    participant Store as Local Markdown
+    participant Desk as Desktop app
+    participant Ext as VS Code extension
+    participant Secrets as SecretStorage
+    participant Sync as Sync Service
 
-    ME->>IDE: Select code -> right-click Capture
-    IDE->>Ext: Get repo context
-    Ext-->>IDE: file_path, line, branch, selection
-    IDE->>ME: Show capture dialog (pre-filled context)
-    ME->>IDE: Add title and tags -> confirm
-    IDE->>Capture: createItem(title, body, metadata)
-    Capture->>Store: Write to local markdown cache
-    Capture->>API: POST /inbox/items (source=ide-vs-code)
-    API-->>Capture: 201 Created (id)
-    Capture-->>IDE: Item created (id, deep_link)
-    IDE-->>ME: Confirmation + deep-link to item
+    opt Not paired yet, or the credential was rejected
+        ME->>Desk: Settings > Devices, Generate a code
+        Desk->>Sync: POST /api/sync/devices/codes (Bearer)
+        Sync-->>Desk: code, expiresAt
+        ME->>Ext: Run backlog.pair, type the code
+        Ext->>+Sync: POST /api/sync/devices/pair (code, deviceName)
+        Sync-->>-Ext: 201 deviceId, credential (shown once)
+        Ext->>Secrets: Store deviceId + credential
+    end
+
+    ME->>Ext: Select text, run backlog.capture
+    Ext->>ME: Title box, pre-filled with the selection's first line
+    ME->>Ext: Confirm the title
+    opt No token cached, or it expires within two minutes
+        Ext->>Secrets: Read deviceId + credential
+        Ext->>+Sync: POST /api/sync/devices/token (deviceId, credential)
+        Sync-->>-Ext: accessToken, expiresAt
+    end
+    Ext->>+Sync: POST /api/sync/inbox (title, source=vscode), Bearer
+    alt Token accepted
+        Sync-->>Ext: 201 Created
+        Ext-->>ME: "Backlog: captured …"
+    else 401 on the inbox
+        Sync-->>-Ext: 401
+        Ext->>Sync: New token, then the same POST once more
+    end
+    opt 401 from the token endpoint
+        Ext->>Secrets: Delete the credential
+        Ext-->>ME: Offer Pair with Desktop
+    end
 ```
+
+The extension sends the selection as a title only. It carries no repository
+context (file, line, branch), caches nothing but the token, and reaches the sync
+service at `backlog.cloudUrl` rather than the desktop
+(`.devbook/arc42/05-building-block-view.md#ide-extensions`).
+
+A 401 from the inbox says only that the token was refused, so a fresh token is worth
+one retry. A 401 from the token endpoint is a verdict on the credential itself, which
+pairing again is the only fix for. Without a stored credential the extension asks to
+pair before the title box and sends no inbox request.
 
 ## Copilot App Session Capture
 
@@ -486,10 +544,13 @@ sequenceDiagram
 related: [".devbook/arc42/05-building-block-view.md#ide-extensions", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/capture/features.md#copilot-app-session-capture"]
 ```
 
-A GitHub Copilot App session can capture a backlog follow-up or knowledge note using
-local session metadata (`session_id`, `worktree_path`, `branch`) via
-`.devbook/domain/capture/domain.md#source-adapter`, reusing the same local
-capture pipeline as IDE extensions and desktop workers.
+> Not built. No `/inbox/items` route exists; agent sessions reach the desktop through
+> its MCP server (local ADR 0012). The diagram is the intended flow.
+
+A GitHub Copilot App session can capture a backlog follow-up or knowledge note from
+local session metadata (`session_id`, `worktree_path`, `branch`). It goes through the
+source adapter (`.devbook/domain/capture/domain.md#source-adapter`) and reuses the
+local capture pipeline of the IDE extensions and desktop workers.
 
 ```mermaid
 sequenceDiagram
@@ -518,9 +579,8 @@ sequenceDiagram
 related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#shared-data-types"]
 ```
 
-Repository Management scans registered repositories, compares discovered package
-versions with Technology Stack baselines, and emits monitoring signals when drift is
-found.
+> Not built. No scheduler, package-registry scan or `ProgressSignal` exists in the
+> code; the diagram is the intended flow.
 
 ```mermaid
 sequenceDiagram
@@ -551,8 +611,8 @@ sequenceDiagram
 related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/05-building-block-view.md#cloud-service"]
 ```
 
-Dev PC Management uses the optional cloud registry to wake a registered machine and
-reconcile its status when the target desktop comes back online.
+> Not built. The cloud service has no PC registry and no `/pc/wake` or
+> `/pc/heartbeat` route; the diagram is the intended flow.
 
 ```mermaid
 sequenceDiagram

@@ -71,6 +71,22 @@
 
         <span class="roadmap-bar__title">@Placement.Title</span>
 
+        @* The warning marker, straight after the title so it is the first thing read
+           off a late bar however much of the title is clipped. aria-hidden: the caller
+           says it in words in the detail, which the tooltip and the accessible name
+           already carry, and a glyph read out as "exclamation mark" adds nothing. *@
+        @if (Bar.Overdue)
+        {
+            <span class="roadmap-bar__overdue" aria-hidden="true" data-testid="@Suffix("overdue")">!</span>
+        }
+
+        @* The done tick, where the overdue marker would be — a bar is never both. Hidden
+           for the same reason: the caller says it in the detail. *@
+        @if (Bar.Done)
+        {
+            <CheckIcon Size="12" CssClass="roadmap-bar__done" TestId="@Suffix("done")" />
+        }
+
         @* Beside the fill rather than folded into it: a fill that silently dropped
            the unsized work would read as further along than the plan is. *@
         @if (Bar.UnestimatedCount > 0)
@@ -89,10 +105,46 @@
         <span class="sr-only">@AccessibleDetail</span>
     </button>
 
+    @* The bar's one in-place action, at its end. A sibling of the body rather than
+       inside it — a button cannot hold another — so a press on it never reaches the
+       body's click, and it carries no grip, so components.js never starts a drag from
+       it. Beyond the steps disclosure it is the only stop a bar adds, and only a bar
+       the host gave an action adds it: the act it offers — Open in Tasks, Complete —
+       has no other keyboard path from the chart, unlike the dates below. Shown on hover
+       and while the bar holds the focus; its name is the whole act, because the icon is
+       all it draws. Busy while the host answers, so a second press is dropped and the
+       focus stays on it. *@
+    @if (ShowAction && Bar.Action is { } action)
+    {
+        <AppButton BaseClass="roadmap-bar__action"
+                   Variant="ButtonVariant.None"
+                   IconAlone="true"
+                   Busy="@ActionBusy"
+                   BusyLabel="@action.Label"
+                   TestId="@Suffix("action")"
+                   OnClick="() => OnAction.InvokeAsync(Bar.Id)"
+                   aria-label="@action.Label"
+                   title="@action.Label"
+                   data-roadmap-action="@(action.Kind is RoadmapBarActionKind.Complete ? "complete" : "open")">
+            <Icon>
+                @if (action.Kind is RoadmapBarActionKind.Complete)
+                {
+                    <CheckIcon Size="12" />
+                }
+                else
+                {
+                    <ListIcon Size="12" />
+                }
+            </Icon>
+        </AppButton>
+    }
+
     @* Grips, not buttons. They carry no accessible name and no tab stop: an
        edge is a pointer affordance, and the keyboard reaches the same two dates
        through the bar itself. Two more tab stops per bar would put three
-       hundred of them between a reader and the row below. *@
+       hundred of them between a reader and the row below — which is why the
+       action above is the only stop a bar adds beyond the steps disclosure, and only
+       where it has one. *@
     @if (Resizable)
     {
         <span class="roadmap-bar__grip roadmap-bar__grip--start" data-roadmap-grip="start" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.Start))" data-roadmap-edge-rem="@RoadmapGeometry.N(Geometry.XFor(Bar.Start))" aria-hidden="true"></span>
@@ -184,6 +236,21 @@
 
     [Parameter]
     public EventCallback<string> OnActivate { get; set; }
+
+    /// <summary>Whether the bar's <see cref="RoadmapBar.Action"/> is drawn: only while
+    /// somebody listens for it.</summary>
+    [Parameter]
+    public bool ShowAction { get; set; }
+
+    /// <summary>The bar's action was used. Never raised together with
+    /// <see cref="OnActivate"/>: the action is a button of its own.</summary>
+    [Parameter]
+    public EventCallback<string> OnAction { get; set; }
+
+    /// <summary>Whether the host is still answering this bar's action: the button shows a
+    /// spinner and drops a second press, without leaving the tab order.</summary>
+    [Parameter]
+    public bool ActionBusy { get; set; }
 
     [Parameter]
     public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
@@ -285,7 +352,10 @@
         Invalid ? "roadmap-bar--invalid" : null,
         Bar.Locked ? "roadmap-bar--locked" : null,
         EndOnlyResizable ? "roadmap-bar--end-resizable" : null,
-        Bar.Tentative ? "roadmap-bar--tentative" : null
+        Bar.Tentative ? "roadmap-bar--tentative" : null,
+        Bar.Overdue ? "roadmap-bar--overdue" : null,
+        Bar.Done ? "roadmap-bar--done" : null,
+        ShowAction && Bar.Action is not null ? "roadmap-bar--has-action" : null
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private string? FixedNote => !Bar.Locked
@@ -296,11 +366,30 @@
 
     /// <summary>What the tooltip says, as a short report with one fact to a line.
     /// The title is on the bar already, but a narrow bar clips it, and the dates are
-    /// nowhere else on screen at all.</summary>
-    private string Tooltip => RoadmapDetail.Report(
-        new[] { Placement.Title, Dates, Progress }
-            .Concat(RoadmapDetail.Lines(Bar.Detail))
-            .Append(FixedNote));
+    /// nowhere else on screen at all.
+    /// <para>
+    /// On an overdue bar the caller's first detail line is its warning
+    /// (<see cref="RoadmapBar.Overdue"/>), and it leads the progress line: it is the one
+    /// fact that asks the reader to act. Elsewhere the progress comes first, as it does
+    /// on every bar that is not late.
+    /// </para></summary>
+    private string Tooltip
+    {
+        get
+        {
+            var lines = RoadmapDetail.Lines(Bar.Detail).ToList();
+            var leading = Bar.Overdue ? 1 : 0;
+            IEnumerable<string?> lead = lines.Take(leading);
+            IEnumerable<string?> rest = lines.Skip(leading);
+
+            return RoadmapDetail.Report(
+                new string?[] { Placement.Title, Dates }
+                    .Concat(lead)
+                    .Append(Progress)
+                    .Concat(rest)
+                    .Append(FixedNote));
+        }
+    }
 
     /// <summary>
     /// Everything the bar is that its label does not say. Read after the title,

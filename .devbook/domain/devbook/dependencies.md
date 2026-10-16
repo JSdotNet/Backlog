@@ -14,12 +14,13 @@ status: draft
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | [Tasks](../tasks/domain.md#task) | Partnership | Id-based cross-link and read-side embedding | `.devbook/domain/devbook/domain.md#cross-linking` | Notes link to and embed tasks; a note can spawn a task when an action is identified. |
+| [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | `AnnotationSyncWorker` in `Backlog.Infrastructure.Sync` pushes and pulls remarks through the sync service's third replica container; `AnnotationReplicaMerge` applies each pulled one to the annotation store | `AnnotationChange` and `AnnotationPayload` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#change-precedence`; local ADR 0011 | A [Remark](domain.md#remark) made on one desktop reaches the person's other desktops on a task's terms: whole, and never moved backwards by a push. Sync stores it without reading it; where a remark anchors, and what it says, stay with Devbook. |
 
 ## Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` (knowledge route) | `.devbook/domain/inbox/domain.md#itemtriaged` | Relies on Devbook creating a Knowledge Note from a triaged item. |
+| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` (knowledge route) | `.devbook/domain/inbox/domain.md#itemtriaged` | Relies on Devbook writing a Knowledge Note into the Brain's inbox area from an item routed **To Brain**, a capture or an Inbox note alike. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Reference/embed read model plus bi-directional link | `.devbook/domain/devbook/domain.md#cross-linking` | Relies on note content being embeddable and cross-queryable without sharing aggregates. |
 | [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Knowledge-activity read-side feed | `.devbook/domain/devbook/domain.md#knowledge-note` | Knowledge activity contributes to the project health view; progress insights can be captured back as notes. |
 | [Roadmap Planning](../roadmap/domain.md#roadmap-plan) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by roadmap tag | `.devbook/domain/devbook/domain.md#knowledge-note` | A Roadmap Item gathers the chapters it references (`knowledge_refs`) and the chapters whose `roadmap` list names its tag, and totals their registered `effort`. Relies on chapters being resolvable by reference or tag and on their `effort`/`roadmap` metadata; reads only, and never writes a chapter or owns an effort value. |
@@ -28,17 +29,11 @@ status: draft
 
 - Links to Tasks are bi-directional but each side stores only the other's id;
   the Cross-Linking service reconciles both directions.
-- A chapter's `roadmap` list is **not** a link and reconciles nothing. It names
-  Roadmap Item tag slugs owned by [Roadmap Planning](../roadmap/domain.md#roadmap-tag),
-  not `<path>#<slug>` addresses, so it draws no edge and needs no consistency
-  service — Roadmap reads it when gathering by tag, and a slug matching no current
-  item is harmless. It is a different concept from a `Tag`, which is this context's
-  own discovery `#keyword`.
-
-- A repository's knowledge folders are read **in place and never owned**: they
-  belong to the repository, are edited outside this context, and any prepared view
-  over them is derived, kept outside the repository, and must give way to the
-  folder itself. That is why
-  Roadmap Planning's gather is described as reading chapters by reference and by
-  tag rather than as reading an index — which index exists, and whether one exists
-  at all, is not part of the contract.
+- A chapter's `roadmap` list is **not** a link and reconciles nothing, so it needs
+  no consistency service. Each entry is a
+  [Roadmap Contribution](domain.md#roadmap-contribution).
+- A repository's devbook folders are read **in place and never owned**, as
+  [A devbook that stays current](features.md#a-devbook-that-stays-current) says.
+  That is why Roadmap Planning's gather reads chapters by reference and by tag
+  rather than by reading an index. Which index exists, and whether one exists at
+  all, is not part of the contract.

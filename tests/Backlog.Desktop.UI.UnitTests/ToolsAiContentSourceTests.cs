@@ -127,11 +127,14 @@ public class ToolsAiContentSourceTests
         public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> RemoveCachedVersionAsync(string key, string version, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) => throw new NotSupportedException();
+        public Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default) => throw new NotSupportedException();
 
         /// <summary>A fixed catalog never changes, so nothing is ever raised.
         /// Empty accessors rather than an auto-event, which would be a field

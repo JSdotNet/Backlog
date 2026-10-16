@@ -143,6 +143,32 @@ public sealed class TaskFoldTests
         Assert.Empty(rows);
     }
 
+    /// <summary>The phone keeps no sprints, so a sprint series a desktop synced is never
+    /// listed as a task.</summary>
+    [Fact]
+    public void A_sprint_series_document_is_never_a_row()
+    {
+        var rows = new Dictionary<Guid, TaskViewRow>();
+
+        var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("Platform sprints", T0, inMyDayOn: Today, type: "sprint-series"), 1)]);
+
+        Assert.Empty(changed);
+        Assert.Empty(rows);
+    }
+
+    /// <summary>ADR 0032 Verification 5: the phone keeps the My Day preferences as a
+    /// document of its own, never as a task row the Tasks tab would list.</summary>
+    [Fact]
+    public void The_my_day_preferences_document_is_never_a_row()
+    {
+        var rows = new Dictionary<Guid, TaskViewRow>();
+
+        var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("My Day preferences", T0, type: "my-day-preferences", contentMd: """{"clearsOvernight":false}"""), 1)]);
+
+        Assert.Empty(changed);
+        Assert.Empty(rows);
+    }
+
     private static TaskChangeRecord Record(TaskChange change, long serverTimestamp) =>
         new(change, Guid.NewGuid(), serverTimestamp);
 

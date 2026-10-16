@@ -38,6 +38,13 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
     /// whole backlog twice to answer one question is a tool worth noticing.</summary>
     public int Reads { get; private set; }
 
+    /// <summary>Every id <c>GetAsync</c> was asked for, in order — the read a tool
+    /// that already knows its entry makes instead of <see cref="Reads"/>.</summary>
+    public List<Guid> Gets { get; } = [];
+
+    /// <summary>How many times the count was asked for.</summary>
+    public int Counts { get; private set; }
+
     /// <summary>Every <c>SaveFromTextAsync</c>, in order, exactly as it arrived —
     /// the raw text included, because the text <em>is</em> the entry and a test
     /// about what a write preserved has nowhere else to look.</summary>
@@ -61,6 +68,22 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
         Reads++;
 
         return Task.FromResult<IReadOnlyList<TaskItemDto>>([.. _entries]);
+    }
+
+    public Task<TaskItemDto?> GetAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Gets.Add(id);
+
+        return Task.FromResult(_entries.FirstOrDefault(entry => entry.Id == id));
+    }
+
+    public Task<int> CountAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Counts++;
+
+        return Task.FromResult(_entries.Count);
     }
 
     /// <summary>
@@ -210,6 +233,9 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
 
     public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
         throw Written(nameof(RenameRepositoryAsync));
+
+    public Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default) =>
+        throw Written(nameof(RefileRepositoryTasksAsync));
 
     public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,

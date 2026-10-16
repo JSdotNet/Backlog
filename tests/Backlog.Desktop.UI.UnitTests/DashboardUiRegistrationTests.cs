@@ -1,3 +1,4 @@
+using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.Dashboard.UI.Adapters;
@@ -36,8 +37,29 @@ public sealed class DashboardUiRegistrationTests
         Assert.Equal(5, services.Count);
     }
 
+    /// <summary>The Ask AI source is composed from the insights the container holds —
+    /// the same scoped ones the parts inject — so its figures are the parts' figures.
+    /// Here every insight answers "unavailable", and each says so in its own line.</summary>
     [Fact]
-    public void The_pane_registers_its_settings_page_after_the_inbox_behind_the_dashboard_switch()
+    public async Task The_ask_ai_source_reads_the_insights_the_container_holds()
+    {
+        var services = new ServiceCollection();
+        services.AddUnavailableDashboard("backlog");
+        services.AddSingleton<IActivitySource>(new NoGitHub());
+        services.AddDashboardAiContentSource();
+
+        await using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var source = Assert.IsType<DashboardAiContentSource>(scope.ServiceProvider.GetRequiredService<IAiContentSource>());
+
+        var content = await source.ComposeAsync(new AiContentRequest("anything", AiContentBudget.DefaultCharacters), TestContext.Current.CancellationToken);
+
+        Assert.Contains($"Throughput: unavailable: {DashboardTestHost.UnavailableReason}", content.Body.Split('\n'));
+        Assert.Contains($"Hours worked: unavailable: {DashboardTestHost.UnavailableReason}", content.Body.Split('\n'));
+    }
+
+    [Fact]
+    public void The_pane_registers_its_settings_page_first_among_the_product_areas_behind_the_dashboard_switch()
     {
         var services = new ServiceCollection();
         services.AddDashboardUi();
@@ -47,7 +69,8 @@ public sealed class DashboardUiRegistrationTests
         Assert.Equal(typeof(DashboardSettings), section.Component);
         Assert.Equal("Dashboard", section.Title);
         Assert.DoesNotContain(section.Id, TakenPageIds);
-        Assert.True(section.Order > InboxSettingsRegistration.Order);
+        Assert.Equal(SettingsGroup.ProductAreas, section.Group);
+        Assert.True(section.Order < InboxSettingsRegistration.Order);
         Assert.Equal(DashboardFeatures.Dashboard, section.FeatureKey);
     }
 
@@ -65,7 +88,22 @@ public sealed class DashboardUiRegistrationTests
         Assert.Equal(typeof(WorkingWeekSettings), section.Component);
         Assert.Equal("Working week", section.Title);
         Assert.DoesNotContain(section.Id, TakenPageIds);
+        Assert.Equal(SettingsGroup.ProductAreas, section.Group);
         Assert.True(section.Order > DashboardSettingsRegistration.Order);
+        Assert.True(section.Order < InboxSettingsRegistration.Order);
         Assert.Null(section.FeatureKey);
+    }
+
+    private sealed class NoGitHub : IActivitySource
+    {
+        public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightAvailability.Unavailable(DashboardTestHost.UnavailableReason));
+
+        public Task<ActivityReport> GetActivityAsync(
+            IReadOnlyList<DashboardRepository> repositories,
+            DateTimeOffset from,
+            DateTimeOffset to,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(ActivityReport.Empty);
     }
 }

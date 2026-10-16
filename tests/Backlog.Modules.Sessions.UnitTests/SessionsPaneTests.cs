@@ -680,7 +680,13 @@ public sealed class SessionsPaneTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.Equal(1, source.Reads));
+        // The first read has landed, not merely been asked: a Refresh pressed while it
+        // is still out is a press on a busy button, and is dropped.
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, source.Reads);
+            Assert.Null(pane.Find("[data-testid='sessions-refresh']").GetAttribute("aria-busy"));
+        });
 
         pane.Find("[data-testid='sessions-refresh']").Click();
 
@@ -688,7 +694,7 @@ public sealed class SessionsPaneTests
     }
 
     [Fact]
-    public void The_close_control_reports_the_press_and_nothing_else()
+    public async Task The_close_control_reports_the_press_and_nothing_else()
     {
         using var context = Context(Sample);
         var closed = 0;
@@ -696,8 +702,13 @@ public sealed class SessionsPaneTests
         var pane = context.Render<SessionsPane>(parameters => parameters
             .Add(p => p.OnClose, () => closed++));
 
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll(".sessions-panel button.btn--ghost")));
-        pane.Find(".sessions-panel button.btn--ghost").Click();
+        // The reading now lands from a background thread, so wait for the rows, not
+        // only the frame, before pressing.
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-row']")));
+
+        // Awaited: the rows' own background re-renders can still hold the renderer when
+        // the press is dispatched, and Click() returns with the press queued behind them.
+        await pane.Find(".sessions-panel button.btn--ghost").ClickAsync(new());
 
         // What that closes is the shell's business; the pane still shows its rows.
         Assert.Equal(1, closed);
@@ -1415,6 +1426,34 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
             Assert.Equal("1 session", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// The Brain in the scope keeps the sessions worked against no configured
+    /// repository — the Claude session that recorded none and was placed in no clone —
+    /// and none of a configured repository's (local ADR 0027).
+    /// </summary>
+    [Fact]
+    public void The_brain_keeps_the_sessions_of_no_configured_repository()
+    {
+        using var context = Context([.. Sample, Replicated()]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { BrainScope.Value })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var rows = pane.FindAll("[data-testid='sessions-row']");
+            Assert.Contains(rows, row => row.TextContent.Contains("keen-bose-667825", StringComparison.Ordinal));
+            Assert.DoesNotContain(pane.FindAll(".sessions-repository"), cell => cell.TextContent.Trim() is "backlog" or "archify");
+
+            var subtitle = pane.Find("[data-testid='sessions-subtitle']").TextContent;
+            Assert.Contains("Narrowed to Brain", subtitle, StringComparison.Ordinal);
+            Assert.Contains("one with neither is the Brain's", subtitle, StringComparison.Ordinal);
+        });
     }
 
     [Fact]

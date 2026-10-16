@@ -14,17 +14,28 @@
     act whose whole effect is "go and look at this on GitHub" is a link: it can be
     middle-clicked, copied and opened in a new window, and a button that navigates
     cannot. The alternative was an app anchor wearing `btn`, which is a second
-    button the library cannot keep in step with this one. It opens in a new
-    window, because the address is always another site's and the app has no
-    browser history to come back through. A disabled or busy link has no href,
+    button the library cannot keep in step with this one. By default it opens in a
+    new window, because such an address is another site's and the app has no
+    browser history to come back through. A link to a page of the app itself -
+    Settings, say - sets External to false and opens in place: the desktop and
+    mobile WebViews hand every new-window link to the system browser, so a
+    `target="_blank"` on an app route would leave the app instead of navigating
+    through its router. A disabled or busy link has no href,
     since an anchor has no disabled state of its own - but an anchor without an
     href leaves the tab order and stops being a link, which would break Busy's
     promise that focus survives the round trip. So the inert one keeps both by
     hand: role="link", tabindex="0", and aria-disabled="true" on the link role,
     where ARIA defines it.
 
-    The button is written last and unchanged. Every existing caller passes no Href
-    and so renders exactly the markup it always did.
+    The button is written last. Every caller that passes no Href renders a button.
+
+    Busy keeps the button out of the native `disabled` state for the same promise
+    (.devbook/design/interaction-guidelines.md#accessibility): `disabled` drops the
+    element from the tab order and takes the focus off it mid-act, so a keyboard
+    reader who pressed Save would land on the body. Busy says aria-disabled
+    instead and the click is ignored here, and preventDefault keeps a busy submit
+    button from submitting its form. Disabled is a standing state and keeps the
+    native attribute.
 *@
 
 @if (Href is not null)
@@ -33,8 +44,8 @@
 
     <a class="@ClassValue"
        href="@(inert ? null : Href)"
-       target="_blank"
-       rel="noopener noreferrer"
+       target="@(External ? "_blank" : null)"
+       rel="@(External ? "noopener noreferrer" : null)"
        data-testid="@TestId"
        role="@(inert ? "link" : null)"
        tabindex="@(inert ? "0" : null)"
@@ -57,9 +68,11 @@ else
 <button type="@TypeAttribute"
         class="@ClassValue"
         data-testid="@TestId"
-        disabled="@(Disabled || Busy)"
+        disabled="@Disabled"
+        aria-disabled="@(Busy && !Disabled ? "true" : null)"
         aria-busy="@(Busy ? "true" : null)"
-        @onclick="OnClick"
+        @onclick="ClickAsync"
+        @onclick:preventDefault="Busy"
         @onclick:stopPropagation="StopPropagation"
         @attributes="AdditionalAttributes">
     @if (Busy)
@@ -96,11 +109,17 @@ else
     public string Type { get; set; } = "button";
 
     /// <summary>Where the act leads, when it is a page rather than something done
-    /// here. Set, the button renders as an anchor opening that address in a new
-    /// window, and <see cref="OnClick"/>, <see cref="Type"/> and
-    /// <see cref="StopPropagation"/> do not apply.</summary>
+    /// here. Set, the button renders as an anchor opening that address - in a new
+    /// window unless <see cref="External"/> is false - and <see cref="OnClick"/>,
+    /// <see cref="Type"/> and <see cref="StopPropagation"/> do not apply.</summary>
     [Parameter]
     public string? Href { get; set; }
+
+    /// <summary>Whether <see cref="Href"/> is another site's address, opened in a new
+    /// window. False for a page of the app itself, which opens in place through the
+    /// app's router.</summary>
+    [Parameter]
+    public bool External { get; set; } = true;
 
     [Parameter]
     public RenderFragment? Icon { get; set; }
@@ -143,6 +162,11 @@ else
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string TypeAttribute => Type is "submit" ? "submit" : "button";
+
+    /// <summary>A press on a busy button is a second press of an act already
+    /// running, so it is dropped rather than raised.</summary>
+    private Task ClickAsync(MouseEventArgs args) =>
+        Busy || Disabled ? Task.CompletedTask : OnClick.InvokeAsync(args);
 
     private string ClassValue
     {

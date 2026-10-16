@@ -16,6 +16,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <!-- DPAPI, for the linked SecretEnvelope below (local ADR 0030). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +30,13 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Backlog.Infrastructure.AzureFoundry.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one envelope every settings file seals its secret in (local ADR 0030).
+         Compiled in from the GitHub adapter rather than referenced, so this adapter
+         stays free of GitHub's dependencies and the copy cannot drift. -->
+    <Compile Include="..\Backlog.Infrastructure.GitHub\SecretEnvelope.cs" Link="SecretEnvelope.cs" />
   </ItemGroup>
 
 </Project>

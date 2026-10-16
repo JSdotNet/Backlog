@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -13,16 +14,19 @@ namespace Backlog.Infrastructure.FileSystem;
 /// holds.
 /// </para>
 /// <para>
-/// Holds the surface and the pane names as plain strings rather than the
+/// Holds the surface and the view names as plain strings rather than the
 /// shell's own enums, which are internal to the desktop UI project and not
 /// visible from here — the shell is the one that knows what the names mean
 /// and is the only reader of them.
 /// </para>
 /// <para>
-/// One file for all three, not three, because a fresh shell instance restores them
-/// together: which takeover was open, which main view the workspace was showing
-/// under it and which side panes were open beside that view are all "what the
-/// reader was looking at", read back in the same <c>OnInitializedAsync</c>.
+/// One file for both, not two, because a fresh shell instance restores them
+/// together: which takeover was open and which main view the workspace was
+/// showing under it are both "what the reader was looking at", read back in the
+/// same <c>OnInitializedAsync</c>. The side panes that once sat beside the view
+/// are gone (local ADR 0022, amendment of 2026-10-15); a file that still lists
+/// them is read once, to migrate it — see <see cref="MigrateSidePanes"/> — and
+/// that list is never written again.
 /// </para>
 /// <para>
 /// The roadmap was a takeover before it was a view, so a file from then names it
@@ -37,8 +41,11 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </para>
 /// <para>
 /// So do the Calendar's Month | Week range, the In progress view's two toggles and the
-/// header's repository scope: each is how the reader last had a screen, kept on this
-/// device only. Every key is additive and left out while at its default, so a file
+/// header's repository scope, and the system tools pane's tab and host filter: each is
+/// how the reader last had a screen, kept on this device only. So is show archived
+/// (local ADR 0029, §3), whether the archived repositories are offered where they are
+/// otherwise hidden. Every key is additive and left out while at its default — the tools
+/// pane's two until it has been on a tab or a filter here — so a file
 /// written before it keeps its shape and an older build reads a newer file.
 /// </para>
 /// </summary>
@@ -73,6 +80,14 @@ public sealed class ShellNavigationStore
     /// and the surface name it is stored under now.</summary>
     private const string InboxName = "Inbox";
 
+    /// <summary>The pane name the Devbook was stored under while it was a side pane,
+    /// and the surface name it is stored under now.</summary>
+    private const string DevbookName = "Devbook";
+
+    /// <summary>The pane name the Devbook was stored under before the Knowledge
+    /// bounded context was renamed to Devbook.</summary>
+    private const string LegacyDevbookName = "Knowledge";
+
     private readonly string _path;
 
     public ShellNavigationStore()
@@ -102,15 +117,19 @@ public sealed class ShellNavigationStore
 
         var dto = Read();
         (LastSurface, LastView) = Normalize(dto?.LastSurface, dto?.LastView);
-        (LastSurface, LastEnabledPanes) = MigrateInboxPane(dto?.LastSurface, LastSurface, dto?.LastEnabledPanes ?? Empty);
+        LastSurface = MigrateSidePanes(dto?.LastSurface, LastSurface, dto?.LastEnabledPanes ?? Empty);
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
+        RoadmapCompletedShown = dto?.RoadmapCompletedShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
         CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
         InProgressNeedsYouFirst = dto?.InProgressNeedsYouFirst ?? true;
         InProgressIncludeFinishedToday = dto?.InProgressIncludeFinishedToday ?? false;
-        RepositoryScope = dto?.RepositoryScope ?? Empty;
+        RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
+        ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
+        ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
+        ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -126,17 +145,13 @@ public sealed class ShellNavigationStore
     /// — and <see cref="DefaultView"/> when nothing has been remembered yet.</summary>
     public string LastView { get; private set; }
 
-    /// <summary>The side panes that were open beside the main view when last set.
-    /// Empty is both "nothing remembered yet" and "no side pane open", which the
-    /// shell reopens the same way. A file from before the view switch may still
-    /// list <c>Tasks</c> here; the shell ignores it, since the task list is a view
-    /// now and no longer a pane. An <c>Inbox</c> here is read away on load — see
-    /// <see cref="MigrateInboxPane"/> — since the Inbox is a surface now.</summary>
-    public IReadOnlyList<string> LastEnabledPanes { get; private set; }
-
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
     /// the reader turns the Hours switch off on this device.</summary>
     public bool RoadmapHoursShown { get; private set; }
+
+    /// <summary>Whether the roadmap draws finished plans: on until the reader turns the
+    /// Completed switch off on this device.</summary>
+    public bool RoadmapCompletedShown { get; private set; }
 
     /// <summary>The roadmap bands, by group id, the reader folded to one lane on this
     /// device. Empty until one is folded.</summary>
@@ -180,8 +195,27 @@ public sealed class ShellNavigationStore
     /// The header's repository scope by alias, in the order it was chosen: the first is
     /// the anchor. Empty is every repository, the scope nobody narrowed. Aliases are
     /// kept as written; the shell drops one no longer configured when it restores them.
+    /// <para>
+    /// The Brain is kept here as the reserved <see cref="BrainScope.Value"/>, the empty
+    /// string, in its place (local ADR 0027, §5): no configured alias is ever empty, so
+    /// the value cannot be a repository's. Nothing here drops or rewrites it.
+    /// </para>
     /// </summary>
     public IReadOnlyList<string> RepositoryScope { get; private set; }
+
+    /// <summary>The system tools pane's tab when it was last open on this device, by
+    /// the pane's own tab id; null until one was chosen. Read through Dev PC
+    /// Management's <c>IToolsViewPreferences</c>.</summary>
+    public string? ToolsTab { get; private set; }
+
+    /// <summary>The system tools pane's host filter, by the pane's own id; null until
+    /// one was chosen.</summary>
+    public string? ToolsHostFilter { get; private set; }
+
+    /// <summary>Whether the archived repositories are shown where they are otherwise
+    /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
+    /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
+    public bool ShowArchivedRepositories { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -223,31 +257,38 @@ public sealed class ShellNavigationStore
     }
 
     /// <summary>
-    /// The Inbox was a side pane beside the main view before it took the whole screen
-    /// as a surface (local ADR 0022, amendment of 2026-10-12), so a file from then
-    /// lists it among the panes. Where it was on screen — no takeover stored over the
-    /// workspace — it reopens as the Inbox surface; under a takeover it was hidden, so
-    /// that takeover stays. Either way the name leaves the pane list, and the next save
-    /// cannot write it back there. Decided on the stored surface, before the roadmap
-    /// takeover is read as a view, because that takeover covered the pane too.
+    /// The Inbox and then the Devbook were side panes beside the main view before
+    /// each took the whole screen as a surface (local ADR 0022, amendments of
+    /// 2026-10-12 and 2026-10-15), so a file from then lists them among the panes —
+    /// the Devbook perhaps as <c>Knowledge</c>, its name before the rename. Where a
+    /// pane was on screen — no takeover stored over the workspace — it reopens as its
+    /// surface; under a takeover it was hidden, so that takeover stays.
+    /// <para>
+    /// With both listed the Inbox wins: from the day the Inbox took the screen until
+    /// the Devbook did, the Inbox surface covered the Devbook pane, and before that
+    /// the two sat side by side, where the Inbox — the queue — is the likelier one
+    /// to have been read. <c>Tasks</c>, or the older <c>Backlog</c>, names the view
+    /// the file reopens on anyway and changes nothing.
+    /// </para>
+    /// <para>
+    /// The list itself is not kept: nothing is a side pane any more, so the next save
+    /// writes the file without it. Decided on the stored surface, before the roadmap
+    /// takeover is read as a view, because that takeover covered the panes too.
+    /// </para>
     /// </summary>
-    private static (string? Surface, IReadOnlyList<string> Panes) MigrateInboxPane(
-        string? storedSurface, string? surface, IReadOnlyList<string> panes)
+    private static string? MigrateSidePanes(string? storedSurface, string? surface, IReadOnlyList<string> panes)
     {
-        if (!panes.Contains(InboxName, StringComparer.Ordinal)) return (surface, panes);
+        var panesWereOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
+        if (!panesWereOnScreen) return surface;
 
-        string[] remaining = [.. panes.Where(pane => !string.Equals(pane, InboxName, StringComparison.Ordinal))];
-        var inboxWasOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
+        if (panes.Contains(InboxName, StringComparer.Ordinal)) return InboxName;
 
-        return (inboxWasOnScreen ? InboxName : surface, remaining);
-    }
+        if (panes.Contains(DevbookName, StringComparer.Ordinal) || panes.Contains(LegacyDevbookName, StringComparer.Ordinal))
+        {
+            return DevbookName;
+        }
 
-    public void SetLastPanes(IReadOnlyList<string> enabled)
-    {
-        if (enabled.SequenceEqual(LastEnabledPanes)) return;
-
-        LastEnabledPanes = [.. enabled];
-        Save();
+        return surface;
     }
 
     public void SetRoadmapHoursShown(bool shown)
@@ -255,6 +296,14 @@ public sealed class ShellNavigationStore
         if (shown == RoadmapHoursShown) return;
 
         RoadmapHoursShown = shown;
+        Save();
+    }
+
+    public void SetRoadmapCompletedShown(bool shown)
+    {
+        if (shown == RoadmapCompletedShown) return;
+
+        RoadmapCompletedShown = shown;
         Save();
     }
 
@@ -309,6 +358,32 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetToolsTab(string tab)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tab);
+        if (tab == ToolsTab) return;
+
+        ToolsTab = tab;
+        Save();
+    }
+
+    public void SetToolsHostFilter(string hostFilter)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostFilter);
+        if (hostFilter == ToolsHostFilter) return;
+
+        ToolsHostFilter = hostFilter;
+        Save();
+    }
+
+    public void SetShowArchivedRepositories(bool shown)
+    {
+        if (shown == ShowArchivedRepositories) return;
+
+        ShowArchivedRepositories = shown;
+        Save();
+    }
+
     /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
     /// so the same aliases reordered are a change.</summary>
     public void SetRepositoryScope(IReadOnlyList<string> aliases)
@@ -320,17 +395,240 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    /// <summary>
+    /// The Tasks filter bar's "No repo" chip, which the Brain replaced (local ADR 0027,
+    /// §5), was never remembered, so no file written by this store carries it. A file
+    /// that does — <c>noRepositoryOnly: true</c>, the name the chip's state went by —
+    /// reopens on the Brain alone: the chip narrowed whatever repositories were scoped
+    /// to the rows filed against none, and "against none" is the Brain. The key is
+    /// never written back, so the next save drops it. A guard, kept so that the old
+    /// name is read as what it meant should it ever turn up.
+    /// </summary>
+    private static IReadOnlyList<string> MigrateNoRepositoryOnly(IReadOnlyList<string> scope, bool? noRepositoryOnly) =>
+        noRepositoryOnly is true ? [BrainScope.Value] : scope;
+
+    /// <summary>
+    /// Waits until every choice set on this store so far is on disk. The setters
+    /// return before the file is written; this is for whoever must read the file
+    /// itself — the app closing, or a test — rather than the properties.
+    /// </summary>
+    public void Flush() => WaitForPendingWrites(_path);
+
+    /// <summary>
+    /// Waits until every write queued for the file at <paramref name="path"/> —
+    /// by any store on it in this process — has landed.
+    /// </summary>
+    public static void WaitForPendingWrites(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        Task? writer;
+        lock (WriteGate)
+        {
+            writer = PendingWrites.TryGetValue(KeyOf(path), out var pending) ? pending.Writer : null;
+        }
+
+        try
+        {
+            writer?.Wait();
+        }
+        catch (AggregateException)
+        {
+            // A writer that faulted has already retired its entry and lost only its
+            // own write; waiting for it is over either way, and a reader goes on
+            // to the file as it stands.
+        }
+    }
+
+    /// <summary>
+    /// Snapshots the choices on the caller's thread and hands the file write to the
+    /// pool.
+    /// <para>
+    /// The setters run on the click path — a view option, a takeover, a toggle — and
+    /// on the desktop that is the renderer's UI thread, where a synchronous write
+    /// held the press's own repaint behind the disk, or OneDrive, or a virus scan
+    /// (.devbook/design/interaction-guidelines.md#press-feedback, "No synchronous IO
+    /// on the UI thread"). The properties are the truth for this process and change
+    /// at once, so nothing that reads them waits; only the file lags.
+    /// </para>
+    /// <para>
+    /// The JSON is taken here, in call order, and the writer only ever writes the
+    /// newest snapshot it holds, so the last choice made is the last one written
+    /// however the writes interleave. One writer per file, shared by every store
+    /// on it, so two stores on one path — a shell remounted, a test restarting —
+    /// cannot land their writes out of order, and a store constructed on a path
+    /// waits for the writes still queued for it before it reads.
+    /// </para>
+    /// </summary>
     private void Save()
+    {
+        Enqueue(_path, Serialize());
+        Changed?.Invoke();
+    }
+
+    /// <summary>Guards <see cref="PendingWrites"/>. Writes are rare — one per press
+    /// that changes something — so one gate for every path is enough.</summary>
+    private static readonly Lock WriteGate = new();
+
+    /// <summary>The file writes queued or running, by full path. An entry leaves
+    /// when its writer has nothing left to write.</summary>
+    private static readonly Dictionary<string, PendingWrite> PendingWrites = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The newest snapshot not yet written, and the pool task writing.</summary>
+    private sealed class PendingWrite
+    {
+        public string? Json { get; set; }
+
+        public Task Writer { get; set; } = Task.CompletedTask;
+    }
+
+    static ShellNavigationStore()
+    {
+        // A choice made in the last moment before the window closed is still in a
+        // writer's hands; the process waits a little for it rather than dropping it.
+        // The write itself is atomic, so a process that does not wait loses that
+        // choice and never the file.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => WaitForAllPendingWrites(TimeSpan.FromSeconds(2));
+    }
+
+    private static string KeyOf(string path) => Path.GetFullPath(path);
+
+    private static void Enqueue(string path, string json)
+    {
+        var key = KeyOf(path);
+
+        lock (WriteGate)
+        {
+            if (PendingWrites.TryGetValue(key, out var pending))
+            {
+                pending.Json = json;
+                return;
+            }
+
+            pending = new PendingWrite { Json = json };
+            PendingWrites[key] = pending;
+
+            // Assigned under the gate the writer takes first, so it can never look
+            // for its own entry before the entry knows it.
+            pending.Writer = Task.Run(() => DrainWrites(key));
+        }
+    }
+
+    /// <summary>Writes the newest snapshot for <paramref name="key"/> until none is
+    /// left, then retires the entry — under the gate, so a save arriving as it
+    /// finishes either lands in this loop or starts a writer of its own.</summary>
+    private static void DrainWrites(string key)
+    {
+        var retired = false;
+        try
+        {
+            while (true)
+            {
+                string json;
+                lock (WriteGate)
+                {
+                    var pending = PendingWrites[key];
+                    if (pending.Json is null)
+                    {
+                        PendingWrites.Remove(key);
+                        retired = true;
+                        return;
+                    }
+
+                    json = pending.Json;
+                    pending.Json = null;
+                }
+
+                try
+                {
+                    WriteFile(key, json);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    // One write lost, and only that one: the loop goes on to the
+                    // next snapshot, so a failure nobody foresaw cannot leave the
+                    // path with an entry and no writer behind it.
+                }
+            }
+        }
+        finally
+        {
+            // Out of the loop without retiring — something above the write
+            // itself threw. The entry goes anyway, so the next save starts a
+            // writer of its own instead of queueing behind a dead one.
+            if (!retired)
+            {
+                lock (WriteGate)
+                {
+                    PendingWrites.Remove(key);
+                }
+            }
+        }
+    }
+
+    private static void WaitForAllPendingWrites(TimeSpan timeout)
+    {
+        Task[] writers;
+        lock (WriteGate)
+        {
+            writers = [.. PendingWrites.Values.Select(pending => pending.Writer)];
+        }
+
+        try
+        {
+            Task.WaitAll(writers, timeout);
+        }
+        catch (AggregateException)
+        {
+            // Every write already swallows its own IO failure; nothing to report
+            // on the way out.
+        }
+    }
+
+    /// <summary>Written beside the file and moved over it, so a process that ends
+    /// mid-write leaves the previous file rather than half of a new one. The name
+    /// beside it is this write's own: several app instances share one debug
+    /// workspace and so this file, and two writers on one temporary name would fail
+    /// each other's writes or move each other's half-written file.</summary>
+    private static void WriteFile(string path, string json)
+    {
+        var temporary = $"{path}.{Guid.NewGuid():n}.tmp";
+        try
+        {
+            File.WriteAllText(temporary, json);
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Losing this write only costs the next launch its restore; what
+            // is on screen right now is unaffected. Its temporary file goes with
+            // it rather than lingering beside the real one.
+            TryDelete(temporary);
+        }
+    }
+
+    private static void TryDelete(string path)
     {
         try
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new ShellNavigationDto
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Left behind; a later write never reads it.
+        }
+    }
+
+    private string Serialize() =>
+            JsonSerializer.Serialize(new ShellNavigationDto
             {
                 LastSurface = LastSurface,
                 LastView = LastView,
-                LastEnabledPanes = [.. LastEnabledPanes],
+                // LastEnabledPanes is never set: the side panes are gone, and the
+                // list a file from then held was migrated when it was read.
                 // Left out while on, so a file from before the switch keeps its shape.
                 RoadmapHoursShown = RoadmapHoursShown ? null : false,
+                RoadmapCompletedShown = RoadmapCompletedShown ? null : false,
                 // Likewise left out while no band is folded.
                 RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
                 // Likewise left out while the columns are the default ones.
@@ -341,20 +639,21 @@ public sealed class ShellNavigationStore
                 CalendarRange = CalendarRange == DefaultCalendarRange ? null : CalendarRange,
                 InProgressNeedsYouFirst = InProgressNeedsYouFirst ? null : false,
                 InProgressIncludeFinishedToday = InProgressIncludeFinishedToday ? true : null,
-                RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope]
-            }, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Losing this write only costs the next launch its restore; what
-            // is on screen right now is unaffected.
-        }
-
-        Changed?.Invoke();
-    }
+                RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope],
+                // Left out until the tools pane has been on a tab or a filter here.
+                ToolsTab = ToolsTab,
+                ToolsHostFilter = ToolsHostFilter,
+                // Left out while off, the default. The key is a stored name: never
+                // rename it without reading the old one.
+                ShowArchivedRepositories = ShowArchivedRepositories ? true : null
+            }, JsonOptions);
 
     private ShellNavigationDto? Read()
     {
+        // A store on a path another store in this process has just written
+        // reads what that one wrote, not the file as it stood before.
+        WaitForPendingWrites(_path);
+
         try
         {
             if (!File.Exists(_path)) return null;
@@ -379,10 +678,17 @@ public sealed class ShellNavigationStore
         /// <summary>Absent from a file written before the view switch.</summary>
         public string? LastView { get; init; }
 
+        /// <summary>The side panes a file from before the Devbook took the screen
+        /// had open, read only to migrate them — see <see cref="MigrateSidePanes"/>.
+        /// Never set on a save, so never written.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? LastEnabledPanes { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? RoadmapHoursShown { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? RoadmapCompletedShown { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RoadmapCollapsedGroups { get; init; }
@@ -404,5 +710,20 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RepositoryScope { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ToolsTab { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ToolsHostFilter { get; init; }
+
+        /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? ShowArchivedRepositories { get; init; }
+
+        /// <summary>The retired "No repo" chip's state, read only to migrate it — see
+        /// <see cref="MigrateNoRepositoryOnly"/>. Never set on a save, so never written.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? NoRepositoryOnly { get; init; }
     }
 }

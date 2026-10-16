@@ -170,6 +170,7 @@ public sealed class BatchTests
             returnToInbox: null!,
             resurfaceDue: null!,
             routeToBacklog: null!,
+            routeToBrain: null!,
             createPlan: null!,
             routeBatchToBacklog: null!,
             proposeBatch: null!,

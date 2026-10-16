@@ -67,6 +67,28 @@ public sealed record TaskSyncState(
 
         return this with { DocumentWatermarks = marks };
     }
+
+    /// <summary>
+    /// The kind tokens this device has read the whole feed again for, once, after it
+    /// learned to take them (local ADR 0032, Consequences; Verification 10).
+    /// <para>
+    /// A build that skipped a kind still moved its cursor past every document of it, so
+    /// an upgrade alone would see such a document only when it next changed. The loop
+    /// forgets the cursor once per token missing here and records the token, and the
+    /// re-read folds to what the device already holds for everything else — a replayed
+    /// page writes nothing. Additive: a file written before it has made no replay.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string>? FeedReplays { get; init; }
+
+    /// <summary>Whether this device has replayed the feed for <paramref name="kind"/>.</summary>
+    public bool HasReplayedFeedFor(string kind) =>
+        FeedReplays is { } replays && replays.Contains(kind, StringComparer.Ordinal);
+
+    /// <summary>This state with <paramref name="kind"/>'s replay recorded, every other
+    /// one kept.</summary>
+    public TaskSyncState WithFeedReplay(string kind) =>
+        HasReplayedFeedFor(kind) ? this : this with { FeedReplays = [.. FeedReplays ?? [], kind] };
 }
 
 /// <summary>
@@ -111,7 +133,7 @@ public interface ITaskSyncStateStore
     /// <summary>Records the state, replacing what was there, and raises
     /// <see cref="Changed"/>. A store that cannot record it throws and leaves
     /// <see cref="Current"/> alone — the same contract
-    /// <see cref="IDeviceCredentialStore.Save"/> keeps, and for a related
+    /// <see cref="IDeviceCredentialStore.SaveAsync"/> keeps, and for a related
     /// reason: a watermark that moved in memory but not on disk would skip
     /// everything between the two on the next run.</summary>
     void Save(TaskSyncState state);

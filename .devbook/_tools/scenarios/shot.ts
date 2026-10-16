@@ -6,11 +6,15 @@
 // (`report.mjs`) writes it to `<scenario folder>/<stem>/` only when the run
 // covered the whole page. That is what keeps a filtered run from writing anything.
 
-import { test, type Page, type TestInfo } from '@playwright/test';
+import type { Page, TestInfo } from '@playwright/test';
 import type { Buffer } from 'node:buffer';
+import { playwrightTest } from './playwright.mjs';
+
+// The suite's own copy, not one resolved from this folder; see playwright.mjs.
+const { test } = playwrightTest() as typeof import('@playwright/test');
 
 // The same values as LABEL, SHOT_ATTACHMENT, and FAILURE_ATTACHMENT in
-// parse.mjs. Written twice so this file needs nothing but Playwright.
+// parse.mjs. Written twice so this file needs only Playwright and the loader.
 const LABEL = /^[a-z0-9-]+$/;
 const SHOT_ATTACHMENT = 'scenario-shot:';
 const FAILURE_ATTACHMENT = 'scenario-failure';

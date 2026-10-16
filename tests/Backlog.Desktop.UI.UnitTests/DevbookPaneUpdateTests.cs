@@ -92,10 +92,10 @@ public sealed class DevbookPaneUpdateTests
     public async Task A_clone_the_remote_has_moved_past_shows_how_far_behind_and_turns_the_button_into_a_pull()
     {
         await using var harness = CreateHarness();
-        harness.Git.NextCheck = Check(LocalGitRepositoryCurrency.Behind, behind: 3, "3 commits behind origin/main.");
 
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+        RemoteMovesAfterTheLoad(component, harness, Check(LocalGitRepositoryCurrency.Behind, behind: 3, "3 commits behind origin/main."));
         ActionButton(component).Click();
 
         component.WaitForAssertion(() =>
@@ -113,7 +113,6 @@ public sealed class DevbookPaneUpdateTests
     public async Task Pressing_the_button_a_second_time_pulls_and_the_pane_shows_what_arrived()
     {
         await using var harness = CreateHarness();
-        harness.Git.NextCheck = Check(LocalGitRepositoryCurrency.Behind, behind: 1, "1 commit behind origin/main.");
         harness.Git.NextPull = LocalGitRepositoryPullResult.Succeeded(
             "Pulled the latest JSdotNet/Backlog into the clone.",
             Check(LocalGitRepositoryCurrency.UpToDate, behind: 0, "On the latest version of origin/main."));
@@ -122,6 +121,7 @@ public sealed class DevbookPaneUpdateTests
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
         Assert.DoesNotContain(PulledMenuLabel, MenuText(component), StringComparison.Ordinal);
+        RemoteMovesAfterTheLoad(component, harness, Check(LocalGitRepositoryCurrency.Behind, behind: 1, "1 commit behind origin/main."));
 
         ActionButton(component).Click();
         component.WaitForAssertion(() => Assert.Equal("Pull latest", ActionButton(component).TextContent.Trim()));
@@ -152,12 +152,12 @@ public sealed class DevbookPaneUpdateTests
     public async Task A_refused_pull_says_why_and_leaves_the_button_offering_a_check()
     {
         await using var harness = CreateHarness();
-        harness.Git.NextCheck = Check(LocalGitRepositoryCurrency.Behind, behind: 2, "2 commits behind origin/main.");
         harness.Git.NextPull = LocalGitRepositoryPullResult.Failed(
             "There are local changes in the clone. Commit or discard them before pulling the latest version.");
 
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+        RemoteMovesAfterTheLoad(component, harness, Check(LocalGitRepositoryCurrency.Behind, behind: 2, "2 commits behind origin/main."));
 
         ActionButton(component).Click();
         component.WaitForAssertion(() => Assert.Equal("Pull latest", ActionButton(component).TextContent.Trim()));
@@ -227,6 +227,24 @@ public sealed class DevbookPaneUpdateTests
     private static string MenuText(IRenderedComponent<DevbookPane> component) =>
         string.Join(" ", component.FindAll(".devbook-menu__item").Select(item => item.TextContent));
 
+    /// <summary>
+    /// Lets the branch overview's look at the clone land first — it finds the
+    /// clone current, and leaves the button offering a check — and only then moves
+    /// the remote, so the press after this is a check that finds the move. Without
+    /// this, the load itself would find the clone behind and arm the pull before
+    /// anybody pressed anything (which <c>DevbookPaneBranchOverviewTests</c> covers).
+    /// </summary>
+    private static void RemoteMovesAfterTheLoad(IRenderedComponent<DevbookPane> component, Harness harness, LocalGitRepositoryUpdateCheck next)
+    {
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, harness.Git.ChecksRequested);
+            Assert.Equal("Check now", ActionButton(component).TextContent.Trim());
+        });
+
+        harness.Git.NextCheck = next;
+    }
+
     private static Harness CreateHarness(bool cloned = true)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-update-tests", Guid.NewGuid().ToString("n"));
@@ -266,6 +284,11 @@ public sealed class DevbookPaneUpdateTests
         context.Services.AddScoped<DevbookOpenChapter>();
         context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        // Composed as the application composes it: the pane loads the branch
+        // overview on opening, and that load looks at the clone once.
+        context.Services.AddSingleton<IGitHubBranchComparison>(new ScriptedBranchComparisons());
+        context.Services.AddSingleton<DevbookBranchComparisons>();
+        context.Services.AddSingleton<DevbookBranchOverview>();
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();

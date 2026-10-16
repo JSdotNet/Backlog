@@ -1,4 +1,5 @@
 using Backlog.Modules.Dashboard.Abstractions;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Dashboard.UnitTests;
 
@@ -36,8 +37,40 @@ public sealed class RepositoryFocusTests
     [Fact]
     public void Only_blanks_is_all()
     {
-        Assert.Same(RepositoryFocus.All, RepositoryFocus.Of("", "  ", null));
+        Assert.Same(RepositoryFocus.All, RepositoryFocus.Of("  ", null));
         Assert.Same(RepositoryFocus.All, RepositoryFocus.Of([]));
+    }
+
+    /// <summary>
+    /// The Brain rides the focus as its reserved empty value (local ADR 0027): kept in
+    /// its place where a blank is dropped, named in prose, and never matched by an
+    /// alias — it is the work filed against no repository, which <see cref="RepositoryFocus.Covers"/>
+    /// answers.
+    /// </summary>
+    [Fact]
+    public void The_brain_is_kept_in_its_place_and_covers_the_work_filed_nowhere()
+    {
+        var focus = RepositoryFocus.Of(BrainScope.Value, " ", "backlog");
+
+        Assert.False(focus.IsAll);
+        Assert.True(focus.IncludesBrain);
+        Assert.Equal([BrainScope.Value, "backlog"], focus.Aliases);
+        Assert.Equal(["backlog"], focus.RepositoryAliases);
+        Assert.Equal("Brain, backlog", focus.Label);
+        Assert.False(focus.Contains(BrainScope.Value));
+        Assert.False(focus.Contains(null));
+
+        Assert.True(focus.Covers([]));
+        Assert.True(focus.Covers(["backlog"]));
+        Assert.False(focus.Covers(["docs"]));
+
+        var repositoriesOnly = RepositoryFocus.Of("backlog");
+        Assert.False(repositoriesOnly.IncludesBrain);
+        Assert.False(repositoriesOnly.Covers([]));
+        Assert.True(RepositoryFocus.All.Covers([]));
+
+        // The Brain alone is a focus of its own, not every repository.
+        Assert.NotEqual(RepositoryFocus.All, RepositoryFocus.Of(BrainScope.Value));
     }
 
     [Fact]

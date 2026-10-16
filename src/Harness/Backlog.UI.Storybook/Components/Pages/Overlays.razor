@@ -89,7 +89,9 @@
     </Story>
 
     <Story Name="ConfirmDialog"
-           Description="One question, two answers, and the outcome recorded below so it is visible which callback ran."
+           Description="One question, two answers, and the outcome recorded below so it is visible which callback ran.
+
+Confirm stays open with its button busy until the host's OnConfirm has finished, and closes after: Archive here takes a second and a half, the way a real archive writes a file. While it runs, a second press, Cancel, Escape and the backdrop all do nothing, and the header's ✕ is disabled through Modal's `CloseDisabled`, because the act can no longer be taken back. If OnConfirm fails, the dialog stays open with Confirm usable again."
            Code="@ConfirmCode">
         <div class="sb-row">
             <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _confirmOpen = true" TestId="open-confirm">
@@ -164,12 +166,60 @@
         </DetailSheet>
     </Story>
 
+    @*
+        The same sheet while work it started is still running. Dismissible=false
+        is the hook for that: the close button disables, and Escape and the
+        backdrop do nothing, until the work ends and the result can be read where
+        it was asked for. The phone's update window holds itself open this way
+        while an install is in flight.
+    *@
+    <Story Name="Detail sheet held open while busy"
+           Description="`Dismissible` set to false while its work runs: the close button is disabled and Escape and the backdrop are inert. Finish the work and all three close it again."
+           Code="@BusySheetCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Primary" OnClick="OpenBusySheet" TestId="open-busy-sheet" id="open-busy-sheet-button">
+                Open the sheet
+            </AppButton>
+        </div>
+
+        <DetailSheet Open="_busySheetOpen"
+                     OpenChanged="value => _busySheetOpen = value"
+                     Kicker="Application updates"
+                     Title="Update Backlog"
+                     Dismissible="@(!_busySheetWorking)"
+                     RestoreFocusToId="open-busy-sheet-button"
+                     TestId="story-busy-sheet">
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Primary" Disabled="_busySheetWorking" OnClick="() => _busySheetWorking = true" TestId="busy-sheet-start">
+                    @(_busySheetWorking ? "Installing..." : "Start the work")
+                </AppButton>
+                <AppButton Variant="ButtonVariant.Secondary" Disabled="!_busySheetWorking" OnClick="() => _busySheetWorking = false" TestId="busy-sheet-finish">
+                    Finish it
+                </AppButton>
+            </div>
+        </DetailSheet>
+    </Story>
+
 </StoryPage>
 
 @code {
     private bool _sheetOpen;
 
     private void OpenSheet() => _sheetOpen = true;
+
+    private bool _busySheetOpen;
+    private bool _busySheetWorking;
+
+    private void OpenBusySheet() => _busySheetOpen = true;
+
+    private const string BusySheetCode = """
+        <DetailSheet Open="_open"
+                     OpenChanged="value => _open = value"
+                     Title="Update Backlog"
+                     Dismissible="@(!_working)">
+            ...
+        </DetailSheet>
+        """;
 
     private const string SheetCode = """
         <DetailSheet Open="_sheetOpen"
@@ -190,7 +240,8 @@
         new("interaction-guidelines.md#focus-and-selection", "Where focus goes when a dialog opens and closes."),
         new("interaction-guidelines.md#motion-and-reduced-motion", "How a dialog may appear, and what it does under reduced motion."),
         new("typography-and-layout.md#z-index-scale", "What is allowed to sit above what."),
-        new("accessibility.md#keyboard-navigation", "Escape, the focus trap, and the return path.")
+        new("accessibility.md#keyboard-navigation", "Escape, the focus trap, and the return path."),
+        new("interaction-guidelines.md#busy-actions", "Why a confirmed act keeps its dialog open, busy, until it has finished.")
     ];
 
     private bool _modalOpen;
@@ -224,7 +275,11 @@
     // button — but not for the footer actions, which set their own result first.
     private void OnModalClosed() => _modalResult ??= "closed";
 
-    private void ConfirmArchive() => _confirmResult = "archive confirmed";
+    private async Task ConfirmArchive()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        _confirmResult = "archive confirmed";
+    }
 
     private void CancelArchive() => _confirmResult = "archive cancelled";
 

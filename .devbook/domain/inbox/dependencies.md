@@ -15,8 +15,8 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | [Tasks](../tasks/domain.md#task) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBacklogTarget` (declared in `Backlog.Modules.Inbox.Abstractions`), answered by an infrastructure adapter over Tasks' published `ITaskItems` — not an async event | `.devbook/domain/inbox/domain.md#itemtriaged` (realised as `InboxRouteRequestDto`) | Routing an actionable item creates one draft Task per assigned repository — siblings that name each other and share a `#from-inbox-` tag when there are several — and a drafted plan is imported through Tasks' plan import, without the Inbox seeing Tasks or Tasks seeing the Inbox. |
-| [Devbook](../devbook/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event (not built) | `.devbook/domain/inbox/domain.md#itemtriaged` | Routing a knowledge item creates a Knowledge Note through the same published language with a different route shape. |
-| Sync (module, not a bounded context) | Customer/Supplier (Inbox = customer of the intake channel) | The desktop sync client hands every `capture`-kind replica document to the `IInboxIntake` port before the task merge, and drains the `IInboxCaptureOutbox` port into the ordinary tasks push as tombstones | `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md` | Captures made on the phone or in the IDE reach the desktop, and the phone learns a capture was dealt with, without a second sync path. |
+| [Devbook](../devbook/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBrainTarget` (declared in `Backlog.Modules.Inbox.Abstractions`), answered by an infrastructure adapter over Devbook's `IBrainNoteWriter` — not an async event | `.devbook/domain/inbox/domain.md#itemtriaged` (realised as `InboxBrainNoteRequestDto`) | Routing an item To Brain writes it into the Brain's inbox area as a Knowledge Note, title and body kept, through the writer the Devbook pane's Capture uses. |
+| [Sync](../sync/context.md) | Customer/Supplier (Inbox = customer of the intake channel) | The desktop sync client hands every `capture`-kind replica document to the `IInboxIntake` port before the task merge, and drains the `IInboxCaptureOutbox` port into the ordinary tasks push as tombstones | `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md` | Captures made on the phone or in the IDE reach the desktop, and the phone learns a capture was dealt with, without a second sync path. |
 
 ## Inbound dependents (known)
 
@@ -29,20 +29,18 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 ## Notes
 
 - The Inbox is the hub of the capture -> triage -> backlog/knowledge/archive
-  pipeline; keep the `ItemTriaged` payload as a published language so Tasks and
-  Devbook never depend on Inbox internals.
+  pipeline. Its contract with Tasks and Devbook is the
+  [`ItemTriaged`](domain.md#itemtriaged) published language.
 - The Inbox -> Tasks edge is realised the way the roadmap's cross-context joins
-  are: a port in the Inbox's Abstractions, an adapter in `src/Infrastructure`
-  that references both published surfaces, and no project reference between
-  the two modules. The adapter is the only place an inbox item becomes entry
-  text (`.devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md`). The
-  earlier Tasks.UI -> Inbox.UI edge is gone.
-- The Inbox's own store — `inbox_items`, `inbox_lists`, `inbox_groups` in
-  `backlog.db` — is the module's; the adapter never touches another module's
+  are. A port sits in the Inbox's Abstractions and an adapter in
+  `src/Infrastructure` references both published surfaces. There is no project
+  reference between the two modules.
+- The Inbox's own store is the module's: `inbox_items`, `inbox_lists` and
+  `inbox_groups` in `backlog.db`. The adapter never touches another module's
   table (`.devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md`).
   Lists and groups never sync.
-- The inbox is global (one per workspace root), not repo-scoped — all sources
-  deliver to one shared inbox regardless of origin; repositories are assigned
-  per item, not per inbox.
+- The inbox is global, one per workspace root, and not scoped to a repository.
+  Every source delivers to one shared inbox, and repositories are assigned per
+  item.
 - See the follow-up loop in `.devbook/domain/monitoring/flow.md#signal-flow` rather than
   duplicating it here.

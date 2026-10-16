@@ -69,5 +69,5 @@ classDiagram
 - `EnvironmentCatalog` owns the user's quick-access configuration.
 - `Environment` is an owned entity because it has identity inside the catalog and
   can have multiple shortcuts.
-- `LaunchTarget` and `AccessHint` are value objects. `AccessHint` never stores
-  secrets, only references or reminders.
+- `LaunchTarget` and `AccessHint` are value objects. What `AccessHint` may hold
+  is in [domain.md](domain.md#access-hint).

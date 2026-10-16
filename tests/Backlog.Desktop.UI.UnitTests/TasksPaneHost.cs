@@ -27,11 +27,13 @@ internal sealed class TasksPaneHost : IDisposable
         AppFeatureSettingsStore features,
         GitHubIntegration gitHub,
         FakeGitHubClient client,
+        MyDayPreferencesStore myDay,
         string root,
         string storageRoot)
     {
         Context = context;
         State = state;
+        MyDay = myDay;
         Toasts = toasts;
         Features = features;
         GitHub = gitHub;
@@ -55,6 +57,12 @@ internal sealed class TasksPaneHost : IDisposable
     public GitHubIntegration GitHub { get; }
 
     public FakeGitHubClient Client { get; }
+
+    /// <summary>The person's My Day preferences — Clear My Day overnight — as the
+    /// desktop keeps them, in a file of this host's own. Untouched, it reads on, the
+    /// rule every pane test before the switch was written under; a test about a
+    /// carried task turns it off here, and the state behind the pane hears it.</summary>
+    public MyDayPreferencesStore MyDay { get; }
 
     /// <summary>The folder the store this host composed actually reads and writes.
     /// Handed out so a test can stand a second list over the same backlog, which is
@@ -106,7 +114,8 @@ internal sealed class TasksPaneHost : IDisposable
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
-        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates);
+        var myDay = new MyDayPreferencesStore(Path.Combine(root, MyDayPreferencesStore.FileName));
+        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates, myDayPreferences: myDay);
 
         await state.InitializeAsync();
 
@@ -126,8 +135,9 @@ internal sealed class TasksPaneHost : IDisposable
         // what the app does.
         context.Services.AddSingleton(toasts);
         context.Services.AddSingleton<IToastChannel>(toasts);
+        context.Services.AddSingleton<IMyDayPreferences>(myDay);
 
-        return new TasksPaneHost(context, state, toasts, features, gitHub, client, root, storageRoot);
+        return new TasksPaneHost(context, state, toasts, features, gitHub, client, myDay, root, storageRoot);
     }
 
     public IRenderedComponent<TasksPane> Render() => Context.Render<TasksPane>();
@@ -223,6 +233,32 @@ internal sealed class TasksPaneHost : IDisposable
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<GitHubOpenPullRequest>>(
                 [.. OpenPullRequests.Where(pull => string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))]);
+
+        /// <summary>What a read by number answers, whatever state each is in — the
+        /// pull requests tasks link, merged and closed among them.</summary>
+        public List<GitHubLinkedPullRequest> PullRequestsByNumber { get; } = [];
+
+        /// <summary>Every read by number asked, as <c>owner/name 1,2</c>.</summary>
+        public List<string> ReadByNumber { get; } = [];
+
+        public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
+            GitHubRepositoryRef repository,
+            IReadOnlyCollection<int> numbers,
+            CancellationToken cancellationToken = default)
+        {
+            ReadByNumber.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
+
+            IReadOnlyList<GitHubLinkedPullRequest> answer =
+                [.. PullRequestsByNumber.Where(pull =>
+                    numbers.Contains(pull.Number)
+                    && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))];
+
+            return ByNumberGate is { } gate ? gate.Task.ContinueWith(_ => answer, TaskScheduler.Default) : Task.FromResult(answer);
+        }
+
+        /// <summary>Set, a read by number answers only once it completes — how a test
+        /// holds that read back while the rest lands.</summary>
+        public TaskCompletionSource? ByNumberGate { get; set; }
 
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();

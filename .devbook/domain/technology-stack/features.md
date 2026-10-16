@@ -15,9 +15,9 @@ type: feature
 status: draft
 ```
 
-Define team-approved technologies (languages, frameworks, runtimes, tools) with
-version constraints (min, recommended, optional target), stable/beta/deprecated
-status, and per-team or per-project overrides on top of portfolio defaults.
+Define team-approved technologies (languages, frameworks, runtimes, tools). Each
+carries version requirements (minimum, recommended) and a stable, beta, or
+deprecated status. Teams and projects can override the portfolio defaults.
 
 ## Deprecation and migration management
 
@@ -27,9 +27,10 @@ status: draft
 depends-on: [.devbook/domain/technology-stack/features.md#technology-baseline-definition]
 ```
 
-Mark technologies deprecated with end-of-life dates and migration guidance,
-generate migration advisories, enforce minimum versions with tracked legacy
-exceptions, and recommend replacements.
+Mark technologies deprecated with end-of-life dates and migration guidance, and
+announce each one as a [Deprecation Notice](domain.md#deprecation-notice).
+Enforce minimum versions, track each legacy exception as a
+[Migration Approval](domain.md#migration-approval), and recommend replacements.
 
 ## Portfolio-wide adoption tracking
 
@@ -40,7 +41,8 @@ related: [.devbook/domain/dev-pc-management/features.md#configuration-and-tool-v
 ```
 
 Detect which technologies are in use across the portfolio, track adoption rates
-and outliers, surface adoption velocity, and report technology sprawl.
+and outliers, surface adoption velocity, and report
+[Technology Sprawl](domain.md#technology-sprawl).
 
 ## Technology recommendations
 
@@ -51,9 +53,9 @@ depends-on: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoptio
 related: [.devbook/domain/tasks/features.md#task-creation]
 ```
 
-Surface which tools are ready to upgrade, recommend new tools based on team
-patterns, provide adoption decision context, and link to ADRs that justify
-choices.
+Surface which tools are ready to upgrade, and recommend new tools based on what
+the portfolio already adopts. Give adoption decisions their context, and link to
+the ADRs that justify them.
 
 ## Technology versioning standards
 
@@ -74,6 +76,6 @@ status: draft
 related: [.devbook/domain/monitoring/features.md#multi-repo-scanning]
 ```
 
-Provide baselines consumed by Dev PC and Repository Management, feed adoption
-data to Monitoring dashboards, link ADRs in Devbook, and enable Tasks to
-create tech-upgrade tasks from adoption gaps.
+Provide baselines to the contexts [the context chapter](context.md#technology-stack)
+names. Feed adoption data to Monitoring dashboards, link ADRs in Devbook, and let
+Tasks create tech-upgrade tasks from adoption gaps.

@@ -36,7 +36,21 @@ public enum PlanOutlook
 /// <param name="ProjectedEnd">The day its work is expected to land: the last completion
 /// for a finished item, the planned end for one placed by effort, the projection for
 /// one judged against its end. Null where there is nothing to project.</param>
-public sealed record PlanItemInsight(PlanItemProgress Item, PlanOutlook Outlook, DateOnly? ProjectedEnd);
+public sealed record PlanItemInsight(PlanItemProgress Item, PlanOutlook Outlook, DateOnly? ProjectedEnd)
+{
+    /// <summary>Where a finished item's work landed, or null for any other item or one
+    /// whose last entry says no day.</summary>
+    private DateOnly? Landed => Outlook == PlanOutlook.Finished ? ProjectedEnd : null;
+
+    /// <summary>The first day the timeline draws: the planned start, or the day a
+    /// finished item landed when that came before it.</summary>
+    public DateOnly DrawnStart => Landed is { } landed && landed < Item.Start ? landed : Item.Start;
+
+    /// <summary>The last day the timeline draws: the day a finished item landed, never
+    /// the end it was planned for — work that is done cannot run on past today — and
+    /// the planned end for every other item.</summary>
+    public DateOnly DrawnEnd => Landed ?? Item.End;
+}
 
 /// <summary>
 /// The roadmap items the window shows in the repositories in scope, with the pace in use
@@ -55,7 +69,8 @@ public sealed record PlanInsight(bool RoadmapEnabled, PlanPace Pace, IReadOnlyLi
     /// <summary>The last day of that window, inclusive — today.</summary>
     public DateOnly WindowTo { get; init; }
 
-    /// <summary>The last day the timeline draws: the latest end of an item it shows, and
+    /// <summary>The last day the timeline draws: the latest
+    /// <see cref="PlanItemInsight.DrawnEnd"/> of an item it shows, and
     /// never before <see cref="WindowTo"/>. Items read for a window that ends today still
     /// run on past it, and an axis ending today drew them as stubs cut off at the edge.
     /// <c>default</c> when the insight was built without a window.</summary>

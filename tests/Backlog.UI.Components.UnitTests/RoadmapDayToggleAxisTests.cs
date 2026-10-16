@@ -85,6 +85,43 @@ public sealed class RoadmapDayToggleAxisTests
         });
     }
 
+    /// <summary>
+    /// ADR 0019 Verification 17, the key presses themselves, at the lowest level that
+    /// dispatches them: bUnit. Enter and Space are dispatched on the Friday head as
+    /// keydown and keyup, and nothing on the head or above it in the timeline handles
+    /// either — bUnit walks the bubbling path and finds no handler. So nothing can
+    /// cancel the key, and the browser's own activation of a native button, which turns
+    /// Enter on keydown and Space on keyup into the click above, is what presses it.
+    /// That activation is the browser's and not Blazor's, so no bUnit test can perform
+    /// it; the end-to-end suite has no roadmap journey to press it in, and pressing one
+    /// there would toggle the shared debug workspace's real working week. The click is
+    /// the pressed half of the proof; this is the keyboard half.
+    /// </summary>
+    [Fact]
+    public void EnterAndSpaceOnADayHead_ReachNoHandlerThatCouldStopTheBrowserPressingIt()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var pressed = new List<DateOnly>();
+            var view = Render(context, new Week(), Monday12OctoberMinusAWeek, toggled: pressed.Add);
+
+            var friday = HeadButton(view, Friday9);
+            Assert.Equal("button", friday.GetAttribute("type"));
+
+            foreach (var key in new[] { Key.Enter, Key.Space })
+            {
+                Assert.Throws<MissingEventHandlerException>(() => friday.KeyDown(key));
+                Assert.Throws<MissingEventHandlerException>(() => friday.KeyUp(key));
+            }
+
+            // Dispatched keys toggle nothing by themselves: the date is handed over only by
+            // the press the browser makes of them.
+            Assert.Empty(pressed);
+            Assert.Equal("Block Fri 9 Oct", HeadButton(view, Friday9).GetAttribute("aria-label"));
+        });
+    }
+
     /// <summary>Week, month and quarter heads are not toggles: only a date can be
     /// blocked.</summary>
     [Fact]
@@ -371,6 +408,50 @@ public sealed class RoadmapDayToggleAxisTests
     }
 
     /// <summary>
+    /// ADR 0019 Verification 18, scenario "The current week": today is Wednesday 14
+    /// October, and the stretches since Monday 12 October total 15.5 hours, so week 42
+    /// reads "15.5h" — its actual hours so far alone, never its 42.5 planned — and the
+    /// stretches already on Thursday 15 and Saturday 17 October, after today, count
+    /// nothing yet.
+    /// <para>
+    /// The graduated axis the band draws rules today's week in days, so a week column
+    /// that holds today is drawn here through the window a caller may set: the axis
+    /// graduated three weeks earlier, which rules 12 to 18 October as one week.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheCurrentWeek_ReadsTheActualHoursOfItsDatesUpToToday()
+    {
+        WithCulture("en-US", () =>
+        {
+            var wednesday14 = new DateOnly(2026, 10, 14);
+            var actual = new Dictionary<DateOnly, double>
+            {
+                [Monday12October] = 6,
+                [new DateOnly(2026, 10, 13)] = 8,
+                [wednesday14] = 1.5,
+                [new DateOnly(2026, 10, 15)] = 4,
+                [new DateOnly(2026, 10, 17)] = 2
+            };
+            var weekOfToday = RoadmapWindow.Graduated([], wednesday14.AddDays(-21), DayOfWeek.Monday);
+
+            using var context = Loose();
+            var wide = Render(context, new Week(), wednesday14, actual: actual, quarterWidth: WideQuarter, window: weekOfToday);
+            var week42 = WeekColumn(wide, "Week 42");
+            Assert.True(week42.ClassList.Contains("roadmap-timeline__quarter--week"));
+            Assert.Equal("W42 · 15.5h", LabelOf(week42));
+
+            var narrow = Render(context, new Week(), wednesday14, actual: actual, window: weekOfToday);
+            Assert.Equal("W42", LabelOf(WeekColumn(narrow, "Week 42")));
+            Assert.Equal("15.5h", HoursLineOf(WeekColumn(narrow, "Week 42")));
+            Assert.EndsWith(" · 15.5h worked of 42.5h planned", WeekColumn(narrow, "Week 42").GetAttribute("title"), StringComparison.Ordinal);
+
+            // The week after it has not begun, and reads its planned hours alone.
+            Assert.Equal("42.5h", HoursLineOf(WeekColumn(narrow, "Week 43")));
+        });
+    }
+
+    /// <summary>
     /// At the band's default width every head carries exactly three lines — label,
     /// caption, hours — and no head says two figures, inline or stacked: the fourth line
     /// the stacked form needed, and the axis height it took, are gone. Every figure fits
@@ -590,9 +671,12 @@ public sealed class RoadmapDayToggleAxisTests
         Action<DateOnly>? toggled = null,
         double quarterWidth = 16,
         bool showHours = true,
-        Action<DateOnly>? opened = null) =>
+        Action<DateOnly>? opened = null,
+        RoadmapWindow? window = null) =>
         context.Render<RoadmapTimeline>(parameters =>
         {
+            if (window is not null) parameters.Add(timeline => timeline.Window, window);
+
             parameters
                 .Add(timeline => timeline.Groups, [new RoadmapGroup("backlog", "backlog", [new RoadmapRow("backlog::Planned", string.Empty)])])
                 .Add(timeline => timeline.Bars, [new RoadmapBar("a", "backlog::Planned", "A", new DateOnly(2026, 10, 5), new DateOnly(2026, 10, 30))])

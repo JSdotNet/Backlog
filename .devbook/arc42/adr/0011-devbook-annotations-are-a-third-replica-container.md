@@ -42,6 +42,24 @@ endpoints and the desktop exchange landed together on 2026-09-16.
 > replica's own rule on the pull side and the watermark no longer enters it.
 > The same change, for the same reason, as ADR 0005's amendment of the same
 > date, which carries the account.
+>
+> **Amended, 2026-10-14 — one remark the service refuses no longer refuses the
+> rest.** The endpoint still refuses a batch whole, and the desktop pushed every
+> remark it held, so one it could never store — a remark filed under no
+> repository alias, which is where a remark on the storage-folder devbook or
+> with nothing scoped lands — had every push answered
+> `sync.annotation_invalid`, the watermark stood still, and the pull behind it
+> never ran. The rule the endpoint checks is now one rule both ends run:
+> `AnnotationRecordLimits.WhyRefused` in `Backlog.Modules.Sync.Abstractions`,
+> shared on `SessionRecordLimits`'s precedent so the two cannot drift apart.
+> Before it batches, the desktop push leaves out a remark that rule refuses — no
+> repository alias, a blank chapter path, a negative block index, or a field past
+> its bound — logs a Warning naming its id, its chapter path and the reason and
+> never its body, counts it in `AnnotationSyncSummary.Skipped`, and moves the
+> watermark past it. None of those faults mends without an edit, and an edit
+> stamps the remark past the watermark again, so it is offered once more then.
+> A tombstone now travels with an empty body, so a remark whose body grew past
+> the bound can still be deleted on every device.
 
 A **local** decision, numbered in the local sequence. It **extends** local ADR
 0005 — a third replica container beside `tasks` and `sessions`, on that
@@ -127,7 +145,7 @@ tombstone.
 `IDevbookAnnotationStore` is the port the panels see. Its four panel verbs
 (`Add`, `Edit`, `SetResolved`, `Delete`) stamp `UpdatedAt` from the store's
 clock; `Apply` writes a replicated document stamps and all; `ListChangedSince`
-is what a push selects. A remark with an empty body is a **draft** — kept so
+is what a push selects. A live remark with an empty body is a **draft** — kept so
 closing the pane does not lose it, opened straight into its textarea when the
 chapter is shown again, never pushed, and removed outright rather than
 tombstoned when cancelled. The panels resolve the port optionally and fall back
@@ -160,8 +178,11 @@ over the third container; `IAnnotationReplica` has exactly the two operations
 query a screen could be answered from. The endpoint validates at the edge the
 way the session endpoint does (a remark with no alias or no chapter path could
 not be placed on any device; bounded fields keep a caller out of durable
-per-request-billed storage) and refuses the whole batch, so a device's
-watermark never moves past a remark nobody stored.
+per-request-billed storage) and still refuses the whole batch: it never answers
+200 for a remark it did not store. A device's watermark moves past only what
+was stored, or what the device itself left out and logged because the same
+rule would refuse it (`AnnotationRecordLimits.WhyRefused`; see the 2026-10-14
+amendment under **Status**).
 
 The `annotations` Cosmos container is partitioned on `/ownerId`, default
 indexing, `defaultTtl` -1 with the 180-day retention stamped per tombstone from

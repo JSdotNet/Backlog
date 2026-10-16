@@ -11,6 +11,11 @@
     module's published surface for the port it injects. It sees no host, no
     workspace and no sibling context: the tools pane is scoped by nothing but
     the machine it is running on.
+
+    The pane's own rules ship here too, in wwwroot/devpc.css, served at
+    _content/Backlog.Modules.DevPc.UI/devpc.css; every host that renders the
+    takeover links it after the library's components.css and the Dashboard's
+    dashboard.css, whose overview parts the pane reuses, and before the shell's app.css.
   -->
   <PropertyGroup>
     <!--

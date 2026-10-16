@@ -6,7 +6,7 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { splitPortal } from "./parse.mjs";
+import { resolveInside, splitPortal } from "./parse.mjs";
 
 /** The reference's last segment: `context.md#new-board` → `new-board`. */
 export function keyOf(reference) {
@@ -116,6 +116,18 @@ export function recordedConfig(config) {
  * context each, kept for the whole journey. `dataFolder(name)` is where a data
  * set lives. A hook method the page needs and the hook lacks is an error; one
  * the page does not need may be absent.
+ *
+ * The parameter type is written out because a consumer's `tsc` reads this
+ * file through `setup.ts`, and would otherwise infer `dataFolder` as `() => null`.
+ *
+ * @param {{
+ *   hook: any,
+ *   config: any,
+ *   open: (portal: string) => Promise<any>,
+ *   dataFolder?: (name: string) => string | null,
+ *   env?: Record<string, string | undefined>,
+ * }} options
+ * @returns {Promise<void>}
  */
 export async function runSetup({ hook, config, open, dataFolder = () => null, env = process.env }) {
     const need = (method, why) => {
@@ -137,7 +149,7 @@ export async function runSetup({ hook, config, open, dataFolder = () => null, en
 export function findRepoRoot(start = process.cwd()) {
     let current = path.resolve(start);
     for (;;) {
-        if (existsSync(path.join(current, ".devbook"))) return current;
+        if (existsSync(resolveInside(current, ".devbook"))) return current;
         const parent = path.dirname(current);
         if (parent === current) throw new Error(`no .devbook/ folder at or above ${start}`);
         current = parent;

@@ -37,15 +37,15 @@ public sealed class ToolsInventoryLayoutTests
 {
     /// <summary>
     /// The step is derived from the column floors and from nothing else:
-    /// 10 + 5.5 + 5.5 + 17.5 = 38.5rem, so the restack has to be in force at 39rem,
-    /// the first round rem step that still covers it.
+    /// 10 + 5.5 + 5.5 + 7.5 + 17.5 = 46rem, so the restack has to be in force at
+    /// 46rem, the first round rem step that still covers it.
     /// <para>The library's <c>--spacing-sm</c> of cell padding is not added on top.
     /// Both sheets set <c>box-sizing: border-box</c> on everything, so a floor
     /// declared as <c>min-width</c> on a cell already contains that padding —
     /// counting it again is what put the step 4rem past the width the columns need,
     /// and restacked a table that still fitted.</para>
     /// </summary>
-    private const string RestackStep = "@container tools-inventory (max-width: 39rem) {";
+    private const string RestackStep = "@container tools-inventory (max-width: 46rem) {";
 
     [Fact]
     public void The_pane_is_what_the_tools_inventory_measures_itself_against()
@@ -216,6 +216,7 @@ public sealed class ToolsInventoryLayoutTests
         // asked twice — what is installed, and what is available.
         var floors = Floor(css, ".tools-inventory__col-tool {")
             + (2 * Floor(css, ".tools-inventory__col-version {"))
+            + Floor(css, ".tools-inventory__col-status {")
             + Floor(css, ".tools-inventory__col-actions {");
 
         // The floors are the whole sum: `box-sizing: border-box` puts the library's
@@ -278,6 +279,24 @@ public sealed class ToolsInventoryLayoutTests
             "These files still name the retired tools grid:\n" + string.Join('\n', offenders));
     }
 
+    /// <summary>The row's enable switch keeps the library's smaller track and
+    /// takes a press over 44px each way, centred on it.</summary>
+    [Fact]
+    public void The_row_switch_takes_a_press_over_a_44px_target()
+    {
+        var hitArea = Block(Css(), ".tools-inventory__switch .toggle__track::before {");
+
+        Assert.Contains("width: 2.75rem;", hitArea, StringComparison.Ordinal);
+        Assert.Contains("height: 2.75rem;", hitArea, StringComparison.Ordinal);
+        Assert.Contains("position: absolute;", hitArea, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_group_reveal_is_at_least_44px_tall()
+    {
+        Assert.Contains("min-block-size: 2.75rem;", Block(Css(), ".tools-group__reveal {"), StringComparison.Ordinal);
+    }
+
     private const string RemLength = @"(\d+(?:\.\d+)?)rem";
 
     /// <summary>A column's floor, as its own rule declares it.</summary>
@@ -304,7 +323,7 @@ public sealed class ToolsInventoryLayoutTests
     }
 
     private static string Css() => File.ReadAllText(
-        RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        RepositoryRoot.File("src", "Modules", "DevPc", "Backlog.Modules.DevPc.UI", "wwwroot", "devpc.css")).Replace("\r\n", "\n");
 
     private static string Components() => File.ReadAllText(
         RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");

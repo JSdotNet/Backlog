@@ -99,7 +99,10 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
                 $"Tool catalog was not found at {paths.CatalogPath}.",
                 CatalogExists: false,
                 CatalogPath: paths.CatalogPath,
-                CanEditCatalog: true);
+                CanEditCatalog: true)
+            {
+                PcConfigPath = paths.PcConfigPath
+            };
         }
 
         var config = await DevToolConfiguration.ReadAsync(paths, ct).ConfigureAwait(false);
@@ -202,6 +205,7 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             : $"Showing tools from {config.CatalogPath}. PC config will be created at {config.PcConfigPath}.";
         return new DevToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
         {
+            PcConfigPath = config.PcConfigPath,
             Commands = SampleCommands
         };
     }
@@ -267,6 +271,16 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
             paths => $"Created a tool catalog at {paths.CatalogPath}.");
 
+    /// <summary>Writes the empty catalog, and says so. This configuration runs
+    /// nothing and reads no host's manifests — the browser it serves is not on
+    /// the machine whose tools it would describe — so there is nothing to seed
+    /// from, and a sandbox seed would be a list of tools this machine does not
+    /// have.</summary>
+    public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default) =>
+        EditCatalogAsync(
+            paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
+            paths => $"Created an empty tool catalog at {paths.CatalogPath}: this host cannot see what is installed, so nothing was seeded.");
+
     public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>
         EditCatalogAsync(
             paths => DevToolConfiguration.AddToCatalogAsync(paths, draft, ct),
@@ -312,6 +326,25 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
 
         _removedCache.Add(CacheKey(key, version));
         return DevToolActionResult.Ok($"Removed {tool.Name} {version} from Claude's plugin cache.");
+    }
+
+    /// <summary>The last run, kept in the same per-PC file the desktop app uses
+    /// but under this harness's own storage root — the sandbox catalog's folder —
+    /// so a harness restart reads back what the run before it left, and nothing
+    /// is written to the real machine.</summary>
+    public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) =>
+        DevToolLastRunStore.ReadAsync(Paths.LastRunPath, ct);
+
+    public async Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default)
+    {
+        // The port's promise: a record the disk refuses never fails the run.
+        try
+        {
+            await DevToolLastRunStore.WriteAsync(Paths.LastRunPath, run, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     public async Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default)
@@ -539,6 +572,7 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             installable: !manual && !application.DetectOnly && (application.Provider is not DevToolProvider.Command || application.Install is not null),
             acknowledged: application.Acknowledged,
             note: application.Note,
+            download: application.Download,
             status: manual
                 ? "Nothing can check this — confirm it by hand"
                 : "Read from the catalog; this harness starts no processes");
@@ -652,7 +686,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
         {
             Hosts = hosts,
             HostStates = states,
-            Installable = server.Installable
+            Installable = server.Installable,
+            Download = server.Download
         };
     }
 
@@ -670,7 +705,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
         bool installable = true,
         bool acknowledged = false,
         string? note = null,
-        string status = "")
+        string status = "",
+        string? download = null)
     {
         var key = DevToolConfiguration.KeyFor(DevToolKind.Application, id);
 
@@ -719,7 +755,8 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
             Group = string.IsNullOrWhiteSpace(group) ? null : group,
             Installable = installable,
             Acknowledged = confirmed,
-            ConfirmedByHand = provider is DevToolProvider.Manual
+            ConfirmedByHand = provider is DevToolProvider.Manual,
+            Download = download
         };
     }
 

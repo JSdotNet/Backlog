@@ -21,20 +21,53 @@ public class GitHubBranchCatalogTests
         Assert.Equal(["main", "release/2.0", "spike"], branches);
     }
 
-    /// <summary>One page, not every page. A repository with more branches than a
-    /// page holds is one where scrolling to the four-hundredth was never the
-    /// interaction, and paging the whole set would turn opening Settings into an
-    /// unbounded number of calls.</summary>
+    /// <summary>A short page is the last one: a repository with fewer branches
+    /// than a page holds costs one call.</summary>
     [Fact]
-    public async Task Listing_asks_for_one_page()
+    public async Task A_short_first_page_is_the_only_call()
     {
         var transport = new RoutingTransport().Returns("/branches", "[]");
 
         await Catalog(transport).ListBranchesAsync(Repository, TestContext.Current.CancellationToken);
 
-        Assert.Contains(transport.Paths, path => path.Contains("per_page=100", StringComparison.Ordinal));
-        Assert.Single(transport.Paths);
+        Assert.Equal("repos/JSdotNet/Backlog/branches?per_page=100&page=1", Assert.Single(transport.Paths));
     }
+
+    /// <summary>Every page, until GitHub hands back a short one. One page used to
+    /// be the whole answer, and seventy-four of this repository's 174 branches
+    /// could be neither found nor typed.</summary>
+    [Fact]
+    public async Task Branches_past_the_first_page_are_listed()
+    {
+        var transport = new RoutingTransport()
+            .ReturnsInTurn("/branches", Page(0, 100), Page(100, 74));
+
+        var branches = await Catalog(transport).ListBranchesAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal(174, branches.Count);
+        Assert.Equal("branch-173", branches[^1]);
+        Assert.Equal(
+            ["repos/JSdotNet/Backlog/branches?per_page=100&page=1", "repos/JSdotNet/Backlog/branches?per_page=100&page=2"],
+            transport.Paths);
+    }
+
+    /// <summary>A ceiling of a thousand, so a repository with thousands of
+    /// branches does not turn one click into dozens of calls.</summary>
+    [Fact]
+    public async Task Listing_stops_at_the_ceiling()
+    {
+        var page = 0;
+        var transport = new RoutingTransport()
+            .ReturnsInTurn("/branches", [.. Enumerable.Range(0, 15).Select(_ => Page(100 * page++, 100))]);
+
+        var branches = await Catalog(transport).ListBranchesAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GitHubBranchCatalog.BranchListLimit, branches.Count);
+        Assert.Equal(10, transport.CallsTo("/branches"));
+    }
+
+    private static string Page(int first, int count) =>
+        "[" + string.Join(",", Enumerable.Range(first, count).Select(i => $$"""{"name":"branch-{{i}}"}""")) + "]";
 
     [Fact]
     public async Task A_row_with_no_name_is_dropped_rather_than_listed_blank()
@@ -46,6 +79,51 @@ public class GitHubBranchCatalogTests
 
         Assert.Equal(["main"], branches);
     }
+
+    /// <summary>The heads come out of the same page the names do — GitHub puts
+    /// each branch's commit on its row — so knowing where every branch points
+    /// costs no call beyond the listing.</summary>
+    [Fact]
+    public async Task Branch_heads_carry_the_commit_from_the_same_page()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/branches", """[{"name":"main","commit":{"sha":"aaa"}},{"name":"release/2.0","commit":{"sha":"bbb"}}]""");
+
+        var heads = await Catalog(transport).ListBranchHeadsAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal([new GitHubBranchHead("main", "aaa"), new GitHubBranchHead("release/2.0", "bbb")], heads);
+        Assert.Equal("repos/JSdotNet/Backlog/branches?per_page=100&page=1", Assert.Single(transport.Paths));
+    }
+
+    [Fact]
+    public async Task Branch_heads_are_paged_to_the_same_ceiling()
+    {
+        var page = 0;
+        var transport = new RoutingTransport()
+            .ReturnsInTurn("/branches", [.. Enumerable.Range(0, 15).Select(_ => HeadPage(100 * page++, 100))]);
+
+        var heads = await Catalog(transport).ListBranchHeadsAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GitHubBranchCatalog.BranchListLimit, heads.Count);
+        Assert.Equal(new GitHubBranchHead("branch-999", "sha-999"), heads[^1]);
+        Assert.Equal(10, transport.CallsTo("/branches"));
+    }
+
+    /// <summary>A row with no commit cannot say where it points, so it is no
+    /// head; a row with no name is no branch.</summary>
+    [Fact]
+    public async Task A_row_without_a_name_or_a_commit_is_no_head()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/branches", """[{"name":"main","commit":{"sha":"aaa"}},{"name":"spike"},{"commit":{"sha":"ccc"}}]""");
+
+        var heads = await Catalog(transport).ListBranchHeadsAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.Equal([new GitHubBranchHead("main", "aaa")], heads);
+    }
+
+    private static string HeadPage(int first, int count) =>
+        "[" + string.Join(",", Enumerable.Range(first, count).Select(i => $$$"""{"name":"branch-{{{i}}}","commit":{"sha":"sha-{{{i}}}"}}""")) + "]";
 
     [Fact]
     public async Task A_named_branch_resolves_to_its_head_commit()

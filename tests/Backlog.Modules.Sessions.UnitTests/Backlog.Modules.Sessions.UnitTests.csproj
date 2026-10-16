@@ -31,9 +31,16 @@
   </ItemGroup>
 
   <!-- The pane-header shape the Sessions pane shares with the shell panes in
-       Backlog.Desktop.UI.UnitTests. -->
+       Backlog.Desktop.UI.UnitTests, and the price store the Settings badges there use too. -->
   <ItemGroup>
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubPriceStore.cs" Link="Shared\TestDoubles\StubPriceStore.cs" />
+  </ItemGroup>
+
+  <!-- Recorded delivery run files, so DeliveryRunStagesTests draws a run read through the
+       product's own reader — with the cumulative quality facts and without them. -->
+  <ItemGroup>
+    <None Include="..\Fixtures\delivery-runs\*" Link="Fixtures\delivery-runs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

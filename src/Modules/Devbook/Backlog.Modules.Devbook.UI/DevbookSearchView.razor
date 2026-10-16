@@ -1,28 +1,34 @@
-@inject IDevbookSearch DevbookSearch
+@using Microsoft.Extensions.DependencyInjection
+@implements IDisposable
+@inject IServiceProvider Services
 
 @*
-    Search across the knowledge areas, by the words the chapters use.
+    One question asked of the Brain and every configured repository's devbook at
+    once (.devbook/domain/devbook/features.md#unified-search).
 
-    Two things about this surface are decisions rather than styling.
+    Three things about this surface are decisions rather than styling.
 
     A result is a chapter *address* — path plus slug — and the excerpt beneath it
     is only there to show why that chapter is in the list. That is what
-    `.devbook/domain/devbook/features.md#devbook-retrieval` asks for, and its
-    reason is worth keeping in view: a chapter address is what every other part of
-    this context already links by, so a result that carries one can be opened
-    here, found in the atlas, and cited by an assistant. Loose text could be none
-    of those.
+    `.devbook/domain/devbook/features.md#devbook-retrieval` asks for: a chapter
+    address is what every other part of this context already links by, so a
+    result that carries one can be opened here, found in the atlas, and cited by
+    an assistant. Loose text could be none of those.
+
+    Results are grouped by the devbook they came from, the Brain's group first.
+    The same path means different things in two repositories, and a Brain note
+    and a repository chapter are not one kind of thing, so a single ranked list
+    across them would hide the one fact a reader needs before opening a result:
+    whose it is.
 
     And "there is no index" is a state with words in it. Local ADR 0004's ladder
-    lets every other consumer degrade quietly to Markdown, because browsing
-    touches the handful of files on screen; search cannot, so this is the one
-    place the ladder reaches the reader. The message names the command that fixes
-    it. An empty result list would say "nothing matched", which is a different
-    claim and a false one. DevbookAtlasView does the same thing for the graph
-    and its message is the model this one follows.
+    lets every other consumer degrade quietly to Markdown; search cannot, so a
+    source with no database is named here with the sentence that says why, never
+    dropped from the answer and never shown as an empty group, which would read
+    as "nothing matched" — a different claim and a false one.
 *@
 
-<section class="devbook-search" data-testid="devbook-search" aria-label="Search this devbook">
+<section class="devbook-search" data-testid="devbook-search" aria-label="Search every devbook">
     <header class="devbook-search__header">
         <div class="devbook-search__heading">
             <p class="devbook-search__kicker">Search</p>
@@ -30,110 +36,171 @@
         </div>
         <SearchBox Value="@_query"
                    ValueChanged="RunAsync"
+                   Clock="@_clock"
                    CssClass="devbook-search__box"
                    Placeholder="Words a chapter would use"
                    AriaLabel="Search devbook chapters"
                    TestId="devbook-search-input" />
     </header>
 
-    @if (_answer is { IsUnavailable: true, UnavailableMessage: { Length: > 0 } unavailable })
+    @* Everywhere first, then the Brain, then each repository as configured: one
+       choice of several, so a radio group — one tab stop, the arrows move and
+       select. Drawn only when there is more than one devbook to choose between. *@
+    @if (_sources.Count > 1)
     {
-        <EmptyState Title="@unavailable" role="status" TestId="devbook-search-unavailable" />
-    }
-    else if (_answer is null || string.IsNullOrWhiteSpace(_query))
-    {
-        <EmptyState Title="Search every area at once"
-                    Description="Results name the chapter they came from, so you can open it."
-                    TestId="devbook-search-prompt" />
-    }
-    else if (_answer.Hits.Count == 0)
-    {
-        <EmptyState Title="No chapter uses those words"
-                    Description="Try fewer words, or a word a chapter would spell exactly."
-                    role="status"
-                    TestId="devbook-search-none" />
-    }
-    else
-    {
-        <ul class="devbook-search__results" data-testid="devbook-search-results">
-            @foreach (var hit in _answer.Hits)
+        <ButtonGroup Radio="true"
+                     AriaLabel="Which devbooks to search"
+                     CssClass="devbook-search__scopes"
+                     TestId="devbook-search-scopes">
+            <ToggleButton Pressed="@(_only is null)"
+                          PressedChanged="@(_ => ChooseAsync(null))"
+                          TestId="devbook-search-scope-everywhere">
+                Everywhere
+            </ToggleButton>
+            @foreach (var source in _sources)
             {
-                <li class="devbook-search__result">
-                    @* The address is the control. A hit whose folder this app does
-                       not read is still shown - it is a true answer - but it is
-                       shown as text, because a button that goes nowhere is worse
-                       than no button. The same rule the reference links follow. *@
-                    @if (DevbookChapterLink.From(hit.Chapter.Reference) is { } target)
-                    {
-                        <AppButton BaseClass="devbook-search__open"
-                                   Variant="ButtonVariant.None"
-                                   title="@($"Open {hit.Chapter.Reference}")"
-                                   OnClick="() => OnNavigateToChapter.InvokeAsync(target)">
-                            <span class="devbook-search__result-title">@TitleOf(hit)</span>
-                            <span class="devbook-search__address">@hit.Chapter.Reference</span>
-                        </AppButton>
-                    }
-                    else
-                    {
-                        <span class="devbook-search__result-title">@TitleOf(hit)</span>
-                        <span class="devbook-search__address">@hit.Chapter.Reference</span>
-                    }
-
-                    @if (!string.IsNullOrWhiteSpace(hit.Excerpt))
-                    {
-                        <p class="devbook-search__excerpt">@hit.Excerpt</p>
-                    }
-                </li>
+                <ToggleButton Pressed="@IsChosen(source)"
+                              PressedChanged="@(_ => ChooseAsync(source))"
+                              CssClass="@(source.IsBrain ? "devbook-search__scope--brain" : null)"
+                              TestId="@ScopeTestId(source)">
+                    @source.Label
+                </ToggleButton>
             }
-        </ul>
+        </ButtonGroup>
     }
+
+    <div class="devbook-search__body" data-testid="devbook-search-body">
+        @if (string.IsNullOrWhiteSpace(_query) && !AllUnavailable)
+        {
+            <EmptyState Title="@PromptTitle"
+                        Description="Results are grouped by the devbook they came from and name the chapter, so you can open it."
+                        TestId="devbook-search-prompt" />
+        }
+        else if (!string.IsNullOrWhiteSpace(_query) && !AnyHits && !AnyUnavailable)
+        {
+            <EmptyState Title="No chapter uses those words"
+                        Description="Try fewer words, or a word a chapter would spell exactly."
+                        role="status"
+                        TestId="devbook-search-none" />
+        }
+
+        @foreach (var group in _groups)
+        {
+            @if (group.IsUnavailable)
+            {
+                <EmptyState Title="@($"{group.Source.Label} is not searchable yet")"
+                            Description="@group.UnavailableMessage"
+                            role="status"
+                            CssClass="devbook-search__unavailable"
+                            TestId="devbook-search-unavailable" />
+            }
+            else
+            {
+                <section class="devbook-search__group @(group.Source.IsBrain ? "devbook-search__group--brain" : null)"
+                         data-testid="devbook-search-group"
+                         data-source="@(group.Source.IsBrain ? "brain" : group.Source.Key)"
+                         aria-label="@($"Results from {group.Source.Label}")">
+                    <h4 class="devbook-search__group-heading">
+                        @if (group.Source.IsBrain)
+                        {
+                            @* The word, in the band the Brain wears everywhere
+                               (color-scheme.md#the-brains-accent), never the only
+                               thing saying Brain. *@
+                            <Badge Kind="brain" TestId="devbook-search-group-brain">@group.Source.Label</Badge>
+                        }
+                        else
+                        {
+                            <span class="devbook-search__group-name">@group.Source.Label</span>
+                        }
+                        <Badge Kind="" CssClass="devbook-search__group-count" TestId="devbook-search-group-count">@ResultCount(group.Hits.Count)</Badge>
+                    </h4>
+                    <ul class="devbook-search__results" data-testid="devbook-search-results">
+                        @foreach (var hit in group.Hits)
+                        {
+                            <li class="devbook-search__result">
+                                @* The address is the control. A hit this app cannot
+                                   show is still listed - it is a true answer - but
+                                   as text, because a button that goes nowhere is
+                                   worse than no button. *@
+                                @if (CanOpen(group.Source, hit))
+                                {
+                                    <AppButton BaseClass="devbook-search__open"
+                                               Variant="ButtonVariant.None"
+                                               title="@($"Open {hit.Chapter.Reference} in {group.Source.Label}")"
+                                               OnClick="() => OnOpen.InvokeAsync(new DevbookSearchOpen(group.Source, hit.Chapter.Reference))">
+                                        <span class="devbook-search__result-title">@TitleOf(hit)</span>
+                                        <span class="devbook-search__address">@hit.Chapter.Reference</span>
+                                    </AppButton>
+                                }
+                                else
+                                {
+                                    <span class="devbook-search__result-title">@TitleOf(hit)</span>
+                                    <span class="devbook-search__address">@hit.Chapter.Reference</span>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(hit.Excerpt))
+                                {
+                                    <p class="devbook-search__excerpt">@hit.Excerpt</p>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+        }
+    </div>
 </section>
 
 @code {
-    /// <summary>Enough to fill the panel and stop. A reader who is on result
-    /// thirty has asked the wrong question, and fetching two hundred to prove it
-    /// costs the panel its first draw.</summary>
+    /// <summary>Enough to fill a group and stop, per source. A reader who is on
+    /// result thirty has asked the wrong question.</summary>
     private const int Limit = 30;
 
-    private DevbookSearchAnswer? _answer;
+    /// <summary>How long typing has to pause before the question goes to a model.
+    /// The words answer every keystroke; the meaning answers the question.</summary>
+    private static readonly TimeSpan MeaningPause = TimeSpan.FromMilliseconds(350);
+
+    private DevbookUnifiedSearch _search = null!;
+
+    /// <summary>What the box's debounce and <see cref="MeaningPause"/> are measured
+    /// on: the host's registered clock, or the system one where a host registered
+    /// none. Looked up rather than injected, as the chapter editor's is, so a host
+    /// that opens search does not have to know it keeps time; a test registers a
+    /// clock it moves by hand.</summary>
+    private TimeProvider _clock = TimeProvider.System;
+
+    private IReadOnlyList<DevbookSearchSource> _sources = [];
+    private IReadOnlyList<DevbookSearchGroup> _groups = [];
+    private IReadOnlyList<DevbookSearchGroup> _words = [];
+    private DevbookSearchSource? _only;
     private string _query = string.Empty;
-    private string? _loadedKey;
+    private CancellationTokenSource? _meaning;
+    private int _asked;
 
+    /// <summary>Raised when the reader opens a result, with the devbook it came
+    /// from: the pane decides whether that is the one on screen.</summary>
     [Parameter]
-    public string? RepositoryAlias { get; set; }
+    public EventCallback<DevbookSearchOpen> OnOpen { get; set; }
 
-    /// <summary>One knowledge folder — <c>.domain</c> — or <see langword="null"/>
-    /// for every area at once, which is what the domain asks for by default.</summary>
-    [Parameter]
-    public string? Scope { get; set; }
+    private string Heading => _only?.Label ?? "Everywhere";
 
-    /// <summary>What the scope is called, for the heading.</summary>
-    [Parameter]
-    public string ScopeLabel { get; set; } = "Whole devbook";
+    private string PromptTitle => _only is null ? "Search the Brain and every devbook at once" : $"Search {_only.Label}";
 
-    [Parameter]
-    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+    private bool AnyHits => _groups.Any(group => group.Hits.Count > 0);
 
-    private string Heading => string.IsNullOrWhiteSpace(ScopeLabel) ? "Whole devbook" : ScopeLabel;
+    private bool AnyUnavailable => _groups.Any(group => group.IsUnavailable);
+
+    private bool AllUnavailable => _groups.Count > 0 && _groups.All(group => group.IsUnavailable);
 
     /// <summary>
-    /// Asks once with nothing typed, and again whenever the repository or the
-    /// scope moves.
-    /// <para>
-    /// The empty query is not a wasted call: it is what surfaces the unavailable
-    /// state before the reader types. Telling somebody there is no index the
-    /// moment they open search is the whole point of that state — finding out
-    /// after typing a question would be the empty list this exists to avoid,
-    /// arriving one keystroke later.
-    /// </para>
+    /// Asks once with nothing typed. The empty query is not a wasted call: it is
+    /// what names a source with no index before the reader types, and finding out
+    /// after typing would be the empty list this surface exists to avoid.
     /// </summary>
-    protected override void OnParametersSet()
+    protected override void OnInitialized()
     {
-        var key = $"{RepositoryAlias}|{Scope}";
-        if (string.Equals(_loadedKey, key, StringComparison.Ordinal)) return;
-
-        _loadedKey = key;
-        _query = string.Empty;
+        _search = Services.GetService<DevbookUnifiedSearch>() ?? DevbookUnifiedSearch.From(Services);
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
         Run();
     }
 
@@ -144,7 +211,77 @@
         return Task.CompletedTask;
     }
 
-    private void Run() => _answer = DevbookSearch.Search(_query, RepositoryAlias, Scope, Limit);
+    private Task ChooseAsync(DevbookSearchSource? source)
+    {
+        _only = source;
+        Run();
+        return Task.CompletedTask;
+    }
+
+    private bool IsChosen(DevbookSearchSource source) =>
+        _only is not null && string.Equals(_only.Key, source.Key, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The words now, the meaning once typing pauses — and only the
+    /// answer to the latest question is ever drawn.</summary>
+    private void Run()
+    {
+        var asked = ++_asked;
+        _meaning?.Cancel();
+        _meaning?.Dispose();
+        _meaning = null;
+
+        // Read again on every question, so a repository added or removed while
+        // the search is open moves the chips and the groups together.
+        _sources = _search.Sources();
+        _words = _search.Words(_query, _only, Limit);
+        _groups = DevbookSearchMerge.Group(_words);
+
+        if (!_search.SearchesByMeaning || string.IsNullOrWhiteSpace(_query)) return;
+
+        _meaning = new CancellationTokenSource();
+        _ = RefineAsync(asked, _words, _query, _meaning.Token);
+    }
+
+    /// <summary>
+    /// The meaning answer merged into the words already drawn, once typing
+    /// pauses. Off the drawing thread — it embeds over the network and reads every
+    /// source's vectors — and never at the cost of the words: whatever goes wrong
+    /// here leaves the words answer standing, because search by meaning is
+    /// additive.
+    /// </summary>
+    private async Task RefineAsync(int asked, IReadOnlyList<DevbookSearchGroup> words, string query, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(MeaningPause, _clock, cancellationToken);
+            var merged = await Task.Run(() => _search.WithMeaningAsync(words, query, Limit, cancellationToken), cancellationToken);
+
+            if (asked != _asked || cancellationToken.IsCancellationRequested) return;
+
+            _groups = DevbookSearchMerge.Group(merged);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+#pragma warning disable CA1031 // The meaning tier is additive: any failure leaves the words answer.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+        }
+    }
+
+    /// <summary>Whether this app can open the hit: a repository chapter in a
+    /// folder the pane reads, or a Brain note inside one of its areas.</summary>
+    private static bool CanOpen(DevbookSearchSource source, DevbookSearchHit hit) =>
+        (source.IsBrain
+            ? DevbookChapterLink.ForBrainNote(hit.Chapter.Reference)
+            : DevbookChapterLink.From(hit.Chapter.Reference)) is not null;
+
+    private static string ScopeTestId(DevbookSearchSource source) =>
+        source.IsBrain ? "devbook-search-scope-brain" : $"devbook-search-scope-{source.Key}";
+
+    private static string ResultCount(int count) => count == 1 ? "1 result" : $"{count} results";
 
     /// <summary>The chapter's own name, falling back to the file when a chapter is
     /// the file itself and never to the slug — a slug is an address, and it is
@@ -153,4 +290,12 @@
         !string.IsNullOrWhiteSpace(hit.Chapter.Title)
             ? hit.Chapter.Title!
             : hit.Chapter.Path[(hit.Chapter.Path.LastIndexOf('/') + 1)..];
+
+    public void Dispose()
+    {
+        _asked++;
+        _meaning?.Cancel();
+        _meaning?.Dispose();
+        _meaning = null;
+    }
 }

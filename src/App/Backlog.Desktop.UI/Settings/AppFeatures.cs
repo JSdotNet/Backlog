@@ -4,6 +4,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.SharedKernel;
@@ -76,6 +77,12 @@ public static class AppFeatures
         new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(RoadmapFeatures.Roadmap, "Roadmap view", "Offer the Roadmap view in the Home shell's view switch, beside Tasks: plans on a graduated axis under their own Planning heading."),
+        new(
+            ProgressFeatures.Progress,
+            "Progress",
+            "Work in sprints: give a set of repositories one cadence, fill each sprint with tasks and whole plans, follow its goal and close it into the next. Repositories in no sprint series keep the In progress view.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
         // The devbook keys carried the context's former name; the former keys
         // keep a features.json written before the rename reading as it did.
         // Devbook also absorbed the separate Devbook sections switch, so a
@@ -124,7 +131,7 @@ public static class AppFeatures
             "Pull requests",
             "Open the full-screen list of your open pull requests across every registered repository, and update, ready or merge them from there.",
             Status: AppFeatureStatus.Dev),
-        new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost.", Status: AppFeatureStatus.Dev),
+        new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost."),
         new(
             SyncFeatures.Sync,
             "Sync",

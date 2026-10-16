@@ -342,6 +342,91 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
     }
 
+    /// <summary>
+    /// A request naming a heading — a scenario part pressed in an entry's Acceptance
+    /// checklist — hands the heading to the panel with the chapter, so the page can
+    /// mark and scroll to it. It stays until the reader picks a chapter themselves:
+    /// back on the same chapter from the menu, nothing is focused any more.
+    /// </summary>
+    [Fact]
+    public async Task A_request_with_an_anchor_carries_it_to_the_panel_until_the_reader_picks_a_chapter()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/domain/tasks/domain.md#what-the-tasks-context-is", 1)));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(".domain/tasks/domain.md", ChapterPath(component));
+            Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
+        });
+        var first = component.FindComponent<DomainDevbookPanel>().Instance.Focus!.Sequence;
+
+        // The same part asked for again is a new request: a new sequence, so the
+        // page scrolls to it again.
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/domain/tasks/domain.md#what-the-tasks-context-is", 2)));
+        component.WaitForAssertion(() => Assert.True((component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Sequence ?? 0) > first));
+
+        // The reader picks another chapter, then comes back to this one: the
+        // focus was the request's, not the chapter's.
+        await ClickMenuItemAsync(component, "Context Map");
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
+        Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/domain/tasks/domain.md", 3)));
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
+        Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
+    }
+
+    /// <summary>A section switched to and back is the reader's own pick too.</summary>
+    [Fact]
+    public async Task Switching_section_drops_the_focused_anchor()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(new DevbookOpenRequest(".domain/tasks/domain.md#what-the-tasks-context-is", 1));
+        component.WaitForAssertion(() => Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor));
+
+        await component.InvokeAsync(() => component.Find("#tab-arc42").Click());
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
+        await component.InvokeAsync(() => component.Find("#tab-domain").Click());
+
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
+        Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
+    }
+
+    /// <summary>A part asked for in one repository is that repository's: switched to
+    /// a fork with a page at the same path, the pane focuses nothing there.</summary>
+    [Fact]
+    public async Task A_focused_part_does_not_follow_the_pane_into_another_repository()
+    {
+        await using var harness = CreateHarness(withFork: true);
+        Assert.NotNull(harness.ForkAlias);
+
+        var component = harness.Render(new DevbookOpenRequest(".domain/tasks/domain.md#what-the-tasks-context-is", 1));
+        component.WaitForAssertion(() => Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor));
+
+        component.Render(parameters => parameters.Add(pane => pane.RepositoryAlias, harness.ForkAlias));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(".domain/tasks/domain.md", ChapterPath(component));
+            Assert.Equal(harness.ForkAlias, component.FindComponent<DomainDevbookPanel>().Instance.RepositoryAlias);
+            Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus);
+        });
+    }
+
+    private static Task ClickMenuItemAsync(IRenderedComponent<DevbookPane> component, string label) =>
+        component.InvokeAsync(() => component.FindAll(".devbook-menu__item")
+            .Single(item => string.Equals(item.QuerySelector(".devbook-menu__label")?.TextContent.Trim(), label, StringComparison.Ordinal))
+            .Click());
+
     private static string ChapterPath(IRenderedComponent<DevbookPane> component) =>
         component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent;
 
@@ -364,15 +449,9 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         component.FindAll("button.devbook-ref--action")
             .Single(button => string.Equals(button.GetAttribute("title"), raw, StringComparison.Ordinal));
 
-    private Harness CreateHarness(string? contextMap = null, bool withDecisionRecords = false)
+    private Harness CreateHarness(string? contextMap = null, bool withDecisionRecords = false, bool withFork = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-navigation", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
-        Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
-
-        File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), contextMap ?? ContextMap);
-        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
+        var root = NewRoot(contextMap);
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), $"# Context and scope\n\nThe system in its surroundings{(withDecisionRecords ? ", decided in `.arc42/adr/0004-index.md`" : string.Empty)}.\n");
 
         if (withDecisionRecords)
@@ -391,17 +470,18 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
-        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        var (repositories, errors) = GitHubSettings.ParseText(withFork ? "JSdotNet/Backlog\nfork = someone/Backlog" : "JSdotNet/Backlog");
         Assert.Empty(errors);
 
         // Two sections and no more, so the pane opens on Domain and the test is not
-        // also a test of the folders this machine happens to have.
-        var repository = Assert.Single(repositories) with
-        {
-            CloneDirectory = root,
-            DevbookFolders = [.. DevbookFolderSetting.Defaults().Select(folder => folder with { Enabled = folder.Key is ".domain" or ".arc42" })]
-        };
-        Assert.Null(gitHub.SetRepositories([repository]));
+        // also a test of the folders this machine happens to have. A fork, where
+        // asked for, is a second clone with the same chapters at the same paths.
+        List<DevbookFolderSetting> folders = [.. DevbookFolderSetting.Defaults().Select(folder => folder with { Enabled = folder.Key is ".domain" or ".arc42" })];
+        var configured = repositories
+            .Select((entry, index) => entry with { CloneDirectory = index == 0 ? root : NewRoot(contextMap), DevbookFolders = folders })
+            .ToList();
+        var repository = configured[0];
+        Assert.Null(gitHub.SetRepositories(configured));
 
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -430,7 +510,20 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         // temp folder and keeps the compare control out of the way.
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
 
-        return new Harness(context, repository.Alias);
+        return new Harness(context, repository.Alias, configured.Count > 1 ? configured[1].Alias : null);
+    }
+
+    /// <summary>A clone with the Domain and arc42 chapters every test here reads.</summary>
+    private string NewRoot(string? contextMap)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-navigation", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
+        Directory.CreateDirectory(Path.Combine(root, ".arc42"));
+        _roots.Add(root);
+
+        File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), contextMap ?? ContextMap);
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
+        return root;
     }
 
     public void Dispose()
@@ -442,7 +535,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         }
     }
 
-    private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable
+    private sealed record Harness(BunitContext Context, string RepositoryAlias, string? ForkAlias = null) : IAsyncDisposable
     {
         public IRenderedComponent<DevbookPane> Render(DevbookOpenRequest? open = null, Action<long>? followed = null) =>
             Context.Render<DevbookPane>(parameters =>

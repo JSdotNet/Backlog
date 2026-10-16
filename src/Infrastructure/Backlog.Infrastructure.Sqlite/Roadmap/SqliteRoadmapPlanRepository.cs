@@ -254,10 +254,9 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
     // --- Schema -------------------------------------------------------------
 
     /// <summary>Creates the database and this table if they are not there yet. Called
-    /// on the way into every operation, for the reason
-    /// <see cref="SqliteTaskRepository"/> gives: the statements are idempotent, and
-    /// caching which paths have been prepared would be wrong the first time somebody
-    /// moved or deleted the file underneath a running app.
+    /// on the way into every operation; the setup itself runs only on a file not yet
+    /// stamped with this <see cref="Schema"/>, for the reasons
+    /// <see cref="SqliteSchema.OpenAsync"/> gives.
     /// <para>
     /// This repository creates <em>only</em> its own table, and the task repository
     /// only creates its own. Inherited ADR 0014 puts persistence in the hands of the
@@ -269,15 +268,17 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
     /// all three are column-level — add a nullable column, seed it, rewrite a retired
     /// value — so creating a table is not one of them. It is covered by local ADR 0003
     /// instead, which put the schema statements behind idempotent <c>IF NOT EXISTS</c>
-    /// DDL run on every open. An existing <c>backlog.db</c> full of tasks gains this
+    /// DDL run on any open the file is not yet stamped for. An existing <c>backlog.db</c> full of tasks gains this
     /// table and loses nothing.
     /// </para></summary>
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
 
-    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
-    {
-        await SqliteSchema.EnsureAsync(connection, """
+    // No index. The table holds one row and every read is by primary key, so
+    // there is nothing an index could accelerate.
+    internal static readonly SqliteSchemaDefinition Schema = new(
+        owner: "roadmap",
+        ddl: """
             CREATE TABLE IF NOT EXISTS roadmap_plan (
                 id         TEXT PRIMARY KEY NOT NULL,
                 document   TEXT NOT NULL,
@@ -288,9 +289,5 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
                 -- about columns added to a populated table, and this is not one.
                 updated_at TEXT NOT NULL
             );
-            """, cancellationToken).ConfigureAwait(false);
-
-        // No index. The table holds one row and every read is by primary key, so
-        // there is nothing an index could accelerate.
-    }
+            """);
 }

@@ -179,6 +179,8 @@
         @if (!IsNew)
         {
             <DeleteButton Lead="true"
+                          Busy="@(_pending is PendingWrite.Delete)"
+                          aria-disabled="@Blocked"
                           OnClick="DeleteAsync"
                           TestId="roadmap-editor-delete" />
         }
@@ -194,11 +196,70 @@
             </AppButton>
         }
 
+        @* The plan's tasks, in the task list: offered for stored work that tasks
+           already carry — it gathered at least one — and only where the host has a list
+           to show them in. Work no task carries offers Complete instead, below: an
+           empty list under the plan chip is nothing to go and look at. Going there
+           closes the dialog, so while it holds an unsaved change the button waits, and
+           says why — to the pointer through `title` and to assistive technology through
+           aria-describedby, as IntegrationAction and CopyButton do: a disabled button
+           leaves the tab order and a title is not announced reliably. *@
+        @if (CanOpenTasks && State.HasTasks && Item is { Tag.Length: > 0 } tagged)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@HasUnsavedChanges"
+                       title="@(HasUnsavedChanges ? OpenTasksWaitReason : null)"
+                       aria-describedby="@(HasUnsavedChanges ? _openTasksReasonId : null)"
+                       OnClick="() => OnOpenTasks.InvokeAsync(tagged.Id)"
+                       TestId="roadmap-editor-open-tasks">
+                Open in Tasks
+            </AppButton>
+
+            @if (HasUnsavedChanges)
+            {
+                <span id="@_openTasksReasonId"
+                      class="sr-only"
+                      data-testid="roadmap-editor-open-tasks-reason">@OpenTasksWaitReason</span>
+            }
+        }
+
+        @* Work no task carries has nothing to say it is done, so the person does:
+           Complete records today, Reopen takes it back. Both write and close the
+           dialog, so they wait out an unsaved change the way Open in Tasks does. Once
+           tasks carry the item neither is offered — their progress decides. *@
+        @if (Item is { } stored && !State.HasTasks && (State.IsCompletedByHand ? OnReopen.HasDelegate : OnComplete.HasDelegate))
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@HasUnsavedChanges"
+                       Busy="@(_pending is PendingWrite.Completion)"
+                       aria-disabled="@Blocked"
+                       title="@(HasUnsavedChanges ? OpenTasksWaitReason : null)"
+                       aria-describedby="@(HasUnsavedChanges ? _completionReasonId : null)"
+                       OnClick="() => CompletionAsync(stored.Id)"
+                       TestId="@(State.IsCompletedByHand ? "roadmap-editor-reopen" : "roadmap-editor-complete")">
+                @(State.IsCompletedByHand ? "Reopen" : "Complete")
+            </AppButton>
+
+            @if (HasUnsavedChanges)
+            {
+                <span id="@_completionReasonId"
+                      class="sr-only"
+                      data-testid="roadmap-editor-completion-reason">@OpenTasksWaitReason</span>
+            }
+        }
+
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
             Cancel
         </AppButton>
 
-        <AppButton Variant="ButtonVariant.Primary" OnClick="SaveAsync" TestId="roadmap-editor-save">
+        @* Busy from the press until the band has answered, so a second press is
+           dropped rather than planning the work twice (#busy-actions). *@
+        <AppButton Variant="ButtonVariant.Primary"
+                   Busy="@(_pending is PendingWrite.Save)"
+                   BusyLabel="Saving"
+                   aria-disabled="@Blocked"
+                   OnClick="SaveAsync"
+                   TestId="roadmap-editor-save">
             @(IsNew ? "Plan it" : "Save")
         </AppButton>
     </Footer>
@@ -207,6 +268,11 @@
 @code {
     private const string MediumPriority = nameof(PlanningPriority.Medium);
     private const string DefaultLanePlaceholder = "Planned";
+    private const string OpenTasksWaitReason = "Save or cancel your changes first";
+
+    // Unique per instance: two editors on one page would otherwise send
+    // aria-describedby to whichever reason the browser saw first.
+    private readonly string _openTasksReasonId = $"roadmap-editor-open-tasks-reason-{Guid.NewGuid():N}";
 
     private string _title = string.Empty;
     private string _start = string.Empty;
@@ -260,6 +326,11 @@
     [Parameter]
     public IReadOnlyList<PlannedRepository> Repositories { get; set; } = [];
 
+    /// <summary>Whether this device shows archived repositories: only then is an
+    /// archived one offered to file new work under (local ADR 0029, §3).</summary>
+    [Parameter]
+    public bool ShowArchived { get; set; }
+
     /// <summary>Everything else in the plan, so an item can be told what it waits
     /// for. Milestones included: work waits on a release as readily as on work.</summary>
     [Parameter]
@@ -291,6 +362,45 @@
     /// <summary>Raised when the person hands the end back to the forecast.</summary>
     [Parameter]
     public EventCallback<Guid> OnUseForecast { get; set; }
+
+    /// <summary>Whether the host can show the item's plan in the task list, so
+    /// "Open in Tasks" is worth offering. The band decides; the dialog only shows
+    /// it.</summary>
+    [Parameter]
+    public bool CanOpenTasks { get; set; }
+
+    /// <summary>Raised with the item's id when the person asks for its plan in the
+    /// task list.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnOpenTasks { get; set; }
+
+    /// <summary>Raised with the item's id when the person completes work no task carries.
+    /// The band records today and closes the dialog, or refuses through
+    /// <see cref="Refuse"/>.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnComplete { get; set; }
+
+    /// <summary>Raised with the item's id when the person reopens work they completed.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnReopen { get; set; }
+
+    /// <summary>Whether tasks carry the item and whether it was completed by hand, read
+    /// from the item and what it gathered — the same answer its bar is drawn from.</summary>
+    private RoadmapItemState State =>
+        Item is null ? new RoadmapItemState(false, null) : RoadmapPlanView.StateOf(Item, Rollup);
+
+    private readonly string _completionReasonId = $"roadmap-editor-completion-reason-{Guid.NewGuid():N}";
+
+    /// <summary>Complete or Reopen, whichever is offered. One write at a time, like Save
+    /// and Delete; nothing is written while the fields hold an unsaved change.</summary>
+    private async Task CompletionAsync(Guid id)
+    {
+        if (_pending is not PendingWrite.None || HasUnsavedChanges) return;
+
+        _error = null;
+        var reopen = State.IsCompletedByHand;
+        await WriteAsync(PendingWrite.Completion, () => (reopen ? OnReopen : OnComplete).InvokeAsync(id));
+    }
 
     private bool IsNew => Item is null;
 
@@ -353,7 +463,10 @@
     ];
 
     private IReadOnlyList<SelectorOption> RepositoryOptions =>
-        [.. Repositories.Select(repository => new SelectorOption(repository.Alias, repository.Title))];
+        PlannedRepositoryOptions.For(
+            Repositories,
+            ShowArchived,
+            Item?.RepositoryAliases ?? (Placement?.Repository is { } placed ? [placed] : []));
 
     // Knowledge references are free-typed: there is no fixed list to offer, so the
     // multi-select is a create-only chip editor over whatever the person writes.
@@ -386,6 +499,7 @@
 
         if (Item is null)
         {
+            _loadedFields = null;
             _title = string.Empty;
             // A fortnight, which is a plan-shaped default: long enough to be a piece
             // of work, short enough that nobody leaves it as it arrived. From the week
@@ -418,7 +532,39 @@
         _repositories = [.. Item.RepositoryAliases];
         _dependsOn = [.. Item.DependsOn.Select(id => id.ToString())];
         _knowledge = [.. Item.Knowledge];
+        _loadedFields = Fields();
     }
+
+    /// <summary>The fields a Save writes, as they were loaded from the stored item;
+    /// null for new work. Dependencies are not among them: each one is stored the
+    /// moment it is ticked.</summary>
+    private EditedFields? _loadedFields;
+
+    /// <summary>Whether the fields differ from the stored item — an edit a Save would
+    /// write and closing the dialog would lose.</summary>
+    private bool HasUnsavedChanges => _loadedFields is { } loaded && loaded != Fields();
+
+    private EditedFields Fields() => new(
+        _title,
+        _start,
+        _end,
+        _priority,
+        _lane,
+        _notes,
+        _tag,
+        string.Join('\n', _repositories),
+        string.Join('\n', _knowledge));
+
+    private sealed record EditedFields(
+        string Title,
+        string Start,
+        string End,
+        string Priority,
+        string Lane,
+        string Notes,
+        string Tag,
+        string Repositories,
+        string Knowledge);
 
     /// <summary>The title, and — until the person takes the tag over — the tag with
     /// it. Once they have edited the tag, the title stops driving it.</summary>
@@ -444,6 +590,8 @@
 
     private async Task SaveAsync()
     {
+        if (_pending is not PendingWrite.None) return;
+
         _titleError = string.IsNullOrWhiteSpace(_title) ? "Give it a title." : null;
         _windowError = null;
         _error = null;
@@ -464,7 +612,7 @@
 
         if (_titleError is not null || _windowError is not null) return;
 
-        await OnSave.InvokeAsync(new RoadmapEditorSubmission(
+        await WriteAsync(PendingWrite.Save, () => OnSave.InvokeAsync(new RoadmapEditorSubmission(
             Item?.Id,
             _title.Trim(),
             start!.Value,
@@ -476,7 +624,43 @@
             string.IsNullOrWhiteSpace(_notes) ? null : _notes,
             // A blank tag says "derive it from the title"; the module does that.
             string.IsNullOrWhiteSpace(_tag) ? null : _tag.Trim(),
-            _knowledge));
+            _knowledge)));
+    }
+
+    /// <summary>The write in flight, if any: one at a time, so a second press of
+    /// either button while the band answers the first is dropped.</summary>
+    private PendingWrite _pending;
+
+    /// <summary>Save and Delete while either runs: aria-disabled rather than the
+    /// native attribute, so the one not pressed keeps its place in the tab order
+    /// (#accessibility); SaveAsync and DeleteAsync drop its press.</summary>
+    private string? Blocked => _pending is PendingWrite.None ? null : "true";
+
+    private enum PendingWrite
+    {
+        None,
+        Save,
+        Delete,
+        Completion
+    }
+
+    /// <summary>Marks the pressed button busy, lets that paint, then waits on the
+    /// band. The yield is the acknowledgement before work: the band's write may do
+    /// its own synchronous work before its first await, and without it the busy
+    /// state would only show once that was over (#press-feedback).</summary>
+    private async Task WriteAsync(PendingWrite write, Func<Task> act)
+    {
+        _pending = write;
+
+        try
+        {
+            await Task.Yield();
+            await act();
+        }
+        finally
+        {
+            _pending = PendingWrite.None;
+        }
     }
 
     private async Task OnDependenciesChangedAsync(IReadOnlyList<string> values)
@@ -508,7 +692,10 @@
 
     private async Task DeleteAsync()
     {
-        if (Item is not null) await OnDelete.InvokeAsync(Item.Id);
+        if (Item is { } item && _pending is PendingWrite.None)
+        {
+            await WriteAsync(PendingWrite.Delete, () => OnDelete.InvokeAsync(item.Id));
+        }
     }
 
     private async Task CancelAsync() => await OpenChanged.InvokeAsync(false);

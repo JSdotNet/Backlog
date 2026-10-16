@@ -64,20 +64,16 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
 
         var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
-        var accepted = 0;
 
-        // One document at a time rather than a transactional batch, for the
+        // One request per document rather than a transactional batch, for the
         // reason the task replica gives: a single unlucky document must not
-        // send the rest of the batch back.
-        foreach (var change in changes)
-        {
-            if (await WriteIfLaterAsync(container, partition, scope, change, cancellationToken).ConfigureAwait(false))
-            {
-                accepted++;
-            }
-        }
-
-        return accepted;
+        // send the rest of the batch back. Several documents at once and never
+        // two writes to one, for the round trips the task replica counts.
+        return await ReplicaWrites.WriteAllAsync(
+            changes,
+            change => ReplicaDocumentSerialization.Key(change.Id),
+            (change, token) => WriteIfLaterAsync(container, partition, scope, change, token),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>How often one document is re-read and re-tried after another

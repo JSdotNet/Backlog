@@ -10,6 +10,7 @@ using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
@@ -25,6 +26,8 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
+using Backlog.Modules.Progress.Extensions;
+using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -98,6 +101,12 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(options.UsageResetSettings);
         services.AddSingleton(options.SpendBudgetSettings);
         services.AddSingleton(options.PlanningVelocitySettings);
+        // One store behind both My Day ports (local ADR 0032, §2): the screens read and
+        // set the switch, and the sync client — which takes the replication port as an
+        // optional parameter of the merge, the session and the loop — carries it.
+        services.AddSingleton(options.MyDayPreferences);
+        services.AddSingleton<IMyDayPreferences>(sp => sp.GetRequiredService<MyDayPreferencesStore>());
+        services.AddSingleton<IMyDayPreferencesReplication>(sp => sp.GetRequiredService<MyDayPreferencesStore>());
         services.AddSingleton(options.ShellNavigation);
         // What can change which surface is showing from outside the user interface —
         // the delivery surface's open_dashboard asks. Twice over so the shell can
@@ -130,6 +139,11 @@ public static class DesktopCompositionRegistration
         // planning port it holds exists.
         services.AddRoadmapAiContentSource();
 
+        // Progress (local ADR 0028): the sprint series and the progress service. Its
+        // ports ask the progress switch at every call and its screens draw under it,
+        // so composing it offers nothing while the switch is off.
+        services.AddProgressModule();
+
         // Capture: the module brings the run, and the head decides where the
         // monitored sources and what past runs said are kept. The source adapters
         // and the delivery come further down, after the Inbox they deliver into.
@@ -142,6 +156,9 @@ public static class DesktopCompositionRegistration
         // because only an adapter may see both contexts. Scoped, like the module
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
+
+        // The tasks a sprint names, read through Tasks' published ITaskItems.
+        services.AddProgressCrossContextAdapters();
 
         // The backlog's work badges ask what state a linked agent session is in; the
         // answer comes from the Sessions record through an adapter, for the same reason.
@@ -211,9 +228,13 @@ public static class DesktopCompositionRegistration
         // settings, for the drafter's reasons and with its lifetime. A host that
         // wants a stand-in replaces this registration after the call.
         services.Add(new ServiceDescriptor(typeof(IInboxTriageAdvisor), typeof(AzureFoundryInboxTriageAdvisor), options.WindowStateLifetime));
-        // The embedding deployment beside the chat one, registered and dormant:
-        // local ADR 0004's semantic tier is wired and nothing writes vectors yet.
+        // The embedding deployment beside the chat one: the devbook databases'
+        // semantic tier (local ADR 0004), embedded by the refresher below and
+        // asked by the search panel, both through FoundryDevbookEmbedder.
         services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
+        services.AddSingleton(sp => new FoundryDevbookEmbedder(
+            sp.GetRequiredService<IAzureFoundryEmbeddingsClient>,
+            sp.GetRequiredService<AzureFoundrySettingsStore>()));
 
         // Claude usage reporting reports itself unavailable until an Admin API key
         // is configured, so it is safe to register unconditionally.
@@ -268,9 +289,15 @@ public static class DesktopCompositionRegistration
         // syncs. Drawn from the connectors' descriptors, so it needs no change when
         // one is added.
         services.AddTaskConnectorSettings();
+        // The Tasks page: My Day's Clear My Day overnight switch, over the
+        // preferences store registered with the sync ports (local ADR 0032).
+        services.AddTasksSettings();
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();
+        // The Sprints page: a card per sprint series and the repositories in none.
+        // Offered behind the progress switch, like every Progress screen.
+        services.AddProgressSettings();
         // The band under every route reads the backlog's save state through the
         // library's interface, and the toast tray in MainLayout reads the channel a
         // screen puts a message in; concrete type and interface resolve the same one.
@@ -285,8 +312,24 @@ public static class DesktopCompositionRegistration
             options.WindowStateLifetime));
         services.AddSingleton(options.FolderEditorLauncher);
 
+        // The Brain folder (local ADR 0026): where it is, kept per user and never in
+        // the folder, and the file-system work of setting one up that the Settings
+        // card does. The folder picker behind its Browse is the desktop head's
+        // alone; a host that registers none types the folder instead.
+        services.AddSingleton(options.BrainSettings);
+        services.AddSingleton<IBrainSettings>(sp => sp.GetRequiredService<BrainSettingsStore>());
+        services.AddSingleton(_ => new BrainFolderSetup());
+
         services.AddSingleton(options.AppUpdateService);
         services.AddSingleton(options.DevToolService);
+        // The tools pane's tab and host filter, kept per device in the shell's own
+        // navigation file beside the surface it reopens on.
+        services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
+            new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
+        // Show archived (local ADR 0029, §3): whether the archived repositories are
+        // offered in the scope, the Board and the pickers, kept per device in the same file.
+        services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>
+            new ShowArchivedRepositories(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 
@@ -343,15 +386,45 @@ public static class DesktopCompositionRegistration
         // The devbook database: built by the app into the same cache folder as the
         // snapshots, one per repository path, in the background when a repository
         // is first read (local ADR 0015). Each head resolves it after Build(), which
-        // is what points every database reader at that folder.
+        // is what points every database reader at that folder. Each check then
+        // embeds the chapters the database has no vector for — into the same file,
+        // never the folder — and asks nothing while no deployment is configured.
         services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-            sp.GetService<ILogger<DevbookDatabaseRefresher>>()));
+            sp.GetService<ILogger<DevbookDatabaseRefresher>>(),
+            sp.GetService<FoundryDevbookEmbedder>));
 
         services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
             sp.GetRequiredService<GitHubSettingsStore>(),
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<IDevbookSnapshotCache>()));
+
+        // The Brain (local ADR 0026): its folder asked of the person's setting on
+        // every resolve, under a port of its own — registering it as a second
+        // IDevbookFolderSource would replace the repository source every search,
+        // reference and annotation reader resolves. The watch ties the setting to
+        // the refresher above; each head starts it after Build().
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<IBrainSettings>();
+            return new BrainFolderSource(() => settings.BrainFolder);
+        });
+        services.AddSingleton<IBrainFolderSource>(sp => sp.GetRequiredService<BrainFolderSource>());
+
+        // The one writer of a new note into the Brain's inbox area: the pane's
+        // Capture, triage's To Brain and the capture tool all go through it.
+        services.AddSingleton<IBrainNoteWriter>(sp => new BrainNoteWriter(sp.GetRequiredService<IBrainFolderSource>()));
+
+        // The Brain notes that link to a repository chapter, read in reverse from
+        // the Brain's own database (local ADR 0027 §6) — so the repository's
+        // devbook shows its owner "From your Brain" and nothing is written there.
+        services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
+        services.AddSingleton<IBrainTaskLinks>(sp => new BrainTaskLinkReader(sp.GetRequiredService<IBrainFolderSource>()));
+        services.AddSingleton(sp => new BrainFolderWatch(
+            sp.GetRequiredService<IBrainSettings>(),
+            sp.GetRequiredService<IBrainFolderSource>(),
+            sp.GetRequiredService<DevbookDatabaseRefresher>(),
+            sp.GetService<ILogger<BrainFolderWatch>>()));
 
         // Retrieval, both tiers. Adapters over the generated database rather than
         // over the Markdown: search is the one capability ADR 0004's ladder does
@@ -361,6 +434,11 @@ public static class DesktopCompositionRegistration
             new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
         services.AddSingleton<IDevbookVectorSearch>(sp =>
             new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
+        // What turns a reader's question into a vector for the search by meaning,
+        // over the same Foundry account the chat uses. Asked only while
+        // devbook-semantic-search is on and a deployment is configured; any
+        // failure reads as "no model", and the words answer alone.
+        services.AddSingleton<IDevbookQueryEmbedder>(sp => sp.GetRequiredService<FoundryDevbookEmbedder>());
         // What a task's Devbook references point at, for the Tasks detail panel and
         // the MCP reference tools: Tasks' port, answered over the same database and
         // folders, falling back to the Markdown where there is no database.

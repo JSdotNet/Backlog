@@ -79,6 +79,15 @@ public sealed record DeliveryRunStageWorker(
     /// <summary>When the call returned, where the run's insights recorded it — what,
     /// with <see cref="DurationMs"/>, places the call's own requests in time.</summary>
     public DateTimeOffset? EndedAt { get; init; }
+
+    /// <summary>
+    /// The implement ⇄ review round this call worked, where the round belongs to it
+    /// alone: the round the stage's execution listed against the call under
+    /// <c>runs</c>, else the stage's own <see cref="DeliveryRunStage.Round"/> when this
+    /// is the only call the stage made. Null otherwise — a round several calls shared
+    /// is the stage's, not any one worker's.
+    /// </summary>
+    public int? Round { get; init; }
 }
 
 /// <summary>
@@ -138,6 +147,18 @@ public sealed record DeliveryRunStageExecution(
     /// <summary>Whether a value on the stage was inferred rather than recorded — the ?
     /// mark. The mode is the value inference decides.</summary>
     public bool Inferred => !ModeRecorded;
+
+    /// <summary>The implement ⇄ review round the stage's latest pass worked, as
+    /// <see cref="DeliveryRunStage.Round"/> carries it; null where it reported none.</summary>
+    public int? Round { get; init; }
+
+    /// <summary>The blockers Review's latest round left open
+    /// (<see cref="DeliveryRunStage.Blockers"/>); null where it reported none.</summary>
+    public int? Blockers { get; init; }
+
+    /// <summary>The defects Verify's latest pass found that review had passed
+    /// (<see cref="DeliveryRunStage.DefectsFound"/>); null where it reported none.</summary>
+    public int? DefectsFound { get; init; }
 }
 
 /// <summary>
@@ -359,7 +380,12 @@ public static partial class DeliveryRunStageResolution
             DurationMs: stage.DurationMs,
             OutputTokens: run.TokenUsage?.ByStage.FirstOrDefault(usage => string.Equals(usage.StageName, stage.Name, StringComparison.Ordinal))?.Total.OutputTokens,
             ToolCalls: stage.ToolCalls,
-            RunRecordsPhases: map is { Count: > 0 });
+            RunRecordsPhases: map is { Count: > 0 })
+        {
+            Round = stage.Round,
+            Blockers = stage.Blockers,
+            DefectsFound = stage.DefectsFound
+        };
     }
 
     /// <summary>
@@ -374,14 +400,25 @@ public static partial class DeliveryRunStageResolution
             .Select(call => new DeliveryRunStageWorker(call.Agent, call.Model, null, null, call.DurationMs, call.Tokens, call.ToolCalls, call.Failed, false, isGate, true) { EndedAt = call.EndedAt })
             .ToList();
 
-        if (workers.Count == 0 && ran["runs"] is JsonArray calls)
-        {
-            foreach (var call in calls.OfType<JsonObject>())
-            {
-                if (Text(call, "agent") is not { } name || OwnerWords.Contains(name)) continue;
+        // The sub-agent calls the execution listed under "runs", the owner's own
+        // slices excepted.
+        var listed = ran["runs"] is JsonArray calls
+            ? calls.OfType<JsonObject>().Where(call => Text(call, "agent") is { } name && !OwnerWords.Contains(name)).ToList()
+            : [];
 
-                workers.Add(new DeliveryRunStageWorker(name, Text(call, "model"), Text(call, "effort"), Text(call, "slice"), null, null, null, false, false, isGate, false));
+        if (workers.Count == 0)
+        {
+            foreach (var call in listed)
+            {
+                workers.Add(new DeliveryRunStageWorker(Text(call, "agent")!, Text(call, "model"), Text(call, "effort"), Text(call, "slice"), null, null, null, false, false, isGate, false)
+                {
+                    Round = Count(call, "round")
+                });
             }
+        }
+        else
+        {
+            ListedRounds(workers, listed);
         }
 
         foreach (var declared in stage.Agents.Where(agent => agent.Count == 0))
@@ -391,8 +428,52 @@ public static partial class DeliveryRunStageResolution
             workers.Add(new DeliveryRunStageWorker(declared.Name, declared.Model, null, null, null, null, null, false, true, isGate, false));
         }
 
+        // A round the stage reported is one worker's when that worker is the only
+        // call the stage made; shared by several it stays the stage's.
+        var ranWorkers = workers.Where(worker => !worker.Declared).ToList();
+
+        if (stage.Round is { } round && ranWorkers.Count == 1 && ranWorkers[0].Round is null)
+        {
+            workers[workers.IndexOf(ranWorkers[0])] = ranWorkers[0] with { Round = round };
+        }
+
         return workers;
     }
+
+    /// <summary>
+    /// The rounds the execution listed under <c>runs</c>, onto the calls the run's
+    /// insights saw: per agent, in order, and only where the execution listed exactly as
+    /// many calls of that agent as were seen — otherwise which round was whose is a
+    /// guess.
+    /// </summary>
+    private static void ListedRounds(List<DeliveryRunStageWorker> workers, List<JsonObject> listed)
+    {
+        if (listed.Count == 0) return;
+
+        var byAgent = workers
+            .Select((worker, index) => (Worker: worker, Index: index))
+            .GroupBy(pair => pair.Worker.Agent, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var seen in byAgent)
+        {
+            var rounds = listed
+                .Where(call => SameAgent(seen.Key, Text(call, "agent")!))
+                .Select(call => Count(call, "round"))
+                .ToList();
+            var calls = seen.ToList();
+
+            if (rounds.Count != calls.Count) continue;
+
+            for (var position = 0; position < calls.Count; position++)
+            {
+                workers[calls[position].Index] = calls[position].Worker with { Round = rounds[position] };
+            }
+        }
+    }
+
+    /// <summary>A count a call carries — a whole number from zero up — or null.</summary>
+    private static int? Count(JsonObject node, string name) =>
+        node[name] is JsonValue value && value.TryGetValue<int>(out var count) && count >= 0 ? count : null;
 
     /// <summary>The words a stage's <c>runs</c> uses for the owner session's own
     /// slices, which are not sub-agents.</summary>

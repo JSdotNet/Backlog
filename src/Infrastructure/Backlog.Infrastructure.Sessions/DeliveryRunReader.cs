@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -35,6 +36,15 @@ namespace Backlog.Infrastructure.Sessions;
 /// there is the ordinary case for a machine that never installed that plugin and is
 /// not reported at all.
 /// </para>
+/// <para>
+/// A file is parsed once per change, not once per read. The pane reads on every open
+/// and every refresh, and the folders hold hundreds of run files of which one or two
+/// are moving; a run is a function of its file — the dashboard and worktree its path
+/// names, its content, and the write time <see cref="DeliveryRun.UpdatedAt"/> falls
+/// back to — so a settled file whose length and write time have not moved is answered
+/// with what it was answered with last time. The directory walk still runs on every read,
+/// which is what finds a new file and loses a deleted one.
+/// </para>
 /// </summary>
 internal sealed partial class DeliveryRunReader
 {
@@ -61,25 +71,55 @@ internal sealed partial class DeliveryRunReader
     /// <see cref="BacklogDashboard"/>.</summary>
     internal static readonly string[] Dashboards = ["orch-dashboard", "delivery-surface-dashboard", BacklogDashboard];
 
+    /// <summary>
+    /// How close to the walk a write time may be and still be trusted on its own — the
+    /// Claude session reader's settling window, for the same reason. A write time is
+    /// only as fine as the file system keeps it, so a run file read in the tick it was
+    /// written can be written again in that tick at the same length: <c>pending</c> and
+    /// <c>running</c> are both seven characters, and the ISO stamp beside them is fixed
+    /// width. That second write matches on both, and the run it replaced would be
+    /// answered until the file next moved — for the last write of a run, for good. A
+    /// file written this recently is parsed on every walk and remembered only once it
+    /// has settled.
+    /// </summary>
+    private static readonly TimeSpan Settling = TimeSpan.FromSeconds(2);
+
     private readonly string _home;
     private readonly string _environmentId;
     private readonly string _environment;
+    private readonly TimeProvider _clock;
+
+    /// <summary>
+    /// Every settled run file as it was parsed, by full path, with the length and write
+    /// time it was parsed at. One reader answers its consumer, and the pane can ask
+    /// again before its last answer is in, so this is shared and concurrent: two reads
+    /// that both miss on one file both parse it, and the second write is the same run.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, ParsedFile> _parsed = new(StringComparer.Ordinal);
 
     /// <summary>The profile folder the dashboards write under, normally
-    /// <c>~/.claude</c>, named so a test can point the reader at a fixture; and the
+    /// <c>~/.claude</c>, named so a test can point the reader at a fixture; the
     /// environment to stamp every run with, an id and a name, for the reason the
-    /// session readers take one — a run file found here was written here.</summary>
-    internal DeliveryRunReader(string home, string environmentId, string environment)
+    /// session readers take one — a run file found here was written here; and the
+    /// clock a write time is judged settled against, the system's unless a test says
+    /// otherwise.</summary>
+    internal DeliveryRunReader(string home, string environmentId, string environment, TimeProvider? clock = null)
     {
         _home = home;
         _environmentId = environmentId;
         _environment = environment;
+        _clock = clock ?? TimeProvider.System;
     }
 
     internal async Task<DeliveryRunCatalog> ReadAsync(CancellationToken cancellationToken)
     {
         var runs = new List<DeliveryRun>();
         var unreadable = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        // Once for the walk, before it lists anything: a file is settled when it was
+        // last written well before the walk began.
+        var settledBefore = _clock.GetUtcNow().UtcDateTime - Settling;
 
         foreach (var dashboard in Dashboards)
         {
@@ -104,8 +144,17 @@ internal sealed partial class DeliveryRunReader
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                await ReadWorktreeAsync(dashboard, worktree, runs, unreadable, cancellationToken).ConfigureAwait(false);
+                await ReadWorktreeAsync(dashboard, worktree, runs, unreadable, seen, settledBefore, cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        // Forgotten once the walk no longer finds them: a deleted run is gone from
+        // the answer already, and remembering it would only grow the map. A folder
+        // that could not be listed this time is forgotten too, and read whole when
+        // it can be again.
+        foreach (var path in _parsed.Keys)
+        {
+            if (!seen.Contains(path)) _parsed.TryRemove(path, out _);
         }
 
         // Folded before anyone sees them: a flow reports to every surface it is bound
@@ -119,6 +168,8 @@ internal sealed partial class DeliveryRunReader
         DirectoryInfo worktree,
         List<DeliveryRun> runs,
         List<string> unreadable,
+        HashSet<string> seen,
+        DateTime settledBefore,
         CancellationToken cancellationToken)
     {
         var folder = new DirectoryInfo(Path.Combine(worktree.FullName, "runs"));
@@ -145,7 +196,9 @@ internal sealed partial class DeliveryRunReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var run = await ReadRunAsync(dashboard, worktree.Name, file, cancellationToken).ConfigureAwait(false);
+            seen.Add(file.FullName);
+
+            var run = await ReadRunAsync(dashboard, worktree.Name, file, settledBefore, cancellationToken).ConfigureAwait(false);
 
             if (run is not null) runs.Add(run);
         }
@@ -156,13 +209,33 @@ internal sealed partial class DeliveryRunReader
     /// reason the live-session reader gives: the file is written by another process,
     /// a half-written one is an ordinary event, and losing one row is the
     /// proportionate answer to it.
+    /// <para>
+    /// Answered from <see cref="_parsed"/> while the file's length and write time are
+    /// the ones it was parsed at — both as the walk found them, before the read, so a
+    /// write that lands during the read leaves a stamp the next walk does not match.
+    /// Only a settled file is answered or remembered that way: one written within
+    /// <see cref="Settling"/> of the walk's start is parsed on every walk until it is
+    /// not. A file that is not a run is remembered as none, because its content decided
+    /// that; a file that could not be opened is not remembered at all, because that
+    /// was the moment rather than the file.
+    /// </para>
     /// </summary>
     private async Task<DeliveryRun?> ReadRunAsync(
         string dashboard,
         string worktree,
         FileInfo file,
+        DateTime settledBefore,
         CancellationToken cancellationToken)
     {
+        var length = file.Length;
+        var written = file.LastWriteTimeUtc;
+        var settled = written < settledBefore;
+
+        if (settled && _parsed.TryGetValue(file.FullName, out var held) && held.Length == length && held.WrittenUtc == written)
+        {
+            return held.Run;
+        }
+
         string json;
 
         try
@@ -174,6 +247,18 @@ internal sealed partial class DeliveryRunReader
             return null;
         }
 
+        var run = Parse(dashboard, worktree, json, written);
+
+        // Not remembered until it has settled — see Settling. An entry an earlier walk
+        // left stays, at a stamp this file no longer has, so it cannot be answered.
+        if (settled) _parsed[file.FullName] = new ParsedFile(length, written, run);
+
+        return run;
+    }
+
+    /// <summary>A file's content as a run, or null when it is not one.</summary>
+    private DeliveryRun? Parse(string dashboard, string worktree, string json, DateTime writtenUtc)
+    {
         JsonDocument document;
 
         try
@@ -199,7 +284,7 @@ internal sealed partial class DeliveryRunReader
 
             if (string.IsNullOrWhiteSpace(id)) return null;
 
-            var fileWritten = new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero);
+            var fileWritten = new DateTimeOffset(writtenUtc, TimeSpan.Zero);
 
             return new DeliveryRun(
                 Id: id,
@@ -226,7 +311,8 @@ internal sealed partial class DeliveryRunReader
                 Schedule = Text(root, "schedule"),
                 Repository = Text(root, "repo"),
                 Verdicts = Verdicts(root),
-                RunContext = ObjectText(root, "runContext")
+                RunContext = ObjectText(root, "runContext"),
+                Quality = DeliveryQualityFacts.Of(root)
             };
         }
     }
@@ -539,9 +625,14 @@ internal sealed partial class DeliveryRunReader
                 ],
                 ToolCalls = toolCalls.Count(call => InStage(call.Index, call.Stage, position, name)),
                 Execution = ObjectText(stage, "execution"),
+                Round = ExecutionCount(stage, "round"),
+                Blockers = ExecutionCount(stage, "blockers"),
+                DefectsFound = ExecutionCount(stage, "defectsFound"),
                 StartedAt = Moment(stage, "startedAt"),
                 CompletedAt = Moment(stage, "completedAt"),
-                Evidence = StageEvidence(stage)
+                Evidence = StageEvidence(stage),
+                Scenarios = StageScenarios(stage),
+                Links = StageLinks(stage)
             });
         }
 
@@ -601,6 +692,74 @@ internal sealed partial class DeliveryRunReader
 
         return read;
     }
+
+    /// <summary>
+    /// The scenarios a stage reported (<c>scenarios</c>), each with the screenshot
+    /// paths it sent as its evidence. A scenario is drawn by its name, so one without
+    /// a name is skipped; a path that is not text is dropped from its list rather
+    /// than costing the scenario its row.
+    /// </summary>
+    private static IReadOnlyList<DeliveryScenario> StageScenarios(JsonElement stage)
+    {
+        if (!stage.TryGetProperty("scenarios", out var scenarios) || scenarios.ValueKind is not JsonValueKind.Array) return [];
+
+        var read = new List<DeliveryScenario>();
+
+        foreach (var scenario in scenarios.EnumerateArray())
+        {
+            if (scenario.ValueKind is not JsonValueKind.Object) continue;
+            if (Text(scenario, "name") is not { } name || string.IsNullOrWhiteSpace(name)) continue;
+
+            IReadOnlyList<string> paths = scenario.TryGetProperty("evidence", out var evidence) && evidence.ValueKind is JsonValueKind.Array
+                ?
+                [
+                    .. evidence.EnumerateArray()
+                        .Where(path => path.ValueKind is JsonValueKind.String)
+                        .Select(path => path.GetString()!)
+                        .Where(path => !string.IsNullOrWhiteSpace(path))
+                ]
+                : [];
+
+            read.Add(new DeliveryScenario(name, Text(scenario, "status") ?? string.Empty, Text(scenario, "notes"), paths));
+        }
+
+        return read;
+    }
+
+    /// <summary>
+    /// The links a stage recorded (<c>links</c>), its fields as sent. A link with no
+    /// url points nowhere and is skipped; one with no label is kept, and the panel
+    /// shows its url in the label's place.
+    /// <para>
+    /// Only an absolute <c>http</c>, <c>https</c> or <c>file</c> address is kept. A run
+    /// file is written by an agent, and the panel draws each link as an anchor, so a
+    /// <c>javascript:</c> or <c>data:</c> address would run in the app the moment a
+    /// person pressed it. Refused here, once, so no surface that reads a stage's links
+    /// can draw one.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<DeliveryStageLink> StageLinks(JsonElement stage)
+    {
+        if (!stage.TryGetProperty("links", out var links) || links.ValueKind is not JsonValueKind.Array) return [];
+
+        var read = new List<DeliveryStageLink>();
+
+        foreach (var link in links.EnumerateArray())
+        {
+            if (link.ValueKind is not JsonValueKind.Object) continue;
+            if (Text(link, "url") is not { } url || !IsFollowable(url)) continue;
+
+            read.Add(new DeliveryStageLink(Text(link, "label"), url, Text(link, "description")));
+        }
+
+        return read;
+    }
+
+    /// <summary>Whether an address is one the panel may draw as an anchor: absolute,
+    /// and http, https or file.</summary>
+    private static bool IsFollowable(string url) =>
+        Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeFile);
 
     /// <summary>
     /// Every delegated agent the run's insights recorded, with the stage it ran in —
@@ -829,6 +988,23 @@ internal sealed partial class DeliveryRunReader
         return value.TryGetDouble(out var fraction) && double.IsFinite(fraction) ? (long)Math.Round(fraction) : null;
     }
 
+    /// <summary>
+    /// One of the counts a stage's <c>execution</c> reports for its pass — the round,
+    /// Review's blockers, Verify's defects — or null where the execution is not an
+    /// object or does not carry it as a whole number from zero up. Absent stays absent:
+    /// a run file from before the delivery phases sent these never reads as a clean
+    /// round, and a value a hand-edit broke is no count rather than a guessed one.
+    /// </summary>
+    private static int? ExecutionCount(JsonElement stage, string name) =>
+        stage.TryGetProperty("execution", out var execution)
+        && execution.ValueKind is JsonValueKind.Object
+        && execution.TryGetProperty(name, out var value)
+        && value.ValueKind is JsonValueKind.Number
+        && value.TryGetInt32(out var count)
+        && count >= 0
+            ? count
+            : null;
+
     private static string? Text(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String
             ? value.GetString()
@@ -841,4 +1017,8 @@ internal sealed partial class DeliveryRunReader
         root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.Object
             ? value.GetRawText()
             : null;
+
+    /// <summary>One file as it was last parsed: the stamp it was parsed at, and the
+    /// run it was, or null for a file that is not one.</summary>
+    private sealed record ParsedFile(long Length, DateTime WrittenUtc, DeliveryRun? Run);
 }

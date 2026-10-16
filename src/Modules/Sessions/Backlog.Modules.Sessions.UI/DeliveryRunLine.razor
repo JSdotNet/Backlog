@@ -1,81 +1,75 @@
 @using global::Microsoft.AspNetCore.Components.Web
-@using global::Backlog.UI.Components.Icons
 @using global::Backlog.UI.Components.Metrics
-@using global::Backlog.UI.Components.Diagrams
-@using global::Microsoft.Extensions.DependencyInjection
 @using global::Backlog.UI.Components.Devbook
 @using global::System.Globalization
 
 @*
-    One delivery run, as a line in the sessions table: under the session that ran
-    it, or in a row of its own when no listed session did. One component for both
-    places so a run reads the same wherever it landed — the difference between the
-    two is the row it sits in, not the run.
+    One delivery run, as a card: under the session that ran it, or in a row of its
+    own when no listed session did. One component for both places so a run reads the
+    same wherever it landed.
 
-    A summary line and a fold. The summary is what a reader scanning the list wants
-    from a run — which skill, what it was called, how it ended — plus the four
-    figures that say how much it took: stages done, what it cost, the context peak
-    and the tool-call count; under them, once the run finished, one line on its cost
-    against the usual run of its flow. Everything the run file records beyond that is behind
-    the fold, because a run holds ten stages, six token buckets per stage and tens of
-    thousands of tool calls, and a row that showed them would be a report with a
-    table around it. The fold is the library's, so the region is announced, keyed and
-    hidden the way every other disclosure in the product is.
+    Top to bottom in the order a reader asks: what it is and how it ended, whether it
+    was unusual, how much it took, how each stage ran, what the figures mean, and the
+    rest of what the run file records.
 
-    Top to bottom rather than left to right, and each part where a reader looks for
-    it: what the run is linked to, then how it ended, then the figures behind the
-    fold, and the skill that owned it last.
+    - **The header.** "Delivery run", the flow it ran in the mono face, the work it is
+      linked to, and its outcome at the right. The references are the Integrations
+      family's own — the provider's mark, "#128" or "PR #74", the item's title in the
+      tooltip, opening on GitHub — with no state chip, because this product has not
+      asked GitHub how the item is doing. The outcome is the library's status badge
+      over the dashboard's own word, and **it leads to the Backlog entry** where the
+      run names one and the host can open one; otherwise it is the span every badge
+      is. A run a schedule fired says so beside it.
+    - **The insight**, a callout directly under the header, once the run has finished
+      and enough earlier runs of its flow were priced (DeliveryRunInsightLine).
+    - **The figures**, as tiles: stages done, what it cost, the context peak and the
+      tool calls. A figure the run does not carry is left out, never shown as zero —
+      "$0.00" would be a claim about the run rather than about the file. Under them,
+      quietly, the host's word on the run's part of the week.
+    - **The stages** (DeliveryRunStages): the legend, then a row per stage with one
+      panel open at a time.
+    - **The footnote**, saying what Configured and the cost against "typical" mean.
+    - **Run details**, folded: the run's own title and id, its surfaces, change,
+      schedule and sync verdicts, the context gauge, the token buckets, and the tool
+      calls and MCP servers ranked by time. Everything a run file records beyond the
+      headline numbers, behind one fold, because a run holds ten stages, six token
+      buckets per stage and tens of thousands of tool calls.
 
-    What it is linked to is the Integrations family's own reference, rendered exactly
-    as the storybook's references page shows them: the provider's mark, "#128" for an
-    issue and "PR #74" for a pull request, the item's own title in the tooltip, and an
-    anchor that opens on GitHub. One per line, because they are separate pieces of
-    work rather than one address written twice. No state chip rides with them: this
-    product has not asked GitHub how the item is doing, and a chip would be claiming
-    it had.
+    **The run's own title is not in the header.** A dashboard names a run after the
+    work it was doing, so beside the reference to that work the title is the same
+    sentence twice. It stays in Run details.
 
-    **The run's own title is not here.** A dashboard names a run after the work it was
-    doing, so beside the reference to that work the title is the same sentence twice —
-    "PR #203 bijwerken met main" next to PR #203. It stays in the fold, where a reader
-    who wants the run's own words can have them without the line repeating itself.
-
-    The status is the library's status badge over the dashboard's own word, under the
-    references rather than beside them: the run's outcome is about the run, and the
-    references are about the work, so stacking them keeps a reader from reading the
-    state as the state of the item above it. **It leads to the Backlog entry**, where
-    the run names one and the host has said how to open one — the entry is where this
-    product's own work is tracked, and the GitHub items beside it already lead to
-    themselves. A run with no entry leaves the badge the span every badge here is. The
-    dashboards wrote seven spellings between them, and the badge's slug for a word it
-    has no colour for falls back to the draft tint rather than to nothing, so a new
-    spelling still renders as a chip with the word in it. The label is tidied for
-    reading — "in_progress" is not a word — and the slug is left to the badge.
-
-    The skill sits under the fold, not over the line. It is what a reader asks last —
-    the work and the outcome first, and only then which recipe produced it — and it is
-    the one thing on the line that never changes between two runs of the same flow.
-
-    Two blocks, and which side each takes is the table's doing rather than this
-    component's taste. The figures and the skill read from the left edge, under the
-    session's name; the references and the outcome sit at the right, under the row's
-    own State column, because that is where a reader's eye already goes for a state on
-    this screen. The stack is right-aligned for the same reason the column is.
-
-    The summary comes first in the markup and second on screen. A reader with a screen
-    reader gets the work and the outcome before the figures, which is the order the
-    facts matter in; the eye gets them at the right, which is where the column is. The
-    grid's areas buy both, and neither is bent to suit the other.
-
-    What the fold opens is a third block under both, across the whole row. The trigger
-    is the library's; the region is this line's own, because the fold's own region
-    would sit inside the figures' column and leave the stages a quarter of the table's
-    width. The diagram is a row of stages, one line of them, so it takes every column,
-    and the figures sit under it in as many columns as fit.
+    The latest run on a row is drawn whole. An earlier one (Collapsible) folds to its
+    header, the title the library's fold inside the heading, so a session that ran
+    three flows shows the one that matters now and two lines, not three cards.
 *@
-<div class="sessions-run" data-testid="sessions-run" data-run-id="@Run.Id">
-    <span class="sessions-run__summary">
-        @* The mark and the label only: the item's own title travels in the tooltip,
-           and one reference per line — two pieces of work are two lines. *@
+<article class="@(Collapsible ? "sessions-run sessions-run--collapsible" : "sessions-run")"
+         data-testid="sessions-run"
+         data-run-id="@Run.Id"
+         aria-label="@($"Delivery run {Run.Title}")">
+    <header class="sessions-run__header">
+        @if (Collapsible)
+        {
+            @* The trigger only, inside the heading: the region it folds is the card's
+               body below, which the card owns. *@
+            <FoldControl Label="Delivery run"
+                         BaseClass="sessions-run__fold"
+                         HeadingLevel="4"
+                         HeadingCssClass="sessions-run__title"
+                         AriaLabel="@($"Delivery run {Run.Title}")"
+                         Controls="@_panelId"
+                         Expanded="_expanded"
+                         ExpandedChanged="@(expanded => _expanded = expanded)"
+                         TestId="sessions-run-fold" />
+        }
+        else
+        {
+            <h4 class="sessions-run__title">Delivery run</h4>
+        }
+
+        <span class="sessions-run__flow data-table__mono" data-testid="sessions-run-flow">@Run.SkillId</span>
+
+        @* The mark and the label only: the item's own title travels in the tooltip. *@
         @foreach (var reference in Linked)
         {
             <IntegrationLink Link="@Link(reference)"
@@ -84,292 +78,239 @@
                              TestId="@($"sessions-run-{Slug(reference.Kind)}")" />
         }
 
-        @* A button where the run names a Backlog entry and the host can open one,
-           and the span it has always been otherwise. Never an anchor to the pull
-           request above it: two ways to reach one place is one too many, and this
-           one's place is the entry. *@
-        <StatusBadge Status="@Run.Status"
-                     Text="@StatusLabel(Run.Status)"
-                     CssClass="sessions-run__status"
-                     OnClick="@(Entry is { } entry && OnOpenTask.HasDelegate ? EventCallback.Factory.Create<MouseEventArgs>(this, () => OnOpenTask.InvokeAsync(entry)) : default)"
-                     Title="@(Entry is { } which && OnOpenTask.HasDelegate ? $"Open {which.Label} in the task list" : null)"
-                     TestId="sessions-run-status" />
+        <span class="sessions-run__outcome">
+            @* Only where a schedule fired the run. An attended run is the ordinary
+               case and says nothing. *@
+            @if (Run.Scheduled)
+            {
+                <Badge Kind="trigger"
+                       CssClass="sessions-run__trigger"
+                       Title="@(string.IsNullOrWhiteSpace(Run.Schedule) ? "Fired by a schedule, unattended" : $"Fired by the {Run.Schedule} schedule, unattended")"
+                       TestId="sessions-run-scheduled">scheduled</Badge>
+            }
 
-        @* Only where a schedule fired the run. An attended run is the ordinary case
-           and says nothing, so the chip marks the exception rather than labelling
-           every line. The schedule's name rides in the tooltip: on its own row the
-           title already says it. *@
-        @if (Run.Scheduled)
-        {
-            <Badge Kind="trigger"
-                   CssClass="sessions-run__trigger"
-                   Title="@(string.IsNullOrWhiteSpace(Run.Schedule) ? "Fired by a schedule, unattended" : $"Fired by the {Run.Schedule} schedule, unattended")"
-                   TestId="sessions-run-scheduled">scheduled</Badge>
-        }
-    </span>
-    <span class="sessions-run__facts">
-        @* The trigger only. The region it folds is the line's own panel below, which
-           spans the whole row rather than the width left of the summary: the diagram
-           is a row of stages, and it needs every column the table has. *@
-        <FoldControl Label="@Facts"
-                     CssClass="sessions-run__fold"
-                     AriaLabel="@($"Details of run {Run.Title}")"
-                     Controls="@_panelId"
-                     Expanded="_expanded"
-                     ExpandedChanged="OnExpandedChanged"
-                     TestId="sessions-run-fold" />
+            @* A button where the run names a Backlog entry and the host can open one,
+               and a span otherwise. Never an anchor to the pull request beside it:
+               this one's place is the entry. *@
+            <StatusBadge Status="@Run.Status"
+                         Text="@StatusLabel(Run.Status)"
+                         CssClass="sessions-run__status"
+                         OnClick="@(Entry is { } entry && OnOpenTask.HasDelegate ? EventCallback.Factory.Create<MouseEventArgs>(this, () => OnOpenTask.InvokeAsync(entry)) : default)"
+                         Title="@(Entry is { } which && OnOpenTask.HasDelegate ? $"Open {which.Label} in the task list" : null)"
+                         TestId="sessions-run-status" />
+        </span>
+    </header>
 
-        @* Under the header, what the run cost against its usual and the stage that
-           explains the difference — only once the run has finished and enough earlier
-           runs of its flow were priced. *@
+    <div class="sessions-run__body"
+         id="@_panelId"
+         hidden="@(Collapsible && !_expanded)"
+         data-testid="sessions-run-panel">
         <DeliveryRunInsightLine Insight="@Comparison?.Insight" Flow="@Run.SkillId" OnOpen="@OpenEconomics" Id="@DeliveryRunInsightLine.DomId(Run)" />
 
-        @* Last, and quiet: which recipe produced the run is what a reader asks after
-           the work and the outcome, and it is the one thing two runs of the same flow
-           share. *@
-        <span class="sessions-run__skill" data-testid="sessions-run-skill">
-            <SparklesIcon Size="12" CssClass="sessions-run__icon" />
-            <span class="data-table__mono">@Run.SkillId</span>
-        </span>
-
-        @* What the host has to say about the run's part of the week, drawn by the
-           host's own component so the run line holds no figure it did not read. *@
-        @Usage
-    </span>
-
-    @* The fold's region: the picture first and across the full width, so every stage
-       sits on one line, and the figures under it in columns. Kept in the DOM and
-       hidden while folded, the way the library's own region is. *@
-    <div class="sessions-run__panel"
-         id="@_panelId"
-         role="region"
-         aria-label="@($"Details of run {Run.Title}")"
-         hidden="@(!_expanded)"
-         data-testid="sessions-run-panel">
-        @* The stages are a flow, so they are drawn as one: an Archify artifact where
-           the generator could make one (animated, with its own zoom, present mode
-           and export) and the live flow otherwise, and while the first one is being
-           made. The flow is never wrong about a run; the artifact is at most one
-           render behind it. *@
-        @if (Run.Stages.Count > 0)
+        @if (Figures is { Count: > 0 } figures)
         {
-            <div class="sessions-run__diagram">
-                @if (_diagram is { Html: { } html } diagram)
+            <MetricGrid Label="@($"Figures of run {Run.Title}")"
+                        MinColumnWidth="7.5rem"
+                        CssClass="sessions-run__figures"
+                        TestId="sessions-run-figures">
+                @foreach (var figure in figures)
                 {
-                    <DiagramView Source="@DeliveryRunDiagramSpec.Mermaid(Run)"
-                                 Language="mermaid"
-                                 Title="Stages"
-                                 Artifact="@(new DiagramArtifact(html, diagram.ArtifactPath, null, "architecture", false))"
-                                 CssClass="sessions-run__artifact"
-                                 Compact="true"
-                                 HideNodeDetails="true" />
+                    <MetricTile Label="@figure.Label"
+                                Value="@figure.Value"
+                                Footnote="@figure.Footnote"
+                                CssClass="sessions-run__figure"
+                                TestId="@($"sessions-run-figure-{figure.Key}")"
+                                title="@figure.Title" />
                 }
-                else
-                {
-                    @* A node per stage in run order, in the tone of where it stands,
-                       with who worked in it under it: the owner session, then each
-                       agent it delegated to and the model that agent ran on. *@
-                    <FlowSteps Steps="@Flow"
-                               AriaLabel="@($"Stages of run {Run.Title}")"
-                               TestId="sessions-run-stages" />
-                    @if (_diagramUnavailable is { } reason)
-                    {
-                        <Alert Role="note"
-                               BaseClass="sessions-run__diagram-note"
-                               TestId="sessions-run-diagram-note"
-                               Message="@reason" />
-                    }
-                }
-            </div>
+            </MetricGrid>
         }
 
-        @* How each stage ran, under the picture of where it stands: the mode, the
-           model and effort, whether it ran as configured, and one panel at a time
-           with the whole of it. *@
+        @* What the host has to say about the run's part of the week, drawn by the
+           host's own component so the card holds no figure it did not read. *@
+        @if (Usage is not null)
+        {
+            <div class="sessions-run__usage">@Usage</div>
+        }
+
         @if (Run.Stages.Count > 0)
         {
             <DeliveryRunStages Run="Run" Costs="Costs" Comparison="Comparison" />
+
+            <p class="sessions-run__footnote" data-testid="sessions-run-footnote">@Footnote</p>
         }
 
-        @* The scenario page parts a stage ran (BL2 evidence), per part, under the
-           stage that reported them — the verify stage, for a delivery run. Left
-           out where no stage reported any. *@
-        @foreach (var stage in Run.Stages.Where(stage => stage.Evidence.Count > 0))
-        {
-            <div class="sessions-run__evidence" data-testid="sessions-run-evidence">
-                <ScenarioPartChecklist Parts="@EvidenceParts(stage)"
-                                       Heading="@($"{stage.Name}: scenario evidence")"
-                                       TestId="sessions-run-evidence-list" />
-            </div>
-        }
-
-        @* Groups rather than one long list, so the grid can set them side by side:
-           each is a term and what it says, and a narrow pane stacks them. *@
-        <dl class="sessions-run__details">
-            @* The run's own name for itself, which the line above deliberately does
-               not repeat. *@
-            <div class="sessions-run__group">
-                <dt>Title</dt>
-                <dd data-testid="sessions-run-title">@Run.Title</dd>
-
-                <dt>Run</dt>
-                <dd class="data-table__mono">@Run.Id · @Run.Dashboard · @Run.WorktreeName</dd>
-
-                @* Provenance, where more than one surface reported the run: a flow
-                   reports to every surface it is bound to, each files its own copy,
-                   and the reader folded them into this one line. Only then — a run
-                   one surface recorded has nothing to say about it. *@
-                @if (Run.Surfaces.Count > 1)
-                {
-                    <dt>Surfaces</dt>
-                    <dd data-testid="sessions-run-surfaces">Reported to @Run.Surfaces.Count surfaces: @string.Join(", ", Run.Surfaces)</dd>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Run.ChangeKind))
-                {
-                    <dt>Change</dt>
-                    <dd>@Run.ChangeKind</dd>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Run.Schedule))
-                {
-                    <dt>Schedule</dt>
-                    <dd class="data-table__mono" data-testid="sessions-run-schedule">@Run.Schedule@(string.IsNullOrWhiteSpace(Run.Repository) ? "" : $" · {Run.Repository}")</dd>
-                }
-
-                @* What a sync sweep found, counted by verdict. The verdicts themselves
-                   are read beside the chapters they are about, in the Devbook panes;
-                   here they are the run's outcome in a line. *@
-                @if (Run.Verdicts.Count > 0)
-                {
-                    <dt>Sync</dt>
-                    <dd data-testid="sessions-run-verdicts">@VerdictSummary</dd>
-                }
-
-                @* A peak against a limit is a meter. Without a limit there is no track
-                   to fill, and the figures stay words. *@
-                @if (Run.Context is { } context)
-                {
-                    <dt>Context</dt>
-                    <dd data-testid="sessions-run-context">
-                        @if (context.PeakShare is { } share)
-                        {
-                            <MetricMeter Value="@context.PeakTokens"
-                                         Max="@context.TokenLimit"
-                                         AriaLabel="Context peak"
-                                         Caption="@($"{MetricFormat.Percent(share, 0)} at peak · last sample {MetricFormat.Compact(context.CurrentTokens)}")"
-                                         TestId="sessions-run-context-meter" />
-                        }
-                        else
-                        {
-                            @($"Peak {MetricFormat.Compact(context.PeakTokens)}; last sample {MetricFormat.Compact(context.CurrentTokens)}")
-                        }
-                    </dd>
-                }
-            </div>
-
-            @* A figure the run does not carry is left out rather than shown as
-               zero — the same rule the trigger above already applies, and it has
-               to hold in both places or the fold contradicts the line that opens
-               it. It used to hold only above, which cost nothing while every run
-               came from a dashboard that measured consumption; a run this product
-               records carries the model it resolved and no consumption at all,
-               because those figures are counted by watching a session's own tool
-               calls and this product sees the call rather than the session. That
-               made "0 calls · 0 out · 0 in" the normal case instead of a rare
-               one. *@
-            @if (Run.TokenUsage is { } usage && (usage.Total.ModelCalls > 0 || usage.Models.Count > 0))
-            {
+        <FoldControl Label="Run details"
+                     BaseClass="sessions-run__more"
+                     AriaLabel="@($"Details of run {Run.Title}")"
+                     Expanded="_details"
+                     ExpandedChanged="@(expanded => _details = expanded)"
+                     TestId="sessions-run-details-toggle">
+            <dl class="sessions-run__details">
+                @* The run's own name for itself, which the header deliberately does
+                   not repeat. *@
                 <div class="sessions-run__group">
-                    <dt>Tokens</dt>
-                    <dd data-testid="sessions-run-tokens">
-                        @* The four kinds are one whole, so they are one bar — cheapest
-                           first, as the component orders tokens — and the legend under it
-                           is where each figure is read. The calls are a count of a
-                           different thing and stay words. *@
-                        @if (usage.Total.ModelCalls > 0)
-                        {
-                            <MetricBreakdownBar Label="@CallCount(usage.Total.ModelCalls)"
-                                                Parts="@Kinds(usage.Total)"
-                                                TestId="sessions-run-token-mix" />
-                        }
-                        @if (usage.SubAgent.ModelCalls > 0)
-                        {
-                            <MetricBreakdownBar Label="@($"Sub-agents · {CallCount(usage.SubAgent.ModelCalls)}")"
-                                                Parts="@Kinds(usage.SubAgent)"
-                                                TestId="sessions-run-subagent-mix" />
-                        }
-                        @if (usage.Models.Count > 0)
-                        {
-                            <span class="sessions-run__fact">Models: @string.Join(", ", usage.Models)</span>
-                        }
-                        @* Stages ranked by what they produced, as the tool calls beside
-                           them are ranked by time: a stage's cache reads grow with every
-                           turn it takes, so output is the figure that says where the
-                           work went. The diagram above already gives the run order. *@
-                        @if (usage.ByStage.Count > 0)
-                        {
-                            <MetricRanking Label="Output by stage"
-                                           Items="@StageRanking(usage.ByStage)"
-                                           FormatValue="@(tokens => $"{MetricFormat.Compact(tokens)} out")"
-                                           TestId="sessions-run-stage-tokens" />
-                        }
-                    </dd>
-                </div>
-            }
+                    <dt>Title</dt>
+                    <dd data-testid="sessions-run-title">@Run.Title</dd>
 
-            @* Ranked by the time they took, each with its own bar: where the run's
-               time went is read off lengths, and the calls and failures behind it
-               are printed beside the figure. *@
-            @if (Run.InsightsByCategory.Count > 0)
-            {
-                <div class="sessions-run__group">
-                    <dt>Tool calls</dt>
-                    <dd>
-                        <MetricRanking Items="@Ranking(Run.InsightsByCategory)"
-                                       FormatValue="@(ms => Duration((long)ms))"
-                                       TestId="sessions-run-insights" />
-                    </dd>
-                </div>
-            }
+                    <dt>Run</dt>
+                    <dd class="data-table__mono">@Run.Id · @Run.Dashboard · @Run.WorktreeName</dd>
 
-            @if (Run.InsightsByServer.Count > 0)
-            {
-                <div class="sessions-run__group">
-                    <dt>MCP servers</dt>
-                    <dd>
-                        <MetricRanking Items="@Ranking(Run.InsightsByServer)"
-                                       FormatValue="@(ms => Duration((long)ms))"
-                                       NameCssClass="data-table__mono"
-                                       TestId="sessions-run-servers" />
-                    </dd>
+                    @* Provenance, where more than one surface reported the run: a flow
+                       reports to every surface it is bound to, each files its own copy,
+                       and the reader folded them into this one line. Only then — a run
+                       one surface recorded has nothing to say about it. *@
+                    @if (Run.Surfaces.Count > 1)
+                    {
+                        <dt>Surfaces</dt>
+                        <dd data-testid="sessions-run-surfaces">Reported to @Run.Surfaces.Count surfaces: @string.Join(", ", Run.Surfaces)</dd>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Run.ChangeKind))
+                    {
+                        <dt>Change</dt>
+                        <dd>@Run.ChangeKind</dd>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Run.Schedule))
+                    {
+                        <dt>Schedule</dt>
+                        <dd class="data-table__mono" data-testid="sessions-run-schedule">@Run.Schedule@(string.IsNullOrWhiteSpace(Run.Repository) ? "" : $" · {Run.Repository}")</dd>
+                    }
+
+                    @* What a sync sweep found, counted by verdict. The verdicts themselves
+                       are read beside the chapters they are about, in the Devbook panes;
+                       here they are the run's outcome in a line. *@
+                    @if (Run.Verdicts.Count > 0)
+                    {
+                        <dt>Sync</dt>
+                        <dd data-testid="sessions-run-verdicts">@VerdictSummary</dd>
+                    }
+
+                    @* A peak against a limit is a meter. Without a limit there is no track
+                       to fill, and the figures stay words. *@
+                    @if (Run.Context is { } context)
+                    {
+                        <dt>Context</dt>
+                        <dd data-testid="sessions-run-context">
+                            @if (context.PeakShare is { } share)
+                            {
+                                <MetricMeter Value="@context.PeakTokens"
+                                             Max="@context.TokenLimit"
+                                             AriaLabel="Context peak"
+                                             Caption="@($"{MetricFormat.Percent(share, 0)} at peak · last sample {MetricFormat.Compact(context.CurrentTokens)}")"
+                                             TestId="sessions-run-context-meter" />
+                            }
+                            else
+                            {
+                                @($"Peak {MetricFormat.Compact(context.PeakTokens)}; last sample {MetricFormat.Compact(context.CurrentTokens)}")
+                            }
+                        </dd>
+                    }
                 </div>
-            }
-        </dl>
+
+                @* A figure the run does not carry is left out rather than shown as
+                   zero — the same rule the figure tiles already apply, and it has
+                   to hold in both places or the details contradict the tiles above
+                   them. It used to hold only above, which cost nothing while every run
+                   came from a dashboard that measured consumption; a run this product
+                   records carries the model it resolved and no consumption at all,
+                   because those figures are counted by watching a session's own tool
+                   calls and this product sees the call rather than the session. That
+                   made "0 calls · 0 out · 0 in" the normal case instead of a rare
+                   one. *@
+                @if (Run.TokenUsage is { } usage && (usage.Total.ModelCalls > 0 || usage.Models.Count > 0))
+                {
+                    <div class="sessions-run__group">
+                        <dt>Tokens</dt>
+                        <dd data-testid="sessions-run-tokens">
+                            @* The four kinds are one whole, so they are one bar — cheapest
+                               first, as the component orders tokens — and the legend under it
+                               is where each figure is read. The calls are a count of a
+                               different thing and stay words. *@
+                            @if (usage.Total.ModelCalls > 0)
+                            {
+                                <MetricBreakdownBar Label="@CallCount(usage.Total.ModelCalls)"
+                                                    Parts="@Kinds(usage.Total)"
+                                                    TestId="sessions-run-token-mix" />
+                            }
+                            @if (usage.SubAgent.ModelCalls > 0)
+                            {
+                                <MetricBreakdownBar Label="@($"Sub-agents · {CallCount(usage.SubAgent.ModelCalls)}")"
+                                                    Parts="@Kinds(usage.SubAgent)"
+                                                    TestId="sessions-run-subagent-mix" />
+                            }
+                            @if (usage.Models.Count > 0)
+                            {
+                                <span class="sessions-run__fact">Models: @string.Join(", ", usage.Models)</span>
+                            }
+                            @* Stages ranked by what they produced, as the tool calls beside
+                               them are ranked by time: a stage's cache reads grow with every
+                               turn it takes, so output is the figure that says where the
+                               work went. The stage list above already gives the run order. *@
+                            @if (usage.ByStage.Count > 0)
+                            {
+                                <MetricRanking Label="Output by stage"
+                                               Items="@StageRanking(usage.ByStage)"
+                                               FormatValue="@(tokens => $"{MetricFormat.Compact(tokens)} out")"
+                                               TestId="sessions-run-stage-tokens" />
+                            }
+                        </dd>
+                    </div>
+                }
+
+                @* Ranked by the time they took, each with its own bar: where the run's
+                   time went is read off lengths, and the calls and failures behind it
+                   are printed beside the figure. *@
+                @if (Run.InsightsByCategory.Count > 0)
+                {
+                    <div class="sessions-run__group">
+                        <dt>Tool calls</dt>
+                        <dd>
+                            <MetricRanking Items="@Ranking(Run.InsightsByCategory)"
+                                           FormatValue="@(ms => Duration((long)ms))"
+                                           TestId="sessions-run-insights" />
+                        </dd>
+                    </div>
+                }
+
+                @if (Run.InsightsByServer.Count > 0)
+                {
+                    <div class="sessions-run__group">
+                        <dt>MCP servers</dt>
+                        <dd>
+                            <MetricRanking Items="@Ranking(Run.InsightsByServer)"
+                                           FormatValue="@(ms => Duration((long)ms))"
+                                           NameCssClass="data-table__mono"
+                                           TestId="sessions-run-servers" />
+                        </dd>
+                    </div>
+                }
+            </dl>
+        </FoldControl>
     </div>
-</div>
+</article>
 
 @code {
     private readonly string _panelId = "sessions-run-" + Guid.NewGuid().ToString("N");
     private bool _expanded;
-    private IDeliveryRunDiagrams? _diagrams;
-    private bool _diagramsResolved;
-
-    /// <summary>The artifact on screen, kept while the next one renders so a moving
-    /// run does not flash back to the flow on every stage it finishes.</summary>
-    private DeliveryRunDiagram? _diagram;
-
-    /// <summary>The specification last sent to the renderer: what decides whether a
-    /// re-read run has anything new to draw.</summary>
-    private string? _requested;
-
-    private string? _diagramUnavailable;
-
-    [Inject]
-    private IServiceProvider Services { get; set; } = default!;
+    private bool _details;
 
     [Parameter, EditorRequired]
     public DeliveryRun Run { get; set; } = default!;
+
+    /// <summary>Folds the card to its header until opened: an earlier run on a row
+    /// whose latest run is drawn whole above it.</summary>
+    [Parameter]
+    public bool Collapsible { get; set; }
+
+    /// <summary>Draws a <see cref="Collapsible"/> card open when it first appears. The
+    /// host's list is drawn afresh on returning from Delivery economics, every fold
+    /// closed again; the run whose insight opened the page starts open so the action the
+    /// focus returns to is on screen. Read once: the reader's own fold wins after.</summary>
+    [Parameter]
+    public bool StartExpanded { get; set; }
+
+    protected override void OnInitialized() => _expanded = StartExpanded;
 
     /// <summary>How the host opens a Backlog entry, where it can. Without one a task
     /// reference is inert text, which is the honest rendering of a reference nobody
@@ -377,18 +318,18 @@
     [Parameter]
     public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
 
-    /// <summary>How the host opens Delivery economics on this run's flow. With
-    /// it the insight line is a button onto the run's flow; without it, plain text.</summary>
+    /// <summary>How the host opens Delivery economics on this run's flow. With it the
+    /// insight callout ends on a way into the run's flow; without it, it has none.</summary>
     [Parameter]
     public EventCallback<DeliveryRun> OnOpenEconomics { get; set; }
 
-    /// <summary>The insight line's press, handing the host this run; inert without a host.</summary>
+    /// <summary>The insight's action, handing the host this run; inert without a host.</summary>
     private EventCallback<string> OpenEconomics =>
         OnOpenEconomics.HasDelegate ? EventCallback.Factory.Create<string>(this, () => OnOpenEconomics.InvokeAsync(Run)) : default;
 
-    /// <summary>What the line draws in place of the run's own references, where the row
-    /// knows more than the run file does — a pull request the session linked and the
-    /// run never recorded (<see cref="SessionRow.ReferencesFor"/>). Null draws the
+    /// <summary>What the header draws in place of the run's own references, where the
+    /// row knows more than the run file does — a pull request the session linked and
+    /// the run never recorded (<see cref="SessionRow.ReferencesFor"/>). Null draws the
     /// run's own.</summary>
     [Parameter]
     public IReadOnlyList<DeliveryRunReference>? References { get; set; }
@@ -401,7 +342,7 @@
 
     /// <summary>The run's costs against its usual (<see cref="DeliveryRunBaselines"/>),
     /// or null where the host compared none — the stage rows then show no share or
-    /// ratio, and there is no insight line.</summary>
+    /// ratio, and there is no insight.</summary>
     [Parameter]
     public DeliveryRunCostComparison? Comparison { get; set; }
 
@@ -409,14 +350,14 @@
     /// priced.</summary>
     private CostFigure? Total => Comparison?.Total ?? (Costs is { } costs ? CostFigure.Sum(costs.Select(cost => cost.Stage)) : null);
 
-    /// <summary>The run's share of the week, under its facts; nothing when null.</summary>
+    /// <summary>The run's share of the week, under its figures; nothing when null.</summary>
     [Parameter]
     public RenderFragment? Usage { get; set; }
 
     private IReadOnlyList<DeliveryRunReference> AllReferences => References ?? Run.References;
 
-    /// <summary>The references drawn on the line: the work that lives elsewhere. The
-    /// Backlog entry is not among them — the status badge is how this line reaches
+    /// <summary>The references drawn in the header: the work that lives elsewhere. The
+    /// Backlog entry is not among them — the status badge is how this card reaches
     /// one, and a chip beside it would be a second control to the same place.</summary>
     private IEnumerable<DeliveryRunReference> Linked =>
         AllReferences.Where(reference => reference.Kind is not DeliveryRunReferenceKind.Task);
@@ -425,47 +366,59 @@
     private DeliveryRunReference? Entry =>
         AllReferences.FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
 
+    /// <summary>One figure tile: its key for the test id, what it is called, its value,
+    /// and what qualifies it.</summary>
+    private sealed record Figure(string Key, string Label, string Value, string? Footnote = null, string? Title = null);
+
     /// <summary>
-    /// The four figures a reader wants before deciding whether to open the fold —
-    /// stages done, what the run cost, the context peak and the tool calls — joined
-    /// with the middle dot the rest of this table uses between facts. Each is left out
-    /// rather than shown as zero when nothing answers it: a run nobody priced has no
-    /// cost, and "$0.00" would be a claim about the run rather than about the file.
-    /// The cost took the output tokens' place, which stay in the fold.
+    /// The four figures a reader wants before reading the stages — stages done, what
+    /// the run cost, the context peak and the tool calls. Each is left out rather than
+    /// shown as zero when nothing answers it.
     /// </summary>
-    private string Facts
+    private IReadOnlyList<Figure> Figures
     {
         get
         {
-            var facts = new List<string>();
+            var figures = new List<Figure>();
 
             if (Run.Stages.Count > 0)
             {
                 var done = Run.Stages.Count(stage => IsDone(stage.Status));
 
-                facts.Add($"{done} of {Run.Stages.Count} stages done");
+                figures.Add(new Figure("stages", "Stages done", $"{done}/{Run.Stages.Count}", Title: $"{done} of {Run.Stages.Count} stages done"));
             }
 
-            if (Total is { } cost)
+            if (Total is { UsdMicros: > 0 } cost)
             {
-                facts.Add(cost.Estimated ? $"{cost.Label} est. cost" : $"{cost.Label} cost");
+                figures.Add(new Figure("cost", cost.Estimated ? "Est. cost" : "Cost", cost.Label, Title: DeliveryRunStages.CostTitle(cost)));
             }
 
-            if (Run.Context?.PeakShare is { } share)
+            if (Run.Context is { PeakTokens: > 0 } context)
             {
-                facts.Add($"context peak {MetricFormat.Percent(share, 0)}");
+                figures.Add(new Figure(
+                    "context",
+                    "Context peak",
+                    MetricFormat.Compact(context.PeakTokens),
+                    context.PeakShare is { } share ? $"{MetricFormat.Percent(share, 0)} of the limit" : null));
             }
 
             var calls = Run.InsightsByCategory.Sum(group => group.Count);
 
             if (calls > 0)
             {
-                facts.Add(calls == 1 ? "1 tool call" : $"{MetricFormat.Compact(calls)} tool calls");
+                figures.Add(new Figure("calls", "Tool calls", calls.ToString("N0", CultureInfo.InvariantCulture)));
             }
 
-            return facts.Count == 0 ? "Details" : string.Join(" · ", facts);
+            return figures;
         }
     }
+
+    /// <summary>What the stage list's Configured and cost against "typical" mean, for
+    /// this run's own flow, over the window the baselines are taken from.</summary>
+    private string Footnote =>
+        "Configured is the phase map the run resolved when it started: the team default in .devbook/config.json, then your overlay. "
+        + "Cost is each stage's tokens priced by the session's own telemetry; "
+        + $"\"vs typical\" compares with that stage's median over your last {DeliveryRunBaselines.Window} {Run.SkillId} runs.";
 
     /// <summary>The run's units counted by their verdict, largest count first:
     /// "12 units: 9 aligned · 2 code-ahead · 1 conflict".</summary>
@@ -485,49 +438,8 @@
         }
     }
 
-    protected override async Task OnParametersSetAsync()
-    {
-        if (!_diagramsResolved)
-        {
-            // Resolved rather than injected, as DiagramView resolves its artifact
-            // source: a host or a test that registered no renderer gets the live flow
-            // instead of failing to render the line at all.
-            _diagrams = Services.GetService<IDeliveryRunDiagrams>();
-            _diagramsResolved = true;
-        }
-
-        await RenderDiagramAsync();
-    }
-
-    private async Task OnExpandedChanged(bool expanded)
-    {
-        _expanded = expanded;
-        await RenderDiagramAsync();
-    }
-
-    /// <summary>
-    /// Asks for the artifact of the run as it stands now, and only while somebody is
-    /// looking: a folded run draws nothing, and a re-read run whose stages have not
-    /// moved produces the same specification and costs a string comparison.
-    /// </summary>
-    private async Task RenderDiagramAsync()
-    {
-        if (!_expanded || _diagrams is null || Run.Stages.Count == 0) return;
-
-        var specification = DeliveryRunDiagramSpec.Archify(Run);
-        if (string.Equals(specification, _requested, StringComparison.Ordinal)) return;
-
-        _requested = specification;
-
-        var diagram = await _diagrams.RenderAsync(specification);
-
-        // A newer request went out while this one was rendering; its answer is the
-        // one to show.
-        if (!ReferenceEquals(specification, _requested)) return;
-
-        _diagram = diagram.Html is null ? null : diagram;
-        _diagramUnavailable = diagram.Unavailable;
-    }
+    private static bool IsDone(string status) =>
+        status.ToLowerInvariant() is "done" or "completed" or "success";
 
     /// <summary>The dashboards' status words, made readable. Anything unrecognised
     /// keeps its own spelling with the underscores spaced out, so a new word still
@@ -540,44 +452,9 @@
         var other => char.ToUpperInvariant(other[0]) + other[1..].Replace('_', ' ')
     };
 
-    private static bool IsDone(string status) =>
-        status.ToLowerInvariant() is "done" or "completed" or "success";
-
-    private IReadOnlyList<FlowStep> Flow =>
-    [
-        .. Run.Stages.Select(stage => new FlowStep(
-            stage.Name,
-            Tone(stage.Status),
-            StatusLabel(stage.Status),
-            StageFacts(stage),
-            Workers(Run, stage)))
-    ];
-
-    /// <summary>Who worked in a stage: the owner session, then each agent it
-    /// delegated to and the model that agent ran on. Shared with the Archify drawing,
-    /// so the artifact names exactly the workers the flow does.</summary>
-    internal static IReadOnlyList<FlowStepNote> Workers(DeliveryRun run, DeliveryRunStage stage) =>
-        [.. Owner(run, stage), .. stage.Agents.Select(Note)];
-
-    /// <summary>
-    /// The owner session's line, on a stage it has worked in. The run file names the
-    /// models the run called for the run as a whole, never per stage — so the owner's
-    /// model is named only where the run called exactly one, and every call in every
-    /// stage was on it. With more than one the owner is named without a model rather
-    /// than with a guess.
-    /// </summary>
-    private static IEnumerable<FlowStepNote> Owner(DeliveryRun run, DeliveryRunStage stage)
-    {
-        if (Tone(stage.Status) is FlowStepTone.Pending or FlowStepTone.Skipped) yield break;
-
-        var models = run.TokenUsage?.Models ?? [];
-
-        yield return new FlowStepNote("main session", models.Count == 1 ? models[0] : null);
-    }
-
-    /// <summary>The dashboards' stage words as the flow's tones. A word none of them
-    /// has written yet reads as not reached, which is the one claim that is never
-    /// wrong about a stage nobody reported on.</summary>
+    /// <summary>The dashboards' stage words as the library's step tones. A word none
+    /// of them has written yet reads as not reached, which is the one claim that is
+    /// never wrong about a stage nobody reported on.</summary>
     internal static FlowStepTone Tone(string status) => status.ToLowerInvariant() switch
     {
         "done" or "completed" or "success" => FlowStepTone.Done,
@@ -588,8 +465,10 @@
     };
 
     /// <summary>A stage's evidence as checklist rows: the part's anchor, its
-    /// outcome, the page's stem, and when the run ran. A part named twice keeps its
-    /// last report.</summary>
+    /// outcome, the page's stem, and when the run ran — the row's quiet line reads
+    /// "stem · date". A part named twice keeps its last report. No failed step: the
+    /// engine's evidence carries none, and the run.json that does is the task's to
+    /// read.</summary>
     internal static IReadOnlyList<ScenarioChecklistPart> EvidenceParts(DeliveryRunStage stage) =>
         [
             .. stage.Evidence
@@ -609,31 +488,8 @@
         string.IsNullOrWhiteSpace(runAt)
             ? null
             : DateTimeOffset.TryParse(runAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time)
-                ? $"Ran {time.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)}"
+                ? time.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)
                 : runAt;
-
-    internal static string? StageFacts(DeliveryRunStage stage)
-    {
-        var facts = new List<string>();
-
-        if (stage.DurationMs is { } ms) facts.Add(Duration(ms));
-        if (stage.DoneCount > 1) facts.Add($"done ×{stage.DoneCount}");
-
-        return facts.Count == 0 ? null : string.Join(" · ", facts);
-    }
-
-    /// <summary>An agent under its stage: the name, then the model it ran on, how
-    /// often, and how many runs did not complete. A declared agent no record shows
-    /// running has no model to name, and says so rather than borrowing one.</summary>
-    private static FlowStepNote Note(DeliveryRunStageAgent agent)
-    {
-        List<string> detail = [agent.Model ?? (agent.Count == 0 ? "declared" : "model not recorded")];
-
-        if (agent.Count > 1) detail.Add($"×{agent.Count}");
-        if (agent.Failed > 0) detail.Add($"{agent.Failed} failed");
-
-        return new FlowStepNote(agent.Name, string.Join(" · ", detail));
-    }
 
     /// <summary>
     /// One of the run's references as the Integrations family draws one. No artifact

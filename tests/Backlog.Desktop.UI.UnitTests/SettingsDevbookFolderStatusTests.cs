@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Selects;
 
 using Bunit;
 
@@ -29,7 +30,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void The_architecture_section_is_labelled_for_what_it_holds()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.WithArchitectureFolder);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Assert.Equal("Architecture", Row(settings.Component, ".arc42").QuerySelector(".checkbox__label")!.TextContent);
     }
@@ -44,7 +45,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_section_whose_folder_is_in_the_clone_is_marked_in_the_field_rather_than_in_words()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.WithArchitectureFolder);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var row = Row(settings.Component, ".arc42");
         var marker = Marker(row)!;
@@ -70,7 +71,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_section_found_at_its_legacy_root_folder_says_so()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.WithLegacyArchitectureFolder);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var status = Status(settings.Component, ".arc42");
 
@@ -82,7 +83,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_section_whose_folder_is_absent_names_the_path_that_was_looked_at()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var marker = Marker(Row(settings.Component, ".arc42"))!;
         Assert.Equal("Folder not found.", marker.GetAttribute("aria-label"));
@@ -106,8 +107,8 @@ public sealed class SettingsDevbookFolderStatusTests
     {
         using var found = RenderSettings(cloneDirectory: CloneDirectory.WithArchitectureFolder);
         using var missing = RenderSettings(cloneDirectory: CloneDirectory.Empty);
-        OpenRepositoriesTab(found.Component);
-        OpenRepositoriesTab(missing.Component);
+        OpenRepositoryCard(found.Component);
+        OpenRepositoryCard(missing.Component);
 
         var foundGlyph = Marker(Row(found.Component, ".arc42"))!.TextContent.Trim();
         var missingGlyph = Marker(Row(missing.Component, ".arc42"))!.TextContent.Trim();
@@ -125,7 +126,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_repository_with_no_clone_directory_is_pointed_at_the_clone_directory()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.None);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var status = Status(settings.Component, ".arc42");
 
@@ -145,7 +146,7 @@ public sealed class SettingsDevbookFolderStatusTests
     {
         var cache = new GatedSnapshotCache();
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.None, snapshots: cache);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var status = Status(settings.Component, ".arc42");
 
@@ -164,7 +165,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void A_section_turned_off_is_not_checked_for_a_folder_at_all()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         Row(settings.Component, ".arc42").QuerySelector("[data-testid='devbook-folder-enabled']")!.Change(false);
 
@@ -189,7 +190,7 @@ public sealed class SettingsDevbookFolderStatusTests
     public void The_instructions_section_keeps_its_own_sentence()
     {
         using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty);
-        OpenRepositoriesTab(settings.Component);
+        OpenRepositoryCard(settings.Component);
 
         var status = Status(settings.Component, "instructions");
 
@@ -197,6 +198,72 @@ public sealed class SettingsDevbookFolderStatusTests
         Assert.Equal("Uses standard repository instruction discovery.", status.TextContent.Trim());
         Assert.Null(Marker(Row(settings.Component, "instructions")));
     }
+
+    // --- The devbook source select beside the sections ------------------------
+
+    /// <summary>
+    /// "Refresh branches" is a request, not a source, so once it has run the
+    /// select has to be rebuilt on the source actually read. With the list already
+    /// in, a refresh moves nothing else the control is keyed on; the load count
+    /// does, so the select is a new one showing the clone, not the request.
+    /// </summary>
+    [Fact]
+    public async Task After_a_refresh_the_source_select_is_rebuilt_on_the_source_read()
+    {
+        using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty, withOverview: true);
+        var overview = settings.TestContext.Services.GetRequiredService<DevbookBranchOverview>();
+        OpenRepositoryCard(settings.Component);
+
+        // The pane has already loaded the list, as it does on opening.
+        await overview.LoadAsync("backlog", TestContext.Current.CancellationToken);
+        settings.Component.Render();
+        var before = SourceSelect(settings.Component);
+
+        settings.Component.Find("[data-testid='repo-devbook-source-select'] select").Change(DevbookSourceSelection.LoadBranchesValue);
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, overview.Generation("backlog"));
+            Assert.NotSame(before, SourceSelect(settings.Component));
+            Assert.Equal(
+                DevbookSourceSelection.LocalFolderValue,
+                settings.Component.Find("[data-testid='repo-devbook-source-select'] select").GetAttribute("value"));
+        });
+    }
+
+    /// <summary>While the refresh runs, its entry leaves the list; the select is
+    /// rebuilt on the source read, so it never falls back to the first entry
+    /// ("Default branch") under a note saying the clone is read.</summary>
+    [Fact]
+    public async Task While_a_refresh_runs_the_source_select_shows_the_source_read()
+    {
+        using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty, withOverview: true);
+        var overview = settings.TestContext.Services.GetRequiredService<DevbookBranchOverview>();
+        var catalog = (StubBranchCatalog)settings.TestContext.Services.GetRequiredService<IGitHubBranchCatalog>();
+        OpenRepositoryCard(settings.Component);
+        await overview.LoadAsync("backlog", TestContext.Current.CancellationToken);
+        settings.Component.Render();
+        var before = SourceSelect(settings.Component);
+        var gate = new TaskCompletionSource();
+        catalog.Gates[string.Empty] = gate;
+
+        settings.Component.Find("[data-testid='repo-devbook-source-select'] select").Change(DevbookSourceSelection.LoadBranchesValue);
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.True(overview.IsLoading("backlog"));
+            Assert.NotSame(before, SourceSelect(settings.Component));
+            Assert.Equal(
+                DevbookSourceSelection.LocalFolderValue,
+                settings.Component.Find("[data-testid='repo-devbook-source-select'] select").GetAttribute("value"));
+        });
+
+        gate.SetResult();
+        settings.Component.WaitForAssertion(() => Assert.False(overview.IsLoading("backlog")));
+    }
+
+    private static SelectField SourceSelect(IRenderedComponent<Settings> component) =>
+        component.FindComponents<SelectField>().Single(select => select.Instance.TestId == "repo-devbook-source-select").Instance;
 
     private enum CloneDirectory
     {
@@ -206,8 +273,8 @@ public sealed class SettingsDevbookFolderStatusTests
         WithLegacyArchitectureFolder
     }
 
-    private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
+    private static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
+        SettingsMenu.OpenRepository(component);
 
     /// <summary>Keyed on the section's own key chip rather than on row order, so a
     /// section added to the defaults does not move the assertions.</summary>
@@ -222,7 +289,7 @@ public sealed class SettingsDevbookFolderStatusTests
     /// and for the one with no folder of its own.</summary>
     private static IElement? Marker(IElement row) => row.QuerySelector("[data-testid='devbook-folder-marker']");
 
-    private static SettingsRenderContext RenderSettings(CloneDirectory cloneDirectory, IDevbookSnapshotCache? snapshots = null)
+    private static SettingsRenderContext RenderSettings(CloneDirectory cloneDirectory, IDevbookSnapshotCache? snapshots = null, bool withOverview = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devbook-status-tests", Guid.NewGuid().ToString("n"));
 
@@ -260,9 +327,25 @@ public sealed class SettingsDevbookFolderStatusTests
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new UnreachableGitHub(), new NotConnectedProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
-        context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store, snapshots));
-        context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        if (withOverview)
+        {
+            // Composed as the application composes it, over fakes: the overview
+            // looks at the clone through git, so git is scripted rather than run.
+            var catalog = new StubBranchCatalog { Branches = { "main" }, Heads = { [string.Empty] = new GitHubBranchHead("main", "sha-main") } };
+            context.Services.AddSingleton(githubSettings);
+            context.Services.AddSingleton<ILocalGitRepositoryService>(new ScriptedGitRepositoryService());
+            context.Services.AddSingleton<IGitHubBranchCatalog>(catalog);
+            context.Services.AddSingleton<IGitHubBranchComparison>(new ScriptedBranchComparisons());
+            context.Services.AddSingleton<DevbookBranchComparisons>();
+            context.Services.AddSingleton<DevbookBranchOverview>();
+            context.Services.AddSingleton<DevbookSourceSelection>();
+        }
+        else
+        {
+            context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+            context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        }
 
         return new SettingsRenderContext(root, clone, context, context.Render<Settings>());
     }

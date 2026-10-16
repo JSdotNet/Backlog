@@ -116,8 +116,10 @@ public sealed class RoadmapPlanProgressSource(
                         rollup.TotalEffort,
                         rollup.DoneEffort,
                         rollup.UnestimatedCount,
-                        rollup.IsFinished,
-                        rollup.LastCompletedOn,
+                        // Finished by its tasks, or — when none carries it — by a person's
+                        // hand, on the day they completed it.
+                        RoadmapItemCompletion.IsFinished(item, rollup),
+                        RoadmapItemCompletion.FinishedOn(item, rollup),
                         PartsOf(item, rollups.TryGetValue(item.Id, out var gathered) ? gathered : null, inUse, today),
                         item.PlacedByImport == ImportPlacement.Effort);
                 })

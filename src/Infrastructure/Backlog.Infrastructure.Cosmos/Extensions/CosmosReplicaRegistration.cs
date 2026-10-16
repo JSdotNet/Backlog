@@ -121,8 +121,15 @@ public static class CosmosReplicaRegistration
                 // own transport and never goes through IHttpClientFactory — so
                 // the timeout and the retry policy have to be stated on the
                 // client itself or there is none.
+                //
+                // Nine rate-limit retries, the SDK's own default, inside the same
+                // ten-second wait. A push writes eight documents of one owner at
+                // once (ReplicaWrites), all on one logical partition of a
+                // serverless account, so a large push can meet its burst limit;
+                // a 429 that outlives these retries fails the whole push as
+                // sync.replica_busy and costs the device a sync cycle.
                 options.RequestTimeout = TimeSpan.FromSeconds(10);
-                options.MaxRetryAttemptsOnRateLimitedRequests = 3;
+                options.MaxRetryAttemptsOnRateLimitedRequests = 9;
                 options.MaxRetryWaitTimeOnRateLimitedRequests = TimeSpan.FromSeconds(10);
 
                 // Gateway rather than Direct: it is one HTTPS port outbound,

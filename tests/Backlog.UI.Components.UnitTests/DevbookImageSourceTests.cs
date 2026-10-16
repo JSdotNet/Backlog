@@ -30,6 +30,51 @@ public sealed class DevbookImageSourceTests
         Assert.Equal("A diagram", view.Find(".md-image--inert").TextContent);
     }
 
+    /// <summary>An entry's body is no knowledge document, and a cascaded source still
+    /// draws the images it claims there — the one reading it changes.</summary>
+    [Fact]
+    public void Outside_a_knowledge_document_a_cascaded_source_draws_the_images_it_claims()
+    {
+        using var context = new BunitContext();
+        var source = new RecordingImages();
+
+        var view = context.Render<CascadingValue<IDevbookImageSource>>(parameters => parameters
+            .Add(cascade => cascade.Value, source)
+            .Add(cascade => cascade.IsFixed, true)
+            .AddChildContent<MarkdownView>(markdown => markdown
+                .Add(v => v.Blocks, MarkdownPreview.Parse("The cart, as the last run left it.\n\n![The cart](scenario:place-an-order#cart-filled)\n"))));
+
+        var claimed = Assert.Single(view.FindAll("[data-testid='claimed-image']"));
+
+        // No document to name: the source resolves a scenario: target without one.
+        Assert.Equal("scenario:place-an-order#cart-filled|The cart|", claimed.TextContent);
+        Assert.Empty(view.FindAll("img"));
+    }
+
+    /// <summary>What the source declines outside a knowledge document keeps the
+    /// ordinary rule — an image stays an image, a relative link stays a link — not
+    /// the knowledge rule that makes a relative target inert.</summary>
+    [Fact]
+    public void Outside_a_knowledge_document_an_unclaimed_image_keeps_the_plain_rule()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<CascadingValue<IDevbookImageSource>>(parameters => parameters
+            .Add(cascade => cascade.Value, new RecordingImages())
+            .Add(cascade => cascade.IsFixed, true)
+            .AddChildContent<MarkdownView>(markdown => markdown
+                .Add(v => v.Blocks, MarkdownPreview.Parse("![A diagram](diagram.png) and [the notes](notes.md)\n"))));
+
+        using var plain = new BunitContext();
+        var expected = plain.Render<MarkdownView>(parameters => parameters
+            .Add(v => v.Blocks, MarkdownPreview.Parse("![A diagram](diagram.png) and [the notes](notes.md)\n")));
+
+        Assert.Equal("diagram.png", view.Find("img").GetAttribute("src"));
+        Assert.Empty(view.FindAll(".md-image--inert"));
+        Assert.Empty(view.FindAll("[data-testid='claimed-image']"));
+        view.MarkupMatches(expected.Markup);
+    }
+
     [Fact]
     public void Without_a_source_a_scenario_image_is_inert()
     {

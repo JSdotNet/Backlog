@@ -427,6 +427,9 @@
                                                         OnToggle="Toggle"
                                                         ToggleId="@ToggleButtonId(bar.Id)"
                                                         OnActivate="Activate"
+                                                        ShowAction="@OnBarAction.HasDelegate"
+                                                        OnAction="BarAction"
+                                                        ActionBusy="@Is(BusyActionId, bar.Id)"
                                                         OnKeyDown="args => Key(bar, args)"
                                                         TestId="@Suffix($"bar-{Slug(bar.Id)}")" />
                                 }
@@ -766,6 +769,37 @@
     public EventCallback<RoadmapLink> OnLinkCreated { get; set; }
 
     /// <summary>
+    /// A bar's own action was used: the small button at its end that a bar carrying a
+    /// <see cref="RoadmapBar.Action"/> draws. Names the bar; what the act does is the
+    /// host's. Never raised together with <see cref="OnBarSelected"/>: using the action
+    /// does not open the bar.
+    /// <para>
+    /// Left unset, no bar draws its action.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnBarAction { get; set; }
+
+    /// <summary>The bar whose action the host is still answering, if any. Its action shows
+    /// busy and drops a second press.</summary>
+    [Parameter]
+    public string? BusyActionId { get; set; }
+
+    /// <summary>
+    /// Raises the action, then puts the focus on the bar itself. An action usually changes
+    /// what the bar offers — a completed bar has none left — so the button the focus was on
+    /// may not be drawn again, and the focus would fall to the page. On the bar it stays
+    /// where the reader was.
+    /// </summary>
+    private async Task BarAction(string id)
+    {
+        await OnBarAction.InvokeAsync(id);
+
+        _refocusId = id;
+        StateHasChanged();
+    }
+
+    /// <summary>
     /// An empty place on a row the reader double-clicked or dragged across, to put
     /// something there: the row and the week, and for a drag the weeks it covered. Proposed, not created — what to add, and whether it may
     /// go there, is the host's, and it appears when the host hands it back.
@@ -1000,7 +1034,8 @@
     {
         "roadmap-timeline__group",
         content ? "roadmap-timeline__group--slotted" : null,
-        CanCollapse(group) ? "roadmap-timeline__group--collapsible" : null
+        CanCollapse(group) ? "roadmap-timeline__group--collapsible" : null,
+        group.Archived ? "roadmap-timeline__group--archived" : null
     }.Where(part => part is not null));
 
     private RenderFragment CollapseToggle(RoadmapGroup group) => __builder =>
@@ -1087,6 +1122,12 @@
                         @* The sidebar is narrow, so a long name is cut short with an
                            ellipsis; the title carries it whole. *@
                         <span class="roadmap-timeline__group-name" title="@group.Title">@group.Title</span>
+                        @if (group.Archived)
+                        {
+                            @* Said in words, because the grey is a shade and the band's
+                               neighbours may be neutral too. *@
+                            <StatusBadge Status="Archived" CssClass="roadmap-timeline__group-tag" />
+                        }
                     }
                     @if (placed.Step is not null)
                     {
@@ -1359,12 +1400,22 @@
         if (_dragId is null) return;
 
         // Asked before Settle, because settling releases the gesture and the answer
-        // goes with it.
-        var moved = PreviewFor(_dragId) is not null;
+        // goes with it. Armed before it too: Settle awaits the host's change, a host
+        // that saves and reloads yields there, and the click the browser synthesises
+        // after the pointerup arrives during that wait, not after it.
+        _clickEndsADrag = PreviewFor(_dragId) is not null;
 
-        await Settle(_dragId);
-
-        _clickEndsADrag = moved;
+        try
+        {
+            await Settle(_dragId);
+        }
+        catch
+        {
+            // A host that failed to take the move has not moved anything, and a
+            // flag left armed would swallow the reader's next real click.
+            _clickEndsADrag = false;
+            throw;
+        }
     }
 
     [JSInvokable]
@@ -2042,9 +2093,13 @@
     /// same way the graph explorer's legend colours do. No colour is a neutral
     /// band, which reads as "nobody said" rather than as one more category.
     /// </para>
+    /// <para>
+    /// An archived group is drawn neutral whatever it was handed: the greyed band and
+    /// its bars are what says it is history, beside the tag in words.
+    /// </para>
     /// </summary>
     private static string? GroupStyle(RoadmapGroup group) =>
-        string.IsNullOrWhiteSpace(group.Color) ? null : $"--roadmap-group-color: {group.Color};";
+        group.Archived || string.IsNullOrWhiteSpace(group.Color) ? null : $"--roadmap-group-color: {group.Color};";
 
     /// <summary>How narrow a column may be and still carry its head — room for
     /// "W53" or "Oct" at the axis's type size, plus its padding.</summary>
@@ -2446,8 +2501,12 @@
     /// <summary>Where a row is, said the way a reader would: the band first,
     /// then the line within it.</summary>
     private static string Context(PlacedRow placed) => placed.Owner is { } owner
-        ? $"{placed.Group.Title}, {owner.Title}, step {placed.StepIndex + 1} of {owner.StepList.Count}"
-        : string.IsNullOrWhiteSpace(placed.Row.Title) ? placed.Group.Title : $"{placed.Group.Title}, {placed.Row.Title}";
+        ? $"{BandName(placed.Group)}, {owner.Title}, step {placed.StepIndex + 1} of {owner.StepList.Count}"
+        : string.IsNullOrWhiteSpace(placed.Row.Title) ? BandName(placed.Group) : $"{BandName(placed.Group)}, {placed.Row.Title}";
+
+    /// <summary>A band's name as a row and its bars say it: an archived band says so,
+    /// because its tag is in the hidden names column.</summary>
+    private static string BandName(RoadmapGroup group) => group.Archived ? $"{group.Title} (archived)" : group.Title;
 
     private static string Glyph(RoadmapMarker marker) => marker switch
     {

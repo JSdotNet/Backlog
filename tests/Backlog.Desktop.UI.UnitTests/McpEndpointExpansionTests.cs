@@ -280,6 +280,8 @@ public class McpEndpointExpansionTests
             return token;
         }
 
+        public string? CurrentToken => TokensMinted > 0 ? token : null;
+
         public event Action? Changed
         {
             add { }

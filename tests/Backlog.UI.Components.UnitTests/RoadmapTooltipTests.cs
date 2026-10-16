@@ -108,4 +108,90 @@ public sealed class RoadmapTooltipTests
         Assert.DoesNotContain('\n', spoken);
         Assert.Contains("Release, read against the whole plan.", spoken, StringComparison.Ordinal);
     }
+
+    // --- Overdue: drawn as an alert, said by the caller's words -----------------
+
+    private static IRenderedComponent<RoadmapTimeline> LateChart(BunitContext context)
+    {
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<RoadmapBar> bars =
+        [
+            new("late", "build", "Late", On(1, 5), On(1, 9), Detail: "Overdue: ended 9 Jan 2026\nMedium priority", Overdue: true),
+            new("guess", "build", "Guess", On(1, 12), On(1, 16), Detail: "Overdue: ended 16 Jan 2026\nno task yet", Tentative: true, Overdue: true),
+            new("fine", "build", "Fine", On(1, 19), On(1, 30)),
+            new("behind", "build", "Behind", On(2, 2), On(2, 6),
+                Detail: "Overdue: ended 6 Feb 2026\nHigh priority", Steps: Steps, Overdue: true)
+        ];
+
+        return context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(timeline => timeline.Groups, Plan)
+            .Add(timeline => timeline.Bars, bars)
+            .Add(timeline => timeline.Window, Q1)
+            .Add(timeline => timeline.DateLabel, date => date.ToString("yyyy-MM-dd"))
+            .Add(timeline => timeline.TestId, "rm"));
+    }
+
+    [Fact]
+    public void An_overdue_bar_wears_the_warning_and_a_marker_a_screen_reader_skips()
+    {
+        using var context = new BunitContext();
+        var view = LateChart(context);
+
+        var late = view.Find("[data-roadmap-bar='late']");
+        Assert.Contains("roadmap-bar--overdue", late.ClassList);
+
+        var marker = late.QuerySelector(".roadmap-bar__overdue");
+        Assert.NotNull(marker);
+        Assert.Equal("true", marker.GetAttribute("aria-hidden"));
+
+        var fine = view.Find("[data-roadmap-bar='fine']");
+        Assert.DoesNotContain("roadmap-bar--overdue", fine.ClassList);
+        Assert.Null(fine.QuerySelector(".roadmap-bar__overdue"));
+    }
+
+    [Fact]
+    public void An_overdue_bar_says_so_in_its_tooltip_and_its_accessible_name_in_the_callers_words()
+    {
+        using var context = new BunitContext();
+        var view = LateChart(context);
+
+        var body = view.Find("[data-roadmap-bar='late'] .roadmap-bar__body");
+
+        Assert.Equal("Late\n2026-01-05 to 2026-01-09\nOverdue: ended 9 Jan 2026\nMedium priority", body.GetAttribute("title"));
+        Assert.Contains("Overdue: ended 9 Jan 2026, Medium priority", body.QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The warning is the one line that asks the reader to act, so on a bar
+    /// with progress it still comes straight after the dates — ahead of the "points
+    /// done" line the tooltip otherwise puts first.</summary>
+    [Fact]
+    public void An_overdue_bar_with_progress_says_overdue_before_its_progress()
+    {
+        using var context = new BunitContext();
+        var view = LateChart(context);
+
+        var body = view.Find("[data-roadmap-bar='behind'] .roadmap-bar__body");
+
+        Assert.Equal(
+            string.Join('\n',
+                "Behind",
+                "2026-02-02 to 2026-02-06",
+                "Overdue: ended 6 Feb 2026",
+                "3 of 11 points done, 1 unestimated",
+                "High priority"),
+            body.GetAttribute("title"));
+    }
+
+    [Fact]
+    public void A_tentative_bar_that_is_overdue_keeps_its_outline_and_wears_the_warning_too()
+    {
+        using var context = new BunitContext();
+        var view = LateChart(context);
+
+        var guess = view.Find("[data-roadmap-bar='guess']");
+
+        Assert.Contains("roadmap-bar--tentative", guess.ClassList);
+        Assert.Contains("roadmap-bar--overdue", guess.ClassList);
+    }
 }

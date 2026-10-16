@@ -1,6 +1,8 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Devbook.Chapters;
+using Backlog.Infrastructure.Devbook.Documents;
+using Backlog.Infrastructure.Devbook.Instructions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -36,6 +38,9 @@ internal static class DevbookModuleServices
         typeof(DevbookScope),
         typeof(DevbookUpdateService),
         typeof(DevbookSourceSelection),
+        typeof(DevbookBranchReview),
+        typeof(DevbookBranchComparisons),
+        typeof(DevbookBranchOverview),
         typeof(DevbookFolderOpenService),
         typeof(Arc42DevbookStore),
         typeof(C4DevbookStore),

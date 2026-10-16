@@ -58,6 +58,10 @@ public static class GitHubRegistration
             sp.GetRequiredService<ResolvingGitHubTransport>()));
         services.AddSingleton<IGitHubTreeClient>(sp => new GitHubTreeClient(
             sp.GetRequiredService<ResolvingGitHubTransport>()));
+        // What a branch changed: against its base, and commit by commit. Read
+        // when somebody reviews the branch, and never cached on disk.
+        services.AddSingleton<IGitHubBranchComparison>(sp => new GitHubBranchComparison(
+            sp.GetRequiredService<ResolvingGitHubTransport>()));
 
         services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         services.AddSingleton<IGitFileHistoryService, GitFileHistoryService>();

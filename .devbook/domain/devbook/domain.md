@@ -17,24 +17,39 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
-aliases: [KnowledgeNote]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/domain.md#brain, .devbook/domain/devbook/domain.invariants.md#knowledge-note]
+aliases: [KnowledgeNote, Brain note]
 ```
 
-An organized unit of project knowledge stored as markdown and the boundary for
-its own organization and links. Invariants: a note carries a primary `topic` and
-a `PARA Category`; it may be scoped to zero or more projects/repos; links to
-tasks and other notes are managed through the root; and status advances
-through the note lifecycle (created → organized → linked → archived, with
-restore). `updated_at` moves forward on every change.
+An organized unit of project knowledge stored as Markdown, and the boundary for
+its own organization and links. Its area, its `PARA Category`, is its only
+lifecycle state: the lifecycle is a set of workflow phases read off the area
+([Knowledge note lifecycle](flow.md#knowledge-note-lifecycle)). The rules a note
+is held to are in [its invariants](domain.invariants.md#knowledge-note).
 
-A knowledge chapter — this aggregate, and equally any chapter Devbook renders
-from a repository's knowledge folders — may also carry two pieces of metadata in
-its `meta` block that describe how it relates to planned work. The first is an optional [Effort](#effort). The second is a `roadmap` list:
-the [Roadmap Item](../roadmap/domain.md#roadmap-item) tags this chapter declares it
-contributes to, held as a `Roadmap Contribution`. Both are read by Roadmap
-Planning when a Roadmap Item gathers and totals the work behind it; Devbook
-registers them and owns them, and Roadmap only reads.
+A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook
+chapter like any other. It keeps the devbook `meta` block and `annotation` fences
+(local ADR 0016), and adds three fields to the block (local ADR 0026):
+
+| Field | Holds | Value object |
+|---|---|---|
+| `para` | The note's area. Derived from the top folder the note sits in, and written only to override it. | [PARA Category](#para-category) |
+| `repos` | The repositories a project note concerns. Project notes only. | [Project Ref](#project-ref) |
+| `tasks` | The tasks the note links to. | [Task Link](#task-link) |
+
+The file is the note. What the app derives from it is kept out of the folder
+([Nothing derived lands in the folder](requirements.md#requirement-nothing-derived-lands-in-the-folder)).
+The folder's own sync carries the note between machines rather than the task
+feed, which tells it apart from an Inbox [Note](../inbox/domain.md#note) (local
+ADR 0025). An Inbox Note waits for triage, and triaging it **To Brain** makes a
+Knowledge Note of it.
+
+Any knowledge chapter, a Brain note or a repository chapter, may carry two
+planning fields in its `meta` block. The first is an optional [Effort](#effort).
+The second is a `roadmap` list of
+[Roadmap Contributions](#roadmap-contribution). Roadmap Planning reads both when
+a Roadmap Item gathers and totals the work behind it. Devbook registers and owns
+them, and Roadmap only reads them.
 
 The Knowledge Note aggregate has no independently identified child entities;
 `Project Ref`, `Tag`, `Roadmap Contribution`, and `Task Link` are value objects
@@ -49,7 +64,8 @@ aliases: [ProjectRef, repo_id]
 ```
 
 A scope link to a project/repo: `repo_id` and `project_name`. Equality is by
-value; a note may hold several.
+value. A note may be scoped to any number of projects or repositories, none
+included.
 
 ### Task Link
 
@@ -59,8 +75,15 @@ status: draft
 aliases: [TaskLink, task_id]
 ```
 
-A typed link to a Task: `task_id`, `link_type`
-(reference or embed), and `linked_at`. Immutable; equality is by value.
+A link from a note to one Task, by the task's stored id. A note writes it as one
+value of its `tasks` field, and the id is a GUID. How a value is read is
+[A task link is the task's id](requirements.md#requirement-a-task-link-is-the-tasks-id).
+A value that is no GUID links no task, and the note lists it as written.
+
+A Task Link is not an address and not an edge. The Brain's database keeps a
+note's `tasks` values on the note's own node as they are written, and the app
+reads them from there both ways: the tasks a note names, and the notes that name
+a task. A task's record carries no note.
 
 ### Tag
 
@@ -74,9 +97,7 @@ Equality is by canonical `name`.
 
 It is **this context's own** vocabulary: a person invents a `#keyword` to find
 notes across projects later, and it means whatever they use it to mean. It is not
-a `Roadmap Contribution`, and the two must not be collapsed even though both are
-loosely "tags". A `Roadmap Contribution` names a slug owned by
-[Roadmap Planning](../roadmap/domain.md#roadmap-tag).
+a [Roadmap Contribution](#roadmap-contribution).
 
 ### Roadmap Contribution
 
@@ -87,35 +108,67 @@ aliases: [roadmap contribution, contributes to]
 ```
 
 A [Roadmap Item](../roadmap/domain.md#roadmap-item) tag this chapter declares it
-contributes to: a lowercase kebab-case slug, held in the chapter's `roadmap` list.
-A note may declare several, or none. Equality is by value.
+contributes to, held as a slug in the chapter's `roadmap` list. A note may
+declare several, or none. Equality is by value.
 
 It **names** a roadmap item rather than **addressing** a chapter, and that
-distinction is the one most easily misread. A `Task Link` and a knowledge
-cross-reference are `<path>#<slug>` addresses that resolve to a specific node and
-draw an edge in the knowledge graph; a `Roadmap Contribution` is a bare tag slug
-that resolves to nothing here at all — it is the same vocabulary a
-[Roadmap Item](../roadmap/domain.md#roadmap-tag) holds and a Task files
-under, and it is Roadmap Planning that reads a chapter's contributions when it
-gathers work by tag. Because it names rather than addresses, it produces **no
-graph edge**, exactly like an alias: a chapter contributing to `sync-service` is
-not linked to any document called that. Nothing is validated and a slug matching
-no current roadmap item is a normal, harmless state.
+distinction is the one most easily misread. A knowledge cross-reference is a
+`<path>#<slug>` address that resolves to a specific node and draws an edge in the
+knowledge graph. A `Task Link` names one task by its id and stays a value on the
+note's node. A `Roadmap Contribution` is a bare tag slug that resolves to nothing
+here. It is the same vocabulary a
+[Roadmap Tag](../roadmap/domain.md#roadmap-tag) holds and a Task files under, and
+Roadmap Planning reads a chapter's contributions when it gathers work by tag.
+
+Because it names rather than addresses, it behaves like an alias: a chapter
+contributing to `sync-service` is not linked to any document called that; see
+[its invariant](domain.invariants.md#invariant-a-roadmap-contribution-draws-no-graph-edge).
+Nothing validates the slug, and a slug matching no current roadmap item is a
+normal, harmless state.
+
+It is also not a [Tag](#tag), even though both are loosely "tags". A Tag is this
+context's own `#keyword` for discovery, and it finds notes here. A Roadmap
+Contribution names a slug [Roadmap Planning](../roadmap/domain.md#roadmap-tag)
+owns, and only Roadmap Planning reads it. The two are never collapsed.
 
 ### PARA Category
 
 ```meta
-type: enum
+type: value-object
 status: draft
-aliases: [PARACategory]
+aliases: [PARACategory, Brain area, para]
+related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/domain/devbook/features.md#brain-folder-setup]
 ```
 
-Organization bucket for a note:
+The area a note is organized under: one top folder of the [Brain](#brain), shown
+as one tab. The list is open. The Brain's `CONVENTIONS.md` declares the areas,
+each with its name, its folder and its place in the tab order. A note's area is
+the top folder it sits in, unless its `para` field overrides it. Equality is by
+folder name.
 
-- `projects` — active work with a goal and deadline.
+`CONVENTIONS.md` declares the areas under a heading named `Areas`, at any level.
+It uses either a table with a `Folder` column, plus optional `Area` (or `Name`), `Holds`
+and `Order` columns, or a list whose items name the folder in backticks. Which
+declarations count is
+[An area is one plain folder, declared once](domain.invariants.md#invariant-an-area-is-one-plain-folder-declared-once),
+and their order is
+[Declared areas keep the order written](domain.invariants.md#invariant-declared-areas-keep-the-order-written).
+
+When `CONVENTIONS.md` declares no areas, the PARA set applies
+([The areas are the declared ones](requirements.md#requirement-the-areas-are-the-declared-ones)).
+In its order, it is:
+
+- `_inbox` — notes not yet filed; where a capture lands.
+- `projects` — active work with a goal and a deadline.
 - `areas` — ongoing responsibilities without a deadline.
 - `resources` — reference material and collected knowledge.
-- `archive` — inactive items preserved for future search.
+- `people` — notes about the people the work involves.
+- `journal` — dated entries.
+- `archive` — inactive notes preserved for future search.
+
+The name stays *PARA Category* because PARA is the default and the vocabulary a
+person starts from; a Brain that declares its own areas is still organized the
+same way, one area per note.
 
 ### Note Source
 
@@ -124,7 +177,46 @@ type: enum
 status: draft
 ```
 
-Origin of the note: `inbox` (routed from triage), `manual`, or `import`.
+Origin of the note: `inbox` (routed **To Brain** from triage), `manual`
+(written in the Brain, through the pane's **Capture** or an assistant's capture
+over MCP), or `import`.
+
+## Remark
+
+```meta
+type: aggregate
+status: draft
+aliases: [DevbookAnnotation, remark, reading note]
+related: [.devbook/domain/devbook/features.md#remarks-on-a-chapter, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/domain/devbook/domain.md#review-note, .devbook/domain/devbook/domain.invariants.md#remark, .devbook/domain/devbook/requirements.md#remarks-on-a-chapter]
+```
+
+A person's own note on one block of a chapter, kept by the app rather than by the
+repository. It holds the repository's alias and the chapter's path inside the
+repository, the block it is anchored to, its body, its author, and whether it is
+resolved. The alias is the name a repository already has on every device, so one
+remark names the same chapter on all of them.
+
+A remark is anchored by two things: the block's index and a digest of what the
+block said. The index says where to look. The digest says whether the block found
+there is still the one the remark was about. Where the read view shows a remark
+once the chapter has changed is in
+[the requirements of Remarks on a chapter](requirements.md#remarks-on-a-chapter).
+
+It is an aggregate because its lifecycle is the person's alone: add, edit,
+resolve, delete. No other record changes with it. It replicates as a whole
+document through a replica container of its own (local ADR 0011). A live remark
+with an empty body is a *draft*, open in the read view and not yet written. A
+remark the sync service would refuse also stays on this device: one filed under
+no repository, as a remark on the storage-folder devbook is, or one with a field
+past its bound. A warning names it, and it is offered again only after an edit.
+A deletion replicates without the remark's body. How each change is stamped,
+which version wins, what a deletion leaves, what happens to a draft, which remark
+stays local, and where a remark is stored are
+[the Remark invariants](domain.invariants.md#remark).
+
+A remark lives with the app rather than in the repository, so a reader can remark
+on a branch snapshot nobody can write to. It is not a
+[Review Note](#review-note), and neither is converted into the other.
 
 ## Cross-Linking
 
@@ -148,28 +240,39 @@ status: draft
 related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
 ```
 
-Reviews the agent-facing instruction documents a repository carries — the
-working-instructions knowledge area, per tool — and produces findings about what
-they cost, where they disagree, and which wording is not doing its job. It is a
-service rather than an aggregate because the documents belong to the repository and
-are read through the knowledge-folder settings
+Reviews the agent-facing instruction documents a repository carries, the
+working-instructions knowledge area for each tool. It produces findings about what
+they cost, where they disagree, and which wording is not doing its job.
+
+None of the review is built yet. Its switch is reserved
+([Instruction optimization](context.md#instruction-optimization)), so this chapter
+records the intended design and no rule below has a type that enforces it.
+
+It is a service rather than an aggregate because the documents belong to the
+repository. They are read through the knowledge-folder settings
 [Repository Management](../repository-management/features.md#repository-knowledge-folder-settings)
-owns: several tools' instruction sets are examined as one subject, and no aggregate
+owns, and several tools' instruction sets are examined as one subject. No aggregate
 here may hold their content without becoming a second, staler copy of it.
 
-Each [Instruction Finding](#instruction-finding) is of one of these kinds: context load carried by an always-loaded document; one meaning
-stated in more than one place; a disagreement or an omission between the sets two
-tools read; wording that will not reliably make an agent reach the document it
-names; wording that steers by prohibition where stating the wanted behaviour would
-steer better; guidance the agent already follows unprompted; guidance that has gone
-stale; and guidance that copies what the repository's own configuration already
-states.
+Each [Instruction Finding](#instruction-finding) is of one of these kinds:
 
-Accepting a finding edits the repository's own file, and the repository stays its owner: the previous wording remains recoverable exactly,
-and code blocks, commands, paths, and error strings are carried through a rewrite
-unchanged. A change that shrinks an instruction set at the cost of how well the
-agents work is a failed change rather than a saving, which is why an applied
-proposal is measured afterwards and can be withdrawn. A claimed reduction carries its [Saving Evidence](#saving-evidence).
+| Finding kind | Sub-feature that surfaces it |
+| --- | --- |
+| Context load carried by an always-loaded document | [Context-load budget](features.md#context-load-budget) |
+| One meaning stated in more than one place | [Duplicate rule detection](features.md#duplicate-rule-detection) |
+| A disagreement or an omission between the sets two tools read | [Cross-tool alignment validation](features.md#cross-tool-alignment-validation) |
+| Wording that will not reliably make an agent reach the document it names | [Pointer and phrasing review](features.md#pointer-and-phrasing-review) |
+| Wording that steers by prohibition where the wanted behaviour would steer better | [Pointer and phrasing review](features.md#pointer-and-phrasing-review) |
+| Guidance the agent already follows unprompted | [Prune candidates](features.md#prune-candidates) |
+| Guidance that has gone stale | [Prune candidates](features.md#prune-candidates) |
+| Guidance that copies what the repository's own configuration already states | [Prune candidates](features.md#prune-candidates) |
+
+Accepting a finding edits the repository's own file, and the repository stays its
+owner. The previous wording remains recoverable exactly. Code blocks, commands,
+paths, and error strings pass through a rewrite unchanged. A change that shrinks an
+instruction set at the cost of how well the agents work is a failed change rather
+than a saving. That is why an applied proposal is measured afterwards and can be
+withdrawn. A claimed reduction carries its [Saving Evidence](#saving-evidence).
 
 Findings live for the review that produced them.
 
@@ -186,8 +289,10 @@ status: draft
 
 > Enums used by more than one aggregate in this bounded context.
 
-Devbook has a single aggregate; `PARA Category` and `Note Source` are
-documented under it. This chapter is reserved for future cross-aggregate enums.
+No enum is shared between Devbook's aggregates. `PARA Category` and `Note Source`
+belong to the Knowledge Note and are documented under it, `PARA Category` as a
+value object because the Brain's `CONVENTIONS.md` declares its values. This
+chapter is reserved for future cross-aggregate enums.
 
 ## Ubiquitous Language
 
@@ -200,17 +305,59 @@ type: ubiquitous-language
 ```meta
 type: term
 status: draft
-aliases: [Devbook, Knowledge, Second Brain, SecondBrain]
-related: [.devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/context-map.md#context-map]
+aliases: [Devbook, Knowledge]
+related: [.devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/context-map.md#context-map, .devbook/domain/devbook/domain.md#brain]
 ```
 
 The bounded context, and the module, pane, database and tooling named after it.
-Until 2026-09-15 the context was called **Second Brain** and the code was named
-`Knowledge*` (`Backlog.Modules.Knowledge`, `KnowledgePane`, `_meta/knowledge.db`);
-both former names are kept as aliases so a counterpart resolved on an older branch
-still lands here. "Knowledge" also remains the informal shorthand the Inbox uses when
-routing here. What the context *reads* — a repository's `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`
-and `.devbook/design` folders — keeps the convention's own name, *knowledge folders*.
+*Second Brain* is not an alias of it: that phrase means the [Brain](#brain).
+
+`Knowledge` is an alias. The Inbox uses it as informal shorthand when routing
+here, and older code named the context `Knowledge*` (`Backlog.Modules.Knowledge`,
+`KnowledgePane`, `_meta/knowledge.db`).
+
+What the context reads in a repository keeps the convention's own name,
+*devbook folders*: `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`,
+`.devbook/design` and `.devbook/ai`.
+
+### Brain
+
+```meta
+type: term
+status: draft
+aliases: [Brain, Second Brain, SecondBrain, brain scope, Brain scope]
+related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/12-glossary.md#terms, .devbook/domain/devbook/features.md#brain-scope]
+```
+
+The person's own notes: one devbook-shaped folder per user, outside every
+repository, whose [Knowledge Notes](#knowledge-note) are organized under the
+areas its `CONVENTIONS.md` declares. The app builds its database into its own
+storage, never into the folder. *Second Brain* is an alias: until 2026-09-15 it
+named the whole context, and now it means only the person's own notes.
+
+**Brain** is also the scope of everything filed against no repository. It is the
+first chip of the header's repository scope. Pressed, it narrows every view that
+reads the scope to the tasks with no repository, and it opens the Brain in the
+Devbook pane. Both senses are one person's own things: the work that belongs to no
+repository and the notes kept outside every repository. That is why they share a
+name. Where the scope is stored, Brain is the empty string, a value no repository
+alias can take.
+
+### Repo link
+
+```meta
+type: term
+status: draft
+aliases: [repo link, RepoLink, From your Brain]
+related: [.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#repo-links-and-backlinks]
+```
+
+A link from a Brain note into a repository devbook, written
+`repo:<alias>/<devbook path>[#slug]` in the note's `related` or in its body. It
+runs one way: a repository devbook never links into a Brain. Its reverse is the
+**From your Brain** list, the Brain notes a repository chapter shows as linking to
+it. Who sees that list, and what reading it writes, is
+[Backlinks reach only the owner and write nothing](requirements.md#requirement-backlinks-reach-only-the-owner-and-write-nothing).
 
 ### Effort
 
@@ -221,12 +368,15 @@ aliases: [effort, story points, story-point estimate]
 related: [.devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/tasks/domain.md#effort]
 ```
 
-The size of a knowledge chapter in **story points**, carried in its `meta` block:
-a non-negative integer, optional, with the same three-valued edges as a Task
-'s effort (absent means "not estimated", `0` is a real estimate, negative is
-rejected). It sizes the knowledge work rather than timing it. Registered and owned
-here; Roadmap Planning reads and totals it across the chapters an item gathers, but
-never sets it.
+The size of a knowledge chapter in **story points**, carried in its `meta` block.
+It is an optional whole number of zero or more. As with a Task's effort, absent
+means "not estimated" and `0` is a real estimate. Unlike a Task's, a negative
+value is not refused: a chapter is a file nothing checks on save, so the reader
+treats it as unreadable
+([An unreadable effort is no estimate](domain.invariants.md#invariant-an-unreadable-effort-is-no-estimate)).
+It sizes the knowledge work rather than timing it.
+Devbook registers and owns it. Roadmap Planning reads and totals it across the
+chapters an item gathers, but never sets it.
 
 ### Instruction Set
 
@@ -289,9 +439,9 @@ its own agent, skill, and command names.
 **Distinct from duplication**, and the distinction is load-bearing. Duplication is
 one meaning stated twice where one place would do, and the fix is to keep one
 place. Alignment is one meaning that deliberately has to be stated in each tool's
-set, and the fix is never to delete one of them — it is to make them agree, or to
-add the rule to the set that is missing it. Documents held in alignment are
-maintained as a pair, and a change to one leaves the other unfinished.
+set. Its fix is never to delete one of them. It is to make them agree, or to add
+the rule to the set that is missing it. Documents held in alignment are maintained
+as a pair, and a change to one leaves the other unfinished.
 
 ### Saving Evidence
 
@@ -316,13 +466,53 @@ aliases: [DevbookSyncVerdict, sweep verdict, drift verdict]
 related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .devbook/domain/sessions/domain.md#delivery-run-recording]
 ```
 
-The last thing a devbook sync sweep said about one chapter: its own drift verdict
-— `aligned`, `code-ahead`, `spec-ahead`, `conflict` or `unresolved` — with the
-sweep's line of evidence, the sync unit the chapter belongs to with that unit's
-verdict and what the sweep did about it, and the pull request or drift issue that
-produced. Filed by repository, the chapter's file as `DevbookChapterKey` spells it,
-and the heading's anchor; the latest replaces the one before it for that chapter
-alone. The words are the sweep's, carried verbatim — the sweep owns the report's
-shape. It arrives on the sweep's `Delivery Run` in the Sessions context, which keeps
-the run's verdicts as sent; this context keeps them per chapter, because what a
-reader of a chapter asks is whether the code still agrees with it.
+A Sync Verdict is the last thing a sweep said about one chapter. It holds the
+chapter's drift verdict (`aligned`, `code-ahead`, `spec-ahead`, `conflict` or
+`unresolved`) and the sweep's line of evidence. It also names the chapter's
+[Sync Unit](#sync-unit), that unit's verdict and the action the sweep took, and the
+pull request or [drift issue](../../ai/05-unattended-runs.md#scheduled-devbook-upkeep)
+it produced.
+
+A verdict is filed by repository, by the chapter's file as `DevbookChapterKey`
+spells it, and by the heading's anchor. The sweep owns the report's shape, so the
+app keeps its words rather than mapping them onto its own. Which verdict a chapter
+shows, and in what words, is in
+[the requirements of Sync verdicts beside a chapter](requirements.md#sync-verdicts-beside-a-chapter).
+A verdict arrives on the sweep's `Delivery Run` in the
+Sessions context, which keeps the run's verdicts as sent. This context keeps them
+per chapter, because a reader of a chapter asks whether the code still agrees
+with it.
+
+### Sync Unit
+
+```meta
+type: term
+status: draft
+aliases: [sync unit, SyncUnit]
+related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/ai/05-unattended-runs.md#scheduled-devbook-sync-sweeps]
+```
+
+What one sync direction governs, and what a sweep checks and acts on as a whole.
+The devbook convention defines it: an aggregate with everything it owns, a domain
+service, a feature with its sub-features and requirements, one switch or setting,
+one actor, one building-block file, or one component chapter. Each unit's
+direction is `push`, `pull`, `sync`, `report` or `off`. It is set on the unit's
+root chapter or inherited from its page, its context or its folder, and `report`
+applies when none of them states one.
+
+### Review Note
+
+```meta
+type: term
+status: draft
+aliases: [review note, annotation, annotation fence]
+related: [.devbook/domain/devbook/features.md#review-notes-in-a-chapter, .devbook/domain/devbook/domain.md#remark]
+```
+
+A note the repository keeps in a chapter file itself, as an `annotation` fence
+beside the passage it is about. It has a kind (comment, question, suggestion or
+flag), a status (open or resolved), an author, a date, an optional quote, and its
+replies. It is the repository's shared review state: the convention's own tooling
+writes it, and Devbook only reads it. A review note is not chapter content
+([A review note never travels as the chapter's content](requirements.md#requirement-a-review-note-never-travels-as-the-chapters-content)),
+and it is never a [Remark](#remark).

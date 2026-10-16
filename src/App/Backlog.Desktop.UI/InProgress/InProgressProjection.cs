@@ -4,6 +4,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 using Backlog.UI.Components.Integrations;
 using Backlog.UI.Components.Tasks;
 
@@ -32,6 +33,7 @@ public sealed class InProgressProjection
     private readonly bool _sessionsRead;
     private readonly Dictionary<string, AgentSession> _sessionsById;
     private readonly Dictionary<string, GitHubOpenPullRequest> _pullsByKey;
+    private readonly Dictionary<string, GitHubLinkedPullRequest> _linkedByKey;
     private readonly HashSet<string> _linkedSessions;
     private readonly HashSet<string> _linkedPulls;
 
@@ -47,6 +49,9 @@ public sealed class InProgressProjection
     /// <param name="now">The moment the sentences are measured against, local.</param>
     /// <param name="sessionsRead">Whether the session record has been read yet. Until
     /// it has, a linked session it does not list is not said to be missing from it.</param>
+    /// <param name="linkedPulls">The linked pull requests the open read did not list,
+    /// read by number (<see cref="WorkInProgressReader.LinkedPullRequests"/>). They add
+    /// the state, author and merge date to a work link and change nothing it draws.</param>
     public InProgressProjection(
         IReadOnlyList<EntryRow> rows,
         IReadOnlyList<AgentSession> sessions,
@@ -55,7 +60,8 @@ public sealed class InProgressProjection
         Func<string?, int?> colour,
         Func<string, LinkedSessionState?> linkedState,
         DateTimeOffset now,
-        bool sessionsRead = true)
+        bool sessionsRead = true,
+        IReadOnlyList<GitHubLinkedPullRequest>? linkedPulls = null)
     {
         _sessionsRead = sessionsRead;
         _rows = rows;
@@ -72,6 +78,9 @@ public sealed class InProgressProjection
 
         _pullsByKey = new(StringComparer.OrdinalIgnoreCase);
         foreach (var pull in pulls) _pullsByKey.TryAdd(Key(pull.RepositoryFullName, pull.Number), pull);
+
+        _linkedByKey = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var pull in linkedPulls ?? []) _linkedByKey.TryAdd(Key(pull.RepositoryFullName, pull.Number), pull);
 
         _linkedSessions = rows.SelectMany(row => row.SessionLinks).Select(link => link.SessionId).ToHashSet(StringComparer.OrdinalIgnoreCase);
         _linkedPulls = rows.SelectMany(row => row.PullRequestLinks).Select(link => Key(link.Repository, link.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -126,12 +135,22 @@ public sealed class InProgressProjection
                 _linkedState(link.SessionId) is { } state ? Map(state) : IntegrationSessionState.Unknown,
                 _sessionsRead ? "Not in the session record on this machine" : null))];
 
-    /// <summary>The pull requests an entry links. One no longer open is drawn from what
-    /// the task list last read about it — merged, closed, or not read yet.</summary>
+    /// <summary>
+    /// The pull requests an entry links. One no longer open is drawn from what the task
+    /// list last read about it — merged, closed, or not read yet.
+    /// <para>
+    /// Each carries what GitHub said about it — its state, who opened it and when it
+    /// merged — from the open read, or from the read by number for one the open read
+    /// did not list. That is carried, not drawn: the card still draws the task list's
+    /// record for a pull request no longer open.
+    /// </para>
+    /// </summary>
     public IReadOnlyList<WorkPullRequest> PullRequestsOf(EntryRow row) =>
         [.. row.PullRequestLinks.Select(link => _pullsByKey.TryGetValue(Key(link.Repository, link.Number), out var pull)
             ? PullRequest(pull)
-            : Recorded(row, link))];
+            : _linkedByKey.TryGetValue(Key(link.Repository, link.Number), out var linked)
+                ? Recorded(row, link) with { ReadState = Map(linked.State), Author = linked.AuthorLogin, MergedAt = linked.MergedAt }
+                : Recorded(row, link))];
 
     /// <summary>
     /// What no entry links: sessions still live — running or gone quiet — and the
@@ -140,12 +159,12 @@ public sealed class InProgressProjection
     /// pull requests would be every bot's bump in every repository; a person links
     /// what they opened.
     /// <para>
-    /// <paramref name="noRepositoryOnly"/> is the task list's "No repository" scope:
-    /// only what resolves to no configured repository is left — a session placed
-    /// nowhere registered, and never a pull request, which is always read from one.
+    /// The Brain in the scope (<see cref="BrainScope.Value"/>, local ADR 0027) takes in
+    /// what resolves to no configured repository — a session placed nowhere
+    /// registered, and never a pull request, which is always read from one.
     /// </para>
     /// </summary>
-    public IReadOnlyList<InProgressLoose> Loose(IReadOnlyCollection<string> scope, bool noRepositoryOnly = false)
+    public IReadOnlyList<InProgressLoose> Loose(IReadOnlyCollection<string> scope)
     {
         var loose = new List<InProgressLoose>();
 
@@ -155,7 +174,6 @@ public sealed class InProgressProjection
 
             var repository = RepositoryOf(session);
             if (!InScope(repository, scope)) continue;
-            if (noRepositoryOnly && repository is not null && _alias(repository) is not null) continue;
 
             loose.Add(new InProgressLoose(
                 Session: Session(session, withRepository: true),
@@ -166,7 +184,7 @@ public sealed class InProgressProjection
         foreach (var pull in _pulls)
         {
             if (!pull.IsOpen || !pull.ViewerDidAuthor || _linkedPulls.Contains(Key(pull.RepositoryFullName, pull.Number))) continue;
-            if (noRepositoryOnly || !InScope(pull.RepositoryFullName, scope)) continue;
+            if (!InScope(pull.RepositoryFullName, scope, brainTakesUnplaced: false)) continue;
 
             loose.Add(new InProgressLoose(
                 PullRequest: PullRequest(pull),
@@ -190,13 +208,19 @@ public sealed class InProgressProjection
             ? string.IsNullOrWhiteSpace(session.Repository) ? null : session.Repository
             : session.ResolvedRepository;
 
-    private bool InScope(string? repository, IReadOnlyCollection<string> scope)
+    /// <summary>Whether something placed in <paramref name="repository"/> is in the
+    /// scope: everything is when nothing is scoped; the Brain takes what resolves to no
+    /// configured repository — a session, never a pull request, which is always read
+    /// from one (<paramref name="brainTakesUnplaced"/>); a repository's alias takes
+    /// what resolves to it.</summary>
+    private bool InScope(string? repository, IReadOnlyCollection<string> scope, bool brainTakesUnplaced = true)
     {
         if (scope.Count == 0) return true;
-        if (repository is null) return false;
 
-        var alias = _alias(repository);
-        return alias is not null && scope.Contains(alias, StringComparer.Ordinal);
+        var alias = repository is null ? null : _alias(repository);
+        if (alias is null) return brainTakesUnplaced && BrainScope.In(scope);
+
+        return scope.Contains(alias, StringComparer.Ordinal);
     }
 
     private static bool IsInProgress(EntryRow row) => row.PreviewStatus is EntryStatus.InProgress;
@@ -240,7 +264,12 @@ public sealed class InProgressProjection
             Map(pull.Checks),
             ChecksText(pull.CheckCounts),
             pull.Additions,
-            pull.Deletions);
+            pull.Deletions)
+        {
+            ReadState = Map(pull.State),
+            Author = pull.AuthorLogin,
+            MergedAt = pull.MergedAt
+        };
 
     /// <summary>A linked pull request the open read did not list: drawn from the task
     /// list's own read of it, or as unknown when it has not read one.</summary>

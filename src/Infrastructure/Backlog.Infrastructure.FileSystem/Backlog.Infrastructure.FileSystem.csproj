@@ -35,6 +35,10 @@
          implementation is the normal direction; the module never sees this
          project. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <!-- The cross-context join under Progress/ - the tasks a sprint names, read
+         through Tasks' published ITaskItems to answer Progress's ISprintTaskSource.
+         The published surface only on the Progress side (local ADR 0028). -->
+    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
     <!-- The cross-context join under Inbox/ - an inbox item routed to the backlog
          becomes entries, composed in Tasks' grammar from the Inbox's published
          request shape. The published surface only: the adapter answers the Inbox's
@@ -71,6 +75,14 @@
          few indexed rows rather than a 947 KB document parse. -->
     <ProjectReference Include="..\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
     <ProjectReference Include="..\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The convention Create conventions writes into a new Brain (local ADR
+         0026), kept as the Markdown it is so what lands in the person's folder
+         can be reviewed as written. Named by file rather than by folder path so
+         BrainConventionTemplate does not depend on where the files sit. -->
+    <EmbeddedResource Include="Brain\Templates\*.md" LogicalName="Backlog.Brain.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

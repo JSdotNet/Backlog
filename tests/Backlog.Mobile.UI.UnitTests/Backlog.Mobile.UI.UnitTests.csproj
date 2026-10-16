@@ -28,4 +28,10 @@
     <ProjectReference Include="..\..\src\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
   </ItemGroup>
 
+  <!-- bUnit's default wait for this process, set before any test runs; the file
+       says why. Linked per project because only the bUnit projects reference bUnit. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\BunitWaitTimeout.cs" Link="Shared\BunitWaitTimeout.cs" />
+  </ItemGroup>
+
 </Project>

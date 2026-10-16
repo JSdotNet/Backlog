@@ -55,7 +55,7 @@ public sealed record EntryPayload(
 /// <summary>The entries filed against one repository, in rank order.</summary>
 public sealed record EntryListPayload(string Repository, string RepositoryAlias, int Count, IReadOnlyList<EntryPayload> Entries);
 
-/// <summary>The entries one import plan produced, in rank order.</summary>
+/// <summary>The entries of one import plan — imported or filed under its tag since — in rank order.</summary>
 public sealed record PlanItemsPayload(string PlanId, int Count, IReadOnlyList<EntryPayload> Entries);
 
 /// <summary>
@@ -129,7 +129,13 @@ public sealed record ScenarioPartPayload(
     string Part,
     string Title,
     string State,
-    DateTimeOffset? LastRun);
+    DateTimeOffset? LastRun)
+{
+    /// <summary>The 1-based step the last run stopped on, for a <c>failed</c> part
+    /// whose run recorded one; null otherwise. Added beside the positional fields
+    /// so a caller that never asked for it reads the payload as before.</summary>
+    public int? FailedStep { get; init; }
+}
 
 /// <summary>One Devbook reference and what it points at.</summary>
 /// <param name="Reference">As the entry stores it.</param>
@@ -395,13 +401,29 @@ public sealed record ChapterDemoPayload(
     int? Block,
     bool? Exists);
 
+/// <summary>
+/// A note <c>capture_note</c> wrote into the Brain's inbox area.
+/// </summary>
+/// <param name="Path">The note's path relative to the Brain's root, with <c>/</c>
+/// between segments (<c>_inbox/ideas-for-the-sync.md</c>) — the spelling
+/// <c>read_knowledge_chapter</c> takes under <c>#brain</c>, so a session can read
+/// back what it wrote without translating it.</param>
+/// <param name="Title">The title as the note's heading carries it: one line, the
+/// whitespace the writer folds already folded.</param>
+public sealed record CapturedNotePayload(string Path, string Title);
+
 /// <summary>The live, typed-into notes on one chapter.</summary>
+/// <param name="Archived">Whether the repository is archived (local ADR 0029
+/// §4). Its notes still list, because a remark already kept stays readable, but
+/// its devbook is read-only: no <c>annotation</c> fence is written into it and
+/// <c>resolve_annotation</c> refuses its notes. False for the Brain.</param>
 public sealed record AnnotationsPayload(
     string Repository,
     string RepositoryAlias,
     string ChapterPath,
     int Count,
-    IReadOnlyList<ChapterNotePayload> Annotations);
+    IReadOnlyList<ChapterNotePayload> Annotations,
+    bool Archived = false);
 
 /// <summary>
 /// One agent session.

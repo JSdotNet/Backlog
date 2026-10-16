@@ -43,7 +43,28 @@ public sealed record WorkPullRequest(
     IntegrationCheckState Checks = IntegrationCheckState.None,
     string? ChecksText = null,
     int? Additions = null,
-    int? Deletions = null);
+    int? Deletions = null)
+{
+    /// <summary>
+    /// The state the host last read from the pull request itself — open, draft,
+    /// merged or closed — or null where it has read none.
+    /// <para>
+    /// Beside <see cref="State"/> rather than instead of it: <see cref="State"/> is what
+    /// the card draws, which for a linked pull request outside the open read is still
+    /// what the task list last recorded. This one is the read, for a reader that counts
+    /// what merged — not drawn by any card yet.
+    /// </para>
+    /// </summary>
+    public IntegrationArtifactState? ReadState { get; init; }
+
+    /// <summary>Who opened the pull request — the account's login — where the host
+    /// read it. Not drawn by any card yet.</summary>
+    public string? Author { get; init; }
+
+    /// <summary>When the pull request merged, where the host read it merged. Not drawn
+    /// by any card yet.</summary>
+    public DateTimeOffset? MergedAt { get; init; }
+}
 
 /// <summary>One choice a link picker offers: a task to link a session or pull
 /// request to, or a session or pull request to link to a task.</summary>

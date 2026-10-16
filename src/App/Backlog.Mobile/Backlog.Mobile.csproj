@@ -18,6 +18,12 @@
         <ApplicationVersion>1</ApplicationVersion>
 
         <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+
+        <!-- No lock file, against the root default: net10.0-android brings in the
+             Android runtime identifiers, the pull request restores this head with
+             RuntimeIdentifierOverride=win-x64 and the release on ubuntu without it,
+             so no one committed file could match them all. -->
+        <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
     </PropertyGroup>
 
     <ItemGroup>
@@ -54,5 +60,77 @@
              DPAPI is Windows and Android has its own. -->
         <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
     </ItemGroup>
+
+    <!-- BacklogSyncServiceUrl is the sync service the APK talks to when nothing in
+         its environment says otherwise: release-mobile.yml and
+         build/Install-AndroidApp.ps1 pass it with -p:BacklogSyncServiceUrl=. Empty
+         by default, and deliberately not defaulted from BACKLOG_SYNC_URL: the
+         AppHost sets that variable on the build process to a host-localhost
+         address no phone can reach.
+         It is compiled into SyncServiceBuildDefaults.Url as a constant rather than
+         assembly metadata, so a trimmed Release publish cannot drop it.
+         WriteOnlyWhenDifferent keeps an unchanged value from forcing a recompile;
+         a changed one rewrites the file and does. The URL is MSBuild-escaped
+         before it goes into an item Include, where a ? or * from a query string
+         would otherwise be taken as a wildcard and the line silently dropped. -->
+    <Target Name="GenerateSyncServiceBuildDefaults" BeforeTargets="BeforeCompile">
+        <PropertyGroup>
+            <_BacklogSyncServiceUrlTrimmed>$(BacklogSyncServiceUrl.Trim())</_BacklogSyncServiceUrlTrimmed>
+            <_BacklogSyncServiceUrlLiteral Condition="'$(_BacklogSyncServiceUrlTrimmed)' == ''">null</_BacklogSyncServiceUrlLiteral>
+            <_BacklogSyncServiceUrlLiteral Condition="'$(_BacklogSyncServiceUrlTrimmed)' != ''">&quot;$([MSBuild]::Escape('$(_BacklogSyncServiceUrlTrimmed)'))&quot;</_BacklogSyncServiceUrlLiteral>
+            <_SyncServiceBuildDefaultsFile>$(IntermediateOutputPath)SyncServiceBuildDefaults.g.cs</_SyncServiceBuildDefaultsFile>
+        </PropertyGroup>
+        <ItemGroup>
+            <_SyncServiceBuildDefaultsLine Include="// &lt;auto-generated/&gt; by the GenerateSyncServiceBuildDefaults target in Backlog.Mobile.csproj" />
+            <_SyncServiceBuildDefaultsLine Include="#nullable enable" />
+            <_SyncServiceBuildDefaultsLine Include="namespace Backlog.Mobile%3B" />
+            <_SyncServiceBuildDefaultsLine Include="internal static class SyncServiceBuildDefaults" />
+            <_SyncServiceBuildDefaultsLine Include="{" />
+            <_SyncServiceBuildDefaultsLine Include="    public const string%3F Url = $(_BacklogSyncServiceUrlLiteral)%3B" />
+            <_SyncServiceBuildDefaultsLine Include="}" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(_SyncServiceBuildDefaultsFile)" Lines="@(_SyncServiceBuildDefaultsLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <Compile Include="$(_SyncServiceBuildDefaultsFile)" />
+            <FileWrites Include="$(_SyncServiceBuildDefaultsFile)" />
+        </ItemGroup>
+    </Target>
+
+    <!-- BacklogUpdateRepository is the update channel: the GitHub repository, as
+         owner/repository, whose releases this APK checks for a newer signed APK.
+         Only release-mobile.yml passes it (-p:BacklogUpdateRepository=), because
+         only its APKs are signed with the release key a later release can update.
+         Empty by default, and empty means a build that cannot update itself:
+         build/Install-AndroidApp.ps1 and a debug deploy leave it out, and their
+         update window says so (ApkUpdateChannel.DevelopmentBuildMessage).
+         Compiled into UpdateChannelBuildDefaults.Repository as a constant for the
+         same reasons as the sync address above. A value that is not
+         owner/repository fails the build here rather than the app at startup;
+         this is the only check of its shape - ApkUpdateChannel relies on it. -->
+    <Target Name="GenerateUpdateChannelBuildDefaults" BeforeTargets="BeforeCompile">
+        <PropertyGroup>
+            <_BacklogUpdateRepositoryTrimmed>$(BacklogUpdateRepository.Trim())</_BacklogUpdateRepositoryTrimmed>
+            <_BacklogUpdateRepositoryValid Condition="'$(_BacklogUpdateRepositoryTrimmed)' != ''">$([System.Text.RegularExpressions.Regex]::IsMatch('$(_BacklogUpdateRepositoryTrimmed)', '^[A-Za-z0-9-]+/[A-Za-z0-9._-]+\z'))</_BacklogUpdateRepositoryValid>
+            <_BacklogUpdateRepositoryLiteral Condition="'$(_BacklogUpdateRepositoryTrimmed)' == ''">null</_BacklogUpdateRepositoryLiteral>
+            <_BacklogUpdateRepositoryLiteral Condition="'$(_BacklogUpdateRepositoryTrimmed)' != ''">&quot;$(_BacklogUpdateRepositoryTrimmed)&quot;</_BacklogUpdateRepositoryLiteral>
+            <_UpdateChannelBuildDefaultsFile>$(IntermediateOutputPath)UpdateChannelBuildDefaults.g.cs</_UpdateChannelBuildDefaultsFile>
+        </PropertyGroup>
+        <Error Condition="'$(_BacklogUpdateRepositoryTrimmed)' != '' and '$(_BacklogUpdateRepositoryValid)' != 'True'"
+               Text="BacklogUpdateRepository must be a GitHub repository as owner/repository (got '$(BacklogUpdateRepository)')." />
+        <ItemGroup>
+            <_UpdateChannelBuildDefaultsLine Include="// &lt;auto-generated/&gt; by the GenerateUpdateChannelBuildDefaults target in Backlog.Mobile.csproj" />
+            <_UpdateChannelBuildDefaultsLine Include="#nullable enable" />
+            <_UpdateChannelBuildDefaultsLine Include="namespace Backlog.Mobile%3B" />
+            <_UpdateChannelBuildDefaultsLine Include="internal static class UpdateChannelBuildDefaults" />
+            <_UpdateChannelBuildDefaultsLine Include="{" />
+            <_UpdateChannelBuildDefaultsLine Include="    public const string%3F Repository = $(_BacklogUpdateRepositoryLiteral)%3B" />
+            <_UpdateChannelBuildDefaultsLine Include="}" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(_UpdateChannelBuildDefaultsFile)" Lines="@(_UpdateChannelBuildDefaultsLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <Compile Include="$(_UpdateChannelBuildDefaultsFile)" />
+            <FileWrites Include="$(_UpdateChannelBuildDefaultsFile)" />
+        </ItemGroup>
+    </Target>
 
 </Project>

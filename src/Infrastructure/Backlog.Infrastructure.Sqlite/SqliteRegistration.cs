@@ -1,7 +1,9 @@
 using Backlog.Infrastructure.Sqlite.Inbox;
+using Backlog.Infrastructure.Sqlite.Progress;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Infrastructure.Sqlite.Sessions;
 using Backlog.Modules.Inbox;
+using Backlog.Modules.Progress;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks;
@@ -18,7 +20,7 @@ namespace Backlog.Infrastructure.Sqlite;
 public static class SqliteRegistration
 {
     /// <summary>
-    /// Registers the task repository, the roadmap plan, the inbox tables and the
+    /// Registers the task repository, the roadmap plan, the sprint series, the inbox tables and the
     /// Claude Code api_request table, each a
     /// singleton rooted at <paramref name="rootDirectory"/>.
     /// <para>
@@ -54,6 +56,14 @@ public static class SqliteRegistration
             new RootedSqliteRoadmapPlanRepository(() => rootDirectory(sp)));
         services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
         services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
+
+        // Progress's sprint series: one row per series in the same file, following
+        // the same root (local ADR 0028). The row is also the document that travels to
+        // the person's other devices, so one instance answers both ports.
+        services.AddSingleton(sp =>
+            new RootedSqliteSprintSeriesRepository(() => rootDirectory(sp)));
+        services.AddSingleton<ISprintSeriesRepository>(sp => sp.GetRequiredService<RootedSqliteSprintSeriesRepository>());
+        services.AddSingleton<ISprintSeriesReplicaStore>(sp => sp.GetRequiredService<RootedSqliteSprintSeriesRepository>());
 
         services.AddSingleton<RootedSqliteInboxRepository>(sp =>
             new RootedSqliteInboxRepository(() => rootDirectory(sp)));

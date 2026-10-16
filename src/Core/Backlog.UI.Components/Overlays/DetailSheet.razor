@@ -30,17 +30,24 @@
      aria-hidden="true"
      @onclick="BackdropClickedAsync"></div>
 
+@* While open, a key pressed in the sheet is the sheet's, as it is a Modal's: its
+   host is often an ancestor with a keydown handler of its own — the Devbook's
+   surface closes on Escape — and one Escape must not close the sheet and then the
+   surface behind it. Bound to Open as drawn before the key, the state the key acted
+   on; Blazor's stopPropagation ends only its own walk, so a document listener still
+   hears the key. *@
 <aside id="@_id"
        class="@ClassValue"
        data-testid="@TestId"
        data-open="@(Open ? "true" : "false")"
        role="dialog"
-       aria-modal="true"
+       aria-modal="@(Open ? "true" : null)"
        aria-labelledby="@(HasTitle ? TitleId : null)"
        aria-label="@(HasTitle ? null : AriaLabel)"
        inert="@(!Open)"
        tabindex="-1"
        @onkeydown="OnKeyDownAsync"
+       @onkeydown:stopPropagation="Open"
        @attributes="AdditionalAttributes">
     <header class="@HeaderClassValue">
         <div class="detail-sheet__heading">
@@ -61,6 +68,7 @@
         <IconButton BaseClass="detail-sheet__close"
                     AriaLabel="@CloseLabel"
                     TestId="@CloseTestId"
+                    Disabled="@(!Dismissible)"
                     OnClick="CloseAsync">&#215;</IconButton>
     </header>
 
@@ -107,6 +115,14 @@
 
     [Parameter]
     public RenderFragment? Footer { get; set; }
+
+    /// <summary>False while the sheet must stay up - work it started is still
+    /// running and its result belongs here. Escape, the backdrop and the close
+    /// button then do nothing, and the close button says so by being disabled.
+    /// <see cref="CloseOnEscape"/> and <see cref="CloseOnBackdropClick"/> each
+    /// turn one of those off for good; this turns all three off for a while.</summary>
+    [Parameter]
+    public bool Dismissible { get; set; } = true;
 
     [Parameter]
     public bool CloseOnEscape { get; set; } = true;
@@ -178,7 +194,7 @@
 
     private async Task CloseAsync()
     {
-        if (!Open) return;
+        if (!Open || !Dismissible) return;
 
         Open = false;
         await OpenChanged.InvokeAsync(false);
@@ -198,7 +214,10 @@
         {
             if (Open)
             {
-                await Js.InvokeVoidAsync("backlogFocusTrap", _id, RestoreFocusToId);
+                // Escape held for the sheet wherever the focus is while it is open:
+                // a sheet opened with the pointer can leave the focus on what was
+                // pressed, outside it, and the key would go to the surface behind.
+                await Js.InvokeVoidAsync("backlogFocusTrap", _id, RestoreFocusToId, CloseOnEscape);
             }
             else
             {

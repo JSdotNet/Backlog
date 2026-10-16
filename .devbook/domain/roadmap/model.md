@@ -143,8 +143,8 @@ classDiagram
 - `RoadmapItem` and `Milestone` are owned entities, not aggregates. They are drawn
   with composition because they have no life outside the plan: deleting the plan
   deletes them, and neither can be loaded, validated, or saved on its own.
-- `Dependency` points at a **Roadmap Node** — the union of `RoadmapItem` and
-  `Milestone` — which is why both dotted associations leave the same class. There
+- `Dependency` points at a **Roadmap Node**, the union of `RoadmapItem` and
+  `Milestone`, which is why both dotted associations leave the same class. There
   is no inheritance between item and milestone: they share an id space and a role
   as a dependency endpoint, and nothing else. Modelling a common base class would
   suggest a shared lifecycle they do not have.
@@ -160,26 +160,23 @@ classDiagram
   from `RoadmapItem` to `Task` in this diagram, and there deliberately
   cannot be: they are separate aggregates in separate contexts, related by
   Partnership (see `dependencies.md`).
-- `RoadmapTag` is a **value object held by the item, not a shared registry**. Every
-  item has exactly one; there is no `Tag` table the items point into, because two
-  items are allowed to carry the same slug and a shared row would imply a
-  uniqueness the model refuses. It is derived from the title at creation and then
-  independent of it — the diagram shows no relationship from `Title` to `Tag`,
-  which is the point: renaming the title does not touch the tag.
+- `RoadmapTag` is a **value object held by the item, not a shared registry**.
+  There is no `Tag` table the items point into, because two items may carry the
+  same slug. The diagram draws no line from `Title` to `Tag`, because
+  [renaming keeps the tag](domain.invariants.md#invariant-renaming-keeps-the-tag).
 - `KnowledgeRef` is **an id-shaped reference, not an association**, for the same
-  reason as `TaskLink`: the chapter it names lives in
+  reason as `TaskLink`. The chapter it names lives in
   [Devbook](../devbook/model.md), so there is no line to it and no
   navigation through it. Both foreign references may dangle and neither is
   validated.
-- `RoadmapItemGathering` is drawn as a service because the thing it computes is not
-  in any node's own state. It reads the item's tag and named references, then reads
-  **foreign** data — Tasks and knowledge chapters — to gather and total.
-  The dotted lines to `RoadmapTag`, `TaskLink`, and `KnowledgeRef` are the
-  two threads it follows; the foreign tasks and chapters themselves are not on
-  this diagram because they are not this context's model.
-- `PlanSequencing` and `RepositoryScopeResolution` are drawn as services for the
-  same reason — neither answer belongs to a single node's own state: the first
-  needs the whole graph, the second a foreign registry.
+- `RoadmapItemGathering`, `PlanSequencing` and `RepositoryScopeResolution` are
+  drawn as services because no answer they give is in a single node's own state.
+  Gathering reads foreign tasks and chapters
+  ([Roadmap Item Gathering](domain.md#roadmap-item-gathering)), sequencing needs
+  the whole graph, and resolution needs a foreign registry. The dotted lines from
+  gathering to `RoadmapTag`, `TaskLink`, and `KnowledgeRef` are the two ways it
+  reaches work. The foreign tasks and chapters are not on this diagram, because
+  they are not this context's model.
 - Both enumerations are the plan's own. `PlanningPriority` shares its four values
   with Tasks's `Priority` on purpose, but the two are distinct types;
   there is no association between them and no conversion in either direction.

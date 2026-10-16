@@ -53,6 +53,34 @@ public sealed class DevbookSnapshotCache(
     /// from the copy each read, and one of them would lose the other's files.</summary>
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _writers = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// <c>index.json</c> and <c>fetched.json</c> as last parsed, by full path,
+    /// with the write time and length they were parsed at.
+    /// <para>
+    /// One page open asks about a branch a dozen times, and the index can hold a
+    /// hundred thousand paths: parsing it per question was most of what opening a
+    /// branch's chapter cost. A copy is used only while the file on disk still
+    /// has the stamp it was parsed at, so a write from another process is read
+    /// again; this instance's own writes drop the copy outright, so its next read
+    /// never meets the previous commit in memory.
+    /// </para>
+    /// <para>
+    /// <c>snapshot.json</c> is not held: it is a few bytes, and it is the file a
+    /// refresh writes last to say the new commit is here.
+    /// </para>
+    /// </summary>
+    private readonly ConcurrentDictionary<string, Parsed> _parsed = new(StringComparer.OrdinalIgnoreCase);
+
+    private int _indexParses;
+    private int _fetchedParses;
+
+    /// <summary>How many times an <c>index.json</c> has been parsed whole — what
+    /// the tests hold to "once per change".</summary>
+    internal int IndexParses => Volatile.Read(ref _indexParses);
+
+    /// <summary>How many times a <c>fetched.json</c> has been parsed.</summary>
+    internal int FetchedParses => Volatile.Read(ref _fetchedParses);
+
     public string SnapshotPath(GitHubRepositoryRef repository, string? branch)
     {
         ArgumentNullException.ThrowIfNull(repository);
@@ -66,10 +94,16 @@ public sealed class DevbookSnapshotCache(
     /// finds an old state beside a new index — and answering "fetched" then
     /// would hand out a menu of one commit under the name of another. The
     /// mismatch reads as "not fetched", which the next call settles.
+    /// <para>
+    /// The index's commit is read without its entries: from the copy already
+    /// parsed when there is one, otherwise from the head of the file, where every
+    /// index this class writes names it. Only an index that does not — an older
+    /// or hand-written one — is parsed whole to find out.
+    /// </para>
     /// </summary>
     public DevbookSnapshot? TryRead(GitHubRepositoryRef repository, string? branch) =>
         ReadState(repository, branch) is { } state
-        && ReadJson<IndexHeader>(IndexPath(repository, branch)) is { Sha: { Length: > 0 } indexed }
+        && IndexSha(IndexPath(repository, branch)) is { Length: > 0 } indexed
         && string.Equals(indexed, state.Sha, StringComparison.OrdinalIgnoreCase)
             ? new DevbookSnapshot(state.Branch!, state.Sha!, state.FetchedUtc)
             : null;
@@ -80,19 +114,15 @@ public sealed class DevbookSnapshotCache(
 
         if (TryRead(repository, branch) is not { } snapshot) return null;
 
-        var index = ReadJson<IndexFile>(IndexPath(repository, branch));
+        var index = ReadIndex(IndexPath(repository, branch));
         if (index?.Entries is null || !string.Equals(index.Sha, snapshot.Sha, StringComparison.OrdinalIgnoreCase)) return null;
 
-        var fetched = ReadJson<Dictionary<string, string>>(FetchedPath(repository, branch)) ?? [];
+        var fetched = ReadFetched(FetchedPath(repository, branch));
 
         return new DevbookSnapshotIndex(
             snapshot,
-            [
-                .. index.Entries
-                    .Where(entry => !string.IsNullOrWhiteSpace(entry.Path) && !string.IsNullOrWhiteSpace(entry.Sha))
-                    .Select(entry => new DevbookSnapshotEntry(entry.Path!, entry.Sha!, entry.Dir))
-            ],
-            new HashSet<string>(fetched.Keys, StringComparer.OrdinalIgnoreCase),
+            index.Entries,
+            fetched?.Paths ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
             index.Truncated);
     }
 
@@ -177,7 +207,7 @@ public sealed class DevbookSnapshotCache(
         }
 
         var wanted = DevbookSnapshotSelection.Select(index.Entries, selection);
-        var onDisk = ReadJson<Dictionary<string, string>>(FetchedPath(repository, branch)) ?? [];
+        var onDisk = ReadFetched(FetchedPath(repository, branch))?.Map ?? EmptyMap;
         var tree = SnapshotPath(repository, branch);
 
         var missing = wanted
@@ -277,7 +307,7 @@ public sealed class DevbookSnapshotCache(
             .Where(entry => !entry.IsDirectory)
             .ToDictionary(entry => entry.Path, entry => entry.Sha, StringComparer.OrdinalIgnoreCase);
 
-        var fetched = ReadJson<Dictionary<string, string>>(FetchedPath(repository, branch)) ?? [];
+        var fetched = ReadFetched(FetchedPath(repository, branch))?.Map ?? EmptyMap;
         var kept = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (path, sha) in fetched)
@@ -361,7 +391,8 @@ public sealed class DevbookSnapshotCache(
 
         if (!landed.IsEmpty)
         {
-            var fetched = ReadJson<Dictionary<string, string>>(FetchedPath(repository, branch)) ?? [];
+            // A copy: the map read is the one held in memory for every reader.
+            var fetched = new Dictionary<string, string>(ReadFetched(FetchedPath(repository, branch))?.Map ?? EmptyMap);
             foreach (var (path, sha) in landed) fetched[path] = sha;
 
             try
@@ -502,13 +533,143 @@ public sealed class DevbookSnapshotCache(
         }
     }
 
-    private static void WriteJson<T>(string path, T value)
+    private void WriteJson<T>(string path, T value)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
         var staging = path + ".writing";
         File.WriteAllText(staging, JsonSerializer.Serialize(value, JsonOptions));
+
+        // Dropped on both sides of the move: before it, so a read racing the
+        // write cannot keep the old copy under a stamp it has not seen yet; after
+        // it, so one that parsed in between is not kept either.
+        _parsed.TryRemove(path, out _);
         File.Move(staging, path, overwrite: true);
+        _parsed.TryRemove(path, out _);
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyMap = new Dictionary<string, string>();
+
+    /// <summary>The commit an index names, as cheaply as it can be had: the
+    /// parsed copy while it is current, else the leading <c>sha</c> property,
+    /// else the whole parse.</summary>
+    private string? IndexSha(string path)
+    {
+        if (Stamp(path) is not { } stamp) return null;
+
+        if (_parsed.TryGetValue(path, out var hit) && hit.Stamp == stamp && hit.Value is ParsedIndex parsed) return parsed.Sha;
+
+        return ReadLeadingSha(path) ?? ReadIndex(path)?.Sha;
+    }
+
+    private ParsedIndex? ReadIndex(string path) =>
+        ReadParsed(path, file =>
+        {
+            Interlocked.Increment(ref _indexParses);
+
+            return ReadJson<IndexFile>(file) is { } index
+                ? new ParsedIndex(
+                    index.Sha,
+                    index.Truncated,
+                    index.Entries is null
+                        ? null
+                        :
+                        [
+                            .. index.Entries
+                                .Where(entry => !string.IsNullOrWhiteSpace(entry.Path) && !string.IsNullOrWhiteSpace(entry.Sha))
+                                .Select(entry => new DevbookSnapshotEntry(entry.Path!, entry.Sha!, entry.Dir))
+                        ])
+                : null;
+        });
+
+    private ParsedFetched? ReadFetched(string path) =>
+        ReadParsed(path, file =>
+        {
+            Interlocked.Increment(ref _fetchedParses);
+
+            return ReadJson<Dictionary<string, string>>(file) is { } map
+                ? new ParsedFetched(
+                    map,
+                    new System.Collections.ObjectModel.ReadOnlySet<string>(new HashSet<string>(map.Keys, StringComparer.OrdinalIgnoreCase)))
+                : null;
+        });
+
+    /// <summary>The parsed copy of <paramref name="path"/> while the file still
+    /// has the stamp it was parsed at, otherwise a fresh parse kept under the
+    /// stamp read before it. A file replaced between the two reads leaves a copy
+    /// under the older stamp, which the next call finds stale and parses again.</summary>
+    private T? ReadParsed<T>(string path, Func<string, T?> parse) where T : class
+    {
+        if (Stamp(path) is not { } stamp)
+        {
+            _parsed.TryRemove(path, out _);
+            return null;
+        }
+
+        if (_parsed.TryGetValue(path, out var hit) && hit.Stamp == stamp && hit.Value is T held) return held;
+
+        var value = parse(path);
+
+        if (value is null) _parsed.TryRemove(path, out _);
+        else _parsed[path] = new Parsed(stamp, value);
+
+        return value;
+    }
+
+    private static FileStamp? Stamp(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? new FileStamp(info.LastWriteTimeUtc, info.Length) : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The <c>sha</c> property at the head of an index, read from its first
+    /// kilobytes without touching the entries — or null when it is not there
+    /// before them, which sends the caller to the whole parse.
+    /// </summary>
+    private static string? ReadLeadingSha(string path)
+    {
+        var buffer = new byte[4096];
+
+        try
+        {
+            int read;
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, bufferSize: 1))
+            {
+                read = stream.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
+            }
+
+            var span = buffer.AsSpan(0, read);
+            if (span.StartsWith((ReadOnlySpan<byte>)[0xEF, 0xBB, 0xBF])) span = span[3..];
+
+            var reader = new Utf8JsonReader(span, isFinalBlock: read < buffer.Length, state: default);
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) return null;
+
+            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+            {
+                var isSha = string.Equals(reader.GetString(), "sha", StringComparison.OrdinalIgnoreCase);
+
+                // The value; a block that ends inside it answers "not here".
+                if (!reader.Read()) return null;
+                if (isSha) return reader.TokenType == JsonTokenType.String ? reader.GetString() : null;
+
+                // The entries before the commit: not an index this class wrote.
+                if (reader.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray) return null;
+            }
+
+            return null;
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static void DeleteFile(string path)
@@ -540,12 +701,17 @@ public sealed class DevbookSnapshotCache(
         public DateTimeOffset FetchedUtc { get; init; }
     }
 
-    /// <summary>Just the commit an index file names, so <see cref="TryRead"/>
-    /// can check it without parsing the entries.</summary>
-    private sealed record IndexHeader
-    {
-        public string? Sha { get; init; }
-    }
+    private readonly record struct FileStamp(DateTime WrittenUtc, long Length);
+
+    private sealed record Parsed(FileStamp Stamp, object Value);
+
+    /// <summary>An index as held in memory: its entries already projected, so a
+    /// reader is handed the same list rather than a new copy per call.</summary>
+    private sealed record ParsedIndex(string? Sha, bool Truncated, IReadOnlyList<DevbookSnapshotEntry>? Entries);
+
+    /// <summary>The record of what is fetched, as written and as the set of paths
+    /// a reader asks about.</summary>
+    private sealed record ParsedFetched(IReadOnlyDictionary<string, string> Map, IReadOnlySet<string> Paths);
 
     private sealed record IndexFile
     {

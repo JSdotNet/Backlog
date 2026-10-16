@@ -134,6 +134,14 @@ public sealed record DeliveryRun(
     /// </summary>
     public string? RunContext { get; init; }
 
+    /// <summary>
+    /// The run's cumulative Quality Facts — review rounds, blockers per round, escaped
+    /// defects — as <c>finish_run</c> or <c>runContext.quality</c> stated them, or null
+    /// where the run file holds neither: every run from before the delivery phases sent
+    /// them. Where it is null, a reader falls back to the stages' own counts.
+    /// </summary>
+    public DeliveryQualityFacts? Quality { get; init; }
+
     /// <summary>Whether a schedule fired the run rather than a person.</summary>
     public bool Scheduled => string.Equals(Trigger, DeliveryRunTriggers.Scheduled, StringComparison.OrdinalIgnoreCase);
 
@@ -292,6 +300,45 @@ public sealed record DeliveryRunStage(string Name, string Status, long? Duration
     /// where the stage reported none.
     /// </summary>
     public IReadOnlyList<DeliveryScenarioEvidence> Evidence { get; init; } = [];
+
+    /// <summary>
+    /// The scenarios the stage reported exercising, as its last <c>update_stage</c>
+    /// with <c>scenarios</c> sent them — Verify sends one per scenario page it ran,
+    /// its screenshot paths as the evidence, a failed part's own shot among them as
+    /// <c>fail.&lt;anchor&gt;.png</c> — or empty where the stage reported none. The
+    /// record the surface already writes (<see cref="DeliveryScenario"/>), read back
+    /// as written.
+    /// </summary>
+    public IReadOnlyList<DeliveryScenario> Scenarios { get; init; } = [];
+
+    /// <summary>
+    /// Every link the stage recorded, in the order sent — the application Personal
+    /// Validation started, a review target, a pull request — or empty where it
+    /// recorded none. <see cref="DeliveryRun.References"/> reads the same lists for
+    /// the GitHub items alone; this is the whole list, for the stage's own panel.
+    /// </summary>
+    public IReadOnlyList<DeliveryStageLink> Links { get; init; } = [];
+
+    /// <summary>
+    /// The implement ⇄ review round the stage's latest pass worked, counting from 1, as
+    /// its <see cref="Execution"/> reported it — Implement and Review send it. Null where
+    /// the execution carries none: a run file from before the delivery phases sent it,
+    /// or a stage that did not run the work. Never zero in place of absent.
+    /// </summary>
+    public int? Round { get; init; }
+
+    /// <summary>
+    /// The blockers Review left open in that round, as its execution reported them;
+    /// <c>0</c> is a clean round. Null where the execution carries none.
+    /// </summary>
+    public int? Blockers { get; init; }
+
+    /// <summary>
+    /// The defects Verify's pass found that review had passed, as its execution reported
+    /// them; <c>0</c> is a pass where everything held. Null where the execution carries
+    /// none.
+    /// </summary>
+    public int? DefectsFound { get; init; }
 }
 
 /// <summary>
@@ -696,6 +743,21 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
     /// The most recently updated run that recorded one wins.
     /// </summary>
     public string? Effort => Runs.Select(DeliveryRunExecutions.OwnerEffort).FirstOrDefault(effort => effort is not null);
+
+    /// <summary>
+    /// The session the row stands for: its own, else the first one its runs name — the
+    /// session whose requests answer for the row's effort and cost.
+    /// </summary>
+    public string? OwnerSessionId =>
+        Session?.Id is { Length: > 0 } id ? id : Runs.SelectMany(run => run.SessionIds).FirstOrDefault(session => !string.IsNullOrWhiteSpace(session));
+
+    /// <summary>
+    /// The reasoning effort the owner session ran at, preferring what its own main-loop
+    /// requests reported — see <see cref="DeliveryRunExecutions.TelemetryEffort"/> — over
+    /// the run files' <see cref="Effort"/>; null where neither recorded one.
+    /// </summary>
+    public string? EffortFrom(IEnumerable<ClaudeApiRequest> requests) =>
+        DeliveryRunExecutions.TelemetryEffort(OwnerSessionId, requests, Model) ?? Effort;
 }
 
 /// <summary>

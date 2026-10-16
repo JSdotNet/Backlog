@@ -249,6 +249,52 @@ public sealed class BackupWorkerTests : IDisposable
         Assert.Equal(BackupState.None, new FileBackupStateStore(path).Current);
     }
 
+    /// <summary>The figure the Storage page shows as "Keeping n daily copies":
+    /// one per day a copy was committed on. A second commit the same day and a
+    /// backup that found nothing changed add no day; a commit the next day does.</summary>
+    [Fact]
+    public async Task Daily_copies_count_the_days_a_copy_was_committed_on()
+    {
+        await SeedDatabaseAsync();
+        _settings.TrySetRepository("JSdotNet/Notes");
+        using var worker = Worker();
+
+        await RunToEndAsync(worker, worker.RequestBackupAsync);
+        Assert.Equal(1, worker.Last.DailyCopies);
+        Assert.Equal(_time.GetUtcNow(), worker.Last.LastCopyAt);
+
+        _time.Advance(TimeSpan.FromHours(2));
+        await RunToEndAsync(worker, worker.RequestBackupAsync);
+        Assert.Equal(1, worker.Last.DailyCopies);
+
+        _time.Advance(TimeSpan.FromDays(1));
+        _gitHub.AnswerCommitted = false;
+        await RunToEndAsync(worker, worker.RequestBackupAsync);
+        Assert.Equal(1, worker.Last.DailyCopies);
+
+        _gitHub.AnswerCommitted = true;
+        await RunToEndAsync(worker, worker.RequestBackupAsync);
+        Assert.Equal(2, worker.Last.DailyCopies);
+        Assert.Equal(_time.GetUtcNow(), worker.Last.LastCopyAt);
+    }
+
+    /// <summary>A failed run keeps the count, and the count survives a restart.</summary>
+    [Fact]
+    public async Task Daily_copies_survive_a_failure_and_a_restart()
+    {
+        await SeedDatabaseAsync();
+        _settings.TrySetRepository("JSdotNet/Notes");
+        var earlier = _time.GetUtcNow().AddDays(-1);
+        _state.Save(new BackupState(earlier, earlier, true, null) { DailyCopies = 6, LastCopyAt = earlier });
+        _gitHub.Refusal = new GitHubException("GitHub rejected the token.");
+        using var worker = Worker();
+
+        await RunToEndAsync(worker, worker.RequestBackupAsync);
+
+        Assert.Equal(6, worker.Last.DailyCopies);
+        Assert.Equal(6, new FileBackupStateStore(_state.StorePath).Current.DailyCopies);
+    }
+
     private sealed class RecordingGitHubClient : IGitHubClient
     {
         public List<(GitHubRepositoryRef Repository, string Path, byte[] Content, string Message)> Commits { get; } = [];

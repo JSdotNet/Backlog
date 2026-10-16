@@ -257,7 +257,7 @@ public sealed class DashboardDriftPartTests
         Assert.Single(issues.Asked);
 
         part.Render(parameters => parameters.Add(p => p.Scope, DashboardScope.Default with { Repositories = RepositoryFocus.Of("elsewhere") }));
-        Assert.Equal(2, issues.Asked.Count);
+        part.WaitForAssertion(() => Assert.Equal(2, issues.Asked.Count));
     }
 
     /// <summary>The issues are kept between asks, so the part's refresh is what goes
@@ -274,6 +274,36 @@ public sealed class DashboardDriftPartTests
         part.Find("[data-testid='dashboard-drift-refresh']").Click();
 
         part.WaitForAssertion(() => Assert.Equal(2, issues.Asked.Count));
+    }
+
+    /// <summary>A refresh reads again over figures already drawn: they stay on screen,
+    /// under the frame's busy mark, until the new read lands
+    /// (interaction-guidelines.md#scoped-loading, "Refresh").</summary>
+    [Fact]
+    public void A_refresh_keeps_the_figures_drawn_until_the_new_read_lands()
+    {
+        var issues = new ScriptedIssues(InboxIssue);
+        using var context = Context(new ScriptedUnits(Sessions, Inbox), issues);
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+        var before = part.Find("[data-testid='dashboard-drift'] .dashboard-part__content").TextContent;
+        Assert.Contains("quick-capture", before, StringComparison.Ordinal);
+
+        issues.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        part.Find("[data-testid='dashboard-drift-refresh']").Click();
+
+        part.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", part.Find("[data-testid='dashboard-drift-refresh']").GetAttribute("aria-busy"));
+            var content = part.Find("[data-testid='dashboard-drift'] .dashboard-part__content");
+            Assert.Equal("true", content.GetAttribute("aria-busy"));
+            Assert.Equal(before, content.TextContent);
+        });
+
+        issues.Gate.SetResult();
+
+        part.WaitForAssertion(() =>
+            Assert.Null(part.Find("[data-testid='dashboard-drift-refresh']").GetAttribute("aria-busy")));
     }
 
     [Fact]
@@ -360,7 +390,7 @@ public sealed class DashboardDriftPartTests
     [Fact]
     public void The_verdict_bar_is_sized_in_tokens()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         foreach (var opening in new[] { ".dashboard-drift__verdict-track {", ".dashboard-drift__verdict-segment {", ".dashboard-drift__verdict-swatch {" })
         {
@@ -383,7 +413,7 @@ public sealed class DashboardDriftPartTests
     [Fact]
     public void A_long_issue_title_truncates_inside_its_row_rather_than_widening_the_tab()
     {
-        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Modules", "Dashboard", "Backlog.Modules.Dashboard.UI", "wwwroot", "dashboard.css")).Replace("\r\n", "\n");
 
         foreach (var opening in new[] { ".dashboard-drift__issue-list {", ".dashboard-drift__issue {" })
         {
@@ -464,13 +494,19 @@ public sealed class DashboardDriftPartTests
         public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(Availability);
 
-        public Task<DriftIssueRead> GetOpenAsync(
+        /// <summary>Holds the next read until released, so a test can look at the part
+        /// while it waits.</summary>
+        public TaskCompletionSource? Gate { get; set; }
+
+        public async Task<DriftIssueRead> GetOpenAsync(
             IReadOnlyList<DashboardRepository> repositories,
             CancellationToken cancellationToken = default)
         {
             Asked.Add(repositories);
 
-            return Task.FromResult(new DriftIssueRead(issues, Complete, Failure));
+            if (Gate is { } gate) await gate.Task;
+
+            return new DriftIssueRead(issues, Complete, Failure);
         }
     }
 }

@@ -697,6 +697,58 @@ public sealed class TaskSyncSessionTests
         Assert.Equal(Noon.AddMinutes(1), state.Current.PushWatermark);
     }
 
+    /// <summary>The footer redraws on every <c>Changed</c>, so a batch is
+    /// recorded as one: a first push of hundreds of tasks is one redraw per
+    /// request, not one per task.</summary>
+    [Fact]
+    public async Task A_pushed_batch_is_recorded_with_one_change_to_the_log()
+    {
+        var store = new InMemoryTaskStore();
+        store.Seed(TaskChanges.Task("First", Noon));
+        store.Seed(TaskChanges.Task("Second", Noon.AddMinutes(1)));
+        store.Seed(TaskChanges.Task("Third", Noon.AddMinutes(2)));
+
+        var activity = new SyncActivityLog();
+        var raised = 0;
+        activity.Changed += () => raised++;
+
+        using var fixture = Fixture.Create(store, new InMemoryTaskSyncStateStore(), new FakeTimeProvider(Noon.AddHours(6)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":3}"""),
+            activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, raised);
+        Assert.Equal(["Third", "Second", "First"], activity.Snapshot().Select(entry => entry.Title).ToArray());
+    }
+
+    /// <summary>A page pulled is recorded as one change to the log, however
+    /// many of its documents were written.</summary>
+    [Fact]
+    public async Task A_pulled_page_is_recorded_with_one_change_to_the_log()
+    {
+        var activity = new SyncActivityLog();
+        var raised = 0;
+        activity.Changed += () => raised++;
+
+        var body = JsonSerializer.Serialize(new
+        {
+            tasks = new[] { "One", "Two", "Three" }
+                .Select((title, i) => new { change = TaskChanges.Change(title, Noon.AddMinutes(i)), deviceId = Guid.NewGuid(), serverTimestamp = 100L + i }),
+            since = "cursor-1",
+            hasMore = false
+        });
+
+        using var fixture = Fixture.Create(new InMemoryTaskStore(), new InMemoryTaskSyncStateStore(), new FakeTimeProvider(Noon),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, body),
+            activity);
+
+        await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, raised);
+        Assert.Equal(3, activity.Count);
+    }
+
     [Fact]
     public async Task A_push_the_replica_refused_records_nothing_as_sent()
     {

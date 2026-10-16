@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Devbook;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -281,18 +282,21 @@ public sealed class EntryDevbookReferencesTests
         pane.WaitForAssertion(() =>
         {
             var list = pane.Find("[data-testid='entry-acceptance']");
-            Assert.Equal("Acceptance", list.GetAttribute("aria-label"));
+            Assert.Equal("Acceptance · scenario parts", list.GetAttribute("aria-label"));
 
             // A part named by its page and by the requirement is one row.
-            Assert.Equal("1 of 3 passing", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
+            Assert.Equal("1 of 3 passing · not proved", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
             Assert.Empty(pane.FindAll("[data-testid='entry-acceptance-proved']"));
 
             var rows = pane.FindAll("[data-testid='entry-acceptance-part']");
             Assert.Equal(["passed", "stale", "never-run"], rows.Select(part => part.GetAttribute("data-state")));
             Assert.Equal("Statuses are set up", rows[0].QuerySelector(".scenario-checklist__part")!.TextContent.Trim());
-            Assert.Equal("Set up and fill the backlog", rows[0].QuerySelector(".scenario-checklist__page")!.TextContent.Trim());
-            Assert.StartsWith("Ran ", rows[0].QuerySelector(".scenario-checklist__run")!.TextContent.Trim(), StringComparison.Ordinal);
-            Assert.Equal("Never run", rows[2].QuerySelector(".scenario-checklist__run")!.TextContent.Trim());
+
+            // The quiet line names the page by its stem — its run folder — and when it ran.
+            var line = rows[0].QuerySelector(".scenario-checklist__run")!.TextContent.Trim();
+            Assert.StartsWith("set-up-and-fill-the-backlog · ", line, StringComparison.Ordinal);
+            Assert.Contains("2026", line, StringComparison.Ordinal);
+            Assert.Equal("set-up-and-fill-the-backlog · Never run", rows[2].QuerySelector(".scenario-checklist__run")!.TextContent.Trim());
             Assert.Equal("Scenario stale", rows[1].QuerySelector(".devbook-scenario-dot")!.GetAttribute("aria-label"));
         });
     }
@@ -315,10 +319,33 @@ public sealed class EntryDevbookReferencesTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal("2 of 2 passing", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
-            Assert.Equal("Proved", pane.Find("[data-testid='entry-acceptance-proved']").TextContent.Trim());
+            Assert.Equal("2 of 2 passing · proved", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
+            Assert.NotNull(pane.Find("[data-testid='entry-acceptance-proved']"));
         });
         Assert.Equal(before, row.Status);
+    }
+
+    /// <summary>A failed part says which step its run stopped on, so the row
+    /// names where it broke without opening the run.</summary>
+    [Fact]
+    public async Task A_failed_part_names_the_step_its_run_stopped_on()
+    {
+        var devbook = new FakeDevbookReferenceResolver()
+            .Scenario(ScenarioPage, "Set up and fill the backlog",
+                Part("statuses-are-set-up", "Statuses are set up", ScenarioPartState.Passed),
+                Part("an-item-is-moved", "An item is moved", ScenarioPartState.Failed) with { FailedStep = 2 });
+        using var host = await TasksPaneHost.CreateAsync(devbook, Repositories);
+        var row = await host.WriteEntryAsync(Entry);
+        await host.State.SetDevbookReferencesAsync(row, [ScenarioPage]);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var rows = pane.FindAll("[data-testid='entry-acceptance-part']");
+            Assert.EndsWith(" · step 2", rows[1].QuerySelector(".scenario-checklist__run")!.TextContent.Trim(), StringComparison.Ordinal);
+            Assert.DoesNotContain("step", rows[0].QuerySelector(".scenario-checklist__run")!.TextContent, StringComparison.Ordinal);
+        });
     }
 
     [Fact]
@@ -736,5 +763,94 @@ public sealed class EntryDevbookReferencesTests
         await first;
 
         pane.WaitForAssertion(() => Assert.Equal([TasksPage, TaskChapter], row.DevbookReferences));
+    }
+    /// <summary>A <c>scenario:</c> image in the prose an entry opens with and in a
+    /// step's note draws what the shell's source answers — the screenshot a chapter
+    /// would show — asked for the repository the entry's references resolve against.</summary>
+    [Fact]
+    public async Task A_scenario_image_in_the_body_draws_what_the_shell_source_answers()
+    {
+        using var host = await TasksPaneHost.CreateAsync(new FakeDevbookReferenceResolver(), Repositories);
+        await host.WriteEntryAsync(
+            "# Show the cart\n`task` `repo:backlog`\n\n" +
+            "![The cart](scenario:place-an-order#cart-filled)\n\n" +
+            "## [ ] Check the totals\n" +
+            "![Totals](scenario:place-an-order#totals)\n");
+
+        var asked = new List<string?>();
+        var source = new RecordingImages();
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.DevbookImagesFor, alias => { asked.Add(alias); return source; }));
+
+        pane.WaitForAssertion(() =>
+        {
+            var prose = pane.Find("[data-testid='entry-view-prose']");
+            Assert.Equal("scenario:place-an-order#cart-filled|The cart", prose.QuerySelector("[data-testid='claimed-image']")!.TextContent);
+
+            var note = pane.Find("[data-testid='subitem-list-0-body']");
+            Assert.Equal("scenario:place-an-order#totals|Totals", note.QuerySelector("[data-testid='claimed-image']")!.TextContent);
+        });
+        Assert.Contains("backlog", asked);
+        Assert.All(asked, alias => Assert.Equal("backlog", alias));
+    }
+
+    /// <summary>An ordinary image in an entry renders as it always has, source or no
+    /// source: only what the source claims changes.</summary>
+    [Fact]
+    public async Task An_ordinary_image_in_the_body_renders_as_before()
+    {
+        using var host = await TasksPaneHost.CreateAsync(new FakeDevbookReferenceResolver(), Repositories);
+        await host.WriteEntryAsync(
+            "# Show the logo\n`task` `repo:backlog`\n\n" +
+            "![Logo](https://example.com/logo.png)\n\n" +
+            "## [ ] Check it\n");
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.DevbookImagesFor, _ => new RecordingImages()));
+
+        pane.WaitForAssertion(() =>
+        {
+            var image = pane.Find("[data-testid='entry-view-prose'] img");
+            Assert.Equal("https://example.com/logo.png", image.GetAttribute("src"));
+            Assert.Equal("Logo", image.GetAttribute("alt"));
+        });
+        Assert.Empty(pane.FindAll("[data-testid='claimed-image']"));
+    }
+
+    /// <summary>Answers a <c>scenario:</c> target with its target and caption, and
+    /// declines everything else.</summary>
+    private sealed class RecordingImages(string? repository = null) : IDevbookImageSource
+    {
+        public RenderFragment? Image(string target, string caption, string? documentPath) =>
+            target.StartsWith("scenario:", StringComparison.Ordinal)
+                ? builder =>
+                {
+                    builder.OpenElement(0, "span");
+                    builder.AddAttribute(1, "data-testid", "claimed-image");
+                    builder.AddAttribute(2, "data-repository", repository);
+                    builder.AddContent(3, $"{target}|{caption}");
+                    builder.CloseElement();
+                }
+                : null;
+    }
+
+    /// <summary>An entry from another repository draws that repository's images: the
+    /// open entry decides which source the body asks, on every render, so moving to
+    /// it needs nothing remounted.</summary>
+    [Fact]
+    public async Task An_entry_from_another_repository_draws_that_repository_s_images()
+    {
+        using var host = await TasksPaneHost.CreateAsync(new FakeDevbookReferenceResolver(), Repositories);
+        var first = await host.WriteEntryAsync("# In backlog\n`task` `repo:backlog`\n\n![Cart](scenario:place-an-order#cart-filled)\n\n## [ ] A step\n");
+        var second = await host.WriteEntryAsync("# In docs\n`task` `repo:docs`\n\n![Cart](scenario:place-an-order#cart-filled)\n\n## [ ] A step\n");
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.DevbookImagesFor, alias => new RecordingImages(alias)));
+
+        await host.OpenAsync(first);
+        pane.WaitForAssertion(() => Assert.Equal("backlog", pane.Find("[data-testid='entry-view-prose'] [data-testid='claimed-image']").GetAttribute("data-repository")));
+
+        await host.OpenAsync(second);
+        pane.WaitForAssertion(() => Assert.Equal("docs", pane.Find("[data-testid='entry-view-prose'] [data-testid='claimed-image']").GetAttribute("data-repository")));
     }
 }

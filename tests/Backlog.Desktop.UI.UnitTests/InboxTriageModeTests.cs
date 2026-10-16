@@ -271,6 +271,43 @@ public sealed class InboxTriageModeTests
         Assert.Contains("Scroll jumps again", dialog.QuerySelector("[data-testid='inbox-triage-compare-target']")!.TextContent, StringComparison.Ordinal);
     }
 
+    /// <summary>A digit typed in a dialog triage opened is the dialog's, never a
+    /// card's number: the shared Modal keeps it from the triage view's handler,
+    /// so neither Compare nor Move to list needs a wrapper of its own. The same
+    /// digit on the view itself still takes the card.</summary>
+    [Fact]
+    public async Task A_digit_typed_in_the_compare_or_move_dialog_does_not_triage_a_card()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Scroll jumps", "Next one");
+        var taskId = Guid.NewGuid();
+        harness.Advise(items[0].Id, duplicate: new InboxTriageDuplicateDto(InboxTriageTargetKind.Task, taskId, "Tasks list re-keys", "same symptom"));
+        var pane = await harness.StartTriageAsync();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-triage-compare']")));
+        await pane.Find("[data-testid='inbox-triage-compare']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-triage-compare-this']").KeyDownAsync(new KeyboardEventArgs { Key = "1" });
+
+        Assert.Empty(harness.Inbox.Merges);
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-triage-compare-dialog']"));
+
+        await pane.Find("[data-testid='inbox-triage-compare-dialog']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-triage-compare-dialog']")));
+
+        await pane.Find("[data-testid='inbox-move-to-list']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-move-list']").KeyDownAsync(new KeyboardEventArgs { Key = "1" });
+
+        Assert.Empty(harness.Inbox.Merges);
+        Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(items[0].Id)!.Status);
+        Assert.Equal(items[0].Id, harness.State.SelectedItemId);
+
+        await pane.Find("[data-testid='inbox-move-list-dialog']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-move-list-dialog']")));
+
+        await PressDigitAsync(pane, "1");
+        pane.WaitForAssertion(() => Assert.Contains((items[0].Id, taskId), harness.Inbox.Merges));
+    }
+
     [Fact]
     public async Task Not_a_duplicate_hides_the_card_and_the_suggestions_renumber_from_one()
     {
@@ -550,7 +587,7 @@ public sealed class InboxTriageModeTests
         var item = harness.Inbox.Seed("Sync drops edits");
         var pane = await harness.StartTriageAsync();
 
-        Assert.Equal("one entry, no repository", Hint(pane));
+        Assert.Equal("one entry, in the Brain", Hint(pane));
 
         await Box(pane, "acme-sync").ChangeAsync(new ChangeEventArgs { Value = true });
         pane.WaitForAssertion(() => Assert.Equal(["acme/sync"], harness.Inbox.Find(item.Id)!.RepoIds));
@@ -768,7 +805,7 @@ public sealed class InboxTriageModeTests
     [Fact]
     public void The_route_hint_counts_the_entries_move_to_backlog_makes()
     {
-        Assert.Equal("one entry, no repository", InboxDesktopState.RouteHint(0));
+        Assert.Equal("one entry, in the Brain", InboxDesktopState.RouteHint(0));
         Assert.Equal("one entry", InboxDesktopState.RouteHint(1));
         Assert.Equal("3 linked entries", InboxDesktopState.RouteHint(3));
     }

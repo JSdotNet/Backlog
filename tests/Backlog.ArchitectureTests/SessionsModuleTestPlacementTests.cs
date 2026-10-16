@@ -29,7 +29,6 @@ public class SessionsModuleTestPlacementTests
         "SessionRowsTests.cs",
         "DeliveryRunMergingTests.cs",
         "DeliveryEconomicsPageTests.cs",
-        "DeliveryRunDiagramSpecTests.cs",
         "DeliveryRunStagesTests.cs",
         "SessionsAiContentSourceTests.cs",
         "SessionsPaneTests.cs",
@@ -76,9 +75,10 @@ public class SessionsModuleTestPlacementTests
     }
 
     /// <summary>The helpers other test classes borrow — <c>SessionRowsTests.Run</c>,
-    /// <c>SessionsPaneTests.StubRunSource</c>, <c>SessionsPaneDetailTests.StubPriceStore</c>
+    /// <c>SessionsPaneTests.StubRunSource</c>, <c>StubPriceStore</c>
     /// and <c>StubRequestStore</c> — moved with the files that declare them rather than
-    /// being copied, so each is declared once across the two projects.</summary>
+    /// being copied, so each is declared once across the two projects and tests/Shared,
+    /// where <c>StubPriceStore</c> lives because the Settings badge tests use it too.</summary>
     [Theory]
     [InlineData(@"class\s+StubRunSource\b")]
     [InlineData(@"class\s+StubPriceStore\b")]
@@ -87,7 +87,7 @@ public class SessionsModuleTestPlacementTests
     public void A_shared_helper_is_declared_once(string declaration)
     {
         var pattern = new Regex(declaration);
-        var declaring = new[] { ModuleTests, DesktopUiTests }
+        var declaring = new[] { ModuleTests, DesktopUiTests, "Shared" }
             .Select(project => PathOf("tests", project))
             .Where(Directory.Exists)
             .SelectMany(directory => Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))

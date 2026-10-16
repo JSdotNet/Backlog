@@ -112,6 +112,47 @@ public sealed class SettingsInboxRoutingRulesTests
         }
     }
 
+    /// <summary>The headline counts the rules in force, so a set refused for a line
+    /// that does not read leaves it where it was.</summary>
+    [Fact]
+    public void The_headline_counts_the_rules_in_force()
+    {
+        using var settings = RenderSettings(registerSection: true);
+
+        OpenTab(settings.Component, "Inbox");
+        Assert.Equal("No routing rules yet; everything lands in the Inbox unsorted.", Headline(settings.Component));
+
+        Type(settings.Component, "#design => JSdotNet/Design\n@alice => JSdotNet/Backlog");
+        Assert.Equal("2 routing rules sort what lands in the Inbox.", Headline(settings.Component));
+
+        Type(settings.Component, "#design => JSdotNet/Design\nyoutube JSdotNet/Watch");
+        Assert.Equal("2 routing rules sort what lands in the Inbox.", Headline(settings.Component));
+
+        Type(settings.Component, "#design => JSdotNet/Design");
+        Assert.Equal("1 routing rule sorts what lands in the Inbox.", Headline(settings.Component));
+    }
+
+    /// <summary>One card, the one the Inbox's section declares, named by its heading
+    /// and holding the field.</summary>
+    [Fact]
+    public void The_card_on_the_page_is_the_one_its_section_declares()
+    {
+        var section = new ServiceCollection().AddInboxSettings()
+            .Select(descriptor => descriptor.ImplementationInstance).OfType<SettingsSection>().Single();
+
+        using var page = RenderSection();
+
+        Assert.Equal(["Inbox routing rules"], section.CardTitles!);
+        Assert.Equal(section.CardTitles!, page.Component.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()));
+
+        var card = page.Component.Find("section.settings-card[data-testid='inbox-routing-rules-card']");
+        Assert.Equal("inbox-routing-rules-title", card.GetAttribute("aria-labelledby"));
+        Assert.NotNull(card.QuerySelector("[data-testid='inbox-routing-rules-input']"));
+    }
+
+    private static string Headline(IRenderedComponent<Settings> component) =>
+        component.Find("[data-testid='settings-headline']").TextContent.Trim();
+
     /// <summary>What typing does: an input per keystroke, then the change the
     /// field commits on when it loses focus.</summary>
     private static void Type<TComponent>(IRenderedComponent<TComponent> component, string text)
@@ -122,10 +163,10 @@ public sealed class SettingsInboxRoutingRulesTests
     }
 
     private static string[] Tabs(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
+        SettingsMenu.Pages(component);
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
 
     private static SectionRenderContext RenderSection(bool inboxPane = true, bool withRules = true, string? existing = null)
     {

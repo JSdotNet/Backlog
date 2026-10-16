@@ -33,23 +33,25 @@ export const splitTitle = (title: string, fallback: number) => {
   return m ? { n: Number(m[1]), title: (m[2] ?? '').trim() } : { n: fallback, title: title.trim() }
 }
 
-/** The PlanItemsPayload: { planId, count, entries: EntryPayload[] }, wire tokens lowercase. */
+/**
+ * The PlanItemsPayload: { planId, count, entries: EntryPayload[] }, wire tokens lowercase.
+ * An entry with no step number in its title — a follow-up create_item filed under the plan tag —
+ * is numbered after the highest step, so it never shows a number an imported step holds.
+ */
 export const parsePlan = (tag: string, text: string | undefined): Plan | null => {
   const body = parseJson(text) as { planId?: string; entries?: Record<string, unknown>[] } | null
   if (!body || !Array.isArray(body.entries)) return null
-  const entries: PlanEntry[] = []
-  for (const raw of body.entries) {
-    const type = String(raw.type ?? '').toLowerCase()
-    if (type === 'plan') continue
-    const { n, title } = splitTitle(String(raw.title ?? ''), entries.length + 1)
-    entries.push({
-      id: String(raw.id ?? ''),
-      n,
-      title,
-      type,
-      status: normStatus(raw.status),
-    })
-  }
+  const split = body.entries
+    .filter(raw => String(raw.type ?? '').toLowerCase() !== 'plan')
+    .map(raw => ({ raw, ...splitTitle(String(raw.title ?? ''), NaN) }))
+  let next = Math.max(0, ...split.map(s => s.n).filter(n => !Number.isNaN(n)))
+  const entries: PlanEntry[] = split.map(({ raw, n, title }) => ({
+    id: String(raw.id ?? ''),
+    n: Number.isNaN(n) ? ++next : n,
+    title,
+    type: String(raw.type ?? '').toLowerCase(),
+    status: normStatus(raw.status),
+  }))
   return { tag: body.planId ?? tag, entries }
 }
 
@@ -61,6 +63,43 @@ export const parseRunId = (text: string | undefined): string => {
   const m = /run[_ ]?id["':\s]+([\w-]+)/i.exec(text ?? '')
   return m?.[1] ?? ''
 }
+
+const stageName = (v: unknown): string => {
+  const raw = typeof v === 'string' ? v : v && typeof v === 'object' ? ((v as { name?: unknown; title?: unknown }).name ?? (v as { title?: unknown }).title) : undefined
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
+/**
+ * The stages a start_run declared, however the worker spelled them: an array of names or of
+ * `{ name }` / `{ title }` objects, that array JSON-encoded as a string, or a comma-separated
+ * string. Anything else declares none.
+ */
+export const parseStages = (v: unknown): string[] => {
+  if (typeof v === 'string') {
+    const text = v.trim()
+    if (text.startsWith('[')) {
+      try {
+        return parseStages(JSON.parse(text))
+      } catch {
+        return []
+      }
+    }
+    if (text.startsWith('{')) return []
+    return text.split(',').map(s => s.trim()).filter(s => s !== '')
+  }
+  if (!Array.isArray(v)) return []
+  return v.map(stageName).filter(s => s !== '')
+}
+
+/** A stage index sent as a number or a numeric string; anything else is NaN, out of every range. */
+export const asIndex = (v: unknown): number => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v.trim()) : NaN
+  return Number.isInteger(n) ? n : NaN
+}
+
+/** A run id sent as a string or a number, as the string a surface answered; else ''. */
+export const asId = (v: unknown): string =>
+  typeof v === 'string' ? v.trim() : typeof v === 'number' && Number.isFinite(v) ? String(v) : ''
 
 /** The brief's opening line: You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`). */
 export const parseBrief = (prompt: string) => {
@@ -89,7 +128,7 @@ export const newWorker = (agentId: string, b: NonNullable<ReturnType<typeof pars
   state: 'running',
   note: '',
   flow: '',
-  runId: '',
+  runIds: [],
   stages: [],
   stageStatus: [],
   runStatus: '',

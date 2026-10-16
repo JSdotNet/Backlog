@@ -58,19 +58,29 @@ public class TasksRepositoryScopeTests
         Assert.DoesNotContain(piled, host.State.FilteredRows);
     }
 
-    /// <summary>The scope the header's chips cannot offer, because they name the
-    /// repositories that exist and this names their absence. Without it an entry
-    /// targeting nothing is reachable only by scoping to all repositories and
-    /// reading past everything that does have one.</summary>
+    // --- The Brain ---------------------------------------------------------------
+    //
+    // The scope of everything filed against no repository (local ADR 0027): a member
+    // of the same ordered set, held as the reserved empty value, so the anchor, Ctrl
+    // and the remembered order apply to it as they do to a repository.
+
+    /// <summary>Brain alone keeps the rows no repository claims. Without it an entry
+    /// targeting nothing is reachable only by scoping to all repositories and reading
+    /// past everything that does have one.</summary>
     [Fact]
-    public async Task The_no_repository_scope_keeps_the_rows_no_repository_claims()
+    public async Task The_brain_alone_keeps_the_rows_no_repository_claims()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         var piled = await host.WriteEntryAsync("# Buy milk\n`task` `@backlog`\n");
         var targeted = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
         await host.State.SelectAsync(null);
 
-        host.State.SetNoRepositoryFilter(true);
+        host.State.SetBrainFilter();
+
+        Assert.True(host.State.BrainInScope);
+        Assert.True(host.State.BrainIsAnchor);
+        Assert.Equal([BrainScope.Value], host.State.SelectedRepositoryAliases);
+        Assert.Equal(string.Empty, host.State.AnchorRepositoryAlias);
 
         // An area is the person's own pile (.devbook/domain/tasks/domain.md#area), so
         // one spelled like a configured repository still leaves the entry claimed by
@@ -78,6 +88,10 @@ public class TasksRepositoryScopeTests
         // pins from the other side.
         Assert.Contains(piled, host.State.FilteredRows);
         Assert.DoesNotContain(targeted, host.State.FilteredRows);
+
+        // RowsInRepositoryScope, what In progress draws from, is the same answer.
+        Assert.Equal(host.State.ScopedRows, host.State.RowsInRepositoryScope);
+        Assert.DoesNotContain(targeted, host.State.RowsInRepositoryScope);
     }
 
     /// <summary>A `repo:` naming something that is not configured is not a
@@ -90,33 +104,123 @@ public class TasksRepositoryScopeTests
         var stray = await host.WriteEntryAsync("# Buy milk\n`task` `repo:retired`\n");
         await host.State.SelectAsync(null);
 
-        host.State.SetNoRepositoryFilter(true);
+        host.State.SetBrainFilter();
 
         Assert.Contains(stray, host.State.FilteredRows);
     }
 
-    /// <summary>The two scopes ask for opposite things, and the honest answer to
-    /// both at once is nothing. They are left composable rather than made exclusive
-    /// because the chip carries a count: it reads 0 before it is pressed, which says
-    /// so on the bar instead of in an empty list.</summary>
+    /// <summary>Ctrl adds the Brain beside a repository as it adds a repository: the
+    /// union of the two, with the repository pressed first still the anchor. It used
+    /// to be a separate chip that narrowed the repository scope, and the two pressed
+    /// together asked for nothing.</summary>
     [Fact]
-    public async Task The_no_repository_scope_narrows_the_repository_scope_rather_than_replacing_it()
+    public async Task The_brain_beside_a_repository_keeps_both_and_the_anchor_stays()
     {
-        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        await host.WriteEntryAsync("# Buy milk\n`task` `@backlog`\n");
-        await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        var unfiled = await host.WriteEntryAsync("# Buy milk\n`task`\n");
+        var mine = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+        var theirs = await host.WriteEntryAsync("# Write it up\n`task` `repo:docs`\n");
         await host.State.SelectAsync(null);
 
         host.State.SetRepositoryFilter("backlog");
-        host.State.SetNoRepositoryFilter(true);
+        host.State.ToggleBrainInScope();
 
-        Assert.Empty(host.State.FilteredRows);
+        Assert.Equal(["backlog", BrainScope.Value], host.State.SelectedRepositoryAliases);
         Assert.Equal("backlog", host.State.AnchorRepositoryAlias);
+        Assert.False(host.State.BrainIsAnchor);
+        Assert.Contains(unfiled, host.State.FilteredRows);
+        Assert.Contains(mine, host.State.FilteredRows);
+        Assert.DoesNotContain(theirs, host.State.FilteredRows);
 
-        // And releasing it hands the repository scope back untouched.
-        host.State.SetNoRepositoryFilter(false);
+        // And Ctrl again takes it back out.
+        host.State.ToggleBrainInScope();
 
-        Assert.Single(host.State.FilteredRows);
+        Assert.Equal(["backlog"], host.State.SelectedRepositoryAliases);
+        Assert.DoesNotContain(unfiled, host.State.FilteredRows);
+    }
+
+    /// <summary>A plain press on the Brain replaces whatever the scope held, as a plain
+    /// press on a repository does.</summary>
+    [Fact]
+    public async Task The_brain_pressed_alone_replaces_the_repositories()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+        host.State.SetBrainFilter();
+
+        Assert.Equal([BrainScope.Value], host.State.SelectedRepositoryAliases);
+    }
+
+    /// <summary>The Brain names no repository, so removing repositories from Settings
+    /// never takes it out of the scope — the pass that forgets a stale alias resolves
+    /// each against Settings, and the Brain's empty value resolves to nothing.</summary>
+    [Fact]
+    public async Task The_brain_is_never_a_stale_alias()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+
+        host.State.SetBrainFilter();
+        host.State.ToggleRepositoryInScope("backlog");
+
+        Assert.Null(host.GitHub.Settings.SetRepositories([]));
+        host.State.SetReadyInPlanFilter(false);
+
+        Assert.Equal([BrainScope.Value], host.State.SelectedRepositoryAliases);
+    }
+
+    /// <summary>A new entry under an anchor of Brain is filed nowhere: it already
+    /// belongs to the Brain, so it stays in view without a <c>`repo:`</c>.</summary>
+    [Fact]
+    public async Task A_new_entry_under_the_brain_is_filed_against_no_repository()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+
+        host.State.SetBrainFilter();
+        host.State.ToggleRepositoryInScope("backlog");
+        host.State.NewRow();
+
+        Assert.DoesNotContain("`repo:", host.State.SelectedRow?.RawText ?? string.Empty);
+    }
+
+    /// <summary>Revealing a row the Brain hides widens the scope, as it does for a row
+    /// a repository hides.</summary>
+    [Fact]
+    public async Task Revealing_a_repository_row_lets_go_of_the_brain()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        var targeted = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+        await host.State.SelectAsync(null);
+        host.State.SetBrainFilter();
+
+        Assert.True(host.State.Reveal(targeted));
+
+        Assert.Empty(host.State.SelectedRepositoryAliases);
+        Assert.Contains(targeted, host.State.FilteredRows);
+    }
+
+    /// <summary>A remembered scope comes back with the Brain in the place it was stored
+    /// in — the anchor when it was first — and an alias no longer configured dropped
+    /// beside it (ADR 0027, §5).</summary>
+    [Fact]
+    public async Task A_remembered_brain_comes_back_in_its_place()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+
+        host.State.RestoreRepositoryScope([BrainScope.Value, "retired", "backlog"]);
+
+        Assert.Equal([BrainScope.Value, "backlog"], host.State.SelectedRepositoryAliases);
+        Assert.True(host.State.BrainIsAnchor);
+
+        host.State.RestoreRepositoryScope(["backlog", BrainScope.Value]);
+
+        Assert.Equal(["backlog", BrainScope.Value], host.State.SelectedRepositoryAliases);
+        Assert.False(host.State.BrainIsAnchor);
+
+        host.State.RestoreRepositoryScope([BrainScope.Value, "retired"]);
+
+        Assert.Equal([BrainScope.Value], host.State.SelectedRepositoryAliases);
     }
 
     // --- More than one repository at once ------------------------------------------
@@ -225,7 +329,7 @@ public class TasksRepositoryScopeTests
 
         var (remaining, _) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog");
         Assert.Null(host.GitHub.Settings.SetRepositories(remaining));
-        host.State.SetNoRepositoryFilter(false);
+        host.State.SetReadyInPlanFilter(false);
 
         Assert.Equal(["backlog"], host.State.SelectedRepositoryAliases);
     }
@@ -350,5 +454,51 @@ public class TasksRepositoryScopeTests
         host.State.RestoreRepositoryScope([]);
         Assert.Empty(host.State.SelectedRepositoryAliases);
         Assert.Equal(2, changes);
+    }
+
+    // --- A plan opened from the roadmap ------------------------------------------
+    //
+    // "Open in Tasks" scopes the list to every repository, whatever the scope held:
+    // the roadmap gathers an item's work wherever it is filed, so any narrower scope
+    // could hide some of it (roadmap/domain.md#roadmap-item-gathering).
+
+    [Fact]
+    public async Task Showing_a_plan_scopes_to_every_repository_from_any_scope()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "site = JSdotNet/Site");
+        host.State.RestoreRepositoryScope(["site", "docs"]);
+
+        host.State.ShowPlan("+plan-a");
+
+        Assert.Empty(host.State.SelectedRepositoryAliases);
+    }
+
+    /// <summary>Every repository — not the Brain, which is the work filed under none
+    /// and would hide the plan's filed tasks.</summary>
+    [Fact]
+    public async Task Showing_a_plan_from_the_brain_scopes_to_every_repository()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        host.State.SetBrainFilter();
+
+        host.State.ShowPlan("+plan-a");
+
+        Assert.Empty(host.State.SelectedRepositoryAliases);
+        Assert.False(host.State.BrainInScope);
+    }
+
+    [Fact]
+    public async Task Showing_a_plan_in_another_scope_is_announced_once()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "site = JSdotNet/Site");
+        host.State.RestoreRepositoryScope(["backlog", "docs", "site"]);
+        var changes = 0;
+        host.State.Changed += () => changes++;
+
+        host.State.ShowPlan("+plan-a");
+
+        Assert.Equal(1, changes);
     }
 }

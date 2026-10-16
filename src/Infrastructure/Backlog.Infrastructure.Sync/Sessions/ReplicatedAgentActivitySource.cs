@@ -99,7 +99,16 @@ public sealed class ReplicatedAgentActivitySource : IAgentActivitySource
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        // Skipped ahead of the mapping on the mapping's own test: the store keeps
+        // twenty-six weeks and a window is usually one, so most records finished long
+        // before it, and SessionRecordMapping.HasActivityAfter spares them the sorting
+        // and copying. Not LastActivityAt against the horizon, which reads cheaper and
+        // is wrong: a live session's activity time is its liveness file's write time
+        // and its runs come off the transcript, measured written up to two and a half
+        // hours later, so a record can stop being active before the window and still
+        // have a run ending inside it.
         var sessions = _store.Current.Entries
+            .Where(entry => SessionRecordMapping.HasActivityAfter(entry.Record, since))
             .Select(entry => SessionRecordMapping.ToActivity(entry, since, _own.EnvironmentFor(entry)))
             .OfType<AgentSessionActivity>()
             .ToList();

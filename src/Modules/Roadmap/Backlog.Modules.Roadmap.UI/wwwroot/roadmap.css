@@ -1,0 +1,636 @@
+/* Backlog.Modules.Roadmap.UI — the Roadmap module's screen rules.
+   Served at _content/Backlog.Modules.Roadmap.UI/roadmap.css and linked by
+   every host that renders the roadmap band, after the component library's
+   components.css, whose tokens these use and whose timeline and shelf rules
+   the band's descendant rules override, and before the shell's app.css. */
+
+.roadmap-band {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 0;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+/* The chart, and beside it the unplanned work. Two columns on a wide window, the
+   column a fixed reading width so the chart takes every rem that is left; with no
+   unplanned work there is one column and the chart takes all of it. */
+.roadmap-band__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: var(--spacing-lg);
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.roadmap-band__body--with-shelf {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+}
+
+/* The heading, and the controls that add to the plan, on a line.
+
+   Only drawn when there is no plan: with one, the same content is handed to
+   RoadmapTimeline as its heading and lands in the chart's own header row, beside the
+   filters. The rules here and below are written on the elements rather than on this
+   header for exactly that reason — they have to look the same in either place. */
+.roadmap-band__header {
+    display: flex;
+    align-items: center;
+    flex: none;
+    gap: var(--spacing-sm);
+}
+
+.roadmap-band__title-lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.roadmap-band__eyebrow,
+.roadmap-band__title {
+    margin: 0;
+}
+
+.roadmap-band__eyebrow {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.roadmap-band__title {
+    font-size: var(--font-size-lg);
+}
+
+/* The Hours and Completed switches on the roadmap's toolbar (local ADR 0019, §4): the
+   switch and its one-word name on the toolbar's centre line, at the size of the
+   buttons beside it. */
+.roadmap-band__hours,
+.roadmap-band__completed {
+    flex: none;
+    align-items: center;
+}
+
+/* A band's pace, under its name in the chart's sidebar, in the two rows the band
+   reserves for it (RoadmapPlanView.PaceRows): on the first a slider and the figure
+   it is at, on the second the "Measured" reset and - only when something needs
+   saying - one short note. The info mark with what the lane managed sits at the end
+   of the band's name, in the band's top-right corner (.roadmap-pace__hint). Sized to the
+   sidebar's own width, so every measure here is the smallest the library offers.
+   The reader's own pace - "Mine", the field and its unit - sits once in the
+   roadmap's heading (.roadmap-pace--mine). */
+.roadmap-pace {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.roadmap-pace__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.roadmap-pace__manual {
+    width: 4rem;
+}
+
+.roadmap-pace--mine {
+    grid-auto-flow: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.roadmap-pace__label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.roadmap-pace__unit,
+.roadmap-pace__note,
+.roadmap-pace__value {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* The slider takes what the figure beside it leaves. */
+.roadmap-pace__slider {
+    flex: 1 1 auto;
+    min-width: 2rem;
+}
+
+/* A fixed width, wide enough for "999 pt/wk", so the slider beside it keeps its
+   length while the figure changes under a drag. A figure that grew or shrank the
+   slider moved the line under the pointer, and the thumb stuttered. */
+.roadmap-pace__value {
+    flex: 0 0 auto;
+    width: 9ch;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.roadmap-pace .roadmap-pace__measured.btn {
+    flex: 0 0 auto;
+    padding: 1px var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    white-space: nowrap;
+}
+
+/* What the lane managed, as two short lines in the bubble the library draws. */
+.roadmap-pace__hint-line {
+    display: block;
+}
+
+/* The info mark, at the end of the band's name. The mark is lifted out of the
+   content box, which starts under the name, onto the name's line - centred on it,
+   since the name is centred on the band's first row and the box starts a fixed
+   0.75rem under that centre (RoadmapTimeline.ContentGapUnderName). The hint is made
+   static, so the content box is the bubble's containing block (the arrangement
+   components.css offers for a wider anchor): the bubble opens under the band's pace,
+   as wide as the sidebar allows, rather than off the mark at the sidebar's edge. */
+.roadmap-pace .roadmap-pace__hint {
+    position: static;
+}
+
+.roadmap-pace__hint .info-hint__trigger {
+    position: absolute;
+    top: -0.75rem;
+    right: var(--spacing-sm);
+    transform: translateY(-50%);
+}
+
+/* The band's content is clipped to the rows it asked for. A band carrying a pace is
+   not: the mark sits above the box, on the name's line, and the bubble lies over the
+   lanes below. The pace's own lines fit the rows, so nothing else leaves the box. */
+.roadmap-timeline__group-content:has(> .roadmap-pace) {
+    overflow: visible;
+}
+
+/* Room at the end of the band's name for the mark, so a long name is cut short
+   before it rather than running under it. */
+.roadmap-timeline__group--slotted:has(.roadmap-pace__hint) .roadmap-timeline__group-name {
+    margin-right: 1.25rem;
+}
+
+.roadmap-pace__note {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: help;
+}
+
+/* The cell the timeline is drawn in. It does not scroll: the height it is given is
+   passed straight down to the chart, whose own bordered frame scrolls when a plan
+   has more rows than the screen can show. `minmax(0, 1fr)` rather than `1fr`,
+   because a track that cannot go below its content cannot be scrolled inside. */
+.roadmap-band__content {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    align-content: stretch;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* The empty state takes its own height at the top of the cell rather than being
+   stretched down the whole surface. */
+.roadmap-band__content:has(> .roadmap-band__empty) {
+    grid-template-rows: auto auto;
+    align-content: start;
+    gap: var(--spacing-sm);
+}
+
+/* The chart, told to fill the cell rather than size to its own content: the header
+   at the height it needs, and the frame taking everything left over. */
+.roadmap-band__timeline {
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--spacing-sm);
+}
+
+/* The frame is the band's height and scrolls nothing itself. When it scrolled the
+   rows, the track's horizontal scrollbar sat under the last lane and the week ruler
+   above the first, so a tall plan put both out of view.
+
+   The track scrolls both ways instead, which keeps its horizontal scrollbar on the
+   frame's bottom edge and lets the ruler stick to its top. The names column scrolls
+   with it — the timeline script mirrors the track's scrollTop onto it — and hides a
+   scrollbar of its own, so there is one vertical scrollbar, at the right. A plan
+   that fits shows none — `auto`, not `scroll`. */
+.roadmap-band__timeline .roadmap-timeline__frame {
+    min-height: 0;
+}
+
+.roadmap-band__timeline .roadmap-timeline__scroll {
+    overflow-y: auto;
+}
+
+/* The track's horizontal scrollbar is height the names column does not have, so its
+   rows could never scroll as far as the track's. The script publishes that height
+   and the column takes it as padding, so the two end on the same lane. */
+.roadmap-band__timeline .roadmap-timeline__sidebar {
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding-bottom: var(--roadmap-scrollbar-height, 0px);
+}
+
+.roadmap-band__timeline .roadmap-timeline__sidebar::-webkit-scrollbar {
+    display: none;
+}
+
+/* The week ruler and the blank cell beside it, held at the top while the rows
+   scroll under them. Above the bars, which lift themselves while dragged. */
+.roadmap-band__timeline .roadmap-timeline__axis,
+.roadmap-band__timeline .roadmap-timeline__sidebar-axis {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--color-background);
+}
+
+/* The chart's heading row, once it is carrying the view's own heading: the heading
+   and its add controls at one end, the filters at the other. */
+.roadmap-band__timeline .roadmap-timeline__header {
+    align-items: center;
+}
+
+/* The library stacks whatever it is given as a heading, which is right for a title
+   over a description and wrong for a title beside a button. */
+.roadmap-band__timeline .roadmap-timeline__heading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.roadmap-band__timeline .roadmap-timeline__filter {
+    min-width: 9rem;
+}
+
+.roadmap-band__empty {
+    padding: var(--spacing-md);
+    text-align: left;
+}
+
+/* The first read's spinner, in the middle of the surface the chart will fill. */
+.roadmap-band__loading {
+    display: flex;
+    padding: var(--spacing-xl);
+}
+
+/* The unplanned work, in its column. It scrolls on its own, so a long list never
+   pushes the chart off the surface and the chart never hides the list. */
+.roadmap-band__shelf {
+    min-height: 0;
+    overflow-y: auto;
+    padding-left: var(--spacing-lg);
+    border-left: var(--border-width) solid var(--color-border);
+    scrollbar-width: thin;
+}
+
+.roadmap-band__shelf .roadmap-shelf__list {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.roadmap-band__shelf-news {
+    flex: none;
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+/* The planning dialog.
+
+   A dialog rather than a form inside the roadmap, because the chart spends the
+   surface's height on its rows and a form unfolding in it would push the plan being
+   edited off screen. Two columns where two fields belong together — the two
+   ends of a window, a priority and the lane it sits in — and one column for the rest,
+   so the eye pairs what the plan pairs. */
+.roadmap-editor__fields {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: min(28rem, 80vw);
+}
+
+.roadmap-editor__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: var(--spacing-sm);
+    /* Top-aligned, so help text under one field does not stretch its neighbour and
+       drop that one's label below the other's. */
+    align-items: start;
+}
+
+/* The Days off dialog (local ADR 0019, §4): two ways to add a date, then the dates set,
+   each a part of its own under a small heading. Every action applies at once, so there
+   is no footer. */
+.roadmap-days-off__intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-days-off__part {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.roadmap-days-off__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-days-off__actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+/* One line a date: when, what it is, and the way to take it back. A bounded height so a
+   long list scrolls inside the dialog rather than pushing it off the screen. */
+.roadmap-days-off__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    max-height: 16rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.roadmap-days-off__entry {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-days-off__date {
+    font-variant-numeric: tabular-nums;
+}
+
+.roadmap-days-off__kind {
+    color: var(--color-text-secondary);
+}
+
+/* The hours report a begun head's hours open (local ADR 0019, §6): a week of working
+   days, each a small heading with its total and then its stretches, one line each:
+   when, how long, how many prompts, and the sessions it was worked in. The day whose
+   head was pressed is marked. A bounded height, so a busy week scrolls inside the
+   dialog. */
+.roadmap-hours__intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-hours__actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.roadmap-hours__total {
+    margin: 0;
+    font-weight: 600;
+}
+
+.roadmap-hours__days {
+    display: grid;
+    gap: var(--spacing-sm);
+    max-height: 28rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.roadmap-hours__day {
+    display: grid;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-2) solid transparent;
+    border-radius: var(--border-radius-sm);
+}
+
+.roadmap-hours__day--focused {
+    border-left-color: var(--color-border-focus);
+}
+
+.roadmap-hours__day-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-hours__day-total,
+.roadmap-hours__when,
+.roadmap-hours__length {
+    font-variant-numeric: tabular-nums;
+}
+
+.roadmap-hours__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-hours__stretches {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.roadmap-hours__stretch {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-hours__turns {
+    color: var(--color-text-secondary);
+}
+
+/* The waves a roadmap item's gathered entries fall into — the plan review's Order
+   diagram, inside the dialog. A column per wave; what shares a column can run side
+   by side. Scrolls sideways rather than squeezing a long chain. */
+.roadmap-order {
+    overflow-x: auto;
+    padding-bottom: var(--spacing-2xs);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.roadmap-order__graph {
+    display: block;
+}
+
+.roadmap-order__wave {
+    fill: var(--color-text-secondary);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.roadmap-order__node rect {
+    fill: var(--color-background-raised);
+    stroke: var(--color-primary);
+    stroke-width: 1.25;
+}
+
+.roadmap-order__node--done rect {
+    stroke: var(--color-border-strong);
+}
+
+.roadmap-order__node--done .roadmap-order__title {
+    fill: var(--color-text-secondary);
+}
+
+.roadmap-order__title {
+    fill: var(--color-text-primary);
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+}
+
+.roadmap-order__meta,
+.roadmap-order__points {
+    fill: var(--color-text-secondary);
+    font-size: 10px;
+}
+
+.roadmap-order__meta {
+    font-family: var(--font-family-mono);
+}
+
+.roadmap-order__points {
+    text-anchor: end;
+}
+
+.roadmap-order__edge {
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 1.25;
+}
+
+.roadmap-order__arrow {
+    fill: var(--color-text-secondary);
+}
+
+/* What a roadmap item has already gathered — its linked and tagged backlog
+   entries, its knowledge chapters, and the effort registered against them. A
+   read-only block below the editable fields, drawn quietly because it is context
+   for those fields rather than another one of them. */
+.roadmap-gathered {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--color-border);
+    min-width: min(28rem, 80vw);
+}
+
+.roadmap-gathered__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.roadmap-gathered__group {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__group-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+}
+
+.roadmap-gathered__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.roadmap-gathered__title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* "not estimated" said in words, so an entry that registered no number reads as a
+   deliberate absence rather than a zero. */
+.roadmap-gathered__unestimated {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-style: italic;
+}
+
+.roadmap-gathered__effort {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__effort-total {
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The count the total is not allowed to hide, kept beside it rather than under a
+   fold: unestimated work dropped silently would read as less work than there is. */
+.roadmap-gathered__effort-caveat {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 72rem) {
+    /* The roadmap has no room for a column beside its chart, so the unplanned
+       work goes under it — capped, so the chart keeps most of the surface — and
+       the cards flow side by side again across the full width. */
+    .roadmap-band {
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    .roadmap-band__body--with-shelf {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .roadmap-band__shelf {
+        max-height: 40vh;
+        padding-left: 0;
+        padding-top: var(--spacing-sm);
+        border-left: none;
+        border-top: var(--border-width) solid var(--color-border);
+    }
+
+    .roadmap-band__shelf .roadmap-shelf__list {
+        grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    }
+}

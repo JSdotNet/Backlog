@@ -21,6 +21,15 @@
     its REST interface does not take. One that lists nothing, or cannot list, is
     typed into, and the field says why when the connector said.
 
+    Each card offers the registry's repositories (IRepositoryDirectory) for the
+    target's new tasks to be filed under, and one row per status its source lists
+    (ITaskConnector.ListSourceStatusesAsync), asked once per card while the page is
+    open, each mapped to a task status or left to the default its normalised state
+    gives (NormalisedSourceStates.DefaultTaskStatus). A source that lists none, or
+    fails to, gets no rows, and its stored mappings are kept as they are; a stored
+    mapping a source that does list its statuses no longer lists is still a row,
+    saying so, so it can be cleared.
+
     Disconnecting keeps a target's tasks, so the sources that left tasks behind are
     listed under the cards, each with a confirmed "Delete tasks"
     (IDisconnectedLinkedTasks). Nothing is listed in a host without that port.
@@ -31,6 +40,7 @@
 *@
 @namespace Backlog.Desktop.UI.Tasks
 @using Backlog.Modules.Tasks.Abstractions.Connectors
+@using Backlog.UI.Components.Settings
 @using Microsoft.Extensions.DependencyInjection
 @using Microsoft.Extensions.Logging
 @implements IDisposable
@@ -38,99 +48,112 @@
 @inject IServiceProvider Services
 @inject ILogger<TaskConnectorSettings> Log
 
-@* No heading of its own: the shell titles the section "Connectors" already. *@
-<p class="setting__body">
-    Connect a repository or a product and every open item in it appears on the Tasks list
-    as a linked task, kept in step with the source. Its title, status and assignee follow
-    the source; your priority, My Day, sub-items and notes stay yours.
-</p>
+<SettingsHeadline>@Headline(ConnectedTargets.Count)</SettingsHeadline>
 
-@if (Sources.Descriptors.Count == 0)
-{
-    <EmptyState Title="No connector is installed"
-                Description="This build has no connector to bring tasks in from. Once one is installed, its repositories or products are connected here."
-                TestId="task-connectors-empty" />
-}
-else
-{
-    @if (Sources.SignIns.Count > 0)
-    {
-        <div class="task-connectors__sign-ins" data-testid="task-connectors-sign-ins">
-            @foreach (var (descriptor, signIn) in Sources.SignIns)
-            {
-                var state = SignInStateOf(descriptor.Id);
-                <ConnectorSignIn @key="descriptor.Id"
-                                 ConnectorName="@descriptor.DisplayName"
-                                 Icon="@descriptor.Icon"
-                                 AccountName="@signIn.Account?.DisplayName"
-                                 SigningIn="@state.SigningIn"
-                                 Error="@state.Error"
-                                 OnSignIn="() => SignInAsync(descriptor.Id, signIn)"
-                                 OnSignOut="() => SignOutAsync(descriptor.Id, signIn)"
-                                 TestId="@($"task-connector-sign-in-{descriptor.Id}")" />
-            }
-        </div>
-    }
+@* Every card sits in the grid the settings pages lay their cards out in. The
+   connect form's card holds what it takes to bring a source in: the sign-ins
+   a connector asks for, then the connector and the target. *@
+<div class="setting-columns">
+<SettingsCard Title="@ConnectCardTitle"
+              Description="Connect a repository or a product and every open item in it appears on the Tasks list as a linked task, kept in step with the source."
+              TestId="task-connectors-connect-card">
+    <p class="setting__body">
+        Its title, status and assignee follow the source; your priority, My Day,
+        sub-items and notes stay yours.
+    </p>
 
-    @if (Targets is null)
+    @if (Sources.Descriptors.Count == 0)
     {
-        <Alert Message="This host keeps no connected targets, so nothing can be connected here."
-               Role="status"
-               TestId="task-connectors-unavailable" />
+        <EmptyState Title="No connector is installed"
+                    Description="This build has no connector to bring tasks in from. Once one is installed, its repositories or products are connected here."
+                    TestId="task-connectors-empty" />
     }
     else
     {
-        <div class="task-connectors__connect" data-testid="task-connectors-connect">
-            <SelectField Form="true"
-                         Label="Connector"
-                         Id="task-connector-choice"
-                         TestId="task-connector-choice"
-                         CurrentValue="@_connectorId"
-                         Options="@ConnectorOptions"
-                         OnChanged="ChooseConnectorAsync" />
-            @if (_choices is null)
-            {
-                <SelectField Form="true"
-                             Label="@TargetLabel"
-                             Id="task-connector-target"
-                             TestId="task-connector-target"
-                             Disabled="true"
-                             IncludeEmptyOption="true"
-                             EmptyLabel="Loading…"
-                             Options="@([])" />
-            }
-            else if (_choices.Choices.Count > 0)
-            {
-                <SelectField Form="true"
-                             Label="@TargetLabel"
-                             Id="task-connector-target"
-                             TestId="task-connector-target"
-                             CurrentValue="@_target"
-                             IncludeEmptyOption="true"
-                             EmptyLabel="@(AvailableChoices.Count == 0 ? "Everything here is connected" : "Pick one")"
-                             Options="@AvailableChoices"
-                             OnChanged="value => _target = value ?? string.Empty" />
-                <Alert Message="@_connectError" TestId="task-connector-connect-error" />
-            }
-            else
-            {
-                <TextField Label="@TargetLabel"
-                           Id="task-connector-target"
-                           Placeholder="@SelectedConnector?.TargetPlaceholder"
-                           HelpText="@(_choices.CannotList ?? SelectedConnector?.TargetHelp)"
-                           Value="@_target"
-                           ValueChanged="value => _target = value"
-                           ErrorMessage="@_connectError"
-                           TestId="task-connector-target" />
-            }
-            <AppButton Variant="ButtonVariant.Primary"
-                       Disabled="@(!CanConnect)"
-                       TestId="task-connector-connect"
-                       OnClick="ConnectAsync">
-                Connect
-            </AppButton>
-        </div>
+        @if (Sources.SignIns.Count > 0)
+        {
+            <div class="task-connectors__sign-ins" data-testid="task-connectors-sign-ins">
+                @foreach (var (descriptor, signIn) in Sources.SignIns)
+                {
+                    var state = SignInStateOf(descriptor.Id);
+                    <ConnectorSignIn @key="descriptor.Id"
+                                     ConnectorName="@descriptor.DisplayName"
+                                     Icon="@descriptor.Icon"
+                                     AccountName="@signIn.Account?.DisplayName"
+                                     SigningIn="@state.SigningIn"
+                                     Error="@state.Error"
+                                     OnSignIn="() => SignInAsync(descriptor.Id, signIn)"
+                                     OnSignOut="() => SignOutAsync(descriptor.Id, signIn)"
+                                     TestId="@($"task-connector-sign-in-{descriptor.Id}")" />
+                }
+            </div>
+        }
 
+        @if (Targets is null)
+        {
+            <Alert Message="This host keeps no connected targets, so nothing can be connected here."
+                   Role="status"
+                   TestId="task-connectors-unavailable" />
+        }
+        else
+        {
+            <div class="task-connectors__connect" data-testid="task-connectors-connect">
+                <SelectField Form="true"
+                             Label="Connector"
+                             Id="task-connector-choice"
+                             TestId="task-connector-choice"
+                             CurrentValue="@_connectorId"
+                             Options="@ConnectorOptions"
+                             OnChanged="ChooseConnectorAsync" />
+                @if (_choices is null)
+                {
+                    <SelectField Form="true"
+                                 Label="@TargetLabel"
+                                 Id="task-connector-target"
+                                 TestId="task-connector-target"
+                                 Disabled="true"
+                                 IncludeEmptyOption="true"
+                                 EmptyLabel="Loading…"
+                                 Options="@([])" />
+                }
+                else if (_choices.Choices.Count > 0)
+                {
+                    <SelectField Form="true"
+                                 Label="@TargetLabel"
+                                 Id="task-connector-target"
+                                 TestId="task-connector-target"
+                                 CurrentValue="@_target"
+                                 IncludeEmptyOption="true"
+                                 EmptyLabel="@(AvailableChoices.Count == 0 ? "Everything here is connected" : "Pick one")"
+                                 Options="@AvailableChoices"
+                                 OnChanged="value => _target = value ?? string.Empty" />
+                    <Alert Message="@_connectError" TestId="task-connector-connect-error" />
+                }
+                else
+                {
+                    <TextField Label="@TargetLabel"
+                               Id="task-connector-target"
+                               Placeholder="@SelectedConnector?.TargetPlaceholder"
+                               HelpText="@(_choices.CannotList ?? SelectedConnector?.TargetHelp)"
+                               Value="@_target"
+                               ValueChanged="value => _target = value"
+                               ErrorMessage="@_connectError"
+                               TestId="task-connector-target" />
+                }
+                <AppButton Variant="ButtonVariant.Primary"
+                           Disabled="@(!CanConnect)"
+                           TestId="task-connector-connect"
+                           OnClick="ConnectAsync">
+                    Connect
+                </AppButton>
+            </div>
+        }
+    }
+</SettingsCard>
+
+@if (Sources.Descriptors.Count > 0 && Targets is not null)
+{
+    <SettingsCard Title="@ConnectedCardTitle" TestId="task-connectors-connected-card">
         @if (ConnectedTargets.Count == 0)
         {
             <Alert Message="Nothing is connected yet." Role="status" BaseClass="setting__note" TestId="task-connectors-none" />
@@ -147,17 +170,18 @@ else
                                            OnChange="options => Change(target, options)"
                                            OnSyncNow="@(Sync is null ? default(EventCallback<ConnectedTargetOptions>) : EventCallback.Factory.Create<ConnectedTargetOptions>(this, _ => SyncNowAsync(target)))"
                                            OnRemove="_ => RemoveAsync(target)"
-                                           TestId="task-connector-target-card" />
+                                           TestId="task-connector-target-card"
+                                           IdPrefix="@IdPrefixOf(target)" />
                 }
             </div>
         }
+    </SettingsCard>
 
-        @if (_disconnected.Count > 0)
-        {
-            <h3 class="setting__subtitle">Disconnected sources</h3>
-            <p class="setting__body">
-                These are no longer connected, but their tasks are still on the list.
-            </p>
+    @if (_disconnected.Count > 0)
+    {
+        <SettingsCard Title="@DisconnectedCardTitle"
+                      Description="These are no longer connected, but their tasks are still on the list."
+                      TestId="task-connectors-disconnected-card">
             <div class="task-connectors__disconnected" data-testid="task-connectors-disconnected">
                 @foreach (var source in _disconnected)
                 {
@@ -181,30 +205,54 @@ else
                     </Card>
                 }
             </div>
-        }
-
-        @if (_message is not null)
-        {
-            <Alert Message="@_message" Role="status" BaseClass="setting__note" TestId="task-connectors-message" />
-        }
-
-        @* No OpenChanged binding, for the reason ToolsPane gives: it is raised before
-           OnConfirm, and clearing the subject there would clear it before the
-           confirm reads it. Cancel, Escape and the backdrop all arrive on OnCancel. *@
-        <ConfirmDialog Open="@(_deleting is not null)"
-                       Title="Delete these tasks?"
-                       Message="@DeleteMessage"
-                       ConfirmText="Delete tasks"
-                       Destructive="true"
-                       TestId="task-connector-delete-dialog"
-                       ConfirmTestId="task-connector-delete-confirm"
-                       CancelTestId="task-connector-delete-cancel"
-                       OnConfirm="ConfirmDeleteAsync"
-                       OnCancel="() => _deleting = null" />
+        </SettingsCard>
     }
+}
+</div>
+
+@if (Sources.Descriptors.Count > 0 && Targets is not null)
+{
+    @if (_message is not null)
+    {
+        <Alert Message="@_message" Role="status" BaseClass="setting__note" TestId="task-connectors-message" />
+    }
+
+    @* No OpenChanged binding, for the reason ToolsPane gives: it is raised before
+       OnConfirm, and clearing the subject there would clear it before the
+       confirm reads it. Cancel, Escape and the backdrop all arrive on OnCancel. *@
+    <ConfirmDialog Open="@(_deleting is not null)"
+                   Title="Delete these tasks?"
+                   Message="@DeleteMessage"
+                   ConfirmText="Delete tasks"
+                   Destructive="true"
+                   TestId="task-connector-delete-dialog"
+                   ConfirmTestId="task-connector-delete-confirm"
+                   CancelTestId="task-connector-delete-cancel"
+                   OnConfirm="ConfirmDeleteAsync"
+                   OnCancel="() => _deleting = null" />
 }
 
 @code {
+    public const string ConnectCardTitle = "Connect a task source";
+    public const string ConnectedCardTitle = "Connected task sources";
+    public const string DisconnectedCardTitle = "Disconnected sources";
+
+    /// <summary>Every card the page can draw, in the order it draws them - what
+    /// its <c>SettingsSection.CardTitles</c> declares. The connected card needs
+    /// an installed connector and a host that keeps targets, and the
+    /// disconnected one a source that left tasks behind.</summary>
+    public static IReadOnlyList<string> CardTitles { get; } =
+        [ConnectCardTitle, ConnectedCardTitle, DisconnectedCardTitle];
+
+    /// <summary>The sentence the frame shows over this page: how many targets
+    /// are connected, as the store lists them.</summary>
+    public static string Headline(int connected) => connected switch
+    {
+        <= 0 => "No task sources connected.",
+        1 => "1 task source connected.",
+        _ => $"{connected} task sources connected."
+    };
+
     private string _connectorId = string.Empty;
     private string _target = string.Empty;
     private string? _connectError;
@@ -288,13 +336,35 @@ else
             : !string.IsNullOrWhiteSpace(_target));
 
     /// <summary>The chosen connector's choices, less the targets of it already
-    /// connected — compared the way a target is, without regard to case.</summary>
+    /// connected — compared the way a target is, without regard to case. Where the
+    /// target is a repository, an archived one is offered only while show archived
+    /// is on, and then says so (local ADR 0029, §3), as every repository picker does.</summary>
     private IReadOnlyList<SelectorOption> AvailableChoices =>
         [.. (_choices?.Choices ?? [])
             .Where(choice => Targets?.Get(_connectorId, choice.Target) is null)
-            .Select(choice => new SelectorOption(choice.Target, choice.Name))];
+            .Select(choice => (Choice: choice, Archived: IsArchivedRepositoryTarget(choice.Target)))
+            .Where(offered => !offered.Archived || ShowArchived)
+            .Select(offered => new SelectorOption(
+                offered.Choice.Target,
+                global::Backlog.SharedKernel.ArchivedRepositoryLabel.Of(offered.Choice.Name, offered.Archived)))];
+
+    /// <summary>Whether a target of the chosen connector names an archived repository
+    /// in the registry: only for a connector whose target is a repository.</summary>
+    private bool IsArchivedRepositoryTarget(string target) =>
+        Sources.TargetIsRepository(_connectorId)
+        && RepositoryDirectory?.Resolve(target) is { IsArchived: true };
+
+    /// <summary>Whether this device shows archived repositories; false in a host that
+    /// keeps no such switch.</summary>
+    private bool ShowArchived =>
+        Services.GetService<global::Backlog.SharedKernel.IShowArchivedRepositories>()?.Shown == true;
 
     private static string KeyOf(ConnectedTarget target) => $"{target.ConnectorId}/{target.Target}";
+
+    /// <summary>The prefix of a card's select ids: the card's own, so each label
+    /// points at its own card's select when several cards share a test id.</summary>
+    private static string IdPrefixOf(ConnectedTarget target) =>
+        "task-connector-" + string.Concat(KeyOf(target).ToLowerInvariant().Select(c => char.IsAsciiLetterOrDigit(c) ? c : '-'));
 
     private static string KeyOf(DisconnectedSource source) => $"{source.ConnectorId}/{source.Target}";
 
@@ -320,8 +390,80 @@ else
             _accountHandlers.Add((signIn, changed));
         }
 
+        LoadStatuses();
         await LoadChoicesAsync();
         await RefreshDisconnectedAsync();
+    }
+
+    /// <summary>
+    /// The statuses each connected target's source lists, by <see cref="KeyOf(ConnectedTarget)"/>,
+    /// as last answered. A target not in here is still being asked, and its card
+    /// draws no Statuses group meanwhile.
+    /// </summary>
+    private readonly Dictionary<string, IReadOnlyList<SourceStatus>> _statuses = new(StringComparer.Ordinal);
+
+    /// <summary>The latest status request per target, numbered from
+    /// <see cref="_statusRequest"/>, so only that one lands — an answer from before a
+    /// sign-in, or for a target since disconnected, is dropped.</summary>
+    private readonly Dictionary<string, int> _statusRequests = new(StringComparer.Ordinal);
+
+    /// <summary>Numbers the status requests across every target, so a target
+    /// connected again never takes an answer asked for before it was removed.</summary>
+    private int _statusRequest;
+
+    /// <summary>
+    /// Asks every connected target not yet asked — or, given a connector id, every
+    /// target of that connector again — which statuses its source lists. Once per
+    /// card while the page is open: a target connected here or elsewhere is asked
+    /// when it appears, and a sign-in asks its connector's targets again, since a
+    /// source may list its statuses only while signed in.
+    /// <para>
+    /// Started and not awaited: each answer draws its own card when it lands, so a
+    /// source slow to answer — spec-manager may take its whole time budget — never
+    /// holds up the connect form's choices or the disconnected list. Never throws
+    /// into the page: a connector that fails lists none
+    /// (LinkedTaskSources.ListStatusesAsync). Called on the renderer's thread.
+    /// </para>
+    /// </summary>
+    private void LoadStatuses(string? againFor = null)
+    {
+        var connected = Targets?.List() ?? [];
+
+        // A target disconnected elsewhere is forgotten, so connecting it again asks afresh.
+        foreach (var key in _statusRequests.Keys.Where(key => !connected.Any(target => KeyOf(target) == key)).ToList())
+        {
+            _statuses.Remove(key);
+            _statusRequests.Remove(key);
+        }
+
+        var asked = connected
+            .Where(target => againFor is null
+                ? !_statusRequests.ContainsKey(KeyOf(target))
+                : string.Equals(target.ConnectorId, againFor, StringComparison.Ordinal))
+            .Select(target => (Target: target, Request: _statusRequests[KeyOf(target)] = ++_statusRequest))
+            .ToList();
+
+        foreach (var (target, request) in asked) _ = LoadStatusesOfAsync(target, request);
+    }
+
+    /// <summary>One target's statuses, drawn when they land — unless a newer
+    /// request for the target was made since, or the target was disconnected.</summary>
+    private async Task LoadStatusesOfAsync(ConnectedTarget target, int request)
+    {
+        IReadOnlyList<SourceStatus> statuses;
+        try
+        {
+            statuses = await Sources.ListStatusesAsync(target.ConnectorId, target.Target, _lifetime.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        var key = KeyOf(target);
+        if (_disposed || _statusRequests.GetValueOrDefault(key) != request) return;
+        _statuses[key] = statuses;
+        StateHasChanged();
     }
 
     /// <summary>What each sign-in's AccountChanged is handled by, kept so Dispose
@@ -340,6 +482,7 @@ else
         if (_disposed) return;
 
         StateHasChanged();
+        LoadStatuses(againFor: connectorId);
         if (string.Equals(connectorId, _connectorId, StringComparison.Ordinal))
         {
             await LoadChoicesAsync();
@@ -405,6 +548,7 @@ else
         StateHasChanged();
         if (SamePairs(Targets?.List() ?? [], _listedAgainst)) return;
 
+        LoadStatuses();
         await RefreshDisconnectedAsync();
         StateHasChanged();
     });
@@ -521,7 +665,6 @@ else
             target.Target,
             target.Enabled,
             target.TitleFollowsSource,
-            target.PromoteArchivesOriginal,
             (int)Math.Max(1, Math.Round(target.SyncInterval.TotalMinutes)),
             target.SkipUntouchedOlderThan is { } skip ? (int)Math.Round(skip.TotalDays) : null,
             target.CompleteAtSource)
@@ -531,7 +674,91 @@ else
             LastSynced = target.LastSyncedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
             LastSyncError = target.LastSyncError,
             LastSyncFailed = target.LastSyncFailedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
+            RepositoryId = target.RepositoryId,
+            RepositoryChoices = RepositoryChoicesFor(target),
+            TargetIsRepository = Sources.TargetIsRepository(target.ConnectorId),
+            PausedReason = PausedReasonOf(target),
+            StatusRows = StatusRowsOf(target),
+            StatusChoices = StatusChoices,
         };
+
+    /// <summary>The card's line for a switched-on target whose repository is
+    /// archived, or null: the sync's own rule (ConnectedTarget.ArchivedRepository),
+    /// read on every render so Unarchive clears it with nothing stored (local ADR
+    /// 0029 §5). A switched-off target already says why it is not syncing - its
+    /// switch - so it gets no second reason.</summary>
+    private string? PausedReasonOf(ConnectedTarget target) =>
+        target.Enabled
+        && target.ArchivedRepository(Sources.TargetIsRepository(target.ConnectorId), RepositoryDirectory) is { } repository
+            ? $"Paused while {repository.Id} is archived."
+            : null;
+
+    /// <summary>Where the registry's repositories come from, or null in a host that
+    /// keeps none.</summary>
+    private IRepositoryDirectory? RepositoryDirectory => Services.GetService<IRepositoryDirectory>();
+
+    /// <summary>
+    /// The registry's repositories a target may be filed under, stored by
+    /// <c>owner/name</c> and named by the alias every other picker reads. An archived
+    /// one is offered only while show archived is on (local ADR 0029, §3), and then says
+    /// so; the one the target is already filed under is always offered, so the card
+    /// never shows it filed nowhere.
+    /// </summary>
+    private IReadOnlyList<SelectorOption> RepositoryChoicesFor(ConnectedTarget target)
+    {
+        var shown = ShowArchived;
+        var stored = target.RepositoryId?.Trim();
+
+        return
+        [
+            .. (RepositoryDirectory?.Repositories ?? [])
+                .Where(repository =>
+                    !repository.IsArchived
+                    || shown
+                    || string.Equals(repository.Id, stored, StringComparison.OrdinalIgnoreCase))
+                .Select(repository => new SelectorOption(
+                    repository.Id,
+                    global::Backlog.SharedKernel.ArchivedRepositoryLabel.Of(
+                        string.IsNullOrWhiteSpace(repository.Alias) ? repository.Id : repository.Alias,
+                        repository.IsArchived)))
+        ];
+    }
+
+    /// <summary>The task statuses a source status may be mapped to, stored by the
+    /// status's name.</summary>
+    private static readonly IReadOnlyList<SelectorOption> StatusChoices =
+        [.. Enum.GetValues<EntryStatus>().Select(status => new SelectorOption(status.ToString(), StatusLabel(status)))];
+
+    private static string StatusLabel(EntryStatus status) => status switch
+    {
+        EntryStatus.InProgress => "In progress",
+        _ => status.ToString(),
+    };
+
+    /// <summary>
+    /// One row per status the target's source lists, in its order, each with what
+    /// the map gives it and the default its state gives — then one per stored
+    /// mapping whose name the source no longer lists, so it can still be cleared.
+    /// None while the source is still being asked, and none when it lists nothing —
+    /// signed out, refused, or failing — because a source that cannot be reached
+    /// has not stopped listing anything: its stored mappings are kept, undrawn
+    /// (MapOf leaves a mapping with no row alone).
+    /// </summary>
+    private IReadOnlyList<SourceStatusRow> StatusRowsOf(ConnectedTarget target)
+    {
+        if (!_statuses.TryGetValue(KeyOf(target), out var listed) || listed.Count == 0) return [];
+
+        var rows = listed
+            .Select(status => new SourceStatusRow(
+                status.Name,
+                $"Default ({StatusLabel(NormalisedSourceStates.DefaultTaskStatus(status.State))})",
+                target.MappedStatusOf(status.Name)?.ToString()))
+            .ToList();
+        rows.AddRange(target.StatusMap
+            .Where(mapping => !listed.Any(status => string.Equals(status.Name.Trim(), mapping.Key, StringComparison.OrdinalIgnoreCase)))
+            .Select(mapping => new SourceStatusRow(mapping.Key, "Default (no longer listed)", mapping.Value.ToString())));
+        return rows;
+    }
 
     private async Task ConnectAsync()
     {
@@ -553,6 +780,8 @@ else
         _target = string.Empty;
 
         // Connected again, a source is no longer one whose tasks can be deleted here.
+        // And the new card asks its source for the statuses its map is offered.
+        LoadStatuses();
         await RefreshDisconnectedAsync();
     }
 
@@ -562,11 +791,37 @@ else
         {
             Enabled = options.Enabled,
             TitleFollowsSource = options.TitleFollowsSource,
-            PromoteArchivesOriginal = options.PromoteArchivesOriginal,
             CompleteAtSource = options.CompleteAtSource,
             SyncInterval = TimeSpan.FromMinutes(options.SyncIntervalMinutes),
             SkipUntouchedOlderThan = options.SkipUntouchedOlderThanDays is { } days ? TimeSpan.FromDays(days) : null,
+            RepositoryId = options.RepositoryId,
+            StatusMap = MapOf(stored.StatusMap, options.StatusRows),
         });
+    }
+
+    /// <summary>
+    /// The stored map with each row the card drew laid over it: a row mapped sets
+    /// its name, a row on the default removes it. A mapping the card drew no row
+    /// for — its source still being asked — is kept as stored, so a switch flipped
+    /// before the statuses arrive never clears the map.
+    /// </summary>
+    private static Dictionary<string, EntryStatus> MapOf(IReadOnlyDictionary<string, EntryStatus> stored, IReadOnlyList<SourceStatusRow> rows)
+    {
+        var map = new Dictionary<string, EntryStatus>(stored, StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            var name = row.Name.Trim();
+            if (Enum.TryParse<EntryStatus>(row.Mapped, ignoreCase: false, out var status) && Enum.IsDefined(status))
+            {
+                map[name] = status;
+            }
+            else
+            {
+                map.Remove(name);
+            }
+        }
+
+        return map;
     }
 
     private async Task RemoveAsync(ConnectedTarget target)
@@ -575,7 +830,9 @@ else
         _syncMessages.Remove(KeyOf(target));
         _message = error ?? $"Disconnected {target.Target}. Its tasks stay on the list as they are.";
 
-        // Its tasks are now a disconnected source's, which can be deleted below.
+        // Its tasks are now a disconnected source's, which can be deleted below. What
+        // its source listed is forgotten, so connecting it again asks afresh.
+        LoadStatuses();
         await RefreshDisconnectedAsync();
     }
 

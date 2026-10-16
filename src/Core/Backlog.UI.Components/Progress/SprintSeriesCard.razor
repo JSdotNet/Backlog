@@ -1,0 +1,505 @@
+@using System.Globalization
+@*
+    One sprint series on Settings › Sprints (.devbook/domain/progress/features.md
+    #setting-up-a-sprint-series): its switch, its repositories, how its sprints run,
+    how the goal is counted, and which briefs show it.
+
+    Every value is a parameter and every act a callback, on the BrainFolderCard
+    precedent: the host decides what a series holds and words what went wrong, which
+    is what lets the storybook show each state with no series behind it. What the
+    card keeps of its own is only what has not been committed yet — a pattern or a
+    share half typed, a plan or a tag not yet added, and a goal rule ticked before it
+    names anything — because a rule that names no plan is not one the series can hold.
+
+    Every change commits as it is made, with no save button: the settings screen's
+    house rule. A text field commits when it is left or Enter is pressed.
+*@
+
+<section class="sprint-card@(Model.IsOn ? null : " sprint-card--off")" data-testid="@TestId" aria-labelledby="@TitleId">
+    <div class="sprint-card__head">
+        <Toggle Checked="@Model.IsOn"
+                CheckedChanged="OnSwitch"
+                Label="@($"{Model.Name} sprints on")"
+                LabelCssClass="sr-only"
+                Id="@Part("switch")"
+                TestId="@Part("switch")"
+                CssClass="sprint-card__switch" />
+        <h3 class="sprint-card__title" id="@TitleId">@Model.Name</h3>
+        <span class="sprint-card__running" data-testid="@Part("running")">@RunningText</span>
+    </div>
+
+    <Alert Message="@Error" TestId="@Part("error")" />
+
+    <div class="sprint-card__field" role="group" aria-labelledby="@Part("repositories-key")">
+        <span class="sprint-card__key" id="@Part("repositories-key")">Repositories</span>
+        <div class="sprint-card__value">
+            <div class="sprint-card__chips" data-testid="@Part("repositories")">
+                @foreach (var repository in Model.Repositories)
+                {
+                    <TagChip Text="@repository"
+                             Removable="true"
+                             Disabled="@(Model.Repositories.Count == 1)"
+                             OnRemove="OnRemoveRepository"
+                             TestId="@Part("repository")"
+                             data-repository="@repository" />
+                }
+                <SelectField @key="_addKey"
+                             Label="Add repository"
+                             Options="@FreeOptions"
+                             CurrentValue="@null"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="@(FreeRepositories.Count == 0 ? "No repository is free" : "Add repository")"
+                             Disabled="@(FreeRepositories.Count == 0)"
+                             BaseClass="sprint-card__add"
+                             SelectCssClass="sprint-card__add-select"
+                             TestId="@Part("add-repository")"
+                             OnChanged="OnAddRepositoryAsync" />
+            </div>
+            <p class="sprint-card__hint">A repository belongs to one sprint. Add repository offers only those in no sprint.</p>
+        </div>
+    </div>
+
+    <div class="sprint-card__field">
+        <span class="sprint-card__key" aria-hidden="true">Length</span>
+        <RadioGroup TValue="int"
+                    Options="@Lengths"
+                    Value="@Model.Weeks"
+                    ValueChanged="OnLengthChanged"
+                    OptionLabel="@(weeks => weeks == 1 ? "1 week" : "2 weeks")"
+                    OptionTestId="@(weeks => Part($"length-{weeks}"))"
+                    AriaLabel="Sprint length"
+                    TestId="@Part("length")" />
+    </div>
+
+    <SelectField Form="true"
+                 Label="Starts on"
+                 Id="@Part("start")"
+                 Options="@Weekdays"
+                 CurrentValue="@Model.StartWeekday.ToString()"
+                 BaseClass="sprint-card__field"
+                 LabelCssClass="sprint-card__key"
+                 SelectCssClass="field__input sprint-card__select"
+                 TestId="@Part("start-field")"
+                 OnChanged="OnStartWeekdayChangedAsync" />
+
+    <div class="sprint-card__field">
+        <TextField Bare="true"
+                   Label="Name"
+                   Id="@Part("name")"
+                   LabelCssClass="sprint-card__key"
+                   InputCssClass="field__input sprint-card__input"
+                   TestId="@Part("name")"
+                   spellcheck="false"
+                   autocomplete="off"
+                   aria-describedby="@Part("next")"
+                   Value="@_pattern"
+                   ValueChanged="value => _pattern = value"
+                   @onchange="OnPatternCommitted" />
+        <span class="sprint-card__hint sprint-card__next" id="@Part("next")" data-testid="@Part("next")">@NextText</span>
+    </div>
+
+    <h4 class="sprint-card__section">Sprint goal</h4>
+
+    <div class="sprint-card__field" role="group" aria-labelledby="@Part("counts-key")">
+        <span class="sprint-card__key" id="@Part("counts-key")">Counts toward the goal</span>
+        <div class="sprint-card__value">
+            <Checkbox Label="Tasks in these plans"
+                      Checked="@InPlansShown"
+                      CheckedChanged="OnInPlansChanged"
+                      TestId="@Part("goal-plans")" />
+            @if (InPlansShown)
+            {
+                <div class="sprint-card__nest">
+                    <div class="sprint-card__chips" data-testid="@Part("plans")">
+                        @foreach (var plan in _goal.Plans)
+                        {
+                            <TagChip Text="@PlanText(plan)" Removable="true" OnRemove="OnRemovePlan" TestId="@Part("plan")" data-plan="@plan" />
+                        }
+                        <TextField Bare="true"
+                                   AriaLabel="Add plan"
+                                   Placeholder="Add plan"
+                                   InputCssClass="field__input sprint-card__chip-input"
+                                   Compact="true"
+                                   TestId="@Part("add-plan")"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Value="@_planDraft"
+                                   ValueChanged="value => _planDraft = value"
+                                   @onchange="OnAddPlan" />
+                    </div>
+                    @if (_goal.Plans.Count == 0)
+                    {
+                        <span class="sprint-card__hint">Name a plan, such as +progress-sprints, for this rule to count.</span>
+                    }
+                </div>
+            }
+            <Checkbox Label="Tasks I mark as goal"
+                      Checked="@_goal.MarkedAsGoal"
+                      CheckedChanged="value => ChangeGoalAsync(_goal with { MarkedAsGoal = value })"
+                      TestId="@Part("goal-marked")" />
+            <Checkbox Label="Tasks with these tags"
+                      Checked="@TaggedShown"
+                      CheckedChanged="OnTaggedChanged"
+                      TestId="@Part("goal-tagged")" />
+            @if (TaggedShown)
+            {
+                <div class="sprint-card__nest">
+                    <div class="sprint-card__chips" data-testid="@Part("tags")">
+                        @foreach (var tag in _goal.Tags)
+                        {
+                            <TagChip Text="@tag" Removable="true" OnRemove="OnRemoveTag" TestId="@Part("tag")" data-tag="@tag" />
+                        }
+                        <TextField Bare="true"
+                                   AriaLabel="Add tag"
+                                   Placeholder="Add tag"
+                                   InputCssClass="field__input sprint-card__chip-input"
+                                   Compact="true"
+                                   TestId="@Part("add-tag")"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Value="@_tagDraft"
+                                   ValueChanged="value => _tagDraft = value"
+                                   @onchange="OnAddTag" />
+                    </div>
+                    @if (_goal.Tags.Count == 0)
+                    {
+                        <span class="sprint-card__hint">Name a tag for this rule to count.</span>
+                    }
+                </div>
+            }
+            <Checkbox Label="Every task in the sprint"
+                      Checked="@_goal.Everything"
+                      CheckedChanged="value => ChangeGoalAsync(_goal with { Everything = value })"
+                      TestId="@Part("goal-everything")" />
+            <p class="sprint-card__hint">A task counts once, however many rules it matches. With no rule ticked, every task in the sprint counts.</p>
+        </div>
+    </div>
+
+    <div class="sprint-card__field">
+        <span class="sprint-card__key" aria-hidden="true">Goal is met when</span>
+        <div class="sprint-card__inline">
+            <SelectField Label="Goal is met when"
+                         Id="@Part("met")"
+                         Options="@MetOptions"
+                         CurrentValue="@(_shareMode ? ShareValue : EveryValue)"
+                         BaseClass="sprint-card__met"
+                         SelectCssClass="field__input sprint-card__select"
+                         TestId="@Part("met-field")"
+                         OnChanged="OnMetChanged" />
+            @if (_shareMode)
+            {
+                <TextField Bare="true"
+                           AriaLabel="Share of goal tasks done"
+                           Type="number"
+                           InputCssClass="field__input sprint-card__share"
+                           TestId="@Part("share")"
+                           min="1"
+                           max="99"
+                           Value="@_shareDraft"
+                           ValueChanged="value => _shareDraft = value"
+                           aria-describedby="@Part("share-hint")"
+                           @onchange="OnShareCommitted">
+                    <Suffix>%</Suffix>
+                </TextField>
+                @if (_shareRefused)
+                {
+                    <span class="sprint-card__hint" id="@Part("share-hint")" data-testid="@Part("share-hint")">Give a whole share from 1 to 99. All of them is every goal task.</span>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="sprint-card__field">
+        <span class="sprint-card__key">Done means</span>
+        <p class="sprint-card__value sprint-card__statement" data-testid="@Part("done")">
+            The task is set to Done, or every pull request linked to it is merged. Either is enough.
+        </p>
+    </div>
+
+    <h4 class="sprint-card__section">Reporting</h4>
+
+    <div class="sprint-card__field" role="group" aria-labelledby="@Part("show-key")">
+        <span class="sprint-card__key" id="@Part("show-key")">Show it in</span>
+        <div class="sprint-card__value">
+            <Checkbox Label="The daily"
+                      Checked="@_daily"
+                      CheckedChanged="value => ShowInAsync(value, _weekly)"
+                      TestId="@Part("daily")" />
+            <Checkbox Label="The weekly brief"
+                      Checked="@_weekly"
+                      CheckedChanged="value => ShowInAsync(_daily, value)"
+                      TestId="@Part("weekly")" />
+        </div>
+    </div>
+</section>
+
+@code {
+    private const string EveryValue = "every";
+    private const string ShareValue = "share";
+    private const int SuggestedShare = 80;
+
+    private static readonly IReadOnlyList<int> Lengths = [1, 2];
+
+    private static readonly IReadOnlyList<SelectorOption> Weekdays =
+    [
+        .. new[]
+        {
+            DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+            DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday
+        }.Select(day => new SelectorOption(day.ToString(), day.ToString()))
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> MetOptions =
+    [
+        new(EveryValue, "every goal task is done"),
+        new(ShareValue, "a share of them is done")
+    ];
+
+    /// <summary>The series the card draws.</summary>
+    [Parameter, EditorRequired]
+    public SprintSeriesCardModel Model { get; set; } = default!;
+
+    /// <summary>The repositories in no series, which <b>Add repository</b> offers and
+    /// nothing else.</summary>
+    [Parameter]
+    public IReadOnlyList<string> FreeRepositories { get; set; } = [];
+
+    /// <summary>The host's sentence for the last change it refused, or null.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnSwitch { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnAddRepository { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnRemoveRepository { get; set; }
+
+    /// <summary>The length in weeks: 1 or 2.</summary>
+    [Parameter]
+    public EventCallback<int> OnLengthChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<DayOfWeek> OnStartWeekdayChanged { get; set; }
+
+    /// <summary>A pattern the person committed — left the field or pressed Enter.
+    /// Raised only for a pattern carrying <c>{n}</c> once; another stays in the field
+    /// with the reason beside it.</summary>
+    [Parameter]
+    public EventCallback<string> OnNamePatternChanged { get; set; }
+
+    /// <summary>The goal section as it now stands. A rule that names no plan or tag
+    /// yet is sent unticked: the series cannot hold it until it names one.</summary>
+    [Parameter]
+    public EventCallback<SprintGoalSettings> OnGoalChanged { get; set; }
+
+    /// <summary>Whether the daily and the weekly brief show the open sprint.</summary>
+    [Parameter]
+    public EventCallback<(bool Daily, bool Weekly)> OnShowInChanged { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private SprintSeriesCardModel? _drawn;
+    private SprintGoalSettings _goal = SprintGoalSettings.Default;
+    private string? _pattern;
+    private string? _planDraft;
+    private string? _tagDraft;
+    private string? _shareDraft;
+    private bool _shareMode;
+    private bool _plansPending;
+    private bool _tagsPending;
+    private bool _patternRefused;
+    private bool _shareRefused;
+    private bool _daily;
+    private bool _weekly;
+    private int _addKey;
+
+    private string Prefix => string.IsNullOrWhiteSpace(TestId) ? $"sprint-{Model.Id}" : TestId;
+
+    private string Part(string part) => $"{Prefix}-{part}";
+
+    private string TitleId => Part("title");
+
+    private string RunningText => Model.Running ?? "No sprint has started yet.";
+
+    private bool InPlansShown => _goal.InPlans || _plansPending;
+
+    private bool TaggedShown => _goal.Tagged || _tagsPending;
+
+    private IReadOnlyList<SelectorOption> FreeOptions =>
+        [.. FreeRepositories.Select(alias => new SelectorOption(alias, alias))];
+
+    private string NextText
+    {
+        get
+        {
+            if (_patternRefused) return "Put {n} in the name once, where the sprint's number goes.";
+            return SprintSeriesCardModel.NextName(_pattern, Model.NextNumber) is { } next
+                ? $"next: {next}"
+                : "Put {n} in the name once, where the sprint's number goes.";
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Compared by value: a host draws its cards again whenever any of them saves,
+        // with a new model each time, and a draft half typed on this card must survive
+        // another card's save.
+        if (_drawn is not null && SameAs(Model, _drawn)) return;
+        var patternMoved = _drawn is null || !string.Equals(_drawn.NamePattern, Model.NamePattern, StringComparison.Ordinal);
+        _drawn = Model;
+
+        // A new drawing of the series is what the host now holds: the drafts follow
+        // it, except the two rules ticked before they named anything, which stay
+        // ticked until they do or are unticked.
+        _goal = Model.Goal;
+        // A pattern held back for want of {n} stays in the field with its reason until
+        // the person changes it, whatever else on the card is saved meanwhile.
+        if (!_patternRefused || patternMoved)
+        {
+            _pattern = Model.NamePattern;
+            _patternRefused = false;
+        }
+
+        _shareRefused = false;
+        _daily = Model.ShowInDaily;
+        _weekly = Model.ShowInWeekly;
+        _shareMode = Model.Goal.Share < 100;
+        _shareDraft = (_shareMode ? Model.Goal.Share : SuggestedShare).ToString(CultureInfo.InvariantCulture);
+        if (_goal.InPlans) _plansPending = false;
+        if (_goal.Tagged) _tagsPending = false;
+    }
+
+    /// <summary>Whether two drawings of a series say the same thing, lists by their
+    /// contents.</summary>
+    internal static bool SameAs(SprintSeriesCardModel left, SprintSeriesCardModel right) =>
+        left with { Repositories = [], Goal = left.Goal with { Plans = [], Tags = [] } }
+            == right with { Repositories = [], Goal = right.Goal with { Plans = [], Tags = [] } }
+        && left.Repositories.SequenceEqual(right.Repositories, StringComparer.Ordinal)
+        && left.Goal.Plans.SequenceEqual(right.Goal.Plans, StringComparer.Ordinal)
+        && left.Goal.Tags.SequenceEqual(right.Goal.Tags, StringComparer.Ordinal);
+
+    /// <summary>Both briefs as they now stand, kept here first so a second tick
+    /// before the first is saved does not send the first one back.</summary>
+    private Task ShowInAsync(bool daily, bool weekly)
+    {
+        _daily = daily;
+        _weekly = weekly;
+        return OnShowInChanged.InvokeAsync((daily, weekly));
+    }
+
+    private static string PlanText(string plan) => plan.StartsWith('+') ? plan : "+" + plan;
+
+    /// <summary>Hands the picked repository over, then draws the picker anew so it
+    /// reads "Add repository" again: a select keeps its picked option on screen
+    /// whatever value the renderer last wrote.</summary>
+    private Task OnAddRepositoryAsync(string? alias)
+    {
+        _addKey++;
+        return string.IsNullOrWhiteSpace(alias) ? Task.CompletedTask : OnAddRepository.InvokeAsync(alias);
+    }
+
+    private Task OnStartWeekdayChangedAsync(string? value) =>
+        Enum.TryParse<DayOfWeek>(value, out var day) ? OnStartWeekdayChanged.InvokeAsync(day) : Task.CompletedTask;
+
+    private async Task OnPatternCommitted(ChangeEventArgs e)
+    {
+        var typed = e.Value?.ToString() ?? string.Empty;
+        _pattern = typed;
+
+        if (SprintSeriesCardModel.NextName(typed, Model.NextNumber) is null)
+        {
+            _patternRefused = true;
+            return;
+        }
+
+        _patternRefused = false;
+        if (!string.Equals(typed.Trim(), Model.NamePattern, StringComparison.Ordinal))
+        {
+            await OnNamePatternChanged.InvokeAsync(typed.Trim());
+        }
+    }
+
+    private Task OnInPlansChanged(bool value)
+    {
+        _plansPending = value && _goal.Plans.Count == 0;
+        return ChangeGoalAsync(_goal with { InPlans = value && _goal.Plans.Count > 0 });
+    }
+
+    private Task OnTaggedChanged(bool value)
+    {
+        _tagsPending = value && _goal.Tags.Count == 0;
+        return ChangeGoalAsync(_goal with { Tagged = value && _goal.Tags.Count > 0 });
+    }
+
+    private Task OnAddPlan(ChangeEventArgs e)
+    {
+        var typed = (e.Value?.ToString() ?? string.Empty).Trim().TrimStart('+').Trim();
+        _planDraft = string.Empty;
+        if (typed.Length == 0 || _goal.Plans.Any(plan => string.Equals(plan.TrimStart('+'), typed, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Task.CompletedTask;
+        }
+
+        _plansPending = false;
+        return ChangeGoalAsync(_goal with { InPlans = true, Plans = [.. _goal.Plans, typed] });
+    }
+
+    private Task OnRemovePlan(string text)
+    {
+        var bare = text.TrimStart('+');
+        var plans = _goal.Plans.Where(plan => !string.Equals(plan.TrimStart('+'), bare, StringComparison.OrdinalIgnoreCase)).ToList();
+        _plansPending = plans.Count == 0;
+        return ChangeGoalAsync(_goal with { InPlans = plans.Count > 0, Plans = plans });
+    }
+
+    private Task OnAddTag(ChangeEventArgs e)
+    {
+        var typed = (e.Value?.ToString() ?? string.Empty).Trim();
+        _tagDraft = string.Empty;
+        if (typed.Length == 0 || _goal.Tags.Contains(typed, StringComparer.OrdinalIgnoreCase)) return Task.CompletedTask;
+
+        _tagsPending = false;
+        return ChangeGoalAsync(_goal with { Tagged = true, Tags = [.. _goal.Tags, typed] });
+    }
+
+    private Task OnRemoveTag(string text)
+    {
+        var tags = _goal.Tags.Where(tag => !string.Equals(tag, text, StringComparison.OrdinalIgnoreCase)).ToList();
+        _tagsPending = tags.Count == 0;
+        return ChangeGoalAsync(_goal with { Tagged = tags.Count > 0, Tags = tags });
+    }
+
+    private Task OnMetChanged(string? value)
+    {
+        _shareMode = value == ShareValue;
+        var share = _shareMode && int.TryParse(_shareDraft, NumberStyles.Integer, CultureInfo.InvariantCulture, out var typed) && typed is >= 1 and < 100
+            ? typed
+            : _shareMode ? SuggestedShare : 100;
+        _shareDraft = (share == 100 ? SuggestedShare : share).ToString(CultureInfo.InvariantCulture);
+        return share == _goal.Share ? Task.CompletedTask : ChangeGoalAsync(_goal with { Share = share });
+    }
+
+    private Task OnShareCommitted(ChangeEventArgs e)
+    {
+        var typed = e.Value?.ToString() ?? string.Empty;
+        _shareDraft = typed;
+        if (!int.TryParse(typed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var share) || share is < 1 or > 99)
+        {
+            _shareRefused = true;
+            return Task.CompletedTask;
+        }
+
+        _shareRefused = false;
+        return share == _goal.Share ? Task.CompletedTask : ChangeGoalAsync(_goal with { Share = share });
+    }
+
+    private Task ChangeGoalAsync(SprintGoalSettings goal)
+    {
+        _goal = goal;
+        return OnGoalChanged.InvokeAsync(goal);
+    }
+}

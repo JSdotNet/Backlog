@@ -1,5 +1,6 @@
 using System.Globalization;
 
+using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Selects;
@@ -92,6 +93,11 @@ public partial class TasksPane
     /// that carry none last; an entry under two plans is a card in both, the way
     /// the tag chips count it twice.
     /// </para>
+    /// <para>
+    /// By plan the board shows only what is still to do. A ticked-off or archived
+    /// entry is no card there, so a plan with nothing left draws no column, the
+    /// way its chip leaves the ticked-off entries out of its count.
+    /// </para>
     /// </summary>
     private IReadOnlyList<TaskBoardColumn> BoardColumns()
     {
@@ -118,7 +124,7 @@ public partial class TasksPane
             ],
             // An archived entry has no column: the reader put it away past Done.
             // The status filter is set aside here, so "All" would otherwise hand
-            // it in; it still counts under the other groupings, which have no
+            // it in; it still counts by repository and priority, which have no
             // column per status to leave it out of.
             _ =>
             [
@@ -132,8 +138,15 @@ public partial class TasksPane
         };
     }
 
-    private static IReadOnlyList<TaskBoardColumn> PlanColumns(List<(EntryRow Row, TaskBoardCard Card)> cards)
+    private static IReadOnlyList<TaskBoardColumn> PlanColumns(List<(EntryRow Row, TaskBoardCard Card)> all)
     {
+        // Finished work is set aside before the plans are read off the cards, so a
+        // plan whose entries are all ticked or archived has no column, and each
+        // column's count and points are the work left in it.
+        var cards = all
+            .Where(pair => !pair.Row.IsPreviewCompleted && pair.Row.PreviewStatus != EntryStatus.Archived)
+            .ToList();
+
         var plans = cards
             .SelectMany(pair => PlanTags(pair.Row))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -156,7 +169,7 @@ public partial class TasksPane
     private IReadOnlyList<TaskBoardColumn> RepositoryColumns(List<(EntryRow Row, TaskBoardCard Card)> cards)
     {
         var byAlias = cards
-            .GroupBy(pair => RepositoryFor(pair.Row)?.Alias ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(pair => OfferedRepositoryFor(pair.Row)?.Alias ?? string.Empty, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Select(pair => pair.Card).ToList(), StringComparer.OrdinalIgnoreCase);
 
         // In the order the repositories are configured, the order every repository
@@ -176,11 +189,22 @@ public partial class TasksPane
 
         if (byAlias.TryGetValue(string.Empty, out var none))
         {
-            columns.Add(new TaskBoardColumn(NoRepositoryColumn, "No repository", none));
+            // Titled with the name the header's scope gives the same tasks: Brain is
+            // the scope of everything filed against no repository (local ADR 0027).
+            columns.Add(new TaskBoardColumn(NoRepositoryColumn, Backlog.SharedKernel.BrainScope.Name, none));
         }
 
         return columns;
     }
+
+    /// <summary>The repository a row is shown filed under: the column its card sits in
+    /// and the value its repository pickers hold. The first of its repositories offered
+    /// right now, so an archived one hidden by show archived never gets a column or a
+    /// picker value no option holds, and a task that also names an active one sits under
+    /// that one (local ADR 0029, §3). Without the additional-repositories feature, the
+    /// default.</summary>
+    private GitHubRepositoryRef? OfferedRepositoryFor(EntryRow row) =>
+        AdditionalRepositoriesEnabled ? State.ShownRepositoryFor(row) : GitHub.DefaultRepository;
 
     private static IEnumerable<string> PlanTags(EntryRow row) => row.PreviewTags.Where(TagText.IsPlan);
 

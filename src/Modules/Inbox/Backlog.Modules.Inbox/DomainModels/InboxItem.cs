@@ -600,6 +600,32 @@ public sealed class InboxItem
     }
 
     /// <summary>
+    /// Records that the item became a note in the person's Brain — To Brain
+    /// (<c>.devbook/domain/inbox/features.md#route-to-brain</c>). The same terminal
+    /// step <see cref="RouteToBacklog"/> is, exactly once and only from an item
+    /// not archived, with <see cref="RoutingDomain.Devbook"/> as its domain and no
+    /// repository or task: the note is a file in the person's own folder, and the
+    /// aggregate keeps no reference into it.
+    /// <para>
+    /// A note stays on the phone as the Inbox note it was, as a note routed to
+    /// Tasks does (ADR 0026 §6): the Brain note it became never rides the task
+    /// feed. Any other replica-backed capture is acknowledged away.
+    /// </para>
+    /// </summary>
+    public void RouteToBrain(DateTimeOffset now)
+    {
+        if (IsRouted) throw new InvalidInboxTransitionException(Status, "routed again");
+        if (Status is InboxStatus.Archived) throw new InvalidInboxTransitionException(Status, "routed");
+
+        Routing = new RoutingTarget(RoutingDomain.Devbook, [], [], now);
+        Status = InboxStatus.Triaged;
+        DeferredUntil = null;
+
+        if (ReplicaBacked && !IsNote) ReplicaAckPending = true;
+        Touch(now);
+    }
+
+    /// <summary>
     /// Records that the item is already a task the backlog has — "Link to
     /// task…" — rather than making it one. The same routing a route records,
     /// naming that one task, so the item leaves the queue as decided and says

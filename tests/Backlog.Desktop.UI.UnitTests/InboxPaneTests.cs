@@ -736,7 +736,7 @@ public sealed class InboxPaneTests
     /// <summary>The four decisions sit in one bar at the foot of the detail,
     /// outside the part that scrolls, each naming its key.</summary>
     [Fact]
-    public async Task The_four_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys()
+    public async Task The_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys()
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Decide me", bodyMd: string.Join("\n\n", Enumerable.Repeat("A long paragraph.", 40)));
@@ -756,7 +756,7 @@ public sealed class InboxPaneTests
                 Key: button.QuerySelector("kbd")!.TextContent.Trim()))
             .ToList();
         Assert.Equal(
-            [("Move to backlog", "R"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
+            [("Move to backlog", "R"), ("To Brain", "B"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
             decisions);
 
         // Defer in the bar offers the quick review dates.
@@ -1353,7 +1353,8 @@ public sealed class InboxPaneTests
 
         var button = pane.Find("[data-testid='inbox-pane-capture']");
         Assert.Equal("true", button.GetAttribute("aria-busy"));
-        Assert.True(button.HasAttribute("disabled"));
+        // Blocked, but still in the tab order: aria-disabled, not the native attribute.
+        Assert.Equal("true", button.GetAttribute("aria-disabled"));
     }
 
     [Fact]
@@ -2362,6 +2363,32 @@ public sealed class InboxPaneTests
         var choices = Assert.Single(harness.Inbox.BatchRoutes).Choices!;
         Assert.Equal(["a/one"], choices.Repositories![items[0].Id]);
         Assert.Equal(["a/one"], choices.Repositories[items[1].Id]);
+    }
+
+    [Fact]
+    public async Task An_empty_repository_picker_names_the_Brain_it_files_into()
+    {
+        // ADR 0027: no repository ticked routes the item into the Brain, so the
+        // empty picker says where the task goes rather than what it lacks.
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        foreach (var item in items)
+        {
+            Assert.Equal(
+                BrainScope.Name,
+                pane.Find($"[data-testid='inbox-route-panel-repos-{item.Id:D}'] input.tag-select__input").GetAttribute("placeholder"));
+        }
+
+        await pane.Find("[data-testid='inbox-route-panel-one-for-all'] [role='switch']").ClickAsync(new());
+
+        Assert.Equal(
+            BrainScope.Name,
+            pane.Find("[data-testid='inbox-route-panel-repos-all'] input.tag-select__input").GetAttribute("placeholder"));
     }
 
     [Fact]

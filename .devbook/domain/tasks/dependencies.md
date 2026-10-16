@@ -21,6 +21,7 @@ status: draft
 | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Publishes `AIWorkLogged` from tasks | `.devbook/domain/tasks/domain.md#aiworklogged` | AI-assisted activity on a task is available for productivity analysis without Productivity reading task internals. |
 | [Sessions](../sessions/domain.md#session-state) | Customer/Supplier (Tasks = customer) | Port in Tasks' abstractions (`ILinkedSessionStates`), answered by an infrastructure adapter over `IAgentSessionSource` | `.devbook/domain/sessions/domain.md#session-state` | A task's work badge colours a linked session by its state — stalled highlighted as the state that needs the person ("Quiet 30 min"), running neutral, finished muted. Tasks keeps only the session id it was linked with; the state is read on load and on every reload, never stored, and a session the record no longer holds draws with no state. |
 | [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier (Tasks = customer) | Reads the roadmap tag vocabulary for the task's tag picker | `.devbook/domain/roadmap/domain.md#roadmap-tag` | The tag picker offers every Roadmap Item tag so a task can be filed against planned work using the plan's own slug. Tasks conforms to that vocabulary; it does not define roadmap tags and holds no roadmap state. |
+| [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | The desktop's `TaskSyncWorker` pushes and pulls the task feed through the sync service; `TaskReplicaMerge` in `Backlog.Infrastructure.Sync` applies each pulled document to the local store | `TaskChange` and `TaskPayload` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#change-precedence`; local ADR 0005 | A task reaches the person's other devices as one whole document, and a push never moves it backwards. Sync stores the document without reading it; what a task is, and how a pulled copy merges into the local store, stay with Tasks ([Multi-device sync](features.md#multi-device-sync)). |
 
 ## Inbound dependents (known)
 
@@ -29,7 +30,7 @@ status: draft
 | [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` | `.devbook/domain/inbox/domain.md#itemtriaged` | Relies on Tasks creating a draft task from a triaged item. |
 | [Devbook](../devbook/domain.md#knowledge-note) | Partnership | Bi-directional link by id | `.devbook/domain/devbook/domain.md#cross-linking` | Notes link to tasks and tasks link back; either can spawn the other without a shared aggregate. |
 | [Roadmap Planning](../roadmap/domain.md#roadmap-plan) | Partnership | Optional cross-link by foreign id; read-side gather by tag and by effort | `.devbook/domain/roadmap/domain.md#task-link` | Relies on a task id staying resolvable so a planned item can show real progress, and on tasks carrying its tag plus their registered `effort` so an item can gather and total the work behind it. The link is optional and may dangle: deleting a task must not corrupt a plan, and Tasks holds no roadmap state of its own. |
-| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Tasks = supplier) | Subscribes to status/projection events | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted`, `.devbook/domain/tasks/domain.md#occurrencespawned` | Relies on work-state and projection-state changes for progress signals and GitHub-sync comparison, and on occurrence provenance to read a recurring task as one series rather than as unrelated items. |
+| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Tasks = supplier) | Subscribes to status/projection events. Intended: Tasks emits none of them yet | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted`, `.devbook/domain/tasks/domain.md#occurrencespawned` | Relies on work-state and projection-state changes for progress signals and GitHub-sync comparison, and on occurrence provenance to read a recurring task as one series rather than as unrelated items. |
 | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Subscribes to `AIWorkLogged` | `.devbook/domain/tasks/domain.md#aiworklogged` | Relies on AI-assisted activity evidence linked to a task. |
 
 ## Notes
@@ -37,29 +38,32 @@ status: draft
 - Keep `repo_ids` as opaque identifiers so Tasks does not couple to Repository
   Management internals; only the Projection policy resolves them for GitHub/CLI.
 - Import can trigger repository registration when a plan names a repository
-  the registry does not yet have, but it does so through Repository
-  Management's own registration capability rather than gaining new authority:
-  Tasks remains the customer, and what a registered repository holds is
-  still Repository Management's decision.
-- GitHub issue sync is a two-way relationship — mismatch detection (backlog says
-  done vs. issue still open) is owned jointly with Monitoring.
+  the registry does not yet have. It does so through Repository Management's own
+  registration capability rather than gaining new authority. Tasks remains the
+  customer, and what a registered repository holds is still Repository
+  Management's decision.
+- GitHub issue sync is a two-way relationship. Mismatch detection, such as the
+  backlog saying done while the issue is still open, is owned jointly with
+  Monitoring.
 - The `ItemTriaged` payload is Inbox's published language; treat it as a stable
   contract, not an Inbox internal.
-- Roadmap Planning is a `Partnership`, not a consumer of a projection. Tasks does
-  not know what is planned, and Roadmap does not write status or priority — the
-  relationship is one optional foreign id, held on the Roadmap side. See
-  `.devbook/domain/context-map.md` for why the word *priority* means a different thing on
-  each side of it.
-- The Roadmap relationship now has two more threads, and both keep effort and tags
-  owned here. Roadmap **reads** the tag vocabulary Tasks offers in its picker,
-  and Roadmap **gathers** tasks by their tag and totals the `effort` those
-  tasks registered — but Tasks registers the effort and files the tag, and
-  Roadmap owns neither. A roadmap tag is a slug Tasks conforms to, not one it
-  defines, which is why renaming a roadmap item's title must not change it.
+- The Roadmap relationship has three threads, and Tasks owns the state in each:
+  - **Partnership by task id.** A Roadmap Item may name a task by one optional
+    foreign id, held on the Roadmap side. Roadmap never writes status or
+    priority.
+  - **Tag vocabulary.** Tasks reads the roadmap tags for its picker, as the
+    outbound Customer/Supplier row says. A roadmap tag is a slug Tasks conforms
+    to, not one it defines, which is why renaming a roadmap item's title must not
+    change it.
+  - **Gathering.** Roadmap gathers tasks by their tag and totals the `effort`
+    they registered. Tasks registers the effort and files the tag.
+- Roadmap is not a consumer of a projection, and Tasks does not know what is
+  planned. See `.devbook/domain/context-map.md` for why the word *priority*
+  means a different thing on each side of the relationship.
 - Task-to-task dependencies stay inside this context and add no cross-context
-  relationship: `depends_on` holds Task ids only, and readiness is
-  derived here rather than published. Roadmap Planning's dependencies are a
-  separate graph over planned work, and the two are not the same edge seen twice.
+  relationship. `depends_on` holds Task ids only, and readiness is derived here
+  rather than published. Roadmap Planning's dependencies are a separate graph
+  over planned work, not the same edge seen twice.
 - `OccurrenceSpawned` links a completed occurrence to its successor. Consumers
-  treat the link as provenance, not ownership — each occurrence is a separate
+  treat the link as provenance, not ownership: each occurrence is a separate
   task with its own lifecycle, and a series is not one work item.

@@ -110,6 +110,18 @@ public interface IGitHubClient
         Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException("This GitHub client cannot read pinned pull requests."));
 
     /// <summary>
+    /// The named pull requests of one repository, whatever state each is in, with only
+    /// what a task's link records: the title, the state, the author and when it merged.
+    /// A number GitHub cannot find is left out. A default body for the reason
+    /// <see cref="ListOpenPullRequestsAsync"/> has one.
+    /// </summary>
+    Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<IReadOnlyList<GitHubLinkedPullRequest>>(new GitHubException("This GitHub client cannot read linked pull requests."));
+
+    /// <summary>
     /// The repository's pull requests merged at or after <paramref name="mergedSince"/>,
     /// with when and by whom each was merged, in the order GitHub lists them — most
     /// recently updated first, because GitHub cannot order by merge time. Paged until the
@@ -172,6 +184,17 @@ public interface IGitHubClient
         string label,
         CancellationToken cancellationToken = default) =>
         Task.FromException<GitHubIssueSearchRead>(new GitHubException("This GitHub client cannot list issues."));
+
+    /// <summary>
+    /// Whether GitHub reports the repository archived — <c>GET repos/{owner}/{name}</c>,
+    /// its <c>archived</c> field — or cannot find it (a 404). Any other refusal is
+    /// thrown, because it says nothing about the repository. A default body for the
+    /// reason <see cref="GetPullRequestAsync"/> has one.
+    /// </summary>
+    Task<GitHubRepositoryState> GetRepositoryStateAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<GitHubRepositoryState>(new GitHubException("This GitHub client cannot read a repository."));
 
     /// <summary>Takes a draft out of draft — GitHub's "Ready for review".</summary>
     /// <param name="pullRequestId">The pull request's GraphQL node id, from
@@ -318,6 +341,32 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         return new GitHubIssueSnapshot(issue, pullRequests, DateTimeOffset.UtcNow);
     }
 
+    public async Task<GitHubRepositoryState> GetRepositoryStateAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        try
+        {
+            var response = await transport.SendAsync(
+                HttpMethod.Get,
+                $"repos/{repository.Owner}/{repository.Name}",
+                body: null,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            return response.ValueKind == JsonValueKind.Object
+                && response.TryGetProperty("archived", out var archived)
+                && archived.ValueKind == JsonValueKind.True
+                    ? GitHubRepositoryState.Archived
+                    : GitHubRepositoryState.Active;
+        }
+        catch (GitHubException ex) when (ex.IsNotFound)
+        {
+            return GitHubRepositoryState.NotFound;
+        }
+    }
+
     public async Task<GitHubPullRequest> GetPullRequestAsync(
         GitHubRepositoryRef repository,
         int number,
@@ -429,7 +478,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// The same alias lists the checks one by one, after the counts: each check run
     /// with its state, its times and, for a GitHub Actions run, the workflow run Re-run
     /// failed names; each commit status with its context and state. Up to
-    /// <see cref="HeadCheckLimit"/>, and the counts cover the rest.
+    /// <see cref="HeadCheckLimit"/>, and the counts cover the rest — except where a
+    /// failed check lies past them, which <see cref="WithUnlistedFailuresAsync"/> pages
+    /// in so Re-run failed sees every failed run.
     /// </para>
     /// <para>
     /// Twenty labels, twenty reviews and ten closing issues per pull request: a
@@ -438,7 +489,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// review counts towards the merge.
     /// </para>
     /// </summary>
-    private const string ListedPullRequestFields = """
+    private const string ListedPullRequestFields = $$"""
         id
                 number
                 title
@@ -470,27 +521,65 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                           checkRunCountsByState { state count }
                           statusContextCountsByState { state count }
                           nodes {
-                            __typename
-                            ... on CheckRun {
-                              name
-                              status
-                              conclusion
-                              startedAt
-                              completedAt
-                              detailsUrl
-                              checkSuite { app { slug } workflowRun { databaseId } }
-                            }
-                            ... on StatusContext {
-                              context
-                              state
-                              targetUrl
-                            }
+                            {{HeadCheckNodeFields}}
                           }
                         }
                       }
                     }
                   }
                 }
+        """;
+
+    /// <summary>What one check is read as, in the list query and in a page of
+    /// <see cref="HeadChecksPageQuery"/> alike, so a paged check reads as a listed one.</summary>
+    private const string HeadCheckNodeFields = """
+        __typename
+                                ... on CheckRun {
+                                  name
+                                  status
+                                  conclusion
+                                  startedAt
+                                  completedAt
+                                  detailsUrl
+                                  checkSuite { app { slug } workflowRun { databaseId } }
+                                }
+                                ... on StatusContext {
+                                  context
+                                  state
+                                  targetUrl
+                                }
+        """;
+
+    /// <summary>How many checks one page of <see cref="HeadChecksPageQuery"/> asks for —
+    /// GitHub's maximum for a connection.</summary>
+    public const int HeadChecksPageSize = 100;
+
+    /// <summary>How many pages one commit's checks are followed for at most: a thousand
+    /// checks. A bound so one commit with a runaway matrix cannot hold the list on a
+    /// long walk of GraphQL calls.</summary>
+    public const int HeadChecksPageCap = 10;
+
+    /// <summary>
+    /// One page of a head commit's checks, read by the commit's id rather than through
+    /// its pull request so the page's cursor is the only thing that moves.
+    /// </summary>
+    internal const string HeadChecksPageQuery = $$"""
+        query($owner: String!, $name: String!, $oid: GitObjectID!, $first: Int!, $after: String) {
+          repository(owner: $owner, name: $name) {
+            object(oid: $oid) {
+              ... on Commit {
+                statusCheckRollup {
+                  contexts(first: $first, after: $after) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes {
+                      {{HeadCheckNodeFields}}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
         """;
 
     /// <summary>
@@ -646,7 +735,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             cancellationToken,
             tolerate: OnlyTheListsExtraFactsWereRefused).ConfigureAwait(false);
 
-        return await WithBehindCountsAsync(repository, ReadOpenPullRequests(data, repository.FullName), cancellationToken).ConfigureAwait(false);
+        var listed = await WithBehindCountsAsync(repository, ReadOpenPullRequests(data, repository.FullName), cancellationToken).ConfigureAwait(false);
+        return await WithUnlistedFailuresAsync(repository, listed, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>How many of the head commit's checks the list reads one by one. The
@@ -752,6 +842,113 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     }
 
     /// <summary>
+    /// The pull requests given, each open one whose counts report a failed check the
+    /// list did not reach — past <see cref="HeadCheckLimit"/> — carrying every check
+    /// of its head commit instead, paged in by <see cref="HeadChecksPageQuery"/>. Re-run
+    /// failed reads the failed GitHub Actions runs off <see cref="GitHubOpenPullRequest.HeadChecks"/>,
+    /// so without this a failed run past the first fifty would be neither offered nor
+    /// re-run. Only those pull requests are paged: one whose failures are all listed
+    /// already has every run the act needs. A refused or failed page leaves that pull
+    /// request's first fifty standing rather than failing the list.
+    /// </summary>
+    private async Task<IReadOnlyList<GitHubOpenPullRequest>> WithUnlistedFailuresAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyList<GitHubOpenPullRequest> pulls,
+        CancellationToken cancellationToken)
+    {
+        if (!pulls.Any(HasUnlistedFailure)) return pulls;
+
+        var read = new List<GitHubOpenPullRequest>(pulls.Count);
+        foreach (var pull in pulls)
+        {
+            if (!HasUnlistedFailure(pull))
+            {
+                read.Add(pull);
+                continue;
+            }
+
+            var checks = await ReadAllHeadChecksAsync(repository, pull.HeadSha!, cancellationToken).ConfigureAwait(false);
+            read.Add(checks is { Count: > 0 } ? pull with { HeadChecks = checks } : pull);
+        }
+
+        return read;
+    }
+
+    /// <summary>Open, with a head commit to read by, and more failed checks counted
+    /// than listed.</summary>
+    internal static bool HasUnlistedFailure(GitHubOpenPullRequest pull) =>
+        pull.IsOpen
+        && !string.IsNullOrWhiteSpace(pull.HeadSha)
+        && pull.CheckCounts is { } counts
+        && counts.Total > pull.HeadChecks.Count
+        && counts.Failed > pull.HeadChecks.Count(check => check.State == GitHubCheckState.Failing);
+
+    /// <summary>Every check of one commit, page by page up to
+    /// <see cref="HeadChecksPageCap"/>; null where a page was refused or failed.</summary>
+    private async Task<IReadOnlyList<GitHubCheck>?> ReadAllHeadChecksAsync(
+        GitHubRepositoryRef repository,
+        string headSha,
+        CancellationToken cancellationToken)
+    {
+        var checks = new List<GitHubCheck>();
+        string? after = null;
+
+        for (var page = 0; page < HeadChecksPageCap; page++)
+        {
+            JsonElement data;
+            try
+            {
+                data = await GitHubGraphQl.SendAsync(
+                    transport,
+                    repository,
+                    HeadChecksPageQuery,
+                    new Dictionary<string, object?>
+                    {
+                        ["owner"] = repository.Owner,
+                        ["name"] = repository.Name,
+                        ["oid"] = headSha,
+                        ["first"] = HeadChecksPageSize,
+                        ["after"] = after
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is GitHubException or HttpRequestException)
+            {
+                return null;
+            }
+
+            var (read, next) = ReadHeadChecksPage(data);
+            checks.AddRange(read);
+            if (next is null) break;
+            after = next;
+        }
+
+        return checks;
+    }
+
+    /// <summary>One page of <see cref="HeadChecksPageQuery"/>: its checks, read as the
+    /// list reads them, and the cursor of the next page, or null on the last.</summary>
+    internal static (IReadOnlyList<GitHubCheck> Checks, string? Next) ReadHeadChecksPage(JsonElement data)
+    {
+        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object
+            || !repository.TryGetProperty("object", out var commit) || commit.ValueKind != JsonValueKind.Object
+            || !commit.TryGetProperty("statusCheckRollup", out var rollup) || rollup.ValueKind != JsonValueKind.Object)
+        {
+            return ([], null);
+        }
+
+        IReadOnlyList<GitHubCheck> checks = [.. Nodes(rollup, "contexts").Select(ReadHeadCheck).OfType<GitHubCheck>()];
+
+        var next = rollup.TryGetProperty("contexts", out var contexts) && contexts.ValueKind == JsonValueKind.Object
+            && contexts.TryGetProperty("pageInfo", out var pageInfo) && pageInfo.ValueKind == JsonValueKind.Object
+            && pageInfo.TryGetProperty("hasNextPage", out var more) && more.ValueKind == JsonValueKind.True
+                ? String(pageInfo, "endCursor")
+                : null;
+
+        return (checks, next);
+    }
+
+    /// <summary>
     /// The named pull requests of one repository, whatever state each is in — what a
     /// pin asks for. One GraphQL query with an aliased field per number, sent through
     /// the repository's own path like the open list. A number GitHub cannot find is
@@ -780,7 +977,129 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             cancellationToken,
             tolerate: (errors, answer) => OnlyPinnedFactsOrMissingPinsWereRefused(errors, answer, wanted)).ConfigureAwait(false);
 
-        return await WithBehindCountsAsync(repository, ReadPinnedPullRequests(data, repository.FullName, wanted), cancellationToken).ConfigureAwait(false);
+        var pinned = await WithBehindCountsAsync(repository, ReadPinnedPullRequests(data, repository.FullName, wanted), cancellationToken).ConfigureAwait(false);
+        return await WithUnlistedFailuresAsync(repository, pinned, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>How many pull requests one linked read asks for in a single query. A
+    /// task list carries hundreds of links in a busy repository, and one query aliasing
+    /// all of them would be the kind GitHub refuses for its size — taking every link in
+    /// the repository down with it.</summary>
+    internal const int LinkedBatchSize = 50;
+
+    /// <summary>
+    /// The linked read: one aliased <c>pullRequest(number:)</c> per number, asking only
+    /// for the facts a link records, in batches of <see cref="LinkedBatchSize"/> sent one
+    /// after another through the repository's own GraphQL path. A number GitHub cannot
+    /// find is left out; a batch GitHub refuses fails the read, as the pinned read does.
+    /// </summary>
+    public async Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(numbers);
+
+        int[] wanted = [.. numbers.Where(number => number > 0).Distinct()];
+        var pulls = new List<GitHubLinkedPullRequest>(wanted.Length);
+
+        foreach (var batch in wanted.Chunk(LinkedBatchSize))
+        {
+            var data = await GitHubGraphQl.SendAsync(
+                transport,
+                repository,
+                LinkedPullRequestsQuery(batch),
+                new Dictionary<string, object?>
+                {
+                    ["owner"] = repository.Owner,
+                    ["name"] = repository.Name
+                },
+                cancellationToken,
+                tolerate: (errors, answer) => OnlyMissingPinsWereRefused(errors, answer, batch)).ConfigureAwait(false);
+
+            pulls.AddRange(ReadLinkedPullRequests(data, repository.FullName, batch));
+        }
+
+        return pulls;
+    }
+
+    /// <summary>
+    /// The linked read's query for <paramref name="numbers"/>: the pinned read's aliases,
+    /// each asking for the number, title, url, state, draft flag, merge time, the time it
+    /// was opened and author, and nothing else. The numbers are integers the caller holds, so writing them into
+    /// the text cannot inject anything.
+    /// </summary>
+    internal static string LinkedPullRequestsQuery(IEnumerable<int> numbers)
+    {
+        var fields = string.Join(
+            Environment.NewLine,
+            numbers.Select(number => $$"""
+                    {{PinnedAlias(number)}}: pullRequest(number: {{number.ToString(System.Globalization.CultureInfo.InvariantCulture)}}) {
+                      number
+                      title
+                      url
+                      state
+                      isDraft
+                      mergedAt
+                      createdAt
+                      author { login }
+                    }
+                """));
+
+        return $$"""
+            query($owner: String!, $name: String!) {
+              repository(owner: $owner, name: $name) {
+            {{fields}}
+              }
+            }
+            """;
+    }
+
+    /// <summary>The linked read's <c>data</c>, in the order asked. An alias that came
+    /// back null — a number GitHub cannot find — is left out; a missing repository is a
+    /// not-found, as for the pinned read.</summary>
+    internal static IReadOnlyList<GitHubLinkedPullRequest> ReadLinkedPullRequests(
+        JsonElement data,
+        string repositoryFullName,
+        IEnumerable<int> numbers)
+    {
+        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object)
+        {
+            throw new GitHubException($"GitHub couldn't find {repositoryFullName}.")
+            {
+                Status = System.Net.HttpStatusCode.NotFound
+            };
+        }
+
+        var pulls = new List<GitHubLinkedPullRequest>();
+
+        foreach (var asked in numbers)
+        {
+            if (!repository.TryGetProperty(PinnedAlias(asked), out var pull) || pull.ValueKind != JsonValueKind.Object) continue;
+
+            var number = pull.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : asked;
+            var state = String(pull, "state") switch
+            {
+                "MERGED" => GitHubItemState.Merged,
+                "CLOSED" => GitHubItemState.Closed,
+                _ => pull.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True
+                    ? GitHubItemState.Draft
+                    : GitHubItemState.Open
+            };
+
+            pulls.Add(new GitHubLinkedPullRequest(
+                number,
+                String(pull, "url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
+                String(pull, "title") ?? string.Empty,
+                repositoryFullName,
+                state,
+                Login(pull, "author"),
+                state is GitHubItemState.Merged ? Timestamp(pull, "mergedAt") : null,
+                Timestamp(pull, "createdAt")));
+        }
+
+        return pulls;
     }
 
     /// <summary>
@@ -1079,6 +1398,13 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// pin lost.</summary>
     private static bool OnlyPinnedFactsOrMissingPinsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data, IReadOnlyCollection<int> asked) =>
         errors.All(error => IsARefusedExtraFact(error) || IsAMissingPin(error, asked))
+        && data.TryGetProperty("repository", out var repository)
+        && repository.ValueKind == JsonValueKind.Object;
+
+    /// <summary>The linked read asks for no extra fact a server may lack, so the only
+    /// error it tolerates is a number GitHub cannot find.</summary>
+    private static bool OnlyMissingPinsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data, IReadOnlyCollection<int> asked) =>
+        errors.All(error => IsAMissingPin(error, asked))
         && data.TryGetProperty("repository", out var repository)
         && repository.ValueKind == JsonValueKind.Object;
 

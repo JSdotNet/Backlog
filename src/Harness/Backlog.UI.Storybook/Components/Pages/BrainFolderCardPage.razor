@@ -1,0 +1,165 @@
+@page "/devbook/brain-folder"
+
+<PageTitle>Brain folder — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Brain folder"
+           Summary="BrainFolderCard: where the person's Brain lives — one folder of their own notes outside every repository (local ADR 0026) — picked once on Settings › Storage, and what the app can say about it. Every value is handed in and every act is a callback, so the folders below are stubs with no disk behind them."
+           Guidelines="@Rules">
+
+    <Story Name="No folder yet"
+           Description="The first-use state. The field is empty and its placeholder is an example, never a value: the Brain has no default folder. Until one is set there is nothing to inspect, so the only row is the one that is true of every Brain — its search database is built in the app's storage and never synced.
+
+Browse is drawn because this host says it has a folder picker; the browser harness has none, and the card is typed into there. Type a path and leave the field: the stub accepts any full path and shows the folder's rows."
+           Code="@LiveCode">
+        <div class="sb-menu-wide">
+            <BrainFolderCard Id="brain-folder-live"
+                             TestId="brain-folder-live"
+                             Folder="@_folder"
+                             FolderChanged="value => _folder = value"
+                             OnCommit="Commit"
+                             Status="@_status"
+                             CanBrowse="true"
+                             Browsing="@_browsing"
+                             OnBrowse="BrowseAsync"
+                             Creating="@_creating"
+                             OnCreateConventions="CreateAsync"
+                             Error="@_error"
+                             Message="@_message" />
+        </div>
+    </Story>
+
+    <Story Name="A synced folder with no conventions"
+           Description="The design's own state: a folder under OneDrive that holds a README and no CONVENTIONS.md. Synced is said as information in the same ink as everything else — a OneDrive folder is the expected home of a Brain, never a hazard to it. The missing file is the one row in the attention tone, and Create conventions sits beside it; it writes only what is missing and never overwrites a file already there."
+           Code="@SyncedCode">
+        <div class="sb-menu-wide">
+            <BrainFolderCard Id="brain-folder-synced"
+                             TestId="brain-folder-synced"
+                             Folder="@SyncedFolder"
+                             Status="@(new BrainFolderCardStatus("OneDrive", HasReadme: true, HasConventions: false))"
+                             CanBrowse="true"
+                             OnCreateConventions="() => { }" />
+        </div>
+    </Story>
+
+    <Story Name="Set up"
+           Description="Both files present, on a disk no sync product carries. Nothing is left to create, so the button is gone; the rows still say where the notes and their database live."
+           Code="@SetUpCode">
+        <div class="sb-menu-wide">
+            <BrainFolderCard Id="brain-folder-set-up"
+                             TestId="brain-folder-set-up"
+                             Folder="@LocalFolder"
+                             Status="@(new BrainFolderCardStatus(null, HasReadme: true, HasConventions: true))"
+                             Message="Wrote README.md, CONVENTIONS.md and 7 area folders." />
+        </div>
+    </Story>
+
+    <Story Name="A folder that cannot be the Brain"
+           Description="The host's own sentence for why a typed path was refused, as an alert under the field — here, a folder inside a repository, which the Brain may never be. The field keeps what was typed so it can be corrected."
+           Code="@RefusedCode">
+        <div class="sb-menu-wide">
+            <BrainFolderCard Id="brain-folder-refused"
+                             TestId="brain-folder-refused"
+                             Folder="@RepositoryFolder"
+                             Error="@RefusedError" />
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#the-brains-accent", "The band 2 teal the card's border and swatch wear, and why it is never the only thing that says Brain."),
+        new("interaction-guidelines.md#error-states", "Where a refused folder or a failed write shows, and in whose words.")
+    ];
+
+    private const string SyncedFolder = @"C:\Users\sam\OneDrive\Brain";
+
+    private const string LocalFolder = @"D:\Notes\Brain";
+
+    private const string RepositoryFolder = @"D:\Repos\Backlog\notes";
+
+    private const string RefusedError =
+        @"That folder is inside the repository at D:\Repos\Backlog. The Brain lives outside every repository - pick a folder of its own.";
+
+    private string _folder = string.Empty;
+    private BrainFolderCardStatus? _status;
+    private string? _error;
+    private string? _message;
+    private bool _browsing;
+    private bool _creating;
+
+    private void Commit(string folder)
+    {
+        _folder = folder;
+        _message = null;
+
+        if (string.IsNullOrWhiteSpace(_folder))
+        {
+            _error = null;
+            _status = null;
+            return;
+        }
+
+        if (!Path.IsPathRooted(_folder.Trim()))
+        {
+            _error = @"Use a full path, such as D:\Notes\Brain.";
+            return;
+        }
+
+        _error = null;
+        _status = new BrainFolderCardStatus(
+            _folder.Contains("OneDrive", StringComparison.OrdinalIgnoreCase) ? "OneDrive" : null,
+            HasReadme: false,
+            HasConventions: false);
+    }
+
+    private async Task BrowseAsync()
+    {
+        _browsing = true;
+        await Task.Delay(800);
+        _browsing = false;
+        Commit(SyncedFolder);
+    }
+
+    private async Task CreateAsync()
+    {
+        _creating = true;
+        await Task.Delay(600);
+        _creating = false;
+        _status = _status is null ? null : _status with { HasReadme = true, HasConventions = true };
+        _message = "Wrote README.md, CONVENTIONS.md and 7 area folders.";
+    }
+
+    private const string LiveCode = """
+        <BrainFolderCard Id="@BrainSetup.CardId"
+                         Folder="@draft"
+                         FolderChanged="value => draft = value"
+                         OnCommit="ApplyBrainFolder"
+                         Status="@status"
+                         CanBrowse="@(picker is not null)"
+                         Browsing="@browsing"
+                         OnBrowse="BrowseAsync"
+                         Creating="@creating"
+                         OnCreateConventions="CreateConventions"
+                         Error="@error"
+                         Message="@message" />
+        """;
+
+    private const string SyncedCode = """
+        <BrainFolderCard Folder="@folder"
+                         Status="@(new BrainFolderCardStatus("OneDrive", HasReadme: true, HasConventions: false))"
+                         CanBrowse="true"
+                         OnCreateConventions="CreateConventions" />
+        """;
+
+    private const string SetUpCode = """
+        <BrainFolderCard Folder="@folder"
+                         Status="@(new BrainFolderCardStatus(null, HasReadme: true, HasConventions: true))"
+                         Message="@message" />
+        """;
+
+    private const string RefusedCode = """
+        <BrainFolderCard Folder="@draft"
+                         Error="@error" />
+        """;
+}

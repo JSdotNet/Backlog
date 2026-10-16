@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Sessions.Abstractions;
 
@@ -20,8 +21,24 @@ namespace Backlog.Desktop.UI.InProgress;
 /// without GitHub reads no pull requests, a host without Sessions reads no sessions,
 /// and a source that cannot be read is said rather than thrown.
 /// </para>
+/// <para>
+/// Beside the open read, the pull requests tasks link that it did not list — merged,
+/// closed, or open in a repository no longer configured — are read by number, with
+/// their state, merge date and author (<see cref="LinkedPullRequests"/>), once the open
+/// read has landed rather than as part of it. A merged one cannot change again, so it
+/// is read once and kept for the life of the reader, which is the shell's; a closed or
+/// open one is read again with the next read of the open list, at most once per
+/// <see cref="FreshFor"/> like the open list itself.
+/// </para>
 /// </summary>
-public sealed class WorkInProgressReader(GitHubIntegration? gitHub, IAgentSessionSource? sessions, TimeProvider? clock = null)
+/// <param name="linked">The pull requests the tasks link, asked at the start of every
+/// read of the pull requests; null reads none by number. A read that starts before the
+/// task list has loaded finds no links, and the next read reads them.</param>
+public sealed class WorkInProgressReader(
+    GitHubIntegration? gitHub,
+    IAgentSessionSource? sessions,
+    TimeProvider? clock = null,
+    Func<IEnumerable<GitHubPullRequestReference>>? linked = null)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private Task? _sessionsRead;
@@ -34,10 +51,24 @@ public sealed class WorkInProgressReader(GitHubIntegration? gitHub, IAgentSessio
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        var tasks = services.GetService(typeof(TasksDesktopState)) as TasksDesktopState;
+
         return new WorkInProgressReader(
             services.GetService(typeof(GitHubIntegration)) as GitHubIntegration,
             services.GetService(typeof(IAgentSessionSource)) as IAgentSessionSource,
-            services.GetService(typeof(TimeProvider)) as TimeProvider);
+            services.GetService(typeof(TimeProvider)) as TimeProvider,
+            tasks is null ? null : () => LinksOf(tasks.Rows));
+    }
+
+    /// <summary>Every pull request the given entries link, each once.</summary>
+    public static IEnumerable<GitHubPullRequestReference> LinksOf(IEnumerable<EntryRow> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        return rows
+            .SelectMany(row => row.PullRequestLinks)
+            .Select(link => new GitHubPullRequestReference(link.Repository, link.Number))
+            .DistinctBy(link => Key(link), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>The sessions the last read found, newest activity first.</summary>
@@ -45,6 +76,13 @@ public sealed class WorkInProgressReader(GitHubIntegration? gitHub, IAgentSessio
 
     /// <summary>The open pull requests of every registered repository the last read found.</summary>
     public IReadOnlyList<GitHubOpenPullRequest> PullRequests { get; private set; } = [];
+
+    /// <summary>
+    /// The linked pull requests the open read did not list, read by number — merged ones
+    /// kept from the first read that found them, the rest from the last read. One that
+    /// could not be read is absent until a later read finds it.
+    /// </summary>
+    public IReadOnlyList<GitHubLinkedPullRequest> LinkedPullRequests { get; private set; } = [];
 
     /// <summary>The repositories GitHub would not answer for on the last read.</summary>
     public IReadOnlyList<GitHubRepositoryFailure> Failures { get; private set; } = [];
@@ -183,14 +221,19 @@ public sealed class WorkInProgressReader(GitHubIntegration? gitHub, IAgentSessio
         if (!ReadsPullRequests || gitHub is not { IsConfigured: true } configured)
         {
             PullRequests = [];
+            LinkedPullRequests = [];
             Failures = [];
             return;
         }
 
+        // Asked before the first await, on the caller's dispatcher, which is where the
+        // task list's rows may be read.
+        GitHubPullRequestReference[] links = linked is null ? [] : [.. linked()];
+
         GitHubPullRequestListing listing;
         try
         {
-            listing = await configured.ListOpenPullRequestsAsync(configured.Repositories);
+            listing = await configured.ListOpenPullRequestsAsync(configured.ActiveRepositories);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -206,5 +249,94 @@ public sealed class WorkInProgressReader(GitHubIntegration? gitHub, IAgentSessio
         Failures = listing.Failures;
         PullRequestsRead = true;
         _pullsReadAt = _clock.GetUtcNow();
+
+        // After the open read has landed and not as part of it: the open list is what
+        // the view draws, and nothing it draws waits on a read it does not draw from.
+        LinkedRead = ReadLinkedAsync(configured, links, listing.PullRequests, generation);
     }
+
+    /// <summary>The read by number that followed the last read of the open list —
+    /// what a caller awaits to see <see cref="LinkedPullRequests"/> settle.</summary>
+    internal Task LinkedRead { get; private set; } = Task.CompletedTask;
+
+    /// <summary>The linked pull requests read merged, by key. Merged is for good, so
+    /// these are never read again. Closed is not: GitHub can reopen a closed one.</summary>
+    private readonly Dictionary<string, GitHubLinkedPullRequest> _merged = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Links whose repository answered without them — a number that is not a
+    /// pull request, or one deleted — by key. Not asked about again.</summary>
+    private readonly HashSet<string> _missing = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// One read by number of the linked pull requests the open read did not list and
+    /// that are not known merged or missing, kept only if no read started after it has
+    /// landed first — apart from what it found merged, which no later read can change.
+    /// <para>
+    /// Quiet: a repository that refuses is not added to <see cref="Failures"/>, which
+    /// the view draws as a line of its own — the open read already says when a
+    /// configured repository cannot be read, and a linked pull request that cannot be
+    /// read is asked about again on the next read, as the task list's own background
+    /// check of them does.
+    /// </para>
+    /// </summary>
+    private async Task ReadLinkedAsync(
+        GitHubIntegration configured,
+        IReadOnlyCollection<GitHubPullRequestReference> links,
+        IReadOnlyList<GitHubOpenPullRequest> open,
+        int generation)
+    {
+        var listed = open.Select(pull => InProgressProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var wanted = links
+            .Where(link => link.Number > 0 && !string.IsNullOrWhiteSpace(link.RepositoryFullName))
+            .Where(link => !listed.Contains(Key(link)) && !_merged.ContainsKey(Key(link)) && !_missing.Contains(Key(link)))
+
+            // An archived repository is not read (local ADR 0029). Left out here rather
+            // than asked: the integration would drop it unanswered, and an unanswered
+            // link is taken for a missing one and never asked about again — so
+            // Unarchive would not bring the read back.
+            .Where(link => configured.ResolveRepository(link.RepositoryFullName.Trim()) is not { Archived: true })
+            .ToList();
+
+        var listing = GitHubLinkedPullRequestListing.Empty;
+        if (wanted.Count > 0)
+        {
+            try
+            {
+                listing = await configured.ListLinkedPullRequestsAsync(wanted);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Quiet, as above: what was not read is asked about next time.
+                listing = new GitHubLinkedPullRequestListing([], [new GitHubRepositoryFailure("GitHub", exception.Message)]);
+            }
+        }
+
+        foreach (var pull in listing.PullRequests.Where(pull => pull.State is GitHubItemState.Merged))
+        {
+            _merged[InProgressProjection.Key(pull.RepositoryFullName, pull.Number)] = pull;
+        }
+
+        if (generation != _pullGeneration) return;
+
+        var refused = listing.Failures.Select(failure => failure.RepositoryFullName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var found = listing.PullRequests.Select(pull => InProgressProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!refused.Contains("GitHub"))
+        {
+            foreach (var link in wanted.Where(link => !refused.Contains(link.RepositoryFullName.Trim()) && !found.Contains(Key(link))))
+            {
+                _missing.Add(Key(link));
+            }
+        }
+
+        var linkedKeys = links.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        LinkedPullRequests =
+        [
+            .. _merged.Where(merged => linkedKeys.Contains(merged.Key) && !listed.Contains(merged.Key)).Select(merged => merged.Value),
+            .. listing.PullRequests.Where(pull => pull.State is not GitHubItemState.Merged)
+        ];
+
+        if (wanted.Count > 0) Changed?.Invoke();
+    }
+
+    private static string Key(GitHubPullRequestReference link) => InProgressProjection.Key(link.RepositoryFullName.Trim(), link.Number);
 }

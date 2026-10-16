@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Claude.Dashboard;
+using Backlog.Modules.Dashboard.Abstractions.Services;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Claude.UnitTests;
@@ -217,6 +218,130 @@ public sealed class ClaudeSpendSourceTests
         Assert.Null(days.TryRead(account, "me@example.com", day));
     }
 
+    // --- When each organization was last read ---------------------------------
+
+    [Fact]
+    public async Task An_organization_Anthropic_answered_is_recorded_as_read()
+    {
+        using var store = new TemporaryClaudeStore();
+        var personal = Configure(store, "me@example.com");
+
+        var reads = new RecordingReads();
+        var usage = new StubUsage { [personal] = ("me@example.com", 1.25m) };
+        var source = new ClaudeSpendSource(usage, store.Store, reads: reads);
+
+        var day = new DateOnly(2026, 9, 1);
+        await source.GetSpendAsync(day, day, TestContext.Current.CancellationToken);
+
+        Assert.Equal([("succeeded", UsageSource.Claude(personal), (string?)null)], reads.Calls);
+    }
+
+    [Fact]
+    public async Task An_organization_that_refused_every_day_is_recorded_as_failed_with_the_reason()
+    {
+        using var store = new TemporaryClaudeStore();
+        var personal = Configure(store, "me@example.com");
+
+        var reads = new RecordingReads();
+        var usage = new StubUsage { [personal] = ("me@example.com", 1.25m), Refuses = true };
+        var source = new ClaudeSpendSource(usage, store.Store, reads: reads);
+
+        var day = new DateOnly(2026, 9, 1);
+        await source.GetSpendAsync(day, day.AddDays(2), TestContext.Current.CancellationToken);
+
+        Assert.Equal([("failed", UsageSource.Claude(personal), (string?)"Not yet aggregated.")], reads.Calls);
+    }
+
+    /// <summary>Today still aggregating is how every morning starts; a window in which
+    /// any day answered is a successful read.</summary>
+    [Fact]
+    public async Task A_day_still_aggregating_beside_one_that_answered_is_a_successful_read()
+    {
+        using var store = new TemporaryClaudeStore();
+        var personal = Configure(store, "me@example.com");
+
+        var reads = new RecordingReads();
+        var usage = new StubUsage { [personal] = ("me@example.com", 1.25m) };
+        usage.RefusedDays.Add(new DateOnly(2026, 9, 2));
+        var source = new ClaudeSpendSource(usage, store.Store, reads: reads);
+
+        await source.GetSpendAsync(new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 2), TestContext.Current.CancellationToken);
+
+        Assert.Equal("succeeded", Assert.Single(reads.Calls).Outcome);
+    }
+
+    [Fact]
+    public async Task A_success_after_a_failure_is_recorded_after_it()
+    {
+        using var store = new TemporaryClaudeStore();
+        var personal = Configure(store, "me@example.com");
+        var reads = new RecordingReads();
+        var day = new DateOnly(2026, 9, 1);
+
+        await new ClaudeSpendSource(new StubUsage { [personal] = ("me@example.com", 1m), Refuses = true }, store.Store, reads: reads)
+            .GetSpendAsync(day, day, TestContext.Current.CancellationToken);
+        await new ClaudeSpendSource(new StubUsage { [personal] = ("me@example.com", 1m) }, store.Store, reads: reads)
+            .GetSpendAsync(day, day, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["failed", "succeeded"], reads.Calls.Select(call => call.Outcome));
+    }
+
+    [Fact]
+    public async Task Each_organization_is_recorded_under_its_own_account()
+    {
+        using var store = new TemporaryClaudeStore();
+        var personal = Configure(store, "me@example.com");
+        store.Store.AddAccount();
+        var work = store.Store.Current.Accounts[1].Id;
+        store.Store.SetAdminApiKey(work, "sk-ant-admin01-work");
+        store.Store.SetActor(work, "me@employer.example");
+
+        var reads = new RecordingReads();
+        var usage = new StubUsage { [personal] = ("me@example.com", 1m), [work] = ("me@employer.example", 2m) };
+        var source = new ClaudeSpendSource(usage, store.Store, reads: reads);
+
+        var day = new DateOnly(2026, 9, 1);
+        await source.GetSpendAsync(day, day, TestContext.Current.CancellationToken);
+
+        Assert.Equal([UsageSource.Claude(personal), UsageSource.Claude(work)], reads.Calls.Select(call => call.Source));
+    }
+
+    /// <summary>A window answered wholly from settled days asked Anthropic nothing,
+    /// so there is no read to record.</summary>
+    [Fact]
+    public async Task A_window_answered_from_the_day_cache_records_nothing()
+    {
+        using var store = new TemporaryClaudeStore();
+        var personal = Configure(store, "me@example.com");
+        var account = store.Store.Current.Accounts[0];
+        var day = new DateOnly(2026, 9, 10);
+
+        var days = new RememberingDays();
+        days.Write(account, "me@example.com", day, new ClaudeCodeSettledDay([]));
+
+        var reads = new RecordingReads();
+        var source = new ClaudeSpendSource(new StubUsage(), store.Store, days, new FakeTimeProvider(Today), reads);
+
+        await source.GetSpendAsync(day, day, TestContext.Current.CancellationToken);
+
+        Assert.Empty(reads.Calls);
+    }
+
+    private sealed class RecordingReads : IUsageReadRecorder
+    {
+        public List<(string Outcome, UsageSource Source, string? Reason)> Calls { get; } = [];
+
+        public void Succeeded(UsageSource source)
+        {
+            lock (Calls) Calls.Add(("succeeded", source, null));
+        }
+
+        public void Failed(UsageSource source, string reason)
+        {
+            lock (Calls) Calls.Add(("failed", source, reason));
+        }
+    }
+
     private static string Configure(TemporaryClaudeStore store, string actor)
     {
         var id = store.Store.Current.Accounts[0].Id;
@@ -248,6 +373,8 @@ public sealed class ClaudeSpendSourceTests
 
         public bool Refuses { get; init; }
 
+        public HashSet<DateOnly> RefusedDays { get; } = [];
+
         public Task<ClaudeUsageAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new ClaudeUsageAvailability(true, "stub"));
 
@@ -262,7 +389,7 @@ public sealed class ClaudeSpendSourceTests
             AccountsAsked.Add(account.Id);
             DaysAsked.Add(date);
 
-            if (Refuses) return Task.FromException<ClaudeCodeReport>(new ClaudeException("Not yet aggregated."));
+            if (Refuses || RefusedDays.Contains(date)) return Task.FromException<ClaudeCodeReport>(new ClaudeException("Not yet aggregated."));
 
             if (!TryGetValue(account.Id, out var row)) return Task.FromResult(ClaudeCodeReport.Empty(date));
 

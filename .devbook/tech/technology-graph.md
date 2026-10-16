@@ -11,13 +11,23 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 
 Bootstrap is over for most of the stack. The shared runtimes and frameworks, the
 desktop channel, the testing layer, and everything used to build and govern the
-repository are in daily use and marked `adopted`. What is still `candidate` is
-concentrated in two places: the Visual Studio channel, and the parts of the
-desktop and mobile clients that are designed but not yet implemented. Three
-things sit at `trial`: the Azure tier the sync service runs on, provisioned and
-deployed by hand but not yet through its workflow or in real use; the unattended
-schedules; and the inventory scripts this graph's package versions are checked
-against.
+repository are in daily use and marked `adopted`.
+
+These are still `candidate`:
+
+- the Visual Studio channel (`Visual Studio Extensibility` and `WPF`) and the
+  VS Code webview UI;
+- the desktop's background workers, which are designed but not yet implemented;
+- `Firebase Cloud Messaging`, the push transport to the phone;
+- the `Anthropic Claude Platform` and the `GitHub Copilot Usage APIs`, the two
+  sources of measured AI usage.
+
+Three things sit at `trial`:
+
+- the Azure tier the sync service runs on, provisioned and deployed by hand but
+  not yet through its workflow or in real use;
+- the unattended schedules;
+- the inventory scripts this graph's package versions are checked against.
 
 ## Layers
 
@@ -37,13 +47,13 @@ devbook convention pins them, with the layers between them by name.
 
 ## Graph
 
-The application renders this metadata as an interactive atlas: the technologies
-laid out in depth, one cluster per layer file, each node sized by how many other
-technologies depend on it and marked with where its status sits on the ladder
-below. Selecting one lights its dependencies and opens its chapter beside the
-map. The nodes are also listed beside the picture, in this folder's reading
-order, which is the surface a keyboard operates — the canvas is a pointer
-shortcut onto the same selection.
+The application renders this metadata as an interactive atlas. It lays the
+technologies out in depth, one cluster per layer file. Each node is sized by how
+many other technologies depend on it, and marked with where its status sits on
+the ladder below. Selecting one lights its dependencies and opens its chapter
+beside the map. The nodes are also listed beside the picture, in this folder's
+reading order. That list is the surface a keyboard operates; the canvas is a
+pointer shortcut onto the same selection.
 
 The source Mermaid graph below remains the portable fallback, for reading this
 file anywhere the application is not. It keeps edges pointing from a technology
@@ -347,12 +357,15 @@ flowchart LR
 </details>
 
 Nodes without an outgoing edge are foundations: nothing in this project sits
-below them. They are the three text formats (`Markdown`, `JSON`, `YAML`), the two
-base runtimes (`.NET Runtime`, `Node.js`), the two operating systems and the JDK
-(`Windows`, `Android`, `Java JDK`), the external services (`GitHub Platform`,
-`Anthropic Claude Platform`, `Azure AI Foundry`, `Azure Cosmos DB`,
-`Azure Key Vault`, `Azure Monitor`, `Firebase Cloud Messaging`), and the four host-level tools
-(`Git`, `PowerShell`, `Azure CLI`, `Claude Code`).
+below them. They fall into five groups:
+
+- the three text formats: `Markdown`, `JSON`, `YAML`;
+- the two base runtimes: `.NET Runtime`, `Node.js`;
+- the two operating systems and the JDK: `Windows`, `Android`, `Java JDK`;
+- the external services: `GitHub Platform`, `Anthropic Claude Platform`,
+  `Azure AI Foundry`, `Azure Cosmos DB`, `Azure Key Vault`, `Azure Monitor`,
+  `Firebase Cloud Messaging`;
+- the four host-level tools: `Git`, `PowerShell`, `Azure CLI`, `Claude Code`.
 
 ## Status ladder
 
@@ -435,7 +448,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | AGENTS.md | `AGENTS.md`, imported by `CLAUDE.md` — see [repository instruction files](ai-development.md#repository-instruction-files) |
 | Context pointer | Every `related` and `depends-on` reference, and the standing brief's links into `.agents/rules/` |
 | Progressive disclosure | The design of the whole knowledge convention: a short brief points at scoped instruction files, which point at chapters, which point at each other |
-| Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `flow-*` and `schedule-*` skills, and the `.agents/skills/` procedures and Aspire skills |
+| Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `flow-*` and `schedule-*` skills, and the `.agents/skills/` procedures |
 | Subagent | [Subagents](ai-development.md#subagents) — `architecture:architect`, `csharp-coding:coding`, `qa:qa`, and the rest |
 | Memory system | Not adopted in the repository. Cross-session state is deliberately the checked-in devbook folders and the run record on the delivery surfaces, both of which a human can read. |
 
@@ -444,7 +457,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | Term | In this repository |
 |---|---|
 | Automated check | `dotnet test`, `dotnet build`, CodeQL, the devbook-meta check and `check-metadata.mjs`, `apksigner verify`, Archify's 9/9 validation |
-| Automated review | The [scheduled merge review](../ai/05-unattended-runs.md#scheduled-merge-review), and the Validation phase every code-modifying flow runs |
+| Automated review | The [scheduled merge review](../ai/05-unattended-runs.md#scheduled-merge-review), and the `phase-verify` stage every code-modifying flow runs |
 | Human review | [Personal Validation](../ai/03-test.md#personal-validation-gate) — the gate no flow may skip and no agent may self-approve |
 | Human-in-the-loop | The default mode of every `flow-*` run |
 | AFK | The [unattended runs](../ai/05-unattended-runs.md) selected from the `delivery-schedule` catalog |
@@ -463,22 +476,24 @@ Terms below are the dictionary's; the right-hand column is this repository.
 - Rationale lives in `.devbook/arc42` (solution strategy, ADRs). Chapters here link to
   it with `related` instead of restating it.
 - When a node or edge changes, update the Mermaid source graph in the same
-  change and run `node .devbook/_tools/devbook-meta/build.mjs --check`; the atlas is
-  generated from `.devbook/tech` metadata and needs no editing of its own. It is drawn
-  from the devbook database the app rebuilds when a chapter changes (local ADR 0015)
-  rather than from the Markdown.
+  change and run `node .devbook/_tools/devbook-meta/build.mjs --check`.
+- The atlas is generated from the `.devbook/tech` metadata and needs no editing
+  of its own. The app draws it from the devbook database it rebuilds when a
+  chapter changes (local ADR 0015), not from the Markdown.
 
 Full authoring rules: `.agents/rules/devbook-tech.md`.
 
 ## Open questions
 
-- Mobile shape is unsettled: MAUI native vs. Blazor Hybrid vs. PWA. Desktop's
-  shape is decided (`.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`:
-  MAUI Blazor Hybrid, WinUI 3 head).
-- Transitive package pinning is deliberately off
-  (`.devbook/tech/tooling.md#central-package-management`). Turning it on is a reviewed
-  change nobody has scheduled. `YamlDotNet` was its visible symptom, pinned
-  centrally and referenced by nothing, until the pin was dropped; it now
-  arrives only transitively.
+- Mobile's shape has no ADR. `Backlog.Mobile` is implemented as .NET MAUI with
+  Blazor Hybrid: its `MainPage` hosts a `BlazorWebView` over `Backlog.Mobile.UI`.
+  Desktop's shape is recorded in
+  [ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md): MAUI Blazor
+  Hybrid with a WinUI 3 head.
+- Transitive package pinning is off on purpose
+  ([Central Package Management](tooling.md#central-package-management)). Turning
+  it on is a reviewed change nobody has scheduled. `YamlDotNet` is its visible
+  symptom: no project references it, and it arrives only transitively, with no
+  central pin.
 - The Visual Studio channel has no project yet, so `Visual Studio Extensibility`
   and `WPF` remain named intentions rather than validated choices.

@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.Components;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Tasks;
+using Backlog.UI.Components.AppUpdate;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,12 +23,13 @@ internal sealed class ShellHost : IDisposable
 
     private ShellHost(
         IDeviceCredentialStore credentials,
-        Func<HttpRequestMessage, int, HttpResponseMessage>? pair,
+        Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>>? pair,
         ScriptedInboxService? inbox,
         IDeviceStore? store,
         TimeProvider? clock,
         ScriptedTaskService? tasks = null,
-        ITaskViewStore? taskView = null)
+        ITaskViewStore? taskView = null,
+        IAppUpdateService? updates = null)
     {
         Inbox = inbox ?? new ScriptedInboxService();
         Tasks = tasks ?? new ScriptedTaskService();
@@ -45,6 +47,8 @@ internal sealed class ShellHost : IDisposable
         _context.Services.AddSingleton(new DevicePairingClient(
             new HttpClient(_handler) { BaseAddress = new Uri("https://sync.test") },
             credentials));
+        // Before AddMobileShell, whose unsupported service is only a default.
+        if (updates is not null) _context.Services.AddSingleton(updates);
         _context.Services.AddMobileShell();
         _context.Services.AddTestDeviceOutbox(store, taskView);
     }
@@ -80,15 +84,28 @@ internal sealed class ShellHost : IDisposable
     public static ShellHost Unpaired(
         Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null,
         ScriptedInboxService? inbox = null) =>
-        new(TestDevices.Unpaired(), pair, inbox, store: null, clock: null);
+        new(
+            TestDevices.Unpaired(),
+            pair is null ? null : (request, index, _) => Task.FromResult(pair(request, index)),
+            inbox,
+            store: null,
+            clock: null);
+
+    /// <summary>An unpaired phone whose pair request answers when the test says
+    /// so, or never: the token is the one the gate's own timeout cancels.</summary>
+    public static ShellHost Unpaired(
+        Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>> pairAsync,
+        TimeProvider? clock = null) =>
+        new(TestDevices.Unpaired(), pairAsync, inbox: null, store: null, clock);
 
     public static ShellHost Paired(
         ScriptedInboxService? inbox = null,
         IDeviceStore? store = null,
         TimeProvider? clock = null,
         ScriptedTaskService? tasks = null,
-        ITaskViewStore? taskView = null) =>
-        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView);
+        ITaskViewStore? taskView = null,
+        IAppUpdateService? updates = null) =>
+        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
     /// the base address — "" is Today, and the default is the Inbox, which most
@@ -102,7 +119,7 @@ internal sealed class ShellHost : IDisposable
     public void Dispose() => _context.Dispose();
 
     private sealed class ScriptedSyncHandler(
-        Func<HttpRequestMessage, int, HttpResponseMessage>? pair,
+        Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>>? pair,
         ScriptedInboxService inbox,
         ScriptedTaskService tasks) : HttpMessageHandler
     {
@@ -117,7 +134,7 @@ internal sealed class ShellHost : IDisposable
                 var index = _pairAttempts++;
 
                 return pair is not null
-                    ? pair(request, index)
+                    ? await pair(request, index, cancellationToken)
                     : new HttpResponseMessage(HttpStatusCode.Created)
                     {
                         Content = new StringContent(

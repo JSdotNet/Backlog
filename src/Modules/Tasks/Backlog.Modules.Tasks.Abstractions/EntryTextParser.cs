@@ -1151,9 +1151,44 @@ public static class EntryTextParser
     /// checkbox marker a done one carries. Indexed exactly as
     /// <see cref="LocateSubItems"/> and <see cref="ToggleSubItem"/> index it — the
     /// nth chapter, and a checklist line is not one.</summary>
-    public static string GetSubItemTitle(string raw, int subItemIndex)
+    public static string GetSubItemTitle(string raw, int subItemIndex) =>
+        SubItemTitleOf(GetSubItemText(raw, subItemIndex));
+
+    /// <summary>One sub-item's title and notes, as <see cref="GetSubItemTitle"/>
+    /// and <see cref="GetSubItemNote"/> read them.</summary>
+    public sealed record SubItemTitleAndNote(string Title, string Note);
+
+    /// <summary>
+    /// Every sub-item's title and notes, in the order <see cref="LocateSubItems"/>
+    /// finds them — the nth item is exactly what <see cref="GetSubItemTitle"/> and
+    /// <see cref="GetSubItemNote"/> return for index n.
+    /// <para>
+    /// One pass over the text rather than two per sub-item: each per-index call
+    /// locates every sub-item again to find its one, which a list of steps redrawn
+    /// on every keystroke pays for once per step.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<SubItemTitleAndNote> GetSubItemTitlesAndNotes(string raw)
     {
-        var text = GetSubItemText(raw, subItemIndex);
+        var normalized = Normalize(raw);
+        var lines = normalized.Split('\n');
+        var spans = LocateSubItemDetails(normalized);
+
+        var steps = new List<SubItemTitleAndNote>(spans.Count);
+        foreach (var located in spans)
+        {
+            var span = located.Span;
+            var text = string.Join('\n', lines.Skip(span.Start).Take(span.End - span.Start));
+            steps.Add(new SubItemTitleAndNote(SubItemTitleOf(text), SubItemNoteOf(text)));
+        }
+
+        return steps;
+    }
+
+    /// <summary>The title of one sub-item's text as <see cref="GetSubItemText"/>
+    /// cuts it out.</summary>
+    private static string SubItemTitleOf(string text)
+    {
         if (text.Length == 0) return string.Empty;
 
         var heading = HeadingRegex.Match(Normalize(text).Split('\n')[0].TrimStart());
@@ -1190,9 +1225,13 @@ public static class EntryTextParser
 
     /// <summary>One sub-item's notes: what is written under its heading, past its
     /// own metadata line when it has one.</summary>
-    public static string GetSubItemNote(string raw, int subItemIndex)
+    public static string GetSubItemNote(string raw, int subItemIndex) =>
+        SubItemNoteOf(GetSubItemText(raw, subItemIndex));
+
+    /// <summary>The notes of one sub-item's text as <see cref="GetSubItemText"/>
+    /// cuts it out.</summary>
+    private static string SubItemNoteOf(string text)
     {
-        var text = GetSubItemText(raw, subItemIndex);
         if (text.Length == 0) return string.Empty;
 
         var lines = Normalize(text).Split('\n').ToList();

@@ -119,6 +119,10 @@ internal sealed class FakeInboxItems : IInboxItems
     /// of an app with no Foundry, where no AI triage surface is drawn.</summary>
     public bool TriageAdvisorAvailable { get; set; }
 
+    /// <summary>Why To Brain cannot be taken; null by default, a Brain that can
+    /// take a note.</summary>
+    public string? BrainUnavailableReason { get; set; }
+
     /// <summary>What the advisor answers per item; an item with no entry is
     /// answered with no cards.</summary>
     public Dictionary<Guid, Result<InboxTriageAdviceDto>> TriageAdvice { get; } = [];
@@ -682,6 +686,31 @@ internal sealed class FakeInboxItems : IInboxItems
         });
 
         return new InboxRoutedDto(id, taskIds);
+    }
+
+    /// <summary>Every item To Brain was asked for, in order.</summary>
+    public List<Guid> BrainRoutes { get; } = [];
+
+    /// <summary>The module's To Brain, restated: refused with
+    /// <c>inbox.brain.unavailable</c> through <see cref="FailAct"/> under
+    /// <c>"brain"</c>, else the item is routed to the Brain with no task.</summary>
+    public async Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        BrainRoutes.Add(id);
+        if (BeforeRoute is { } gate) await gate();
+
+        if (Fails("brain", id, out var refused)) return Result.Failure<InboxBrainRoutedDto>(refused);
+
+        if (Find(id) is not { } item) return Result.Failure<InboxBrainRoutedDto>(InboxErrors.ItemNotFound);
+        if (item.Routing is not null) return Result.Failure<InboxBrainRoutedDto>(InboxErrors.InvalidTransition("Already routed."));
+
+        await Update(id, current => current with
+        {
+            Status = InboxStatus.Triaged,
+            Routing = new InboxRoutingDto(RoutingDomain.Devbook, [], [], Now)
+        });
+
+        return new InboxBrainRoutedDto(id, "_inbox/" + id.ToString("N") + ".md");
     }
 
     /// <summary>What Tasks refuses the next batch's document with, if anything:

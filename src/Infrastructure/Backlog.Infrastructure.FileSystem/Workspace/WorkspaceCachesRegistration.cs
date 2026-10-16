@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,7 +19,7 @@ namespace Backlog.Infrastructure.FileSystem;
 public static class WorkspaceCachesRegistration
 {
     /// <summary>
-    /// Registers the six stores, each a singleton over its folder, read per call so
+    /// Registers the six stores and the usage read log, each a singleton over its folder, read per call so
     /// a folder that moves is followed. Every folder is beside the per-user settings
     /// and never under the backlog root: ADR 0005 syncs the workspace, and a
     /// per-machine cache travelling to another device is exactly the hazard.
@@ -39,6 +40,12 @@ public static class WorkspaceCachesRegistration
         // cache, so a seven-month trend costs the running month and nothing else.
         services.AddSingleton<IAiCreditUsageCache>(sp => new AiCreditUsageCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
+        // When each usage source was last read: runtime state of this device, one
+        // store behind both the readers' recorder and the Settings page's read model.
+        services.AddSingleton(sp => new UsageReadLogStore(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().UsageReadsPath));
+        services.AddSingleton<IUsageReadStatus>(sp => sp.GetRequiredService<UsageReadLogStore>());
+        services.AddSingleton<IUsageReadRecorder>(sp => sp.GetRequiredService<UsageReadLogStore>());
 
         // What a transcript's parsed runs are kept in, so an activity read parses
         // only the transcripts that have changed, and the other pass over the same

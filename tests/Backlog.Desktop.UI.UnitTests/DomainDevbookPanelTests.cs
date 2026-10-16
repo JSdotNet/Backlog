@@ -477,7 +477,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// <summary>
     /// A direction picked on a page's own block reaches every unit on that page at
     /// once: the scope is rebuilt from the file after the write, and each unit's
-    /// inherit entry names the level it now inherits from.
+    /// pad centre names the level it now inherits from.
     /// </summary>
     [Fact]
     public async Task A_direction_set_on_the_context_reaches_the_units_on_the_same_page_without_reopening_it()
@@ -488,18 +488,19 @@ public sealed class DomainDevbookPanelTests : IDisposable
         File.WriteAllText(contextPath, "# Inbox\n\n```meta\ntype: context\n```\n\n## Inbox Pane\n\n```meta\ntype: feature-flag\nkey: inbox-pane\n```\n\nThe flag.\n");
 
         var component = harness.Render(".domain/inbox/context.md");
-        component.WaitForAssertion(() => Assert.Contains("sync report · default", UnitInheritLabel(component), StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.Contains("sync report · default", UnitPadValue(component), StringComparison.Ordinal));
 
         // The context states nothing but its type, which the header draws as a
         // mark — and its headline is still there, because it takes a direction.
-        component.Find(".file-view__header select[aria-label='Sync direction']").Change("push");
+        // The pad's right key states push.
+        component.Find(".file-view__header [role='group'][aria-label='Sync direction'] .sync-pad__key--right").Click();
 
         component.WaitForAssertion(() => Assert.Contains("sync: push", File.ReadAllText(contextPath), StringComparison.Ordinal));
-        component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitInheritLabel(component)));
+        component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitPadValue(component)));
     }
 
-    private static string UnitInheritLabel(IRenderedComponent<DomainDevbookPanel> component) =>
-        component.Find("select[aria-label='Sync direction for Inbox Pane'] option").TextContent;
+    private static string UnitPadValue(IRenderedComponent<DomainDevbookPanel> component) =>
+        component.Find("[role='group'][aria-label='Sync direction for Inbox Pane'] .sync-pad__value").TextContent;
 
     [Fact]
     public async Task A_chapter_changed_in_this_sitting_is_offered_a_comparison()
@@ -1247,6 +1248,191 @@ public sealed class DomainDevbookPanelTests : IDisposable
         Assert.Contains("Place an order › The cart is filled · passed", Between(markup, "data-kind=\"shown\"", "data-kind=\"unknown-label\""), StringComparison.Ordinal);
         Assert.Contains("cart-filled, order-placed", Between(markup, "data-kind=\"unknown-label\"", "data-kind=\"unknown-page\""), StringComparison.Ordinal);
         Assert.Contains("No scenario page is named no-such-page", Between(markup, "data-kind=\"unknown-page\"", "</article>"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A scenario page opened at a part — pressed in an entry's Acceptance checklist —
+    /// marks that part as the current one and asks the library's reveal to scroll it
+    /// into view, once; the other parts stay as they were.
+    /// </summary>
+    [Fact]
+    public async Task A_scenario_page_opened_at_a_part_marks_it_and_scrolls_to_it()
+    {
+        await using var harness = CreateHarness();
+        WriteScenarioContext(harness.Root, failSecondPart: false);
+
+        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
+            .Add(panel => panel.SelectedPath, ".domain/orders/place-an-order.md")
+            .Add(panel => panel.Focus, new DevbookFocus("the-order-is-placed", 1)));
+
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='devbook-scenario-part']").Count), Wait);
+        var focused = Assert.Single(component.FindAll("[data-testid='devbook-scenario-part'][aria-current='true']"));
+        Assert.Equal("the-order-is-placed", focused.GetAttribute("data-anchor"));
+        Assert.Contains("devbook-scenario-part--focused", focused.ClassList);
+        Assert.DoesNotContain("devbook-scenario-part--focused", component.Find("[data-testid='devbook-scenario-part'][data-anchor='the-cart-is-filled']").ClassList);
+
+        component.WaitForAssertion(() => Assert.Single(harness.Context.JSInterop.Invocations["backlogRevealRow"]), Wait);
+        Assert.Equal("[data-testid='devbook-scenario-part'][aria-current='true']", harness.Context.JSInterop.Invocations["backlogRevealRow"][0].Arguments[0]);
+
+        // A screenshot landing re-renders the page; the reader is not pulled back.
+        await EventuallyAsync(component, () => Assert.Contains("src=\"data:image/png;base64,", component.Markup, StringComparison.Ordinal));
+        Assert.Single(harness.Context.JSInterop.Invocations["backlogRevealRow"]);
+    }
+
+    /// <summary>An anchor no part has, or none, marks nothing and scrolls nowhere —
+    /// and the page draws as it always did.</summary>
+    [Theory]
+    [InlineData("no-such-part")]
+    [InlineData(null)]
+    public async Task A_scenario_page_opened_at_no_part_marks_nothing(string? anchor)
+    {
+        await using var harness = CreateHarness();
+        WriteScenarioContext(harness.Root, failSecondPart: false);
+
+        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
+            .Add(panel => panel.SelectedPath, ".domain/orders/place-an-order.md")
+            .Add(panel => panel.Focus, anchor is null ? null : new DevbookFocus(anchor, 1)));
+
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='devbook-scenario-part']").Count), Wait);
+        Assert.Empty(component.FindAll("[aria-current='true']"));
+        Assert.Empty(component.FindAll(".devbook-scenario-part--focused"));
+        Assert.Empty(harness.Context.JSInterop.Invocations["backlogRevealRow"]);
+    }
+
+    /// <summary>
+    /// The same images in an entry's body — no knowledge document, the source the
+    /// shell hands the Tasks pane — resolve every way they do in a chapter: a capture
+    /// from an earlier run says so, a stale page says stale, an unknown label lists the
+    /// page's labels, an unknown page says no page has that name, and a stem two pages
+    /// share lists both.
+    /// </summary>
+    [Fact]
+    public async Task A_scenario_image_in_an_entry_resolves_every_way_it_does_in_a_chapter()
+    {
+        await using var harness = CreateHarness();
+        WriteEntryScenarios(harness.Root);
+        var store = harness.Context.Services.GetRequiredService<DevbookScenarioStore>();
+        using var sources = new DevbookScenarioImageSources(store);
+        var loaded = new TaskCompletionSource();
+        sources.Changed += () => loaded.TrySetResult();
+
+        var source = sources.For(harness.RepositoryAlias);
+        Assert.NotNull(source);
+        await loaded.Task.WaitAsync(Wait, TestContext.Current.CancellationToken);
+        Assert.Same(source, sources.For(harness.RepositoryAlias));
+
+        const string body =
+            "Where the cart stands.\n\n" +
+            "![Cart](scenario:place-an-order#cart-filled)\n\n" +
+            "![Edit](scenario:edit-an-order#edited)\n\n" +
+            "![Nope](scenario:place-an-order#nope)\n\n" +
+            "![Gone](scenario:no-such-page#cart-filled)\n\n" +
+            "![Shared](scenario:share-an-order#shared)\n";
+        var component = harness.Context.Render<Microsoft.AspNetCore.Components.CascadingValue<Backlog.UI.Components.Devbook.IDevbookImageSource>>(parameters => parameters
+            .Add(cascade => cascade.Value, source)
+            .Add(cascade => cascade.IsFixed, true)
+            .AddChildContent<MarkdownView>(view => view.Add(v => v.Blocks, MarkdownPreview.Parse(body))));
+
+        var shots = component.FindAll("[data-testid='devbook-scenario-shot']");
+        Assert.Equal(["shown", "shown", "unknown-label", "unknown-page", "ambiguous-stem"], shots.Select(shot => shot.GetAttribute("data-kind")));
+
+        string Source(int index) => component.FindAll("[data-testid='devbook-scenario-shot-source']")[index].TextContent;
+        Assert.Contains("Place an order › The cart is filled · passed", Source(0), StringComparison.Ordinal);
+        Assert.Contains("from an earlier run", Source(0), StringComparison.Ordinal);
+        Assert.Contains("Edit an order", Source(1), StringComparison.Ordinal);
+        Assert.Contains("stale", Source(1), StringComparison.Ordinal);
+        Assert.Contains("labels: cart-filled", Source(2), StringComparison.Ordinal);
+        Assert.Contains("No scenario page is named no-such-page", Source(3), StringComparison.Ordinal);
+        Assert.Contains("share-an-order names 2 scenario pages", Source(4), StringComparison.Ordinal);
+        Assert.Contains("orders/share-an-order.md", Source(4), StringComparison.Ordinal);
+        Assert.Contains("billing/share-an-order.md", Source(4), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A catalog that lands after the entry was drawn — a page written since, the
+    /// folder change announced — raises <c>Changed</c>, and the redraw the shell
+    /// does on it turns "no scenario page" into the page's screenshot. The same
+    /// source instance throughout, as the fixed cascade needs.
+    /// </summary>
+    [Fact]
+    public async Task A_catalog_that_lands_late_redraws_an_entry_s_image()
+    {
+        await using var harness = CreateHarness();
+        WriteEntryScenarios(harness.Root);
+        var store = harness.Context.Services.GetRequiredService<DevbookScenarioStore>();
+        using var sources = new DevbookScenarioImageSources(store);
+        var loaded = new TaskCompletionSource();
+        sources.Changed += () => loaded.TrySetResult();
+        var source = sources.For(harness.RepositoryAlias);
+        await loaded.Task.WaitAsync(Wait, TestContext.Current.CancellationToken);
+
+        var blocks = MarkdownPreview.Parse("![Late](scenario:cancel-an-order#cancelled)\n");
+        void Entry(ComponentParameterCollectionBuilder<Microsoft.AspNetCore.Components.CascadingValue<Backlog.UI.Components.Devbook.IDevbookImageSource>> parameters) => parameters
+            .Add(cascade => cascade.Value, source)
+            .Add(cascade => cascade.IsFixed, true)
+            .AddChildContent<MarkdownView>(view => view.Add(v => v.Blocks, blocks));
+        var component = harness.Context.Render<Microsoft.AspNetCore.Components.CascadingValue<Backlog.UI.Components.Devbook.IDevbookImageSource>>(Entry);
+        Assert.Equal("unknown-page", component.Find("[data-testid='devbook-scenario-shot']").GetAttribute("data-kind"));
+
+        File.WriteAllText(Path.Combine(harness.Root, ".domain", "orders", "cancel-an-order.md"),
+            "# Cancel an order\n\n```meta\ntype: scenario\n```\n\n## The order is cancelled\n- **When** I cancel it\n\n![Cancelled](shot:cancelled)\n");
+        var relanded = new TaskCompletionSource();
+        sources.Changed += () => relanded.TrySetResult();
+        store.Invalidate();
+        await relanded.Task.WaitAsync(Wait, TestContext.Current.CancellationToken);
+
+        // What the shell does on Changed: draws again, with the same source.
+        component.Render(Entry);
+
+        Assert.Same(source, sources.For(harness.RepositoryAlias));
+        component.WaitForAssertion(() => Assert.Equal("not-captured", component.Find("[data-testid='devbook-scenario-shot']").GetAttribute("data-kind")), Wait);
+        Assert.Contains("Cancel an order", component.Find("[data-testid='devbook-scenario-shot-source']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The pages behind an entry's images: one whose capture is older than
+    /// its last run, one edited since its run, and two sharing a stem.</summary>
+    private static void WriteEntryScenarios(string root)
+    {
+        var orders = Path.Combine(root, ".domain", "orders");
+        var billing = Path.Combine(root, ".domain", "billing");
+        Directory.CreateDirectory(orders);
+        Directory.CreateDirectory(billing);
+        File.WriteAllText(Path.Combine(orders, "context.md"), "# Orders\n\n```meta\nstatus: draft\nindex: root\ntype: context\n```\n\nOrders prose.\n");
+        File.WriteAllText(Path.Combine(billing, "context.md"), "# Billing\n\n```meta\nstatus: draft\nindex: root\ntype: context\n```\n\nBilling prose.\n");
+
+        const string place = "# Place an order\n\n```meta\ntype: scenario\n```\n\n## The cart is filled\n- **Given** an empty cart\n\n![The filled cart](shot:cart-filled)\n";
+        File.WriteAllText(Path.Combine(orders, "place-an-order.md"), place);
+        WriteRun(root, "place-an-order", ".domain/orders/place-an-order.md", ScenarioSignature.Of(ScenarioPageParser.Parse(place, ".domain/orders/place-an-order.md")),
+            "the-cart-is-filled", "cart-filled", shotRanAt: "2026-10-01T08:30:00Z");
+
+        const string edit = "# Edit an order\n\n```meta\ntype: scenario\n```\n\n## The order is edited\n- **When** I change the lamp\n\n![The edit](shot:edited)\n";
+        File.WriteAllText(Path.Combine(orders, "edit-an-order.md"), edit);
+        WriteRun(root, "edit-an-order", ".domain/orders/edit-an-order.md", ScenarioSignature.Of(ScenarioPageParser.Parse(edit, ".domain/orders/edit-an-order.md")),
+            "the-order-is-edited", "edited", shotRanAt: "2026-10-07T08:30:00Z");
+        File.WriteAllText(Path.Combine(orders, "edit-an-order.md"), edit.Replace("change the lamp", "change two lamps", StringComparison.Ordinal));
+
+        const string share = "# Share an order\n\n```meta\ntype: scenario\n```\n\n## The order is shared\n- **When** I share it\n\n![Shared](shot:shared)\n";
+        File.WriteAllText(Path.Combine(orders, "share-an-order.md"), share);
+        File.WriteAllText(Path.Combine(billing, "share-an-order.md"), share);
+
+        static void WriteRun(string root, string stem, string page, string signature, string part, string label, string shotRanAt)
+        {
+            var folder = Path.Combine(root, ".devbook", "scenarios", stem);
+            Directory.CreateDirectory(folder);
+            File.WriteAllBytes(Path.Combine(folder, $"{label}.png"), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+            File.WriteAllText(Path.Combine(folder, "run.json"), $$"""
+                {
+                  "version": 2,
+                  "page": "{{page}}",
+                  "signature": "{{signature}}",
+                  "ranAt": "2026-10-07T08:30:00Z",
+                  "parts": [ { "title": "Part", "anchor": "{{part}}", "outcome": "passed" } ],
+                  "shots": { "{{label}}": { "file": "{{label}}.png", "part": "{{part}}", "ranAt": "{{shotRanAt}}" } }
+                }
+                """);
+        }
     }
 
     /// <summary>A run is read and its screenshots loaded off the renderer, so a

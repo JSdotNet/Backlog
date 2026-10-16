@@ -47,6 +47,117 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         return new DevbookMenuTree(folders);
     }
 
+    /// <summary>What every Brain area key starts with, so a Brain area never
+    /// shares a key with a repository area of the same folder name
+    /// (<c>domain</c>, <c>design</c>, <c>ai</c>) and none of the pane's
+    /// repository special cases reaches it.</summary>
+    public const string BrainAreaPrefix = "brain/";
+
+    /// <summary>The area key of the Brain area in <paramref name="folder"/>:
+    /// <c>brain/work</c> for <c>work</c>.</summary>
+    public static string BrainAreaKey(string folder)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
+        return BrainAreaPrefix + folder.ToLowerInvariant();
+    }
+
+    /// <summary>Whether <paramref name="areaKey"/> names a Brain area rather
+    /// than a repository one.</summary>
+    public static bool IsBrainAreaKey(string? areaKey) =>
+        areaKey is not null
+        && areaKey.Length > BrainAreaPrefix.Length
+        && areaKey.StartsWith(BrainAreaPrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The rail over the Brain (local ADR 0026 §2): one root per area its
+    /// <c>CONVENTIONS.md</c> declares, in that order, or the PARA set — keyed
+    /// <see cref="BrainAreaKey"/>, labelled with the area's name — each listing
+    /// that area folder's notes.
+    /// <para>
+    /// Every node's <see cref="DevbookMenuNode.Path"/> is relative to the Brain's
+    /// root (<c>projects/plan.md</c>), the way the Brain's database names a note,
+    /// so a panel opens it against the one folder the Brain resolves to. An area
+    /// whose folder is not there yet is a root that says so rather than an error,
+    /// and a dot-folder or dot-file — an editor's or a sync client's own state —
+    /// is not a note and is not listed. With no Brain folder set, or one that is
+    /// not there, the tree is empty: what to say about that is
+    /// <see cref="IDevbookFolderSource.Resolve"/>'s message, not a menu row.
+    /// </para>
+    /// <para>
+    /// No generated outline is read: a Brain note's place in its area is its
+    /// name, the same order the folder shows in any file browser.
+    /// </para>
+    /// </summary>
+    public async Task<DevbookMenuTree> LoadBrainAsync(IBrainFolderSource brain, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(brain);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var location = await brain.PrepareListingAsync(BrainConventions.FolderKey, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!location.Available || location.FullPath is null) return DevbookMenuTree.Empty;
+
+        var tree = brain.FileTree(location);
+        var brainRoot = location.FullPath;
+
+        // On the pool for the reason ReadFolderAsync gives: the pane awaits this
+        // on the dispatcher. The areas' own read is one small file.
+        return await Task.Run(
+            () => new DevbookMenuTree([.. brain.Areas().Select(area => ReadBrainArea(tree, brainRoot, area, cancellationToken))]),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static DevbookMenuNode ReadBrainArea(IDevbookFileTree tree, string brainRoot, BrainArea area, CancellationToken cancellationToken)
+    {
+        var areaKey = BrainAreaKey(area.Folder);
+        var folder = Path.Combine(brainRoot, area.Folder);
+
+        if (!tree.DirectoryExists(folder))
+        {
+            return new DevbookMenuNode(
+                areaKey,
+                area.Name,
+                area.Folder,
+                DevbookMenuNodeKind.Folder,
+                areaKey,
+                [],
+                false,
+                $"There is no {area.Folder} folder in the Brain yet.");
+        }
+
+        var children = EnumerateChildren(tree, folder, folder, areaKey, DevbookMenuOutline.None, cancellationToken, skipDotEntries: true);
+        IEnumerable<DevbookMenuNode> rebased = children.Select(child => RebaseOnBrain(child, area.Folder, areaKey));
+        if (BrainConventions.IsDated(area)) rebased = NewestFirst(rebased);
+
+        return new DevbookMenuNode(
+            areaKey,
+            area.Name,
+            area.Folder,
+            DevbookMenuNodeKind.Folder,
+            areaKey,
+            [.. rebased],
+            true);
+    }
+
+    /// <summary>
+    /// A dated area's rows, newest first at every level ("Journal sorts newest
+    /// first", the Devbook vs Brain board). A journal names its entries by date —
+    /// <c>2026-10-13.md</c>, or <c>2026/10/13.md</c> — so the name on disk,
+    /// descending, is the date descending; nothing is read from the files.
+    /// </summary>
+    private static IEnumerable<DevbookMenuNode> NewestFirst(IEnumerable<DevbookMenuNode> nodes) =>
+        nodes
+            .OrderByDescending(node => node.Key[(node.Key.LastIndexOf('/') + 1)..], StringComparer.OrdinalIgnoreCase)
+            .Select(node => node.Children.Count == 0 ? node : node with { Children = [.. NewestFirst(node.Children)] });
+
+    /// <summary>A node listed relative to its area folder, re-keyed under the
+    /// area's key and re-pathed relative to the Brain's root.</summary>
+    private static DevbookMenuNode RebaseOnBrain(DevbookMenuNode node, string areaFolder, string areaKey) => node with
+    {
+        Key = areaKey + "/" + node.Key,
+        Path = areaFolder + "/" + node.Path,
+        Children = [.. node.Children.Select(child => RebaseOnBrain(child, areaFolder, areaKey))]
+    };
+
     private async Task<DevbookMenuNode> ReadFolderAsync(DevbookFolderSetting folder, string? repositoryAlias, CancellationToken cancellationToken)
     {
         var areaKey = AreaKey(folder.Key);
@@ -107,7 +218,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     /// </summary>
     private static void AddRootInstructionFiles(IDevbookFileTree tree, List<DevbookMenuNode> roots, string repositoryRoot, string areaKey)
     {
-        foreach (var name in InstructionSourceDiscovery.RootFileNames)
+        foreach (var name in DevbookInstructionSources.RootFileNames)
         {
             var fullPath = Path.Combine(repositoryRoot, name);
             if (!tree.FileExists(fullPath)) continue;
@@ -186,28 +297,35 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         string areaKey,
         DevbookMenuOutline outline,
         CancellationToken cancellationToken,
-        bool includeAllFiles = false)
+        bool includeAllFiles = false,
+        bool skipDotEntries = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        bool Listed(string path)
+        {
+            var name = Path.GetFileName(path);
+            return !name.StartsWith('_') && !(skipDotEntries && name.StartsWith('.'));
+        }
 
         try
         {
             var directories = tree.EnumerateDirectories(directory)
-                .Where(path => !Path.GetFileName(path).StartsWith('_'))
+                .Where(Listed)
                 .Select(path => (DiskPath: path, Node: new DevbookMenuNode(
                     Key(root, path),
                     Humanize(Path.GetFileName(path)),
                     DirectoryNodePath(tree, areaKey, root, path),
                     DevbookMenuNodeKind.Folder,
                     areaKey,
-                    EnumerateChildren(tree, root, path, areaKey, outline, cancellationToken, includeAllFiles),
+                    EnumerateChildren(tree, root, path, areaKey, outline, cancellationToken, includeAllFiles, skipDotEntries),
                     true)));
 
             // The file the directory's own row opens is not listed again beneath it.
             var isRoot = string.Equals(root, directory, StringComparison.OrdinalIgnoreCase);
             var indexPath = isRoot ? null : IndexMarkdownPath(tree, areaKey, root, directory);
             var files = tree.EnumerateFiles(directory, includeAllFiles ? "*" : "*.md")
-                .Where(path => !Path.GetFileName(path).StartsWith('_'))
+                .Where(Listed)
                 .Where(path => isRoot || (!IsIndexMarkdown(path) && !string.Equals(path, indexPath, StringComparison.OrdinalIgnoreCase)))
                 .Select(path => (DiskPath: path, Node: new DevbookMenuNode(
                     Key(root, path),

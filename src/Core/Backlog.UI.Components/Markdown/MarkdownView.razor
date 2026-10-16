@@ -575,8 +575,14 @@
                                 @* A comment is prose that may run to a paragraph,
                                    so it gets a box and two buttons rather than
                                    the commit-on-Enter a one-line rename uses:
-                                   Enter has to stay a newline here. *@
-                                <div class="md-comment__edit">
+                                   Enter has to stay a newline here.
+
+                                   Its keys are the draft's: a host that closes
+                                   on Escape — the Devbook, which takes the screen
+                                   — must not throw the draft away with a key
+                                   pressed in it. Blazor's walk ends here; a
+                                   document listener still hears the key. *@
+                                <div class="md-comment__edit" @onkeydown:stopPropagation="true">
                                     <TextArea Value="@_draft"
                                               ValueChanged="v => _draft = v"
                                               AriaLabel="Edit comment"
@@ -840,7 +846,8 @@
     /// <summary>The host's resolver for images a chapter names by scheme — a
     /// scenario page's screenshot — cascaded from the pane rather than handed down
     /// through every view between it and here. Absent, every image keeps the
-    /// knowledge rule.</summary>
+    /// knowledge rule. Outside a knowledge document — an entry's body — it is asked
+    /// about images alone, and one it declines keeps the ordinary rule.</summary>
     [CascadingParameter]
     public IDevbookImageSource? DevbookImages { get; set; }
 
@@ -873,6 +880,16 @@
     /// </summary>
     [Parameter]
     public Func<string, int, RenderFragment?>? ChapterAdornment { get; set; }
+
+    /// <summary>
+    /// The host's own reading of a link or code span, asked before the knowledge
+    /// rule and answering only for what it knows: null hands the target on. The
+    /// Brain pane draws a <c>repo:</c> link as its chip through this — a
+    /// destination only the host can resolve, so it is a hook and this view never
+    /// learns what a <c>repo:</c> link is.
+    /// </summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? HostInlineTarget { get; set; }
 
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
@@ -1183,9 +1200,24 @@
     /// prose. Neither is anything an entry's body says.</para>
     /// </summary>
     private MarkdownRender.MarkdownInlineTarget? InlineTarget =>
-        IsDevbookDocument
+        (HostInlineTarget, IsDevbookDocument
             ? DevbookInlineTargets.For(DevbookDocumentPath, DevbookHrefFor, OnDevbookNavigate, DevbookImages)
-            : null;
+            : DevbookImages is { } images ? SchemeImages(images) : null) switch
+        {
+            (null, var knowledge) => knowledge,
+            (var host, null) => host,
+            (var host, var knowledge) => (target, text, kind) => host(target, text, kind) ?? knowledge(target, text, kind),
+        };
+
+    /// <summary>
+    /// The one thing a cascaded image source changes outside a knowledge document:
+    /// an image it claims — an entry's <c>scenario:</c> screenshot — draws as it
+    /// would in a chapter. Everything it declines, and every link and code span,
+    /// keeps the ordinary rule, because an entry's body is not convention-written
+    /// prose and none of the knowledge rule's other readings belong to it.
+    /// </summary>
+    private static MarkdownRender.MarkdownInlineTarget SchemeImages(IDevbookImageSource images) =>
+        (target, text, kind) => kind is MarkdownInlineKind.Image ? images.Image(target, text, null) : null;
 
     /// <summary>Whether a host has said either of the two things that make this a
     /// knowledge document — see <see cref="InlineTarget"/> for why two. It is also

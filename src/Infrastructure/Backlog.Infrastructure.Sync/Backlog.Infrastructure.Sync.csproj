@@ -69,6 +69,11 @@
          surface only, taken as optional like the Inbox's, so this project routes by
          kind and holds no roadmap logic. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
+    <!-- Progress's replication port, on the roadmap's terms: the merge hands a
+         sprint-series document to ISprintSeriesReplication, and the session reads
+         every series from it on the push. The published surface only, taken as
+         optional, so this project routes by kind and holds no sprint logic. -->
+    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
     <!-- Devbook's annotation port and record: the annotation exchange pushes what
          the store changed and applies what other devices did through the same
          port the panels use. Published surface only, taken as optional so a head
@@ -90,6 +95,10 @@
     <!-- The named "sync-token" client and the typed pairing client, plus the
          DelegatingHandler pipeline that keeps the two apart. -->
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- The replication clients' own pipeline in place of the host's default:
+         pushes go out once, with an attempt sized for a full batch. See
+         SyncClientRegistration. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <!-- What the host's resilience pipeline throws when it gives up on a call —
          a total timeout, an open circuit. SyncHttp turns those into results the
          way it does HttpRequestException; without the types it cannot name them,

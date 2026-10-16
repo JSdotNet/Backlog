@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "System Context — Prompt Backlog",
+    "title": "System Context — Backlog",
     "animation": "trace",
     "quality_profile": "showcase"
   },
@@ -24,7 +24,7 @@
     {
       "id": "promptBacklog",
       "type": "backend",
-      "label": "Prompt Backlog",
+      "label": "Backlog",
       "sublabel": "Local-first personal system",
       "tag": "capture, triage, backlog, knowledge, monitoring",
       "pos": [
@@ -210,7 +210,7 @@
       "dot": "cyan",
       "title": "System",
       "items": [
-        "Prompt Backlog — local-first personal productivity system: capture, triage, backlog, knowledge, and monitoring"
+        "Backlog — local-first personal productivity system: capture, triage, backlog, knowledge, and monitoring"
       ]
     },
     {

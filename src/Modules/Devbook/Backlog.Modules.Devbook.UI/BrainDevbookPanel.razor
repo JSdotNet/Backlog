@@ -1,0 +1,465 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    One Brain note, read and edited the way a repository chapter is (local ADR 0026,
+    .devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane): the same file
+    view, the same DevbookMarkdownView for reading and the same DevbookChapterEditor
+    for writing. What it leaves out is everything a repository chapter carries and a
+    note does not — no sync scope, no scenario images, no status control. A note is
+    the person's own file in their own folder, so it is always editable.
+
+    Remarks are the one thing a note keeps exactly as a chapter does (local ADR 0026
+    §3): the reader leaves one on a block, edits, resolves or deletes it, and it is
+    stored in the same IDevbookAnnotationStore under the Brain's unscoped alias
+    (BrainScope.Value), keyed by the note's path from the Brain's root — which is
+    exactly where DevbookTools' list_annotations and resolve_annotation look on
+    #brain. The blocks are parsed from the whole file, as ChapterReading parses it
+    for the agent, so a block index means the same block on both sides.
+*@
+
+<aside class="devbook-pane devbook-pane--brain" data-testid="brain-devbook-panel" aria-label="Brain note">
+    @if (_chapter.Chapter is null || _document is null)
+    {
+        @if (!_loaded)
+        {
+            <Spinner Label="Loading the note" TestId="brain-note-loading" />
+        }
+        else if (string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            @* An area folder that holds no note yet. The menu beside this already
+               says the folder is there, so this says what goes in it. *@
+            <EmptyState BaseClass="devbook-empty"
+                        Title="No notes in this area yet"
+                        TitleCssClass="devbook-empty__title"
+                        DescriptionCssClass="@(null)"
+                        TestId="brain-note-empty"
+                        role="status">
+                <DescriptionContent>
+                    A Markdown file saved in this area's folder shows up here.
+                </DescriptionContent>
+            </EmptyState>
+        }
+        else
+        {
+            <Alert Message="@($"Could not read {SelectedPath} from the Brain.")"
+                   TestId="brain-note-unreadable"
+                   Role="status" />
+        }
+    }
+    else
+    {
+        <article class="devbook-document" data-testid="brain-note" aria-label="@_document.Title">
+            <Alert Message="@_saveError" TestId="brain-note-save-error" Role="status" />
+
+            @* Body is the file's text, so copy works and the view knows the file;
+               BodyContent is what draws it, through the same read view the
+               repository chapters use. Editing swaps in the editor, which writes
+               the file through DevbookChapterWriter — the only write into the Brain
+               folder this pane ever makes. *@
+            <FileView Name="@_document.Title"
+                      Kind="Brain note"
+                      Path="@_chapter.Chapter.RelativePath"
+                      Body="@_chapter.Text"
+                      MaxHeight="@(null)"
+                      TestId="brain-note-file"
+                      AllowCopy="true"
+                      CanEdit="true"
+                      Editing="@_editing"
+                      EditingChanged="OnEditingChangedAsync"
+                      EditBodyContent="@NoteEditor()"
+                      BodyContent="@NoteBody()" />
+        </article>
+    }
+</aside>
+
+@code {
+    /// <summary>The Brain this note is read from. Handed in by the pane, which
+    /// already resolved it, so a host without a Brain never renders this.</summary>
+    [Parameter, EditorRequired]
+    public IBrainFolderSource Brain { get; set; } = null!;
+
+    /// <summary>The note, relative to the Brain's root (<c>projects/plan.md</c>),
+    /// as the menu names it. Null for an area with no note in it.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>
+    /// Raised when the reader follows a resolved <c>repo:</c> link out of the note
+    /// (local ADR 0027 §6). The pane hands it on to whoever can put a repository's
+    /// devbook on screen, since this panel reads only the Brain.
+    /// </summary>
+    [Parameter]
+    public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
+
+    /// <summary>The title of the task with this id in the backlog, or null when the
+    /// backlog holds none: the note's Tasks section then draws it as "not in this
+    /// backlog". Handed in by the pane, from the shell.</summary>
+    [Parameter]
+    public Func<string, string?>? TaskTitleFor { get; set; }
+
+    /// <summary>Raised with a task id when the reader follows a task out of the
+    /// note's Tasks section.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenTask { get; set; }
+
+    /// <summary>Where the note's task links are read from: the Brain's own
+    /// database. Null in a host that composes none, where a note lists no task.</summary>
+    private IBrainTaskLinks? _taskLinks;
+
+    /// <summary>The tasks the open note names, in its order.</summary>
+    private IReadOnlyList<BrainTaskLink> _noteTasks = [];
+
+    /// <summary>Answers whether a <c>repo:</c> link can be followed here. Null in a
+    /// host with no repository source, where every such link is unresolved.</summary>
+    private BrainRepoLinkResolver? _resolver;
+
+    /// <summary>The prose hook, built once: a new delegate per render is a
+    /// changed parameter per render.</summary>
+    private MarkdownRender.MarkdownInlineTarget? _inlineTarget;
+
+    /// <summary>Where remarks live: the host's annotation store, or a
+    /// session-scoped one when the host composed none — the arrangement the
+    /// repository panels have.</summary>
+    private IDevbookAnnotationStore _annotations = null!;
+
+    /// <summary>The open note's remarks as the read view draws them.</summary>
+    private IReadOnlyList<MarkdownComment> _noteComments = [];
+
+    /// <summary>The open note's blocks, parsed from the whole file the way
+    /// ChapterReading parses it, so a remark's block index and digest name the
+    /// same block in the pane and over MCP.</summary>
+    private IReadOnlyList<MdBlock> _blocks = [];
+
+    private DevbookChapterContent _chapter = DevbookChapterContent.None;
+    private DevbookDocument? _document;
+    private DevbookChapterFileReader _reader = DevbookChapterFileReader.Disk;
+    private DevbookChapterEditor? _editor;
+    private string? _loadedPath;
+    private string? _saveError;
+    private bool _editing;
+    private bool _loaded;
+    private bool _disposed;
+    private int _read;
+
+    /// <summary>The Brain folder the open note was read from. Part of which note
+    /// it is: the same path under another folder is another file, and the chapter
+    /// reference an edit writes through names the folder it was read from.</summary>
+    private string? _loadedRoot;
+
+    protected override void OnInitialized()
+    {
+        _reader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
+        _resolver = Services.GetService<IDevbookFolderSource>() is { } folders ? new BrainRepoLinkResolver(folders) : null;
+        _inlineTarget = (target, text, kind) =>
+            kind is MarkdownInlineKind.Link && BrainRepoLink.IsRepoLink(target)
+                ? RepoLinkChipFor(target, string.Equals(target, text, StringComparison.Ordinal) ? null : text)
+                : null;
+        _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
+        _taskLinks = Services.GetService<IBrainTaskLinks>();
+        _annotations.Changed += OnAnnotationsChanged;
+        Brain.Changed += OnBrainChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded
+            && string.Equals(_loadedPath, SelectedPath, StringComparison.OrdinalIgnoreCase)
+            && SameFolder(_loadedRoot, Brain.BrainRoot))
+        {
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    /// <summary>
+    /// The Brain changed — its setting moved, or the watch saw a note change, such
+    /// as an edit OneDrive brought down from another machine. A moved folder is
+    /// always read again, because an edit must never go to the folder the setting
+    /// no longer names. A change in the same folder is read again unless the reader
+    /// is writing: their own save raises it too, and the editor holds the newer
+    /// text. Marshalled and guarded, as every <c>async void</c> handler here is.
+    /// </summary>
+    private async void OnBrainChanged()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_disposed) return;
+                if (_editing && SameFolder(_loadedRoot, Brain.BrainRoot)) return;
+
+                _loaded = false;
+                await LoadAsync();
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+        }
+    }
+
+    private static bool SameFolder(string? left, string? right) =>
+        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Reads the note off disk. Only the latest read lands, for the reason the
+    /// repository panels give: a re-render while a file is coming off disk starts a
+    /// second read, and the first finishing last would put one note's text under
+    /// another's name.
+    /// <para>
+    /// The editing mode survives a re-read of the same note — a save re-reads it —
+    /// and is dropped for a different one.
+    /// </para>
+    /// </summary>
+    private async Task LoadAsync()
+    {
+        var path = SelectedPath;
+        var read = ++_read;
+        var location = Brain.Resolve(BrainConventions.FolderKey);
+        var folder = location is { Available: true } ? location.FullPath : null;
+        var chapter = folder is not null
+            ? await DevbookChapterContent.LoadAsync(BrainConventions.FolderKey, folder, path, canEdit: true, reader: _reader)
+            : DevbookChapterContent.None;
+        var tasks = await ReadNoteTasksAsync(chapter.Chapter?.RelativePath);
+        if (read != _read || _disposed) return;
+
+        var sameNote = string.Equals(_loadedPath, path, StringComparison.OrdinalIgnoreCase) && SameFolder(_loadedRoot, folder);
+        _loadedPath = path;
+        _loadedRoot = folder;
+        _loaded = true;
+        _chapter = chapter;
+        _document = chapter is { Chapter: { } note, Text: { } text } ? DevbookMarkdownParser.Parse(note.RelativePath, text) : null;
+        _blocks = chapter.Text is { } body ? MarkdownPreview.ParseDocument(body) : [];
+        _saveError = null;
+        _noteTasks = tasks;
+        RefreshNoteComments();
+
+        if (!sameNote) _editing = false;
+        if (_chapter.Chapter is null) _editor = null;
+    }
+
+    /// <summary>
+    /// The tasks the note names, from the Brain's database. A database that is not
+    /// built yet, or will not answer, lists none: the section is a convenience, and
+    /// the note's own <c>meta</c> block still says what it names.
+    /// </summary>
+    private async Task<IReadOnlyList<BrainTaskLink>> ReadNoteTasksAsync(string? notePath)
+    {
+        if (_taskLinks is null || string.IsNullOrWhiteSpace(notePath)) return [];
+
+        try
+        {
+            return await _taskLinks.TasksOfAsync(notePath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>Re-reads the open note after a save, so the read view the reader
+    /// returns to is the file as it now is.</summary>
+    private async Task OnSavedAsync()
+    {
+        _loaded = false;
+        await LoadAsync();
+    }
+
+    private void OnSaveFailed(string message) => _saveError = message;
+
+    private async Task OnEditingChangedAsync(bool editing)
+    {
+        if (editing)
+        {
+            _editing = true;
+            return;
+        }
+
+        if (_editor is not null && _chapter.Chapter is not null) await _editor.FlushAsync();
+        _editing = false;
+        _loaded = false;
+        await LoadAsync();
+    }
+
+    /// <summary>The note's own <c>related</c> entries that link into a repository
+    /// devbook. The title heading and its block are not part of the body the view
+    /// draws, so they get a line of their own above it.</summary>
+    private IEnumerable<string> NoteRepoLinks =>
+        _document?.Metadata.Related.Where(BrainRepoLink.IsRepoLink) ?? [];
+
+    private RenderFragment NoteBody() => __builder =>
+    {
+        var links = NoteRepoLinks.ToList();
+        if (links.Count > 0)
+        {
+            <p class="brain-note__repo-links" data-testid="brain-note-repo-links" aria-label="Linked repository chapters">
+                @foreach (var link in links)
+                {
+                    @RepoLinkChipFor(link, null)
+                }
+            </p>
+        }
+
+        @* The tasks the note's `tasks` field names (local ADR 0026 §3), under its
+           links into devbooks: each a chip that opens the task, or a dashed one
+           when this backlog has no task with that id. *@
+        @if (_noteTasks.Count > 0)
+        {
+            <section class="brain-note__tasks" data-testid="brain-note-tasks" aria-labelledby="@TasksHeadingId">
+                <h4 class="brain-note__tasks-title" id="@TasksHeadingId">Tasks</h4>
+                <p class="brain-note__tasks-list">
+                    @foreach (var task in _noteTasks)
+                    {
+                        var title = task.TaskId is { } id ? TaskTitleFor?.Invoke(id) : null;
+                        <TaskLinkChip Label="@(title ?? task.Raw)"
+                                      Reference="@task.Raw"
+                                      Resolved="@(title is not null)"
+                                      TestId="brain-note-task"
+                                      OnOpen="OpenTaskAsync" />
+                    }
+                </p>
+            </section>
+        }
+
+        @* The read view the repository panels' FileView draws, with the remark
+           affordance on every block — handed the blocks directly because the
+           repo-link line above has to sit inside the body. The note's own `meta`
+           fence is what that line already shows, so the view skips it.
+           Inline, not the margin: the margin falls back to inline on the
+           viewport's width, and this pane is a narrow column of a wide window,
+           where an 18rem gutter leaves the prose a word wide. *@
+        <MarkdownView Blocks="@_blocks"
+                      Source="@_chapter.Text"
+                      RenderDevbookMetadata="true"
+                      RenderFileDevbookMetadata="false"
+                      RenderDevbookMetadataFields="false"
+                      CanEditDevbookStatus="false"
+                      HostInlineTarget="@_inlineTarget"
+                      Comments="@_noteComments"
+                      Layout="MarkdownCommentLayout.Inline"
+                      OnAddComment="AddNoteComment"
+                      OnResolveComment="ResolveNoteComment"
+                      OnEditComment="EditNoteComment"
+                      OnDeleteComment="DeleteNoteComment" />
+    };
+
+    /// <summary>The open note's remarks, read back from the store under the
+    /// Brain's alias. Another note's remarks stay with that note.</summary>
+    private void RefreshNoteComments() =>
+        _noteComments = NotePath is { } path
+            ? DevbookAnnotationComments.Comments(_annotations.List(BrainScope.Value, path))
+            : [];
+
+    /// <summary>The open note's path from the Brain's root — the chapter path the
+    /// store and the MCP tools both key a Brain remark by.</summary>
+    private string? NotePath => _chapter.Chapter?.RelativePath;
+
+    /// <summary>The store changed under the panel — another device's remark
+    /// replicated in, or an agent resolved one through MCP. It arrives on whichever
+    /// thread wrote, so the redraw is marshalled.</summary>
+    private void OnAnnotationsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed) return;
+
+            RefreshNoteComments();
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>A fresh, empty remark on the block, which the read view opens
+    /// straight into its textarea — as the repository panels do.</summary>
+    private void AddNoteComment(int blockIndex)
+    {
+        if (NotePath is not { } path) return;
+
+        _annotations.Add(
+            BrainScope.Value,
+            path,
+            blockIndex,
+            DevbookAnnotationComments.LocalAuthor,
+            MdBlockDigest.Of(_blocks, blockIndex));
+
+        RefreshNoteComments();
+    }
+
+    private void ResolveNoteComment(string id)
+    {
+        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+        if (_annotations.Find(annotationId) is not { } annotation) return;
+
+        _annotations.SetResolved(annotationId, !annotation.Resolved);
+        RefreshNoteComments();
+    }
+
+    private void EditNoteComment(MarkdownComment edited)
+    {
+        if (DevbookAnnotationComments.AnnotationId(edited.Id) is not { } annotationId) return;
+
+        _annotations.Edit(annotationId, edited.Body);
+        RefreshNoteComments();
+    }
+
+    private void DeleteNoteComment(string id)
+    {
+        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+
+        _annotations.Delete(annotationId);
+        RefreshNoteComments();
+    }
+
+    /// <summary>
+    /// One <c>repo:</c> link as its chip: gold and followable when this machine has
+    /// the repository, dashed and reading why not when it has not. A link that does
+    /// not parse — no alias, or no path — is left to the ordinary rendering, which
+    /// draws it as words with no destination.
+    /// </summary>
+    private RenderFragment? RepoLinkChipFor(string raw, string? text)
+    {
+        if (BrainRepoLink.Parse(raw) is not { } link) return null;
+
+        var resolution = _resolver?.Resolve(link) ?? new BrainRepoLinkResolution(link, false, BrainRepoLinkResolver.NotOnThisMachine);
+        var label = string.IsNullOrWhiteSpace(text) ? resolution.Label : text;
+
+        return @<RepoLinkChip Alias="@link.Alias"
+                              Label="@label"
+                              Reference="@link.Raw"
+                              Resolved="@resolution.Resolved"
+                              Problem="@resolution.Problem"
+                              TestId="brain-repo-link"
+                              OnOpen="OpenRepoLinkAsync" />;
+    }
+
+    private readonly string TasksHeadingId = $"brain-note-tasks-{Guid.NewGuid():n}";
+
+    /// <summary>One handler for every task chip; the chip says which task.</summary>
+    private Task OpenTaskAsync(string? raw) =>
+        BrainTaskLink.Normalize(raw) is { } id ? OnOpenTask.InvokeAsync(id) : Task.CompletedTask;
+
+    /// <summary>One handler for every chip, so a re-render hands each chip the
+    /// same callback rather than a new one: the chip says which link it is.</summary>
+    private Task OpenRepoLinkAsync(string? raw) =>
+        BrainRepoLink.Parse(raw) is { } link ? OnOpenRepositoryChapter.InvokeAsync(link) : Task.CompletedTask;
+
+    private RenderFragment NoteEditor() => @<DevbookChapterEditor @ref="_editor"
+                                                                    Chapter="@_chapter.Chapter"
+                                                                    InitialText="@_chapter.Text"
+                                                                    Bare="true"
+                                                                    Fill="true"
+                                                                    OnSaved="OnSavedAsync"
+                                                                    OnSaveFailed="OnSaveFailed" />;
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Brain.Changed -= OnBrainChanged;
+        _annotations.Changed -= OnAnnotationsChanged;
+    }
+}

@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -34,7 +35,7 @@ public sealed class DevbookPaneSourceStatusTests
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
 
-        SourceSelect(component).Change(string.Empty);
+        CommitSource(component, DevbookSourceSelection.DefaultBranchLabel);
 
         component.WaitForAssertion(() =>
         {
@@ -52,10 +53,10 @@ public sealed class DevbookPaneSourceStatusTests
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
 
-        SourceSelect(component).Change(string.Empty);
+        CommitSource(component, DevbookSourceSelection.DefaultBranchLabel);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-source-status']")));
 
-        SourceSelect(component).Change(DevbookSourceSelection.LocalFolderValue);
+        CommitSource(component, DevbookSourceSelection.LocalFolderLabel);
 
         component.WaitForAssertion(() => Assert.Equal(
             "Reading the local clone. Devbook can be edited here.",
@@ -74,10 +75,16 @@ public sealed class DevbookPaneSourceStatusTests
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
 
-        SourceSelect(component).Change(DevbookSourceSelection.LocalFolderValue);
+        // Away and back: the clone is already being read, and committing the
+        // source already read is no switch and says nothing.
+        CommitSource(component, DevbookSourceSelection.DefaultBranchLabel);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-source-status']")));
+        CommitSource(component, DevbookSourceSelection.LocalFolderLabel);
+        component.WaitForAssertion(() => Assert.Equal(
+            "Reading the local clone. Devbook can be edited here.",
+            component.Find("[data-testid='devbook-source-status']").TextContent.Trim()));
 
-        component.Find("[data-testid='devbook-update-action']").Click();
+        await component.InvokeAsync(() => component.Find("[data-testid='devbook-update-action']").Click());
 
         component.WaitForAssertion(() =>
         {
@@ -97,7 +104,7 @@ public sealed class DevbookPaneSourceStatusTests
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
 
-        SourceSelect(component).Change(DevbookSourceSelection.LocalFolderValue);
+        CommitSource(component, DevbookSourceSelection.DefaultBranchLabel);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-source-status']")));
 
         component.Render(parameters => parameters.Add(pane => pane.RepositoryAlias, null));
@@ -105,10 +112,267 @@ public sealed class DevbookPaneSourceStatusTests
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-source-status']")));
     }
 
-    private static AngleSharp.Dom.IElement SourceSelect(IRenderedComponent<DevbookPane> component) =>
-        component.Find("[data-testid='devbook-source-select'] select");
+    // --- Searching and typing a branch ----------------------------------------
 
-    private static Harness CreateHarness()
+    /// <summary>A name the repository does not have is refused where it was
+    /// typed: the reason beside the field, the field back on the source being
+    /// read, and the source itself untouched.</summary>
+    [Fact]
+    public async Task Typing_an_unknown_branch_says_so_and_leaves_the_source_alone()
+    {
+        await using var harness = CreateHarness(branches: ["main", "claude/search-picker"]);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        CommitSource(component, "no-such-branch");
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                "No branch named \"no-such-branch\" in JSdotNet/Backlog.",
+                component.Find("[data-testid='devbook-source-error']").TextContent.Trim());
+            Assert.Equal(DevbookSourceSelection.LocalFolderLabel, SourceInput(component).GetAttribute("value"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-source-status']"));
+        });
+
+        Assert.Equal(DevbookSourceKind.LocalFolder, harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookSource);
+    }
+
+    /// <summary>Refused while a branch is being read, the field goes back to that
+    /// branch's name, and the reason sits under the strip rather than on it — a
+    /// sentence on the strip squeezed the field to an empty sliver and the tabs into
+    /// one column.</summary>
+    [Fact]
+    public async Task A_refusal_on_a_branch_puts_the_branch_back_and_says_why_under_the_strip()
+    {
+        await using var harness = CreateHarness(branches: ["main", "release/2.0"]);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        CommitSource(component, "release/2.0");
+        component.WaitForAssertion(() => Assert.Equal("release/2.0", SourceInput(component).GetAttribute("value")));
+
+        CommitSource(component, "no-such-branch");
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("release/2.0", SourceInput(component).GetAttribute("value"));
+            Assert.Equal(
+                "No branch named \"no-such-branch\" in JSdotNet/Backlog.",
+                component.Find("[data-testid='devbook-source-error']").TextContent.Trim());
+        });
+
+        Assert.Empty(component.FindAll(".devbook-stack__strip [data-testid='devbook-source-error']"));
+        Assert.Equal("release/2.0", harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookBranch);
+    }
+
+    /// <summary>Nobody has to load the list before naming a branch: the name is
+    /// checked against the list the pane fetches for it.</summary>
+    [Fact]
+    public async Task Typing_a_branch_before_the_list_is_loaded_fetches_it_and_switches()
+    {
+        await using var harness = CreateHarness(branches: ["main", "release/2.0"]);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        CommitSource(component, "RELEASE/2.0");
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.StartsWith(
+                "Reading release/2.0 as a read-only snapshot.",
+                component.Find("[data-testid='devbook-source-status']").TextContent.Trim(),
+                StringComparison.Ordinal);
+            Assert.Equal("release/2.0", SourceInput(component).GetAttribute("value"));
+        });
+
+        Assert.Equal("release/2.0", harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookBranch);
+    }
+
+    /// <summary>The list stops at a ceiling and was fetched a while ago, so a
+    /// typed name it lacks is asked of GitHub before it is refused — and, being
+    /// there, is switched to and joins the list.</summary>
+    [Fact]
+    public async Task Typing_a_branch_the_list_lacks_asks_github_and_switches()
+    {
+        const string Branch = "inbox-redesign/inbox-dialogs-over-panes";
+        await using var harness = CreateHarness(
+            branches: ["main"],
+            heads: new(StringComparer.Ordinal) { [Branch] = new GitHubBranchHead(Branch, "abc123") });
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        CommitSource(component, Branch);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.StartsWith(
+                $"Reading {Branch} as a read-only snapshot.",
+                component.Find("[data-testid='devbook-source-status']").TextContent.Trim(),
+                StringComparison.Ordinal);
+            Assert.Equal(Branch, SourceInput(component).GetAttribute("value"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-source-error']"));
+        });
+
+        Assert.Equal(Branch, harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookBranch);
+        Assert.Contains(Branch, harness.Context.Services.GetRequiredService<DevbookSourceSelection>()
+            .Suggestions(harness.RepositoryAlias, "dialogs").Select(option => option.Value));
+    }
+
+    [Fact]
+    public async Task Typing_narrows_the_list_to_the_branches_that_match()
+    {
+        await using var harness = CreateHarness(branches: ["main", "claude/search-picker", "codex/fix-search", "release/2.0"]);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        component.WaitForAssertion(() => Assert.True(harness.Context.Services.GetRequiredService<DevbookSourceSelection>().HasBranches(harness.RepositoryAlias)));
+
+        SourceInput(component).Input("search");
+        SourceInput(component).Click();
+
+        component.WaitForAssertion(() => Assert.Equal(
+            ["claude/search-picker", "codex/fix-search"],
+            OptionNames(component)));
+    }
+
+    /// <summary>Enter on the field as it stands commits the source already being
+    /// read. That is no switch, so nothing announces one.</summary>
+    [Fact]
+    public async Task Committing_the_source_already_read_says_nothing()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        CommitSource(component, DevbookSourceSelection.LocalFolderLabel);
+
+        component.WaitForAssertion(() => Assert.Equal(DevbookSourceSelection.LocalFolderLabel, SourceInput(component).GetAttribute("value")));
+        Assert.Empty(component.FindAll("[data-testid='devbook-source-status']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-source-error']"));
+    }
+
+    /// <summary>Leaving the field after typing part of a name abandons the search:
+    /// nothing is fetched, nothing switches, and nothing is said.</summary>
+    [Fact]
+    public async Task Leaving_the_field_mid_search_fetches_nothing_and_switches_nothing()
+    {
+        await using var harness = CreateHarness(branches: ["main", "copilot/fix"]);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        SourceInput(component).Input("copil");
+        SourceInput(component).Change("copil");
+
+        component.WaitForAssertion(() =>
+            Assert.Equal(DevbookSourceSelection.LocalFolderLabel, SourceInput(component).GetAttribute("value")));
+        Assert.Empty(component.FindAll("[data-testid='devbook-source-error']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-source-status']"));
+        Assert.Equal(0, harness.Catalog.Listings);
+        Assert.Equal(DevbookSourceKind.LocalFolder, harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookSource);
+    }
+
+    /// <summary>Leaving the field on text that already names a source is a
+    /// finished choice, and is taken.</summary>
+    [Fact]
+    public async Task Leaving_the_field_on_a_named_source_switches_to_it()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        SourceInput(component).Change(DevbookSourceSelection.DefaultBranchLabel);
+
+        component.WaitForAssertion(() => Assert.StartsWith(
+            "Reading the default branch as a read-only snapshot.",
+            component.Find("[data-testid='devbook-source-status']").TextContent.Trim(),
+            StringComparison.Ordinal));
+        Assert.Equal(0, harness.Catalog.Listings);
+    }
+
+    /// <summary>Escape on a closed list empties the field; leaving it then must
+    /// not read as choosing the default branch.</summary>
+    [Fact]
+    public async Task Leaving_an_emptied_field_switches_nothing()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        component.WaitForAssertion(() => Assert.Equal(string.Empty, SourceInput(component).GetAttribute("value") ?? string.Empty));
+        SourceInput(component).Change(string.Empty);
+
+        component.WaitForAssertion(() =>
+            Assert.Equal(DevbookSourceSelection.LocalFolderLabel, SourceInput(component).GetAttribute("value")));
+        Assert.Empty(component.FindAll("[data-testid='devbook-source-error']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-source-status']"));
+        Assert.Equal(DevbookSourceKind.LocalFolder, harness.Settings.Current.Find(harness.RepositoryAlias)!.DevbookSource);
+    }
+
+    [Fact]
+    public async Task Entering_an_emptied_field_switches_nothing_and_fetches_nothing()
+    {
+        await using var harness = CreateHarness(branches: ["main"]);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        CommitSource(component, "   ");
+
+        component.WaitForAssertion(() =>
+            Assert.Equal(DevbookSourceSelection.LocalFolderLabel, SourceInput(component).GetAttribute("value")));
+        Assert.Empty(component.FindAll("[data-testid='devbook-source-error']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-source-status']"));
+        Assert.Equal(0, harness.Catalog.Listings);
+    }
+
+    /// <summary>The field's own text is no filter, so a click in it offers every
+    /// source rather than only the one already being read.</summary>
+    [Fact]
+    public async Task A_click_in_the_untouched_field_lists_every_source()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+
+        SourceInput(component).Click();
+
+        component.WaitForAssertion(() => Assert.Equal(
+            [DevbookSourceSelection.DefaultBranchLabel, DevbookSourceSelection.LocalFolderLabel, DevbookSourceSelection.RefreshBranchesLabel],
+            OptionNames(component)));
+    }
+
+    /// <summary>The names the open list shows, without the counts and section
+    /// names each row carries beside its name.</summary>
+    private static List<string> OptionNames(IRenderedComponent<DevbookPane> component) =>
+        [.. component.FindAll("[data-testid='devbook-source-select-list'] [role=option] .devbook-stack__source-name").Select(name => name.TextContent.Trim())];
+
+    private static AngleSharp.Dom.IElement SourceInput(IRenderedComponent<DevbookPane> component) =>
+        component.Find("[data-testid='devbook-source-select'] input");
+
+    /// <summary>Types the text into the source field and presses Enter, which
+    /// commits what was typed while no option is highlighted.
+    /// Each event is found and raised on the renderer's dispatcher, so the
+    /// overview landing in the background cannot re-render between the find and
+    /// the raise and leave the handler id stale.</summary>
+    private static void CommitSource(IRenderedComponent<DevbookPane> component, string text)
+    {
+        component.InvokeAsync(() => SourceInput(component).Input(text)).GetAwaiter().GetResult();
+        component.InvokeAsync(() => SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Enter" })).GetAwaiter().GetResult();
+    }
+
+    private static Harness CreateHarness(List<string>? branches = null, Dictionary<string, GitHubBranchHead>? heads = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-source-status-tests", Guid.NewGuid().ToString("n"));
         var clone = Path.Combine(root, "clone");
@@ -147,13 +411,27 @@ public sealed class DevbookPaneSourceStatusTests
         // rendered without it would fail on inject, as the application hosts would.
         context.Services.AddScoped<DevbookOpenChapter>();
         context.Services.AddSingleton<DevbookUpdateService>();
-        context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        var catalog = new StubBranchCatalog { Branches = branches ?? [], Heads = heads ?? new(StringComparer.Ordinal) };
+        catalog.Heads.TryAdd(string.Empty, new GitHubBranchHead("main", "sha-main"));
+        context.Services.AddSingleton<IGitHubBranchCatalog>(catalog);
+        // Composed as the application composes it: the pane loads the branch
+        // overview on opening. Every branch these tests name changes the devbook,
+        // so the list they search is the list they listed.
+        var comparisons = new ScriptedBranchComparisons();
+        foreach (var branch in catalog.Branches)
+        {
+            comparisons.Changes["sha-" + branch] = [new GitHubChangedFile(".devbook/arc42/adr/0001.md", null, GitHubFileStatus.Modified, "blob")];
+        }
+
+        context.Services.AddSingleton<IGitHubBranchComparison>(comparisons);
+        context.Services.AddSingleton<DevbookBranchComparisons>();
+        context.Services.AddSingleton<DevbookBranchOverview>();
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, context, configuredRepository.Alias, git);
+        return new Harness(root, context, configuredRepository.Alias, git, gitHubSettings, catalog);
     }
 
     private static void Write(string root, string relativePath, string content)
@@ -167,10 +445,20 @@ public sealed class DevbookPaneSourceStatusTests
         string Root,
         BunitContext Context,
         string RepositoryAlias,
-        ScriptedGitRepositoryService Git) : IAsyncDisposable
+        ScriptedGitRepositoryService Git,
+        GitHubSettingsStore Settings,
+        StubBranchCatalog Catalog) : IAsyncDisposable
     {
-        public IRenderedComponent<DevbookPane> Render() =>
-            Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
+        /// <summary>Renders the pane and waits for the branch overview it starts
+        /// on opening to land, so no test races that background re-render.</summary>
+        public IRenderedComponent<DevbookPane> Render()
+        {
+            var component = Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
+            var overview = Context.Services.GetRequiredService<DevbookBranchOverview>();
+            component.WaitForAssertion(() => Assert.NotNull(overview.Current(RepositoryAlias)));
+            component.WaitForAssertion(() => Assert.False(overview.IsLoading(RepositoryAlias)));
+            return component;
+        }
 
         public async ValueTask DisposeAsync()
         {

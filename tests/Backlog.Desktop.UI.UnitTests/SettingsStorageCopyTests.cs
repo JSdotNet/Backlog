@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// What the Storage tab tells the reader to do with the folder.
+/// What the Storage &amp; backup page tells the reader to do with the folder.
 /// <para>
 /// This screen is the only place the app gives storage advice, and the advice it
 /// used to give - every entry is its own markdown file, so point this at a synced
@@ -44,6 +44,23 @@ public sealed class SettingsStorageCopyTests
         Assert.Contains("single binary file", copy, StringComparison.Ordinal);
     }
 
+    /// <summary>The warning stays with the folder it is about: inside the
+    /// "Where the backlog is stored" card, beside the field, not in the page's
+    /// headline or the Backup card.</summary>
+    [Fact]
+    public void The_copy_sits_in_the_folder_card()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        var card = settings.Component.Find("[data-testid='storage-folder-settings']");
+
+        Assert.Equal("Where the backlog is stored", card.QuerySelector(".settings-card__title")?.TextContent);
+        Assert.NotNull(card.QuerySelector("[data-testid='storage-path-description']"));
+        Assert.Null(settings.Component.Find("[data-testid='storage-backup-settings']")
+            .QuerySelector("[data-testid='storage-path-description']"));
+    }
+
     /// <summary>
     /// The warning names a product rather than only describing a category. "Do not
     /// use a file-sync folder" is not advice somebody recognises their own OneDrive
@@ -73,9 +90,9 @@ public sealed class SettingsStorageCopyTests
         using var settings = RenderSettings();
         OpenStorageTab(settings.Component);
 
-        // Tabs names its panels "tabpanel-{id}", and a panel renders its content
-        // only while it is the active one - hence opening the tab above.
-        var tab = settings.Component.Find("#tabpanel-storage").TextContent;
+        // A page renders its content from its first opening - hence opening the
+        // page above.
+        var tab = settings.Component.Find("section[aria-label='Storage settings']").TextContent;
 
         Assert.DoesNotContain("markdown file with YAML", tab, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("travels with it", tab, StringComparison.OrdinalIgnoreCase);
@@ -130,7 +147,7 @@ public sealed class SettingsStorageCopyTests
     /// the root is changed": the warning follows the root the screen just
     /// applied, with no restart in between.</summary>
     [Fact]
-    public void Applying_a_synced_folder_warns_without_a_restart()
+    public async Task Applying_a_synced_folder_warns_without_a_restart()
     {
         using var settings = RenderSettings(ProviderFolderNamed("OneDrive"));
         OpenStorageTab(settings.Component);
@@ -138,7 +155,7 @@ public sealed class SettingsStorageCopyTests
         Assert.Empty(settings.Component.FindAll(SyncWarning));
 
         var synced = Path.Combine(settings.Root, "OneDrive", "backlog");
-        Commit(settings.Component, synced);
+        await Commit(settings.Component, synced);
 
         Assert.Contains("OneDrive", settings.Component.Find(SyncWarning).TextContent, StringComparison.Ordinal);
 
@@ -150,7 +167,7 @@ public sealed class SettingsStorageCopyTests
 
         // And moving back out of it leaves the tab as it was, rather than
         // warning about a folder the app no longer uses.
-        Commit(settings.Component, Path.Combine(settings.Root, "local", "backlog"));
+        await Commit(settings.Component, Path.Combine(settings.Root, "local", "backlog"));
 
         Assert.Empty(settings.Component.FindAll(SyncWarning));
     }
@@ -161,11 +178,12 @@ public sealed class SettingsStorageCopyTests
 
     /// <summary>Types a folder in and moves to it, the way the screen is
     /// wired: the value follows every keystroke and the button is what
-    /// applies it.</summary>
-    private static void Commit(IRenderedComponent<Settings> component, string path)
+    /// applies it. Awaited, because the move yields once to show its busy
+    /// button before it starts.</summary>
+    private static Task Commit(IRenderedComponent<Settings> component, string path)
     {
         component.Find(StoragePathInput).Input(path);
-        component.Find("[data-testid='move-storage-path']").Click();
+        return component.Find("[data-testid='move-storage-path']").ClickAsync(new());
     }
 
     /// <summary>A fake provider that claims any folder named after it, so a test
@@ -180,7 +198,7 @@ public sealed class SettingsStorageCopyTests
         component.Find("[data-testid='storage-path-description']").TextContent;
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
+        SettingsMenu.Open(component, "Storage & backup");
 
     /// <summary>Renders the screen over a throwaway workspace, with a sync probe
     /// that finds nothing unless a test hands it one.

@@ -93,12 +93,12 @@ public sealed class DashboardSettingsTests
     // --- On the settings screen ---------------------------------------------------
 
     [Fact]
-    public void With_the_dashboard_on_the_settings_screen_offers_its_page_after_the_inbox()
+    public void With_the_dashboard_on_the_settings_screen_offers_its_page_first_among_the_product_areas()
     {
         using var settings = RenderSettings(dashboard: true);
 
         var tabs = Tabs(settings.Component);
-        Assert.Equal(["Inbox", "Dashboard", "Working week"], tabs[^3..]);
+        Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
 
         OpenTab(settings.Component, "Dashboard");
         settings.Component.Find("[data-testid='usage-reset-day'] select").Change("Monday");
@@ -106,14 +106,45 @@ public sealed class DashboardSettingsTests
         Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0)), settings.UsageReset.Current);
     }
 
+    /// <summary>The page writes its own sentence over the frame rather than leaving
+    /// its title there.</summary>
     [Fact]
-    public void With_the_dashboard_off_the_settings_screen_offers_no_dashboard_page_but_keeps_the_working_week()
+    public void The_dashboard_page_supplies_its_headline()
+    {
+        using var settings = RenderSettings(dashboard: true);
+
+        OpenTab(settings.Component, "Dashboard");
+
+        Assert.Equal(
+            "Choose what the dashboard counts and how it reads your week.",
+            settings.Component.Find("[data-testid='settings-headline']").TextContent.Trim());
+    }
+
+    /// <summary>The cards on screen are the ones the registration declares, in the
+    /// same order, so the settings search finds what the page draws.</summary>
+    [Fact]
+    public void The_cards_on_the_page_are_the_ones_its_section_declares()
+    {
+        var section = Registered("dashboard");
+        using var page = RenderSection();
+
+        Assert.Equal(["Weekly usage reset", "Monthly spend budget"], section.CardTitles!);
+        Assert.Equal(
+            section.CardTitles!,
+            page.Component.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()));
+        Assert.NotNull(page.Component.Find("section.settings-card[data-testid='usage-reset-settings']"));
+        Assert.NotNull(page.Component.Find("section.settings-card[data-testid='spend-budget-settings']"));
+    }
+
+    [Fact]
+    public void With_the_dashboard_off_the_settings_screen_marks_the_dashboard_page_Off_and_keeps_the_working_week()
     {
         using var settings = RenderSettings(dashboard: false);
 
         var tabs = Tabs(settings.Component);
-        Assert.DoesNotContain("Dashboard", tabs);
-        Assert.Equal(["Inbox", "Working week"], tabs[^2..]);
+        Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
+        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "dashboard"));
+        Assert.NotEqual("Off", SettingsMenu.Badge(settings.Component, "working-week"));
     }
 
     [Fact]
@@ -121,7 +152,7 @@ public sealed class DashboardSettingsTests
     {
         using var settings = RenderSettings(dashboard: true);
 
-        OpenTab(settings.Component, "Storage");
+        OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid^='usage-reset']"));
     }
@@ -213,10 +244,16 @@ public sealed class DashboardSettingsTests
     }
 
     private static string[] Tabs(IRenderedComponent<Settings> component) =>
-        [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
+        SettingsMenu.Pages(component);
 
     private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+        SettingsMenu.Open(component, title);
+
+    private static SettingsSection Registered(string id) =>
+        new ServiceCollection().AddDashboardSettings()
+            .Select(descriptor => descriptor.ImplementationInstance)
+            .OfType<SettingsSection>()
+            .Single(section => section.Id == id);
 
     private static SectionRenderContext RenderSection()
     {

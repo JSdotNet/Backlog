@@ -29,14 +29,15 @@ namespace Backlog.Desktop.UI.Devbook;
 /// slashes, and still carrying the area folder at the front.</param>
 /// <param name="Anchor">The heading slug the reference named, or
 /// <see langword="null"/> when it addresses the file as a whole. Carried because it
-/// is part of what the author wrote; nothing scrolls to it yet.</param>
+/// is part of what the author wrote. On a scenario page it names the part the pane
+/// marks and scrolls to; on any other chapter nothing scrolls to it yet.</param>
 public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anchor)
 {
     /// <summary>The same file as the Devbook menu spells it: beneath the area's
     /// own folder and without the area prefix, which is what a menu node carries
     /// and what a selection is remembered by. Both layouts' folder prefixes come
     /// off — <c>.domain/</c> and <c>.devbook/domain/</c>.</summary>
-    public string RelativePath => DevbookLayout.WithinFolder(Path);
+    public string RelativePath => DevbookMenu.IsBrainAreaKey(AreaKey) ? Path : DevbookLayout.WithinFolder(Path);
 
     /// <summary>
     /// Whether this names a view of the C4 model beside the chapters rather than a
@@ -90,6 +91,28 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
         if (DevbookAreaCatalog.AreaKeyForPath(path) is not { } areaKey) return null;
 
         return new DevbookChapterLink(areaKey, path, reference.Slug);
+    }
+
+    /// <summary>
+    /// A note of the Brain, addressed the way the Brain's database names it:
+    /// relative to the Brain's root, its first segment the area folder
+    /// (<c>projects/plan.md#next</c>). Its area key is the Brain's
+    /// (<see cref="DevbookMenu.BrainAreaKey"/>), and its path is already the one
+    /// the Brain's menu selects by, so <see cref="RelativePath"/> leaves it whole.
+    /// A note at the Brain's root sits in no area and resolves to nothing.
+    /// </summary>
+    public static DevbookChapterLink? ForBrainNote(string? link)
+    {
+        if (DevbookReference.Parse(link) is not { } reference) return null;
+
+        var path = reference.Path.Trim().Replace('\\', '/');
+        if (path.StartsWith("./", StringComparison.Ordinal)) path = path[2..];
+        path = path.TrimStart('/');
+
+        var separator = path.IndexOf('/');
+        if (separator <= 0 || !IsChapterFile(path)) return null;
+
+        return new DevbookChapterLink(DevbookMenu.BrainAreaKey(path[..separator]), path, reference.Slug);
     }
 
     private static bool IsChapterFile(string path) =>

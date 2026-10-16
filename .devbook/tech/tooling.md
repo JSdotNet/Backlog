@@ -6,9 +6,8 @@ related: [".devbook/tech/technology-graph.md", ".devbook/tech/ai-development.md"
 ```
 
 > Technologies used to build, package, deploy, and govern this repository rather
-> than to run the product. The agent harnesses and their plugins used to live
-> here too; they are now their own layer in
-> [`ai-development.md`](ai-development.md).
+> than to run the product. The agent harnesses and their plugins are a layer of
+> their own, in [`ai-development.md`](ai-development.md).
 
 ## Git
 
@@ -20,10 +19,10 @@ type: tool
 Source control for the repository and its worktree-based session model.
 
 - **Used for** — versioning code, the knowledge folders, and all governance
-  assets; `GitFileHistoryService` in `Backlog.Infrastructure.GitHub` also reads
+  assets. `GitFileHistoryService` in `Backlog.Infrastructure.GitHub` also reads
   history as a product signal.
-- **Why** — non-negotiable baseline; worktrees are how parallel agent sessions
-  stay isolated.
+- **Why** — it is the non-negotiable baseline, and worktrees are how parallel
+  agent sessions stay isolated.
 
 ## MSBuild
 
@@ -36,13 +35,14 @@ related: [".devbook/tech/tooling.md#central-package-management"]
 
 The build engine, and the directory-scoped property files that configure it.
 
-- **Used for** — one root `Directory.Build.props` setting `net10.0`,
-  `LangVersion`, `Nullable`, `ImplicitUsings`, the product identity, and
-  `$(MauiVersion)`; plus two subtree files that each re-import it explicitly
-  because MSBuild loads only the nearest one — `tests/` (the shared runner and
-  coverage package set, `OutputType=Exe`, the `Xunit` using, and the linked
-  `RepositoryRoot.cs`) and `src/Harness/` (the non-publishable flags that make an
-  accidental `dotnet publish` fail loudly).
+| File | Sets | Why there |
+|---|---|---|
+| `Directory.Build.props` | `net10.0`, `LangVersion`, `Nullable`, `ImplicitUsings`, the product identity, and `$(MauiVersion)` | Every project needs them. |
+| `tests/Directory.Build.props` | The shared runner and coverage package set, `OutputType=Exe`, the `Xunit` using, and the linked `RepositoryRoot.cs` | Every test project runs the same way. |
+| `src/Harness/Directory.Build.props` | The non-publishable flags | An accidental `dotnet publish` of a harness fails loudly. |
+
+- **Used for** — the three files above. Each subtree file re-imports the root
+  one explicitly, because MSBuild loads only the nearest one.
 - **Why** — a setting every project needs is declared once, so a new project
   cannot forget it.
 
@@ -74,7 +74,7 @@ depends-on: [".devbook/tech/tooling.md#net-sdk", ".devbook/tech/shared.md#net-ma
 The optional SDK workloads the two app heads need to build.
 
 - **Used for** — `dotnet workload restore` in the pull-request workflow, and the
-  targeted `dotnet workload install maui-windows` / `maui-android` in the two
+  targeted `dotnet workload install maui-windows` or `maui-android` in the two
   release workflows.
 - **Why** — the MAUI heads do not build without them, and installing only the
   platform workload a release job needs keeps that job short.
@@ -89,8 +89,8 @@ depends-on: [".devbook/tech/tooling.md#net-sdk"]
 
 The package manager for .NET dependencies.
 
-- **Used for** — restoring the forty-seven packages `Directory.Packages.props`
-  pins, plus the Aspire AppHost SDK.
+- **Used for** — restoring the packages `Directory.Packages.props` pins, plus
+  the Aspire AppHost SDK.
 - **Why** — the standard .NET package ecosystem.
 
 ## Central Package Management
@@ -104,20 +104,18 @@ related: [".devbook/tech/shared.md#yamldotnet"]
 
 One file declaring every package version in the solution.
 
-- **Used for** — `Directory.Packages.props`, per org ADR 0002: project files
-  reference packages by name only, and a project-local `Version` attribute has to
-  be justified in a comment rather than used as a convenience.
+- **Used for** — `Directory.Packages.props`, per org ADR 0002. Project files
+  reference packages by name only. A project-local `Version` attribute has to be
+  justified in a comment rather than used as a convenience.
 - **Why** — one place to see and change what the solution resolves.
-- **How** — `CentralPackageTransitivePinningEnabled` is deliberately **off**.
-  Turning it on rewrote versions the solution never asked for — the AppHost's
-  transitive YamlDotNet 16.3.0, OpenTelemetry 1.15.3, and
-  `Microsoft.Extensions.*` 10.0.8 were each lifted to whatever
-  `Directory.Packages.props` declares for that name — purely because those names
-  appear there as direct versions. Those targets move with every package bump, so
-  they are not repeated here; the chapter that owns each package carries the
-  current one in its `version` field. Adopting CPM was meant to change *where*
-  versions are declared, not *which ones* resolve; transitive governance is a
-  separate, reviewed change.
+- **How** — `CentralPackageTransitivePinningEnabled` is off on purpose. Turning
+  it on lifted the AppHost's transitive YamlDotNet, OpenTelemetry, and
+  `Microsoft.Extensions.*` packages to whatever `Directory.Packages.props`
+  declares for those names, only because the names appear there as direct
+  versions. Adopting CPM was meant to change where versions are declared, not
+  which ones resolve. Transitive governance is a separate, reviewed change. The
+  chapter that owns each package carries its current version in its `version`
+  field.
 
 ## npm
 
@@ -129,11 +127,11 @@ depends-on: [".devbook/tech/shared.md#nodejs"]
 
 The package manager for JavaScript/TypeScript dependencies.
 
-- **Used for** — the VS Code extension's dev dependencies (`npm ci` then
-  `npm run compile` in the pull-request workflow, `npm run watch` as the
-  `ide-vscode-build` Aspire resource).
-- **Why** — the default package manager of the Node.js ecosystem. Note that the
-  repository's own Node tooling deliberately avoids it: Archify is vendored under
+- **Used for** — the VS Code extension's dev dependencies: `npm ci` then
+  `npm run compile` in the pull-request workflow, and `npm run watch` as the
+  `ide-vscode-build` Aspire resource.
+- **Why** — the default package manager of the Node.js ecosystem. The
+  repository's own Node tooling avoids it on purpose: Archify is vendored under
   `tools/archify/` with no `node_modules`, so `tools/diagrams` runs on a bare
   Node install.
 
@@ -165,11 +163,13 @@ related: [".devbook/tech/cloud.md#azure-ai-foundry"]
 The infrastructure-as-code language for the Azure resources this repository
 deploys.
 
-- **Used for** — `infra/foundry/main.bicep` and its `.bicepparam`, which declare
-  the AI Services account and its model deployments; and `infra/sync/main.bicep`,
-  which declares the cloud sync tier — Cosmos DB, Container Apps, Key Vault, Log
-  Analytics, and Application Insights.
-- **Why** — first-party, typed, and it what-ifs before it deploys.
+- **Used for** — two templates. `infra/foundry/main.bicep` and its
+  `.bicepparam` declare the AI Services account and its model deployments.
+  `infra/sync/main.bicep` declares the cloud sync tier: Cosmos DB, a storage
+  account with its `attachments` blob container, a container registry,
+  Container Apps, Key Vault, Log Analytics, and Application Insights.
+- **Why** — it is first-party and typed, and it previews a deployment with
+  what-if before it deploys.
 
 ## Azure CLI
 
@@ -184,9 +184,9 @@ The deployment and diagnostics entry point for Azure.
 - **Used for** — `.github/workflows/deploy-foundry.yml`, which builds the Bicep,
   validates, runs `deployment group what-if`, and then creates the deployment on
   a self-hosted runner.
-- **Why** — it is what the self-hosted runner is already signed in to; the
-  workflow fails with an explicit message when it is not, rather than deploying
-  into the wrong subscription.
+- **Why** — it is what the self-hosted runner is already signed in to. When it
+  is not, the workflow fails with an explicit message rather than deploying into
+  the wrong subscription.
 
 ## Azure Developer CLI
 
@@ -204,14 +204,15 @@ The provision-and-deploy driver for the cloud sync tier.
   provision `infra/sync/main.bicep` and then build, push, and deploy
   `Backlog.Modules.Sync.Api` as a container app.
 - **Why** — the Azure CLI deploys a template but does not build and push a
-  container image; `azd` does both from one service definition, so the workflow
-  does not have to hand-roll a build-tag-push-update sequence around it. The
-  foundry deployment stays on the Azure CLI: it deploys no code, so the half of
-  `azd` that earns its keep here would be unused there.
-- **How** — resource-group scoped, so `azd` deploys into a group created by hand
-  rather than creating one. `azd auth login --federated-credential-provider
-  github` means the workflow stores no secret; the runner mints a short-lived
-  OIDC token instead. See `docs/deployment/sync.md`.
+  container image. `azd` does both from one service definition, so the workflow
+  needs no hand-rolled build, tag, push, and update sequence. The foundry
+  deployment stays on the Azure CLI because it deploys no code, so the half of
+  `azd` that earns its keep here would go unused there.
+- **How** — it is scoped to a resource group, so `azd` deploys into a group
+  created by hand rather than creating one. With
+  `azd auth login --federated-credential-provider github` the workflow stores no
+  secret; the runner mints a short-lived OIDC token instead. See
+  `docs/deployment/sync.md`.
 
 ## Aspire CLI
 
@@ -225,10 +226,10 @@ The local orchestration and diagnostics entry point.
 
 - **Used for** — `aspire start --isolated --non-interactive --apphost …` for
   local runs, plus logs, traces, and deployment artifacts during QA.
-- **Why** — the paired CLI for the app model. `--isolated` is what keeps parallel
-  worktree sessions from fighting over ports and user-secrets state; the AppHost
-  itself stays opted out of the CLI bundle, so `aspire` is invoked explicitly
-  rather than through `dotnet run`.
+- **Why** — the paired CLI for the app model. `--isolated` keeps parallel
+  worktree sessions from fighting over ports and user-secrets state. How
+  `dotnet run` on the AppHost reaches this CLI is in
+  [.NET Aspire](shared.md#net-aspire).
 
 ## GitHub Actions
 
@@ -240,11 +241,18 @@ depends-on: [".devbook/tech/shared.md#github-platform"]
 
 The CI/CD automation platform.
 
-- **Used for** — ten workflows: `pull-request` (build, test, TRX artifact, and
-  the VS Code extension compile), `codeql`, the two halves of the devbook gate
-  (`devbook-meta` and `devbook-metadata`), `deploy-foundry`, `deploy-sync`,
-  `deploy-all`, `release-desktop`, `release-mobile`, and the scheduled
-  `app-insights-exceptions` report.
+- **Used for** — the workflows under `.github/workflows/`:
+  - `pull-request`: build, test, the TRX artifact, and the VS Code extension
+    compile.
+  - `nightly-tests`: the same build and suite at default parallelism, so a
+    parallel flake surfaces there first.
+  - `auto-merge`: turns on GitHub auto-merge for every pull request that is not
+    a draft.
+  - `codeql`.
+  - `devbook-meta` and `devbook-metadata`: the two halves of the devbook gate.
+  - `deploy-foundry`, `deploy-sync`, and `deploy-all`.
+  - `release-desktop` and `release-mobile`.
+  - `app-insights-exceptions`: the scheduled exceptions report.
 - **Why** — native to the repository host, with least-privilege and OIDC support.
 - **How** — every third-party action is pinned to a full commit SHA with the
   version in a trailing comment, so a moved tag cannot change what runs.
@@ -283,7 +291,7 @@ Automated dependency and security updates.
 ```meta
 status: adopted
 type: tool
-version: "1.19.0"
+version: "1.24.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/tech/tooling.md#github-actions", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
 ```
@@ -293,33 +301,34 @@ references between chapters.
 
 - **Used for** — `node .devbook/_tools/devbook-meta/build.mjs --check`, which
   resolves every `depends-on` and `related` reference and reports a broken one.
-  It writes nothing: the installed check keeps no `_meta/` output, and
-  what this repository reads is the database below, built from the same exported
-  modules. Not hand-written here: `devbook:init` materialized it under
-  `.devbook/_tools/devbook-meta/` and `devbook:update` refreshes it. Beside it,
-  `units.mjs --groups` lists the sync units, their effective `sync` direction,
-  and the orphans and set-aside groups the sync sweeps would skip. Since 1.19.0
-  the check also lints every click demo (`*.demo.html`) and resolves each `demo`
-  address against it.
-- **Parse** — 1.19.0 changed how a chapter is read. A `#` line inside a code
-  fence no longer starts a chapter, and a comma inside a quoted list entry stays
-  part of that entry. Pull request #1021 ported both rules to the
-  [Devbook Database Writer](#devbook-database-writer), so its two writers still
-  parse the way the generator does.
+  It also lints every click demo (`*.demo.html`) and resolves each `demo`
+  address against it. The check writes nothing: it keeps no `_meta/` output, and
+  what this repository reads is the [database](#devbook-database-writer) built
+  from the same exported modules. `devbook:init` materialized the tool under
+  `.devbook/_tools/devbook-meta/`, and `devbook:update` refreshes it.
+- **Sync units** — beside the check, `units.mjs --groups` lists the sync units
+  and their effective `sync` direction. It also lists what a sync sweep would
+  skip: the orphans, and the groups it sets aside as mixed or oversized.
+  [Sync direction](../../.agents/rules/devbook-chapter-metadata.md#sync-direction)
+  defines a sync unit and what a sweep does with one.
+- **Parse** — a `#` line inside a code fence does not start a chapter, and a
+  comma inside a quoted list entry stays part of that entry. The
+  [Devbook Database Writer](#devbook-database-writer) parses the same way, so
+  its two writers agree with the generator.
 - **Why** — it is what turns the metadata convention into something checkable,
   and it is where a broken reference is caught.
-- **How** — `.github/workflows/devbook-meta.yml`, installed beside it, runs the
-  check in CI. `--check` says nothing about the *values* in a `meta` block,
-  though, so a second hard failure covers those:
-  `.github/workflows/devbook-metadata.yml` runs
-  `tools/devbook/check-metadata.mjs`, this repository's own caller of the
-  generator's exported `validateDocument`, and a status outside a folder's ladder,
-  an unknown `type` or a field no schema defines fails the pull request. It is a
-  separate script and a separate workflow because everything under
-  `.devbook/_tools/` is refreshed rather than edited here.
 - **Caveat** — it checks the `.devbook/` layout only. The product still reads a
   root-level `.domain/` or `.arc42/` as the legacy fallback, but no check in this
   repository covers one (local ADR 0016).
+
+| Workflow | Runs | Owned by | Fails a pull request on |
+|---|---|---|---|
+| `devbook-meta.yml` | `build.mjs --check` | the devbook plugin, which installs it beside the check | a reference that does not resolve |
+| `devbook-metadata.yml` | `tools/devbook/check-metadata.mjs`, a caller of the generator's exported `validateDocument` | this repository | a status outside a folder's ladder, an unknown `type`, or a field no schema defines |
+
+`--check` says nothing about the values in a `meta` block, which is why the
+second check exists. It is a separate script in a separate workflow because
+everything under `.devbook/_tools/` is refreshed rather than edited here.
 
 ## devbook-tech Inventory Scripts
 
@@ -334,13 +343,13 @@ The devbook plugin's deterministic package scanners, materialized at
 `.devbook/_tools/devbook-tech/`.
 
 - **Used for** — `dotnet-packages.mjs` reads `Directory.Packages.props`,
-  `global.json` and every project file; `frontend-packages.mjs` reads every
+  `global.json` and every project file. `frontend-packages.mjs` reads every
   `package.json` and lock file. Both print sorted JSON with no timestamp, which
   `devbook:tech-update` compares against the `version` fields in this folder. The
   output is evidence for one run and is not committed.
-- **Why `trial`** — run by hand for the first refresh on 2026-09-27; the
-  `tech-update` schedule that would run it unattended has not yet published a
-  result.
+- **Why `trial`** — they were run by hand for the first refresh on 2026-09-27.
+  The `tech-update` schedule that would run them unattended has not yet
+  published a result.
 
 ## Devbook Database Writer
 
@@ -355,36 +364,62 @@ The two writers of the generated devbook database: the desktop app's own C#
 builder, which produces the database the app reads, and the repo-native Node
 writer it is held to.
 
+```mermaid
+flowchart LR
+    Corpus[".devbook/ chapters"] --> NodeWriter["Node writer<br/>build-database.mjs"]
+    Corpus --> Builder["C# builder<br/>Backlog.Infrastructure.Devbook"]
+    Schema["devbook-schema.sql"] --> NodeWriter
+    Schema --> Builder
+    Generator["devbook-meta generator"] -->|imported| NodeWriter
+    Builder --> AppDb["devbook.db<br/>in app storage"]
+    NodeWriter --> CheckDb["temporary or --out file"]
+    Parity["DevbookBuilderParityTests"] -. compares .-> NodeWriter
+    Parity -. compares .-> Builder
+```
+
 - **Used for** — the app builds `devbook.db` into its own storage, one per
-  repository path (`<devbook cache folder>/_databases/<name>-<hash>/devbook.db`),
-  in the background when a repository is first read: the reference graph, the
-  resolved reading outline, every chapter's text and hashes with its count of open
-  review notes, the FTS5 index, the Archify artifact rows, and an empty embedding
-  table. `node
-  tools/devbook/build-database.mjs` builds the same tables from the command line:
-  `--check` builds to a temporary file and deletes it, `--out <file>` writes where
-  it is told. Neither writes into a repository.
+  repository path, at `<devbook cache folder>/_databases/<name>-<hash>/devbook.db`.
+  It builds in the background when a repository is first read. The database
+  holds:
+  - the reference graph and the resolved reading outline;
+  - every chapter's text and hashes, with its count of open review notes;
+  - the FTS5 index, the Archify artifact rows, and an empty embedding table.
+
+  `node tools/devbook/build-database.mjs` builds the same tables from the
+  command line. `--check` builds to a temporary file and deletes it, and
+  `--out <file>` writes where it is told; neither writes into a repository.
+  `--brain --root <folder>` builds a Brain (local ADR 0026) under its own
+  convention, `tools/devbook/brain.mjs`. That convention takes the areas its
+  `CONVENTIONS.md` declares as the folders, the `para`, `repos` and `tasks`
+  fields as node attributes, and `repo:` links as edges with no node at their
+  target.
+
+  One difference between the writers is deliberate and stays. A Brain kept in
+  a synced folder, OneDrive's Files On-Demand, is all reparse-point placeholders.
+  The C# builder walks and indexes them, a cloud-only file by its name alone and
+  unread. The Node writer skips every reparse point, as the installed
+  generator's own walk does, so over such a Brain it indexes nothing. Matching
+  it would mean changing the generator, which `devbook:update` owns, and reading
+  the attributes Node does not expose; opening a placeholder to look downloads
+  it. The parity test's Brain fixture is plain files, where the two agree.
 - **Why** — twelve committed JSON artifacts were 1.8 MB of derived output that
-  every branch collided on (local ADR 0004), and a database kept beside the
-  folders still had to be ignored per layout and was only there if somebody had
-  run the script (local ADR 0015). The app building it into its own storage is
-  what gives every clone, worktree and branch snapshot search without a step.
-- **How** — the Node writer *imports* the generator `devbook:init` materialized at
-  `.devbook/_tools/devbook-meta/` rather than forking it: `buildGraph`,
-  `discoverScopes`, `parseDocument` and `folderKindForPath` for the graph,
-  `buildOutlineDocument` for the outline, and `collectAnnotations` with
-  `openCountsByAddress` for each chapter's open-note count. There is no authored
-  order file: the outline is the convention's (local ADR 0016). It builds the
-  `.devbook/` layout only; the C# builder still reads a root-layout repository. `node:sqlite` provides SQLite and FTS5 with no dependency added.
-  `.github/workflows/devbook-metadata.yml` runs its tests and then `--check`
-  against the real corpus as a **blocking** step. The C# builder in
-  `Backlog.Infrastructure.Devbook` ports that parse; a .NET test builds this
-  repository's `.devbook/` with both writers and compares every table but `meta`
-  and `problem` row for row, which is why the .NET test job installs Node.
-- **Caveat** — two parsers of one corpus, one of them a port of code the devbook
-  plugin owns and changes on release. The comparison test is what keeps them in
-  step: a release that changes the parse fails it, and the C# port is updated in
-  the pull request that takes the release. The schema is one text,
+  every branch collided on (local ADR 0004). A database kept beside the folders
+  still had to be ignored per layout, and it existed only if somebody had run
+  the script (local ADR 0015). Building it into the app's own storage gives every
+  clone, worktree and branch snapshot search without a step.
+- **How** — the Node writer imports the generator rather than forking it, for
+  the graph, the outline, and each chapter's open-note count. No authored order
+  file exists: the outline is the convention's (local ADR 0016). The Node writer
+  builds the `.devbook/` layout only; the C# builder also reads a root-layout
+  repository. `node:sqlite` provides SQLite and FTS5 with no dependency added.
+  `.github/workflows/devbook-metadata.yml` runs the writer's tests and then
+  `--check` against the real corpus as a **blocking** step. The parity test
+  compares every table but `meta` and `problem` row for row, which is why the
+  .NET test job installs Node.
+- **Caveat** — two parsers read one corpus, and one of them ports code the
+  devbook plugin owns and changes on release. The parity test keeps them in
+  step: a release that changes the parse fails it, and the pull request that
+  takes the release updates the C# port. The schema is one text,
   `tools/devbook/devbook-schema.sql`, which the Node tooling reads and the C#
   assembly embeds, so neither side restates it.
 
@@ -401,19 +436,25 @@ related: [".devbook/tech/tooling.md#ajv", ".devbook/tech/tooling.md#simple-icons
 A JSON-IR diagram renderer, vendored under `tools/archify/`.
 
 - **Used for** — re-authoring a knowledge-chapter mermaid fence as a
-  specification and rendering a self-contained HTML artifact from it, which the
-  desktop app shows in place of the drawn mermaid behind the `archify-diagrams`
-  flag. `tools/diagrams/archify-artifacts.mjs` wraps it with `scan`, `scaffold`,
-  `render`, and `verify`.
+  specification and rendering a self-contained HTML artifact from it. The
+  desktop app shows that artifact in place of the drawn mermaid behind the
+  `archify-diagrams` flag. `tools/diagrams/archify-artifacts.mjs` wraps it with
+  `scan`, `scaffold`, `render`, and `verify`.
 - **Why** — it is a visualization layer over the canonical fence, not a
-  replacement: an artifact is matched to a diagram by the SHA-256 of the
-  normalized fence, so an edited diagram misses the lookup and falls back to
-  mermaid with an out-of-date note instead of confidently showing a stale
-  picture.
+  replacement. An artifact is matched to a diagram by the SHA-256 of the
+  normalized fence. An edited diagram therefore misses the lookup and falls back
+  to mermaid with an out-of-date note, rather than showing a stale picture.
 - **How** — vendored with no `node_modules`, so the commands run on a bare Node
-  install. A specification is accepted only at 9/9 checks; three diagrams in the
+  install. A specification is accepted only at 9/9 checks. A few diagrams in the
   repository render at the `standard` profile instead of `showcase`, and say so
   in their filename.
+- **What is committed** — the specifications and `_archify/index.json` only
+  (local ADR 0034). The desktop app draws each artifact on demand from its
+  specification, with the clone's `tools/archify` or the copy bundled beside the
+  app, into `_archify-renders/` under the devbook cache folder. The cache key
+  covers the specification, its type and quality, and the generator's content,
+  so an upgrade redraws every diagram by itself. The upstream example renders
+  are not vendored, and `.gitignore` keeps any local render out.
 
 ## c4hero
 
@@ -426,27 +467,27 @@ related: [".devbook/tech/tooling.md#archify", ".devbook/design/component-librari
 ```
 
 A browser-based visual editor for C4 architecture diagrams that saves Structurizr
-DSL. Apache-2.0. **Not vendored and not a runtime dependency** — see below.
+DSL, under the Apache-2.0 licence. It is **not vendored and not a runtime
+dependency**.
 
-- **Used for** — authoring `.devbook/arc42/_c4/*.dsl`, the C4 model kept beside the
-  architecture chapters. The desktop app reads that DSL and explores it on the
-  Architecture panel's C4 tab behind the `c4-diagrams` flag — Views panel,
-  click-to-drill, breadcrumb, search, Highlighter, pan and zoom, minimap and
-  presentation mode, over a picture the app draws itself. c4hero is what a person
-  opens to change the model.
-- **Why** — the model wanted a real editor and this repository wanted no new build.
-  c4hero is local-first and saves plain `.dsl` through the File System Access API,
-  so the authored artifact is reviewable text in git and the editor never has to be
-  part of the product. Structurizr DSL rather than a format of our own because it
-  is what Structurizr Lite, Studio and the JSON exporters already read.
-- **How** — opened at `app.c4hero.com` or run from a clone (Node 22+), pointed at
-  the `_c4` folder. Nothing here installs it, vendors it, or shells out to it: it
-  has no CLI, and the app reads the DSL with its own reader
-  (`src/Core/Backlog.UI.Components/Diagrams/C4/`) rather than through anything
-  c4hero ships. That reader is therefore a second implementation of c4hero's
-  dialect, pinned against c4hero's own conformance fixture and required to report
-  rather than guess — `tools/diagrams/C4.md` says why.
-
+- **Used for** — authoring `.devbook/arc42/_c4/*.dsl`, the C4 model kept beside
+  the architecture chapters. The desktop app reads that DSL and draws it itself
+  on the Architecture panel's C4 tab, behind the `c4-diagrams` flag.
+  [C4 workspaces](../design/component-libraries.md#c4-workspaces) holds the
+  tab's rules and what it offers. c4hero is what a person opens to change the model.
+- **Why** — the model wanted a real editor, and this repository wanted no new
+  build. c4hero is local-first and saves plain `.dsl` through the File System
+  Access API. The authored artifact is therefore reviewable text in git, and the
+  editor never has to be part of the product. The format is Structurizr DSL
+  rather than one of our own, because Structurizr Lite, Studio and the JSON
+  exporters already read it.
+- **How** — a person opens it at `app.c4hero.com`, or runs it from a clone
+  (Node 22+), and points it at the `_c4` folder. Nothing here installs it,
+  vendors it, or shells out to it, and it has no CLI. The app reads the DSL with
+  its own reader in `src/Core/Backlog.UI.Components/Diagrams/C4/`, not through
+  anything c4hero ships. That reader is a second implementation of c4hero's
+  dialect. It is pinned against c4hero's own conformance fixture and must report
+  what it cannot read rather than guess; `tools/diagrams/C4.md` says why.
 
 ## Ajv
 
@@ -462,8 +503,8 @@ JSON Schema validation.
 - **Used for** — validating an Archify specification before it renders, through
   the generated validators `tools/archify/scripts/generate-validators.mjs`
   produces.
-- **Why** — a specification that fails validation must not produce an artifact;
-  the check is compiled rather than interpreted at render time.
+- **Why** — a specification that fails validation must not produce an artifact,
+  and the check is compiled rather than interpreted at render time.
 
 ## simple-icons
 
@@ -478,6 +519,6 @@ The brand-mark icon set.
 
 - **Used for** — the technology marks Archify draws into an artifact, generated
   into the renderer by `generate-brand-marks.mjs`.
-- **Why** — pinned to an exact version, and both generators ship a `--check` mode
-  that the vendored test script runs, so a regenerated output cannot drift from
-  what is committed.
+- **Why** — it is pinned to an exact version, and both generators ship a
+  `--check` mode that the vendored test script runs. A regenerated output
+  therefore cannot drift from what is committed.

@@ -264,11 +264,12 @@ public sealed class InProgressViewTests
             Assert.Contains("JSdotNet/Backlog#700", section.FindAll("[data-testid='work-link-picker-option']").Select(option => option.GetAttribute("data-option-id"))));
     }
 
-    /// <summary>The task list's "No repository" scope narrows In progress the way it
-    /// narrows the list: only entries filed against no repository, and of the loose
-    /// work only what lives in no registered repository.</summary>
+    /// <summary>The Brain in the header's scope narrows In progress the way it narrows
+    /// the list: only entries filed against no repository, and of the loose work only
+    /// what lives in no registered repository — never a pull request, which is always
+    /// read from one (local ADR 0027).</summary>
     [Fact]
-    public async Task The_no_repository_scope_narrows_the_view_like_the_task_list()
+    public async Task The_brain_scope_narrows_the_view_like_the_task_list()
     {
         using var host = await TasksPaneHost.CreateAsync(Repository);
         await host.WriteEntryAsync(Entry);
@@ -281,7 +282,7 @@ public sealed class InProgressViewTests
         var view = Render(host, reader);
         view.WaitForAssertion(() => Assert.Equal(2, view.FindAll("[data-testid='in-progress-task']").Count));
 
-        host.State.SetNoRepositoryFilter(true);
+        host.State.SetBrainFilter();
 
         view.WaitForAssertion(() =>
         {
@@ -290,7 +291,7 @@ public sealed class InProgressViewTests
             Assert.Equal(["nowhere"], view.FindAll("[data-testid='in-progress-loose']").Select(item => item.GetAttribute("data-loose-key")));
         });
 
-        host.State.SetNoRepositoryFilter(false);
+        host.State.SetRepositoryFilter(null);
 
         view.WaitForAssertion(() => Assert.Equal(2, view.FindAll("[data-testid='in-progress-task']").Count));
     }
@@ -352,6 +353,74 @@ public sealed class InProgressViewTests
             Assert.NotEmpty(section.FindAll("[data-testid='work-links-no-pull-requests']"));
             Assert.Equal("Link a pull request…", section.Find("[data-testid='work-links-link']").TextContent.Trim());
         });
+    }
+
+    /// <summary>A render nothing the projection is drawn from moved for — a board
+    /// toggle — draws from the projection already worked out.</summary>
+    [Fact]
+    public async Task A_render_with_nothing_changed_reuses_the_projection()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        await host.WriteEntryAsync(Entry);
+        var reader = Reader(host, Session("loose", AgentSessionState.Running, Noon.AddMinutes(-6), resolved: Repository));
+
+        var view = Render(host, reader);
+        view.WaitForAssertion(() => Assert.NotEmpty(view.FindAll("[data-loose-key='loose']")));
+        var builds = view.Instance.ProjectionBuilds;
+        var renders = view.RenderCount;
+
+        view.Find("[data-testid='in-progress-needs-you-first']").Click();
+
+        view.WaitForAssertion(() => Assert.True(view.RenderCount > renders));
+        Assert.Equal(builds, view.Instance.ProjectionBuilds);
+        Assert.Single(view.FindAll("[data-testid='in-progress-task']"));
+        Assert.Single(view.FindAll("[data-loose-key='loose']"));
+    }
+
+    /// <summary>A change the task list or the reader announces works the projection out
+    /// again, so a new entry and a session read since both come to the board.</summary>
+    [Fact]
+    public async Task An_announced_change_brings_the_new_card_and_the_new_session()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        await host.WriteEntryAsync(Entry);
+        var sessions = new List<AgentSession> { Session("first", AgentSessionState.Running, Noon.AddMinutes(-6), resolved: Repository) };
+        var clock = new FakeTimeProvider(Noon);
+        host.Context.Services.AddSingleton<TimeProvider>(clock);
+        var reader = new WorkInProgressReader(host.GitHub, new GrowingSessionSource(sessions), clock);
+
+        var view = Render(host, reader);
+        view.WaitForAssertion(() =>
+        {
+            Assert.Single(view.FindAll("[data-testid='in-progress-task']"));
+            Assert.Equal(["first"], view.FindAll("[data-testid='in-progress-loose']").Select(item => item.GetAttribute("data-loose-key")));
+        });
+        var builds = view.Instance.ProjectionBuilds;
+
+        await host.WriteEntryAsync("# Tidy the notes\n`task` `!in-progress` `repo:JSdotNet/Backlog`\n");
+
+        view.WaitForAssertion(() =>
+            Assert.Equal(
+                ["Tidy the notes", "Wire the In progress view"],
+                view.FindAll("[data-testid='in-progress-task-title']").Select(title => title.TextContent.Trim()).Order()));
+
+        sessions.Add(Session("second", AgentSessionState.Running, Noon.AddMinutes(-2), resolved: Repository));
+        await reader.ReadAsync();
+
+        view.WaitForAssertion(() =>
+            Assert.Equal(
+                ["first", "second"],
+                view.FindAll("[data-testid='in-progress-loose']").Select(item => item.GetAttribute("data-loose-key")).Order()));
+        Assert.True(view.Instance.ProjectionBuilds > builds);
+    }
+
+    private sealed class GrowingSessionSource(List<AgentSession> sessions) : IAgentSessionSource
+    {
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AgentSessionCatalog([.. sessions], [], sessions.Count));
     }
 
     private const string SessionTarget = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.SessionTargetType;

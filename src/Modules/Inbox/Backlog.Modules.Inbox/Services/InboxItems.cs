@@ -35,6 +35,7 @@ using Backlog.Modules.Inbox.Features.RestoreItem;
 using Backlog.Modules.Inbox.Features.ReturnToInbox;
 using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
+using Backlog.Modules.Inbox.Features.RouteToBrain;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.Suggest;
 using Backlog.Modules.Inbox.Features.UngroupLists;
@@ -47,9 +48,10 @@ namespace Backlog.Modules.Inbox.Services;
 /// The published <see cref="IInboxItems"/> port, wired to the feature slices
 /// behind it. Deliberately nothing but mapping, as <c>TaskItems</c> is: every
 /// rule lives in a handler or in the aggregate, so there is no third place to
-/// look. The two things it answers itself are <see cref="PlanDrafterAvailability"/>
-/// and <see cref="TriageAdvisorAvailable"/>, which are reads of the drafter's and
-/// the advisor's own property and not rules.
+/// look. The three things it answers itself are <see cref="PlanDrafterAvailability"/>,
+/// <see cref="TriageAdvisorAvailable"/> and <see cref="BrainUnavailableReason"/>,
+/// which are reads of the drafter's, the advisor's and the Brain target's own
+/// property and not rules.
 /// </summary>
 internal sealed class InboxItems(
     IQueryHandler<GetInboxQuery, InboxSnapshotDto> snapshot,
@@ -66,6 +68,7 @@ internal sealed class InboxItems(
     ICommandHandler<ReturnToInboxCommand, Result> returnToInbox,
     ICommandHandler<ResurfaceDueItemsCommand, Result<int>> resurfaceDue,
     ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>> routeToBacklog,
+    ICommandHandler<RouteToBrainCommand, Result<InboxBrainRoutedDto>> routeToBrain,
     ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>> createPlan,
     ICommandHandler<RouteBatchToBacklogCommand, Result<InboxBatchRoutedDto>> routeBatchToBacklog,
     IQueryHandler<ProposeBatchQuery, Result<InboxBatchProposalDto>> proposeBatch,
@@ -91,8 +94,14 @@ internal sealed class InboxItems(
     IQueryHandler<ProposeTriagePassQuery, Result<InboxTriagePassDto>> proposeTriagePass,
     ICommandHandler<EditNoteCommand, Result> editNote,
     IInboxPlanDrafter? drafter = null,
-    IInboxTriageAdvisor? triageAdvisor = null) : IInboxItems
+    IInboxTriageAdvisor? triageAdvisor = null,
+    IInboxBrainTarget? brainTarget = null) : IInboxItems
 {
+    /// <summary>The Brain target's own answer; with none, as the route itself
+    /// answers, there is no Brain here.</summary>
+    public string? BrainUnavailableReason =>
+        brainTarget is null ? InboxErrors.NoBrainHere : brainTarget.UnavailableReason;
+
     public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
         snapshot.Handle(new GetInboxQuery(), cancellationToken);
 
@@ -185,6 +194,9 @@ internal sealed class InboxItems(
         string? entryType = null,
         CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType), cancellationToken);
+
+    public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default) =>
+        routeToBrain.Handle(new RouteToBrainCommand(id), cancellationToken);
 
     public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,

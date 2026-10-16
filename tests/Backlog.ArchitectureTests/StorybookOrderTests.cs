@@ -46,6 +46,7 @@ public class StorybookOrderTests
     private static readonly IReadOnlyDictionary<string, string[]> Chapters = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["Badges"] = ["badges"],
+        ["Brain"] = ["devbook/brain-folder", "devbook/brain-pane"],
         ["Buttons"] = ["buttons"],
         ["Capture"] = ["capture"],
         ["Code"] = ["code"],
@@ -66,8 +67,10 @@ public class StorybookOrderTests
         ["Notes"] = ["notes"],
         ["Overlays"] = ["overlays"],
         ["Roadmap"] = ["roadmap"],
+        ["Progress"] = ["sprint-settings", "sprint-view", "sprint-planning"],
         ["Selection"] = ["selection-bar"],
         ["Selects"] = ["selects"],
+        ["Settings"] = ["settings-"],
         ["Shell"] = ["app-shell"],
         ["Tasks"] = ["task-list", "inputs"]
     };

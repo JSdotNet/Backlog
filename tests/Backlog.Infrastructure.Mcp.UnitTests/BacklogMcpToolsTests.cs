@@ -43,6 +43,7 @@ public class BacklogMcpToolsTests
                 "read_knowledge_chapter",
                 "list_annotations",
                 "resolve_annotation",
+                "capture_note",
                 "list_sessions",
 
                 // The delivery surface's eight, in the order the engine's
@@ -173,13 +174,14 @@ public class BacklogMcpToolsTests
     /// <b>Idempotency is a fact about each tool, not a property of writing.</b>
     /// Resolving an already-resolved note is the state it is already in, and
     /// moving an entry to the status it already has saves nothing — both are safe
-    /// to repeat. The three beside them are not, and say so:
+    /// to repeat. The four beside them are not, and say so:
     /// <c>TaskItem.AddProjectionRef</c> appends without looking, so a repeated
     /// <c>link_change</c> leaves two identical projections, a repeated
-    /// <c>comment</c> leaves two dated lines, and <c>create_item</c> creates a
-    /// second entry. A blanket "a write is idempotent" would be the kind of
-    /// true-of-one-tool rule that invites a client to retry the ones it is false
-    /// for. The surface's six split the same way and for reasons just as
+    /// <c>comment</c> leaves two dated lines, <c>create_item</c> creates a
+    /// second entry, and <c>capture_note</c> writes a second Brain note, the
+    /// writer taking the next free name rather than overwriting the first. A
+    /// blanket "a write is idempotent" would be the kind of true-of-one-tool
+    /// rule that invites a client to retry the ones it is false for. The surface's six split the same way and for reasons just as
     /// particular — the list below says which and why.
     /// </para>
     /// <para>
@@ -195,6 +197,7 @@ public class BacklogMcpToolsTests
         string[] writers =
         [
             DevbookTools.ResolveAnnotation,
+            DevbookTools.CaptureNote,
             TrackerTools.Transition,
             TrackerTools.SetBlocked,
             TrackerTools.Comment,

@@ -12,10 +12,10 @@ related: [.devbook/domain/sessions/domain.md#liveness-assessment, .devbook/domai
 ## How a session reads
 
 The states below are **the result of a reading, not a stored lifecycle.** Nothing in
-this context transitions a session; each reading looks at the evidence available at
+this context transitions a session. Each reading looks at the evidence available at
 that moment and says what it means. That is why the edges are labelled with what the
-evidence shows rather than with events, and why every state can be reached directly
-from a fresh reading.
+evidence shows rather than with events. It is also why every state can be reached
+directly from a fresh reading.
 
 ```mermaid
 stateDiagram-v2
@@ -31,19 +31,19 @@ stateDiagram-v2
     finished --> [*]
 ```
 
-- `running` and `stalled` are the same evidence read against a different clock, which
-  is why the pair can move back and forth: a session that goes quiet for an hour and
+- `running` and `stalled` are the same evidence read against a different clock. That
+  is why the pair can move back and forth. A session that goes quiet for an hour and
   then resumes was never anything but running.
 - `finished` is terminal **for a given identity**. Nothing brings a session back from
-  it, because the thing that would have to reappear — the agent's liveness record — is
-  written per process and a resumed session is a new process, not a revived one.
+  it. What would have to reappear is the agent's liveness record, which is written per
+  process, and a resumed session is a new process, not a revived one.
 - There is no `failed`. A record that stops says nothing about whether the session was
   answered, abandoned or crashed, and this context does not guess between them.
 - A reader's `Session View` is deliberately **not** on this diagram. It reads the three
-  states and moves a session between none of them: a finished session a live view is
-  not showing is finished, not in a fourth state and not in transit towards one.
-  Whether a row is on screen is a property of the reading being displayed, and putting
-  it here would turn the reader's own choice into something that happens to a session.
+  states and moves a session between none of them. A finished session that a live view
+  is not showing is finished, not in a fourth state and not in transit towards one.
+  Whether a row is on screen is a property of the reading being displayed. Putting it
+  here would turn the reader's own choice into something that happens to a session.
 
 ## How an environment's sessions are read
 
@@ -69,24 +69,26 @@ sequenceDiagram
     Log-->>Reader: Session Catalog — sessions, unreadable sources, discovered count
 ```
 
-- **The agents are asked independently and their failures are collected, not
-  thrown.** An environment with only one agent installed is the ordinary case, and one
-  source being unreadable must not cost the reader the other's sessions. Each source
-  either contributes its sessions or contributes its name to `unreadable`.
+- **The agents are asked independently, and their failures are collected, not
+  thrown.** An environment with only one agent installed is the ordinary case, and
+  [one unreadable source costs only its own sessions](requirements.md#requirement-one-unreadable-source-costs-only-its-own-sessions).
+  Each source either
+  contributes its sessions or contributes its name to `unreadable`.
 - **Duplicates are collapsed before anything else.** One session can leave more than
-  one record — a live marker per process beside its own transcript, or two transcripts
-  when the session changed folder and was filed under both — and the aggregate's first
+  one record. It may leave a live marker per process beside its own transcript, or two
+  transcripts when it changed folder and was filed under both. The aggregate's first
   invariant is that it appears once. The most recent record wins: it is the one the
   agent went on writing, and for a live session it is the process actually running.
-  Before the cap and before the count, so a session filed twice costs one place in the
-  list rather than two and the number travelling back is a number of sessions.
+  The collapse comes before the cap and before the count. So a session filed twice
+  costs one place in the list rather than two, and the number travelling back is a
+  number of sessions.
 - **Liveness is assessed last, per session, against one clock.** A single clock per
-  reading is what makes two sessions in the same list comparable; assessing each
+  reading is what makes two sessions in the same list comparable. Assessing each
   against its own would let one row be stale relative to another.
 - **How many exist travels back with what was described.** A reading for a list may
-  stop at the most recent sessions per agent, so the count of what it found is part of
-  the answer rather than something the reader has to go and check. A reading since a
-  horizon stops nowhere inside it, which is what makes it the shape a count reads.
+  stop at the most recent sessions per agent. So the count of what it found is part of
+  the answer, not something the reader has to go and check. A reading since a horizon
+  stops nowhere inside it, which makes it the shape a count reads.
 
 ## How optional session activity reporting works
 
@@ -112,8 +114,8 @@ sequenceDiagram
 ```
 
 - **Reporting is milestone-based, not transcript-shaped.** The session emits start,
-  meaningful deltas, and finish because those are the facts a later reader can use;
-  token streams and tool bodies would bloat the evidence without improving the answer.
+  meaningful deltas, and finish, because those are the facts a later reader can use.
+  Token streams and tool bodies would bloat the evidence without improving the answer.
 - **Capability is checked as a path state, not guessed from missing events.** No
   external updates can mean "not configured" or "temporarily unreachable", so the
   reporting path carries its own reading.

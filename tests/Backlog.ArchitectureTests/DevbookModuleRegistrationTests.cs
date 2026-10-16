@@ -51,6 +51,9 @@ public sealed partial class DevbookModuleRegistrationTests
         "DevbookScope",
         "DevbookUpdateService",
         "DevbookSourceSelection",
+        "DevbookBranchReview",
+        "DevbookBranchComparisons",
+        "DevbookBranchOverview",
         "DevbookFolderOpenService",
         "Arc42DevbookStore",
         "C4DevbookStore",
@@ -170,6 +173,75 @@ public sealed partial class DevbookModuleRegistrationTests
             File.Exists(Path.Combine([Repository.Root.FullName, .. DevbookUi.Split('/'), moved])),
             $"{moved} is back in the Devbook UI project; it belongs in Backlog.Infrastructure.Devbook.");
         Assert.True(File.Exists(Path.Combine(chapters, moved)), $"{moved} is not in Backlog.Infrastructure.Devbook/Chapters.");
+    }
+
+    /// <summary>
+    /// The third slice: the instructions area's readers. Discovery and the folder walk
+    /// it prunes by, the path tree the comparison's picker is drawn from, and the probe
+    /// of what each host loads from the home directory all read the disk and render
+    /// nothing, so they sit in the adapter's <c>Instructions/</c> folder. The screen
+    /// keeps what it draws: the repository view, the mapping to the picker's tree
+    /// nodes, and the totals the comparison sums.
+    /// </summary>
+    [Theory]
+    [InlineData("InstructionSourceDiscovery.cs")]
+    [InlineData("InstructionFileWalk.cs")]
+    [InlineData("InstructionPathTree.cs")]
+    [InlineData("UserContextSources.cs")]
+    public void The_instruction_source_readers_live_in_the_adapter(string moved)
+    {
+        var instructions = Path.Combine(
+            Repository.Root.FullName, "src", "Infrastructure", "Backlog.Infrastructure.Devbook", "Instructions");
+
+        Assert.False(
+            File.Exists(Path.Combine([Repository.Root.FullName, .. DevbookUi.Split('/'), moved])),
+            $"{moved} is back in the Devbook UI project; it belongs in Backlog.Infrastructure.Devbook.");
+        Assert.True(File.Exists(Path.Combine(instructions, moved)), $"{moved} is not in Backlog.Infrastructure.Devbook/Instructions.");
+    }
+
+    /// <summary>
+    /// The fourth slice: the document-shaped folders, <c>design/</c> and <c>ai/</c>.
+    /// Their provider and parser, and the folder descriptor they are built on, sit in
+    /// the adapter's <c>Documents/</c> folder; the <c>sync</c> field's writer and the
+    /// reading the provider hands a pane went with them into <c>Chapters/</c>, beside
+    /// the status writer they are built on, and so did the guard every store's write
+    /// checks the folder with first. The screen keeps the one member that built a UI
+    /// type, <c>DevbookSyncReading.Scope</c>, as an extension of its own.
+    /// </summary>
+    [Theory]
+    [InlineData("Documents", "DocumentDevbook.cs")]
+    [InlineData("Documents", "DocumentDevbookFolder.cs")]
+    [InlineData("Chapters", "DevbookMarkdownSyncWriter.cs")]
+    [InlineData("Chapters", "DevbookWriteGuard.cs")]
+    public void The_document_folder_provider_and_the_sync_reader_live_in_the_adapter(string folder, string moved)
+    {
+        var destination = Path.Combine(
+            Repository.Root.FullName, "src", "Infrastructure", "Backlog.Infrastructure.Devbook", folder);
+
+        Assert.False(
+            File.Exists(Path.Combine([Repository.Root.FullName, .. DevbookUi.Split('/'), moved])),
+            $"{moved} is back in the Devbook UI project; it belongs in Backlog.Infrastructure.Devbook.");
+        Assert.True(File.Exists(Path.Combine(destination, moved)), $"{moved} is not in Backlog.Infrastructure.Devbook/{folder}.");
+    }
+
+    /// <summary>
+    /// What the slices moved must not drag the screen in after it: no file in the
+    /// adapter imports the component library or ASP.NET Core, which is why the
+    /// sync reading's <c>Scope</c> stayed behind as a UI-side extension.
+    /// </summary>
+    [Fact]
+    public void The_devbook_adapter_names_no_ui_namespace()
+    {
+        var offenders = SourceFiles("src/Infrastructure/Backlog.Infrastructure.Devbook", "*.cs")
+            .Where(file => file.Text.Contains("Backlog.UI.Components", StringComparison.Ordinal)
+                || file.Text.Contains("Microsoft.AspNetCore", StringComparison.Ordinal))
+            .Select(file => file.RelativePath)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "Backlog.Infrastructure.Devbook names a UI namespace; keep that code in the Devbook UI project:\n"
+            + string.Join('\n', offenders));
     }
 
     private static IEnumerable<(string RelativePath, string Text)> SourceFiles(string root, string pattern)

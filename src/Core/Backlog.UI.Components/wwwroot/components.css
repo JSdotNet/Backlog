@@ -233,11 +233,15 @@
     /* Weights share a table with the line heights below, but were the one
        sub-family of the type scale never declared here. Three rules asked for
        semibold by name and got normal instead, which is the whole visible weight
-       difference between a heading and its body. Only this step is declared,
-       because it is the only one referenced: .devbook/design/typography-and-layout.md
-       reserves it for body emphasis in place of bold, and the other weights are
-       still written as literals where they are used. */
+       difference between a heading and its body. A step is declared once a rule
+       references it: semibold first, which .devbook/design/typography-and-layout.md
+       reserves for body emphasis in place of bold, then normal, medium and bold for
+       the chips .devbook/design/effort-and-mode-chips.md specifies. Light is not
+       referenced yet, and older rules still write their weights as literals. */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
     --font-weight-semibold: 600;
+    --font-weight-bold: 700;
 
     --line-height-tight: 1.25;
     --line-height-normal: 1.5;
@@ -392,14 +396,102 @@
     box-shadow: var(--shadow-sm);
 }
 
-.btn--primary:hover {
+.btn--primary:hover:where(:not([aria-disabled="true"])) {
     background: var(--color-primary-light);
     box-shadow: var(--shadow-md);
 }
 
-.btn--primary:active {
+.btn--primary:active:where(:not([aria-disabled="true"])) {
     background: var(--color-primary-dark);
     transform: scale(0.98);
+}
+
+/*
+  Press feedback, for every pressable control at once
+  (.devbook/design/interaction-guidelines.md#press-feedback).
+
+  Only `.btn--primary` had a pressed state, so a press on any other variant, a
+  chip, a tab, a menu item, a switch or a row button showed nothing until the
+  work behind it finished — and in the desktop app that work runs on the thread
+  that paints. One rule rather than one per class: almost every pressable thing
+  in the product is a `<button>` — AppButton and its BaseClass hosts, IconButton,
+  ToggleButton, the switch track, menu items, tabs — so keying on the element
+  reaches the app's own classes too, and a new one gets it without being listed.
+  The link-shaped ones are named: an AppButton with an Href, and the shell's tab
+  bar. A checkbox or radio dims too, and its label pressing it counts.
+
+  A brightness filter rather than a fill, because the variants disagree about
+  their fill — transparent, amber, red — and a filter darkens each of them, and
+  the label on a transparent one, without knowing which it is. It is colour
+  only, so it holds under reduced motion as it is. No transition: a pressed state
+  that eases in is a pressed state that arrives late.
+
+  `:where()` keeps it at the weight of `:active` alone, so a component that sets
+  a filter of its own still wins. A disabled control and a busy one
+  (aria-disabled, AppButton's Busy) take no press: nothing will happen.
+
+  Two exclusions, both because `:active` lasts as long as the pointer is held
+  and climbs to ancestors. The body of a draggable task row is the handle a
+  reorder drags by, so a press there would keep the whole row darkened for
+  the length of the drag. And an option that holds a button of its own is
+  active whenever that button is, so it would darken under the button's own
+  darkening; the button is the one that was pressed.
+*/
+:where(button, a.btn, .tab-bar__tab, [role="option"], input[type="checkbox"], input[type="radio"]):active:where(:not(:disabled, [aria-disabled="true"], [data-draggable="true"] .task-item__body, [role="option"]:has(button:active))) {
+    filter: brightness(0.85);
+}
+
+/* The one press that moves. Under reduced motion the darker fill above is the
+   whole acknowledgement. */
+@media (prefers-reduced-motion: reduce) {
+    .btn--primary:active {
+        transform: none;
+    }
+}
+
+/* A busy AppButton keeps its look and its place in the tab order; the spinner
+   says it is working and the pointer agrees. */
+.btn[aria-busy="true"] {
+    cursor: progress;
+}
+
+/*
+  A region that is reloading dims, so a refresh shows where it is happening
+  without blanking what the reader was looking at
+  (.devbook/design/interaction-guidelines.md#scoped-loading). Any element with
+  aria-busy="true" gets it, which is the attribute the accessibility rules
+  already ask a loading region to carry.
+
+  Not a button or a link: AppButton's Busy carries its own spinner and stays
+  full strength. Not a region showing skeletons either — a first load has
+  nothing to dim, and a dimmed placeholder only looks broken. The skeleton is
+  recognised by the library's own class or a host's `__skeleton` wrapper (the
+  TreeView shape), not by any class that merely contains the word. The
+  transition is on the way in only; the content comes back at once.
+
+  A busy region inside a busy region is not dimmed again: the outer one
+  already says the area is loading, and 0.6 twice is content nobody can read.
+
+  Opacity makes the region a stacking context. The library's menus and
+  popovers are shown in the top layer (`showPopover`, `<dialog>`), which paints
+  outside it, so they stay full strength and on top; something a host
+  positions absolutely inside a refreshing region dims with it, which is
+  accepted — it is part of what is refreshing.
+*/
+[aria-busy="true"]:where(:not(button, a, :has(.skeleton, [class*="__skeleton"]))) {
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+}
+
+[aria-busy="true"] [aria-busy="true"]:where(:not(button, a)) {
+    opacity: 1;
+}
+
+/* A button blocked while a sibling act runs (aria-disabled without Busy) reads
+   as disabled does, so a press on it does not look lost. */
+.btn[aria-disabled="true"]:not([aria-busy="true"]) {
+    cursor: default;
+    opacity: 0.55;
 }
 
 .btn--secondary {
@@ -408,7 +500,7 @@
     border-color: var(--color-primary);
 }
 
-.btn--secondary:hover {
+.btn--secondary:hover:where(:not([aria-disabled="true"])) {
     background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
@@ -417,12 +509,12 @@
     color: var(--color-text-secondary);
 }
 
-.btn--ghost:hover {
+.btn--ghost:hover:where(:not([aria-disabled="true"])) {
     background: var(--color-background-alt);
     color: var(--color-text-primary);
 }
 
-.btn--destructive:hover {
+.btn--destructive:hover:where(:not([aria-disabled="true"])) {
     background: var(--color-error);
     color: var(--color-text-primary);
 }
@@ -556,9 +648,12 @@ button.badge {
    *are* the cue — open takes this exact pair, merged the strong edge, closed and
    draft the disabled ink. Repainting them all amber would say "followable" about a
    row where every badge is, and lose the only thing the row was distinguishing.
+
+   `.badge--sync` is held out on the same rule: the centre of the sync arrow pad is a
+   button, and its direction's edge and ink are the badge's whole message.
 */
-a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--linked),
-button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--linked) {
+a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--sync, .badge--linked),
+button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--sync, .badge--linked) {
     border-color: var(--color-primary-dark);
     color: var(--color-primary-light);
 }
@@ -723,6 +818,19 @@ button.badge:hover {
     background: transparent;
     border-color: var(--color-primary-dark);
     color: var(--color-primary-light);
+}
+
+/*
+  The Brain, by name, in the band painting (.devbook/design/color-scheme.md#band-painting,
+  #the-brains-accent): a 4px band-2 leading border, the band's 24% surface and primary
+  ink. Always drawn — it does not wait on the header's Colors switch — and the word is
+  printed, so the teal is never the only thing saying Brain.
+*/
+.badge--brain {
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+    color: var(--color-text-primary);
+    white-space: nowrap;
 }
 
 /*
@@ -901,30 +1009,124 @@ button.badge:hover {
 .badge--sync-sync { border-color: var(--color-success-text); color: var(--color-success-text); }
 .badge--sync-off { color: var(--color-text-disabled); border-style: dashed; }
 
-/* The editable form, shaped like .status-editor and positioned for the same
-   reason: it carries the sr-only label naming the control. */
-.sync-editor {
+/* The editable direction: an arrow pad. Four keys sit where their arrows point,
+   around the badge naming the direction in force, so the key that states a
+   direction is the one its arrow reaches. Outlined like the badge: the pressed
+   key takes an edge and ink, never a fill, because a direction must not read as
+   a status.
+
+   Sized by its content and nothing else: whatever row or stack it lands in, a
+   stretching parent must not pull the side keys away from the centre, and a
+   shrinking one must not wrap the centre's words — the pad is the same size in
+   every state but the width of the words it names. */
+.sync-pad {
+    display: inline-grid;
+    grid-template-areas:
+        ".    up     ."
+        "left value  right"
+        ".    down   .";
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+    align-content: start;
+    gap: var(--spacing-2xs);
+    align-items: center;
+    justify-items: center;
+    flex: 0 0 auto;
+    width: max-content;
+    align-self: start;
+    justify-self: start;
+    margin-left: var(--spacing-xs);
+    vertical-align: middle;
+}
+
+/* In a record's headline the pad is the tallest thing on the line, and the line
+   lines its items up by their baselines — which put the pad's top key level with
+   the status and its centre a key-height below. A row holding a pad centres
+   instead, so the centre naming the direction sits on the line beside the
+   status and the heading. Only such a row: every other headline keeps its
+   baselines. */
+.devbook-record__headline:has(> .sync-pad) {
+    align-items: center;
+}
+
+.devbook-record__headline > .sync-pad {
+    align-self: center;
+}
+
+.sync-pad__key--up { grid-area: up; }
+.sync-pad__key--left { grid-area: left; }
+.sync-pad__key--right { grid-area: right; }
+.sync-pad__key--down { grid-area: down; }
+
+/* Each key is a 1.5rem square — 24 px, WCAG 2.5.8's minimum — around a 12 px
+   glyph, and its hit area reaches a further --spacing-sm outward, the way its
+   arrow points, through a transparent ::before. It never reaches inward or
+   sideways, so an imprecise press on ← cannot land on the centre or
+   on ↑. The pad stays an inline control beside the status; the 44 px of
+   .devbook/design/accessibility.md is not met. */
+.sync-pad__key {
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
-}
-
-.sync-editor__select {
-    min-width: 0;
-    min-height: 1.5rem;
-    padding: 1px var(--spacing-xs);
-    border: none;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
     background: transparent;
-    color: inherit;
-    font: inherit;
+    color: var(--color-text-disabled);
     cursor: pointer;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
 }
 
-.sync-editor__select:focus-visible {
+.sync-pad__key::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+
+.sync-pad__key--up::before { top: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--down::before { bottom: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--left::before { left: calc(-1 * var(--spacing-sm)); }
+.sync-pad__key--right::before { right: calc(-1 * var(--spacing-sm)); }
+
+.sync-pad__key:hover {
+    border-color: var(--color-border);
+    color: var(--color-text-primary);
+}
+
+.sync-pad__key[aria-pressed="true"] {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.sync-pad__key:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
+}
+
+/* The glyph is ChevronUpIcon, turned to the key's arrow here, as its own file
+   asks a host to. */
+.sync-pad__glyph--right { transform: rotate(90deg); }
+.sync-pad__glyph--down { transform: rotate(180deg); }
+.sync-pad__glyph--left { transform: rotate(-90deg); }
+
+/* The centre never wraps: its words changing length may widen the pad, never
+   make it taller. No margin of its own — .badge--sync's is spacing for a badge
+   in a row, and the keys sit tight around the centre on the grid's gap. */
+.sync-pad__value {
+    grid-area: value;
+    margin: 0;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* Outlined in the pad whatever the direction. Elsewhere pull keeps the info
+   surface .badge--sync-pull gives it; in the pad the centre sits among keys
+   that are all outlined, and a filled one would read as the status beside it.
+   Pull keeps its strong edge and primary ink, so it still differs from report. */
+.sync-pad__value.badge--sync-pull {
+    background: transparent;
 }
 
 .badge--progress {
@@ -1232,6 +1434,7 @@ button.badge:hover {
 }
 
 .connected-target__error,
+.connected-target__paused,
 .connected-target__sync-message {
     margin: var(--spacing-xs) 0 0;
 }
@@ -1240,6 +1443,29 @@ button.badge:hover {
     display: grid;
     gap: var(--spacing-sm);
     margin-top: var(--spacing-sm);
+}
+
+/* The source's statuses, one select each, as one group under the options: a
+   fieldset for the grouping, with the browser's own frame taken off so it reads
+   as a section of the card rather than a box inside it. */
+.connected-target__mapping {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    margin: var(--spacing-md) 0 0;
+    padding: 0;
+    border: 0;
+}
+
+.connected-target__mapping-title {
+    padding: 0;
+    font-weight: var(--font-weight-semibold);
+}
+
+.connected-target__mapping-help {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
 }
 
 .connected-target__actions {
@@ -2722,6 +2948,145 @@ button.devbook-chip__label:focus-visible {
     cursor: default;
 }
 
+/*
+  A Brain note's link into a repository devbook (local ADR 0027 §6,
+  .devbook/design/color-scheme.md#the-brains-accent). Resolved, it is gold: the
+  `live` tone's ink and edge, unfilled, because following it is the reader acting
+  (#badge-and-chip-tones, the followable-badge rule). Unresolved, it is `quiet`
+  inside a dashed strong edge, with "not on this machine" in words. The alias is
+  printed in both, so gold never has to say which repository.
+*/
+.repo-link-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--integration-live-edge);
+    border-radius: var(--border-radius-full);
+    color: var(--integration-live);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    vertical-align: baseline;
+}
+
+.repo-link-chip--unresolved {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+    background: var(--color-background-alt);
+    color: var(--color-secondary);
+}
+
+.repo-link-chip__open {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.repo-link-chip__open:hover .repo-link-chip__label {
+    text-decoration: underline;
+}
+
+.repo-link-chip__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+    border-radius: var(--border-radius-full);
+}
+
+.repo-link-chip__alias {
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-semibold);
+}
+
+.repo-link-chip__label {
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.repo-link-chip__problem {
+    font-style: italic;
+    white-space: nowrap;
+}
+
+/* A task row's Brain notes (local ADR 0026 §3): a teal "◆ n note" badge in the
+   Brain's band painting, the list of notes under it when there are several.
+   See color-scheme.md#the-brains-accent. */
+.brain-notes-badge {
+    position: relative;
+    display: inline-flex;
+}
+
+.brain-notes-badge__button {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 0 var(--spacing-xs);
+    border: 0;
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.brain-notes-badge__button:focus-visible,
+.brain-notes-badge__note:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.brain-notes-badge__list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    min-width: 12rem;
+    max-width: 20rem;
+    margin: var(--spacing-2xs) 0 0;
+    padding: var(--spacing-2xs) 0;
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    list-style: none;
+}
+
+.brain-notes-badge__note {
+    appearance: none;
+    display: block;
+    width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: 0;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.brain-notes-badge__note:hover {
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+}
+
 /* A plain string field — an alias, a kind, a version, an issue shorthand. It
    names something with no chapter to point at, so it borrows neither the pill
    nor the link: it is simply the value, set in the same mono face as the
@@ -2803,6 +3168,68 @@ button.devbook-chip__label:focus-visible {
 .alert__action {
     margin-inline-start: var(--spacing-sm);
     vertical-align: middle;
+}
+
+/* Callout: standing content set apart, not an announcement — the raised surface
+   inside an edge, the glyph at the head, the headline over its why, and one
+   link-weight action. Quiet takes the ordinary strong edge; warning takes the
+   warning edge. A callout is not a badge, so its tones are its own words rather
+   than the badge scale's. */
+.callout {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.callout--warning {
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-warning);
+}
+
+.callout__icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    margin-top: 2px;
+    color: var(--color-primary-light);
+}
+
+.callout__body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.callout__heading {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.callout__text {
+    color: var(--color-text-secondary);
+}
+
+/* A link at text weight inside a box the 44px target accessibility.md asks for. */
+.callout__action {
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--color-text-link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+.callout__action:hover {
+    color: var(--color-primary-light);
 }
 
 /* A tree that has not arrived: a column of placeholder rows on the tree's own
@@ -2986,16 +3413,40 @@ button.devbook-chip__label:focus-visible {
 
 .scenario-checklist__count { color: var(--color-text-secondary); }
 
-.badge--scenario-proved {
-    background: var(--color-success);
-    color: var(--color-success-text);
+/* The key to the scenario dot: one entry per state, wrapping to the width it is
+   given — under a tree column that is narrow, so two to a line there. */
+.scenario-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
-/* One grid for the list and a subgrid per row, so the columns line up from
-   row to row and the last run keeps the width it needs. */
+.scenario-legend__entry {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The verdict after the count. Proved takes the success text colour, not a
+   badge: it is the end of the count's sentence, and the word carries the meaning
+   without the colour. */
+.scenario-checklist__verdict--proved {
+    color: var(--color-success-text);
+    font-weight: 600;
+}
+
+/* One grid for the list and a subgrid per row: the dot in the first column,
+   the part and its quiet line stacked in the second. The line is a line, so it
+   wraps rather than ellipsising — its end is the step a failed part stopped on. */
 .scenario-checklist__list {
     display: grid;
-    grid-template-columns: auto minmax(0, 3fr) minmax(0, 2fr) max-content;
+    grid-template-columns: auto minmax(0, 1fr);
     gap: var(--spacing-xs) var(--spacing-sm);
     margin: 0;
     padding: 0;
@@ -3006,15 +3457,26 @@ button.devbook-chip__label:focus-visible {
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: subgrid;
-    align-items: center;
+    align-items: start;
+    min-width: 0;
+}
+
+/* The dot sits on the part's first line, not at the top of the stack. */
+.scenario-checklist__row > .devbook-scenario-dot {
+    margin-top: 0.35em;
+}
+
+.scenario-checklist__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
     min-width: 0;
 }
 
 .scenario-checklist__part {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .scenario-checklist__part--link {
@@ -3030,14 +3492,12 @@ button.devbook-chip__label:focus-visible {
 .scenario-checklist__part--link:hover,
 .scenario-checklist__part--link:focus-visible { text-decoration: underline; }
 
-.scenario-checklist__page,
 .scenario-checklist__run {
-    min-width: 0;
-    overflow: hidden;
+    max-width: 100%;
     color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
     font-variant-numeric: tabular-nums;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 /* The run above an open scenario page. */
@@ -3102,6 +3562,16 @@ button.devbook-chip__label:focus-visible {
 }
 
 .devbook-scenario-part__title { font-weight: 600; }
+
+/* The part the reader opened the page at, from an entry's Acceptance checklist:
+   the accent edge says which one they asked for, until they pick another chapter. */
+.devbook-scenario-part--focused {
+    margin-left: calc(-1 * var(--spacing-sm));
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+}
 
 .devbook-scenario-part__duration,
 .devbook-scenario-part__steps {
@@ -3864,6 +4334,17 @@ button.devbook-chip__label:focus-visible {
    a remark is shorter than its block. The separation the gap used to give is
    spent as padding inside the column instead, where the rule can sit in it.
 */
+/*
+   The surface the margin measures itself against: whether there is room for a
+   second column is a question about the width the view is drawn in, not about the
+   window. See the fallback below. Inside a file view the view gives this up to the
+   file view (.file-view:has(> .file-view__body--notes)), so the rows, the header
+   and the card all answer to one box.
+*/
+.md-view--margin {
+    container: md-margin / inline-size;
+}
+
 .md-view--margin .md-block-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 18rem;
@@ -3880,8 +4361,16 @@ button.devbook-chip__label:focus-visible {
    and the prose, so the only edge in the pane was the remark's own border — which
    is how a callout looks, not how a margin note looks. The rule is the boundary
    the column was relying on the reader to infer.
+
+   Positioned so it paints, and takes the pointer, above its own block. The block
+   is positioned for its corner controls and the cell was not, so wherever the
+   block overflowed its track — its affordance padding cannot shrink — the block
+   was drawn over the remark's Save and Delete and swallowed their clicks. A
+   positioned cell later in the row wins that by source order, with no z-index to
+   keep in step.
 */
 .md-view--margin .md-block-row__notes {
+    position: relative;
     padding-inline: var(--spacing-md);
     border-inline-start: var(--border-width) solid var(--color-border);
 }
@@ -3915,8 +4404,22 @@ button.devbook-chip__label:focus-visible {
    Below this the second column costs more than it is worth: a margin note in a
    phone-width gutter is an inline note that has been made harder to read. It
    falls back on its own rather than asking the caller to notice.
+
+   Asked of the surface and not of the window. This was a viewport query, and a
+   Devbook side pane is a 24–44rem track on a screen nineteen hundred pixels wide:
+   the query never fired there, the 18rem track left the prose 16px at the pane's
+   minimum, and the block spilled over the remark beside it. 48rem is the `md`
+   breakpoint (.devbook/design/typography-and-layout.md#layout-grid-and-breakpoints)
+   the status column is withdrawn at. At the narrowest file view that keeps the
+   column, the block's track is 29rem — 48 less the body's 1rem leading padding
+   and the 18rem column — and the prose about 26rem once the block's 3rem
+   affordance gutter is out of it. The status column's own 48rem is asked of the
+   reading body's content box, 1rem narrower than the file view, so it is already
+   withdrawn there; it comes back past a 49rem file view and takes 7.5rem more,
+   which leaves the prose about 19.5rem at that width. A MarkdownDocument has no
+   leading body padding and no status column: 27rem of prose at its 48rem.
 */
-@media (max-width: 60rem) {
+@container md-margin (max-width: 48rem) {
     .md-view--margin .md-block-row {
         display: block;
     }
@@ -5902,6 +6405,32 @@ button.task-panel__check:focus-visible {
     cursor: default;
 }
 
+/* Busy or blocked (TaskAction's Busy and Blocked): still focusable, so it is
+   aria-disabled rather than :disabled, and reads the way a blocked AppButton
+   does. The busy one keeps full strength — its spinner is the message. */
+.task-action--inert .task-action__main[aria-disabled="true"]:not([aria-busy="true"]),
+.task-action--inert .task-action__clear[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.task-action__main[aria-busy="true"] {
+    cursor: progress;
+}
+
+/* A region refreshing in place says so in its header, but only once the wait is
+   worth a loader (interaction-guidelines.md#timing: "after ~300 ms"). The
+   spinner is drawn at once and held invisible, so a fast reload never flashes
+   it and a slow one needs no timer. */
+.region-refresh {
+    animation: region-refresh-appear 0s linear 300ms both;
+}
+
+@keyframes region-refresh-appear {
+    from { visibility: hidden; }
+    to { visibility: visible; }
+}
+
 .task-action__icon {
     display: inline-flex;
     justify-content: center;
@@ -6830,7 +7359,7 @@ button.task-panel__check:focus-visible {
 
    The height here is only the opening bid. What an artifact is actually worth is
    a function of how wide this frame turns out to be — one drawing is 1440x700 and
-   another is 1200x2458 — so the document measures itself and components.js writes
+   another is 1392x3496 — so the document measures itself and components.js writes
    the answer back as an inline height. This is what it looks like until that
    arrives, and what it stays at if the frame never reports: `height` rather than
    `min-height` precisely so the measured value can go under it as well as over,
@@ -7211,7 +7740,7 @@ body.is-resizing-pane {
     color: var(--color-text-primary);
 }
 
-.btn--danger:hover:not(:disabled) {
+.btn--danger:hover:not(:disabled, [aria-disabled="true"]) {
     border-color: var(--color-border-strong);
 }
 
@@ -7287,7 +7816,7 @@ body.is-resizing-pane {
   and grey out the selected option under the pointer — the selection blinking
   off wherever the user is about to click.
 */
-.btn--toggle:not(.btn--pressed):hover:not(:disabled) {
+.btn--toggle:not(.btn--pressed):hover:not(:disabled, [aria-disabled="true"]) {
     background: var(--color-background-alt);
     color: var(--color-text-primary);
 }
@@ -7592,6 +8121,39 @@ button.tag-chip__label {
   Nodes keep their own height instead of stretching to the row's tallest.
 */
 
+/* StatusDot: a FlowSteps node at the size of a row's head — the same five tones,
+   told apart by shape as well as colour, and always beside the word it stands
+   for. */
+.status-dot {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--border-radius-full);
+}
+
+.status-dot--done {
+    background: var(--color-success-text);
+}
+
+.status-dot--active {
+    background: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-border);
+}
+
+.status-dot--blocked {
+    border-radius: 2px;
+    background: var(--color-error-text);
+}
+
+.status-dot--pending {
+    box-shadow: inset 0 0 0 2px var(--color-border-strong);
+}
+
+.status-dot--skipped {
+    border: 2px dashed var(--color-border-strong);
+}
+
 .flow-steps {
     --flow-steps-gap: var(--spacing-md);
 
@@ -7799,7 +8361,7 @@ button.tag-chip__label {
     border-radius: var(--border-radius-sm);
     font-size: var(--font-size-xs);
     line-height: var(--line-height-tight);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     white-space: nowrap;
     color: var(--color-text-secondary);
     box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
@@ -7836,7 +8398,7 @@ button.tag-chip__label {
     padding: 0;
     font-size: var(--font-size-xs);
     line-height: var(--line-height-tight);
-    font-weight: 400;
+    font-weight: var(--font-weight-normal);
     white-space: nowrap;
     color: var(--color-secondary);
 }
@@ -7872,7 +8434,7 @@ button.tag-chip__label {
     display: inline-block;
     font-size: var(--font-size-xs);
     line-height: var(--line-height-tight);
-    font-weight: 700;
+    font-weight: var(--font-weight-bold);
 }
 
 .stage-mark--drift {
@@ -8340,8 +8902,9 @@ select.field__input {
     }
 }
 
-/* The flag-row variant of Toggle: `NativeCheckbox` in a `<label>`, text first
-   and the box on the trailing edge. The host supplies these class names through
+/* The flag-row variant of Toggle, in either shape: `NativeCheckbox` in a
+   `<label>` (Capture sources), or the switch (the Features board) — text first
+   and the control on the trailing edge. The host supplies these class names through
    Toggle's class hooks; the look belongs here rather than in an app stylesheet. */
 
 .feature-flag {
@@ -8367,7 +8930,7 @@ select.field__input {
 }
 
 .feature-flag__title {
-    font-weight: 700;
+    font-weight: var(--font-weight-semibold);
 }
 
 .feature-flag__description,
@@ -8376,7 +8939,10 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
+/* No shrinking: beside a long description the flex row squeezed the box below
+   its size, so the switches down a card were drawn at different sizes. */
 .feature-flag input[type="checkbox"] {
+    flex: none;
     width: 1.25rem;
     height: 1.25rem;
     accent-color: var(--color-primary);
@@ -8385,6 +8951,31 @@ select.field__input {
 .feature-flag input[type="checkbox"]:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+/* The same row in Toggle's switch shape (the Features board). The switch comes
+   first in the markup, so `order` puts it on the trailing edge where the box
+   sits in the checkbox shape; it is the row's only focusable part, so the focus
+   order is unaffected. 44 × 26 px, the thumb grown to match. */
+.feature-flag > .toggle__track {
+    order: 1;
+    width: 2.75rem;
+    height: 1.625rem;
+    margin-top: 0;
+}
+
+.feature-flag > .toggle__track .toggle__thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.feature-flag > .toggle__track[aria-checked="true"] .toggle__thumb {
+    transform: translate(calc(1.25rem - 2 * var(--border-width)), -50%);
+}
+
+.feature-flag > .feature-flag__content {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .checkbox {
@@ -9718,6 +10309,14 @@ select.field__input {
    .file-view__body--notes — and the alternative to asking is for FileView to
    compute the same condition a second time, which is the drift that class exists
    to prevent.
+
+   And it is the container the margin's fallback measures (md-margin, see
+   .md-view--margin). One box for the rows, the header, the body's padding and
+   this card, so there is no width at which the card is drawn for a margin the
+   rows have already stacked. Which is why the card's own border and ground stay
+   off at every width: a container query cannot style its container, so the
+   narrow card is the ::before grown to the whole pane rather than this element
+   painting itself again.
 */
 .file-view:has(> .file-view__body--notes) {
     /* Nothing stands between the prose and this edge: the gutter took the
@@ -9725,12 +10324,20 @@ select.field__input {
        holds no track open either. The header measures from the same value. */
     --file-view-content-end: 0px;
 
+    container: md-margin / inline-size;
     position: relative;
     border-color: transparent;
     background: transparent;
     /* The box keeps its metrics — a transparent border still occupies its width,
        so nothing inside shifts by the border it no longer paints. */
     overflow: visible;
+}
+
+/* The file view is the container here; a second one of the same name on the view
+   would have the rows measure the reading body while the header and the card
+   measure the file view, which differ by the body's leading padding. */
+.file-view__body--notes .md-view--margin {
+    container: none;
 }
 
 .file-view:has(> .file-view__body--notes)::before {
@@ -9777,32 +10384,29 @@ select.field__input {
    over what was left while half the line stood empty.
 
    Here rather than beside the layout it answers, because the rule it withdraws is
-   directly above and the two have to be read together. */
-@media (max-width: 60rem) {
+   directly above and the two have to be read together. The same container and
+   width as the rows' own fallback (md-margin, beside .md-view--margin), so the
+   two cannot disagree about whether there is a column. */
+@container md-margin (max-width: 48rem) {
     .file-view:has(> .file-view__body--notes) > .file-view__header,
     .file-view:has(> .file-view__body--notes) > .file-view__record-fields {
         margin-inline-end: 0;
     }
 
     /* And the card goes back to being the pane, because there is no column
-       beside it to stop short of — including the trailing edge it had given
-       away, which the header reads too. */
-    .file-view:has(> .file-view__body--notes) {
-        --file-view-content-end: var(--spacing-md);
-
-        border-color: var(--color-border);
-        background: var(--color-background);
-        overflow: hidden;
-    }
-
+       beside it to stop short of. Painted by the layer, grown to the whole box
+       and out over the transparent border, so its edge lands where a plain
+       card's border is — the file view itself is the container and cannot be
+       restyled from in here. */
     .file-view:has(> .file-view__body--notes)::before {
-        content: none;
+        inset: calc(-1 * var(--border-width));
     }
 
-    /* The stacked layout draws the inline rule down the left of a remark, which
-       is its own separator and not the card's edge. */
-    .file-view__body--notes .md-view--margin .md-block-row__notes {
-        border-inline-start: none;
+    /* Including the trailing edge it had given away, which the header reads.
+       Set on the children because they are what read it, and the file view is
+       out of this query's reach. */
+    .file-view:has(> .file-view__body--notes) > * {
+        --file-view-content-end: var(--spacing-md);
     }
 
     /* And the body takes its trailing padding back with the edge, or the prose
@@ -13747,8 +14351,43 @@ select.field__input {
     overflow: hidden;
 }
 
-.roadmap-timeline__group-name + .roadmap-timeline__lane-name::before {
+.roadmap-timeline__group-name + .roadmap-timeline__lane-name::before,
+.roadmap-timeline__group-tag + .roadmap-timeline__lane-name::before {
     content: "· ";
+}
+
+/*
+  An archived band (RoadmapGroup.Archived): history, kept rather than current. The
+  component already draws it neutral, whatever colour it was handed; here its edge
+  is dashed, as an archived scope chip's is, its name steps back to secondary ink,
+  and the word Archived sits beside it — so the grey is never the only thing saying
+  it. The word is the library's archived status badge; the tag rule below only
+  places it in the narrow sidebar, giving up the status column's fixed width.
+*/
+.roadmap-timeline__group--archived {
+    border-left-style: dashed;
+}
+
+.roadmap-timeline__group--archived .roadmap-timeline__group-name {
+    color: var(--color-text-secondary);
+}
+
+.roadmap-timeline__group-tag {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    margin-left: 0;
+    padding: 0 var(--spacing-2xs);
+    /* Drawn before the name, not after it. A host may keep room at the end of the
+       name for a mark of its own in the band's corner (the roadmap's pace hint);
+       a tag after the name was pushed past that room, under the mark. In front,
+       it leaves the name's end and the room after it as they were. */
+    order: -1;
+    /* The smallest type and no tracking, so the tag takes as little of the narrow
+       sidebar from the band's name as it can while still saying the word. */
+    font-size: var(--font-size-2xs);
+    letter-spacing: 0;
 }
 
 /*
@@ -13777,6 +14416,16 @@ select.field__input {
 
 .roadmap-timeline__group--collapsible .roadmap-timeline__group-name {
     padding-left: 1.125rem;
+}
+
+/* An archived band's tag is drawn before its name, so the room for the toggle
+   moves from the name to the tag. */
+.roadmap-timeline__group--collapsible .roadmap-timeline__group-tag {
+    margin-left: 1.125rem;
+}
+
+.roadmap-timeline__group--collapsible .roadmap-timeline__group-name:has(+ .roadmap-timeline__group-tag) {
+    padding-left: var(--spacing-2xs);
 }
 
 .roadmap-timeline__group-toggle {
@@ -14353,6 +15002,139 @@ select.field__input {
 
 .roadmap-bar--tentative .roadmap-bar__title {
     font-style: italic;
+}
+
+/*
+  Late: the window has passed and the work is still open — an alert that asks the
+  reader to act, so it is drawn in the fault tone of
+  .devbook/design/color-scheme.md#badge-and-chip-tones: an outline round the whole
+  bar and a marker after the title. Never as the fill: the fill is the band's, and the
+  tentative hatching under it still says the bar is only intent. The outline is the
+  error ink, --color-error-text, because the error surface is a fill and too faint to
+  be a boundary; the ink clears 3:1 against the chart. It is the border itself, made
+  heavier, and colour and width only: the style stays whatever the bar already is —
+  dashed for a fixed bar, dotted for intent — and the rings that say selected, grabbed
+  or refused are box-shadows this leaves alone. The band keeps its own leading edge,
+  which says whose work it is. Colour is never the only carrier: the marker is a
+  shape, and the caller says "Overdue" in words in the bar's detail.
+*/
+.roadmap-bar--overdue .roadmap-bar__body {
+    border-top-width: var(--border-width-2);
+    border-right-width: var(--border-width-2);
+    border-bottom-width: var(--border-width-2);
+    border-top-color: var(--color-error-text);
+    border-right-color: var(--color-error-text);
+    border-bottom-color: var(--color-error-text);
+}
+
+.roadmap-bar__overdue {
+    position: relative;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    padding: 0 var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-error-text);
+    border-radius: var(--border-radius-full);
+    background: var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+    font-style: normal;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+}
+
+/*
+  Done: the work is over. Drawn in the done tone the progress fill already uses — the
+  success surface, edged in its ink — with a tick after the title, so a finished bar
+  reads as finished whether its tasks filled it or a person completed it by hand. The
+  band keeps its leading edge. The tick is a shape, and the caller says it in words in
+  the detail.
+*/
+.roadmap-bar--done .roadmap-bar__body {
+    border-color: var(--color-success-text);
+    border-left-color: var(--roadmap-group-color, var(--color-border-strong));
+    background: var(--color-success);
+}
+
+.roadmap-bar__done {
+    position: relative;
+    flex: none;
+    color: var(--color-success-text);
+}
+
+/*
+  The bar's one in-place action — Open in Tasks, Complete — at its end, clear of the
+  end grip. Shown while the bar is hovered or holds the focus anywhere in it, the
+  action's own included, so a keyboard reader tabbing onto it sees what they reached;
+  until then the bar keeps its whole width for the title, and the room the action
+  needs is only taken while it shows. Where nothing hovers — a touch screen — it is
+  always shown, because there is no hover to reveal it and an invisible button a tap
+  can still land on is worse than a visible one.
+*/
+.roadmap-bar--has-action:hover .roadmap-bar__body,
+.roadmap-bar--has-action:focus-within .roadmap-bar__body {
+    padding-right: 1.875rem;
+}
+
+.roadmap-bar__action {
+    position: absolute;
+    top: 50%;
+    right: 0.625rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    padding: 0;
+    translate: 0 -50%;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+/*
+  The hit target, 24px square around the 18px glyph (WCAG 2.5.8), the way the bar body
+  grows its own: drawn bigger than it looks rather than making the bar taller, since a
+  1.5rem bar has exactly the 24px. Placed 0.625rem in from the end so the target stops
+  short of the end grip's 0.375rem inside the bar.
+*/
+.roadmap-bar__action::before {
+    content: "";
+    position: absolute;
+    inset: -0.1875rem;
+}
+
+.roadmap-bar:hover .roadmap-bar__action,
+.roadmap-bar:focus-within .roadmap-bar__action {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .roadmap-bar--has-action .roadmap-bar__body {
+        padding-right: 1.875rem;
+    }
+
+    .roadmap-bar__action {
+        opacity: 1;
+    }
+}
+
+.roadmap-bar__action:hover {
+    background: var(--color-background);
+}
+
+.roadmap-bar__action:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
 }
 
 /*
@@ -15517,6 +16299,151 @@ select.field__input {
     min-width: 0;
     color: var(--integration-ink-quiet);
     font-size: var(--font-size-sm);
+}
+
+/* --- The Brain folder card ----------------------------------------------- */
+
+/* Where the person's Brain lives, on Settings › Storage. The Brain's accent is
+   band 2 teal (`.devbook/design/color-scheme.md#the-brains-accent`): the card's
+   border and the swatch before its name, always drawn, never the only thing that
+   says Brain. The rows are information; only a missing convention file wears
+   the attention tone, beside the button that fixes it. */
+.brain-card {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 1px solid var(--color-band-2);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+
+.brain-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.brain-card__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.brain-card__swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-band-2);
+    flex: none;
+}
+
+.brain-card__scope,
+.brain-card__hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.brain-card__intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.brain-card__label {
+    grid-column: 1 / -1;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The field takes the row and Browse sits at its end; at a narrow width the
+   button drops under the field rather than squeezing it. */
+.brain-card__folder {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.brain-card__input {
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 var(--spacing-sm);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.brain-card__input:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
+.brain-card__input--error {
+    border-color: var(--color-error);
+}
+
+.brain-card__rows {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.brain-card__row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.brain-card__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--border-radius-full);
+    flex: none;
+    transform: translateY(-1px);
+}
+
+/* Inks, not the semantic tokens: --color-success and --color-warning are
+   surfaces and vanish as an 8px dot on the card. The settled green is the one
+   sanctioned success foreground; a missing file takes band 4's amber, as the
+   design board draws it, and the row's words say "missing" either way. */
+.brain-card__dot--info,
+.brain-card__dot--found {
+    background: var(--color-success-text);
+}
+
+.brain-card__dot--missing {
+    background: var(--color-band-4);
+}
+
+.brain-card__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.brain-card__message {
+    margin: 0;
+    color: var(--color-success-text);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 480px) {
+    .brain-card__folder {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* --- Data table ---------------------------------------------------------- */
@@ -19432,4 +20359,1769 @@ select.field__input {
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-xs);
+}
+
+/* --- Settings frame ------------------------------------------------------ */
+
+/* The settings screen's panel: the Dashboard's (.dashboard-panel in the app's
+   stylesheet) - the large radius, the alt surface mixed into the page background,
+   and the medium shadow - so the two full-page surfaces read as one family. */
+.settings-frame {
+    /* The frame is the container the phone-width rules below ask, so the panel's
+       own width decides - a Settings screen beside an open pane is as narrow as
+       one on a phone, though the window is not. */
+    container: settings-frame / inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+}
+
+/* On a phone the panel is the whole screen, so its own border, padding and
+   shadow only take width from the page: about 90px of a 390px window, which
+   left the cards 300px. The shell's gutter is the page's edge there. A window
+   query rather than the frame's container: a container cannot ask its own
+   width, and only a phone-sized window, not a narrow pane beside others, has
+   nothing for the panel to stand out from. */
+@media (max-width: 40rem) {
+    .settings-frame {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+    }
+}
+
+/* The way back, the eyebrow and headline, and the chip and search slot on the
+   right. The right-hand cluster wraps under the headline where the panel is
+   narrow rather than squeezing the sentence. */
+.settings-frame__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+/* A 44px target around an arrow: the size a pointer and a finger can both hit. */
+.settings-frame__back {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-lg);
+    text-decoration: none;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-frame__back:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.settings-frame__back:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.settings-frame__heading {
+    display: grid;
+    flex: 1 1 16rem;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+/* The Dashboard panel's eyebrow, letter for letter. */
+.settings-frame__eyebrow {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* One sentence, so it scales with the room it has between the large and the
+   2xl step rather than sitting at one size that is cramped on a phone or
+   timid on a wide window. */
+.settings-frame__headline {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: clamp(var(--font-size-lg), 2.4vw, var(--font-size-2xl));
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+}
+
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the
+   headline takes focus only from navigation (FocusOnNavigate gives it tabindex="-1")
+   so a screen reader announces the page, never as a control; it is not a tab stop
+   and every control on the page keeps its own focus ring. The ring would otherwise
+   sit over the eyebrow on every page load, and the browser counts script focus
+   after an address change as focus-visible, so :not(:focus-visible) would still
+   draw it. */
+.settings-frame__headline:focus {
+    outline: none;
+}
+
+/* The chip and the search stay side by side: shrinkable, the cluster gave way
+   to a long headline by wrapping the search under the chip. It does not shrink,
+   so the header's own wrap moves the whole cluster under the headline instead,
+   once the two no longer fit on one line. */
+.settings-frame__actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The house rule said out loud: a soft success surface with primary text, the
+   tick in the success text colour - the words carry the meaning, the tone only
+   draws the eye. */
+.settings-frame__saved {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.settings-frame__saved-icon {
+    flex: none;
+    color: var(--color-success-text);
+}
+
+/* Holds the settings search; takes no room while a host fills it with nothing. */
+.settings-frame__search:empty {
+    display: none;
+}
+
+.settings-frame__search {
+    flex: 0 1 15rem;
+    min-width: 0;
+}
+
+/* What the menu says in its place when a search keeps no page. */
+.settings-frame__no-match {
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+/* --- Settings search ----------------------------------------------------- */
+
+/* A field with the magnifier inside its leading edge, on the page's surface so
+   it reads as an input against the frame's panel. The focus ring is the
+   wrapper's, as the search box's is, so the icon sits inside it. */
+.settings-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.settings-search:focus-within {
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 1px var(--color-border-focus);
+}
+
+.settings-search__icon {
+    position: absolute;
+    left: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    pointer-events: none;
+}
+
+.settings-search__input {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding: var(--spacing-2xs) var(--spacing-sm) var(--spacing-2xs) calc(var(--spacing-sm) * 2 + 16px);
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+}
+
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the
+   field takes the ring - `.settings-search:focus-within` above repaints its border in
+   --color-border-focus, a border so High Contrast keeps it - so the input inside it
+   does not draw a second one around the icon's gap. */
+.settings-search__input:focus-visible {
+    outline: none;
+}
+
+.settings-search__input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* Escape clears the field; a second, browser-drawn way to do it would only be
+   one more thing in a small field. */
+.settings-search__input::-webkit-search-cancel-button {
+    appearance: none;
+}
+
+/* A card a followed search link brought into view: its border in the focus
+   colour, fading back to its own. The fade is motion, so a reader who asked
+   for less sees the light and then not, with nothing in between. Scoped to the
+   frame so it outranks the card's own border, which is declared after it. */
+.settings-frame .settings-card-found {
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-border-focus);
+    animation: settings-card-found 1.6s ease-out forwards;
+}
+
+@keyframes settings-card-found {
+    0%, 50% {
+        border-color: var(--color-border-focus);
+        box-shadow: 0 0 0 var(--border-width-2) var(--color-border-focus);
+    }
+
+    100% {
+        border-color: var(--color-border);
+        box-shadow: 0 0 0 var(--border-width-2) transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .settings-frame .settings-card-found {
+        animation: none;
+    }
+}
+
+/* The menu and the page side by side while the panel has room for both, the
+   menu wrapping above the page once it has not - the Dashboard's columns, with
+   the same 999 weight that hands every spare pixel to the content. */
+.settings-frame__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.settings-frame__menu {
+    display: grid;
+    flex: 1 1 13.75rem;
+    gap: var(--spacing-md);
+    max-width: 16.25rem;
+    min-width: 0;
+}
+
+.settings-frame__content {
+    flex: 999 1 35rem;
+    min-width: 0;
+}
+
+/* The way back to the grouped list exists only on a page's address, and shows
+   only at phone width; see the container rule below. */
+.settings-frame__back--menu {
+    display: none;
+}
+
+/* The grouped list's own headline text, inside the one h1; shown only at
+   phone width, below. */
+.settings-frame__headline-index {
+    display: none;
+}
+
+/* Phone width: the menu and the page no longer fit side by side - the menu's
+   13.75rem basis, the --spacing-lg gap and the page's 35rem basis add up to
+   50.25rem, which is where the row above would start to wrap. Rather than wrap
+   the menu above the page, the screen shows one of them, as the address says:
+   the menu alone on settings, the page alone on settings/<page>. Stated in rem
+   so the threshold and the bases move together if the root size changes. */
+@container settings-frame (width < 50.25rem) {
+    .settings-frame--page .settings-frame__menu,
+    .settings-frame--page .settings-frame__back--home,
+    .settings-frame--index .settings-frame__content {
+        display: none;
+    }
+
+    .settings-frame--page .settings-frame__back--menu {
+        display: inline-flex;
+    }
+
+    /* The way back and the heading share the first line, as on the canvas's
+       phone board: a 16rem basis cannot sit beside the 44px arrow on a phone, so
+       the heading took a row of its own under it. The cluster may wrap again
+       here, where the panel can no longer hold the chip and the search in one
+       line. */
+    .settings-frame__heading {
+        flex: 1 1 0;
+    }
+
+    .settings-frame__actions {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    /* No page is on screen beside the list, so the heading is the screen's
+       name with no group above it, and the menu names no link current - the
+       note that does so wider is taken out of the accessibility tree. The h1
+       stays the one navigation focuses; only its text swaps. */
+    .settings-frame--index .settings-frame__eyebrow,
+    .settings-frame--index .settings-frame__headline-page,
+    .settings-frame--index .settings-menu-group__current-note {
+        display: none;
+    }
+
+    .settings-frame--index .settings-frame__headline-index {
+        display: inline;
+    }
+
+    .settings-frame--page .settings-frame__content {
+        flex-basis: 100%;
+    }
+
+    /* The search filters the grouped list, so it lives with it: on the list's
+       address it takes a row of its own directly above the groups, and on a
+       page's address, where there is no list to filter, it is not drawn. */
+    .settings-frame--index .settings-frame__actions,
+    .settings-frame--index .settings-frame__search {
+        flex: 1 1 100%;
+    }
+
+    .settings-frame--page .settings-frame__search {
+        display: none;
+    }
+
+    .settings-frame--index .settings-search__input {
+        min-height: 44px;
+        font-size: var(--font-size-base);
+    }
+
+    .settings-frame--index .settings-frame__menu {
+        flex: 1 1 100%;
+        gap: var(--spacing-lg);
+        max-width: none;
+    }
+
+    /* Each group's pages in one rounded card on the alt surface, rows divided by
+       a hairline - the platform's grouped list, which is what a phone reader
+       expects a list of settings to look like. */
+    .settings-frame--index .settings-menu-group__list {
+        gap: 0;
+        overflow: hidden;
+        border: var(--border-width) solid var(--color-border);
+        border-radius: var(--border-radius-md);
+        background: var(--color-background-alt);
+    }
+
+    .settings-frame--index .settings-menu-group__item + .settings-menu-group__item {
+        border-top: var(--border-width) solid var(--color-border);
+    }
+
+    /* 52px rows: comfortably over the 44px target, with room for a badge. */
+    .settings-frame--index .settings-menu-group__link {
+        min-height: 52px;
+        padding: 0 var(--spacing-md);
+        border-radius: 0;
+        color: var(--color-text-primary);
+        font-size: var(--font-size-base);
+    }
+
+    .settings-frame--index .settings-menu-group__link:hover {
+        background: var(--color-background-raised);
+    }
+
+    /* Drawn inside the row: the card clips anything outside it. */
+    .settings-frame--index .settings-menu-group__link:focus-visible {
+        outline-offset: calc(var(--border-width-2) * -1);
+    }
+
+    /* Nothing is on screen beside the list, so no row is the current one. */
+    .settings-frame--index .settings-menu-group__link--current {
+        background: transparent;
+        font-weight: inherit;
+    }
+
+    .settings-frame--index .settings-menu-group__link--current .settings-menu-group__badge {
+        color: var(--color-text-secondary);
+        font-weight: inherit;
+    }
+
+    .settings-frame--index .settings-menu-group__chevron {
+        display: block;
+    }
+
+    /* A matched card under its row is a target of its own, so it gets the
+       44px a finger needs. */
+    .settings-frame--index .settings-menu-group__cards {
+        margin: 0;
+        padding: 0 var(--spacing-sm) var(--spacing-xs) var(--spacing-lg);
+    }
+
+    .settings-frame--index .settings-menu-group__card {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        font-size: var(--font-size-sm);
+    }
+}
+
+/* --- Settings menu group ------------------------------------------------- */
+
+.settings-menu-group {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.settings-menu-group__label {
+    margin: 0;
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-menu-group__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.settings-menu-group__link {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-menu-group__link:hover {
+    color: var(--color-text-primary);
+}
+
+.settings-menu-group__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.settings-menu-group__link--current {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.settings-menu-group__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The value on the right: secondary text in the figures' own widths, so a
+   column of counts lines up. */
+.settings-menu-group__badge {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The cards a search matched, under their page: smaller, indented to the
+   page's name, each a link to the page with the card brought into view. */
+.settings-menu-group__cards {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: var(--spacing-2xs) 0 var(--spacing-xs);
+    padding: 0 0 0 var(--spacing-md);
+    list-style: none;
+}
+
+.settings-menu-group__card {
+    display: block;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-menu-group__card:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.settings-menu-group__card:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The page on screen: its value in the accent, as the canvas draws it. */
+.settings-menu-group__link--current .settings-menu-group__badge {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* Shown only in the frame's grouped list at phone width; turned a quarter to
+   point the way the row opens. */
+.settings-menu-group__chevron {
+    display: none;
+    flex: none;
+    color: var(--color-text-secondary);
+    transform: rotate(90deg);
+}
+
+/* --- Settings card ------------------------------------------------------- */
+
+/* The Dashboard's panel tile (.dashboard-overview-tile in the app's stylesheet):
+   the alt surface, the medium radius and a hairline border. */
+.settings-card {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.settings-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+.settings-card__heading {
+    display: grid;
+    flex: 1 1 16rem;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.settings-card__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.settings-card__description {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.settings-card__action {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.settings-card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* --- Sprint series card (Settings › Sprints) ----------------------------- */
+
+/* One series per card: a heading row with its switch, then label-and-value rows
+   in two columns that fold to one at a narrow width. A series switched off keeps
+   every row editable and drawn in the secondary ink, so it reads as resting
+   rather than as disabled. */
+.sprint-card {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+
+.sprint-card__head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.sprint-card__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-card__running,
+.sprint-card__hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-card--off .sprint-card__title {
+    color: var(--color-text-secondary);
+}
+
+.sprint-card__section {
+    margin: var(--spacing-xs) 0 0;
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-card__field {
+    display: grid;
+    grid-template-columns: 12rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--spacing-xs) var(--spacing-md);
+    min-width: 0;
+}
+
+/* Goal is met when: the select and, for a share, its field and the reason on
+   one line, each dropping under the one before where the row is too narrow. */
+.sprint-card__inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.sprint-card__met {
+    display: inline-flex;
+    max-width: 100%;
+}
+
+.sprint-card__inline > .field__control {
+    flex: 0 0 8rem;
+}
+
+.sprint-card__key {
+    padding-top: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-card__value {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.sprint-card__statement {
+    margin: 0;
+    padding-top: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-card__select,
+.sprint-card__input {
+    max-width: 14rem;
+}
+
+.sprint-card__next {
+    grid-column: 2;
+}
+
+.sprint-card__share {
+    max-width: 8rem;
+}
+
+.sprint-card__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.sprint-card__nest {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding-left: var(--spacing-lg);
+}
+
+.sprint-card__chip-input {
+    max-width: 12rem;
+}
+
+/* Add repository is a select drawn as the dashed pill a suggested chip wears:
+   it adds a chip to the row it sits at the end of. */
+.sprint-card__add {
+    display: inline-flex;
+}
+
+.sprint-card__add-select {
+    min-height: 32px;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+}
+
+.sprint-card__add-select:disabled {
+    color: var(--color-text-secondary);
+}
+
+@media (max-width: 640px) {
+    .sprint-card__field {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sprint-card__next {
+        grid-column: 1;
+    }
+}
+
+/* --- Sprint view (In progress › Sprint n) ------------------------------------
+   SprintBoard: the header with the series, the sprint steps and the filters; the
+   goal card and the done line side by side, wrapping under each other where the
+   view is narrow; Needs you; one group per plan, a row per member in five columns
+   that stack on a phone; and the dashed, folded Outside the sprint line.
+   SprintViewSwitch: the Now | Sprint n radio pair in either view's header. */
+.sprint-view-switch {
+    display: inline-flex;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+}
+
+.sprint-view-switch .btn--toggle {
+    border: 0;
+    border-radius: 0;
+}
+
+.sprint-view-switch .btn--pressed {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    /* The rows stack by the board's own width, not the viewport's: the board sits
+       beside the Devbook pane and in the storybook's narrow frame. */
+    container-type: inline-size;
+}
+
+.sprint-board__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.sprint-board__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-board__series,
+.sprint-board__group-count,
+.sprint-board__outside-line {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-board__spacer {
+    flex: 1 1 2.5rem;
+}
+
+.sprint-board__select-control {
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+}
+
+.sprint-board__select-control:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.sprint-board__cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.sprint-board__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.sprint-board__card--goal {
+    flex: 2 1 32rem;
+}
+
+.sprint-board__card--pace {
+    flex: 1 1 18rem;
+}
+
+.sprint-board__eyebrow {
+    color: var(--color-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-board__goal-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.sprint-board__goal-text {
+    font-weight: 500;
+}
+
+.sprint-board__goal-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md) var(--spacing-lg);
+}
+
+.sprint-board__goal-figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 10rem;
+}
+
+.sprint-board__goal-done {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-board__goal-of {
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: normal;
+    color: var(--color-text-secondary);
+}
+
+.sprint-board__day,
+.sprint-board__rules,
+.sprint-board__all-extra,
+.sprint-board__pace,
+.sprint-board__hint,
+.sprint-board__outside-what {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-board__goal-bars {
+    display: flex;
+    flex: 1 1 15rem;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 12rem;
+}
+
+.sprint-board__legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-md);
+}
+
+.sprint-board__all {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.sprint-board__all-count {
+    font-size: var(--font-size-sm);
+}
+
+.sprint-board__bar {
+    display: flex;
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.sprint-board__bar--goal {
+    height: 0.625rem;
+}
+
+.sprint-board__bar--all {
+    flex: 1 1 12rem;
+    min-width: 10rem;
+}
+
+.sprint-board__bar--group {
+    width: 7.5rem;
+}
+
+.sprint-board__bar-done {
+    background: var(--color-success-text);
+}
+
+.sprint-board__bar-progress {
+    background: var(--color-primary);
+}
+
+.sprint-board__bar-blocked {
+    background: var(--color-error-text);
+}
+
+.sprint-board__chart {
+    width: 100%;
+    height: 6rem;
+}
+
+.sprint-board__chart-pace {
+    stroke: var(--color-border);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 4;
+    vector-effect: non-scaling-stroke;
+}
+
+.sprint-board__chart-done {
+    fill: none;
+    stroke: var(--color-success-text);
+    stroke-width: 2.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.sprint-board__chart-today {
+    fill: var(--color-success-text);
+}
+
+.sprint-board__chart-now {
+    stroke: var(--color-border-strong);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.sprint-status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.sprint-status i {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+}
+
+.sprint-status--done {
+    color: var(--color-success-text);
+}
+
+.sprint-status--done i {
+    background: var(--color-success-text);
+}
+
+.sprint-status--progress {
+    color: var(--color-primary-light);
+}
+
+.sprint-status--progress i {
+    background: var(--color-primary);
+}
+
+.sprint-status--blocked {
+    color: var(--color-error-text);
+}
+
+.sprint-status--blocked i {
+    background: var(--color-error-text);
+}
+
+.sprint-status--todo {
+    color: var(--color-secondary);
+}
+
+.sprint-status--todo i {
+    box-sizing: border-box;
+    border: 1.5px solid var(--color-secondary);
+}
+
+.sprint-board__needs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.sprint-board__needs-head,
+.sprint-board__outside-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.sprint-board__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-error-text);
+}
+
+.sprint-board__section-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-board__count {
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-board__needs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.sprint-board__need {
+    display: flex;
+    flex: 1 1 17.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
+    min-height: 2.75rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sprint-board__need:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.sprint-board__need--blocked {
+    border-color: var(--color-error-text);
+    background: var(--color-error);
+}
+
+.sprint-board__need--review {
+    border-color: var(--color-primary-dark);
+    background: var(--color-warning);
+}
+
+.sprint-board__need-title {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.sprint-board__need-reason {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-board__need--blocked .sprint-board__need-reason {
+    color: var(--color-error-text);
+}
+
+.sprint-board__need--review .sprint-board__need-reason {
+    color: var(--color-primary-light);
+}
+
+.sprint-board__group {
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.sprint-board__group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.sprint-board__goal-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-row {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(8rem, 1fr) minmax(0, 12rem) 6rem 10.5rem;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.sprint-row--head {
+    padding-block: 0;
+    border-top: 0;
+    color: var(--color-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-row__title {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.sprint-row--done .sprint-row__title {
+    color: var(--color-secondary);
+}
+
+.sprint-row__open {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sprint-row__open:hover {
+    text-decoration: underline;
+}
+
+.sprint-row__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.sprint-row__tag {
+    margin-left: var(--spacing-sm);
+}
+
+.sprint-row__added {
+    display: inline-block;
+    margin-left: var(--spacing-sm);
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-row__pulls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.sprint-pr {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+button.sprint-pr {
+    cursor: pointer;
+}
+
+button.sprint-pr:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.sprint-pr--merged {
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+.sprint-pr--open {
+    background: var(--color-warning);
+    color: var(--color-primary-light);
+}
+
+.sprint-pr--unknown {
+    border: var(--border-width) dashed var(--color-border);
+    background: transparent;
+}
+
+.sprint-row__owner,
+.sprint-row__note {
+    min-width: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-row__question {
+    display: inline-block;
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-warning);
+    color: var(--color-primary-light);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-board__outside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.sprint-board__outside-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sprint-board__outside-list[hidden] {
+    display: none;
+}
+
+.sprint-board__outside-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+/*
+  The sprint view's Since yesterday strip: the stand-up at the top of the sprint
+  view. Its header is the fold's toggle and keeps the label and the headline when
+  folded; the blocked section is the one part dressed as an alert.
+*/
+.sprint-daily {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.sprint-daily__toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sprint-daily__toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.sprint-daily__head {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.sprint-daily__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-daily__headline {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-daily__chevron {
+    flex: none;
+    margin-top: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    transition: transform var(--transition-fast);
+}
+
+.sprint-daily[data-open="false"] .sprint-daily__chevron {
+    transform: rotate(-90deg);
+}
+
+.sprint-daily__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.sprint-daily__body[hidden] {
+    display: none;
+}
+
+.sprint-daily__summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-daily__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.sprint-daily__section--blocked {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-error-text);
+    border-radius: var(--border-radius-md);
+    background: var(--color-error);
+}
+
+.sprint-daily__title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-daily__section--blocked .sprint-daily__title {
+    color: var(--color-error-text);
+}
+
+.sprint-daily__lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sprint-daily__line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-daily__text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.sprint-daily__marker {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+}
+
+.sprint-daily__marker--done {
+    background: var(--color-success-text);
+}
+
+.sprint-daily__marker--added,
+.sprint-daily__marker--quiet {
+    box-sizing: border-box;
+    border: 1.5px solid var(--color-secondary);
+    background: transparent;
+}
+
+.sprint-daily__marker--blocked,
+.sprint-daily__marker--question {
+    display: none;
+}
+
+.sprint-daily__pace {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.sprint-daily__pace--risk {
+    color: var(--color-error-text);
+}
+
+.sprint-daily__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.sprint-daily__copy {
+    min-height: 2.5rem;
+    padding: 0 var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
+@container (max-width: 760px) {
+    .sprint-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--spacing-xs);
+    }
+
+    .sprint-row--head {
+        display: none;
+    }
+}
+
+/* Planning a sprint (.devbook/domain/progress/features.md#filling-a-sprint): the row
+   menu a board carries while its sprint takes writes, the "Add to sprint" picker, the
+   note dialog and a task's Sprint section. */
+.sprint-board--editable .sprint-row {
+    grid-template-columns: 7.5rem minmax(8rem, 1fr) minmax(0, 12rem) 6rem 10.5rem 2rem;
+}
+
+.sprint-row__menu {
+    justify-self: end;
+}
+
+.sprint-add-picker__description,
+.sprint-note-dialog__description {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-add-picker__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.sprint-add-picker__status {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-add-picker__lists {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-height: 24rem;
+    overflow-y: auto;
+}
+
+.sprint-add-picker__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.sprint-add-picker__options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sprint-add-picker__option {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sprint-add-picker__option:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+}
+
+.sprint-add-picker__option:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.sprint-add-picker__option:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.sprint-add-picker__label {
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-add-picker__detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-task-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.sprint-task-panel__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.sprint-task-panel__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-task-panel__series {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-task-panel__line {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.sprint-task-panel__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-task-panel__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+@container (max-width: 760px) {
+    .sprint-board--editable .sprint-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sprint-row__menu {
+        justify-self: start;
+    }
+}
+
+/* Closing a sprint (.devbook/domain/progress/features.md#closing-a-sprint): the review
+   figures, an outcome per unfinished item, the next goal and the review table. */
+.sprint-close-dialog {
+    width: min(46rem, calc(100vw - 2 * var(--spacing-md)));
+    max-width: 46rem;
+}
+
+.sprint-close-dialog__description {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sprint-close-dialog__figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+}
+
+.sprint-close-dialog__figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.sprint-close-dialog__figure strong {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sprint-close-dialog__figure span {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-close-dialog__verdict--met {
+    color: var(--color-success-text);
+}
+
+.sprint-close-dialog__verdict--missed {
+    color: var(--color-error-text);
+}
+
+.sprint-close-dialog__items {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--spacing-md);
+}
+
+.sprint-close-dialog__items-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+}
+
+.sprint-close-dialog__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sprint-close-dialog__list {
+    max-height: 22rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.sprint-close-dialog__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 12rem;
+    gap: var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-xs) 0;
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.sprint-close-dialog__title {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.sprint-close-dialog__detail {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sprint-close-dialog__choice {
+    display: block;
+    min-width: 0;
+}
+
+.sprint-close-dialog__choice .field__input {
+    width: 100%;
+}
+
+.sprint-close-dialog__copy {
+    margin-right: auto;
+}
+
+@media (max-width: 560px) {
+    .sprint-close-dialog__item {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }

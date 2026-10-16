@@ -103,7 +103,7 @@
                                 @Row(item)
                             </tr>
 
-                            @if (RowDetail is not null)
+                            @if (RowDetail is not null && (HasRowDetail?.Invoke(item) ?? true))
                             {
                                 @* Its own key, because two siblings may not share
                                    one, and the record's key with a suffix so the
@@ -164,6 +164,19 @@
     /// </summary>
     [Parameter]
     public RenderFragment<TItem>? RowDetail { get; set; }
+
+    /// <summary>
+    /// Which records get their <see cref="RowDetail"/> row at all; every record
+    /// does when this is null.
+    /// <para>
+    /// For a detail that is opened rather than always there - a row's editor under
+    /// an Edit button. An empty detail row still costs the row above it its
+    /// bottom line, because the pair is drawn as one record; leaving the row out
+    /// is what keeps a closed record looking like every other row.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<TItem, bool>? HasRowDetail { get; set; }
 
     /// <summary>
     /// What identifies a row across renders. Without it Blazor keys rows by position,

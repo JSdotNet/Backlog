@@ -29,7 +29,9 @@ status: draft
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
 | Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
+| Progress | Supporting | It lays sprints over a set of repositories and reports what each set out to do and how it ended, naming tasks by id and plans by tag without owning either. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
+| Sync | Supporting | It keeps one person's data the same across their devices. It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model, but it carries other contexts' documents rather than being what makes the product different. |
 
 ## Context map
 
@@ -47,6 +49,8 @@ flowchart LR
     Repo[Repository Management]
     DevPC[Dev PC Management]
     Sessions[Sessions]
+    Progress[Progress]
+    Sync[Sync]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
     %% Inbox -> Tasks is built as an in-process port (IInboxBacklogTarget in
@@ -67,7 +71,7 @@ flowchart LR
     Repo -->|Customer/Supplier<br/>Health and scan feed| Monitor
     DevPC -->|OHS + Published Language<br/>MachineStatusChanged / ComplianceUpdated| Monitor
     Productivity -->|OHS + Published Language<br/>ProductivityRecorded| Monitor
-    Environment -->|Customer/Supplier<br/>Environment availability feed| Monitor
+    Monitor -->|Customer/Supplier<br/>Health and availability signals| Environment
     Monitor -->|OHS + Published Language<br/>FollowUpCaptured| Inbox
 
     Tech -->|Customer/Supplier<br/>Technology baselines| Repo
@@ -85,9 +89,8 @@ flowchart LR
 
     %% Sessions. The Sessions -> Productivity and Sessions -> Tasks edges are
     %% built, each through an infrastructure adapter rather than a published
-    %% event; the other two
-    %% below remain named and not built: see the strategic rules below and
-    %% .devbook/domain/sessions/dependencies.md.
+    %% event. The other two below are named and not built: see the strategic
+    %% rules below and .devbook/domain/sessions/dependencies.md.
     DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
     Sessions -->|Customer/Supplier<br/>Agent session facts| Productivity
     Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
@@ -95,6 +98,21 @@ flowchart LR
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
+
+    %% Progress. All four edges are in-process reads; Progress publishes no
+    %% event. See .devbook/domain/progress/context.md and local ADR 0028.
+    Tasks -->|Customer/Supplier<br/>Task by id: status, tags, plan tag, linked pull requests| Progress
+    Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary| Progress
+    Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Progress
+    Progress -->|Customer/Supplier<br/>Open sprint and goal for the briefs| Monitor
+
+    %% Sync. It carries the documents of the contexts below and reads none of
+    %% their payloads. Each downstream context reaches it through an adapter in
+    %% Backlog.Infrastructure.Sync. See .devbook/domain/sync/context.md.
+    Sync -->|OHS + Published Language<br/>Task replica feed| Tasks
+    Sync -->|OHS + Published Language<br/>Session record replica| Sessions
+    Sync -->|OHS + Published Language<br/>Annotation replica| Brain
+    Sync -->|Customer/Supplier<br/>capture-kind documents for IInboxIntake| Inbox
 ```
 
 ## Published languages and contracts
@@ -113,44 +131,42 @@ flowchart LR
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
+| Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
 ## Strategic rules
 
 - Only the owning context defines a published language. Consumers conform to that
   contract and do not reach into the supplier's internal aggregate shape.
 - `Tasks` and `Roadmap Planning` split the word *priority* on
-  purpose, and the split is load-bearing: Tasks owns a task's **status and
-  execution priority**, Roadmap owns **planning priority and sequence**. Neither
+  purpose, and the split is load-bearing. Tasks owns a task's **status and
+  execution priority**. Roadmap owns **planning priority and sequence**. Neither
   writes the other's value, and neither derives its own from the other. A roadmap
-  item may name the task that executes it, but a plan must be able to hold work
-  that has no task yet — which is why the plan is stored rather than projected.
-  This supersedes the earlier reading, in which the roadmap was a view over
-  Tasks.
-- `Inbox` publishes `ItemTriaged` and `Tasks` conforms to it, but the edge is
-  carried in-process rather than by an asynchronous event: the payload is a DTO
-  in the Inbox's Abstractions, handed over a port (`IInboxBacklogTarget`) that an
-  infrastructure adapter answers over Tasks' published `ITaskItems`. Neither
-  module references the other, and the adapter is the only place an inbox item
-  becomes entry text. A capture reaches the Inbox from another device as a
-  `capture`-kind document on the sync replica
-  (`.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`). On the
-  desktop, a source monitor (YouTube channel, website) reaches the Inbox
-  without the replica at all — it delivers in-process through the same
-  `IInboxIntake` port the sync path hands `capture`-kind documents to, keyed
-  by the same deterministic per-entry id, so the idempotency is the port's,
-  not the transport's.
+  item may name the task that executes it. A plan must also hold work that has no
+  task yet, which is why the plan is stored rather than projected.
+- `Inbox` publishes `ItemTriaged` and `Tasks` conforms to it, carried in-process
+  rather than by an asynchronous event. The payload is a DTO in the Inbox's
+  Abstractions, handed over the `IInboxBacklogTarget` port. An infrastructure
+  adapter answers that port over Tasks' published `ITaskItems`. Neither module
+  references the other, and the adapter is the only place an inbox item becomes
+  entry text.
+- A capture reaches the Inbox in one of two ways:
+  - **From another device**, as a `capture`-kind document on the sync replica
+    (`.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`).
+  - **From a source monitor on the desktop** (a YouTube channel, a website),
+    in-process and without the replica. It delivers through the same
+    `IInboxIntake` port the sync path hands `capture`-kind documents to.
+
+  Both are keyed by the same deterministic per-entry id, so idempotency belongs
+  to the port, not to the transport.
 - `Tasks` and `Devbook` are a deliberate `Partnership`: both
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
-  registered on Tasks and on knowledge chapters; a roadmap item's tag is
-  the vocabulary Tasks offers in its picker and a knowledge chapter names in its
-  `roadmap` list. Roadmap reads those — gathering tasks and chapters by tag and by
-  direct reference, and adding their registered effort — but registers no effort and
-  defines no tag. This is why a roadmap tag must not change when its item's title is
-  renamed: tasks and chapters already filed under it would silently stop matching.
-  The tag is a slug that *names* a roadmap item rather than *addressing* a chapter,
-  so it draws no edge in the knowledge graph.
+  registered on Tasks and on knowledge chapters. A
+  [roadmap tag](roadmap/domain.md#roadmap-tag) is the vocabulary Tasks offers in
+  its picker and a knowledge chapter names in its `roadmap` list. Roadmap gathers
+  tasks and chapters by tag and by direct reference, and adds up their registered
+  effort. It registers no effort and defines no tag.
 - `Technology Stack` is the standards supplier for both `Repository Management`
   and `Dev PC Management`; those contexts may cache or copy baselines locally,
   but they do not become the authority for baseline meaning.
@@ -161,26 +177,43 @@ flowchart LR
 - `Environment` owns the user's launchable environment shortcuts and access
   preferences. It resolves repository and health facts through suppliers instead
   of duplicating Repository Management or Monitoring data.
-- `Sessions` is the single owner of the agent-session record. `Dev PC Management`
-  modelled Copilot sessions on the `Machine` while Copilot was the only agent the
-  machines ran; those chapters were removed rather than left as a second model of
-  the same subject, and `Monitoring`'s own `copilot_session` signal kind is
-  superseded by this context the moment the two are wired together.
-- `Sessions` still publishes no bounded-context domain event, which is why it
-  appears in no row of the published-language table above and why the Dev PC
-  Management and Monitoring edges stay dashed. It is no longer its own only
-  consumer, though: an infrastructure adapter now reads
-  `.devbook/domain/sessions/domain.md#session-log` directly for `Productivity`, a
-  Customer/Supplier read rather than a published contract, which is why that one
-  edge draws solid without a table row. The day Monitoring consumes it too, or
-  Sessions begins publishing an event of its own, the event belongs in
-  `.devbook/domain/sessions/domain.md` and in that table in the same change.
+- `Sessions` is the single owner of the agent-session record. No other context
+  models agent sessions. `Monitoring`'s own `copilot_session` signal kind gives way
+  to this context once the two are wired together.
+- `Sessions` publishes no bounded-context domain event. It owns no row of the
+  published-language table above (it only uses Sync's replica protocol), and its Dev PC Management and Monitoring edges
+  stay dashed. Two infrastructure adapters read it directly, as Customer/Supplier
+  reads rather than published contracts:
+  - for `Productivity`, the
+    [Session Log](sessions/domain.md#session-log);
+  - for `Tasks`, the [session state](sessions/domain.md#session-state) a task's
+    work badge shows.
+
+  That is why those two edges draw solid without a table row. When Monitoring
+  consumes Sessions too, or Sessions publishes an event of its own, the event goes
+  into `.devbook/domain/sessions/domain.md` and into that table in the same change.
 - A `Sessions` [Environment](sessions/domain.md#environment) is not an
   [`Environment`-context Environment](environment/domain.md#environment), and not a
   `Dev PC Management` [Machine](dev-pc-management/domain.md#machine). The two words
-  collide across three contexts and the concepts do not; each context defines its own
-  under `## Ubiquitous Language` in its `domain.md`, and no aggregate holds another
-  context's identity for it. Its
-  `EnvironmentId` is the product-wide device identity issued by the shared kernel
-  (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns, so the rule
-  stands unchanged — that identity is still not Dev PC Management's Machine.
+  collide across three contexts and the concepts do not. Each context defines its
+  own under `## Ubiquitous Language` in its `domain.md`, and no aggregate holds
+  another context's identity for it. The Sessions Environment's `EnvironmentId` is
+  the product-wide device identity issued by the shared kernel
+  (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns. That
+  identity is still not Dev PC Management's Machine, so the rule stands unchanged.
+- `Progress` names a task by its id and a plan by its
+  [plan tag](roadmap/domain.md#roadmap-tag), and reads both from their owners
+  on every reading. `Tasks` holds no knowledge of sprints: no task field, tag,
+  status or entry-text token names one, and no close outcome changes a task
+  (`.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
+  Progress publishes no event, so it has no row in the published-language table;
+  its four edges are Customer/Supplier reads.
+- `Sync` carries other contexts' documents without interpreting them.
+  It stores each one whole under its [Owner](sync/domain.md#owner), orders
+  pushed copies by stamp and tombstone
+  ([Change Precedence](sync/domain.md#change-precedence)), and hands them back.
+  It reads no payload field, and the merge into a device's store stays with the
+  document's owner: Tasks, Sessions, Devbook, or the Inbox for a `capture`-kind
+  document. A context that wants its documents on every device conforms to the
+  replica protocol through an adapter in `Backlog.Infrastructure.Sync`; it never
+  reaches into another context's documents on the replica.

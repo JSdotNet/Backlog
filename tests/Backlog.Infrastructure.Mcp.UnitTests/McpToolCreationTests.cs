@@ -4,6 +4,9 @@ using System.Text.Json;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using ModelContextProtocol.Server;
 
@@ -124,6 +127,7 @@ public class McpToolCreationTests
 
         Assert.Equal(
             [
+                DevbookTools.CaptureNote,
                 TrackerTools.Comment,
                 TrackerTools.CreateItem,
                 SurfaceTools.FinishRun,
@@ -185,6 +189,8 @@ public class McpToolCreationTests
         Assert.Equal(["repository", "chapterPath", "review"], schemas["read_knowledge_chapter"]);
         Assert.Equal(["repository", "chapterPath"], schemas["list_annotations"]);
         Assert.Equal(["repository", "note"], schemas["resolve_annotation"]);
+        Assert.Equal(["title", "body"], schemas["capture_note"]);
+        Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "capture_note")));
 
         // Optional, and optional means absent from `required` rather than absent
         // from the schema: a model has to be told the narrowing exists to use it.
@@ -204,9 +210,32 @@ public class McpToolCreationTests
         Assert.Equal(
             ["worktree", "runId", "stageIndex", "status", "output", "links", "scenarios", "monitoring", "execution", "evidence"],
             schemas["update_stage"]);
-        Assert.Equal(["worktree", "runId", "status", "summary", "verdicts"], schemas["finish_run"]);
+        Assert.Equal(["worktree", "runId", "status", "summary", "verdicts", "quality"], schemas["finish_run"]);
         Assert.Equal(["worktree"], schemas["list_runs"]);
         Assert.Equal(["worktree", "runId"], schemas["get_run"]);
+    }
+
+    /// <summary>
+    /// A host that composes no Brain still builds the devbook tools, the way the
+    /// SDK builds them — <c>ActivatorUtilities.CreateInstance</c> over the
+    /// request's services — and answers the Brain unavailable rather than failing
+    /// every devbook tool on its first call.
+    /// </summary>
+    [Fact]
+    public void A_host_without_the_brain_ports_still_builds_the_devbook_tools()
+    {
+        var services = new ServiceCollection()
+            .AddSingleton<IDevbookFolderSource>(
+                new FakeDevbookFolderSource(Path.GetTempPath(), new DevbookFolderSetting(".arc42", "Architecture", ".arc42")))
+            .AddSingleton<IDevbookAnnotationStore>(new FakeDevbookAnnotationStore())
+            .AddSingleton<IRepositoryDirectory>(new FakeRepositoryDirectory())
+            .BuildServiceProvider();
+
+        var tools = ActivatorUtilities.CreateInstance<DevbookTools>(services);
+
+        var context = Assert.Single(tools.ListKnowledgeContextsFor("#brain").Contexts);
+        Assert.Equal(BrainConventions.FolderKey, context.Key);
+        Assert.False(context.Available);
     }
 
     private static IEnumerable<McpServerTool> Tools()

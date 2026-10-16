@@ -17,7 +17,7 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// <item><b>Parts.</b> Input and action, Structure and navigation, Feedback,
 /// Content, Devbook — the components that compose into everything
 /// else.</item>
-/// <item><b>Subjects.</b> Integrations, Task list, Roadmap, Dashboard — a set of
+/// <item><b>Subjects.</b> Integrations, Task list, Roadmap, Progress, Dashboard — a set of
 /// components that only mean something together, each its own chapter because
 /// each is its own convention.</item>
 /// <item><b>Combined usage.</b> The whole surfaces: a document, a folder, an
@@ -187,7 +187,7 @@ internal static class StorybookIndex
         // chapters below all reach for.
         new("Feedback",
         [
-            new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, StageStrip, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
+            new("feedback", "Feedback", "Alert, Callout, EmptyState, SetupSteps, FlowSteps, StatusDot, StageStrip, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
             new("overlays", "Overlays", "Modal and ConfirmDialog."),
 
             // After Overlays: the phone's capture sheet is a sheet over the
@@ -343,7 +343,20 @@ internal static class StorybookIndex
             // chapter it sits in — heading, record, prose — is everything the pages
             // above have introduced. It draws Badge and MarkdownView, both from
             // groups higher up, so nothing here is shown before its parts.
-            new("devbook/annotations", "Review notes", "DevbookAnnotationNote: the devbook convention's `annotation` fence drawn as a read-only review note under the passage it is about — never as the YAML it is written in, and never as the person's own margin remark.")
+            new("devbook/annotations", "Review notes", "DevbookAnnotationNote: the devbook convention's `annotation` fence drawn as a read-only review note under the passage it is about — never as the YAML it is written in, and never as the person's own margin remark."),
+
+            // After Review notes, last in the chapter: the Brain is a devbook of the
+            // person's own (local ADR 0026), and this is where its folder is chosen.
+            // It draws a TextField, two AppButtons and an Alert, all introduced in
+            // Input and action and Feedback above, and its own card.
+            new("devbook/brain-folder", "Brain folder", "BrainFolderCard: where the person's Brain lives — a folder outside every repository, picked once — whether it is synced, that its database never is, and Create conventions while its README or CONVENTIONS is missing."),
+
+            // After Brain folder, because the pane reads the folder that page
+            // picks, and its first-use prompt sends the reader back there. It
+            // draws Badge, ButtonGroup, ToggleButton, Alert, EmptyState and
+            // AppButton, all introduced in groups above this one, and no
+            // component of its own: the pane is a module's and cannot render here.
+            new("devbook/brain-pane", "Brain in the pane", "The Devbook pane on the Brain: the Brain badge after its title, the Brain | repository switch, the warning for OneDrive's conflict copies, and the prompt to set up a Brain.")
         ]),
 
         // The second subject-named group with subpages, for the reason recorded
@@ -416,12 +429,34 @@ internal static class StorybookIndex
             new("roadmap", "Roadmap", "RoadmapTimeline and RoadmapTimelineBar: a plan against a quarter-ruled time axis, with swimlanes, dependency arrows and bars you can drag — and RoadmapPlanShelf, the work still waiting for a place on it.")
         ]),
 
+        // Its own chapter, after Roadmap: a sprint series is a cadence a set of
+        // repositories works to, a convention of its own. The page draws the card
+        // its folder holds and the Card, TagChip and AppButton the Settings page
+        // lays around it, all three introduced further up.
+        new("Progress",
+        [
+            new("sprint-settings", "Sprint settings", "SprintSeriesCard: one sprint series on Settings › Sprints — its switch, its repositories with only the free ones offered, its length, start day and name pattern, how the sprint goal is counted, and which briefs show it."),
+            new("sprint-view", "Sprint view", "SprintBoard and SprintViewSwitch: the In progress tab's sprint view — the Since yesterday strip, the goal card, the done line against the even pace, Needs you, one group per plan with its rows and pull request chips, and the folded Outside the sprint line."),
+            new("sprint-planning", "Sprint planning", "SprintAddPicker, SprintItemNoteDialog, SprintTaskPanel and the row menu SprintBoard carries while its sprint takes writes: adding a task or a whole plan to the open sprint, taking it out, marking it as goal, and its note and open question — from the sprint view and from a task's side panel.")
+        ]),
+
         new("Dashboard",
         [
             new("usage-metrics", "Usage metrics", "MetricTile, MetricGrid, MetricSparkline, MetricBars, MetricBreakdownBar, MetricRanking, MetricMeter, MetricBreakdown, MetricStatus."),
             new("ai-usage", "AI usage and cost", "The same components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."),
             new("productivity", "Productivity over time", "MetricScore, MetricTrellis, MetricHeatmap, MetricSpotlight, MetricStackedArea, MetricStackedBars: a score, where the time went, and how one hue compares them across repositories and weeks."),
             new("session-list", "Session list", "EffortChip and StageStrip: the effort a session ran at on one gold ladder, and how far its delivery run got — the parts the Sessions pane's rows and detail panel are drawn with.")
+        ]),
+
+        // A subject of its own after Dashboard, and after it by the rule: a settings
+        // card shows a figure in the MetricTile Dashboard introduces, and the frame
+        // is the Dashboard's panel. Read card, then menu, then the frame that holds
+        // both - nothing is shown before its parts.
+        new("Settings",
+        [
+            new("settings-card", "Settings card", "SettingsCard: one card on a settings page — a heading, a sentence saying what it is for, an action in its corner, and the controls."),
+            new("settings-menu", "Settings menu", "SettingsMenuGroup: one group of the settings menu — a small uppercase label and a link per page, the page on screen marked current."),
+            new("settings-frame", "Settings frame", "SettingsFrame and SettingsHeadline: the panel, the way back, the group and the one-sentence headline a page writes, Saved as you go, and the menu beside the page.")
         ]),
 
         // Last, and last by the rule rather than by convention: every page here

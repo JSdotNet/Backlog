@@ -111,13 +111,6 @@ public class SharedControlAdoptionTests
     /// once. Converting one and leaving the other would put two shapes on the
     /// same fact on the same screen, which reads worse than the duplication
     /// does.</item>
-    /// <item><c>pane-resizer</c> — the shell's side-pane separator. The class is
-    /// <c>SplitPane</c>'s, but this separator is driven from
-    /// <c>backlogPaneResizer</c> in the shell's app.js, which finds it by its
-    /// <c>data-pane-resizer</c> attribute and measures the layout by test id,
-    /// and the shell owns the arrow-key handling on it. SplitPane takes none of
-    /// that yet, so adopting it means moving the interop into the library
-    /// first.</item>
     /// <item><c>md-link</c> — one anchor into Settings from the domain knowledge
     /// panel, borrowing the class <c>MarkdownView</c> puts on a link inside
     /// rendered Markdown. There is no component to adopt: the library ships no
@@ -135,8 +128,7 @@ public class SharedControlAdoptionTests
     private static readonly string[] AllowedComponentClasses =
     [
         "badge--gh",
-        "md-link",
-        "pane-resizer"
+        "md-link"
     ];
 
     /// <summary>
@@ -180,7 +172,7 @@ public class SharedControlAdoptionTests
     /// answer; it is a status line in the settings devbook-folder rows, with a
     /// <c>data-folder-state</c> attribute that no component takes yet.</item>
     /// <item><c>feature-flag__status</c> — the words "Always available" inside a
-    /// <c>Toggle</c>'s own <c>TextContent</c> slot. Not a status line: it says the
+    /// <c>Toggle</c>'s own <c>LabelSuffix</c> slot. Not a status line: it says the
     /// switch beside it cannot be turned off, and it is markup landing in a
     /// component's slot rather than an element claiming to be a component. The
     /// same distinction <see cref="WornAs"/> draws for a BEM child.</item>

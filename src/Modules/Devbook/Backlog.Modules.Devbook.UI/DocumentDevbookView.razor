@@ -98,7 +98,7 @@
         <div class="folder-devbook__documents">
             @foreach (var file in VisibleFiles())
             {
-                <article class="folder-document" id="@FileAnchor(file)">
+                <article class="folder-document" id="@FileAnchor(file)" aria-busy="@(_chapterBusyShown ? "true" : null)">
                     @* Only the folder overview has a header now, and only because
                        that is the one view where a document has to name itself:
                        several of them are stacked and nothing else says which is
@@ -242,6 +242,7 @@
                         }
                         <CascadingValue Value="@_syncScope" IsFixed="false">
                         <FileView Name="@file.Title"
+                                  Refreshing="@_chapterBusyShown"
                                   Path="@file.FileName"
                                   Body="@_chapter.Text"
                                   Fill="@(!HeadedByPicture(file))"
@@ -340,6 +341,30 @@
     private string? _loadedRepositoryAlias;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
     private int _chapterRead;
+
+    /// <summary>Whether the latest chapter read is still out; see <see cref="ReadChapterAsync"/>.</summary>
+    private bool _chapterLoading;
+
+    /// <summary>Whether the chapter on screen says it is being read again — the
+    /// article's aria-busy and the header's spinner. Raised only once the read has
+    /// been out ~300 ms, and never for a read that follows the reader's own edit;
+    /// see <see cref="ReadChapterAsync"/>.</summary>
+    private bool _chapterBusyShown;
+
+    private bool _disposed;
+
+    /// <summary>The wait before the busy mark goes up, cancelled by the next read
+    /// and on disposal so it never comes back to a view that has gone.</summary>
+    private CancellationTokenSource? _chapterBusyWait;
+
+    /// <summary>How long a chapter read may take before the chapter says it is being
+    /// read again (interaction-guidelines.md#timing, "Region loader appears").</summary>
+    internal static readonly TimeSpan ChapterBusyDelay = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>The folder load and the document the open chapter was last read
+    /// for, or null before the first read; see <see cref="ReadChapterAsync"/>.</summary>
+    private (DocumentDevbookModel? Model, DocumentDevbookFile? File)? _chapterReadFor;
+
     private DevbookChapterEditor? _editor;
     private string? _statusError;
     private bool _editing;
@@ -437,7 +462,7 @@
 
         // The selection can move without the scope moving, and the guard above is
         // there precisely to skip a re-parse when it does — so the chapter is
-        // read outside it.
+        // read outside it, behind a guard of its own.
         await ReadChapterAsync();
     }
 
@@ -513,7 +538,7 @@
         // here rather than only by ReloadOrReportAsync, because a folder change
         // reloads without it and the failure alert is drawn before the documents.
         _loadError = null;
-        await ReadChapterAsync();
+        await ReadChapterAsync(force: true);
     }
 
     /// <summary>
@@ -527,21 +552,79 @@
     /// close the editor under the reader who is typing.
     /// </para>
     /// <para>
-    /// Only the latest read lands. Every parameter set starts one, so reads
-    /// overlap whenever the host re-renders while a file is still coming off disk,
-    /// and they can finish out of order: a read of the chapter that was open
-    /// finishing after the reader picked the folder overview put that chapter's
-    /// file view back inside the overview.
+    /// Read once per folder load and document. The host hands this view its
+    /// parameters again on every render of its own — every keystroke typed into a
+    /// task beside the pane — and each read is a file off disk and a parse of its
+    /// sync blocks. Guarded on reference identity, as the arc42 panel guards its
+    /// chapter: every load builds a new model, so a load always reads again, while
+    /// a parameter set that changed nothing hands back the very model and file
+    /// already read. The overview is a read too — of nothing — and is guarded the
+    /// same way. A reload passes <paramref name="force"/>, because a save, a
+    /// folder change or leaving the editor has changed the file whatever the
+    /// provider hands back. The guard is set as the read starts, so a parameter
+    /// set arriving while it is out starts no second read of the same document.
+    /// </para>
+    /// <para>
+    /// Only the latest read lands. Reads overlap whenever the selection moves, or
+    /// a reload starts, while a file is still coming off disk, and they can finish
+    /// out of order: a read of the chapter that was open finishing after the
+    /// reader picked the folder overview put that chapter's file view back inside
+    /// the overview.
     /// </para>
     /// </summary>
-    private async Task ReadChapterAsync()
+    private async Task ReadChapterAsync(bool force = false)
     {
-        var read = ++_chapterRead;
-        var chapter = await LoadChapterAsync();
+        var model = _model;
         var file = SelectedFile;
-        var sync = file is null
-            ? DevbookSyncReading.None
-            : await Provider.ReadSyncAsync(RepositoryAlias, DocumentPath(file));
+        if (!force && _chapterReadFor is { } last && ReferenceEquals(last.Model, model) && ReferenceEquals(last.File, file)) return;
+
+        // A forced read of the file already on screen is the editor's own save
+        // coming back, or the folder moving under it: the reader is looking at —
+        // often typing into — that file, and nothing they asked for is loading.
+        // Dimming it on every autosave would flash the field under their hands and
+        // tell assistive technology the region they are editing is busy.
+        var rereadOfShownFile = force
+            && _chapterReadFor is { File: { } shown }
+            && file is not null
+            && string.Equals(shown.FileName, file.FileName, StringComparison.OrdinalIgnoreCase);
+        var quiet = _editing || rereadOfShownFile;
+
+        _chapterReadFor = (model, file);
+        var read = ++_chapterRead;
+
+        // The chapter on screen stays while the next one comes off disk rather
+        // than being blanked (interaction-guidelines.md#scoped-loading, Refresh).
+        // It says so only once the read has been out long enough for a loader to
+        // be news rather than a flash (#timing). Only the latest read takes the
+        // mark down: an earlier one landing after it was overtaken is not the end
+        // of the wait.
+        _chapterLoading = true;
+        _chapterBusyWait?.Cancel();
+        _chapterBusyWait?.Dispose();
+        _chapterBusyWait = null;
+        if (!quiet)
+        {
+            _chapterBusyWait = new CancellationTokenSource();
+            _ = ShowChapterBusyAfterDelayAsync(read, _chapterBusyWait.Token);
+        }
+        DevbookChapterContent chapter;
+        DevbookSyncReading sync;
+        try
+        {
+            chapter = await LoadChapterAsync();
+            sync = file is null
+                ? DevbookSyncReading.None
+                : await Provider.ReadSyncAsync(RepositoryAlias, DocumentPath(file));
+        }
+        finally
+        {
+            if (read == _chapterRead)
+            {
+                _chapterLoading = false;
+                _chapterBusyShown = false;
+            }
+        }
+
         if (read != _chapterRead) return;
 
         var previous = _chapter.Chapter?.RelativePath;
@@ -554,6 +637,26 @@
         // that has stopped rendering would still be reachable. Cleared with the
         // chapter it belonged to, which is the condition the markup renders it on.
         if (_chapter.Chapter is null) _editor = null;
+    }
+
+    /// <summary>Raises the busy mark when the read numbered <paramref name="read"/> is
+    /// still the latest and still out after <see cref="ChapterBusyDelay"/>.</summary>
+    private async Task ShowChapterBusyAfterDelayAsync(int read, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(ChapterBusyDelay, Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // A later read took over the wait, or the view went.
+            return;
+        }
+
+        if (_disposed || read != _chapterRead || !_chapterLoading) return;
+
+        _chapterBusyShown = true;
+        StateHasChanged();
     }
 
     private Task OnChapterSavedAsync() => ReloadAsync();
@@ -843,6 +946,10 @@
 
     public void Dispose()
     {
+        _disposed = true;
+        _chapterBusyWait?.Cancel();
+        _chapterBusyWait?.Dispose();
+        _chapterBusyWait = null;
         Provider.Changed -= OnDevbookChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
     }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using Backlog.Modules.Tasks.DomainModels;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -75,9 +76,10 @@ public sealed class MyDayScopeTests
     /// <para>
     /// Areas are still typed, still shown on rows and still the reader's own pile —
     /// what went is the chip group, on the grounds that the repository scope in the
-    /// header was already answering the question people were asking it. "No repo" is
-    /// the one part of that question the header could not answer, so it arrived here
-    /// as the areas left. "Ready in a plan" is the third: the work a plan has lined up.
+    /// header was already answering the question people were asking it. "Ready in a
+    /// plan" is the second: the work a plan has lined up. The "No repo" chip that sat
+    /// between them is gone: the header's Brain chip answers that part of the question
+    /// now (local ADR 0027), so no chip on the bar reads "No repo".
     /// </para>
     /// </summary>
     [Fact]
@@ -90,10 +92,11 @@ public sealed class MyDayScopeTests
 
         var scopes = pane.FindAll(".filter-group--scope .chip");
 
-        Assert.Equal(3, scopes.Count);
+        Assert.Equal(2, scopes.Count);
         Assert.Contains("My Day", scopes[0].TextContent, StringComparison.Ordinal);
-        Assert.Contains("No repo", scopes[1].TextContent, StringComparison.Ordinal);
-        Assert.Contains("Ready in a plan", scopes[2].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Ready in a plan", scopes[1].TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain(pane.FindAll(".filter-bar .chip"), chip => chip.TextContent.Contains("No repo", StringComparison.Ordinal));
+        Assert.Empty(pane.FindAll("[data-testid='norepo-filter-option']"));
 
         // Same shape as My Day, for the same reason: a state of its own rather than
         // one of a set.
@@ -122,10 +125,10 @@ public sealed class MyDayScopeTests
         var pane = host.Render();
 
         var scopes = pane.FindAll(".filter-group--scope .chip");
-        string[] glyphs = ["sun-icon", "folder-off-icon", "play-icon"];
-        string[] names = ["My Day", "No repo", "Ready in a plan"];
+        string[] glyphs = ["sun-icon", "play-icon"];
+        string[] names = ["My Day", "Ready in a plan"];
 
-        Assert.Equal(3, scopes.Count);
+        Assert.Equal(2, scopes.Count);
 
         for (var i = 0; i < scopes.Count; i++)
         {
@@ -216,22 +219,6 @@ public sealed class MyDayScopeTests
         var pane = host.Render();
 
         Assert.Equal("1", pane.Find($"{Chip} .chip__count").TextContent);
-    }
-
-    /// <summary>No repo counts the same way: the open entries filed against no
-    /// repository, not the finished ones beside them.</summary>
-    [Fact]
-    public async Task The_no_repo_count_leaves_out_what_is_ticked_off()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-
-        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@backlog`\n");
-        await host.WriteEntryAsync($"# Run the QA pass\n`task` `!done` `completed:{Token(Today)}` `@backlog`\n");
-        await host.State.SelectAsync(null);
-
-        var pane = host.Render();
-
-        Assert.Equal("1", pane.Find("[data-testid='norepo-filter-option'] .chip__count").TextContent);
     }
 
     /// <summary>Orthogonal, which is the reason it is a toggle: turning it on narrows
@@ -336,5 +323,203 @@ public sealed class MyDayScopeTests
         host.State.SetMyDayFilter(Yesterday);
 
         Assert.Equal([yesterdays], host.State.FilteredRows);
+    }
+
+    // --- Clear My Day overnight off (local ADR 0032) ------------------------------
+    //
+    // The switch changes how an earlier stamp reads and nothing else: a task carried
+    // over is in My Day while unfinished, and on the day it is finished, and every
+    // surface that asks "is this in My Day" asks the state's one rule.
+
+    private static string Card(EntryRow row) => $"[data-task-id='{row.TaskId}']";
+
+    private static Task OpenMenuAsync(IRenderedComponent<TasksPane> pane, EntryRow row) =>
+        pane.Find($"[data-testid='{RowTestId(row)}']")
+            .ContextMenuAsync(new MouseEventArgs { ClientX = 40, ClientY = 60 });
+
+    private static string MenuLabel(IRenderedComponent<TasksPane> pane, string item) =>
+        pane.Find($"[data-testid='entry-menu-item-{item}'] .menu-list__label").TextContent;
+
+    [Fact]
+    public async Task With_the_switch_off_a_carried_task_counts_and_the_scope_shows_it()
+    {
+        var (host, todays, yesterdays, never) = await ThreeAsync();
+        using var _host = host;
+        Assert.Null(host.MyDay.SetClearsOvernight(false));
+
+        var pane = host.Render();
+
+        Assert.Equal("2", pane.Find($"{Chip} .chip__count").TextContent);
+
+        await pane.Find(Chip).ClickAsync(new());
+
+        Assert.Equal([todays, yesterdays], host.State.FilteredRows);
+        Assert.Single(pane.FindAll($"[data-testid='{RowTestId(yesterdays)}']"));
+        Assert.Empty(pane.FindAll($"[data-testid='{RowTestId(never)}']"));
+    }
+
+    /// <summary>A carried task finished today stays, ticked, for the rest of the day
+    /// and is no longer counted; one finished on an earlier day has left.</summary>
+    [Fact]
+    public async Task With_the_switch_off_a_carried_task_stays_on_the_day_it_is_finished_and_only_then()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        Assert.Null(host.MyDay.SetClearsOvernight(false));
+
+        var finishedToday = await host.WriteEntryAsync($"# Deploy it\n`task` `!done` `completed:{Token(Today)}` `@backlog` `myday:{Token(Yesterday)}`\n");
+        await host.WriteEntryAsync($"# Book the room\n`task` `!done` `completed:{Token(Yesterday)}` `@backlog` `myday:{Token(Yesterday)}`\n");
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+
+        Assert.Equal("0", pane.Find($"{Chip} .chip__count").TextContent);
+
+        await pane.Find(Chip).ClickAsync(new());
+
+        Assert.Equal([finishedToday], host.State.FilteredRows);
+    }
+
+    /// <summary>A stamp for a later day is in no earlier My Day, whichever way the
+    /// switch is set.</summary>
+    [Fact]
+    public async Task With_the_switch_off_a_task_stamped_for_tomorrow_is_still_not_in_today()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        Assert.Null(host.MyDay.SetClearsOvernight(false));
+
+        await host.WriteEntryAsync($"# Plan the week\n`task` `!ready` `@backlog` `myday:{Token(Today.AddDays(1))}`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.SetMyDayFilter(Today);
+
+        Assert.Empty(host.State.FilteredRows);
+    }
+
+    /// <summary>Reveal widens only the scopes that hide the row. A carried task is in
+    /// My Day with the switch off, so the scope stays pressed while the status that
+    /// hid it is let go.</summary>
+    [Fact]
+    public async Task With_the_switch_off_reveal_keeps_my_day_on_for_a_carried_task()
+    {
+        var (host, _, yesterdays, _) = await ThreeAsync();
+        using var _host = host;
+        Assert.Null(host.MyDay.SetClearsOvernight(false));
+
+        host.State.SetMyDayFilter(Today);
+        host.State.SetStatusFilter("draft");
+        Assert.DoesNotContain(yesterdays, host.State.FilteredRows);
+
+        Assert.True(host.State.Reveal(yesterdays));
+
+        Assert.Equal(Today, host.State.MyDayOn);
+        Assert.Contains(yesterdays, host.State.FilteredRows);
+    }
+
+    /// <summary>The same reveal with the switch on lets My Day go: yesterday's stamp
+    /// is not in today's list, so the scope is what hid the row.</summary>
+    [Fact]
+    public async Task With_the_switch_on_reveal_lets_my_day_go_for_yesterdays_pick()
+    {
+        var (host, _, yesterdays, _) = await ThreeAsync();
+        using var _host = host;
+
+        host.State.SetMyDayFilter(Today);
+
+        Assert.True(host.State.Reveal(yesterdays));
+
+        Assert.Null(host.State.MyDayOn);
+        Assert.Contains(yesterdays, host.State.FilteredRows);
+    }
+
+    /// <summary>The row wears the sun and its menu names the way out, as for a task
+    /// picked today.</summary>
+    [Fact]
+    public async Task With_the_switch_off_a_carried_row_shows_the_sun_and_its_menu_says_remove()
+    {
+        var (host, _, yesterdays, never) = await ThreeAsync();
+        using var _host = host;
+        Assert.Null(host.MyDay.SetClearsOvernight(false));
+
+        var pane = host.Render();
+
+        Assert.NotNull(pane.Find(Card(yesterdays)).QuerySelector(".task-item__detail--myday"));
+        Assert.Null(pane.Find(Card(never)).QuerySelector(".task-item__detail--myday"));
+
+        await OpenMenuAsync(pane, yesterdays);
+        Assert.Equal("Remove from My Day", MenuLabel(pane, "myday"));
+    }
+
+    /// <summary>The detail pane says the task is in My Day, and offers no agenda
+    /// time: the slot it had was the day it was stamped for, so a carried task shows
+    /// none on its row either (ADR 0032, §5; V7).</summary>
+    [Fact]
+    public async Task With_the_switch_off_a_carried_task_reads_added_and_has_no_agenda_slot()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        Assert.Null(host.MyDay.SetClearsOvernight(false));
+
+        var carried = await host.WriteEntryAsync($"# Deploy it\n`task` `!ready` `myday:{Token(Yesterday)}` `at:10:45`\n");
+
+        var pane = host.Render();
+
+        Assert.Contains("Added to My Day", pane.Find("[data-testid='entry-action-myday']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-action-agenda']"));
+        Assert.NotNull(pane.Find(Card(carried)).QuerySelector(".task-item__detail--myday"));
+        Assert.Null(pane.Find(Card(carried)).QuerySelector(".task-item__detail--agenda"));
+        Assert.DoesNotContain("10:45", pane.Find(Card(carried)).TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Taking a carried task out clears its stamp and writes nothing
+    /// else.</summary>
+    [Fact]
+    public async Task With_the_switch_off_removing_a_carried_task_clears_only_its_stamp()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        Assert.Null(host.MyDay.SetClearsOvernight(false));
+
+        var carried = await host.WriteEntryAsync($"# Deploy it\n`task` `!ready` `@backlog` `myday:{Token(Yesterday)}`\n\nShip it.\n");
+        var saved = carried.RawText;
+        Assert.Contains($" `myday:{Token(Yesterday)}`", saved, StringComparison.Ordinal);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-action-myday-set']").ClickAsync(new());
+
+        Assert.Null(carried.PreviewInMyDayOn);
+        Assert.Equal(saved.Replace($" `myday:{Token(Yesterday)}`", string.Empty, StringComparison.Ordinal), carried.RawText);
+        Assert.Contains("Add to My Day", pane.Find("[data-testid='entry-action-myday']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The switch moved with the list on screen — here, or in a copy a sync
+    /// pull took — and the count, the scope and the rows follow it without anything
+    /// being written to a task.</summary>
+    [Fact]
+    public async Task Flipping_the_switch_with_the_pane_open_redraws_my_day()
+    {
+        var (host, todays, yesterdays, _) = await ThreeAsync();
+        using var _host = host;
+        var before = yesterdays.RawText;
+
+        var pane = host.Render();
+        await pane.Find(Chip).ClickAsync(new());
+        Assert.Equal("1", pane.Find($"{Chip} .chip__count").TextContent);
+        Assert.Equal([todays], host.State.FilteredRows);
+
+        Assert.Null(host.MyDay.SetClearsOvernight(false));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("2", pane.Find($"{Chip} .chip__count").TextContent);
+            Assert.Single(pane.FindAll($"[data-testid='{RowTestId(yesterdays)}']"));
+        });
+        Assert.Equal([todays, yesterdays], host.State.FilteredRows);
+
+        Assert.Null(host.MyDay.SetClearsOvernight(true));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("1", pane.Find($"{Chip} .chip__count").TextContent);
+            Assert.Empty(pane.FindAll($"[data-testid='{RowTestId(yesterdays)}']"));
+        });
+        Assert.Equal(before, yesterdays.RawText);
     }
 }

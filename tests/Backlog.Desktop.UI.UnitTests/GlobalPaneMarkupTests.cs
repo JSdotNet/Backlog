@@ -3,7 +3,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class GlobalPaneMarkupTests
 {
     [Fact]
-    public void Home_shell_exposes_the_view_switch_and_the_side_pane_toggles()
+    public void Home_shell_exposes_the_view_switch_and_the_inbox_and_devbook_toggles()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
@@ -15,9 +15,9 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("TestId=\"tasks-view-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"roadmap-view-option\"", home, StringComparison.Ordinal);
 
-        // The Inbox option opens a surface and the Devbook toggle a side pane; the
-        // task list is no longer a pane: the pane strip, its label and the Tasks
-        // option are gone.
+        // The Inbox option and the Devbook toggle each open a surface; the task list
+        // is no longer a pane: the pane strip, its label and the Tasks option are
+        // gone.
         Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"devbook-pane-option\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("backlog-pane-option", home, StringComparison.Ordinal);
@@ -39,6 +39,8 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("aria-controls=\"roadmap-view\"", home, StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"inbox-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"inbox-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"devbook-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("id=\"devbook-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"roadmap-view\"", home, StringComparison.Ordinal);
     }
 
@@ -102,11 +104,9 @@ public sealed class GlobalPaneMarkupTests
         var inboxGuard = home.IndexOf("@if (InboxPaneOptionVisible)", nav, StringComparison.Ordinal);
         Assert.DoesNotContain("@if", home[(home.IndexOf('}', inboxGuard) + 1)..viewSwitch], StringComparison.Ordinal);
 
-        // During a takeover no option reads pressed.
-        Assert.Contains(
-            "private bool PaneOptionPressed(GlobalPane pane) => WorkspaceVisible && _globalPanes.IsEnabled(pane);",
-            home,
-            StringComparison.Ordinal);
+        // During a takeover no view option reads pressed; the Devbook's reads its
+        // own surface.
+        Assert.Contains("Pressed=\"DevbookVisible\"", home, StringComparison.Ordinal);
         Assert.Contains(
             "private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;",
             home,
@@ -231,7 +231,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
         Assert.Contains("private bool RoadmapViewOffered => IsFeatureEnabled(RoadmapFeatures.Roadmap);", home, StringComparison.Ordinal);
         Assert.Contains(
-            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible;",
+            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible;",
             home,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -244,8 +244,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("_surface = WorkspaceSurface.Roadmap", home, StringComparison.Ordinal);
         Assert.DoesNotContain("ToggleSurface(WorkspaceSurface.Roadmap)", home, StringComparison.Ordinal);
 
-        Assert.DoesNotContain("GlobalPane.Roadmap", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("GlobalPane.Tasks", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("GlobalPane", home, StringComparison.Ordinal);
         Assert.DoesNotContain("RoadmapBandVisible", home, StringComparison.Ordinal);
     }
 
@@ -263,22 +262,20 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The side-pane toggles state their pressed state once, through ToggleButton's
-    /// Pressed, and press through one handler that opens the pane beside the view or
-    /// closes it. Nothing disables them: closing the last side pane leaves the view
-    /// on screen, and opening one makes its own room.
+    /// The Devbook toggle states its pressed state once, through ToggleButton's
+    /// Pressed, and presses through the surface switch every takeover uses, which
+    /// gives the Devbook the screen or returns to the view. Nothing disables it: the
+    /// shell showing no Devbook is its ordinary state.
     /// </summary>
     [Fact]
-    public void Side_pane_toggles_use_selected_state_and_are_never_disabled()
+    public void The_devbook_toggle_uses_selected_state_and_is_never_disabled()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        foreach (var pane in new[] { "Devbook" })
-        {
-            Assert.Contains($"Pressed=\"PaneOptionPressed(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
-            Assert.Contains($"OnClick=\"() => PressPane(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
-            Assert.Contains($"Title=\"@PaneOptionTitle(GlobalPane.{pane}, \"", home, StringComparison.Ordinal);
-        }
+        Assert.Contains("Pressed=\"DevbookVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("OnClick=\"ToggleDevbook\"", home, StringComparison.Ordinal);
+        Assert.Contains("Title=\"@DevbookOptionTitle\"", home, StringComparison.Ordinal);
+        Assert.Contains("private void ToggleDevbook() => ToggleSurface(WorkspaceSurface.Devbook);", home, StringComparison.Ordinal);
 
         foreach (var view in new[] { "Tasks", "Roadmap" })
         {
@@ -287,8 +284,8 @@ public sealed class GlobalPaneMarkupTests
         }
 
         Assert.DoesNotContain("PaneToggleDisabled", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("args.CtrlKey || args.MetaKey) && _globalPanes", home, StringComparison.Ordinal);
-        Assert.Contains("_globalPanes.Toggle(pane);", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("_globalPanes", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("PressPane(", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("Show inbox", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Hide inbox", home, StringComparison.Ordinal);
@@ -318,12 +315,13 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// Each pane used to carry a pin that held it through a switch, and then a Ctrl
-    /// modifier that opened it beside the others. Neither is needed now that the
-    /// side panes are plain toggles beside the view: the pins stay gone from the
-    /// markup, the stylesheet and the persisted layout, and so does the modifier.
+    /// modifier that opened it beside the others. Neither came back when the side
+    /// panes went (local ADR 0022, amendment of 2026-10-15): the pins stay gone from
+    /// the markup, the stylesheet and the persisted layout, and so does the modifier,
+    /// and so does the side-pane selection itself.
     /// </summary>
     [Fact]
-    public void A_side_pane_needs_neither_a_pin_nor_a_modifier()
+    public void No_side_pane_remains_and_neither_does_its_pin_or_modifier()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
@@ -339,21 +337,31 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.DoesNotContain("Ctrl+click to open it beside", home, StringComparison.Ordinal);
         Assert.DoesNotContain("TryOpenBeside", home, StringComparison.Ordinal);
-        Assert.Contains("_globalPanes.TryOpen(pane);", home, StringComparison.Ordinal);
+
+        Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(FindHomeRazor())!, "GlobalPaneSelection.cs")));
+        Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(FindHomeRazor())!, "SidePaneWidth.cs")));
+        Assert.DoesNotContain("side-pane-stack", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("side-pane-stack", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetLastPanes", home, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The viewport no longer counts panes and no edge sets the Devbook's width: the
+    /// shell neither registers with the pane resizer nor answers its capacity and
+    /// width callbacks. The resizer itself stays, because the library's
+    /// <c>SplitPane</c> drags through it.
+    /// </summary>
     [Fact]
-    public void Home_receives_viewport_pane_capacity_from_javascript()
+    public void Home_takes_no_pane_capacity_or_width_from_javascript()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
-        // The resizer moved into the shared component library; Home still owns
-        // the callback it reports into.
-        var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
 
-        Assert.Contains("public Task SetGlobalPaneCapacityAsync(int capacity)", home, StringComparison.Ordinal);
-        Assert.Contains("owner.invokeMethodAsync('SetGlobalPaneCapacityAsync', capacity);", componentsJs, StringComparison.Ordinal);
-        Assert.Contains("const BACKLOG_SINGLE_PANE_MAX_REM = 72;", componentsJs, StringComparison.Ordinal);
-        Assert.Contains("const BACKLOG_THREE_PANE_MIN_REM = 96;", componentsJs, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetGlobalPaneCapacityAsync", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetSidePaneWidthAsync", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetSidePaneMaxWidthAsync", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("backlogPaneResizer", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-pane-resizer", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("side-pane-resizer", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -361,10 +369,11 @@ public sealed class GlobalPaneMarkupTests
     /// <para>
     /// A single owner is why a page could only have one draggable pane: the second
     /// layout to register replaced the first, and every drag reported its width to
-    /// whichever component happened to be in the variable. Home registers for its
-    /// knowledge layout on startup, so a <c>SplitPane</c> inside the shell had to
+    /// whichever component happened to be in the variable. Home once registered for
+    /// its knowledge layout on startup, so a <c>SplitPane</c> inside the shell had to
     /// opt the pointer gesture out and keep only its keyboard resize — which is
-    /// exactly what the backlog pane's separator did.
+    /// exactly what the backlog pane's separator did. Every owner is a
+    /// <c>SplitPane</c> now, each under the key it mints.
     /// </para>
     /// <para>
     /// Asserted on the source because there is no JS engine here. What is pinned is
@@ -379,8 +388,8 @@ public sealed class GlobalPaneMarkupTests
         var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
 
         Assert.Contains("const backlogPaneOwners = new Map();", componentsJs, StringComparison.Ordinal);
-        Assert.Contains("backlogPaneOwners.set(key ?? '', owner);", componentsJs, StringComparison.Ordinal);
-        Assert.Contains("backlogPaneOwners.delete(key ?? '');", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("backlogPaneOwners.set(key, owner);", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("backlogPaneOwners.delete(key);", componentsJs, StringComparison.Ordinal);
         Assert.Contains("return backlogPaneOwners.get(backlogOwnerKey(layout)) ?? null;", componentsJs, StringComparison.Ordinal);
 
         // The drag settles to the layout it was performed on, and does nothing at
@@ -394,27 +403,18 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Capacity reads the viewport, so it can be answered whether or not the pane
-    /// layout is mounted. Reporting it behind the layout guard meant a window
-    /// resized while a full-screen surface was open reported nothing at all, and
-    /// the panes came back sized for a window that no longer existed. There is no
-    /// JS engine here to prove the behaviour, so the order of the two reports is
-    /// pinned instead: capacity first, then the lookup, then the measured width.
-    /// <para>
-    /// The guard is a conditional now rather than an early return, because the
-    /// reports run per owner: returning would skip every owner after the one whose
-    /// layout happened to be off screen, so the width is written only when there is
-    /// a layout to measure and the loop carries on either way.
-    /// </para>
+    /// The bounds are reported per owner, and a layout that is not mounted must not
+    /// cost the owners after it their report. There is no JS engine here to prove
+    /// the behaviour, so the shape is pinned instead: the lookup, then the measured
+    /// width behind a conditional rather than an early return. The viewport's pane
+    /// capacity, reported for the desktop shell's side panes, went with them, and so
+    /// did the shell's own layout among the selectors and the width it was dragged to.
     /// </summary>
     [Fact]
-    public void Pane_capacity_is_reported_even_while_the_layout_is_off_screen()
+    public void Pane_bounds_are_reported_per_owner_and_no_capacity_is()
     {
         var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
 
-        var capacity = componentsJs.IndexOf(
-            "owner.invokeMethodAsync('SetGlobalPaneCapacityAsync'",
-            StringComparison.Ordinal);
         var lookup = componentsJs.IndexOf(
             "const layout = backlogLayoutForKey(key);",
             StringComparison.Ordinal);
@@ -422,11 +422,16 @@ public sealed class GlobalPaneMarkupTests
             "if (layout) owner.invokeMethodAsync('SetSidePaneMaxWidthAsync'",
             StringComparison.Ordinal);
 
-        Assert.True(capacity >= 0 && lookup >= 0 && width >= 0);
-        Assert.True(capacity < lookup, "Capacity must be reported before the layout is looked up.");
+        Assert.True(lookup >= 0 && width >= 0);
         Assert.True(lookup < width, "Only the measured width may depend on the layout.");
 
-        // An unmeasurable layout must not cost the owners after it their capacity,
+        Assert.DoesNotContain("SetGlobalPaneCapacityAsync", componentsJs, StringComparison.Ordinal);
+        Assert.DoesNotContain("backlogPaneCapacity", componentsJs, StringComparison.Ordinal);
+        Assert.DoesNotContain("devbook-layout", componentsJs, StringComparison.Ordinal);
+        Assert.DoesNotContain("--devbook-panel-width", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-pane-split]';", componentsJs, StringComparison.Ordinal);
+
+        // An unmeasurable layout must not cost the owners after it their report,
         // so the reporting function may not return early on one. Scoped to that
         // function rather than to the file: the drag handler bails out on a
         // separator with no layout around it, which is a different question with a
@@ -439,22 +444,26 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The split opens for the Devbook, the one pane in the side stack, whichever
-    /// view it sits beside. The "side panes only" stack that filled the row when the
-    /// task list was closed is gone with the Tasks pane toggle.
+    /// The workspace holds the main view and nothing beside it: the split that
+    /// opened for the Devbook, its layout classes and the side stack went when the
+    /// Devbook took the screen, in the markup and in the stylesheet alike.
     /// </summary>
     [Fact]
-    public void Side_layout_opens_split_whenever_the_devbook_is_beside_the_view()
+    public void The_workspace_holds_the_main_view_and_no_split()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        Assert.Contains("@(DevbookPaneVisible ? \"devbook-layout--side-open\" : \"devbook-layout--side-closed\")", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("side-pane-stack--full", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("side-pane-stack--full", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("devbook-layout--side-open", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("devbook-layout--side-open", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("devbook-layout--side-closed", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"devbook-layout\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n.devbook-layout {", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("--devbook-panel-width", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("--devbook-panel-width", css, StringComparison.Ordinal);
         Assert.DoesNotContain("RightSidePaneVisible", home, StringComparison.Ordinal);
         Assert.DoesNotContain("TasksPaneVisible", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("side-pane-stack--right-docked", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("DevbookPaneVisible", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -473,25 +482,30 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("else if (SessionsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (PullRequestsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (InboxVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("else if (DevbookVisible)", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"dashboard-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"sessions-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"pull-requests-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"inbox-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"devbook-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"workspace\"", home, StringComparison.Ordinal);
 
         // One landmark per branch, and the branches are exclusive, so the page has
         // exactly one. The roadmap gave up its own when it became a view.
-        Assert.Equal(6, CountOccurrences(home, "<main class="));
+        Assert.Equal(7, CountOccurrences(home, "<main class="));
 
-        // The roadmap view sits inside the pane row, in the main column.
+        // The Devbook is rendered once, inside its own surface.
+        Assert.Equal(1, CountOccurrences(home, "<DevbookPane "));
+        var devbookSurface = home.IndexOf("else if (DevbookVisible)", StringComparison.Ordinal);
         var workspace = home.IndexOf("<main class=\"workspace\"", StringComparison.Ordinal);
+        var devbookPane = home.IndexOf("<DevbookPane ", StringComparison.Ordinal);
+        Assert.True(devbookPane > devbookSurface && devbookPane < workspace);
+
+        // The roadmap view is the workspace's main view, directly inside it.
         Assert.True(home.IndexOf("@if (RoadmapViewVisible)", StringComparison.Ordinal) > workspace);
         Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", home, StringComparison.Ordinal);
-
-        Assert.Contains("<div class=\"devbook-layout ", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("<main class=\"devbook-layout", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"devbook-layout\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("devbook-layout", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -510,11 +524,11 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", home, StringComparison.Ordinal);
         Assert.Contains("await _surfaceElement.FocusAsync();", home, StringComparison.Ordinal);
         Assert.Contains("if (e.Key == \"Escape\") CloseSurface();", home, StringComparison.Ordinal);
-        // Four takeovers close on Escape; the Inbox keeps Escape for its own keys.
-        Assert.Equal(4, CountOccurrences(home, "data-escape-closes"));
+        // Five takeovers close on Escape, the Devbook among them; the Inbox keeps
+        // Escape for its own keys.
+        Assert.Equal(5, CountOccurrences(home, "data-escape-closes"));
 
-        // A view option or a side-pane toggle pressed during a takeover closes it the
-        // same way.
+        // A view option pressed during a takeover closes it the same way.
         Assert.Contains("if (!WorkspaceVisible) CloseSurface();", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("workspace-surface-backdrop", home, StringComparison.Ordinal);
@@ -523,11 +537,10 @@ public sealed class GlobalPaneMarkupTests
     /// <summary>
     /// Closing a surface has to put the reader back where they were. It does so by
     /// construction rather than by remembering anything: the surface is a field of
-    /// its own, so <see cref="GlobalPaneSelection"/> is never touched to open one —
-    /// which also keeps Tools out of the pane capacity rule.
+    /// its own, so the view is never touched to open one.
     /// </summary>
     [Fact]
-    public void Opening_a_surface_leaves_the_pane_selection_alone()
+    public void Opening_a_surface_leaves_the_view_alone()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var surface = NormalizeLineEndings(File.ReadAllText(FindWorkspaceSurface()));
@@ -535,36 +548,15 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("private WorkspaceSurface _surface = WorkspaceSurface.Workspace;", home, StringComparison.Ordinal);
         Assert.Contains("_surface = _surface == surface ? WorkspaceSurface.Workspace : surface;", home, StringComparison.Ordinal);
 
-        // Three states in one field is what makes a takeover exclusive with the
-        // workspace and with the other takeover.
+        // States in one field is what makes a takeover exclusive with the workspace
+        // and with every other takeover, the Devbook included.
         Assert.Contains("Workspace,", surface, StringComparison.Ordinal);
         Assert.Contains("Tools,", surface, StringComparison.Ordinal);
         Assert.Contains("Dashboard", surface, StringComparison.Ordinal);
+        Assert.Contains("    Inbox,\n", surface, StringComparison.Ordinal);
+        Assert.Contains("    Devbook\n", surface, StringComparison.Ordinal);
 
-        // Tools is not a fourth global pane, and must not become one: the panes
-        // carry a viewport capacity rule and an always-one-visible invariant that
-        // a full-screen surface has no business in.
-        Assert.DoesNotContain("GlobalPane.Tools", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("GlobalPane.Dashboard", home, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// The pane bounds are measured from the layout element, so nothing is reported
-    /// while a takeover has it unmounted. Without a nudge on the way back, closing
-    /// a surface after the window was resized would leave the capacity describing a
-    /// window that is gone.
-    /// </summary>
-    [Fact]
-    public void Home_remeasures_the_pane_bounds_when_the_workspace_comes_back()
-    {
-        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
-        var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
-
-        Assert.Contains("refresh() {", componentsJs, StringComparison.Ordinal);
-        Assert.Contains("backlogReportPaneBounds();", componentsJs, StringComparison.Ordinal);
-
-        Assert.Contains("await JS.InvokeVoidAsync(\"backlogPaneResizer.refresh\");", home, StringComparison.Ordinal);
-        Assert.Contains("if (_workspaceWasHidden)", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("_workspaceWasHidden", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -584,10 +576,10 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains(".workspace-surface > .inbox-pane {", css, StringComparison.Ordinal);
 
         var surfaceStart = home.IndexOf("else if (InboxVisible)", StringComparison.Ordinal);
-        var layout = home.IndexOf("data-testid=\"devbook-layout\"", StringComparison.Ordinal);
+        var workspace = home.IndexOf("<main class=\"workspace\"", StringComparison.Ordinal);
         var inbox = home.IndexOf("@InboxPaneContent", StringComparison.Ordinal);
         Assert.True(surfaceStart >= 0);
-        Assert.True(inbox > surfaceStart && inbox < layout);
+        Assert.True(inbox > surfaceStart && inbox < workspace);
         Assert.Equal(1, CountOccurrences(home, "@InboxPaneContent"));
 
         var surface = home[surfaceStart..inbox];
@@ -599,7 +591,36 @@ public sealed class GlobalPaneMarkupTests
         // The option toggles the surface; the shell's document-level Escape leaves it alone.
         Assert.Contains("private void ToggleInbox() => ToggleSurface(WorkspaceSurface.Inbox);", home, StringComparison.Ordinal);
         Assert.Contains("if (WorkspaceVisible || InboxVisible) return Task.CompletedTask;", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("GlobalPane.Inbox", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The Devbook takes the screen as a surface of its own (local ADR 0022,
+    /// amendment of 2026-10-15) and, unlike the Inbox, closes on Escape: its surface
+    /// carries the document-level marker and the surface key handler. Its toggle is
+    /// the surface switch, and every link that opened the side pane — an entry's
+    /// reference, a Brain note's badge — opens the surface through one road.
+    /// </summary>
+    [Fact]
+    public void Devbook_renders_as_its_own_surface_and_closes_on_escape()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        var surfaceStart = home.IndexOf("else if (DevbookVisible)", StringComparison.Ordinal);
+        var devbookPane = home.IndexOf("<DevbookPane ", StringComparison.Ordinal);
+        Assert.True(surfaceStart >= 0 && devbookPane > surfaceStart);
+
+        var surface = home[surfaceStart..devbookPane];
+        Assert.Contains("<main class=\"workspace-surface\"", surface, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"devbook-surface\"", surface, StringComparison.Ordinal);
+        Assert.Contains("data-escape-closes\n", surface, StringComparison.Ordinal);
+        Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", surface, StringComparison.Ordinal);
+        Assert.Contains("@ref=\"_surfaceElement\"", surface, StringComparison.Ordinal);
+
+        Assert.Contains(
+            "private bool DevbookVisible => _surface == WorkspaceSurface.Devbook && DevbookPaneOptionVisible;",
+            home,
+            StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(home, "        ShowDevbook();\n"));
     }
 
     [Fact]
@@ -756,10 +777,11 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("_appUpdateWindowOpen", home, StringComparison.Ordinal);
         Assert.DoesNotContain("DevelopmentWorkspaceLabel", home, StringComparison.Ordinal);
 
-        // But _workspaceWasHidden stays: despite the name it is about the workspace
-        // *surface* coming back into view and where focus goes when it does, which
-        // has nothing to do with the worktree label.
-        Assert.Contains("_workspaceWasHidden", home, StringComparison.Ordinal);
+        // But the surface's focus flag stays: it is about a takeover coming into view
+        // and where focus goes when it does, which has nothing to do with the worktree
+        // label. (_workspaceWasHidden, the pane re-measure on the way back, went with
+        // the side panes.)
+        Assert.Contains("_focusSurfacePending", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -864,14 +886,16 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" CalendarRange=\"@CalendarRange\" CalendarRangeChanged=\"OnCalendarRangeChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
-        Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
+        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" BrainNotesFor=\"@BrainNotesForTask\" DevbookImagesFor=\"@DevbookImagesForEntry\" OnOpenBrainNote=\"OpenBrainNoteAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" CalendarRange=\"@CalendarRange\" CalendarRangeChanged=\"OnCalendarRangeChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
+        Assert.Contains("<DevbookPane OnClose=\"CloseSurface\"", home, StringComparison.Ordinal);
 
         // The roadmap and the dashboard are composed on the same terms. Their content
         // belongs to Roadmap and the Dashboard; the shell only decides where it goes.
-        // The roadmap takes no parameters at all: the shell renders it as a surface
-        // or it does not.
-        Assert.Contains("<RoadmapBand />", home, StringComparison.Ordinal);
+        // The roadmap takes one parameter, and it is a way out rather than content: its
+        // "Open in Tasks" asks the shell to show a plan in the task list, because the
+        // view switch and the list's filters are the shell's and the roadmap
+        // references no Tasks module. No plan, item or bar is handed down.
+        Assert.Contains("<RoadmapBand OnOpenTasks=\"OpenPlanTasks\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DashboardPane OnClose=", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("entry-doc__meta", home, StringComparison.Ordinal);
@@ -1025,7 +1049,7 @@ public sealed class GlobalPaneMarkupTests
         // Markup order: the filter bar, then the scroller, then the bulk bar and
         // the rows inside it.
         var filterBar = tasks.IndexOf("<div class=\"filter-bar\">", StringComparison.Ordinal);
-        var scroll = tasks.IndexOf("<div class=\"backlog-list__scroll\" data-testid=\"backlog-list-scroll\">", StringComparison.Ordinal);
+        var scroll = tasks.IndexOf("<div class=\"backlog-list__scroll\"", StringComparison.Ordinal);
         var bulkBar = tasks.IndexOf("<SelectionBar", StringComparison.Ordinal);
         var rows = tasks.IndexOf("<TaskListView", StringComparison.Ordinal);
         Assert.True(filterBar >= 0 && scroll > filterBar, "The scroller follows the filter bar.");
@@ -1156,7 +1180,7 @@ public sealed class GlobalPaneMarkupTests
     private static string RuleFor(string css, string block)
     {
         // Anchored to the start of a line, so `.backlog-workspace {` is not found
-        // inside `.devbook-layout--side-closed .backlog-workspace {`.
+        // inside a descendant rule such as `.some-parent .backlog-workspace {`.
         var start = css.IndexOf($"\n{block}", StringComparison.Ordinal);
         Assert.True(start >= 0, $"`{block}` is not a rule of its own in the stylesheet.");
 

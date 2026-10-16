@@ -2,6 +2,7 @@
 @using Backlog.Mobile.UI.Outbox
 @inject DevicePairingClient Pairing
 @inject DeviceOutbox Outbox
+@inject TimeProvider Clock
 @implements IDisposable
 
 @*
@@ -39,7 +40,8 @@
     <TextField @bind-Value="_pairingCode" AriaLabel="Pairing code" Placeholder="XXXX-XXXX"
                CssClass="capture__field" TestId="pairing-code-field" />
     <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_pairingCode)"
-               OnClick="PairAsync" TestId="pairing-submit">Pair</AppButton>
+               Busy="@_pairing" BusyLabel="Waiting for the sync service"
+               OnClick="PairAsync" TestId="pairing-submit">@(_pairing ? "Pairing…" : "Pair")</AppButton>
 </div>
 
 @if (_pairingError is not null)
@@ -48,8 +50,15 @@
 }
 
 @code {
+    // Above the web harness's 10 s per-attempt resilience timeout, so a slow but
+    // live service still gets its retry, and well below the HTTP client's default
+    // 100 s - which is what a phone with no route to the service would otherwise
+    // sit through, looking as if the button did nothing.
+    private static readonly TimeSpan PairAttemptTimeout = TimeSpan.FromSeconds(15);
+
     private string _pairingCode = string.Empty;
     private string? _pairingError;
+    private bool _pairing;
     private ElementReference _heading;
 
     private string? WaitingMessage =>
@@ -90,10 +99,15 @@
     private async Task PairAsync()
     {
         _pairingError = null;
+        _pairing = true;
+
+        // On the gate's own clock rather than the HTTP client's, so the host's
+        // TimeProvider - and a test's - decides when the attempt is given up on.
+        using var timeout = new CancellationTokenSource(PairAttemptTimeout, Clock);
 
         try
         {
-            var result = await Pairing.PairAsync(_pairingCode, DeviceName);
+            var result = await Pairing.PairAsync(_pairingCode, DeviceName, timeout.Token);
 
             if (result.IsFailure)
             {
@@ -107,12 +121,23 @@
             // a person who just paired expects their captures to follow.
             Outbox.Resume();
         }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            // SyncHttp hands a cancellation the caller asked for back as one, so
+            // the gate's own timeout arrives here and is worded the way SyncHttp
+            // words the client's: "A task was canceled." tells nobody anything.
+            _pairingError = "The sync service did not answer in time.";
+        }
         catch (Exception ex)
         {
             // Expected failures come back as a result; anything still arriving as
             // an exception has to reach the screen, because one swallowed in an
             // event handler leaves the button looking like it did nothing.
             _pairingError = ex.Message;
+        }
+        finally
+        {
+            _pairing = false;
         }
     }
 

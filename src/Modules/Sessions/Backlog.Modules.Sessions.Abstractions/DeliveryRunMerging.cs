@@ -176,6 +176,7 @@ public static class DeliveryRunMerging
             Schedule = primary.Schedule ?? others.Select(other => other.Schedule).FirstOrDefault(schedule => schedule is not null),
             Repository = primary.Repository ?? others.Select(other => other.Repository).FirstOrDefault(repository => repository is not null),
             Verdicts = primary.Verdicts.Count > 0 ? primary.Verdicts : First(others, other => other.Verdicts),
+            Quality = primary.Quality ?? others.Select(other => other.Quality).FirstOrDefault(quality => quality is not null),
             Surfaces = [primary.Dashboard, .. others.Select(other => other.Dashboard)],
             RunIds = [primary.Id, .. others.Select(other => other.Id)]
         };

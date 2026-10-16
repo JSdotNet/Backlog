@@ -141,7 +141,8 @@ decision, not the plan's.
      `id:sign-off-plan`, `after:review-plan`, `effort:1` and, like the review, `repo:` once
      per repository the plan targeted. Its body asks the
      user to read the review's outcome and confirm the plan is complete, or pick up the
-     follow-up entries it wrote.
+     follow-up entries it wrote — and, where the plan landed on a plan branch, to merge the
+     closing pull request linked on it, which is the confirmation.
 5. Number the steps: prefix every step title — review and sign-off included, never the
    `plan` entry — with `<n> - `, counting from 1 in document order, and write each prompt's
    session-name line from the numbered title. Numbers are display, not identity: a

@@ -1,0 +1,119 @@
+{
+  "id": "run-mv8q2c4f-qf1a9b",
+  "skillId": "flow-code",
+  "title": "pr-session-pages-redesign:19 - Read the quality signals right and show them on the run",
+  "status": "done",
+  "changeKind": "new-functionality",
+  "startedAt": "2026-10-14T08:00:00.000Z",
+  "updatedAt": "2026-10-14T11:40:00.000Z",
+  "sessionIds": [
+    "6e2b7c1d-3a4f-4e5d-8c9b-0a1b2c3d4e5f"
+  ],
+  "trigger": "scheduled",
+  "repo": "JSdotNet/Backlog",
+  "runContext": {
+    "quality": {
+      "reviewRounds": { "reportedBy": "Review", "total": 2,
+                        "slices": [{ "slice": "contract", "rounds": 2 }] },
+      "blockers": { "reportedBy": "Review",
+                    "rule": { "open": 1, "fixed": 0 }, "bug": { "open": 1, "fixed": 0 },
+                    "rounds": [{ "slice": "contract", "round": 1, "rule": { "open": 1, "fixed": 0 }, "bug": { "open": 1, "fixed": 0 } }] },
+      "escapedDefects": { "total": 0, "items": [] }
+    }
+  },
+  "quality": {
+    "reviewRounds": { "reportedBy": "Review", "total": 3,
+                      "slices": [{ "slice": "contract", "rounds": 2 }, { "slice": "runner", "rounds": 1 }] },
+    "blockers": { "reportedBy": "Review",
+                  "rule": { "open": 0, "fixed": 1 }, "bug": { "open": 0, "fixed": 1 },
+                  "rounds": [{ "slice": "contract", "round": 1, "rule": { "open": 1, "fixed": 0 }, "bug": { "open": 1, "fixed": 0 } },
+                             { "slice": "contract", "round": 2, "rule": { "open": 0, "fixed": 1 }, "bug": { "open": 0, "fixed": 1 } },
+                             { "slice": "runner", "round": 1, "rule": { "open": 0, "fixed": 0 }, "bug": { "open": 0, "fixed": 0 } }] },
+    "escapedDefects": { "total": 2,
+                        "items": [{ "foundAt": "Build & Test", "summary": "DeliveryRunReaderTests: quality not read" },
+                                  { "foundAt": "Verify", "summary": "Stage row: Verify defects missing" }] }
+  },
+  "stages": [
+    {
+      "name": "Update Base",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 4100,
+      "agents": []
+    },
+    {
+      "name": "Scope",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 160200,
+      "agents": [],
+      "execution": {
+        "mode": "inline"
+      }
+    },
+    {
+      "name": "Implement",
+      "status": "done",
+      "doneCount": 3,
+      "durationMs": 420300,
+      "agents": [],
+      "execution": {
+        "mode": "delegate",
+        "agent": "csharp-coding:coding",
+        "round": 1
+      }
+    },
+    {
+      "name": "Review",
+      "status": "done",
+      "doneCount": 3,
+      "durationMs": 210800,
+      "agents": [],
+      "execution": {
+        "mode": "inline",
+        "round": 1,
+        "blockers": 0
+      }
+    },
+    {
+      "name": "Build & Test",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 380000,
+      "agents": [],
+      "execution": {
+        "mode": "inline"
+      }
+    },
+    {
+      "name": "Verify",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 610400,
+      "agents": [],
+      "execution": {
+        "mode": "inline",
+        "defectsFound": 0
+      }
+    },
+    {
+      "name": "Personal Validation",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 1200,
+      "agents": []
+    }
+  ],
+  "insights": [
+    {
+      "kind": "agent",
+      "agentName": "csharp-coding:coding",
+      "agentDisplayName": "csharp-coding:coding",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "durationMs": 402100,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    }
+  ]
+}

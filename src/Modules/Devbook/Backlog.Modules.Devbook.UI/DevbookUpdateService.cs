@@ -24,8 +24,30 @@ public sealed class DevbookUpdateService(
     GitHubSettingsStore repositories,
     ILocalGitRepositoryService git,
     IDevbookFolderSource folders,
-    IDevbookSnapshotCache? snapshots = null)
+    IDevbookSnapshotCache? snapshots = null,
+    DevbookBranchOverview? overview = null)
 {
+    /// <summary>
+    /// Whether this scope reads its local clone, which is the one source the
+    /// pane offers a version control for. A branch snapshot is kept current by
+    /// its own cadence (<c>DevbookSnapshotAutoFetch</c>), so a control there would
+    /// only hurry along what happens anyway.
+    /// </summary>
+    public bool CanUpdateClone(string? repositoryAlias) =>
+        Repository(repositoryAlias) is { DevbookSource: DevbookSourceKind.LocalFolder };
+
+    /// <summary>
+    /// The state the clone's control starts in when the branch overview has
+    /// already looked at the clone: the same state <see cref="CheckAsync"/> would
+    /// give for that answer, so the pane offers "Pull latest" without anybody
+    /// pressing "Check now" first. Null when the scope does not read its clone or
+    /// the overview holds no answer for it.
+    /// </summary>
+    public DevbookUpdateState? SeededState(string? repositoryAlias) =>
+        CanUpdateClone(repositoryAlias) && overview?.Current(repositoryAlias)?.Local is { } local
+            ? DevbookUpdateState.From(local)
+            : null;
+
     /// <summary>
     /// Whether this scope has a latest version at all.
     /// <para>
@@ -40,8 +62,20 @@ public sealed class DevbookUpdateService(
     /// latest?" is worth asking, because nothing about a snapshot tells you the
     /// branch has moved.
     /// </para>
+    /// <para>
+    /// An archived repository has none either (local ADR 0029 §4): its devbook is
+    /// read as it is, so there is no "bring the clone up to date" offer and no
+    /// check that would reach git or GitHub for it.
+    /// </para>
     /// </summary>
-    public bool CanCheck(string? repositoryAlias) => Repository(repositoryAlias) is not null;
+    public bool CanCheck(string? repositoryAlias) => Updatable(repositoryAlias) is not null;
+
+    /// <summary>The repository a check or pull may go to: <see cref="Repository"/>
+    /// unless it is archived. Kept apart from <see cref="Repository"/>, which the
+    /// pane also asks where the folder lives — still true of an archived
+    /// clone.</summary>
+    private GitHubRepositoryRef? Updatable(string? repositoryAlias) =>
+        Repository(repositoryAlias) is { Archived: false } repository ? repository : null;
 
     /// <summary>The repository whose clone or branch carries this scope's
     /// knowledge, or null when the scope has neither behind it.</summary>
@@ -63,7 +97,7 @@ public sealed class DevbookUpdateService(
     /// </summary>
     public async Task<DevbookUpdateState> CheckAsync(string? repositoryAlias, CancellationToken cancellationToken = default)
     {
-        var repository = Repository(repositoryAlias);
+        var repository = Updatable(repositoryAlias);
         if (repository is null) return DevbookUpdateState.NotApplicable;
 
         if (repository.DevbookSource is DevbookSourceKind.Branch)
@@ -76,6 +110,10 @@ public sealed class DevbookUpdateService(
         }
 
         var check = await git.CheckForUpdatesAsync(repository, repository.CloneDirectory, cancellationToken).ConfigureAwait(false);
+
+        // The clone's row in the source list follows the newest answer.
+        overview?.RecordLocal(repository.Alias, check);
+
         return DevbookUpdateState.From(check);
     }
 
@@ -92,7 +130,7 @@ public sealed class DevbookUpdateService(
     /// </summary>
     public async Task<DevbookUpdateState> PullAsync(string? repositoryAlias, CancellationToken cancellationToken = default)
     {
-        var repository = Repository(repositoryAlias);
+        var repository = Updatable(repositoryAlias);
         if (repository is null) return DevbookUpdateState.NotApplicable;
 
         if (repository.DevbookSource is DevbookSourceKind.Branch)
@@ -111,6 +149,10 @@ public sealed class DevbookUpdateService(
 
         var result = await git.PullAsync(repository, repository.CloneDirectory, cancellationToken).ConfigureAwait(false);
         if (!result.Success) return DevbookUpdateState.Blocked(result.Message);
+
+        // Before the announcement, so a pane re-seeding on the news reads where
+        // the pull left the clone. The branches GitHub listed are not asked again.
+        overview?.RecordLocal(repository.Alias, result.State);
 
         // The announcement comes after the files have landed and before anything
         // is reported back, so a panel that reloads on the news reloads the pulled

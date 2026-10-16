@@ -104,10 +104,10 @@
   ],
   "components": {
     "delivery": {
-      "pluginVersion": "1.20.1"
+      "pluginVersion": "1.26.0"
     },
     "devbook": {
-      "pluginVersion": "1.22.0",
+      "pluginVersion": "1.26.0",
       "contractVersion": 30,
       "adopted": [
         "arc42",
@@ -123,8 +123,8 @@
           "managed": true
         },
         ".agents/rules/devbook-annotations.md": {
-          "from": "1.13.0",
-          "hash": "sha256:fce8bf2f71a09e072ae2cf6e7b678a0fa653422646b10fec3ce4aacb37ac865c",
+          "from": "1.24.0",
+          "hash": "sha256:101f815225e519a2ff6084fe56122a2da23e839a0cfafc7501cd05b9b4cf7138",
           "managed": true
         },
         ".agents/rules/devbook-arc42.md": {
@@ -133,8 +133,8 @@
           "managed": true
         },
         ".agents/rules/devbook-chapter-metadata.md": {
-          "from": "1.22.0",
-          "hash": "sha256:66ab4fc20988f29d88a7a6f0cc438e6384d010627d9b438e32a2d7cc04551026",
+          "from": "1.24.0",
+          "hash": "sha256:207f5c8ded2e8f880a9c7ceee4b7b5dff99fae8ee05b640f621943b60059e40f",
           "managed": true
         },
         ".agents/rules/devbook-design.md": {
@@ -143,8 +143,8 @@
           "managed": true
         },
         ".agents/rules/devbook-domain.md": {
-          "from": "1.22.0",
-          "hash": "sha256:6a73fa5d184e1eb3208fbe806cb94603bbc675c0b8781cc5a6110b9303cce006",
+          "from": "1.24.0",
+          "hash": "sha256:50877bedfe5667044f35aa0fda6a7bb32b388d97bb0f2ae79df62d51bbe2d956",
           "managed": true
         },
         ".agents/rules/devbook-naming.md": {
@@ -243,8 +243,8 @@
           "managed": false
         },
         ".devbook/_tools/devbook-meta": {
-          "from": "1.22.0",
-          "hash": "sha256:2cd1d77aec067741d97fa79b18fa687ca38d40907fa052e10ed737f8894ede5e",
+          "from": "1.26.0",
+          "hash": "sha256:b1cf2cb46e4864e7d6d8bd2a04217f3ff8bb8569bf9d901f08b911770baccd3e",
           "managed": true
         },
         ".devbook/_tools/devbook-tech": {
@@ -253,8 +253,8 @@
           "managed": true
         },
         ".devbook/_tools/scenarios": {
-          "from": "1.22.0",
-          "hash": "sha256:9a8deb1f6589db5c3cfee03ad8d25c5ed18ad151141d2b9f8cc88aebeb6d9f81",
+          "from": "1.26.0",
+          "hash": "sha256:9fc07599b7f50c75ba0c20692571463814dd7d7ddcedbbe90ec43366538805f6",
           "managed": true
         },
         ".github/copilot-instructions.md": {
@@ -390,6 +390,14 @@
         {
           "id": "027-procedures-in-devbook",
           "applied": "2026-10-06"
+        },
+        {
+          "id": "030-linked-walkthroughs",
+          "applied": "2026-10-13"
+        },
+        {
+          "id": "030-scenario-tools",
+          "applied": "2026-10-13"
         }
       ],
       "procedures": {
@@ -402,7 +410,7 @@
       }
     },
     "schedule": {
-      "pluginVersion": "1.20.1",
+      "pluginVersion": "1.26.0",
       "enabled": [
         "issue-sweep",
         "merge-review",

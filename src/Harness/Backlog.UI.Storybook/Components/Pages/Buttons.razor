@@ -35,19 +35,24 @@
     </Story>
 
     <Story Name="Disabled and busy"
-           Description="Busy disables the button and swaps the label for a spinner, so a slow action cannot be fired twice."
+           Description="Busy puts a spinner where the icon goes, keeps the label so the button does not change width, and ignores a second press, so a slow act cannot be fired twice. It is not the native `disabled`: a busy button stays in the tab order and keeps the focus, and says so with `aria-disabled` and `aria-busy`. Press the third one and Tab away and back — the focus was never lost. Disabled is a standing state and is the native attribute.
+
+Every button here, in every variant, also darkens while it is held down. That pressed state is the acknowledgement a press gets within one frame, before any work behind it; it is a brightness change and not a movement, so it is the same under reduced motion."
            Code="@BusyCode">
         <div class="sb-row">
             <AppButton Variant="ButtonVariant.Primary" Disabled="true">Disabled</AppButton>
             <AppButton Variant="ButtonVariant.Primary" Busy="true" BusyLabel="Saving">Save</AppButton>
-            <AppButton Variant="ButtonVariant.Primary" Busy="_busy" OnClick="RunBusyAsync">
-                @(_busy ? "Working" : "Run for two seconds")
+            <AppButton Variant="ButtonVariant.Primary" Busy="_busy" BusyLabel="Running" OnClick="RunBusyAsync" TestId="buttons-busy-run">
+                Run for two seconds
             </AppButton>
         </div>
+        <p class="sb-state" data-testid="buttons-busy-runs">Runs finished: @_busyRuns</p>
     </Story>
 
     <Story Name="A button that opens a page"
            Description="Given an Href the button is an anchor wearing the same classes, opening the address in a new window. An act whose whole effect is going to look at something on another site — Open on GitHub, Open review on GitHub — is a link: it can be middle-clicked, copied and opened in a new window, and a button that navigates cannot.
+
+A link to a page of the app itself — Set up your Brain, to Settings › Storage — sets External to false and opens in place, because the app's WebView hands every new-window link to the system browser.
 
 Disabled or busy, the anchor loses its href and says so on aria-disabled, because an anchor has no disabled state of its own. Without an Href the button is exactly the one it always was."
            Code="@HrefCode">
@@ -227,12 +232,20 @@ The glyph confirms it too: press the first one and the two sheets fade down into
 
 The second sample puts words on the button instead. There is no glyph to swap, so it keeps them — but the wrapper still carries data-copied, which is the hook for a host that wants to dress its own confirmation.
 
-The third is refused: Disabled keeps the button in its slot with its glyph, so the row or heading it sits on does not move, and DisabledReason says why — as the wrapper's tooltip, since a disabled button raises no pointer events of its own, and as a described-by for a screen reader. A task row marked blocked by hand draws its copy this way."
+The third is refused: Disabled keeps the button in its slot with its glyph, so the row or heading it sits on does not move, and DisabledReason says why — as the wrapper's tooltip, since a disabled button raises no pointer events of its own, and as a described-by for a screen reader. A task row marked blocked by hand draws its copy this way.
+
+The fourth hands over HTML beside the text: Html puts text/html on the clipboard and Text stays the text/plain fallback, so a table pastes as a formatted table into PowerPoint or a mail and as tab-separated lines anywhere else. ButtonBaseClass draws it as a worded ghost button; the sprint view's Copy as table is this one."
            Code="@CopyButtonCode">
         <div class="sb-row">
             <CopyButton Text="Copied from the storybook." Label="Copy the sample text" TestId="copy-sample" />
             <CopyButton Text="Words instead of a glyph." Label="Copy with a label">Copy</CopyButton>
             <CopyButton Text="Not handed over." Label="Copy the blocked sample" Disabled="true" DisabledReason="Blocked — unblock to copy" TestId="copy-disabled" />
+            <CopyButton Text="@RichSampleText"
+                        Html="@RichSampleHtml"
+                        Label="Copy as table"
+                        ButtonBaseClass="btn btn--ghost btn--small"
+                        StatusCssClass="copy-button__status"
+                        TestId="copy-rich">Copy as table</CopyButton>
         </div>
     </Story>
 
@@ -246,13 +259,32 @@ The third is refused: Disabled keeps the button in its slot with its glyph, so t
         new("accessibility.md#focus-visibility", "What a focused control has to show."),
         new("typography-and-layout.md#iconography", "When a button is an icon, and what the icon may be."),
         new("design-principles.md#keyboard-first", "Why every act needs a key as well as a click."),
-        new("interaction-guidelines.md#motion-and-reduced-motion", "How long a confirmation flash lasts, what it may animate, and what it does instead when motion is unwelcome.")
+        new("interaction-guidelines.md#motion-and-reduced-motion", "How long a confirmation flash lasts, what it may animate, and what it does instead when motion is unwelcome."),
+        new("interaction-guidelines.md#press-feedback", "Why every button shows a pressed state, before any work behind it."),
+        new("interaction-guidelines.md#busy-actions", "When a button goes busy, and why it keeps its focus and its label while it is.")
     ];
 
     private const string CopyButtonCode = """
         <CopyButton Text="@source" Label="Copy the release notes" />
         <CopyButton Text="@source" Label="Copy the task" Disabled="@blocked" DisabledReason="Blocked — unblock to copy" />
+        <CopyButton Text="@table.Text" Html="@table.Html" Label="Copy as table"
+                    ButtonBaseClass="btn btn--ghost btn--small" StatusCssClass="copy-button__status">Copy as table</CopyButton>
         """;
+
+    // The fourth sample: a sprint table, the way the sprint view's Copy as table hands it over.
+    private static readonly Backlog.UI.Components.Progress.SprintTable RichSample =
+        Backlog.UI.Components.Progress.SprintTableClipboard.Build(
+            [
+                new("1", "Pay invoices by bank", Backlog.UI.Components.Progress.SprintRowState.Done, "rekeningen", "backlog", true, false,
+                    [new("JSdotNet/Backlog", "4530", Backlog.UI.Components.Progress.SprintPullRequestState.Merged)], ["ada"], null, false),
+                new("2", "Move the specs", Backlog.UI.Components.Progress.SprintRowState.Blocked, "verplaatsen-specs", "backlog", false, false,
+                    [new("JSdotNet/Backlog", "4707", Backlog.UI.Components.Progress.SprintPullRequestState.Open)], ["grace"], "Which bank?", true)
+            ],
+            ["rekeningen"]);
+
+    private static string RichSampleText => RichSample.Text;
+
+    private static string RichSampleHtml => RichSample.Html;
 
     private static readonly ButtonVariant[] Variants =
         [ButtonVariant.Primary, ButtonVariant.Secondary, ButtonVariant.Ghost, ButtonVariant.Danger];
@@ -355,12 +387,20 @@ The third is refused: Disabled keeps the button in its slot with its glyph, so t
 
     private void Count() => _clicks++;
 
+    private int _busyRuns;
+
     private async Task RunBusyAsync()
     {
         _busy = true;
-        await Task.Delay(TimeSpan.FromSeconds(2));
-        _busy = false;
-        _clicks++;
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            _busyRuns++;
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private const string VariantCode = """
@@ -379,7 +419,16 @@ The third is refused: Disabled keeps the button in its slot with its glyph, so t
         """;
 
     private const string BusyCode = """
-        <AppButton Variant="ButtonVariant.Primary" Busy="@_saving" BusyLabel="Saving">Save</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Busy="@_saving" BusyLabel="Saving" OnClick="SaveAsync">Save</AppButton>
+
+        @code {
+            private async Task SaveAsync()
+            {
+                _saving = true;
+                try { await Store.SaveAsync(); }
+                finally { _saving = false; }
+            }
+        }
         """;
 
     private const string HrefCode = """

@@ -436,7 +436,7 @@
             </div>
         </article>
 
-        @* The four decisions, fixed at the foot of the column, each naming its
+        @* The decisions, fixed at the foot of the column, each naming its
            key. A decided item keeps only Move to list, which is allowed in
            every state. *@
         <footer class="inbox-pane__decide" role="group" aria-label="Decide" data-testid="inbox-detail-decisions">
@@ -449,6 +449,11 @@
                            Title="@($"{RouteTitle(repos)} (r)")"
                            OnClick="State.RouteToBacklogAsync"
                            TestId="inbox-move-to-backlog"><span class="inbox-pane__decision-label">@RouteLabel(repos)</span> <kbd class="inbox-pane__key inbox-pane__key--on-primary" aria-hidden="true">R</kbd></AppButton>
+                var brainUnavailable = State.ToBrainUnavailableReason;
+                <AppButton Disabled="@(Busy || brainUnavailable is not null)"
+                           Title="@(brainUnavailable ?? InboxDesktopState.ToBrainTitle)"
+                           OnClick="State.RouteToBrainAsync"
+                           TestId="inbox-to-brain"><span class="inbox-pane__decision-label">@InboxDesktopState.ToBrainLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">B</kbd></AppButton>
             }
             <AppButton Disabled="@Busy"
                        Title="File it in one of your lists (l)"
@@ -490,7 +495,7 @@
                CssClass="inbox-pane__dialog"
                TestId="inbox-duplicate-dialog">
             <ChildContent>
-                <div class="inbox-pane__picker-dialog" @onkeydown:stopPropagation="true">
+                <div class="inbox-pane__picker-dialog">
                     <SearchBox Value="@_duplicateQuery"
                                ValueChanged="query => _duplicateQuery = query"
                                Placeholder="Find an item"
@@ -522,7 +527,7 @@
                CssClass="inbox-pane__dialog"
                TestId="inbox-link-dialog">
             <ChildContent>
-                <div class="inbox-pane__picker-dialog" @onkeydown:stopPropagation="true">
+                <div class="inbox-pane__picker-dialog">
                     <SearchBox Value="@_linkQuery"
                                ValueChanged="query => _linkQuery = query"
                                Placeholder="Find a task"
@@ -713,6 +718,8 @@
         { Status: InboxStatus.Deferred, DeferredUntil: { } until } =>
             $"Deferred until {until.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
         { Status: InboxStatus.Deferred } => "Deferred with no review date.",
+        { Routing: { Domain: RoutingDomain.Devbook } routing } =>
+            $"Kept in your Brain on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
         { Routing: { } routing } =>
             $"Routed to {InboxDesktopState.Counted(routing.TaskIds.Count, "task", "tasks")} on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
         _ => InboxLabels.Status(item.Status) + "."

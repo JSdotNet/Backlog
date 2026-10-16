@@ -23,9 +23,14 @@ internal sealed class StubBranchCatalog : IGitHubBranchCatalog
     /// branch".</summary>
     public GitHubBranchHead? Head { get; init; }
 
+    /// <summary>Heads per branch, for a test that resolves more than one — the
+    /// default branch under the empty key. A branch not listed here resolves to
+    /// <see cref="Head"/>.</summary>
+    public Dictionary<string, GitHubBranchHead> Heads { get; init; } = new(StringComparer.Ordinal);
+
     /// <summary>When set, listing refuses the way GitHub does — the path a
     /// repository this machine cannot reach takes.</summary>
-    public string? Failure { get; init; }
+    public string? Failure { get; set; }
 
     public int Listings { get; private set; }
 
@@ -40,9 +45,47 @@ internal sealed class StubBranchCatalog : IGitHubBranchCatalog
         return Task.FromResult<IReadOnlyList<string>>([.. Branches]);
     }
 
+    public int HeadListings { get; private set; }
+
+    /// <summary>Every listed branch with its head: the one in <see cref="Heads"/>
+    /// when there is one, else a commit id made up from the name, so two branches
+    /// never share one.</summary>
+    public Task<IReadOnlyList<GitHubBranchHead>> ListBranchHeadsAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default)
+    {
+        HeadListings++;
+
+        if (Failure is not null) throw new GitHubException(Failure);
+
+        return Task.FromResult<IReadOnlyList<GitHubBranchHead>>(
+        [
+            .. Branches.Select(branch => Heads.TryGetValue(branch, out var head) ? head : new GitHubBranchHead(branch, "sha-" + branch))
+        ]);
+    }
+
+    public int Resolves { get; private set; }
+
     public Task<GitHubBranchHead?> ResolveHeadAsync(
         GitHubRepositoryRef repository,
         string? branch,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(Head);
+        CancellationToken cancellationToken = default)
+    {
+        Resolves++;
+
+        return Gates.TryGetValue(branch ?? string.Empty, out var gate)
+            ? Resolve(gate.Task, branch)
+            : Task.FromResult(Heads.TryGetValue(branch ?? string.Empty, out var head) ? head : Head);
+    }
+
+    /// <summary>Branches whose head answers only once their gate is set — and
+    /// then answers even if the caller gave up on it, so a test can make a stale
+    /// answer land after a newer one.</summary>
+    public Dictionary<string, TaskCompletionSource> Gates { get; init; } = new(StringComparer.Ordinal);
+
+    private async Task<GitHubBranchHead?> Resolve(Task gate, string? branch)
+    {
+        await gate;
+        return Heads.TryGetValue(branch ?? string.Empty, out var head) ? head : Head;
+    }
 }

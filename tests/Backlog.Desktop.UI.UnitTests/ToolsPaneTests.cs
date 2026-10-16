@@ -25,6 +25,72 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class ToolsPaneTests
 {
+    [Fact]
+    public void A_finished_update_is_kept_as_the_last_run()
+    {
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: true, "1.0.0", "1.1.0")) with
+        {
+            Commands = [new DevToolCommand("claude plugin update architecture", 0, "Updated.")]
+        };
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        RowButton(pane, "Update").Click();
+
+        pane.WaitForAssertion(() => Assert.Single(tools.SavedRuns));
+        var run = tools.SavedRuns.Single();
+        Assert.Equal(DevToolRunKind.Update, run.Kind);
+        Assert.Equal(DevToolRunOutcome.Succeeded, run.Outcome);
+        Assert.True(run.FinishedAt >= run.StartedAt);
+        Assert.Equal([new DevToolRunStep("architecture", "1.0.0", "1.1.0", DevToolRunOutcome.Succeeded, run.Steps[0].Duration)], run.Steps);
+        Assert.EndsWith("Done.", run.Transcript, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_failed_install_is_kept_as_a_failed_install()
+    {
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: false, "not installed", "1.1.0")) with { Succeeds = false };
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        RowButton(pane, "Install").Click();
+
+        pane.WaitForAssertion(() => Assert.Single(tools.SavedRuns));
+        var run = tools.SavedRuns.Single();
+        Assert.Equal(DevToolRunKind.Install, run.Kind);
+        Assert.Equal(DevToolRunOutcome.Failed, run.Outcome);
+        Assert.Null(run.Steps.Single().FromVersion);
+        Assert.Contains(FakeDevToolService.RefusalMessage, run.Transcript, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Update_all_is_kept_as_the_last_run()
+    {
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: true, "1.0.0", "1.1.0"));
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        pane.Find("[data-testid='tools-update-all']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(DevToolRunKind.UpdateAll, Assert.Single(tools.SavedRuns).Kind));
+    }
+
+    [Fact]
+    public void Checking_for_updates_is_not_a_run()
+    {
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: true, "1.0.0", "1.0.0"));
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        pane.Find("[data-testid='tools-refresh']").Click();
+
+        pane.WaitForAssertion(() => Assert.True(tools.Reads >= 2));
+        Assert.Empty(tools.SavedRuns);
+    }
+
+    private static AngleSharp.Dom.IElement RowButton(IRenderedComponent<ToolsPane> pane, string label) =>
+        pane.FindAll(".tools-inventory__action button").Single(button => button.TextContent.Trim() == label);
+
     /// <summary>
     /// The affordance this wave exists for. A registration that points at last
     /// week's port is the one defect the pane could see and could not repair: the
@@ -178,9 +244,8 @@ public sealed class ToolsPaneTests
         // The other two states, and the two acts that read a catalog there is not.
         Assert.Empty(pane.FindAll("[data-testid='tools-empty-no-entries']"));
         Assert.Empty(pane.FindAll(".tools-inventory"));
-        Assert.All(
-            pane.FindAll(".tools-panel__toolbar-actions button"),
-            button => Assert.True(button.HasAttribute("disabled")));
+        Assert.True(pane.Find("[data-testid='tools-refresh']").HasAttribute("disabled"));
+        Assert.True(pane.Find("[data-testid='tools-update-all']").HasAttribute("disabled"));
     }
 
     [Fact]
@@ -223,12 +288,12 @@ public sealed class ToolsPaneTests
         // And the badge does not answer a question the pane has not asked yet.
         // _catalogExists starts false, so this used to open on "No catalog" -
         // a verdict, beside a placeholder promising rows were on their way.
-        Assert.Equal("Checking", pane.Find(".tools-panel__count").TextContent.Trim());
+        Assert.Equal("Checking the catalog", pane.Find("[data-testid='tools-checked']").TextContent.Trim());
 
         reading.SetResult();
         pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='tools-loading']")));
         Assert.NotNull(pane.Find("[data-testid='tools-empty-no-entries']"));
-        Assert.Equal("Check tools", pane.Find(".tools-panel__count").TextContent.Trim());
+        Assert.Contains("0 entries", pane.Find("[data-testid='tools-checked']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -315,7 +380,8 @@ public sealed class ToolsPaneTests
 
         pane.Find("[data-testid='tools-create-catalog']").Click();
 
-        Assert.Equal(1, service.Creates);
+        Assert.Equal(1, service.SeededCreates);
+        Assert.Equal(0, service.Creates);
         Assert.Equal(readsBefore + 1, service.Reads);
     }
 
@@ -330,7 +396,8 @@ public sealed class ToolsPaneTests
 
         pane.Find("[data-testid='tools-create-catalog']").Click();
 
-        Assert.Equal(1, service.Creates);
+        Assert.Equal(1, service.SeededCreates);
+        Assert.Equal(0, service.Creates);
 
         // A refresh here would replace the refusal with the ordinary "showing
         // tools from ..." line, which is the one moment it is worth less.
@@ -513,7 +580,7 @@ public sealed class ToolsPaneTests
         var table = pane.Find(".tools-inventory table");
         var headings = table.QuerySelectorAll("thead th");
 
-        Assert.Equal(["Tool", "Installed", "Available", "Actions"], headings.Select(heading => heading.TextContent.Trim()));
+        Assert.Equal(["Tool", "Installed", "Available", "Status", "Actions"], headings.Select(heading => heading.TextContent.Trim()));
         Assert.All(headings, heading => Assert.Equal("col", heading.GetAttribute("scope")));
 
         // One cell per heading, in the same order. Nothing in the component can
@@ -731,9 +798,12 @@ public sealed class ToolsPaneTests
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
-        var labels = pane.FindAll("[data-testid='tools-row-hosts']").Select(badge => badge.TextContent).ToArray();
+        // One chip per host, beside the name.
+        var labels = pane.FindAll("[data-testid='tools-row-hosts']")
+            .Select(chips => string.Join("|", chips.QuerySelectorAll(".tools-inventory__hosts").Select(chip => chip.TextContent.Trim())))
+            .ToArray();
 
-        Assert.Equal(["Copilot + Claude", "Claude", "Copilot"], labels);
+        Assert.Equal(["Copilot|Claude", "Claude", "Copilot"], labels);
     }
 
     /// <summary>An application is machine software, not a registration with an AI
@@ -822,7 +892,9 @@ public sealed class ToolsPaneTests
         Assert.DoesNotContain("Update", actions, StringComparison.Ordinal);
 
         // What the row does keep: the machine can still say it does not want it.
-        Assert.Contains("Disable", actions, StringComparison.Ordinal);
+        using var context = Context(FakeDevToolService.With(CommandRegisteredServer()));
+        var enabled = context.Render<ToolsPane>().Find("[data-tool-key='mcp:aspire'] [data-testid='tools-row-enabled'] [role='switch']");
+        Assert.Equal("true", enabled.GetAttribute("aria-checked"));
     }
 
     /// <summary>AC4 through the column the reader actually looks at: the command
@@ -859,10 +931,9 @@ public sealed class ToolsPaneTests
     [Fact]
     public void A_marketplace_row_cannot_be_disabled()
     {
-        var actions = ActionsFor(Marketplace(known: true));
+        using var context = Context(FakeDevToolService.With(Marketplace(known: true)));
 
-        Assert.DoesNotContain("Disable", actions, StringComparison.Ordinal);
-        Assert.DoesNotContain("Enable", actions, StringComparison.Ordinal);
+        Assert.Empty(context.Render<ToolsPane>().FindAll("[role='switch']"));
     }
 
     /// <summary>A marketplace Claude has never been told about is the one gap that
@@ -876,7 +947,7 @@ public sealed class ToolsPaneTests
         using var context = Context(FakeDevToolService.With(Marketplace(known)));
 
         var pane = context.Render<ToolsPane>();
-        var updateAll = pane.FindAll(".tools-panel__toolbar-actions button")[1];
+        var updateAll = pane.Find("[data-testid='tools-update-all']");
 
         Assert.Equal(expectDisabled, updateAll.HasAttribute("disabled"));
     }
@@ -1053,6 +1124,77 @@ public sealed class ToolsPaneTests
             StringComparison.Ordinal);
     }
 
+    /// <summary>An install-by-hand row's download page is typed into the dialog
+    /// and sent with the draft, for an application and for an MCP server.</summary>
+    [Theory]
+    [InlineData(nameof(DevToolKind.Application))]
+    [InlineData(nameof(DevToolKind.McpServer))]
+    public void Adding_a_tool_sends_the_download_page_it_was_given(string kind)
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(kind);
+
+        if (kind == nameof(DevToolKind.Application))
+        {
+            pane.Find("[data-testid='tools-add-provider'] select").Change(nameof(DevToolProvider.Manual));
+            pane.Find("[data-testid='tools-add-app-id'] input").Input("Dev.Drive");
+        }
+        else
+        {
+            pane.Find("[data-testid='tools-add-mcp-mechanism'] select").Change(nameof(DevToolMcpMechanism.Command));
+            pane.Find("[data-testid='tools-add-server-name'] input").Input("aspire");
+            pane.Find("[data-testid='tools-add-server-command'] input").Input("aspire");
+        }
+
+        pane.Find("[data-testid='tools-add-download'] input").Input("https://example.com/install");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        Assert.Equal("https://example.com/install", Assert.Single(service.Added).Download);
+    }
+
+    /// <summary>A download page the Overview would refuse to link is refused under
+    /// its own field, and nothing is sent.</summary>
+    [Fact]
+    public void A_download_page_that_is_not_http_is_refused_under_its_field()
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+        pane.Find("[data-testid='tools-add-app-id'] input").Input("Git.Git");
+        pane.Find("[data-testid='tools-add-download'] input").Input("javascript:alert(1)");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        Assert.Empty(service.Added);
+        Assert.Contains(
+            DevToolConfiguration.DownloadNotLinkableMessage,
+            pane.Find("[data-testid='tools-add-download']").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>A plugin and a marketplace are installed from here whenever they
+    /// are missing, so the dialog offers neither a download page.</summary>
+    [Fact]
+    public void The_download_page_is_offered_only_for_kinds_installed_by_hand()
+    {
+        using var context = Context(FakeDevToolService.With());
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-download']"));
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Marketplace));
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-download']"));
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+        Assert.Single(pane.FindAll("[data-testid='tools-add-download']"));
+    }
+
     /// <summary>The catalog stopped being six rows of AI tooling and became this
     /// machine's whole software inventory, so the kind is the first thing a row
     /// has to be filed under: "a plugin is missing" and "an application is
@@ -1068,12 +1210,15 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
         var kinds = pane.FindAll("[data-testid='tools-kind']");
 
+        // One tab per kind, every one drawn whether or not it holds rows, with the
+        // rows confirmed by hand split off as the Checklist.
         Assert.Equal(
-            [nameof(DevToolKind.Plugin), nameof(DevToolKind.McpServer), nameof(DevToolKind.Application)],
+            [nameof(DevToolKind.Plugin), nameof(DevToolKind.Marketplace), nameof(DevToolKind.McpServer), nameof(DevToolKind.Application), "Checklist"],
             kinds.Select(section => section.GetAttribute("data-tool-kind")));
-        Assert.Contains("Plugins", kinds[0].TextContent, StringComparison.Ordinal);
-        Assert.Contains("MCP servers", kinds[1].TextContent, StringComparison.Ordinal);
-        Assert.Contains("Applications", kinds[2].TextContent, StringComparison.Ordinal);
+        Assert.NotNull(kinds[0].QuerySelector("[data-tool-key='plugin:architecture']"));
+        Assert.NotNull(kinds[2].QuerySelector("[data-tool-key='mcp:Guidelines']"));
+        Assert.NotNull(kinds[3].QuerySelector("[data-tool-key='app:Git.Git']"));
+        Assert.NotNull(kinds[1].QuerySelector("[data-testid='tools-kind-empty']"));
     }
 
     /// <summary>Within the applications the entry's own group is the sub-heading.
@@ -1101,7 +1246,7 @@ public sealed class ToolsPaneTests
         // The trigger says how much is behind it, so a folded group can be read
         // without opening it.
         Assert.Contains("Git configuration", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
-        Assert.Contains("2 row(s)", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("2 applications", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>A machine that is set up correctly should open this pane to
@@ -1204,7 +1349,10 @@ public sealed class ToolsPaneTests
         Assert.Equal(expected, InstalledValue(pane));
         Assert.Equal(expected, pane.Find(".tools-inventory__action-note").TextContent);
         Assert.DoesNotContain("Version unknown", pane.Markup, StringComparison.Ordinal);
-        Assert.DoesNotContain("Up to date", pane.Markup, StringComparison.Ordinal);
+        // The status chip may say the row matches the catalog; the version-shaped
+        // cells may not claim a version nobody looked up.
+        Assert.DoesNotContain("Up to date", pane.Find(".tools-inventory__actions").TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Up to date", InstalledValue(pane), StringComparison.Ordinal);
     }
 
     /// <summary>Two of the checklist rows declare an install of their own — a git
@@ -1407,7 +1555,7 @@ public sealed class ToolsPaneTests
     /// <summary>One application row, as the port would answer it. Ungrouped by
     /// default, because an ungrouped kind is always open and a test about an
     /// action cell should not also be a test about a disclosure.</summary>
-    private static DevToolInfo Application(
+    internal static DevToolInfo Application(
         string id,
         string name,
         string? group = null,
@@ -1435,7 +1583,7 @@ public sealed class ToolsPaneTests
 
     /// <summary>A row nothing can probe: its detected state is the acknowledgement
     /// and nothing else.</summary>
-    private static DevToolInfo ManualApplication(bool acknowledged) =>
+    internal static DevToolInfo ManualApplication(bool acknowledged) =>
         Application(
             "office-signed-in",
             "Office apps activated and signed in",
@@ -1469,8 +1617,7 @@ public sealed class ToolsPaneTests
 
         // And nothing for "Update all" to act on either, which is the toolbar's
         // half of the same claim.
-        var updateAll = pane.FindAll(".tools-panel__toolbar-actions button")
-            .Single(button => button.TextContent.Contains("Update all", StringComparison.Ordinal));
+        var updateAll = pane.Find("[data-testid='tools-update-all']");
         Assert.True(updateAll.HasAttribute("disabled"));
     }
 
@@ -1528,7 +1675,8 @@ public sealed class ToolsPaneTests
 
         PaneHeaderAssertions.AssertPaneHeader(header, "tools-panel", "installed-tools-title");
         PaneHeaderAssertions.AssertPaneHeaderActions(header, "tools-panel");
-        Assert.NotNull(header.QuerySelector(".tools-panel__header-actions .tools-panel__count"));
+        Assert.NotNull(header.QuerySelector(".tools-panel__header-actions [data-testid='tools-host-filter']"));
+        Assert.Equal("No catalog on this machine", header.QuerySelector("[data-testid='tools-checked']")!.TextContent.Trim());
     }
 
     /// <summary>
@@ -1559,6 +1707,9 @@ public sealed class ToolsPaneTests
 
         var remove = Assert.Single(pane.FindAll("[data-testid='tools-row-cache-remove']"));
         Assert.Equal("Remove cached 1.1.0 of devbook", remove.GetAttribute("aria-label"));
+
+        // The toolbar's clear is a kind tab's; on the Overview it is a Needs you card.
+        pane.Find("[data-testid='tools-tab-plugins']").Click();
         Assert.Contains("Clear stale cache (1)", pane.Find("[data-testid='tools-cache-clear']").TextContent, StringComparison.Ordinal);
     }
 
@@ -1637,6 +1788,7 @@ public sealed class ToolsPaneTests
 
         var pane = context.Render<ToolsPane>();
         var readsBefore = service.Reads;
+        pane.Find("[data-testid='tools-tab-plugins']").Click();
         pane.Find("[data-testid='tools-cache-clear']").Click();
 
         Assert.Equal(0, service.StaleCacheClears);
@@ -1722,7 +1874,7 @@ public sealed class ToolsPaneTests
         };
     }
 
-    private static BunitContext Context(IDevToolService service)
+    internal static BunitContext Context(IDevToolService service)
     {
         var context = new BunitContext();
 
@@ -1732,7 +1884,7 @@ public sealed class ToolsPaneTests
         return context;
     }
 
-    private static DevToolInfo Tool(string key, string name) => new(
+    internal static DevToolInfo Tool(string key, string name) => new(
         key,
         key.StartsWith("plugin:", StringComparison.Ordinal) ? DevToolKind.Plugin : DevToolKind.McpServer,
         name,
@@ -1848,7 +2000,7 @@ public sealed class ToolsPaneTests
 
     /// <summary>A port that records what it was asked and answers from a fixed
     /// catalog. A record so a test can vary one field of it without a builder.</summary>
-    private sealed record FakeDevToolService : IDevToolService
+    internal sealed record FakeDevToolService : IDevToolService
     {
         public const string RefusalMessage = "The catalog is read-only on this machine.";
 
@@ -1857,6 +2009,9 @@ public sealed class ToolsPaneTests
         public bool CatalogExists { get; init; } = true;
 
         public string CatalogPath { get; init; } = @"C:\tools\ai-tools.json";
+
+        /// <summary>This machine's choices file, which the Overview footer names.</summary>
+        public string PcConfigPath { get; init; } = @"C:\tools\this-pc\ai-tools.json";
 
         public bool CanEdit { get; init; } = true;
 
@@ -1869,7 +2024,11 @@ public sealed class ToolsPaneTests
 
         public int Reads { get; private set; }
 
+        /// <summary>Empty catalogs written: "add tools one at a time".</summary>
         public int Creates { get; private set; }
+
+        /// <summary>Catalogs written from this machine: the recommended card.</summary>
+        public int SeededCreates { get; private set; }
 
         public List<DevToolDraft> Added { get; } = [];
 
@@ -1914,7 +2073,8 @@ public sealed class ToolsPaneTests
                 CatalogPath,
                 CanEdit)
             {
-                Commands = Commands
+                Commands = Commands,
+                PcConfigPath = PcConfigPath
             };
         }
 
@@ -1950,9 +2110,31 @@ public sealed class ToolsPaneTests
 
         public Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default) => Answer();
 
-        public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) => Answer();
+        /// <summary>What an Update all does when a test drives it step by step:
+        /// handed the pane's progress, it reports what it likes and answers when it
+        /// likes. Null for every test that only wants the run to finish.</summary>
+        public Func<IProgress<DevToolRunProgress>?, Task<DevToolActionResult>>? UpdateAllRun { get; init; }
 
-        public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => Answer();
+        public Task<DevToolActionResult> UpdateAllWithProgressAsync(IProgress<DevToolRunProgress>? progress, CancellationToken ct = default) =>
+            UpdateAllRun?.Invoke(progress) ?? Answer();
+
+        /// <summary>Every key the pane asked to switch on, in order.</summary>
+        public List<string> Enabled { get; } = [];
+
+        /// <summary>Every key the pane asked to switch off, in order.</summary>
+        public List<string> Disabled { get; } = [];
+
+        public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default)
+        {
+            Enabled.Add(key);
+            return Answer();
+        }
+
+        public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default)
+        {
+            Disabled.Add(key);
+            return Answer();
+        }
 
         public Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default)
         {
@@ -1963,6 +2145,12 @@ public sealed class ToolsPaneTests
         public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default)
         {
             Creates++;
+            return Answer();
+        }
+
+        public Task<DevToolActionResult> CreateCatalogFromMachineAsync(CancellationToken ct = default)
+        {
+            SeededCreates++;
             return Answer();
         }
 
@@ -2001,6 +2189,24 @@ public sealed class ToolsPaneTests
         public List<(string Key, string Version)> CacheRemovals { get; } = [];
 
         public int StaleCacheClears { get; private set; }
+
+        /// <summary>Every run the pane kept as the last one, in the order it kept
+        /// them.</summary>
+        public List<DevToolLastRun> SavedRuns { get; } = [];
+
+        /// <summary>Makes reading the last run throw, as a broken record file
+        /// would.</summary>
+        public bool LastRunReadFails { get; init; }
+
+        public Task<DevToolLastRun?> ReadLastRunAsync(CancellationToken ct = default) => LastRunReadFails
+            ? Task.FromException<DevToolLastRun?>(new IOException("The last-run file could not be read."))
+            : Task.FromResult(SavedRuns.LastOrDefault());
+
+        public Task SaveLastRunAsync(DevToolLastRun run, CancellationToken ct = default)
+        {
+            SavedRuns.Add(run);
+            return Task.CompletedTask;
+        }
 
         private Task<DevToolActionResult> Answer() => Task.FromResult(
             Succeeds ? DevToolActionResult.Ok("Done.") : DevToolActionResult.Failed(RefusalMessage));

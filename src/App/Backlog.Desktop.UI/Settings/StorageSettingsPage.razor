@@ -1,0 +1,811 @@
+﻿@*
+    One page of the Settings screen, in a file of its own so a change to this
+    page is a change to this file. The screen (Settings.razor) keeps the menu,
+    the headline and the panel this is drawn in; what is on the page, and what it
+    writes, is here.
+
+    The namespace is the screen's rather than the folder's, and this folder has
+    no _Imports.razor, for the reason the note at the top of Settings.razor
+    gives.
+*@
+@namespace Backlog.Desktop.UI.Shell
+@inherits SettingsPageBase
+@using System.Globalization
+@using Backlog.Infrastructure.FileSystem
+@using Backlog.SharedKernel
+@using Backlog.Modules.Devbook.Abstractions
+@* SelectField draws the backup schedule; written here because this folder
+   cannot have an _Imports of its own. *@
+@using Backlog.UI.Components.Selects
+@* MetricGrid and MetricTile draw the Backup card's two figures. *@
+@using Backlog.UI.Components.Metrics
+@* The Brain card, drawn by the library and fed here. *@
+@using Backlog.UI.Components.Brain
+@* For the optional logger a missing backup worker is noted in, rather than
+   failing the page over it. *@
+@using Microsoft.Extensions.Logging
+@inject WorkspaceSettingsStore Store
+@* The optional collaborators - the backup worker and the Brain's setting -
+   are read off this rather than injected, so a host that composes none of
+   them can still render the page. *@
+@inject IServiceProvider Services
+@implements IDisposable
+
+@* The page's sentence in the frame's headline: is the backlog safe? Re-read
+   on every render, so a backup that completes while the page is open - the
+   worker's Changed redraws it - moves it. *@
+<SettingsHeadline><span data-testid="storage-headline">@Headline</span></SettingsHeadline>
+
+@* Two cards side by side, wrapping to one column on a narrow window: where
+   the backlog is and where it is backed up to. The working week that was a
+   third is the Dashboard's page now, and repositories and GitHub accounts
+   are pages of their own. The branch snapshot folder sits in the first card
+   because it follows the folder by default. The titles are what
+   SettingsPages declares for the settings search. *@
+<div class="setting-columns storage-cards">
+    <SettingsCard Title="Where the backlog is stored"
+                  Id="storage-folder-title"
+                  TestId="storage-folder-settings">
+        @* This paragraph used to say every entry was its own markdown file
+           and to suggest pointing the folder at a synced one. Both halves
+           stopped being true when the store became one database, and the
+           suggestion cost somebody their edits - see R9 in
+           .devbook/arc42/11-risks-and-technical-debt.md. The warning is the copy
+           now, and SettingsStorageCopyTests pins it. *@
+        <p class="setting__body" data-testid="storage-path-description">
+            The whole backlog is one SQLite database in this folder. Your text stays
+            markdown inside it, but it is a single binary file - so keep this on a local
+            disk. A file-sync folder like OneDrive or Dropbox cannot merge it, and two
+            machines writing it will lose edits.
+        </p>
+
+        @* The concrete half of the paragraph above. That one can say
+           what a synced folder does to the database; only this can say
+           that the folder in the field is one - which is the gap local
+           ADR 0005 left the copy holding, because a root that followed
+           the retired advice stays where it is. It names the provider
+           and stops there: the root is the reader's choice and this
+           warns rather than prevents. Renders nothing when the store
+           recognised nothing, which is also what an unknown machine
+           and an unreadable disk produce. *@
+        <Alert Message="@SyncedRootWarning"
+               BaseClass="setting__warning"
+               Id="storage-path-sync-warning"
+               TestId="storage-path-sync-warning" />
+
+        @* The error class goes on InputCssClass, not ErrorMessage: this
+           page reports the reason in its own status paragraph below, and
+           ErrorMessage would render a second one as an Alert.
+
+           No @onchange, and deliberately. The field used to commit a move
+           on change, which fires on blur - so clicking "Switch without
+           moving" after typing a folder moved the backlog there first and
+           then switched to it, and the button could never do what it said.
+           Enter still moves, because a key pressed on purpose is a choice;
+           leaving the field is not.
+
+           Browse fills the field and commits nothing either, for the same
+           reason: which of the two buttons below applies the folder is still
+           the reader's choice. Drawn only where the host has a folder picker. *@
+        <div class="storage-folder">
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="@($"{SettingsScreenContext.SettingInputClass(_error)} setting__input--mono")"
+                       Label="Folder"
+                       Id="storage-path"
+                       data-testid="storage-path-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       aria-describedby="@StoragePathDescribedBy"
+                       Value="@_draftPath"
+                       ValueChanged="value => _draftPath = value"
+                       @onkeydown="OnKeyDownAsync" />
+            @if (_brainPicker is not null)
+            {
+                <AppButton Variant="ButtonVariant.Secondary"
+                           TestId="storage-path-browse"
+                           Busy="@_browsingStoragePath"
+                           BusyLabel="Choosing a folder"
+                           OnClick="BrowseStoragePathAsync">
+                    Browse
+                </AppButton>
+            }
+        </div>
+
+        <p class="setting__status" id="storage-path-status" data-testid="storage-path-status" role="status">
+            @if (_error is not null)
+            {
+                <span class="setting__status--error">@_error</span>
+            }
+            else if (_moved && _copied)
+            {
+                <span class="setting__status--ok">Moved. The backlog was copied here and now loads from this folder; the copy in <code>@_previousRoot</code> was left as it was.</span>
+            }
+            else if (_moved)
+            {
+                <span class="setting__status--ok">Switched. Entries now load from this folder - nothing was copied.</span>
+            }
+            else
+            {
+                <span>Tasks live in <code>@Store.DatabasePath</code>@(Store.IsDefaultRoot ? " - the default location." : ".") Inbox is prepared at <code>@Store.InboxDirectory</code>.</span>
+            }
+        </p>
+
+        @* Two ways to leave a folder, each a button, plus the default
+           folder as the move it most often is. Moving takes the backlog
+           along; switching leaves it behind and reads whatever the other
+           folder holds. Switching used to be the only way, which is how
+           "Use the default folder" came to empty a backlog whose database
+           was still sitting on OneDrive - and moving used to be only the
+           default button and the field's own change event, so the folder
+           somebody typed had no button that said "move" over it. *@
+        <div class="setting__actions">
+            @* The pressed one is busy while the folder changes. The other two
+               say they are blocked and drop a press meanwhile, because a second
+               change of folder under the first is not a thing to start - but
+               they keep their place in the tab order, as a busy button does. *@
+            <AppButton Variant="ButtonVariant.None"
+                       data-testid="move-storage-path"
+                       Disabled="@RootButtonDisabled(RootAct.Move, IsCurrentRootDraft)"
+                       Busy="@(_rootAct is RootAct.Move)"
+                       BusyLabel="Moving"
+                       aria-disabled="@RootButtonsBlocked"
+                       OnClick="ApplyAsync">
+                Move to this folder
+            </AppButton>
+            <AppButton Variant="ButtonVariant.None"
+                       data-testid="switch-storage-path"
+                       Disabled="@RootButtonDisabled(RootAct.Switch, IsCurrentRootDraft)"
+                       Busy="@(_rootAct is RootAct.Switch)"
+                       BusyLabel="Switching"
+                       aria-disabled="@RootButtonsBlocked"
+                       OnClick="SwitchAsync">
+                Switch without moving
+            </AppButton>
+            <AppButton Variant="ButtonVariant.None"
+                       data-testid="reset-storage-path"
+                       Disabled="@RootButtonDisabled(RootAct.Default, Store.IsDefaultRoot)"
+                       Busy="@(_rootAct is RootAct.Default)"
+                       BusyLabel="Moving"
+                       aria-disabled="@RootButtonsBlocked"
+                       OnClick="MoveToDefaultAsync">
+                Move to the default folder
+            </AppButton>
+        </div>
+
+        <p class="setting__note">
+            Moving takes the backlog along: the database, the inbox folder and the
+            app's own configuration are copied there, and the app reads from the
+            new folder from then on. Anything else you keep in the folder stays where
+            it is, and so does the old copy - delete it yourself once you are sure. A
+            folder that already holds a backlog is never written over. Switch without
+            moving to open a backlog that already lives in the folder you entered; that
+            copies nothing.
+        </p>
+
+
+        @* Under the storage folder by default, so a backlog moved to
+           another disk takes the default location of what was fetched
+           to read beside it along. It is a setting rather than a
+           constant because a machine with a small system drive and a
+           large one for work is an ordinary machine. Not backed up and
+           not moved: a snapshot is a disposable copy of a commit that
+           can always be fetched again. *@
+        <div class="devbook-folders" data-testid="devbook-cache-settings">
+            <h3 class="devbook-folders__title">Branch snapshot folder</h3>
+            <p class="setting__note">
+                Where the devbook fetched from a repository branch is cached. It sits under the
+                storage folder unless you point it elsewhere; clear the field to return it there.
+                Changing this leaves the old folder alone; the new one refills on the next fetch.
+            </p>
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="@($"{SettingsScreenContext.SettingInputClass(_devbookCacheError)} setting__input--mono")"
+                       Label="Snapshot folder"
+                       Id="devbook-cache-directory"
+                       data-testid="devbook-cache-directory-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Placeholder="@Store.DefaultDevbookCacheDirectory"
+                       aria-describedby="devbook-cache-status"
+                       Value="@_draftDevbookCacheDirectory"
+                       ValueChanged="value => _draftDevbookCacheDirectory = value"
+                       @onchange="ApplyDevbookCacheDirectory"
+                       @onkeydown="OnDevbookCacheDirectoryKeyDown" />
+            <p class="setting__status" id="devbook-cache-status" data-testid="devbook-cache-status" role="status">
+                @if (_devbookCacheError is not null)
+                {
+                    <span class="setting__status--error">@_devbookCacheError</span>
+                }
+                else
+                {
+                    <span>Snapshots: <code>@Store.DevbookCacheDirectory</code>@(Store.IsDefaultDevbookCacheDirectory ? " - under the storage folder." : ".")</span>
+                }
+            </p>
+        </div>
+    </SettingsCard>
+
+    @* One-way, and the copy says so twice: a backup is a copy that
+       leaves, and nothing here ever reads the repository back into
+       the folder. A backup that came home on its own would be file
+       sync by another name, and R9 in .devbook/arc42/11-risks-and-technical-debt.md
+       is what that did to this database. Local ADR 0010 is the
+       decision; BackupWorker is the mechanism. *@
+    <SettingsCard Title="Backup"
+                  Id="storage-backup-title"
+                  TestId="storage-backup-settings">
+        <Action>
+            <AppButton Variant="ButtonVariant.Primary"
+                       TestId="storage-backup-now"
+                       Busy="@(_backup?.IsRunning ?? false)"
+                       BusyLabel="Backing up"
+                       Disabled="@(_backup is null || Store.RootRepository is null)"
+                       OnClick="BackUpNow">
+                Back up now
+            </AppButton>
+        </Action>
+        <ChildContent>
+        @* The two figures a reader checks first, over the line that says what
+           the last run did. A machine that backed up before the copies were
+           counted keeps at least the one it has. *@
+        <MetricGrid Label="Backup figures" MinColumnWidth="10rem" CssClass="storage-backup__figures" TestId="storage-backup-figures">
+            <MetricTile Label="Last backup"
+                        Value="@LastBackupFigure"
+                        TestId="storage-backup-last" />
+            <MetricTile Label="Keeping"
+                        Value="@DailyCopies.ToString(CultureInfo.CurrentCulture)"
+                        Unit="@(DailyCopies == 1 ? "daily copy" : "daily copies")"
+                        TestId="storage-backup-copies" />
+        </MetricGrid>
+
+        <p class="setting__status @(BackupStatusIsFailure ? "setting__status--error" : null)"
+           id="storage-backup-status"
+           data-testid="storage-backup-status"
+           role="@(BackupStatusIsFailure ? "alert" : "status")">
+            <span>@BackupStatusLine</span>
+        </p>
+
+        <p class="setting__body">
+            A copy of the database is committed to a GitHub repository you name - on a
+            schedule, or when you press the button. Each backup replaces the last one at
+            <code>@BackupWorker.RepositoryPath</code> and the repository's history keeps the
+            rest; a database that has not changed makes no commit. Nothing comes back on
+            its own: restoring a backup is putting the file back by hand.
+        </p>
+
+        <TextField Bare="true"
+                   LabelCssClass="setting__label"
+                   InputCssClass="@SettingsScreenContext.SettingInputClass(_storageRepositoryError)"
+                   Label="Repository"
+                   Id="storage-repository"
+                   data-testid="storage-repository-input"
+                   spellcheck="false"
+                   autocomplete="off"
+                   Placeholder="owner/repo"
+                   aria-describedby="storage-repository-status"
+                   Value="@_draftStorageRepository"
+                   ValueChanged="value => _draftStorageRepository = value"
+                   @onchange="ApplyStorageRepository"
+                   @onkeydown="OnStorageRepositoryKeyDown" />
+
+        <p class="setting__status" id="storage-repository-status" data-testid="storage-repository-status" role="status">
+            @if (_storageRepositoryError is not null)
+            {
+                <span class="setting__status--error">@_storageRepositoryError</span>
+            }
+            else if (Store.RootRepository is { } storageRepository)
+            {
+                <span>Backs up to <code>@storageRepository.FullName</code>, using the GitHub account this machine is signed in with.</span>
+            }
+            else
+            {
+                <span>No backup repository configured.</span>
+            }
+        </p>
+
+        @* A cadence picked from three, which is the shape SelectField
+           exists for; the day and the time are shown only when the
+           cadence gives them something to decide. Form-shaped, the way
+           the account credential select is, because a bare caption
+           beside bordered inputs does not read as a control. *@
+        <SelectField Form="true"
+                     Label="Schedule"
+                     Id="storage-backup-cadence"
+                     TestId="storage-backup-cadence"
+                     LabelCssClass="setting__label"
+                     SelectCssClass="setting__input"
+                     CurrentValue="@Store.BackupSchedule.Cadence.ToString()"
+                     Options="@BackupCadenceOptions"
+                     OnChanged="ApplyBackupCadence" />
+
+        @if (Store.BackupSchedule.Cadence is BackupCadence.Weekly)
+        {
+            <SelectField Form="true"
+                         Label="On"
+                         Id="storage-backup-day"
+                         TestId="storage-backup-day"
+                         LabelCssClass="setting__label"
+                         SelectCssClass="setting__input"
+                         CurrentValue="@Store.BackupSchedule.Day.ToString()"
+                         Options="@BackupDayOptions"
+                         OnChanged="ApplyBackupDay" />
+        }
+
+        @if (Store.BackupSchedule.IsScheduled)
+        {
+            @* Committed from the change event's own value rather than
+               through ValueChanged, for the reason the Dashboard's
+               working-week rows give: a time input raises empty input
+               events while a time is half typed. *@
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="@SettingsScreenContext.SettingInputClass(_backupScheduleError)"
+                       Label="At"
+                       Id="storage-backup-time"
+                       data-testid="storage-backup-time"
+                       Type="time"
+                       autocomplete="off"
+                       aria-describedby="storage-backup-status"
+                       Value="@BackupTimeDraft"
+                       @onchange="ApplyBackupTime"
+                       @onkeydown="OnBackupTimeKeyDown" />
+        }
+
+        <div class="setting__actions">
+            <AppButton Variant="ButtonVariant.None"
+                       data-testid="clear-storage-repository-button"
+                       Disabled="@(Store.RootRepository is null)"
+                       OnClick="ClearStorageRepository">
+                Clear backup repository
+            </AppButton>
+        </div>
+
+        @if (_backup is not null)
+        {
+            <p class="setting__note">
+                What the last backup did is kept in <code>@_backup.StorePath</code>, beside the
+                app's other per-user files rather than in the backlog folder.
+            </p>
+        }
+        </ChildContent>
+    </SettingsCard>
+</div>
+
+@* The person's Brain (local ADR 0026): one folder outside every
+   repository, picked here once. Below the two columns rather than in
+   either, because it is neither the backlog's folder nor its backup -
+   moving the backlog never moves the Brain. Drawn only where the host
+   composes the Brain's setting, so a host without one still renders
+   this screen. Until a folder is set the Brain chip reads "Set up your
+   Brain" and its tooltip points here; the Devbook pane's first-use
+   prompt links here (BrainSetup.SettingsHref). *@
+@if (_brainSettings is not null && _brainSetup is not null)
+{
+    <BrainFolderCard Id="@BrainSetup.CardId"
+                     TestId="brain-folder-card"
+                     Folder="@_draftBrainFolder"
+                     FolderChanged="value => _draftBrainFolder = value"
+                     OnCommit="ApplyBrainFolder"
+                     Status="@_brainStatus"
+                     CanBrowse="@(_brainPicker is not null)"
+                     Browsing="@_browsingBrainFolder"
+                     OnBrowse="BrowseBrainFolderAsync"
+                     OnCreateConventions="CreateBrainConventions"
+                     Error="@_brainError"
+                     Message="@_brainMessage" />
+}
+
+@code {
+    private string _draftPath = string.Empty;
+    private string? _error;
+    private bool _moved;
+    private bool _copied;
+    private string _previousRoot = string.Empty;
+    private string _draftStorageRepository = string.Empty;
+    private string? _storageRepositoryError;
+    private string? _backupScheduleError;
+    private string _draftDevbookCacheDirectory = string.Empty;
+    private string? _devbookCacheError;
+
+    protected override void OnInitialized()
+    {
+        _log = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
+        _time = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+        _backup = ResolveBackup();
+
+        // The worker outlives this screen, and what it does while somebody is
+        // here has to reach the page, because otherwise the line below the
+        // button never moves.
+        if (_backup is not null) _backup.Changed += OnBackupChanged;
+
+        _draftPath = Store.RootDirectory;
+        _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+
+        // Blank while it is the default, so the placeholder is what explains
+        // where snapshots go rather than a path nobody typed.
+        _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
+        InitializeBrain();
+    }
+
+    // ---- Headline and figures ---------------------------------------------
+
+    /// <summary>The clock the relative times are read against: the host's when it
+    /// composes one, so a test can hold it still.</summary>
+    private TimeProvider _time = TimeProvider.System;
+
+    /// <summary>The last backup that reached the repository, or null while none
+    /// has - or while the host composes no worker to ask.</summary>
+    private DateTimeOffset? LastBackupAt => _backup?.Last.SucceededAt;
+
+    /// <summary>How many daily copies the repository's history keeps. At least
+    /// one once a backup has worked: a state file written before the worker
+    /// counted copies reads zero, and the copy it made is still there.</summary>
+    private int DailyCopies => LastBackupAt is null
+        ? 0
+        : Math.Max(1, _backup?.Last.DailyCopies ?? 0);
+
+    /// <summary>The page's headline: whether the backlog is safe, said first.</summary>
+    private string Headline => LastBackupAt is { } at
+        ? $"Backed up {Ago(at)} — {DailyCopies} daily {(DailyCopies == 1 ? "copy" : "copies")} kept."
+        : "Not backed up yet.";
+
+    private string LastBackupFigure => LastBackupAt is { } at ? Ago(at) : "Never";
+
+    /// <summary>How long ago <paramref name="at"/> was, in the words the In
+    /// progress list uses for the same question.</summary>
+    private string Ago(DateTimeOffset at)
+    {
+        var elapsed = _time.GetUtcNow() - at;
+
+        if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
+        if (elapsed < TimeSpan.FromHours(1)) return $"{(int)elapsed.TotalMinutes} min ago";
+        if (elapsed < TimeSpan.FromDays(1)) return $"{(int)elapsed.TotalHours} h ago";
+
+        var days = (int)elapsed.TotalDays;
+        return days == 1 ? "yesterday" : $"{days} days ago";
+    }
+
+    // ---- Storage folder -----------------------------------------------------
+
+    private bool _browsingStoragePath;
+
+    /// <summary>Puts the picked folder in the field and commits nothing: Move and
+    /// Switch are still the two ways to apply it, and which one is the reader's
+    /// choice. The Brain card's picker, because a folder picker is a folder
+    /// picker.</summary>
+    private async Task BrowseStoragePathAsync()
+    {
+        if (_brainPicker is null || _browsingStoragePath) return;
+
+        _browsingStoragePath = true;
+        try
+        {
+            var picked = await _brainPicker.PickFolderAsync(string.IsNullOrWhiteSpace(_draftPath) ? null : _draftPath);
+            if (picked is not null) _draftPath = picked;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _error = $"Couldn't open the folder picker: {ex.Message}";
+        }
+        finally
+        {
+            _browsingStoragePath = false;
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ApplyAsync();
+        else if (e.Key == "Escape") _draftPath = Store.RootDirectory;
+    }
+
+    /// <summary>What "Move to this folder" and Enter in the field do: the
+    /// backlog goes along to the folder typed in. The store copies before it
+    /// repoints, and refuses a folder that already holds a backlog, so the
+    /// worst a slip here can do is leave everything where it was and say why.</summary>
+    private Task ApplyAsync() => ChangeRootAsync(RootAct.Move, _draftPath, Store.PrepareMoveRoot);
+
+    /// <summary>The old behaviour, kept for opening a backlog that already
+    /// lives in the folder: the app is pointed there and nothing is copied.</summary>
+    private Task SwitchAsync() => ChangeRootAsync(RootAct.Switch, _draftPath, Store.PrepareUseRoot);
+
+    /// <summary>Which of the three folder changes is under way, so its button
+    /// says so and the other two wait.</summary>
+    private enum RootAct
+    {
+        None,
+        Move,
+        Switch,
+        Default,
+    }
+
+    private RootAct _rootAct;
+
+    /// <summary>A root button's standing <c>disabled</c>: its own reason, unless
+    /// it is the one running - a busy button keeps focus.</summary>
+    private bool RootButtonDisabled(RootAct act, bool idleDisabled) => _rootAct != act && idleDisabled;
+
+    /// <summary>Every root button says it is blocked while a folder change runs:
+    /// the running one is busy, and the others drop a press
+    /// (<see cref="ChangeRootAsync"/> ignores it) without leaving the tab order.
+    /// Null when idle, so nothing overrides the button's own state.</summary>
+    private string? RootButtonsBlocked => _rootAct is RootAct.None ? null : "true";
+
+    /// <summary>
+    /// Runs one folder change with its button busy from the press. A press - or
+    /// Enter - while one is under way is ignored.
+    /// <para>
+    /// The store's two halves run on two threads. The preparation - resolving
+    /// the folder and, for a move, copying the backlog into it - runs on the
+    /// pool, so the window stays live however big the backlog is. The commit
+    /// runs back here on the dispatcher, because it raises <c>RootChanged</c>
+    /// and its listeners (the task list's reload among them) replace state the
+    /// renderer reads.
+    /// </para>
+    /// </summary>
+    private async Task ChangeRootAsync(RootAct act, string path, Func<string?, PreparedRoot> prepare)
+    {
+        if (_rootAct is not RootAct.None) return;
+
+        _rootAct = act;
+        try
+        {
+            var previous = Store.RootDirectory;
+            var prepared = await Task.Run(() => prepare(path));
+            var outcome = Store.CommitRoot(prepared);
+            RecordRootChange(previous, outcome.Error, outcome.CopiedData);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _error = $"Couldn't change the folder: {ex.Message}";
+        }
+        finally
+        {
+            _rootAct = RootAct.None;
+        }
+    }
+
+    /// <summary>
+    /// What the status line says after a commit. A commit that changed nothing
+    /// and failed nothing leaves the last outcome standing: Enter pressed again
+    /// on a field that now names the folder the app is in must not wipe "Moved"
+    /// off the screen before anybody read which folder still holds the old copy.
+    /// (It used to happen without a second key: the field committed on change
+    /// as well, and Enter caused both.)
+    /// </summary>
+    private void RecordRootChange(string previous, string? error, bool copied)
+    {
+        _error = error;
+
+        if (!string.Equals(previous, Store.RootDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            _moved = true;
+            _copied = copied;
+            _previousRoot = previous;
+        }
+        else if (error is not null)
+        {
+            _moved = false;
+            _copied = false;
+        }
+
+        if (_error is null) _draftPath = Store.RootDirectory;
+    }
+
+    private Task MoveToDefaultAsync()
+    {
+        if (_rootAct is not RootAct.None) return Task.CompletedTask;
+
+        _draftPath = Store.DefaultRootDirectory;
+        return ChangeRootAsync(RootAct.Default, _draftPath, Store.PrepareMoveRoot);
+    }
+
+    /// <summary>Whether the field still names the folder the app is in, in
+    /// which case switching has nothing to switch to.</summary>
+    private bool IsCurrentRootDraft =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(_draftPath.Trim()),
+            Path.TrimEndingDirectorySeparator(Store.RootDirectory),
+            StringComparison.OrdinalIgnoreCase);
+
+    private void ApplyStorageRepository()
+    {
+        _storageRepositoryError = string.IsNullOrWhiteSpace(_draftStorageRepository)
+            ? Store.ClearRepository()
+            : Store.TrySetRepository(_draftStorageRepository);
+        _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+    }
+
+    private void ClearStorageRepository()
+    {
+        _storageRepositoryError = Store.ClearRepository();
+        _draftStorageRepository = string.Empty;
+    }
+
+    private void OnStorageRepositoryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyStorageRepository();
+        else if (e.Key == "Escape") _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+    }
+
+    // ---- Backup schedule ---------------------------------------------------
+
+    /// <summary>The worker, or null in a host that composes none.</summary>
+    private BackupWorker? _backup;
+
+    /// <summary>Optional, like the worker: a test rendering this screen should not
+    /// have to compose a logging stack to reach a page it never opens.</summary>
+    private ILogger? _log;
+
+    private static readonly IReadOnlyList<SelectorOption> BackupCadenceOptions =
+    [
+        new(nameof(BackupCadence.Off), "Off"),
+        new(nameof(BackupCadence.Daily), "Every day"),
+        new(nameof(BackupCadence.Weekly), "Every week")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> BackupDayOptions =
+        [.. WorkingHours.Week.Select(day => new SelectorOption(day.ToString(), day.ToString()))];
+
+    /// <summary>What the time field shows: the schedule's time as the input
+    /// wants it, re-read on every render because the field commits on change
+    /// and the store is what it commits to.</summary>
+    private string BackupTimeDraft => Store.BackupSchedule.At.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private void ApplyBackupCadence(string? value)
+    {
+        if (!Enum.TryParse<BackupCadence>(value, ignoreCase: true, out var cadence)) return;
+
+        _backupScheduleError = Store.SetBackupSchedule(Store.BackupSchedule with { Cadence = cadence });
+    }
+
+    private void ApplyBackupDay(string? value)
+    {
+        if (!Enum.TryParse<DayOfWeek>(value, ignoreCase: true, out var day)) return;
+
+        _backupScheduleError = Store.SetBackupSchedule(Store.BackupSchedule with { Day = day });
+    }
+
+    /// <summary>Commits the time from the change event's own value, for the
+    /// reason the Dashboard's working-week editor gives: a time input raises empty
+    /// input events while a time is half typed, and only the change event
+    /// carries a whole one.</summary>
+    private void ApplyBackupTime(ChangeEventArgs e)
+    {
+        if (!TryReadTime(e.Value?.ToString() ?? string.Empty, out var at))
+        {
+            _backupScheduleError = "Enter a time of day for the backup.";
+            return;
+        }
+
+        _backupScheduleError = Store.SetBackupSchedule(Store.BackupSchedule with { At = at });
+    }
+
+    private void OnBackupTimeKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") _backupScheduleError = null;
+    }
+
+    /// <summary>Asks the worker for a backup now, and returns. Not awaited, for
+    /// the reason the Devices page's Sync now button is not: copying the
+    /// database and uploading it is work a click handler should not hold the
+    /// render loop for, and what happened arrives through the worker's
+    /// <c>Changed</c>.</summary>
+    private void BackUpNow() => _backup?.RequestBackup();
+
+    private bool BackupStatusIsFailure =>
+        _backupScheduleError is not null || (_backup is { IsRunning: false, Last.Error: not null });
+
+    /// <summary>One sentence for the state of backups: the refusal of what was
+    /// just typed first, then what the worker did last and when it will next,
+    /// because a person reading this line is asking "is my backlog safe?" and
+    /// the answer is the last backup, not the schedule.</summary>
+    private string BackupStatusLine
+    {
+        get
+        {
+            if (_backupScheduleError is not null) return _backupScheduleError;
+            if (_backup is null) return "Backups are not available in this build.";
+            if (Store.RootRepository is null) return "Name a repository to back up to.";
+            if (_backup.IsRunning) return "Backing up…";
+
+            var last = _backup.Last;
+            // Already local: the worker asks its clock for local time when it
+            // arms, so converting again would shift it by the zone a second time.
+            var next = _backup.NextDue is { } due
+                ? $" Next backup {due:dddd d MMMM} at {due:HH:mm}."
+                : Store.BackupSchedule.IsScheduled ? string.Empty : " Nothing is scheduled.";
+
+            if (last.Error is not null)
+            {
+                var since = last.SucceededAt is { } ok ? $" The last backup that worked was {ok.ToLocalTime():d MMMM yyyy HH:mm}." : string.Empty;
+                return $"The last backup failed: {last.Error}{since}{next}";
+            }
+
+            if (last.SucceededAt is { } at)
+            {
+                var did = last.Committed ? "a new copy was committed" : "nothing had changed";
+                return $"Last backup {at.ToLocalTime():d MMMM yyyy HH:mm} - {did}.{next}";
+            }
+
+            return $"Never backed up.{next}";
+        }
+    }
+
+    /// <summary>Resolved rather than injected, and resolved this way rather than
+    /// with a plain <c>GetService</c>: both desktop heads compose one, a test
+    /// rendering this page does not have to, and a worker that is registered but
+    /// cannot be built throws rather than answering null.</summary>
+    private BackupWorker? ResolveBackup()
+    {
+        try
+        {
+            return Services.GetService<BackupWorker>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _log?.LogInformation(ex, "Backup is not composed in this host, so the backup controls are not offered.");
+            return null;
+        }
+    }
+
+    /// <summary>A run ended or started on a thread that is not this one, or
+    /// the schedule moved the next due time. The line under the button is what
+    /// shows it.</summary>
+    private void OnBackupChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>Seconds are accepted as well as minutes because a browser is
+    /// entitled to send them, and refusing a time for being more precise than
+    /// the field asked for is a rejection nobody could act on.</summary>
+    private static bool TryReadTime(string text, out TimeOnly time) =>
+        TimeOnly.TryParseExact(
+            text,
+            ["HH:mm", "HH:mm:ss"],
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out time);
+
+
+    /// <summary>What the store found the root to be inside, said as advice, or
+    /// null when it found nothing - which renders no warning at all.</summary>
+    private string? SyncedRootWarning => Store.SyncedRoot is null
+        ? null
+        : $"This folder is inside {Store.SyncedRoot.ProviderName}, which copies it between machines. It cannot merge the database, so entries and status edits can be lost - move the backlog to a folder on this disk.";
+
+    /// <summary>The status line always, and the sync warning as well while there
+    /// is one. Both are things the reader needs on reaching the field, and naming
+    /// an element that is not rendered would describe the field with nothing.</summary>
+    private string StoragePathDescribedBy => Store.SyncedRoot is null
+        ? "storage-path-status"
+        : "storage-path-status storage-path-sync-warning";
+
+    /// <summary>Commits the snapshot folder. Blank returns it to the default,
+    /// which is what clearing the field means everywhere else on this screen.</summary>
+    private void ApplyDevbookCacheDirectory()
+    {
+        _devbookCacheError = Store.SetDevbookCacheDirectory(_draftDevbookCacheDirectory);
+        _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
+    }
+
+    private void OnDevbookCacheDirectoryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyDevbookCacheDirectory();
+        else if (e.Key == "Escape") _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
+    }
+
+    /// <summary>
+    /// Lets go of everything that outlives a render.
+    /// <para>
+    /// The backup worker is not disposed here - it is a singleton, and it goes on
+    /// running after this page closes, which is the whole point of it. What is let
+    /// go of is the subscriptions: a page still on a singleton's event would be
+    /// kept alive by it and would call <c>StateHasChanged</c> on a renderer that is
+    /// gone.
+    /// </para>
+    /// </summary>
+    public void Dispose()
+    {
+        if (_brainSettings is not null) _brainSettings.Changed -= OnBrainSettingsChanged;
+        if (_backup is not null) _backup.Changed -= OnBackupChanged;
+    }
+}

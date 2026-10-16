@@ -135,6 +135,66 @@ public sealed class SessionListTests
         Assert.Null(SessionRow.Of(Session("t", Now)).Effort);
     }
 
+    private static ClaudeApiRequest Request(string id, string session, DateTimeOffset at, string? effort, string? agent = null) =>
+        new(id, session, at, "claude-opus-5-5", effort, 1, 1, 1, 1, 1, 1, agent is null ? "repl_main_thread" : "agent:custom", agent, null, null);
+
+    [Fact]
+    public void Telemetry_effort_is_the_owner_sessions_latest_main_loop_request_that_reported_one()
+    {
+        var requests = new[]
+        {
+            Request("early", "s", Now.AddMinutes(-30), "medium"),
+            Request("latest", "s", Now.AddMinutes(-10), "high"),
+            // A sub-agent's effort is its own, even when it is the latest request.
+            Request("sub-agent", "s", Now.AddMinutes(-5), "max", agent: "Explore"),
+            // An unnamed sub-agent request is a sub-agent's too.
+            new ClaudeApiRequest("unnamed", "s", Now.AddMinutes(-4), "claude-opus-5-5", "low", 1, 1, 1, 1, 1, 1, "agent:custom", null, null, null),
+            // A request that carried no effort says nothing.
+            Request("silent", "s", Now.AddMinutes(-2), null),
+            // Another session's effort is not this one's.
+            Request("other", "t", Now.AddMinutes(-1), "xhigh")
+        };
+
+        Assert.Equal("high", DeliveryRunExecutions.TelemetryEffort("s", requests));
+        Assert.Null(DeliveryRunExecutions.TelemetryEffort("nobody", requests));
+    }
+
+    /// <summary>A side query Claude Code makes for itself — a title, a compaction —
+    /// carries its own effort, often on a small model, and is not the session's.</summary>
+    [Fact]
+    public void Telemetry_effort_skips_side_queries_and_requests_on_another_model()
+    {
+        var requests = new[]
+        {
+            Request("main", "s", Now.AddMinutes(-30), "high"),
+            new ClaudeApiRequest("sdk-main", "s", Now.AddMinutes(-20), "claude-opus-5-5", "xhigh", 1, 1, 1, 1, 1, 1, "sdk", null, null, null),
+            new ClaudeApiRequest("compact", "s", Now.AddMinutes(-10), "claude-opus-5-5", "low", 1, 1, 1, 1, 1, 1, "compact", null, null, null),
+            new ClaudeApiRequest("title", "s", Now.AddMinutes(-5), "claude-haiku-5-5", "medium", 1, 1, 1, 1, 1, 1, "sdk", null, null, null)
+        };
+
+        // Without the session's model, an sdk request on haiku is indistinguishable from the main loop.
+        Assert.Equal("medium", DeliveryRunExecutions.TelemetryEffort("s", requests));
+        // With it, the haiku side query is left out, and the compaction always is.
+        Assert.Equal("xhigh", DeliveryRunExecutions.TelemetryEffort("s", requests, "claude-opus-5-5"));
+        Assert.Equal("xhigh", DeliveryRunExecutions.TelemetryEffort("s", requests, "Opus 5.5"));
+        Assert.Null(DeliveryRunExecutions.TelemetryEffort(null, requests));
+    }
+
+    [Fact]
+    public void A_rows_effort_prefers_telemetry_then_the_run_file_then_none()
+    {
+        var row = new SessionRow(Session("s", Now), [Run(Stage("Scope", "done", """{"mode":"inline","effort":"medium"}"""))]);
+
+        Assert.Equal("xhigh", row.EffortFrom([Request("r", "s", Now, "xhigh")]));
+        Assert.Equal("medium", row.EffortFrom([]));
+        Assert.Equal("medium", row.EffortFrom([Request("r", "s", Now, "xhigh", agent: "Explore")]));
+        Assert.Null(SessionRow.Of(Session("t", Now)).EffortFrom([]));
+
+        // A row standing for a run alone reads the session its run names.
+        var runOnly = new SessionRow(null, [Run(Stage("Scope", "done", null)) with { SessionIds = ["u"] }]);
+        Assert.Equal("low", runOnly.EffortFrom([Request("r", "u", Now, "low")]));
+    }
+
     [Fact]
     public void A_rows_model_is_the_one_it_spent_most_output_on()
     {

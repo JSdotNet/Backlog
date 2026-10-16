@@ -17,16 +17,16 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
 aliases: [MachineRegistry]
 ```
 
 The global singleton that owns all registered machines, the team tool baseline,
-and fleet analytics. Invariants: a machine must be registered before it can
-receive updates or remote connections; status transitions are validated (offline
-→ online requires an explicit heartbeat); baseline compliance is computed from
-each machine's installed tools versus the team baseline; and fleet analytics are
-aggregated from daily snapshots. All machine mutations go through the root.
+and fleet analytics.
+
+A machine's baseline compliance is computed from its installed tools against the
+team baseline, and fleet analytics are aggregated from daily snapshots. The rules
+the registry holds are in [its invariants](domain.invariants.md#machine-registry).
 
 ### Machine
 
@@ -34,20 +34,22 @@ aggregated from daily snapshots. All machine mutations go through the root.
 type: entity
 status: draft
 aliases: [machine_id]
+related: [.devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
 ```
 
-A single development PC identified by `MachineId` (e.g. "work-laptop-001"). Holds
-network identity (`ip_local`, `ip_public`, `mac_address`, `rdp_port`), `status`,
-`last_heartbeat`, `desktop_version`, installed tool versions, compliance flag,
-queued updates, and daily uptime/compliance/update history. Invariants:
-`pending_updates` is bounded per machine; a completed or failed update moves from
-`pending_updates` to `updates_history`.
+A single development PC identified by `MachineId` (e.g. "work-laptop-001"). It
+holds:
 
-It holds no sessions. An `Environment` in
-[Sessions](../sessions/domain.md#environment) corresponds to a
-Machine when the two name the same box, but that is a lookup rather than a shared
-identity — a Machine is registered, wakeable and compliance-tracked, and an
-environment is wherever an agent can run.
+- its network identity: `ip_local`, `ip_public`, `mac_address`, `rdp_port`;
+- `status`, `last_heartbeat`, and `desktop_version`, the desktop app's version;
+- its installed tool versions and compliance flag;
+- its queued updates, and its daily uptime, compliance and update history.
+
+An `Environment` in [Sessions](../sessions/domain.md#environment) corresponds to
+a Machine when the two name the same box. That is a lookup rather than a shared
+identity: a Machine is registered, wakeable and compliance-tracked, and an
+environment is wherever an agent can run. Why a Machine holds no sessions is in
+[context.md](context.md).
 
 ### Tool Version
 
@@ -67,8 +69,7 @@ status: draft
 ```
 
 A queued tool update: `tool_name`, `target_version`, `requested_by`,
-`requested_at`, `status`, optional `error_message`. On completion/failure it is
-archived to an `Update Record`.
+`requested_at`, `status`, optional `error_message`.
 
 ### Uptime Metric
 
@@ -99,6 +100,66 @@ status: draft
 
 A completed tool update: `date`, `tool_name`, `target_version`, `status`
 (success/failed/rollback), `duration_sec`, `initiated_by` (auto/manual/user-id).
+
+### Last Tool Run
+
+```meta
+type: value-object
+status: draft
+aliases: [DevToolLastRun, last run]
+related: [.devbook/domain/dev-pc-management/features.md#last-run-record]
+```
+
+The most recent finished run of the System tools pane on one machine: `kind`
+(Update all, Update, Install, Clear stale cache), `started_at`, `finished_at`,
+`outcome` (succeeded, failed, partly failed), one Tool Run Step per tool the run
+touched, and the full `transcript` of the commands it ran and the message it
+ended on. Invariants: a machine holds at most one, kept beside its per-PC tool
+choices; each finished run replaces the one before it and no history or trend
+is kept; a run still in progress is never recorded; and the outcome is partly
+failed exactly when at least one step succeeded and at least one failed. A
+missing or unreadable record reads as none.
+
+The transcript is redacted before the record is written, because the record can
+sit inside a synced storage root: this machine's MCP token is masked by value —
+read, never minted to be masked — and so is every known secret shape a tool's
+output can carry, whoever passed it in: a `Bearer` credential, an upper-case
+`…_TOKEN=`, `…_API_KEY=` or similar assignment, a non-`Bearer` `Authorization:`
+header, an `X-Api-Key:`-style header, a `?token=`-style query value, and a token
+its issuer marks by prefix (`ghp_`, `github_pat_`, `sk-`, `xox…-`, `AKIA`, a
+signed JWT). Each masked value reads `[redacted]`; a `${…}` placeholder and text
+matching no shape are kept byte for byte.
+
+### Tool Run Step
+
+```meta
+type: value-object
+status: draft
+aliases: [DevToolRunStep]
+```
+
+One tool's part in a Last Tool Run: `name`, `from_version` (none for an install),
+`to_version` (the version the run was taking it to), `outcome` (succeeded or
+failed), and `duration`.
+
+### Tool Catalog Entry
+
+```meta
+type: value-object
+status: draft
+aliases: [DevToolApplication, DevToolMcpServer, catalog entry]
+related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog, .devbook/domain/dev-pc-management/features.md#overview-tab]
+```
+
+One tool the repository's catalog declares: its kind (plugin, marketplace, MCP
+server, application), the id it is addressed by, how it is installed, the hosts
+it is for, whether it is enabled, and, for an application or an MCP server, an
+optional `download` page — where somebody installing it by hand gets it.
+Invariants: the id is what every per-PC override and every action addresses, so
+an entry without one is refused; a property the entry leaves out means its
+default, so a catalog written before `download` existed reads as naming no page;
+and the Add tool path writes `download` only as an http or https address, while
+a hand-edited value is kept as written and only ever linked when it is one.
 
 ### Tool Baseline
 
@@ -169,11 +230,17 @@ status: draft
 related: [.devbook/arc42/06-runtime-view.md#remote-pc-wake-and-status-update, .devbook/arc42/07-deployment-view.md#cloud-deployment-azure]
 ```
 
-Coordinates out-of-band actions on registered machines: Wake-on-LAN (local and
-cloud-relayed) with wake verification, remote desktop brokering (RDP/VNC,
-optional relay for NAT/firewall), and authorization/encryption of every wake and
-connect. It is a service because these actions span the cloud relay, connection
-brokering, and the target OS rather than a single machine's stored state. Invocation semantics: command-invoked orchestration service.
+Coordinates out-of-band actions on registered machines:
+
+- [Wake-on-LAN](features.md#wake-on-lan), local and cloud-relayed, with wake
+  verification;
+- remote desktop brokering, over RDP or VNC, with an optional relay for machines
+  behind NAT or a firewall;
+- authorization and encryption of every wake and connect.
+
+It is a service because these actions span the cloud relay, connection
+brokering, and the target OS rather than a single machine's stored state.
+Invocation semantics: command-invoked orchestration service.
 
 ## Remote Update
 
@@ -183,11 +250,15 @@ status: draft
 related: [.devbook/domain/technology-stack/domain.md#technology-registry]
 ```
 
-Queues and executes tool updates across machines (single, targeted, or bulk),
-runs them via native package managers on the desktop component, reports progress
-(in-progress/completed/failed) with rollback, and requires authorization. It is a
-service because it orchestrates queued work against offline/online machines and
-external package managers. Invocation semantics: command-invoked orchestration service.
+Queues and executes tool updates across machines, singly, targeted, or in bulk,
+and requires authorization. The desktop app runs each update through the
+machine's native package manager and reports its progress, with rollback on
+failure. How an update moves through its states is drawn in
+[Tool update lifecycle](flow.md#tool-update-lifecycle).
+
+It is a service because it orchestrates queued work against offline and online
+machines and external package managers. Invocation semantics: command-invoked
+orchestration service.
 
 ## MachineStatusChanged
 

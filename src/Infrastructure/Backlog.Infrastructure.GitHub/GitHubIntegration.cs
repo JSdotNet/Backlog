@@ -44,6 +44,16 @@ public sealed partial class GitHubIntegration(
 
     public IReadOnlyList<GitHubRepositoryRef> Repositories => settings.Current.Repositories;
 
+    /// <summary>The configured repositories that are not archived, in their configured
+    /// order: the ones Backlog reads from GitHub (local ADR 0029). Every pull request
+    /// read below drops an archived repository by itself; a caller asks for these
+    /// anyway, so the intent is stated where the list is built.</summary>
+    public IReadOnlyList<GitHubRepositoryRef> ActiveRepositories => settings.Current.ActiveRepositories;
+
+    /// <summary>The repository a single-repository setup falls back to: the first active
+    /// one (local ADR 0029), null only when nothing is configured.</summary>
+    public GitHubRepositoryRef? DefaultRepository => settings.Current.DefaultRepository;
+
     /// <summary>The repository an entry's area names, or null when the area is
     /// blank or not assigned to a configured repository.</summary>
     public GitHubRepositoryRef? ResolveRepository(string? repoId) => settings.Current.Find(repoId);
@@ -220,6 +230,7 @@ public sealed partial class GitHubIntegration(
         ArgumentNullException.ThrowIfNull(repositories);
 
         var reads = repositories
+            .Where(repository => !IsArchived(repository))
             .DistinctBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
             .Select(repository => ReadOneAsync(repository, cancellationToken))
             .ToList();
@@ -230,6 +241,70 @@ public sealed partial class GitHubIntegration(
             [.. answers.SelectMany(answer => answer.PullRequests).OrderByDescending(pull => pull.UpdatedAt)],
             [.. answers.Where(answer => answer.Failure is not null).Select(answer => answer.Failure!)]);
     }
+
+    /// <summary>
+    /// GitHub's own word on each repository — live, archived on GitHub, or not found —
+    /// keyed by <c>owner/name</c> without regard to case, read side by side. What the
+    /// repository list in Settings asks when it opens, to suggest Archive on a row; the
+    /// answer never archives anything (local ADR 0029).
+    /// <para>
+    /// A repository archived here is not asked about, since no GitHub call is made for
+    /// one. A refusal other than not-found says nothing about the repository, so that
+    /// repository is left out of the answer rather than reported. Cancellation still
+    /// ends the read.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, GitHubRepositoryState>> ReadRepositoryStatesAsync(
+        IEnumerable<GitHubRepositoryRef> repositories,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repositories);
+
+        var reads = repositories
+            .Where(repository => !IsArchived(repository))
+            .DistinctBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
+            .Select(repository => ReadStateAsync(repository, cancellationToken))
+            .ToList();
+
+        var answers = await Task.WhenAll(reads).ConfigureAwait(false);
+
+        var states = new Dictionary<string, GitHubRepositoryState>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (repository, state) in answers)
+        {
+            if (state is { } known) states[repository] = known;
+        }
+
+        return states;
+    }
+
+    private async Task<(string Repository, GitHubRepositoryState? State)> ReadStateAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return (repository.FullName, await client.GetRepositoryStateAsync(repository, cancellationToken).ConfigureAwait(false));
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+        {
+            return (repository.FullName, null);
+        }
+    }
+
+    /// <summary>
+    /// Whether a repository is archived and so not read from GitHub (local ADR 0029).
+    /// Asked of the current settings as well as of the reference handed in, because a
+    /// caller may hold a list read before the repository was archived; a repository
+    /// skipped this way is no failure, since nothing was asked of GitHub.
+    /// </summary>
+    private bool IsArchived(GitHubRepositoryRef repository) =>
+        repository.Archived || IsArchived(repository.FullName);
+
+    /// <summary>Whether the configured repository an <c>owner/name</c> names is archived.
+    /// A name nothing configured answers to is not: a pin or link outlives the
+    /// repository's configuration and is still read.</summary>
+    private bool IsArchived(string repositoryFullName) =>
+        settings.Current.Find(repositoryFullName.Trim()) is { Archived: true };
 
     private async Task<(IReadOnlyList<GitHubOpenPullRequest> PullRequests, GitHubRepositoryFailure? Failure)> ReadOneAsync(
         GitHubRepositoryRef repository,
@@ -254,8 +329,9 @@ public sealed partial class GitHubIntegration(
     /// A pin names its repository by <c>owner/name</c> and is read through it whether
     /// or not that repository is still configured or in scope: a pin is somebody
     /// saying "keep this one in front of me", and that outlives the filter it was
-    /// made under. Pins differing only in the case of their repository are one
-    /// repository's.
+    /// made under. The one exception is a configured repository that is archived
+    /// (local ADR 0029): its pins are not read, and that is no failure. Pins differing
+    /// only in the case of their repository are one repository's.
     /// </para>
     /// </summary>
     public async Task<GitHubPullRequestListing> ListPinnedPullRequestsAsync(
@@ -266,6 +342,7 @@ public sealed partial class GitHubIntegration(
 
         var reads = pins
             .Where(pin => pin.Number > 0 && !string.IsNullOrWhiteSpace(pin.RepositoryFullName))
+            .Where(pin => !IsArchived(pin.RepositoryFullName))
             .GroupBy(pin => pin.RepositoryFullName.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(group => ReadPinnedAsync(group.Key, [.. group.Select(pin => pin.Number).Distinct()], cancellationToken))
             .ToList();
@@ -296,6 +373,58 @@ public sealed partial class GitHubIntegration(
     }
 
     /// <summary>
+    /// The pull requests tasks link, whatever state each is in — open, draft, merged or
+    /// closed — with when each merged and who opened it: one read per repository, side
+    /// by side, each repository's refusal kept as its failure, as
+    /// <see cref="ListPinnedPullRequestsAsync"/> reads pins.
+    /// <para>
+    /// A link names its repository by <c>owner/name</c> and is read through it whether
+    /// or not that repository is still configured: the work was recorded there, and a
+    /// repository dropped from the settings since does not unmake it. The one exception
+    /// is a configured repository that is archived (local ADR 0029): its links are not
+    /// read, and that is no failure. Links differing only in the case of their
+    /// repository are one repository's. A number GitHub cannot find is left out.
+    /// </para>
+    /// </summary>
+    public async Task<GitHubLinkedPullRequestListing> ListLinkedPullRequestsAsync(
+        IEnumerable<GitHubPullRequestReference> links,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(links);
+
+        var reads = links
+            .Where(link => link.Number > 0 && !string.IsNullOrWhiteSpace(link.RepositoryFullName))
+            .Where(link => !IsArchived(link.RepositoryFullName))
+            .GroupBy(link => link.RepositoryFullName.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => ReadLinkedAsync(group.Key, [.. group.Select(link => link.Number).Distinct()], cancellationToken))
+            .ToList();
+
+        if (reads.Count == 0) return GitHubLinkedPullRequestListing.Empty;
+
+        var answers = await Task.WhenAll(reads).ConfigureAwait(false);
+
+        return new GitHubLinkedPullRequestListing(
+            [.. answers.SelectMany(answer => answer.PullRequests)],
+            [.. answers.Where(answer => answer.Failure is not null).Select(answer => answer.Failure!)]);
+    }
+
+    private async Task<(IReadOnlyList<GitHubLinkedPullRequest> PullRequests, GitHubRepositoryFailure? Failure)> ReadLinkedAsync(
+        string repositoryFullName,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var repository = RepositoryForFullName(repositoryFullName);
+            return (await client.ReadLinkedPullRequestsAsync(repository, numbers, cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+        {
+            return ([], new GitHubRepositoryFailure(repositoryFullName, ex.Message));
+        }
+    }
+
+    /// <summary>
     /// The pull requests merged within <see cref="RecentlyMergedWindow"/> in every
     /// repository given, newest merge first across all of them — read side by side,
     /// each repository's refusal kept as its failure, exactly as
@@ -316,6 +445,7 @@ public sealed partial class GitHubIntegration(
         var since = (time ?? TimeProvider.System).GetUtcNow() - RecentlyMergedWindow;
 
         var reads = repositories
+            .Where(repository => !IsArchived(repository))
             .DistinctBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
             .Select(repository => ReadMergedAsync(repository, since, cancellationToken))
             .ToList();

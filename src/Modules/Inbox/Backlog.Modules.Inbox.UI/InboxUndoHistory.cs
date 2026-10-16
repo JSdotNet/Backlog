@@ -21,6 +21,9 @@ public enum InboxDecisionKind
 
     /// <summary>Link to task….</summary>
     LinkToTask,
+
+    /// <summary>To Brain: the item became a note in the person's Brain.</summary>
+    ToBrain,
 }
 
 /// <summary>

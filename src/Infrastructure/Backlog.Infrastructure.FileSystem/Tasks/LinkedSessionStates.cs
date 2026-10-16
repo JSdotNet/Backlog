@@ -19,6 +19,12 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// out of it is absent, and its badge draws without a state, as every badge did
 /// before this existed.
 /// </para>
+/// <para>
+/// At the timestamps depth, because a badge needs a state and nothing else, and this
+/// runs after every task-list load: the full reading would parse every transcript in
+/// the inventory to answer a field the badge never shows. The set of sessions, and the
+/// state of each, are the same at either depth.
+/// </para>
 /// </summary>
 public sealed class LinkedSessionStates(IAgentSessionSource sessions) : ILinkedSessionStates
 {
@@ -34,7 +40,7 @@ public sealed class LinkedSessionStates(IAgentSessionSource sessions) : ILinkedS
         AgentSessionCatalog catalog;
         try
         {
-            catalog = await sessions.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
+            catalog = await sessions.GetSessionsAsync(AgentSessionQuery.Newest.TimestampsOnly(), cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

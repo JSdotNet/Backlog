@@ -16,9 +16,10 @@ status: draft
 related: [.devbook/domain/tasks/features.md#projection]
 ```
 
-Track what changed since the last review per project/repo, detect items that
-moved status / were updated / went stale, and capture progress signals from
-notes, commits, GitHub issues, or manual updates.
+Track what changed since the last review, per project and per repository:
+
+- detect the items that moved status, were updated, or went stale;
+- capture progress signals from notes, commits, GitHub issues, or manual updates.
 
 ## Attention surfacing
 
@@ -49,8 +50,9 @@ type: sub-feature
 status: draft
 ```
 
-Application performance metrics (errors, latency, availability), cost/usage
-attribution, correlated with backlog status.
+Show the application's performance metrics, such as errors, latency and
+availability, with cost and usage attribution. The metrics are correlated with
+backlog status.
 
 ### Tasks and GitHub progress
 
@@ -74,7 +76,7 @@ related: [.devbook/domain/inbox/features.md#queue-health]
 Unprocessed inbox count and oldest age, queue depth and processing rate, and
 automation run status.
 
-### Copilot sessions
+### Agent sessions
 
 ```meta
 type: sub-feature
@@ -82,7 +84,8 @@ status: draft
 related: [.devbook/domain/sessions/features.md#session-inventory]
 ```
 
-Monitor the sessions [Sessions](../sessions/features.md#session-inventory) records, linked to issues/tasks, and alert when one is `stalled`.
+Monitor the sessions [Sessions](../sessions/features.md#session-inventory) records,
+for every agent, linked to issues and tasks, and alert when one is `stalled`.
 
 ## Multi-repo scanning
 
@@ -92,8 +95,8 @@ status: draft
 related: [.devbook/domain/repository-management/features.md#repository-health-scoring]
 ```
 
-Scan registered repos for backlog changes and GitHub issue status, aggregate
-signals across repos, and show a repo-level activity timeline.
+Scan the registered repositories for backlog changes and GitHub issue status,
+aggregate signals across them, and show an activity timeline per repository.
 
 ## Automation status
 
@@ -103,8 +106,8 @@ status: draft
 related: [.devbook/domain/capture/features.md#automation-capture]
 ```
 
-Show last-run status of inbox automations, alert on failed/missed runs, and
-display scan results and item counts.
+Show the last-run status of the [capture monitors](../capture/features.md#automation-capture),
+alert on failed or missed runs, and display scan results and item counts.
 
 ## Team monitoring
 
