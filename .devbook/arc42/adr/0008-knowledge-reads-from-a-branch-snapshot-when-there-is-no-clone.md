@@ -9,6 +9,40 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbo
 
 Proposed.
 
+> **Amended 2026-10-16: the branch list loads on open, and only a clone has an
+> update control.** Two lines below no longer hold.
+>
+> - *"The update control does so on demand"* — for a snapshot, the control is
+>   gone. The Devbook pane shows the version control (Check now / Pull latest)
+>   only while it reads the local clone; a snapshot is kept current by the
+>   auto-fetch's cadence alone, and a control on it would only hurry that along.
+> - *"Never blocks a panel load on GitHub"* — kept, but the pane now reaches
+>   GitHub on opening, for the source picker's list. To offer only the branches
+>   that change the devbook, each with its areas and its commits ahead and
+>   behind the default branch, the pane needs one GitHub comparison per branch. So the first time the pane opens on a repository in
+>   an app session, `DevbookBranchOverview` starts one load in the background:
+>   the branch heads (paged to the same 1000-branch ceiling), the default
+>   branch's head, a comparison per other branch, four at a time, and a
+>   `git fetch` of the clone where there is one. The load is shared and kept
+>   for the session: a reopened picker, a tab switch or a second window reuses
+>   it, and only "Refresh branches" asks again.
+>
+> The load keeps this record's rule that **nothing waits on the network**: it
+> runs on no caller's token, the pane draws and the source field works without
+> it, and it is bounded by a two-minute deadline that also stops the comparisons
+> still out. It degrades rather than fails: a refused listing is a sentence
+> beside the field, with the default branch, the clone and the configured branch
+> still offered; a branch GitHub would not compare is left uncompared; a clone
+> git could not check has no counts. A failed load is kept like a good one, so
+> an offline machine does not ask again on every open, and a refused refresh
+> keeps what the last good load listed. The comparisons go through the same
+> session cache the branch review reads, so reviewing a branch the picker
+> compared costs nothing more.
+>
+> The clone's check is a fetch, never a pull: it arms "Pull latest" for a clone
+> found behind, and pulling still happens only on a press, for the reason the
+> closed open question below gives. The rest of the decision is unchanged.
+
 > **Amended 2026-09-15: Knowledge → Devbook.** The context and module this record
 > is about were renamed, and with them the code it names (`KnowledgeSnapshotCache`
 > → `DevbookSnapshotCache`, `knowledgeBranch` → `devbookBranch`,
