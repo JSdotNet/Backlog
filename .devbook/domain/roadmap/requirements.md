@@ -716,6 +716,39 @@ The system SHALL record each change made in the Days off dialog as the same day 
 - **When** the person adds days off from Monday 12 October to Sunday 25 October on the first device
 - **Then** the second device's Days off dialog lists the same ten blocked dates
 
+## Looking back at finished plans
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans]
+```
+
+> The requirements of showing or hiding finished plans. The feature chapter says
+> where a finished plan is drawn; this says what the Completed switch promises.
+
+### Requirement: The Completed switch shows or hides finished plans
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.WithFinishedWorkHidden_AFinishedItemIsNotDrawn_NorTheArrowToIt, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.The_roadmap_completed_switch_is_on_until_turned_off_and_off_survives_a_restart, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandTests.TheCompletedSwitch_IsOnUntilTurnedOff_AndOffIsKeptOnThisDevice]
+```
+
+The system SHALL put one Completed switch on the roadmap toolbar beside the Hours switch, on by default and remembered on the device without syncing, and SHALL draw no plan whose work is all done, or that was completed by hand, while it is off.
+
+#### Scenario: Turning the finished plans off
+
+- **Given** the Completed switch is on, "Write the launch post" was finished on Friday 9 October, and "Publish the launch" waits on it in the same lane
+- **When** the person turns the switch off
+- **Then** "Write the launch post" is not drawn, its lane closes up over "Publish the launch", and no arrow is drawn between them
+
+#### Scenario: The choice stays on the device
+
+- **Given** two paired devices with sync on, and the person turned the Completed switch off on the first
+- **When** the person restarts the app on the first device and opens the roadmap on the second
+- **Then** the first device's switch is still off and the second device's is on
+
 ## Forecasting work in flight
 
 ```meta
