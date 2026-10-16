@@ -84,7 +84,7 @@ public sealed class DevbookPaneSourceStatusTests
             "Reading the local clone. Devbook can be edited here.",
             component.Find("[data-testid='devbook-source-status']").TextContent.Trim()));
 
-        component.Find("[data-testid='devbook-update-action']").Click();
+        await component.InvokeAsync(() => component.Find("[data-testid='devbook-update-action']").Click());
 
         component.WaitForAssertion(() =>
         {
@@ -231,16 +231,14 @@ public sealed class DevbookPaneSourceStatusTests
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
 
-        CommitSource(component, DevbookSourceSelection.LoadBranchesLabel);
-        component.WaitForAssertion(() =>
-            Assert.Equal(DevbookSourceSelection.LocalFolderLabel, SourceInput(component).GetAttribute("value")));
+        component.WaitForAssertion(() => Assert.True(harness.Context.Services.GetRequiredService<DevbookSourceSelection>().HasBranches(harness.RepositoryAlias)));
 
         SourceInput(component).Input("search");
         SourceInput(component).Click();
 
         component.WaitForAssertion(() => Assert.Equal(
             ["claude/search-picker", "codex/fix-search"],
-            component.FindAll("[data-testid='devbook-source-select-list'] [role=option]").Select(option => option.TextContent.Trim())));
+            OptionNames(component)));
     }
 
     /// <summary>Enter on the field as it stands commits the source already being
@@ -351,19 +349,27 @@ public sealed class DevbookPaneSourceStatusTests
         SourceInput(component).Click();
 
         component.WaitForAssertion(() => Assert.Equal(
-            [DevbookSourceSelection.DefaultBranchLabel, DevbookSourceSelection.LocalFolderLabel, DevbookSourceSelection.LoadBranchesLabel],
-            component.FindAll("[data-testid='devbook-source-select-list'] [role=option]").Select(option => option.TextContent.Trim())));
+            [DevbookSourceSelection.DefaultBranchLabel, DevbookSourceSelection.LocalFolderLabel, DevbookSourceSelection.RefreshBranchesLabel],
+            OptionNames(component)));
     }
+
+    /// <summary>The names the open list shows, without the counts and section
+    /// names each row carries beside its name.</summary>
+    private static List<string> OptionNames(IRenderedComponent<DevbookPane> component) =>
+        [.. component.FindAll("[data-testid='devbook-source-select-list'] [role=option] .devbook-stack__source-name").Select(name => name.TextContent.Trim())];
 
     private static AngleSharp.Dom.IElement SourceInput(IRenderedComponent<DevbookPane> component) =>
         component.Find("[data-testid='devbook-source-select'] input");
 
     /// <summary>Types the text into the source field and presses Enter, which
-    /// commits what was typed while no option is highlighted.</summary>
+    /// commits what was typed while no option is highlighted.
+    /// Each event is found and raised on the renderer's dispatcher, so the
+    /// overview landing in the background cannot re-render between the find and
+    /// the raise and leave the handler id stale.</summary>
     private static void CommitSource(IRenderedComponent<DevbookPane> component, string text)
     {
-        SourceInput(component).Input(text);
-        SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        component.InvokeAsync(() => SourceInput(component).Input(text)).GetAwaiter().GetResult();
+        component.InvokeAsync(() => SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Enter" })).GetAwaiter().GetResult();
     }
 
     private static Harness CreateHarness(List<string>? branches = null, Dictionary<string, GitHubBranchHead>? heads = null)
@@ -406,7 +412,20 @@ public sealed class DevbookPaneSourceStatusTests
         context.Services.AddScoped<DevbookOpenChapter>();
         context.Services.AddSingleton<DevbookUpdateService>();
         var catalog = new StubBranchCatalog { Branches = branches ?? [], Heads = heads ?? new(StringComparer.Ordinal) };
+        catalog.Heads.TryAdd(string.Empty, new GitHubBranchHead("main", "sha-main"));
         context.Services.AddSingleton<IGitHubBranchCatalog>(catalog);
+        // Composed as the application composes it: the pane loads the branch
+        // overview on opening. Every branch these tests name changes the devbook,
+        // so the list they search is the list they listed.
+        var comparisons = new ScriptedBranchComparisons();
+        foreach (var branch in catalog.Branches)
+        {
+            comparisons.Changes["sha-" + branch] = [new GitHubChangedFile(".devbook/arc42/adr/0001.md", null, GitHubFileStatus.Modified, "blob")];
+        }
+
+        context.Services.AddSingleton<IGitHubBranchComparison>(comparisons);
+        context.Services.AddSingleton<DevbookBranchComparisons>();
+        context.Services.AddSingleton<DevbookBranchOverview>();
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();
@@ -430,8 +449,16 @@ public sealed class DevbookPaneSourceStatusTests
         GitHubSettingsStore Settings,
         StubBranchCatalog Catalog) : IAsyncDisposable
     {
-        public IRenderedComponent<DevbookPane> Render() =>
-            Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
+        /// <summary>Renders the pane and waits for the branch overview it starts
+        /// on opening to land, so no test races that background re-render.</summary>
+        public IRenderedComponent<DevbookPane> Render()
+        {
+            var component = Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
+            var overview = Context.Services.GetRequiredService<DevbookBranchOverview>();
+            component.WaitForAssertion(() => Assert.NotNull(overview.Current(RepositoryAlias)));
+            component.WaitForAssertion(() => Assert.False(overview.IsLoading(RepositoryAlias)));
+            return component;
+        }
 
         public async ValueTask DisposeAsync()
         {

@@ -272,6 +272,37 @@ public sealed class DevbookToolsTests : IDisposable
         Assert.Equal(said.Id, note.Id);
     }
 
+    /// <summary>
+    /// The notes of an archived repository still list — remarks already kept
+    /// stay readable (local ADR 0029 §4) — and the answer says the repository is
+    /// archived, which is the one fact the handle-remarks skill refuses on.
+    /// </summary>
+    [Fact]
+    public void Annotations_of_an_archived_repository_still_list_and_say_it_is_archived()
+    {
+        var note = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Still true?");
+        var store = new FakeDevbookAnnotationStore(note);
+        var tools = new DevbookTools(
+            new FakeDevbookFolderSource(_root.FullName, Arc42, Domain),
+            store,
+            new FakeRepositoryDirectory([Backlog with { IsArchived = true }]));
+
+        var answer = tools.ListAnnotationsOn("JSdotNet/Backlog", ChapterPath);
+
+        Assert.True(answer.Archived);
+        Assert.Equal(note.Id, Assert.Single(answer.Annotations).Id);
+    }
+
+    [Fact]
+    public void Annotations_of_an_active_repository_say_it_is_not_archived()
+    {
+        var tools = Tools(out _, out _);
+
+        var answer = tools.ListAnnotationsOn("JSdotNet/Backlog", ChapterPath);
+
+        Assert.False(answer.Archived);
+    }
+
     /// <summary>A resolved note is still a note: it stays visible and quiet
     /// rather than disappearing, because the reason a paragraph reads the way it
     /// does is usually in the remark that got it there.</summary>

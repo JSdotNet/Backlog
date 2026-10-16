@@ -393,7 +393,57 @@
         backlogFocusTrapListeners.delete(id);
     };
 
-    window.backlogFocusTrap = (id, restoreToId) => {
+    /*
+        Escape, for a region that closes on it, wherever the focus is.
+
+        The region's own keydown handler hears only a key pressed inside it, and
+        the focus is not always there: a sheet opened with the pointer — a node on
+        the Devbook's atlas canvas, a row of its index — leaves it on what was
+        pressed until the deferred move above lands, and a reader can click back
+        onto the canvas with the sheet still open. An Escape pressed there went to
+        the surface behind the sheet instead, and the Devbook closes on Escape: one
+        press closed the sheet and the whole Devbook with it.
+
+        So while the region is open, an Escape that starts outside it is taken in
+        the capture phase, before Blazor's own listeners or the shell's document
+        listener can hear it, and handed to the region as its own: the focus moves
+        in and the key is pressed again there, where the region's handler closes it
+        and ends the walk. A key inside the region, or inside a dialog of its own
+        over it, is left alone.
+    */
+    const backlogEscapeHolders = new Map();
+
+    function backlogHoldEscape(id, region) {
+        backlogReleaseEscape(id);
+
+        const onKeyDown = (event) => {
+            if (event.key !== 'Escape' || event.defaultPrevented) return;
+
+            const target = event.target;
+            if (target && typeof region.contains === 'function' && region.contains(target)) return;
+            if (target && typeof target.closest === 'function' && target.closest('dialog[open], [role="dialog"][aria-modal="true"]:not([inert])')) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            region.focus({ preventScroll: true });
+            region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+        };
+
+        window.addEventListener('keydown', onKeyDown, true);
+        backlogEscapeHolders.set(id, () => window.removeEventListener('keydown', onKeyDown, true));
+    }
+
+    function backlogReleaseEscape(id) {
+        backlogEscapeHolders.get(id)?.();
+        backlogEscapeHolders.delete(id);
+    }
+
+    /*
+        `ownsEscape` is the region closing on Escape — a detail sheet does unless
+        its host says otherwise — and holds Escape for it as described above.
+    */
+    window.backlogFocusTrap = (id, restoreToId, ownsEscape) => {
         const element = document.getElementById(id);
         if (!element) return;
         if (element.dataset.backlogFocusTrap !== undefined) return;
@@ -403,6 +453,7 @@
 
         window.backlogCaptureFocus(id);
         window.backlogContainFocus(id);
+        if (ownsEscape) backlogHoldEscape(id, element);
     };
 
     window.backlogReleaseFocusTrap = (id) => {
@@ -417,6 +468,7 @@
             delete element.dataset.backlogFocusReturn;
         }
 
+        backlogReleaseEscape(id);
         window.backlogReleaseFocusContainment(id);
         window.backlogRestoreFocus(id, named, id);
     };
@@ -2162,15 +2214,14 @@
         attributeFilter: ['aria-pressed'],
     });
 
-    // The side pane is resized by dragging its edge. Pointer capture and the live
+    // A SplitPane is resized by dragging its separator. Pointer capture and the live
     // width both belong in the browser; C# only hears the settled value, so a drag
     // costs one interop call instead of one per frame.
     const BACKLOG_PANE_MIN_REM = 24;
     const BACKLOG_PANE_ABSOLUTE_MAX_REM = 200;
-    const BACKLOG_SINGLE_PANE_MAX_REM = 72;
-    const BACKLOG_THREE_PANE_MIN_REM = 96;
-    // The app's own knowledge layout, or any SplitPane the library renders.
-    const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-testid="devbook-layout"], [data-pane-split]';
+    // Any SplitPane the library renders. The desktop shell's own Devbook layout was
+    // the other until the Devbook took the whole screen.
+    const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-pane-split]';
 
     /**
      * Who to tell when a drag settles, one entry per resizable layout.
@@ -2178,44 +2229,38 @@
      * This was a single owner, and a single owner is why a page could only ever
      * have one draggable pane: the second layout to register replaced the first,
      * and every drag reported its width to whichever component happened to be in
-     * the variable. The desktop shell registers for its knowledge layout on
-     * startup, so a SplitPane inside that shell had to opt out of the pointer
-     * drag entirely and keep only its keyboard resize — a separator you could
-     * tab to and not drag.
+     * the variable.
      *
      * Keyed by the layout's `data-pane-owner`, which the component mints, so the
-     * drag settles to the layout it was actually performed on. The empty key is
-     * the app's own layout, which has no attribute because it was here first.
+     * drag settles to the layout it was actually performed on.
      */
     const backlogPaneOwners = new Map();
 
     function backlogOwnerKey(layout) {
-        return layout.getAttribute('data-pane-owner') ?? '';
+        return layout.getAttribute('data-pane-owner');
     }
 
     /**
      * The owner for one layout, and never a fallback to somebody else's.
      *
      * A layout that names an owner and has not registered one is mid-render or
-     * disposed, and reporting its width to the default owner is the exact
-     * cross-talk the key was added to stop.
+     * disposed, and reporting its width to another owner is the exact cross-talk
+     * the key was added to stop.
      */
     function backlogPaneOwnerFor(layout) {
         return backlogPaneOwners.get(backlogOwnerKey(layout)) ?? null;
     }
 
     function backlogLayoutForKey(key) {
-        return key
-            ? document.querySelector(`[data-pane-owner="${key}"]`)
-            : document.querySelector(BACKLOG_PANE_LAYOUT_SELECTOR);
+        return document.querySelector(`[data-pane-owner="${key}"]`);
     }
 
     function backlogRootFontSize() {
         return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     }
 
-    // The pane may take everything the backlog does not strictly need, so the real
-    // ceiling is the window, not a fixed number of rem.
+    // The pane may take everything its companion does not strictly need, so the
+    // real ceiling is the layout's width, not a fixed number of rem.
     function backlogPaneMaxRem(layout) {
         const rem = backlogRootFontSize();
         const styles = getComputedStyle(layout);
@@ -2229,13 +2274,12 @@
     /**
      * Which edge the resized pane is anchored to.
      *
-     * The app's Devbook panel sits on the right, so its width is the distance
-     * from the pointer to the layout's right edge. A SplitPane's bound value is the
-     * width of whichever pane its Anchor names, so a start-anchored one measures
-     * from the left edge instead. Measuring both the same way made the library's
-     * separator run backwards: dragging right narrowed the pane it was supposed to
-     * widen. The default stays 'end' because a layout that says nothing is the app's
-     * own, which was here first.
+     * A SplitPane's bound value is the width of whichever pane its Anchor names:
+     * an end-anchored pane's width is the distance from the pointer to the
+     * layout's right edge, and a start-anchored one measures from the left edge
+     * instead. Measuring both the same way made the separator run backwards:
+     * dragging right narrowed the pane it was supposed to widen. A layout that
+     * says nothing is end-anchored.
      */
     function backlogPaneAnchor(layout) {
         return layout.getAttribute('data-pane-anchor') === 'start' ? 'start' : 'end';
@@ -2249,33 +2293,14 @@
         return Math.min(backlogPaneMaxRem(layout), Math.max(BACKLOG_PANE_MIN_REM, Math.round(rem * 2) / 2));
     }
 
-    function backlogViewportWidthRem() {
-        return (document.documentElement.clientWidth || window.innerWidth || 0) / backlogRootFontSize();
-    }
-
-    function backlogPaneCapacity() {
-        const viewportWidthRem = backlogViewportWidthRem();
-        if (viewportWidthRem <= BACKLOG_SINGLE_PANE_MAX_REM) return 1;
-        if (viewportWidthRem >= BACKLOG_THREE_PANE_MIN_REM) return 3;
-        return 2;
-    }
-
-    // The window decides how many panes fit; the layout element only decides how
-    // wide the side pane may get. They are reported separately because the two
-    // questions do not need the same answer to be on screen: capacity reads the
-    // viewport and can always be answered, while a width can only be measured
-    // from a layout that is actually mounted. Guarding both on the layout meant a
-    // window resized while a full-screen surface was open reported neither, so
-    // the panes came back sized for a window that was gone.
+    // How wide each split's pane may get, measured per owner because two splits on
+    // one page do not have the same room: a split nested inside another may only
+    // take what its own box has left. A layout that is not mounted has nothing to
+    // measure, and the loop carries on to the next owner either way. The viewport
+    // used to report a pane capacity here too, for the desktop shell's side panes;
+    // those went when the Devbook took the whole screen.
     function backlogReportPaneBounds() {
-        const capacity = backlogPaneCapacity();
-
         for (const [key, owner] of backlogPaneOwners) {
-            owner.invokeMethodAsync('SetGlobalPaneCapacityAsync', capacity);
-
-            // Measured per owner, because two layouts on one page do not have the
-            // same room: the shell's Devbook panel may take the window, while a
-            // split nested inside it may only take what its own box has left.
             const layout = backlogLayoutForKey(key);
             if (layout) owner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
         }
@@ -2284,37 +2309,22 @@
     window.backlogPaneResizer = {
         /**
          * @param owner the .NET object to report settled widths to.
-         * @param key the layout's `data-pane-owner`, or omitted for the app's own
-         *        layout — which carries no attribute because it predates the key.
+         * @param key the layout's `data-pane-owner`.
          */
         initialize(owner, key) {
-            backlogPaneOwners.set(key ?? '', owner);
-            backlogReportPaneBounds();
-        },
-        /**
-         * Re-measure now, without waiting for a resize.
-         *
-         * The bounds are reported from the layout element, so while the shell is
-         * showing a full-screen surface instead of the panes there is nothing to
-         * measure and the resize handler above no-ops. A window resized during a
-         * takeover would therefore be reported only at the *next* resize, leaving
-         * the pane capacity describing a window that is gone. The host calls this
-         * on the first render after the layout comes back, which measures the
-         * window it actually returned to.
-         */
-        refresh() {
+            backlogPaneOwners.set(key, owner);
             backlogReportPaneBounds();
         },
         dispose(key) {
-            backlogPaneOwners.delete(key ?? '');
+            backlogPaneOwners.delete(key);
         }
     };
 
-    // A window drag fires resize many times a frame, and each report costs two
-    // interop calls and a style read per layout. Reporting once per frame is as
+    // A window drag fires resize many times a frame, and each report costs an
+    // interop call and a style read per layout. Reporting once per frame is as
     // current as anything on screen can be. Only the listener waits for the
-    // frame: initialize and refresh above report at once, because their callers
-    // act on the answer in the same render.
+    // frame: initialize above reports at once, because its caller acts on the
+    // answer in the same render.
     let backlogPaneBoundsFrame = 0;
 
     function backlogSchedulePaneBounds() {
@@ -2352,9 +2362,6 @@
 
         const onMove = (move) => {
             width = backlogPaneWidthAt(layout, move.clientX);
-            // Both names are set so the app's knowledge layout and the library's
-            // SplitPane each read the one their stylesheet knows.
-            layout.style.setProperty('--devbook-panel-width', `${width}rem`);
             layout.style.setProperty('--split-pane-fixed', `${width}rem`);
             handle.setAttribute('aria-valuenow', String(width));
         };

@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Copilot;
+using Backlog.Infrastructure.Devbook.Archify;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
@@ -58,16 +59,28 @@ public static class DevbookModuleRegistration
         // is what switches Archify artifacts on for the app at all. Everything it
         // answers — the flag, which clone the chapters came from, whether a CLI can
         // be started — is the host's to know, which is why the library only asks.
+        // The renders are drawn on demand from the committed specifications, into
+        // the devbook cache folder beside the databases (local ADR 0034), with the
+        // clone's own generator or the one bundled beside the app.
+        services.AddSingleton(_ => ArchifyArtifactRenderer.ForApplication());
         services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramArtifacts(
             sp.GetRequiredService<IAppFeatureSettings>(),
             sp.GetRequiredService<IDevbookFolderSource>(),
             sp.GetRequiredService<GitHubSettingsStore>(),
-            copilotCliLauncher(sp)));
+            copilotCliLauncher(sp),
+            sp.GetRequiredService<ArchifyArtifactRenderer>()));
         services.AddSingleton<DevbookScope>();
         // One search over the Brain and every configured repository's devbook.
         // Built from what the host composed, so a host with no Brain or no model
         // gets a search without them.
         services.AddSingleton(DevbookUnifiedSearch.From);
+        // The comparisons GitHub drew this session, shared by the branch overview
+        // and the review so a branch compared for one is not compared for the other.
+        services.AddSingleton<DevbookBranchComparisons>();
+        // Every branch, what each changes in the devbook, and where the clone
+        // stands: loaded once per repository per session when the pane opens. A
+        // singleton so every window and the settings screen share the one load.
+        services.AddSingleton<DevbookBranchOverview>();
         services.AddSingleton<DevbookUpdateService>();
 
         // Shared by the Devbook pane and the settings screen, and a singleton so

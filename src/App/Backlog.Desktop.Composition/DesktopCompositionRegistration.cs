@@ -101,6 +101,12 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(options.UsageResetSettings);
         services.AddSingleton(options.SpendBudgetSettings);
         services.AddSingleton(options.PlanningVelocitySettings);
+        // One store behind both My Day ports (local ADR 0032, §2): the screens read and
+        // set the switch, and the sync client — which takes the replication port as an
+        // optional parameter of the merge, the session and the loop — carries it.
+        services.AddSingleton(options.MyDayPreferences);
+        services.AddSingleton<IMyDayPreferences>(sp => sp.GetRequiredService<MyDayPreferencesStore>());
+        services.AddSingleton<IMyDayPreferencesReplication>(sp => sp.GetRequiredService<MyDayPreferencesStore>());
         services.AddSingleton(options.ShellNavigation);
         // What can change which surface is showing from outside the user interface —
         // the delivery surface's open_dashboard asks. Twice over so the shell can
@@ -283,6 +289,9 @@ public static class DesktopCompositionRegistration
         // syncs. Drawn from the connectors' descriptors, so it needs no change when
         // one is added.
         services.AddTaskConnectorSettings();
+        // The Tasks page: My Day's Clear My Day overnight switch, over the
+        // preferences store registered with the sync ports (local ADR 0032).
+        services.AddTasksSettings();
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();
@@ -317,6 +326,10 @@ public static class DesktopCompositionRegistration
         // navigation file beside the surface it reopens on.
         services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
             new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
+        // Show archived (local ADR 0029, §3): whether the archived repositories are
+        // offered in the scope, the Board and the pickers, kept per device in the same file.
+        services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>
+            new ShowArchivedRepositories(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 

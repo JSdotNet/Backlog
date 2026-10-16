@@ -160,7 +160,7 @@ public sealed class ToolsPaneRailLayoutTests
     }
 
     private static string Css() => File.ReadAllText(
-        RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+        RepositoryRoot.File("src", "Modules", "DevPc", "Backlog.Modules.DevPc.UI", "wwwroot", "devpc.css")).Replace("\r\n", "\n");
 
     private static string GateBlock(string css) => Block(css, Gate);
 

@@ -90,6 +90,11 @@ internal sealed class GitHubActivitySource(
             // nothing for that entry rather than widening to another one.
             if (reference is null) continue;
 
+            // An archived repository is not read from GitHub (local ADR 0029). Its
+            // finished work is no longer asked about, which is no shortfall: the
+            // report is complete for the repositories Backlog reads.
+            if (reference.Archived) continue;
+
             GitHubRepositoryActivity report;
             try
             {

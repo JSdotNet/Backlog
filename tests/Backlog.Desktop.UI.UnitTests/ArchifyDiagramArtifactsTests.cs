@@ -3,6 +3,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using Backlog.Infrastructure.Copilot;
+using Backlog.Infrastructure.Devbook.Archify;
 using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
 
@@ -56,7 +57,7 @@ public sealed class ArchifyDiagramArtifactsTests
     /// that matches it are not enough.
     /// </summary>
     [Fact]
-    public void With_the_feature_switched_off_an_artifact_on_disk_is_not_found()
+    public async Task With_the_feature_switched_off_an_artifact_on_disk_is_not_found()
     {
         using var workspace = ArchifyWorkspace.Create(archifyDiagrams: false);
         workspace.WriteChapter("flow.md", Flowchart);
@@ -65,25 +66,116 @@ public sealed class ArchifyDiagramArtifactsTests
         using var artifacts = workspace.Artifacts();
 
         Assert.Null(artifacts.Find(Flowchart, "mermaid"));
+        Assert.Null(await artifacts.LoadAsync(Flowchart, "mermaid", TestContext.Current.CancellationToken));
+        Assert.Equal(0, workspace.Generator.Runs);
     }
 
+    /// <summary>
+    /// The case local ADR 0034 is about. The clone carries the specification and
+    /// the index entry and no rendered HTML, because renders are no longer
+    /// committed. The synchronous lookup says a picture can be drawn; the
+    /// asynchronous one draws it into the app's devbook cache; and from then on the
+    /// synchronous lookup answers from that cache without starting anything.
+    /// </summary>
     [Fact]
-    public void An_artifact_the_index_files_under_this_fences_hash_is_the_one_that_is_shown()
+    public async Task An_index_entry_under_this_fences_hash_is_drawn_on_demand_into_the_cache_and_shown()
     {
         using var workspace = ArchifyWorkspace.Create();
         workspace.WriteChapter("flow.md", Flowchart);
         workspace.WriteArtifact("flow.md", Flowchart, "workflow");
 
         using var artifacts = workspace.Artifacts();
-        var found = artifacts.Find(Flowchart, "mermaid");
+
+        var pending = artifacts.Find(Flowchart, "mermaid");
+
+        Assert.NotNull(pending);
+        Assert.True(pending.IsRenderPending);
+        Assert.Null(pending.Html);
+        Assert.False(pending.CanRender);
+        Assert.False(pending.IsOutOfDate);
+        Assert.Equal(workspace.ArtifactFile("flow.1.workflow.json"), pending.SpecPath);
+
+        var found = await artifacts.LoadAsync(Flowchart, "mermaid", TestContext.Current.CancellationToken);
 
         Assert.NotNull(found);
         Assert.Equal(ArchifyWorkspace.ArtifactDocument, found.Html);
-        Assert.Equal(workspace.ArtifactFile("flow.1.workflow.html"), found.ArtifactPath);
+        Assert.False(found.IsRenderPending);
+        Assert.Null(found.RenderFailure);
+        Assert.StartsWith(workspace.CacheDirectory, found.ArtifactPath, StringComparison.Ordinal);
         Assert.Equal(workspace.ArtifactFile("flow.1.workflow.json"), found.SpecPath);
         Assert.Equal("workflow", found.ArchifyType);
         Assert.False(found.IsOutOfDate);
         Assert.True(found.CanRender);
+
+        var request = Assert.Single(workspace.Generator.Deliveries);
+        Assert.Equal(workspace.ArtifactFile("flow.1.workflow.json"), request.SpecificationPath);
+        Assert.Equal("workflow", request.Type);
+        Assert.Equal("showcase", request.Quality);
+
+        // Served from the cache now, synchronously, with no second generator run.
+        var again = artifacts.Find(Flowchart, "mermaid");
+
+        Assert.NotNull(again);
+        Assert.Equal(ArchifyWorkspace.ArtifactDocument, again.Html);
+        Assert.Equal(found.ArtifactPath, again.ArtifactPath);
+        Assert.False(again.IsRenderPending);
+        Assert.Equal(1, workspace.Generator.Runs);
+
+        // And nothing was written into the repository.
+        Assert.False(File.Exists(workspace.ArtifactFile("flow.1.workflow.html")));
+    }
+
+    /// <summary>
+    /// An HTML file beside the specification is a local preview the generator
+    /// script may leave there, ignored by git. It is never what the pane shows:
+    /// the cache is the one place a picture comes from, so a stale preview cannot
+    /// stand in for the current specification.
+    /// </summary>
+    [Fact]
+    public void A_render_lying_beside_the_specification_is_not_what_is_shown()
+    {
+        using var workspace = ArchifyWorkspace.Create();
+        workspace.WriteChapter("flow.md", Flowchart);
+        workspace.WriteArtifact("flow.md", Flowchart, "workflow");
+        File.WriteAllText(workspace.ArtifactFile("flow.1.workflow.html"), "<!doctype html><p>a local preview</p>");
+
+        using var artifacts = workspace.Artifacts();
+        var found = artifacts.Find(Flowchart, "mermaid");
+
+        Assert.NotNull(found);
+        Assert.Null(found.Html);
+        Assert.True(found.IsRenderPending);
+    }
+
+    /// <summary>
+    /// A render that fails — no Node, no generator, a timeout, a specification
+    /// Archify rejects — comes back with its reason so the view can say it, and is
+    /// not remembered: the next lookup tries again rather than answering "no"
+    /// after the reason went away.
+    /// </summary>
+    [Fact]
+    public async Task A_failed_render_falls_back_with_its_reason_and_is_tried_again_next_time()
+    {
+        using var workspace = ArchifyWorkspace.Create();
+        workspace.WriteChapter("flow.md", Flowchart);
+        workspace.WriteArtifact("flow.md", Flowchart, "workflow");
+        workspace.Generator.Failure = "Node.js is not installed or not on the PATH.";
+
+        using var artifacts = workspace.Artifacts();
+        var failed = await artifacts.LoadAsync(Flowchart, "mermaid", TestContext.Current.CancellationToken);
+
+        Assert.NotNull(failed);
+        Assert.Null(failed.Html);
+        Assert.False(failed.CanRender);
+        Assert.False(failed.IsRenderPending);
+        Assert.Equal("Node.js is not installed or not on the PATH.", failed.RenderFailure);
+        Assert.Equal(workspace.ArtifactFile("flow.1.workflow.json"), failed.SpecPath);
+
+        var next = artifacts.Find(Flowchart, "mermaid");
+
+        Assert.NotNull(next);
+        Assert.True(next.IsRenderPending);
+        Assert.Null(next.Html);
     }
 
     /// <summary>
@@ -94,7 +186,7 @@ public sealed class ArchifyDiagramArtifactsTests
     /// be told why they are looking at mermaid instead.
     /// </summary>
     [Fact]
-    public void An_artifact_authored_before_the_fence_was_edited_is_withheld_and_reported_as_out_of_date()
+    public async Task An_artifact_authored_before_the_fence_was_edited_is_withheld_and_reported_as_out_of_date()
     {
         using var workspace = ArchifyWorkspace.Create();
 
@@ -112,6 +204,15 @@ public sealed class ArchifyDiagramArtifactsTests
         Assert.Null(found.ArtifactPath);
         Assert.False(found.CanRender);
         Assert.True(found.IsOutOfDate);
+
+        // Rendering on demand changes nothing about drift: a specification filed
+        // under another hash is not drawn, so no stale picture can reach the cache.
+        Assert.False(found.IsRenderPending);
+        var loaded = await artifacts.LoadAsync(EditedFlowchart, "mermaid", TestContext.Current.CancellationToken);
+        Assert.NotNull(loaded);
+        Assert.Null(loaded.Html);
+        Assert.True(loaded.IsOutOfDate);
+        Assert.Equal(0, workspace.Generator.Runs);
 
         // The specification is still the right one to re-render from, so the
         // reader is offered the mechanical half rather than sent to an agent.
@@ -194,21 +295,24 @@ public sealed class ArchifyDiagramArtifactsTests
     /// <c>.html</c> would find nothing and report a rendered diagram missing.
     /// </summary>
     [Fact]
-    public void A_rendered_standard_quality_artifact_is_shown_like_any_other()
+    public async Task A_rendered_standard_quality_artifact_is_shown_like_any_other()
     {
         using var workspace = ArchifyWorkspace.Create();
         workspace.WriteChapter("flow.md", Flowchart);
         workspace.WriteArtifact("flow.md", Flowchart, "workflow", quality: "standard");
 
         using var artifacts = workspace.Artifacts();
-        var found = artifacts.Find(Flowchart, "mermaid");
+        var found = await artifacts.LoadAsync(Flowchart, "mermaid", TestContext.Current.CancellationToken);
 
         Assert.NotNull(found);
         Assert.Equal(ArchifyWorkspace.ArtifactDocument, found.Html);
-        Assert.Equal(workspace.ArtifactFile("flow.1.workflow.standard.html"), found.ArtifactPath);
+        Assert.StartsWith(workspace.CacheDirectory, found.ArtifactPath, StringComparison.Ordinal);
         Assert.Equal(workspace.ArtifactFile("flow.1.workflow.standard.json"), found.SpecPath);
         Assert.Equal("standard", found.Quality);
         Assert.True(found.CanRender);
+
+        // Drawn at the profile the filename opts into, not at showcase.
+        Assert.Equal("standard", Assert.Single(workspace.Generator.Deliveries).Quality);
     }
 
     /// <summary>
@@ -262,7 +366,7 @@ public sealed class ArchifyDiagramArtifactsTests
     /// because the entry records what actually happened.
     /// </summary>
     [Fact]
-    public void The_index_entrys_type_outranks_a_specification_that_disagrees_with_it()
+    public async Task The_index_entrys_type_outranks_a_specification_that_disagrees_with_it()
     {
         using var workspace = ArchifyWorkspace.Create();
         workspace.WriteChapter("flow.md", Flowchart);
@@ -272,11 +376,12 @@ public sealed class ArchifyDiagramArtifactsTests
         workspace.WriteSpecification("flow.1.architecture.json");
 
         using var artifacts = workspace.Artifacts();
-        var found = artifacts.Find(Flowchart, "mermaid");
+        var found = await artifacts.LoadAsync(Flowchart, "mermaid", TestContext.Current.CancellationToken);
 
         Assert.NotNull(found);
         Assert.Equal("workflow", found.ArchifyType);
         Assert.Equal(ArchifyWorkspace.ArtifactDocument, found.Html);
+        Assert.Equal("workflow", Assert.Single(workspace.Generator.Deliveries).Type);
         Assert.Equal(workspace.ArtifactFile("flow.1.workflow.json"), found.SpecPath);
     }
 
@@ -325,7 +430,7 @@ public sealed class ArchifyDiagramArtifactsTests
     /// cannot detect from the inside.
     /// </summary>
     [Fact]
-    public void A_fence_written_with_CRLF_is_still_found_and_still_matches_its_artifact()
+    public async Task A_fence_written_with_CRLF_is_still_found_and_still_matches_its_artifact()
     {
         using var workspace = ArchifyWorkspace.Create();
         workspace.WriteChapter("flow.md", Flowchart, newline: "\r\n");
@@ -334,7 +439,7 @@ public sealed class ArchifyDiagramArtifactsTests
         using var artifacts = workspace.Artifacts();
 
         // The markdown parser hands the view LF, whatever the file on disk holds.
-        var found = artifacts.Find(Flowchart, "mermaid");
+        var found = await artifacts.LoadAsync(Flowchart, "mermaid", TestContext.Current.CancellationToken);
 
         Assert.NotNull(found);
         Assert.Equal(ArchifyWorkspace.ArtifactDocument, found.Html);
@@ -361,7 +466,7 @@ public sealed class ArchifyDiagramArtifactsTests
     /// and coexist perfectly well; it was the staleness test that was blind.
     /// </summary>
     [Fact]
-    public void A_current_artifact_is_not_displaced_by_another_chapters_diagram_of_the_same_number()
+    public async Task A_current_artifact_is_not_displaced_by_another_chapters_diagram_of_the_same_number()
     {
         using var workspace = ArchifyWorkspace.CreateArc42();
         workspace.WriteChapter(RuntimeChapter, RuntimeFlow);
@@ -371,14 +476,14 @@ public sealed class ArchifyDiagramArtifactsTests
 
         using var artifacts = workspace.Artifacts();
 
-        var runtime = artifacts.Find(RuntimeFlow, "mermaid");
+        var runtime = await artifacts.LoadAsync(RuntimeFlow, "mermaid", TestContext.Current.CancellationToken);
         Assert.NotNull(runtime);
         Assert.Equal(ArchifyWorkspace.ArtifactDocument, runtime.Html);
         Assert.Equal("workflow", runtime.ArchifyType);
         Assert.Equal(workspace.ArtifactFile("06-runtime-view.1.workflow.json"), runtime.SpecPath);
         Assert.False(runtime.IsOutOfDate);
 
-        var deployment = artifacts.Find(DeploymentSequence, "mermaid");
+        var deployment = await artifacts.LoadAsync(DeploymentSequence, "mermaid", TestContext.Current.CancellationToken);
         Assert.NotNull(deployment);
         Assert.Equal(ArchifyWorkspace.ArtifactDocument, deployment.Html);
         Assert.Equal("sequence", deployment.ArchifyType);
@@ -643,14 +748,14 @@ public sealed class ArchifyDiagramArtifactsTests
     /// source exists to catch.
     /// </summary>
     [Fact]
-    public void A_chapter_edited_while_the_app_is_open_is_noticed_once_the_recheck_interval_has_passed()
+    public async Task A_chapter_edited_while_the_app_is_open_is_noticed_once_the_recheck_interval_has_passed()
     {
         using var workspace = ArchifyWorkspace.Create();
         workspace.WriteChapter("flow.md", Flowchart, written: Written);
         workspace.WriteArtifact("flow.md", Flowchart, "workflow");
 
         using var artifacts = workspace.Artifacts();
-        Assert.Equal(ArchifyWorkspace.ArtifactDocument, artifacts.Find(Flowchart, "mermaid")?.Html);
+        Assert.Equal(ArchifyWorkspace.ArtifactDocument, (await artifacts.LoadAsync(Flowchart, "mermaid", TestContext.Current.CancellationToken))?.Html);
 
         // Somebody edits the chapter in another window while the pane is open.
         workspace.WriteChapter("flow.md", EditedFlowchart, written: Written.AddMinutes(1));
@@ -828,7 +933,27 @@ file sealed class ArchifyWorkspace : IDisposable
         // resolve through is the unscoped one the folder source answers.
         _repositories = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         Launcher = new RecordingCopilotCliLauncher();
+
+        // The app's devbook cache folder, outside the clone, the way local ADR
+        // 0015 keeps the databases out of it. The clone carries a generator so
+        // the renderer finds one; the fake beside it is what actually runs.
+        CacheDirectory = Path.Combine(root, "app-storage", "devbook-cache", "_archify-renders");
+        var generator = Path.Combine(root, "tools", "archify");
+        Directory.CreateDirectory(Path.Combine(generator, "bin"));
+        File.WriteAllText(Path.Combine(generator, "bin", "archify.mjs"), "// archify");
+        File.WriteAllText(Path.Combine(generator, "package.json"), """{"name":"archify","version":"2.16.0"}""");
+        Generator = new RecordingArchifyGenerator();
+        _renderer = new ArchifyArtifactRenderer(() => CacheDirectory, bundledGenerator: null, Generator, TimeSpan.FromSeconds(5));
     }
+
+    private readonly ArchifyArtifactRenderer _renderer;
+
+    /// <summary>Where the renderer writes, which is never inside the clone.</summary>
+    internal string CacheDirectory { get; }
+
+    /// <summary>The generator the renderer starts: counted, and told what to
+    /// answer.</summary>
+    internal RecordingArchifyGenerator Generator { get; }
 
     internal string RootPath => _root;
 
@@ -855,7 +980,7 @@ file sealed class ArchifyWorkspace : IDisposable
         Path.Combine(Path.GetTempPath(), "backlog-archify-artifact-tests", Guid.NewGuid().ToString("n"));
 
     internal ArchifyDiagramArtifacts Artifacts() =>
-        new(_features, _folders, _repositories, Launcher, _clock);
+        new(_features, _folders, _repositories, Launcher, _renderer, _clock);
 
     internal string ArtifactFile(string name) => Path.Combine(ArtifactDirectory, name);
 
@@ -891,17 +1016,18 @@ file sealed class ArchifyWorkspace : IDisposable
 
     internal void DeleteChapter(string name) => File.Delete(Path.Combine(ChapterDirectory, name));
 
-    /// <summary>The state the generator leaves behind for one rendered diagram: a
-    /// specification, a document, and an index entry filed under the hash of the
-    /// fence it was authored from and naming the chapter it belongs to. The stem is
-    /// built the way the adapter builds it, so the fixture cannot disagree with
-    /// production about what a specification beside a chapter is called.</summary>
+    /// <summary>The state a clone carries for one rendered diagram: a
+    /// specification and an index entry filed under the hash of the fence it was
+    /// authored from and naming the chapter it belongs to. No HTML — renders are
+    /// not committed (local ADR 0034), so the picture is the renderer's to draw.
+    /// The stem is built the way the adapter builds it, so the fixture cannot
+    /// disagree with production about what a specification beside a chapter is
+    /// called.</summary>
     internal void WriteArtifact(string chapterFile, string authoredFrom, string type, int ordinal = 1, string quality = "showcase")
     {
         var stem = Stem(chapterFile, type, ordinal, quality);
 
         WriteSpecification($"{stem}.json");
-        File.WriteAllText(ArtifactFile($"{stem}.html"), ArtifactDocument);
         AddIndexEntry(DiagramSourceHash.Of(authoredFrom), ordinal, type, chapterFile, $"{stem}.json", $"{stem}.html", quality);
     }
 
@@ -1036,6 +1162,29 @@ file sealed class MovableClock(DateTimeOffset now) : TimeProvider
     public override DateTimeOffset GetUtcNow() => _now;
 
     internal void Advance(TimeSpan elapsed) => _now += elapsed;
+}
+
+/// <summary>A generator that counts how often it is started and writes the
+/// fixture document where <c>deliver</c> would — or fails with the reason it is
+/// given.</summary>
+file sealed class RecordingArchifyGenerator : IArchifyGeneratorRunner
+{
+    private readonly List<ArchifyDelivery> _deliveries = [];
+
+    internal IReadOnlyList<ArchifyDelivery> Deliveries => _deliveries;
+
+    internal int Runs => _deliveries.Count;
+
+    internal string? Failure { get; set; }
+
+    public async Task<string?> DeliverAsync(ArchifyDelivery delivery, CancellationToken cancellationToken = default)
+    {
+        _deliveries.Add(delivery);
+        if (Failure is not null) return Failure;
+
+        await File.WriteAllTextAsync(delivery.OutputPath, ArchifyWorkspace.ArtifactDocument, cancellationToken);
+        return null;
+    }
 }
 
 /// <summary>An agent CLI that records the brief instead of starting

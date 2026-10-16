@@ -1,0 +1,54 @@
+@*
+    A painter's palette: a rounded board with a thumb notch and four dots of paint.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, and in
+    Lucide's idiom on exactly the terms
+    `.devbook/design/typography-and-layout.md#iconography` allows: Lucide's own
+    `palette` outline on the 24x24 grid, stroked at 2, round caps and joins. Its
+    four dots of paint are the one place it fills: a dot half a unit across
+    reads as nothing when only stroked.
+
+    Named for the shape, not for a meaning. The Devbook pane puts it on the
+    Design section's tab and on a branch that changes the design guidelines. The
+    name the glyph stands beside says what it means, so it is decorative and
+    hidden from assistive technology. Colour and size are the caller's, as on
+    every glyph in this folder.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "palette-icon" : $"palette-icon {CssClass}";
+}

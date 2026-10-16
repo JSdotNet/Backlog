@@ -3,16 +3,48 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class DevbookStackLayoutTests
 {
     [Fact]
-    public void Devbook_stack_keeps_the_side_pane_scroll_layout_last_in_the_cascade()
+    public void Devbook_stack_keeps_its_scroll_layout_last_in_the_cascade()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        var sidePaneLayout = css.IndexOf(".devbook-stack {\n    display: flex;", StringComparison.Ordinal);
+        var flexLayout = css.IndexOf(".devbook-stack {\n    display: flex;", StringComparison.Ordinal);
         var legacyStickyLayout = css.IndexOf(".devbook-stack {\n    position: sticky;", StringComparison.Ordinal);
 
-        Assert.True(sidePaneLayout >= 0, "The Devbook side pane must keep its flex column layout.");
-        Assert.True(legacyStickyLayout < 0 || legacyStickyLayout < sidePaneLayout,
-            "A later sticky/grid Devbook stack block overrides the side-pane flex layout and stretches the section tabs vertically.");
+        Assert.True(flexLayout >= 0, "The Devbook must keep its flex column layout.");
+        Assert.True(legacyStickyLayout < 0 || legacyStickyLayout < flexLayout,
+            "A later sticky/grid Devbook stack block overrides the flex layout and stretches the section tabs vertically.");
+    }
+
+    /// <summary>
+    /// Stacked at a narrow window, the menu sits above the reader at its full height,
+    /// and in the fixed-height Devbook surface that left a chapter about 90px with a
+    /// scrollbar of its own at 900px. The stacked Devbook scrolls as a whole instead:
+    /// the surface's stack scrolls, and a body with a menu and its section grow with
+    /// their content. Later in the sheet than the base rules it overrides, because a
+    /// media query adds no specificity.
+    /// </summary>
+    [Fact]
+    public void Stacked_in_a_narrow_window_the_devbook_scrolls_as_a_whole()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var step = css.IndexOf("@media (max-width: 900px) {\n    .devbook-stack__body {", StringComparison.Ordinal);
+        Assert.True(step >= 0, "The 900px step that stacks the Devbook body should exist.");
+        var block = css[step..(css.IndexOf("\n}\n", step, StringComparison.Ordinal) + 1)];
+
+        Assert.Contains("overflow-y: auto;", RuleBody(block, ".workspace-surface > .devbook-stack {"), StringComparison.Ordinal);
+
+        var body = RuleBody(block, ".workspace-surface > .devbook-stack > .devbook-stack__body:not(.devbook-stack__body--without-menu):not(:has(.tech-devbook-pane)) {");
+        Assert.Contains("flex: 0 0 auto;", body, StringComparison.Ordinal);
+        Assert.Contains("overflow: visible;", body, StringComparison.Ordinal);
+
+        Assert.Contains(
+            "overflow: visible;",
+            RuleBody(block, ".workspace-surface > .devbook-stack > .devbook-stack__body:not(.devbook-stack__body--without-menu):not(:has(.tech-devbook-pane)) > .devbook-stack__section {"),
+            StringComparison.Ordinal);
+
+        Assert.True(step > css.IndexOf(".devbook-stack__section {\n", StringComparison.Ordinal), "The step must follow the section's base rule.");
+        Assert.True(step > css.IndexOf(".devbook-stack__body {\n", StringComparison.Ordinal), "The step must follow the body's base rule.");
     }
 
     [Fact]
@@ -369,17 +401,19 @@ public sealed class DevbookStackLayoutTests
     }
 
     /// <summary>
-    /// The cap predates anything sitting above the pane row: measured off the
-    /// viewport, it overruns its own grid row by however tall the roadmap band
-    /// is. The row's own height is the honest ceiling. The Inbox had the same cap
-    /// while it was a pane in the row; it is a takeover surface now.
+    /// A cap measured off the viewport overruns the row it is in by however tall
+    /// whatever sits above it is; the row's own height is the honest ceiling. The
+    /// side-pane stack carried that cap until the Devbook took the screen and the
+    /// stack went; the Devbook's menu carries it still, inside its surface.
     /// </summary>
     [Fact]
-    public void Side_panes_are_capped_by_their_row_rather_than_the_viewport()
+    public void The_devbook_menu_is_capped_by_its_row_rather_than_the_viewport()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        foreach (var selector in new[] { ".side-pane-stack {" })
+        Assert.DoesNotContain(".side-pane-stack", css, StringComparison.Ordinal);
+
+        foreach (var selector in new[] { ".devbook-stack__menu {" })
         {
             var ruleStart = css.IndexOf(selector, StringComparison.Ordinal);
             Assert.True(ruleStart >= 0, $"{selector} should still exist.");

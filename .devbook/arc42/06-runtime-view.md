@@ -281,7 +281,7 @@ sequenceDiagram
 ## Mobile My Day and Task Push
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md"]
 ```
 
 The phone's Today tab is My Day and nothing else. It reads the owner's existing
@@ -298,16 +298,24 @@ projection of the feed.
   - the later `UpdatedAt` wins;
   - an equal stamp goes to the higher server stamp, and then to the tombstone;
   - a `DeletedAt` hides the row;
-  - a `capture`-type document is skipped, because it is the Inbox's (ADR 0009).
+  - a document of a kind that is not a task never becomes a row. A `capture` is
+    the Inbox's (ADR 0009), and a `note` folds into its own view (ADR 0025).
 
   A deleted task keeps its row, hidden, so the order pages arrive in never
   changes the result.
+- **The My Day preferences are kept, not folded.** A `my-day-preferences`
+  document is taken out of the page, and the later `UpdatedAt` wins. It is saved
+  in the same transaction as the page and its cursor. The phone never writes it
+  and reads `clearsOvernight: true` until one arrives (ADR 0032).
 - **My Day is arithmetic**, as `.devbook/domain/tasks/domain.md#my-day` defines
-  it. The list is the rows whose `in_my_day_on` is the phone's current local date
-  and whose status is not `archived`. A row with `completed_on` today is in Done
-  today. The other rows are grouped by their agenda time against the phone's
-  clock into Now, Agenda and Anytime today, as
-  `.devbook/domain/tasks/features.md#my-day` describes.
+  it. With Clear My Day overnight on, the list is the rows whose `in_my_day_on` is
+  the phone's current local date and whose status is not `archived`. With it off,
+  an unfinished row with an earlier `in_my_day_on` stays in the list too. A row
+  with `completed_on` today is in Done today, and a row completed earlier is out.
+  The phone applies the same rule as the desktop (ADR 0032 §5). The other rows are
+  grouped by their agenda time against the phone's clock into Now, Agenda and
+  Anytime today, as `.devbook/domain/tasks/features.md#my-day` describes. A
+  carried row has no agenda time, so it sits in Anytime today.
 - **A rejected cursor starts over.** `sync.cursor_malformed` or
   `sync.cursor_expired` drops the cursor and pulls once from the beginning; the
   rows already kept fold to the same result. Any other failure keeps the list on
@@ -477,27 +485,58 @@ stateDiagram-v2
 ## IDE Context-aware Capture
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#ide-extensions"]
+related: [".devbook/arc42/05-building-block-view.md#ide-extensions", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 ```
 
 ```mermaid
 sequenceDiagram
     actor ME
+    participant Desk as Desktop app
     participant Ext as VS Code extension
+    participant Secrets as SecretStorage
     participant Sync as Sync Service
+
+    opt Not paired yet, or the credential was rejected
+        ME->>Desk: Settings > Devices, Generate a code
+        Desk->>Sync: POST /api/sync/devices/codes (Bearer)
+        Sync-->>Desk: code, expiresAt
+        ME->>Ext: Run backlog.pair, type the code
+        Ext->>+Sync: POST /api/sync/devices/pair (code, deviceName)
+        Sync-->>-Ext: 201 deviceId, credential (shown once)
+        Ext->>Secrets: Store deviceId + credential
+    end
 
     ME->>Ext: Select text, run backlog.capture
     Ext->>ME: Title box, pre-filled with the selection's first line
     ME->>Ext: Confirm the title
-    Ext->>+Sync: POST /api/sync/inbox (title, source=vscode)
-    Sync-->>-Ext: 201 Created
-    Ext-->>ME: "Backlog: captured …"
+    opt No token cached, or it expires within two minutes
+        Ext->>Secrets: Read deviceId + credential
+        Ext->>+Sync: POST /api/sync/devices/token (deviceId, credential)
+        Sync-->>-Ext: accessToken, expiresAt
+    end
+    Ext->>+Sync: POST /api/sync/inbox (title, source=vscode), Bearer
+    alt Token accepted
+        Sync-->>Ext: 201 Created
+        Ext-->>ME: "Backlog: captured …"
+    else 401 on the inbox
+        Sync-->>-Ext: 401
+        Ext->>Sync: New token, then the same POST once more
+    end
+    opt 401 from the token endpoint
+        Ext->>Secrets: Delete the credential
+        Ext-->>ME: Offer Pair with Desktop
+    end
 ```
 
 The extension sends the selection as a title only. It carries no repository
-context (file, line, branch), keeps no local cache, and reaches the sync service at
-`backlog.cloudUrl` rather than the desktop
+context (file, line, branch), caches nothing but the token, and reaches the sync
+service at `backlog.cloudUrl` rather than the desktop
 (`.devbook/arc42/05-building-block-view.md#ide-extensions`).
+
+A 401 from the inbox says only that the token was refused, so a fresh token is worth
+one retry. A 401 from the token endpoint is a verdict on the credential itself, which
+pairing again is the only fix for. Without a stored credential the extension asks to
+pair before the title box and sends no inbox request.
 
 ## Copilot App Session Capture
 

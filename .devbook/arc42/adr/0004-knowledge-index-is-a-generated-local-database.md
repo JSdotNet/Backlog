@@ -11,6 +11,15 @@ leaves to be discovered. What is not built is the refresh machinery that was
 never required for correctness. The semantic tier's live call is built since
 2026-10-13; see the amendment below.
 
+> **Amended 2026-10-15: the rendered Archify HTML is no longer on disk.**
+> *(Proposed with local ADR 0034.)* *Archify moves its index and nothing else*
+> says the rendered HTML stays on disk beside the specification for the WebView
+> to load. It no longer does: the renders are not committed, and the app draws
+> each one on demand from its specification into `_archify-renders/` under the
+> devbook cache folder. The index, its rows and the match rule are unchanged; an
+> entry's `artifact` keeps naming the basename `render` would write. See
+> `0034-archify-renders-are-generated-on-demand-not-committed.md`.
+
 > **Amended 2026-10-13: the semantic tier is written.** *(Proposed with the
 > `+brain` draft pull request that builds it; it stands once that is validated.)*
 > After every check the app's refresher (local ADR 0015) embeds the chapters its
@@ -438,7 +447,8 @@ Each folder's `_archify/index.json` becomes rows: chapter, ordinal, fence hash,
 type, kind, specification path, artifact path, state, checks passed. The
 specifications are hand-authored and stay on disk and in git. The rendered HTML
 stays on disk because it is what the WebView loads, with the database holding the
-pointer.
+pointer. *(Amended by local ADR 0034: the HTML is no longer committed; the app
+draws it from the specification into its own cache.)*
 
 The match rule is untouched: a diagram still resolves by the SHA-256 of its
 normalised fence, and `normalizeDiagramSource` in `archify-artifacts.mjs` and

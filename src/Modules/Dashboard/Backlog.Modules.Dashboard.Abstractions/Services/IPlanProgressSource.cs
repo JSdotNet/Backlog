@@ -69,8 +69,11 @@ public sealed record PlanPartProgress(
 /// <param name="TotalEffort">The story points everything it gathered registered. An
 /// unestimated thing adds nothing here and is counted in <paramref name="Unestimated"/>,
 /// so the total can say it is a floor.</param>
-/// <param name="LastCompletedOn">The day its last entry was ticked off, when one says —
-/// where a finished item actually ended.</param>
+/// <param name="IsFinished">Its work is over: every entry it gathered is done, or it gathered
+/// none and a person completed it by hand.</param>
+/// <param name="LastCompletedOn">The day its last entry was ticked off, when one says — or,
+/// for an item completed by hand, the day it was completed: where a finished item actually
+/// ended.</param>
 /// <param name="Parts">Its parts, one per repository its work is filed in — one phase of
 /// one, where the work hands over and back — every part after the parts it waits on.
 /// Per part, not the item's nor the reading's, because the roadmap places each part at its

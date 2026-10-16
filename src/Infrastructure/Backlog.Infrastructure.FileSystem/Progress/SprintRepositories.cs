@@ -19,4 +19,13 @@ public sealed class SprintRepositories(Func<IRepositoryDirectory?> repositories)
             .Where(alias => alias.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
     ];
+
+    public IReadOnlyList<string> ArchivedAliases =>
+    [
+        .. (repositories()?.Repositories ?? [])
+            .Where(repository => repository.IsArchived)
+            .Select(repository => repository.Alias.Trim())
+            .Where(alias => alias.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+    ];
 }

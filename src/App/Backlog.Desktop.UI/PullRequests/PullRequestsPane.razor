@@ -686,7 +686,7 @@
             // is started on the pool: the CLI transport starts its gh process before
             // its first real await, which on the UI thread would hold Refresh's busy
             // state back until the process was up.
-            var listing = Task.Run(() => gitHub.ListOpenPullRequestsAsync(gitHub.Repositories));
+            var listing = Task.Run(() => gitHub.ListOpenPullRequestsAsync(gitHub.ActiveRepositories));
             var pinned = ReadPinnedAsync();
             var sessions = ReadSessionsAsync();
 
@@ -720,7 +720,7 @@
         try
         {
             // On the pool for the reason the open list's read is.
-            var merged = Task.Run(() => gitHub.ListMergedPullRequestsAsync(gitHub.Repositories));
+            var merged = Task.Run(() => gitHub.ListMergedPullRequestsAsync(gitHub.ActiveRepositories));
             var sessions = ReadSessionsAsync();
 
             var listing = await merged;

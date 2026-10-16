@@ -48,6 +48,10 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
 
     public string RepositoryAlias { get; }
 
+    /// <summary>The branch catalog the overview lists through, so a test can see
+    /// that the Brain asked it nothing.</summary>
+    public StubBranchCatalog Catalog { get; private init; } = new();
+
     /// <summary>The folder the Brain setting points at by default, created empty.</summary>
     public string BrainFolder => Path.Combine(Root, "Brain");
 
@@ -56,9 +60,14 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
     /// harness's own folder by default, null for none set, or any path a test
     /// wants — one that does not exist, or one that is not a path at all.
     /// <paramref name="noteWriter"/> false composes no <see cref="IBrainNoteWriter"/>,
-    /// as a host without Capture does.
+    /// as a host without Capture does. <paramref name="branchOverview"/> composes
+    /// the branch overview the pane loads on opening a repository: on for a test
+    /// asking whether the Brain starts that load, and off otherwise, because a
+    /// load landing re-renders the pane under a test pressing tabs on the
+    /// repository side, and a press between that render and its find goes to a
+    /// handler the render replaced.
     /// </summary>
-    public static DevbookPaneBrainHarness Create(string? brainFolder = DefaultFolder, bool noteWriter = true)
+    public static DevbookPaneBrainHarness Create(string? brainFolder = DefaultFolder, bool noteWriter = true, bool branchOverview = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-brain-tests", Guid.NewGuid().ToString("n"));
         var clone = Path.Combine(root, "clone");
@@ -100,13 +109,21 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         context.Services.AddSingleton<IBrainFolderSource>(brain);
         context.Services.AddSingleton<IBrainSettings>(settings);
         if (noteWriter) context.Services.AddSingleton<IBrainNoteWriter>(new BrainNoteWriter(brain));
-        context.Services.AddSingleton<ILocalGitRepositoryService>(new ScriptedGitRepositoryService());
+        var git = new ScriptedGitRepositoryService();
+        context.Services.AddSingleton<ILocalGitRepositoryService>(git);
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();
         context.Services.AddSingleton<DevbookScope>();
         context.Services.AddScoped<DevbookOpenChapter>();
         context.Services.AddSingleton<DevbookUpdateService>();
-        context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        var catalog = new StubBranchCatalog { Branches = { "main" } };
+        context.Services.AddSingleton<IGitHubBranchCatalog>(catalog);
+        if (branchOverview)
+        {
+            context.Services.AddSingleton<IGitHubBranchComparison>(new ScriptedBranchComparisons());
+            context.Services.AddSingleton<DevbookBranchComparisons>();
+            context.Services.AddSingleton<DevbookBranchOverview>();
+        }
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();
@@ -120,7 +137,7 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
         context.Services.AddSingleton<IDevbookSearch>(sp => new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
 
-        return new DevbookPaneBrainHarness(root, context, settings, brain, repositoryFolders, repository.Alias);
+        return new DevbookPaneBrainHarness(root, context, settings, brain, repositoryFolders, repository.Alias) { Catalog = catalog };
     }
 
     /// <summary>Stands for "the harness's own Brain folder" in <see cref="Create"/>,
