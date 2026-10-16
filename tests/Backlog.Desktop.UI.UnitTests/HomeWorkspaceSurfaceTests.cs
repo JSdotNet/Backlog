@@ -2869,7 +2869,10 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Equal("+plan-a", state.SelectedPlan);
-            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+
+            // Every repository: the roadmap gathers a plan's work wherever it is filed,
+            // so the bar's repositories never scope the list (Home.OpenPlanTasks).
+            Assert.Empty(state.SelectedRepositoryAliases);
         });
     }
 
