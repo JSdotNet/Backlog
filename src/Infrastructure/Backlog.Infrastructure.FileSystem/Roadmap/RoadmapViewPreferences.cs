@@ -17,6 +17,7 @@ public sealed class RoadmapViewPreferences : IRoadmapViewPreferences
 {
     private readonly ShellNavigationStore? _store;
     private bool _hoursShown = true;
+    private bool _completedShown = true;
     private IReadOnlyCollection<string> _collapsedGroups = [];
 
     public RoadmapViewPreferences(ShellNavigationStore? store)
@@ -35,6 +36,19 @@ public sealed class RoadmapViewPreferences : IRoadmapViewPreferences
         }
 
         _store.SetRoadmapHoursShown(shown);
+    }
+
+    public bool CompletedShown => _store?.RoadmapCompletedShown ?? _completedShown;
+
+    public void SetCompletedShown(bool shown)
+    {
+        if (_store is null)
+        {
+            _completedShown = shown;
+            return;
+        }
+
+        _store.SetRoadmapCompletedShown(shown);
     }
 
     public IReadOnlyCollection<string> CollapsedGroups => _store?.RoadmapCollapsedGroups ?? _collapsedGroups;

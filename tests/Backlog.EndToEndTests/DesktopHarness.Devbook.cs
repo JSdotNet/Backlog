@@ -1,12 +1,11 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.Playwright;
 
 namespace Backlog.EndToEndTests;
 
 /// <summary>
-/// A repository's devbook in the Devbook side pane: its width, an Architecture
-/// chapter, and the remarks a reader leaves on that chapter's blocks.
+/// A repository's devbook in the Devbook, which takes the whole screen: an
+/// Architecture chapter, and the remarks a reader leaves on that chapter's blocks.
 ///
 /// <para>Remarks are the person's own data, kept in the app's database (local ADR
 /// 0011) and never in the chapter file, so leaving one changes no file in any
@@ -15,10 +14,7 @@ namespace Backlog.EndToEndTests;
 /// </summary>
 internal sealed partial class DesktopHarness
 {
-    /// <summary>The side pane's edge, which takes the arrow keys as well as a drag.</summary>
-    public ILocator SidePaneResizer => Page.GetByTestId("side-pane-resizer");
-
-    /// <summary>The Architecture chapter the pane shows.</summary>
+    /// <summary>The Architecture chapter the Devbook shows.</summary>
     public ILocator ArchitectureChapter => Page.GetByTestId("arc42-chapter-file");
 
     /// <summary>Opens one Architecture chapter of the scoped repository from the
@@ -29,40 +25,6 @@ internal sealed partial class DesktopHarness
         await Interactive.ClickAsync(
             DevbookPane.Locator(".devbook-menu__item--file").Filter(new LocatorFilterOptions { HasTextRegex = title }).First,
             ArchitectureChapter.Filter(new LocatorFilterOptions { HasTextRegex = title }));
-    }
-
-    /// <summary>
-    /// Sets the side pane's width with the separator's own keys — Home for its
-    /// minimum, then one 2rem step per Arrow Left — the keyboard equivalent of the
-    /// drag, held to the same clamp. Returns the width the separator reports,
-    /// which is less than asked for where the window cannot give the pane that
-    /// much. Below a 72rem window the pane stacks under the Tasks view at the
-    /// window's full width and the separator is not drawn; that answers
-    /// <c>null</c> and changes nothing.
-    /// </summary>
-    public async Task<double?> SetSidePaneWidthAsync(double rem)
-    {
-        if (!await SidePaneResizer.IsVisibleAsync()) return null;
-
-        await SidePaneResizer.FocusAsync();
-        await SidePaneResizer.PressAsync("Home");
-        await Interactive.EventuallyAsync(
-            async () => Rem(await SidePaneResizer.GetAttributeAsync("aria-valuenow")) == 24,
-            TimeSpan.FromSeconds(10),
-            "the side pane to reach its minimum");
-
-        for (var step = 24.0; step < rem; step += 2)
-        {
-            var before = Rem(await SidePaneResizer.GetAttributeAsync("aria-valuenow"));
-            await SidePaneResizer.PressAsync("ArrowLeft");
-            await Interactive.EventuallyAsync(
-                async () => Rem(await SidePaneResizer.GetAttributeAsync("aria-valuenow")) != before
-                            || before >= Rem(await SidePaneResizer.GetAttributeAsync("aria-valuemax")),
-                TimeSpan.FromSeconds(10),
-                "the side pane to widen a step");
-        }
-
-        return Rem(await SidePaneResizer.GetAttributeAsync("aria-valuenow"));
     }
 
     /// <summary>The ids of the remarks drawn on the open chapter.</summary>
@@ -105,7 +67,4 @@ internal sealed partial class DesktopHarness
                     + (row ? ', row ' + getComputedStyle(row).display + ' ' + getComputedStyle(row).gridTemplateColumns : ', no margin row');
             }
             """);
-
-    private static double Rem(string? value) =>
-        double.Parse(value ?? "0", CultureInfo.InvariantCulture);
 }

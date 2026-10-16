@@ -20,7 +20,12 @@ public sealed class DevbookPaneBrainFolderStateTests
         var prompt = component.WaitForElement("[data-testid='devbook-brain-first-use']");
         Assert.Equal("status", prompt.GetAttribute("role"));
         Assert.Contains(BrainSetup.SetUpLabel, prompt.TextContent, StringComparison.Ordinal);
-        Assert.Equal(BrainSetup.SettingsHref, component.Find("[data-testid='devbook-brain-set-up']").GetAttribute("href"));
+        var setUp = component.Find("[data-testid='devbook-brain-set-up']");
+        Assert.Equal(BrainSetup.SettingsHref, setUp.GetAttribute("href"));
+
+        // Settings is a page of the app: no new window, which the WebView would hand
+        // to the system browser.
+        Assert.False(setUp.HasAttribute("target"));
 
         Assert.Empty(DevbookPaneBrainHarness.Tabs(component));
         Assert.Empty(component.FindAll("[data-testid='devbook-brain-path']"));

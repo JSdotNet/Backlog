@@ -1,5 +1,9 @@
 @implements IDisposable
 @using Backlog.UI.Components.Compare
+@* For the source field's key boundary below: without it Razor reads
+   `@onkeydown:stopPropagation` as a literal attribute and the boundary does
+   nothing. *@
+@using Microsoft.AspNetCore.Components.Web
 @inject DevbookMenu DevbookMenu
 @inject DevbookFolderOpenService DevbookFolderOpen
 @inject DevbookScope Scope
@@ -108,50 +112,59 @@
                standing in the field of the next — two repositories on their
                default branch hand the field the same Value, and the field keeps
                typed text until its Value changes. *@
-            <Combobox @key="@ActiveRepositoryAlias"
-                      CssClass="devbook-stack__source"
-                      Compact="true"
-                      AriaLabel="@($"Devbook source for {ActiveRepositoryAlias}")"
-                      TestId="devbook-source-select"
-                      Placeholder="Search branches"
-                      Value="@DevbookSource.Label(ActiveRepositoryAlias)"
-                      ValueChanged="SetSourceQuery"
-                      Options="@SourceSuggestions"
-                      OnCommit="CommitDevbookSourceAsync">
-                @* Each row says what a branch is worth reading for: the sections
-                   it changes and how far it is from the default branch — or, on
-                   the clone, from its upstream. Content only, no action: a button
-                   inside an option breaks the listbox. The glyphs are hidden and
-                   their sections said in words, so the option's name carries
-                   everything the row shows. *@
-                <OptionTemplate Context="option">
-                    <span class="devbook-stack__source-option">
-                        <span class="devbook-stack__source-name">@option.Label</span>
-                        @if (DevbookSource.Row(ActiveRepositoryAlias, option.Value) is { } row)
-                        {
-                            @foreach (var area in row.Areas)
+            @* The field's keys are the field's. The Combobox keeps the Escape that
+               closes its list, and passes on the one that clears its text; the
+               Devbook takes the screen and closes on Escape (local ADR 0022,
+               amendment of 2026-10-15), so that second Escape would clear the field
+               and throw the reader out of the Devbook with the same press. The
+               wrapper draws nothing (display: contents) and ends Blazor's walk
+               only, so a document listener still hears the key. *@
+            <span class="devbook-stack__source-keys" data-testid="devbook-source-keys" @onkeydown:stopPropagation="true">
+                <Combobox @key="@ActiveRepositoryAlias"
+                          CssClass="devbook-stack__source"
+                          Compact="true"
+                          AriaLabel="@($"Devbook source for {ActiveRepositoryAlias}")"
+                          TestId="devbook-source-select"
+                          Placeholder="Search branches"
+                          Value="@DevbookSource.Label(ActiveRepositoryAlias)"
+                          ValueChanged="SetSourceQuery"
+                          Options="@SourceSuggestions"
+                          OnCommit="CommitDevbookSourceAsync">
+                    @* Each row says what a branch is worth reading for: the sections
+                       it changes and how far it is from the default branch — or, on
+                       the clone, from its upstream. Content only, no action: a button
+                       inside an option breaks the listbox. The glyphs are hidden and
+                       their sections said in words, so the option's name carries
+                       everything the row shows. *@
+                    <OptionTemplate Context="option">
+                        <span class="devbook-stack__source-option">
+                            <span class="devbook-stack__source-name">@option.Label</span>
+                            @if (DevbookSource.Row(ActiveRepositoryAlias, option.Value) is { } row)
                             {
-                                <DevbookAreaIcon Area="@area"
-                                                 CssClass="devbook-stack__source-area"
-                                                 TestId="@($"devbook-source-area-{area}")" />
-                                <span class="sr-only">Changes @DevbookAreaCatalog.Label(area)</span>
+                                @foreach (var area in row.Areas)
+                                {
+                                    <DevbookAreaIcon Area="@area"
+                                                     CssClass="devbook-stack__source-area"
+                                                     TestId="@($"devbook-source-area-{area}")" />
+                                    <span class="sr-only">Changes @DevbookAreaCatalog.Label(area)</span>
+                                }
+                                @if (row.MayChange)
+                                {
+                                    <span class="devbook-stack__source-maybe"
+                                          title="GitHub listed only part of what this branch changes">may change the devbook</span>
+                                }
+                                @if (row.AheadBy is { } ahead && row.BehindBy is { } behind)
+                                {
+                                    <span class="devbook-stack__source-drift" data-testid="devbook-source-drift">
+                                        <span aria-hidden="true">↑@ahead ↓@behind</span>
+                                        <span class="sr-only">@ahead ahead, @behind behind</span>
+                                    </span>
+                                }
                             }
-                            @if (row.MayChange)
-                            {
-                                <span class="devbook-stack__source-maybe"
-                                      title="GitHub listed only part of what this branch changes">may change the devbook</span>
-                            }
-                            @if (row.AheadBy is { } ahead && row.BehindBy is { } behind)
-                            {
-                                <span class="devbook-stack__source-drift" data-testid="devbook-source-drift">
-                                    <span aria-hidden="true">↑@ahead ↓@behind</span>
-                                    <span class="sr-only">@ahead ahead, @behind behind</span>
-                                </span>
-                            }
-                        }
-                    </span>
-                </OptionTemplate>
-            </Combobox>
+                        </span>
+                    </OptionTemplate>
+                </Combobox>
+            </span>
         }
     </ListLeading>
 
@@ -253,6 +266,17 @@
                        OnClick="ToggleAtlasAsync">
                 @(_atlasOpen ? "Hide atlas" : "Atlas")
             </AppButton>
+        }
+        @* The way back for a host that shows the Devbook as a takeover — the
+           desktop shell gives it the whole screen — in the place and shape the
+           other takeovers' close sits: last on the header row, an icon-only ghost
+           button named by its label. Absent for a host that passes no OnClose. *@
+        @if (OnClose.HasDelegate)
+        {
+            <IconButton AriaLabel="@(BrainMode ? "Close the Brain" : "Close the Devbook")"
+                        CssClass="btn--ghost"
+                        TestId="devbook-close"
+                        OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         }
     </ListTrailing>
 
@@ -443,6 +467,12 @@
     /// that composes no Brain it is no scope, and the pane has nothing to read.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
+
+    /// <summary>Reports that the ✕ was pressed. A host that shows the Devbook as a
+    /// takeover passes its way back here, as it does for every other takeover's
+    /// pane; with no delegate the pane draws no close control.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
 
     /// <summary>
     /// The repository on the other side of the <c>Brain | repo</c> switch, while
@@ -2376,6 +2406,7 @@
                 </DescriptionContent>
                 <Action>
                     <AppButton Href="@BrainSetup.SettingsHref"
+                               External="false"
                                Variant="ButtonVariant.Primary"
                                TestId="devbook-brain-set-up">
                         @BrainSetup.SetUpLabel

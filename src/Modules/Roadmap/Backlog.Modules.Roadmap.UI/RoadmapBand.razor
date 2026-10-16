@@ -13,7 +13,7 @@
     repositories is drawn in each of their bands, as that repository's part. The
     chart shows plans and not their tasks: a bar carries its progress fill, and the
     tasks themselves stay in the task list. The chart owns its own scrollbar, so
-    the heading and the filters above it stay put.
+    the heading and the switches above it stay put.
 
     What the band never does is edit the plan it was handed. RoadmapTimeline
     proposes a placement when something is dragged or moved with the keyboard;
@@ -53,10 +53,11 @@
        there is a chart to head.
 
        With a plan, it is handed to RoadmapTimeline as its own heading. The chart's
-       header is already a row with a heading at one end and the filter controls at
-       the other, so giving it this one puts "Roadmap" and the filters on the same
-       line, and a chart heading of its own would have been a second title saying
-       the same thing.
+       header is already a row with the heading in it, so giving it this one puts
+       "Roadmap" and its controls on the chart's own header line, and a chart heading
+       of its own would have been a second title saying the same thing. The chart's
+       facet filters are off: the Completed switch is the one narrowing the roadmap
+       offers.
 
        With nothing planned there is no chart, so the view carries its own header
        above the empty state. Either way the h2 keeps the id this section's
@@ -98,6 +99,7 @@
                                  TitleContent="@BandHeading"
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
+                                 ShowFilters="false"
                                  Collapsible="true"
                                  CollapsedGroups="@ViewPreferences.CollapsedGroups"
                                  OnCollapsedChanged="ViewPreferences.SetCollapsedGroups"
@@ -228,6 +230,15 @@
     /// carry their hours line. Read from this device's preferences when the band opens.</summary>
     private bool _hoursShown = true;
 
+    /// <summary>The Completed switch on the toolbar: whether finished plans are drawn.
+    /// Read from this device's preferences when the band opens.</summary>
+    private bool _completedShown = true;
+
+    /// <summary>What the chart was last drawn from, so the Completed switch redraws it
+    /// without reading the plan again.</summary>
+    private IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? _rollups;
+    private RoadmapForecast? _forecast;
+
     /// <summary>Show archived on this device, or null where the host composes none. The
     /// port, not its answer: <see cref="Load"/> asks it every time.</summary>
     private global::Backlog.SharedKernel.IShowArchivedRepositories? _showArchived;
@@ -299,8 +310,8 @@
             <h2 id="roadmap-band-title" class="roadmap-band__title">Roadmap</h2>
         </div>
 
-        @* Beside the heading rather than out at the end with the filters: these add to
-           the plan, and the filters only change what is shown of it. *@
+        @* Beside the heading: these add to the plan, where the switches further along
+           only change what is shown of it. *@
         <AppButton Variant="ButtonVariant.Secondary"
                    Size="ButtonSize.Small"
                    OnClick="PlanSomething"
@@ -337,6 +348,14 @@
                     CheckedChanged="ShowHours"
                     CssClass="roadmap-band__hours"
                     TestId="roadmap-band-hours" />
+
+            @* Finished plans stay on the chart, where the work ran, until this is
+               turned off; off, the lanes close up over what is left to do. *@
+            <Toggle Label="Completed"
+                    Checked="@_completedShown"
+                    CheckedChanged="ShowCompleted"
+                    CssClass="roadmap-band__completed"
+                    TestId="roadmap-band-completed" />
         }
     </text>;
 
@@ -379,6 +398,7 @@
         WorkChanges.Changed += OnWorkChanged;
         Paces.Changed += OnPaceSettingsChanged;
         _hoursShown = ViewPreferences.HoursShown;
+        _completedShown = ViewPreferences.CompletedShown;
 
         // Show archived (local ADR 0029, §3), the device's choice the header's switch
         // makes. Resolved optionally: a host that composes none draws archived bands
@@ -498,6 +518,30 @@
         if (!shown) _actual = null;
     }
 
+    /// <summary>The Completed switch moved: the chart is drawn again from what it was
+    /// last drawn from, with or without the finished plans, and the choice is kept on
+    /// this device.</summary>
+    private void ShowCompleted(bool shown)
+    {
+        _completedShown = shown;
+        ViewPreferences.SetCompletedShown(shown);
+
+        _view = Drawn();
+    }
+
+    /// <summary>The chart from what it was last read from, under show archived and the
+    /// Completed switch, with each item's bar action.</summary>
+    private RoadmapTimelineModel Drawn() =>
+        RoadmapPlanView.WithActions(
+            RoadmapPlanView.From(
+                _plan,
+                Configured(),
+                _rollups,
+                _forecast,
+                showArchived: _showArchived?.Shown ?? false,
+                hideFinished: !_completedShown),
+            OnOpenTasks.HasDelegate);
+
     public void Dispose()
     {
         Repositories.Changed -= OnRepositoriesChanged;
@@ -538,9 +582,8 @@
         // unless show archived is on (local ADR 0029; RoadmapPlanView.WithoutHiddenArchivedWork).
         // Each item's action on the bar that ends it: Open in Tasks where tasks carry it
         // and the shell can show them, Complete where nothing does.
-        _view = RoadmapPlanView.WithActions(
-            RoadmapPlanView.From(_plan, configured, rollups, forecast, _showArchived?.Shown ?? false),
-            OnOpenTasks.HasDelegate);
+        (_rollups, _forecast) = (rollups, forecast);
+        _view = Drawn();
 
         _imported = await ImportedPlans.ListAsync();
         _unplanned = Unplanned(_imported, _plan);
@@ -1049,9 +1092,9 @@
 
     /// <summary>
     /// Answers "Open in Tasks" in the editor: closes the editor and asks the host to show
-    /// the item's plan in the task list, scoped by the bar the editor was opened from —
-    /// one band's part to that repository, a whole-item bar to every configured
-    /// repository the item names (<see cref="RoadmapTasksRequest.For"/>).
+    /// the item's plan in the task list, across every repository — the bar the editor was
+    /// opened from rides along but does not scope the list
+    /// (<see cref="RoadmapTasksRequest.RepositoryAliases"/>).
     /// <para>
     /// Nothing is saved on the way: the editor enables the button only while its fields
     /// hold no unsaved change, so closing it here discards nothing.
@@ -1060,8 +1103,8 @@
     private Task OpenTasksAsync(Guid itemId) =>
         OpenTasksAsync(itemId, RoadmapPlanView.NodeIdOf(_selectedId) == itemId ? _selectedId : null);
 
-    /// <summary>Shows <paramref name="itemId"/>'s plan in the task list, scoped by
-    /// <paramref name="barId"/>, or to the whole item when null.</summary>
+    /// <summary>Shows <paramref name="itemId"/>'s plan in the task list, raised from
+    /// <paramref name="barId"/>, or from the whole item when null.</summary>
     private async Task OpenTasksAsync(Guid itemId, string? barId)
     {
         var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == itemId) ?? _edited;
@@ -1080,8 +1123,8 @@
     /// <summary>
     /// A bar's own action, from the button at its end: the item's plan in Tasks, or the item
     /// completed today — without opening the editor. The action sits on the item's last
-    /// part, but it is the item's: Open in Tasks shows the whole plan, in every configured
-    /// repository the item names, not that one part's share.
+    /// part, but it is the item's: Open in Tasks shows the whole plan, in every
+    /// repository, not that one part's share.
     /// </summary>
     private async Task ActOnBarAsync(string barId)
     {

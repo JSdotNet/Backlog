@@ -172,12 +172,16 @@ public static class RoadmapPlanView
     /// <param name="showArchived">Show archived is on, on this device: an archived
     /// repository's band is drawn whole, open work included. Off, it holds only its
     /// finished work in the drawn window (<see cref="WithoutHiddenArchivedWork"/>).</param>
+    /// <param name="hideFinished">Leave out every item whose work is all done — the
+    /// roadmap's Completed switch turned off. Hidden before anything is stacked, so the
+    /// lanes close up, and an arrow to a hidden item goes with it.</param>
     public static RoadmapTimelineModel From(
         RoadmapPlanDto? plan,
         IReadOnlyList<PlannedRepository>? repositories,
         IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups = null,
         RoadmapForecast? forecast = null,
-        bool showArchived = false)
+        bool showArchived = false,
+        bool hideFinished = false)
     {
         if (plan is null || plan.IsEmpty) return RoadmapTimelineModel.Empty;
 
@@ -200,6 +204,7 @@ public static class RoadmapPlanView
         // it. Two runs over the same plan must draw the same picture.
         var items = filed
             .Select(item => (Item: item, Layout: layouts[item.Id]))
+            .Where(entry => !hideFinished || entry.Layout.Placement is not PartsPlacement.WhereItRan)
             .OrderBy(entry => entry.Layout.Start)
             .ThenBy(entry => entry.Item.Title, StringComparer.CurrentCulture)
             .SelectMany(entry => PartsOf(entry.Item, entry.Layout, rollups?.GetValueOrDefault(entry.Item.Id)))

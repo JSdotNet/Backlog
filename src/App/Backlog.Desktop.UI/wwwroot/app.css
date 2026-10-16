@@ -13,11 +13,10 @@
   What stays here is what is about this app rather than about the design system.
 */
 :root {
-    /* How little of the backlog the side pane is allowed to leave standing.
-       The library's pane resizer reads --pane-min-width; the two are the same
-       measurement under two names, so it is aliased rather than repeated. */
-    --workspace-min-width: 22rem;
-    --pane-min-width: var(--workspace-min-width);
+    /* How little of its companion a split's dragged pane is allowed to leave
+       standing, as the library's pane resizer and SplitPane read it. The app sets
+       its own value; the library's is a fallback. */
+    --pane-min-width: 22rem;
 
     /* How much of the Inbox queue must stay standing when the pane is short:
        below it the pane scrolls rather than squeezing the rows away. */
@@ -314,8 +313,9 @@ h1, h2, h3 {
 }
 
 /* The workspace's own controls — the Inbox toggle, the view switch and the Devbook
-   toggle — sit closer to each other than to the takeover groups: the side panes
-   open beside whichever view the switch shows, so the three read as one cluster. */
+   toggle — sit closer to each other than to the takeover groups: the Inbox and
+   the Devbook take the screen over whichever view the switch shows and return to
+   it, so the three read as one cluster. */
 .app-header__workspace {
     display: inline-flex;
     align-items: center;
@@ -3954,19 +3954,6 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* The scope chips: one per open area, the reader's choice of which content
-   answers. The shared ButtonGroup with the same chip classes the header's
-   repository scope wears, so the two rows of chips read as the same kind of
-   control - a pressed set - and neither grows a look of its own. Wrapping,
-   because seven areas can be open at once on a wide window and the panel is
-   not. */
-.ai-panel__scope {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-    margin: var(--spacing-sm) 0 var(--spacing-xs);
-}
-
 .ai-panel__body,
 .ai-panel__answer p {
     color: var(--color-text-secondary);
@@ -7385,7 +7372,7 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* A takeover: Tools, the Dashboard, Sessions, Pull requests or the Inbox, filling everything below the header. The
+/* A takeover: Tools, the Dashboard, Sessions, Pull requests, the Inbox or the Devbook, filling everything below the header. The
    panel inside owns the scrollbar rather than this landmark, so the header — and
    the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
@@ -9496,53 +9483,13 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-sm);
 }
 
-/* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is
-   ignored on a grid item and stays only because the rule is shared history;
-   stretching to the row is what actually sizes it. */
-.devbook-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--spacing-xl);
-    align-items: stretch;
-    width: 100%;
-    flex: 1 1 auto;
-    min-height: 0;
-    height: 100%;
-    overflow: hidden;
-}
-
-.devbook-layout--side-open {
-    /* The pane is only capped by leaving the backlog readable, so the knowledge
-       side can be the wider of the two. */
-    grid-template-columns: minmax(0, 1fr) auto minmax(24rem, min(var(--devbook-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
-    gap: var(--spacing-sm);
-}
-
-.devbook-layout--side-closed .backlog-workspace {
-    width: 100%;
-}
-
+/* The main view is the workspace's one grid item: the Devbook that once split
+   the row with it takes the screen as a surface of its own (local ADR 0022,
+   amendment of 2026-10-15), so there is no pane row to lay out here. */
 .backlog-workspace,
-.side-pane-stack,
 .devbook-stack,
 .devbook-pane {
     min-width: 0;
-}
-
-.side-pane-stack {
-    position: sticky;
-    top: var(--spacing-lg);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-    /* Same reason as the inbox pane above: a viewport-height cap overruns the row
-       it is in. */
-    max-height: 100%;
-    overflow: hidden;
-}
-
-.side-pane-stack > * {
-    min-height: 0;
 }
 
 
@@ -9685,43 +9632,9 @@ a.pull-request-detail-checks__name:hover {
 
 
 @media (max-width: 72rem) {
-    .devbook-layout,
-    .devbook-layout--side-open {
-        grid-template-columns: 1fr;
-    }
-
-    .side-pane-stack,
     .devbook-pane {
         position: static;
         max-height: none;
-    }
-
-    /* Stacked, there is no vertical edge left to drag — this layout's separator,
-       said as such rather than by the class alone.
-
-       The class is `SplitPane`'s and this layout's separator borrows it on purpose,
-       which `SharedControlAdoptionTests` records; every split in the app wears the
-       same one. So a rule naming only `.pane-resizer` reaches the split inside the
-       pane as well, and that split is still side by side here — it has its own step,
-       at 60rem. Between the two it kept the three-track template with two items left
-       in it, and the entry auto-placed into the track the separator had vacated:
-       measured with an entry open, 624px 236px 236px at 1152 where the third track
-       gives it 456px. The reader lost about half the entry and, with it, the handle
-       that could have dragged the rest back.
-
-       A child combinator because that split is a descendant of this layout too, only
-       further down — through the tasks workspace. */
-    .devbook-layout > .pane-resizer {
-        display: none;
-    }
-
-    .side-pane-stack,
-    .devbook-stack {
-        overflow: visible;
-    }
-
-    .devbook-stack__section {
-        overflow: visible;
     }
 }
 
@@ -9777,6 +9690,12 @@ a.pull-request-detail-checks__name:hover {
     flex: 0 0 14rem;
     align-self: center;
     width: 14rem;
+}
+
+/* The key boundary around the source field draws no box of its own, so the
+   field stays the strip's flex item it always was. */
+.devbook-stack__source-keys {
+    display: contents;
 }
 
 .devbook-stack__source .combobox__input {
@@ -10627,12 +10546,11 @@ a.pull-request-detail-checks__name:hover {
     align-content: start;
     grid-auto-rows: max-content;
     gap: var(--spacing-sm);
-    /* Same reason as the inbox pane and the side pane stack above: this no longer
-       starts below the header alone — the app-shell footer sits below it — so a
-       cap measured off the viewport overruns the row it is in, and
-       `.devbook-layout`'s `overflow: hidden` clips the bottom of the menu
-       silently. The row is already a sized grid track, so its own height is the
-       honest ceiling. */
+    /* This no longer starts below the header alone — the app-shell footer sits
+       below it — so a cap measured off the viewport overruns the row it is in, and
+       the surface's `overflow: hidden` clips the bottom of the menu silently. The
+       row is already a sized grid track, so its own height is the honest
+       ceiling. */
     max-height: 100%;
     overflow: auto;
     padding: var(--spacing-md);
@@ -10724,6 +10642,28 @@ a.pull-request-detail-checks__name:hover {
     .devbook-stack__menu {
         position: static;
         max-height: none;
+    }
+
+    /* Stacked, the menu sits above the reader at its full height, and inside a
+       surface of fixed height that left the chapter a few lines with a scrollbar
+       of its own — about 90px at a 900px window. So the Devbook scrolls as a whole
+       here, as the stacked side pane did: the body and its section grow with what
+       they hold, and every panel's `max-height: 100%` resolves against a height
+       nobody set, which is no cap at all. A body holding a map keeps filling the
+       Devbook instead, since a map fits its frame rather than its content. Scoped
+       to the surface and placed after the rules it answers, because a media query
+       adds no specificity. */
+    .workspace-surface > .devbook-stack {
+        overflow-y: auto;
+    }
+
+    .workspace-surface > .devbook-stack > .devbook-stack__body:not(.devbook-stack__body--without-menu):not(:has(.tech-devbook-pane)) {
+        flex: 0 0 auto;
+        overflow: visible;
+    }
+
+    .workspace-surface > .devbook-stack > .devbook-stack__body:not(.devbook-stack__body--without-menu):not(:has(.tech-devbook-pane)) > .devbook-stack__section {
+        overflow: visible;
     }
 }
 

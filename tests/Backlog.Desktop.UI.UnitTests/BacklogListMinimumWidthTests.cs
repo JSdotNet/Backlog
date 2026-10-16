@@ -3,9 +3,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The backlog list's minimum is the width at which one of its rows is still whole.
 /// <para>
-/// The split's minimum is <c>--pane-min-width</c>, which this app aliases to
-/// <c>--workspace-min-width</c> at 22rem — how little of the backlog the side pane
-/// may leave standing. That number is about reading the list. It is not about
+/// The split's minimum is <c>--pane-min-width</c>, which this app sets to 22rem — how
+/// little of its companion a dragged pane may leave standing. That number is about
+/// reading the list. It is not about
 /// operating it, and the rows say so one step higher: below 38rem a row drops its
 /// pencil, its copy button and its repository picker, because the four controls on
 /// its trailing cluster come to most of a 38rem column.
