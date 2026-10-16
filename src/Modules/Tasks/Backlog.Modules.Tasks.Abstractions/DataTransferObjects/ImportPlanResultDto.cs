@@ -28,6 +28,10 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// <param name="UnresolvedTaskDependencies">Task-level <c>after:</c> values that named
 /// a <c>plan</c> entry of the same document instead of a task — a cross-level
 /// reference, dropped rather than stored as an id that means nothing.</param>
+/// <param name="ArchivedRepositories">The <c>owner/name</c> ids of the archived
+/// repositories the run filed entries under, or null when it named none. The entries
+/// are filed there and the repository stays archived (local ADR 0029); the report
+/// says so because Backlog no longer reads it.</param>
 public sealed record ImportPlanResultDto(
     int Created,
     int Replaced,
@@ -36,4 +40,5 @@ public sealed record ImportPlanResultDto(
     int Removed,
     IReadOnlyList<TaskItemDto> Entries,
     RoadmapIntakeResultDto? Roadmap = null,
-    IReadOnlyList<ImportUnresolvedDependencyDto>? UnresolvedTaskDependencies = null);
+    IReadOnlyList<ImportUnresolvedDependencyDto>? UnresolvedTaskDependencies = null,
+    IReadOnlyList<string>? ArchivedRepositories = null);

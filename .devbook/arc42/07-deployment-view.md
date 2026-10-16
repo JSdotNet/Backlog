@@ -80,7 +80,10 @@ Microsoft Store listing and no custom update server.
   it, as the flowchart below shows.
 - **Release automation** — `.github/workflows/release-desktop.yml` builds, signs
   (from repository secrets), generates the `.appinstaller`, and uploads both
-  artifacts to the GitHub Release on a `v*` tag.
+  artifacts to the GitHub Release on a `v*` tag, a dispatch, a Deploy All run,
+  or the nightly schedule (`v0.1.<run_number>`). Latest is the update channel:
+  a tag, dispatch or Deploy All release takes it, and a nightly takes it only
+  when no higher-versioned release holds it.
 
 ```mermaid
 flowchart TB
@@ -118,11 +121,13 @@ on-device SQLite outbox.
 ### Installation and Updates (Mobile)
 
 ```meta
-related: [".devbook/tech/mobile.md#apk-packaging", ".devbook/arc42/07-deployment-view.md#installation-and-updates"]
+related: [".devbook/tech/mobile.md#apk-packaging", ".devbook/arc42/07-deployment-view.md#installation-and-updates", ".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
 The mobile app is distributed as a **signed APK sideloaded from GitHub
-Releases**. There is no Google Play listing and no in-app update mechanism.
+Releases**, and a released build checks those releases and installs a newer
+APK itself, on the person's tap. There is no Google Play listing and no custom
+update server.
 
 - **Package** — Release builds produce a signed `.apk`
   (`AndroidPackageFormat=apk`), not an `.aab`. The package is sideloaded
@@ -145,9 +150,14 @@ Releases**. There is no Google Play listing and no in-app update mechanism.
   installs from unknown sources. Android rejects a signature change, so an APK
   signed with a different key cannot upgrade an existing install. Switching
   between a developer build and a release build means uninstalling first.
-- **Updates** — Android has no in-app auto-update here, unlike the desktop's App
-  Installer. Updating means re-downloading the latest APK from GitHub Releases
-  and reinstalling over the existing app, with the same signing key.
+- **Updates** — a released build checks GitHub Releases and installs a newer
+  APK over itself through Android's `PackageInstaller`. It never installs
+  without the person's tap. The update path is described below.
+- **Update channel** — the repository a build checks is compiled in from the
+  `BacklogUpdateRepository` build property, which only `release-mobile.yml`
+  passes (`.devbook/tech/mobile.md#apk-packaging`). Every other build has no
+  channel. Its update window says a development build cannot update itself,
+  and it asks GitHub for nothing.
 - **Developer sideload** — `build/Install-AndroidApp.ps1` builds a signed APK
   and installs it via `adb`, generating a throwaway developer keystore under
   the gitignored `build/.local/` so a local build never needs the release
@@ -161,8 +171,49 @@ flowchart LR
     Dev["Tag v1.2.3 (or mobile-v0.1.N nightly)"] --> CI["release-mobile workflow"]
     CI -->|"signed + apksigner-verified APK"| Release["GitHub Release"]
     Release -->|"first install (sideload)"| Device["Android device"]
-    Release -.->|"manual re-download (no in-app check)"| Device
+    Device -->|"in-app check: list releases"| Release
+    Release -->|"newer APK, installed on the person's tap"| Device
 ```
+
+The in-app update runs in two steps, a check and an install:
+
+```mermaid
+sequenceDiagram
+    actor Person
+    participant App as Phone app
+    participant GH as GitHub Releases API
+    participant PI as Android PackageInstaller
+    App->>GH: GET /repos/{channel}/releases?per_page=100
+    GH-->>App: every release, v* and mobile-v*
+    App->>App: highest Backlog.Mobile_x.y.z.apk above the installed versionCode
+    App-->>Person: dot on the version control
+    Person->>App: Install update
+    App->>GH: check again, then download the APK
+    App->>PI: commit an install session
+    PI-->>Person: confirm the install
+    PI->>App: replace the app, keeping its data
+```
+
+- **Which APK** — the check reads the release list, not `/releases/latest`.
+  Latest points at the desktop's release, which may carry no APK, and nightly
+  mobile builds are published not-latest under their own `mobile-v*` tags.
+  The asset named `Backlog.Mobile_x.y.z.apk` with the highest packed versionCode
+  wins, whichever tag it came from. Only an uploaded asset with an https
+  `github.com` download URL and a stated size is offered.
+- **When it checks** — the app checks quietly once it is on screen, at most every
+  eight hours, as the desktop's App Installer does. A quiet check that fails says
+  nothing and is retried on the next launch. What it finds only puts a dot on the
+  app bar's version control. A check the person asks for in the update window
+  always runs and reports failures.
+- **Installing** — the install checks again, so it downloads from a URL GitHub
+  returned moments ago. The download is bounded by the asset's recorded size.
+  Android asks for the `REQUEST_INSTALL_PACKAGES` permission and the person's
+  "install unknown apps" allowance for Backlog. When that allowance is missing,
+  the app opens the Settings screen and the person taps Install again.
+- **Integrity** — Android's signature check is the integrity check. An APK
+  signed with another key is refused, and the app words that as a key mismatch.
+  An update keeps the package, so the outbox, the pairing and the cached inbox
+  survive it.
 
 ## Cloud Deployment (Azure)
 

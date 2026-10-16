@@ -147,9 +147,9 @@ jobs:
           # A combined run must be told the desktop version. Release desktop's own
           # fallback numbers a release '0.1.<github.run_number>', and inside a
           # called workflow that context is the *caller's* -- Deploy All's counter,
-          # which starts at 1. Its publish step clobbers an existing tag and marks
-          # it latest, so the fallback would republish v0.1.1, v0.1.2, ... over
-          # releases that already shipped and demote the real latest.
+          # which starts at 1. Its publish step clobbers an existing tag, so the
+          # fallback would republish v0.1.1, v0.1.2, ... over releases that
+          # already shipped.
           if ($desktop -and -not $env:DESKTOP_VERSION) {
             Write-Output "::error::components includes desktop but desktop_version is blank. A combined run cannot derive a version; pass desktop_version, or release from Release desktop directly, which numbers itself correctly."
             exit 1

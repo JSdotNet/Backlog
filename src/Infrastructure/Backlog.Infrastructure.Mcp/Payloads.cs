@@ -129,7 +129,13 @@ public sealed record ScenarioPartPayload(
     string Part,
     string Title,
     string State,
-    DateTimeOffset? LastRun);
+    DateTimeOffset? LastRun)
+{
+    /// <summary>The 1-based step the last run stopped on, for a <c>failed</c> part
+    /// whose run recorded one; null otherwise. Added beside the positional fields
+    /// so a caller that never asked for it reads the payload as before.</summary>
+    public int? FailedStep { get; init; }
+}
 
 /// <summary>One Devbook reference and what it points at.</summary>
 /// <param name="Reference">As the entry stores it.</param>
@@ -407,12 +413,17 @@ public sealed record ChapterDemoPayload(
 public sealed record CapturedNotePayload(string Path, string Title);
 
 /// <summary>The live, typed-into notes on one chapter.</summary>
+/// <param name="Archived">Whether the repository is archived (local ADR 0029
+/// §4). Its notes still list, because a remark already kept stays readable, but
+/// its devbook is read-only: no <c>annotation</c> fence is written into it and
+/// <c>resolve_annotation</c> refuses its notes. False for the Brain.</param>
 public sealed record AnnotationsPayload(
     string Repository,
     string RepositoryAlias,
     string ChapterPath,
     int Count,
-    IReadOnlyList<ChapterNotePayload> Annotations);
+    IReadOnlyList<ChapterNotePayload> Annotations,
+    bool Archived = false);
 
 /// <summary>
 /// One agent session.

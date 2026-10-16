@@ -62,6 +62,66 @@ public sealed class ScenarioRunReaderTests
     }
 
     [Fact]
+    public void A_version_2_failed_part_carries_the_step_it_stopped_on_and_its_message()
+    {
+        var run = ScenarioRunReader.Read("""
+            {
+              "version": 2,
+              "signature": "9c41e2a0",
+              "parts": [
+                { "title": "Statuses are set up", "anchor": "statuses-are-set-up", "outcome": "passed" },
+                { "title": "An item is moved", "anchor": "an-item-is-moved", "outcome": "failed",
+                  "failure": { "step": 2, "message": "expected the card in Doing" } },
+                { "title": "An item is archived", "anchor": "an-item-is-archived", "outcome": "failed",
+                  "failure": { "step": null, "message": "timed out before the first step" } }
+              ]
+            }
+            """);
+
+        Assert.NotNull(run);
+        Assert.Equal(2, run.Part("an-item-is-moved")!.FailureStep);
+        Assert.Equal("expected the card in Doing", run.Part("an-item-is-moved")!.FailureMessage);
+        Assert.Null(run.Part("an-item-is-archived")!.FailureStep);
+        Assert.Equal("timed out before the first step", run.Part("an-item-is-archived")!.FailureMessage);
+        Assert.Null(run.Part("statuses-are-set-up")!.FailureStep);
+        Assert.Null(run.Part("statuses-are-set-up")!.FailureMessage);
+    }
+
+    /// <summary>
+    /// The end-to-end tests register <c>tests/Fixtures/scenario-repository</c> and
+    /// expect its page to read failed — not stale — with the second part stopped on
+    /// step 1. A page edit that forgot to re-sign the committed run would turn that
+    /// into a stale page the browser test only finds once an AppHost is up; this
+    /// finds it in the unit run.
+    /// </summary>
+    [Fact]
+    public void The_scenario_repository_fixture_run_proves_its_page_as_it_stands()
+    {
+        var root = RepositoryRoot.Directory("tests", "Fixtures", "scenario-repository");
+        const string relative = ".devbook/domain/place-an-order.md";
+        var page = ScenarioFiles.ReadPage(Path.Combine(root, ".devbook", "domain", "place-an-order.md"), relative);
+        var run = ScenarioFiles.ReadRun(Path.Combine(root, ScenarioPageParser.ScenarioFolder, page.Stem));
+
+        Assert.NotNull(run);
+        Assert.Equal(run.Signature, ScenarioSignature.OfPage(page, root, ScenarioPageParser.ScenarioFolder));
+        Assert.Equal(ScenarioState.Failed, ScenarioEvidence.StateOf(page, run.Signature!, run));
+        Assert.Equal(ScenarioOutcome.Passed, run.Part("the-cart-is-filled")!.Outcome);
+        Assert.Equal(1, run.Part("the-order-is-placed")!.FailureStep);
+    }
+
+    [Fact]
+    public void A_version_1_run_records_no_failure_step()
+    {
+        var run = ScenarioRunReader.Read("""
+            { "versie": 1, "scenarios": [ { "titel": "An item is moved", "slug": "an-item-is-moved", "uitkomst": "gefaald" } ] }
+            """);
+
+        Assert.NotNull(run);
+        Assert.Null(run.Part("an-item-is-moved")!.FailureStep);
+        Assert.Null(run.Part("an-item-is-moved")!.FailureMessage);
+    }
+
+    [Fact]
     public void A_version_1_run_reads_its_outcomes_and_prints_but_proves_no_signature()
     {
         var run = ScenarioRunReader.Read("""

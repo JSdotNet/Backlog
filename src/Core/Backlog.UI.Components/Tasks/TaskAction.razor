@@ -19,9 +19,18 @@
             aria-label="@(Compact ? Label : null)"
             data-testid="@Suffix("set")"
             disabled="@Disabled"
+            aria-disabled="@(Inert && !Disabled ? "true" : null)"
+            aria-busy="@(Busy ? "true" : null)"
             aria-describedby="@(HasReason ? _reasonId : null)"
-            @onclick="() => OnSet.InvokeAsync()">
-        <span class="task-action__icon" aria-hidden="true">@Icon</span>
+            @onclick="SetAsync">
+        @if (Busy)
+        {
+            <span class="task-action__icon"><Spinner Size="SpinnerSize.Small" Label="@BusyLabel" /></span>
+        }
+        else
+        {
+            <span class="task-action__icon" aria-hidden="true">@Icon</span>
+        }
         @if (!Compact)
         {
             <span class="task-action__label">
@@ -49,7 +58,8 @@
                 class="task-action__clear"
                 aria-label="@($"Clear {Label}")"
                 data-testid="@Suffix("clear")"
-                @onclick="() => OnClear.InvokeAsync()"
+                aria-disabled="@(Inert ? "true" : null)"
+                @onclick="ClearAsync"
                 @onclick:stopPropagation="true">
             <span aria-hidden="true">✕</span>
         </button>
@@ -203,6 +213,29 @@
     [Parameter]
     public string? DisabledReason { get; set; }
 
+    /// <summary>
+    /// The act this row started is still running — a batch being written, say.
+    /// <para>
+    /// The same promise <c>AppButton</c>'s Busy makes
+    /// (interaction-guidelines.md#busy-actions): a spinner in place of the icon,
+    /// <c>aria-busy</c>, and a press ignored, while the row keeps its place, its
+    /// label and its focus. Not the native <c>disabled</c>, which would take the
+    /// focus off the row mid-act and out of the tab order.
+    /// </para></summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>What the spinner says while <see cref="Busy"/>.</summary>
+    [Parameter]
+    public string BusyLabel { get; set; } = "Working";
+
+    /// <summary>Another act the row belongs with is running, so this one waits:
+    /// <c>aria-disabled</c> and a press ignored, with no spinner of its own. Kept
+    /// apart from <see cref="Disabled"/> for the tab-order reason <see cref="Busy"/>
+    /// gives.</summary>
+    [Parameter]
+    public bool Blocked { get; set; }
+
     [Parameter]
     public EventCallback OnSet { get; set; }
 
@@ -223,6 +256,7 @@
         Set ? "task-action--set" : null,
         Prominent ? "task-action--prominent" : null,
         Compact ? "task-action--compact" : null,
+        Inert ? "task-action--inert" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
@@ -230,6 +264,14 @@
     /// on one page may legitimately hold the same row, and two elements with one id
     /// would send aria-describedby to whichever the browser saw first.</summary>
     private readonly string _reasonId = $"task-action-reason-{Guid.NewGuid():N}";
+
+    /// <summary>Busy or blocked: the row is there and focusable, and a press on it is
+    /// dropped rather than raised.</summary>
+    private bool Inert => Busy || Blocked;
+
+    private Task SetAsync() => Inert ? Task.CompletedTask : OnSet.InvokeAsync();
+
+    private Task ClearAsync() => Inert ? Task.CompletedTask : OnClear.InvokeAsync();
 
     private bool HasReason => Disabled && !string.IsNullOrWhiteSpace(DisabledReason);
 

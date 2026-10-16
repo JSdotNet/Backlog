@@ -57,7 +57,7 @@ including those of the value objects below.
 type: entity
 status: draft
 aliases: [RoadmapItem, roadmap_item_id, planned work, planned item]
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet]
 ```
 
 A single piece of planned work, identified by `roadmap_item_id`. It holds:
@@ -68,7 +68,8 @@ A single piece of planned work, identified by `roadmap_item_id`. It holds:
 - its [Dependency](#dependency) set;
 - an optional [Task Link](#task-link) and a set of [Knowledge Refs](#knowledge-ref);
 - optional `notes`;
-- `placed_by_import`, when an import placed its window.
+- `placed_by_import`, when an import placed its window;
+- `completed_on`, the day a person completed it by hand, while it stays completed.
 
 `placed_by_import` records which rule an import placed the window by. How the
 value is set and cleared is drawn in
@@ -106,8 +107,12 @@ stores is the one
 [its parts make together](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
 
 It has no status and no percentage. Both are questions about execution, and
-execution belongs to Tasks. An item that names a task shows that task's progress,
-and an item that names none shows only that it is planned. Outside the plan, its
+execution belongs to Tasks. An item that gathers tasks shows their progress. An
+item that gathers no task has no execution to read, so a person can **complete it
+by hand**: `completed_on` records the day its work was done, and reopening clears
+it. Once tasks carry the item,
+[their progress wins](domain.invariants.md#invariant-gathered-tasks-outrank-a-completion-by-hand)
+and the day is kept but not read. Outside the plan, its
 identity matters as a dependency endpoint and as the tag other contexts file work
 under. That is why the id is stable across every reschedule.
 
@@ -781,13 +786,13 @@ carries several source labels,
 
 ```meta
 type: term
-status: proposed
+status: deprecated
 aliases: [promote, Promote to plan]
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/tasks/features.md#promote-to-plan, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-A person's action on one linked task that turns it into a
-[Roadmap Item](#roadmap-item). Tasks hands the item over through
-`IRoadmapPlanIntake`, the port Import uses, so the plan changes because a person
-asked. The item's tag is the task's [Source Label](#source-label) when it has one.
-Its steps come from the source's sub-issues, its checklist, or a generated plan.
+A dropped action that was never built. It was to turn one linked task into a
+[Roadmap Item](#roadmap-item) through `IRoadmapPlanIntake`, the port Import
+uses. No linked task calls that port. A linked task reaches the roadmap only
+through its [Source Label](#source-label), which files it under a tag the
+person places from the [shelf](features.md#laying-out-a-plan-whose-tasks-arrived-first).

@@ -76,17 +76,19 @@ public sealed record DeliveryRunCostInsight(
     int ReEntries,
     int? ReviewRounds = null)
 {
-    /// <summary>The line, such as "2.1× the usual flow-code run · Implement explains most
-    /// of it: $3.40 over its usual, entered again twice, over 3 review rounds".</summary>
-    public string Text
+    /// <summary>The headline: "2.1× the usual flow-code run", or "About the usual
+    /// flow-code run (1.0× its median)" for a run within 5% of it.</summary>
+    public string Head => Usual.Band is CostBand.Typical
+        ? $"About the usual {SkillId} run ({DeliveryRunBaselines.RatioLabel(Usual.Ratio)} its median)"
+        : $"{DeliveryRunBaselines.RatioLabel(Usual.Ratio)} the usual {SkillId} run";
+
+    /// <summary>Why: "Implement explains most of it: $3.40 over its usual, entered again
+    /// twice, over 3 review rounds" — or null where no <see cref="Stage"/> explains it.</summary>
+    public string? Why
     {
         get
         {
-            var head = Usual.Band is CostBand.Typical
-                ? $"About the usual {SkillId} run ({DeliveryRunBaselines.RatioLabel(Usual.Ratio)} its median)"
-                : $"{DeliveryRunBaselines.RatioLabel(Usual.Ratio)} the usual {SkillId} run";
-
-            if (Stage is null) return head;
+            if (Stage is null) return null;
 
             var over = StageDifferenceUsdMicros >= 0 ? "over" : "under";
             var amount = new CostFigure((long)Math.Round(Math.Abs(StageDifferenceUsdMicros), MidpointRounding.AwayFromZero), CostSource.Reported).Label;
@@ -105,9 +107,14 @@ public sealed record DeliveryRunCostInsight(
                 var count => $", over {count} review rounds"
             };
 
-            return $"{head} · {Stage} explains most of it: {amount} {over} its usual{loop}{rounds}";
+            return $"{Stage} explains most of it: {amount} {over} its usual{loop}{rounds}";
         }
     }
+
+    /// <summary>Both on one line, such as "2.1× the usual flow-code run · Implement
+    /// explains most of it: $3.40 over its usual, entered again twice, over 3 review
+    /// rounds" — for a tooltip or a place with room for one sentence.</summary>
+    public string Text => Why is { } why ? $"{Head} · {why}" : Head;
 }
 
 /// <summary>

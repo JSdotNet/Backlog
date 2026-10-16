@@ -100,7 +100,14 @@ public sealed record ScenarioPartEvidence(
     string Anchor,
     string Title,
     ScenarioPartState State,
-    DateTimeOffset? LastRun);
+    DateTimeOffset? LastRun)
+{
+    /// <summary>The 1-based step the last run stopped on, for a
+    /// <see cref="ScenarioPartState.Failed"/> part whose run recorded one — so a
+    /// reader can say where it broke without opening the run. Null for every other
+    /// state: a stale run's step numbers a page that has changed since.</summary>
+    public int? FailedStep { get; init; }
+}
 
 /// <summary>
 /// A scenario part's state, in the dot's precedence: never run, then stale, then

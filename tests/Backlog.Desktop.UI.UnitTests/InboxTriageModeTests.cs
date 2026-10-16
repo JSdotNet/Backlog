@@ -587,7 +587,7 @@ public sealed class InboxTriageModeTests
         var item = harness.Inbox.Seed("Sync drops edits");
         var pane = await harness.StartTriageAsync();
 
-        Assert.Equal("one entry, no repository", Hint(pane));
+        Assert.Equal("one entry, in the Brain", Hint(pane));
 
         await Box(pane, "acme-sync").ChangeAsync(new ChangeEventArgs { Value = true });
         pane.WaitForAssertion(() => Assert.Equal(["acme/sync"], harness.Inbox.Find(item.Id)!.RepoIds));
@@ -805,7 +805,7 @@ public sealed class InboxTriageModeTests
     [Fact]
     public void The_route_hint_counts_the_entries_move_to_backlog_makes()
     {
-        Assert.Equal("one entry, no repository", InboxDesktopState.RouteHint(0));
+        Assert.Equal("one entry, in the Brain", InboxDesktopState.RouteHint(0));
         Assert.Equal("one entry", InboxDesktopState.RouteHint(1));
         Assert.Equal("3 linked entries", InboxDesktopState.RouteHint(3));
     }

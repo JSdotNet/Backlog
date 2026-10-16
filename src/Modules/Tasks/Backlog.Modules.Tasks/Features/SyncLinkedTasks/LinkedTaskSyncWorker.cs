@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -32,6 +33,13 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 /// connector registered there is nothing to sync, and the worker starts no timer
 /// at all.
 /// </para>
+/// <para>
+/// A target whose repository is archived is paused (local ADR 0029 §5): the timer
+/// and "sync everything" skip it without stamping an attempt, so the first tick
+/// after Unarchive syncs it, and its card's "Sync now" says it is paused. The
+/// rule is the handler's own, <see cref="SyncLinkedTasksCommandHandler.IsPaused"/>,
+/// read from the registry on every run.
+/// </para>
 /// </summary>
 public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
 {
@@ -45,7 +53,8 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
 
     private readonly IServiceScopeFactory _scopes;
     private readonly IConnectedTargets _targets;
-    private readonly HashSet<string> _connectorIds;
+    private readonly Dictionary<string, ITaskConnector> _connectors;
+    private readonly IRepositoryDirectory? _repositories;
     private readonly TimeProvider _time;
     private readonly ILogger _log;
 
@@ -77,7 +86,8 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
         IConnectedTargets targets,
         IEnumerable<ITaskConnector> connectors,
         TimeProvider time,
-        ILogger<LinkedTaskSyncWorker>? log = null)
+        ILogger<LinkedTaskSyncWorker>? log = null,
+        IRepositoryDirectory? repositories = null)
     {
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentNullException.ThrowIfNull(targets);
@@ -86,12 +96,16 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
 
         _scopes = scopes;
         _targets = targets;
-        _connectorIds = [.. connectors.Select(connector => connector.Descriptor.Id)];
+        // First registration wins, as the handler's FirstOrDefault does.
+        _connectors = connectors
+            .GroupBy(connector => connector.Descriptor.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        _repositories = repositories;
         _time = time;
         _log = log ?? NullLogger<LinkedTaskSyncWorker>.Instance;
         _stopping = _lifetime.Token;
 
-        if (_connectorIds.Count == 0) return;
+        if (_connectors.Count == 0) return;
 
         // TimeProvider.CreateTimer so a test drives the schedule rather than
         // waiting for it.
@@ -121,9 +135,16 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
             if (_disposed) return Stopped(target);
         }
 
-        if (!_connectorIds.Contains(connectorId))
+        if (!_connectors.ContainsKey(connectorId))
         {
             return Failed(SyncLinkedTasksCommandHandler.ConnectorNotFound, target);
+        }
+
+        // Answered here rather than by the handler so no attempt is stamped: the
+        // first tick after Unarchive should sync, not wait out an interval.
+        if (_targets.Get(connectorId, target) is { } connected && IsPaused(connected))
+        {
+            return Failed(SyncLinkedTasksCommandHandler.RepositoryArchived, target);
         }
 
         try
@@ -162,6 +183,12 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
         return last is null || now - last.Value >= target.SyncInterval;
     }
 
+    /// <summary>Whether the target's repository is archived, by the handler's rule.
+    /// Its connector is registered: both callers have checked.</summary>
+    private bool IsPaused(ConnectedTarget target) =>
+        _connectors.TryGetValue(target.ConnectorId, out var connector)
+        && SyncLinkedTasksCommandHandler.IsPaused(connector, target, _repositories);
+
     /// <summary>Stops the timer and asks a run in flight to stop.</summary>
     public void Dispose()
     {
@@ -199,7 +226,7 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
             if (_disposed) return;
         }
 
-        if (_connectorIds.Count == 0) return;
+        if (_connectors.Count == 0) return;
 
         try
         {
@@ -222,7 +249,8 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
             foreach (var target in _targets.List())
             {
                 if (_stopping.IsCancellationRequested) return;
-                if (!target.Enabled || !_connectorIds.Contains(target.ConnectorId)) continue;
+                if (!target.Enabled || !_connectors.ContainsKey(target.ConnectorId)) continue;
+                if (IsPaused(target)) continue;
 
                 var now = _time.GetUtcNow();
                 var key = (target.ConnectorId, target.Target.ToUpperInvariant());
@@ -299,7 +327,7 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
     /// <summary>
     /// A failed sync's outcome, in the sentence a card shows. The handler's
     /// refusals before it fetches — the source not installed, the target not
-    /// connected or switched off — are fixed sentences that name no target, so they
+    /// connected, switched off or paused with its repository — are fixed sentences that name no target, so they
     /// are said again naming it; a fetch's failure names its target already.
     /// </summary>
     private static LinkedTaskSyncOutcome Failed(Error error, string target)
@@ -312,6 +340,8 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                 $"{target} is not connected, so it was not synced.",
             var code when code == SyncLinkedTasksCommandHandler.TargetDisabled.Code =>
                 $"Syncing is switched off for {target}, so it was not synced.",
+            var code when code == SyncLinkedTasksCommandHandler.RepositoryArchived.Code =>
+                $"Syncing {target} is paused while its repository is archived.",
             _ => error.Message,
         };
 

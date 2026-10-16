@@ -500,6 +500,49 @@ public sealed class DevbookReferenceResolverTests : IDisposable
         Assert.Equal(new DateTimeOffset(2026, 10, 7, 8, 30, 0, TimeSpan.Zero), part.LastRun);
     }
 
+    private void WriteRunFailingOnStep(string signature, int step) =>
+        Write($".devbook/scenarios/set-up-and-fill-the-backlog/run.json", $$"""
+            {
+              "version": 2,
+              "page": "{{ScenarioPagePath}}",
+              "signature": "{{signature}}",
+              "ranAt": "2026-10-07T08:30:00Z",
+              "parts": [
+                { "title": "Statuses are set up", "anchor": "statuses-are-set-up", "outcome": "passed" },
+                { "title": "An item is moved", "anchor": "an-item-is-moved", "outcome": "failed",
+                  "failure": { "step": {{step}}, "message": "expected the card in Doing" } }
+              ]
+            }
+            """);
+
+    [Fact]
+    public async Task A_failed_part_carries_the_step_its_run_stopped_on()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        WriteRunFailingOnStep(CurrentSignature(), 1);
+
+        var answer = await ResolveOne(ScenarioPagePath);
+
+        Assert.Equal(
+            [("statuses-are-set-up", (int?)null), ("an-item-is-moved", 1)],
+            answer.ScenarioParts.Select(part => (part.Anchor, part.FailedStep)));
+    }
+
+    /// <summary>A step recorded against an older page names a step that may no
+    /// longer be there, so a stale part carries none.</summary>
+    [Fact]
+    public async Task A_stale_part_carries_no_failed_step()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        WriteRunFailingOnStep("00000000", 1);
+
+        var answer = await ResolveOne($"{ScenarioPagePath}#an-item-is-moved");
+
+        var part = Assert.Single(answer.ScenarioParts);
+        Assert.Equal(ScenarioPartState.Stale, part.State);
+        Assert.Null(part.FailedStep);
+    }
+
     [Fact]
     public async Task A_whole_scenario_page_stands_for_every_part()
     {

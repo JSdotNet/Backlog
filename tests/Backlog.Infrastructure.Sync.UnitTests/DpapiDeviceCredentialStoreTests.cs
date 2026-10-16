@@ -64,6 +64,28 @@ public sealed class DpapiDeviceCredentialStoreTests : IDisposable
         Assert.True(Contains(bytes, bytes[..8]));
     }
 
+    /// <summary>The port's save, which the pairing client awaits. DPAPI has no
+    /// asynchronous half, so it is the synchronous save under a task — the same
+    /// envelope, the same file.</summary>
+    [Fact]
+    public async Task Saving_through_the_port_writes_the_same_envelope()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var credential = new DeviceCredential(Guid.NewGuid(), Guid.NewGuid(), "Workshop PC", "a-port-secret");
+
+        IDeviceCredentialStore store = new DpapiDeviceCredentialStore(CredentialPath);
+        var changes = 0;
+        store.Changed += () => changes++;
+
+        await store.SaveAsync(credential, TestContext.Current.CancellationToken);
+
+        Assert.Equal(credential, store.Current);
+        Assert.Equal(1, changes);
+        Assert.Equal(credential, new DpapiDeviceCredentialStore(CredentialPath).Current);
+        Assert.DoesNotContain("a-port-secret", File.ReadAllText(CredentialPath), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Clearing_forgets_it_here_and_on_disk()
     {

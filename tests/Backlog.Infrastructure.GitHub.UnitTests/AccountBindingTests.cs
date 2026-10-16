@@ -131,7 +131,10 @@ public sealed class AccountBindingTests : IDisposable
         var local = File.ReadAllText(store.SettingsPath);
         Assert.Contains("\"accounts\"", local, StringComparison.Ordinal);
         Assert.Contains("\"login\": \"JSdotNet\"", local, StringComparison.Ordinal);
-        Assert.Contains("ghp_account", local, StringComparison.Ordinal);
+        Assert.Contains("\"token\"", local, StringComparison.Ordinal);
+
+        // Local, and sealed rather than in the clear (local ADR 0030).
+        if (OperatingSystem.IsWindows()) Assert.DoesNotContain("ghp_account", local, StringComparison.Ordinal);
 
         // And the binding is stated once, in the file that is the authority on it.
         Assert.DoesNotContain("\"account\":", local, StringComparison.Ordinal);

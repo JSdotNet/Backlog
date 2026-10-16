@@ -114,6 +114,8 @@ means everything.
 
 The scope is remembered with Brain in its place, so a fresh shell reopens on it.
 The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows.
+With the Brain and repositories pressed together, each row's repository badge
+says where the task is filed: **Brain** for no repository, else the alias.
 Until a Brain folder is set up, the chip reads **Set up your Brain**, still
 scopes the tasks, and its tooltip points to Settings › Storage.
 
@@ -384,7 +386,7 @@ the same screen.
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Switch between areas, and between repositories when more than one is registered,
@@ -494,6 +496,10 @@ repository's devbook commits. A repository that commits no register is read for
 the pages that say so themselves. In the menu each journey carries the scenario
 mark and a dot for its last run: passed, failed, stale, or never run. The dot
 differs by shape as well as by colour, and a screen reader hears its state.
+Under the menu a legend draws the four dots, each beside its word, so a reader
+who has not learned the shapes can tell them apart. The legend is there only
+while the repository has at least one scenario page, and never for a Brain, which
+has none.
 
 The run is the one committed beside the scenario folder's copy of the page,
 `<scenario folder>/<stem>/run.json`. The app reads both the current run format
@@ -628,7 +634,7 @@ repository read from a branch without a clone is prepared too.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Say whether the knowledge in view is the latest version the repository has, and
@@ -650,6 +656,9 @@ reported as they stand rather than reconciled on the reader's behalf:
 
 What to do about any of those belongs to whoever owns the clone. Knowledge kept
 outside a repository has no latest version to be on, and is not asked about.
+Nor is the devbook of an
+[archived repository](../repository-management/domain.md#archived-repository),
+which [is read-only](../repository-management/requirements.md#requirement-an-archived-repositorys-devbook-is-read-only).
 
 Bringing a clone up to date replaces what its folders say, so the knowledge on screen
 becomes the knowledge that arrived with it.

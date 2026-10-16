@@ -25,6 +25,7 @@ import {
     splitPortal,
     SCENARIO_SETUP_FIELDS,
 } from "./metadata.mjs";
+import { resolveInside } from "./paths.mjs";
 
 /** Where a repository keeps the profiles its scenario pages name. */
 export const SCENARIO_PROFILES = ".devbook/scenarios/profiles.json";
@@ -310,7 +311,7 @@ function resolvePage(fromPath, pagePart, pages, byStem) {
 async function readProfiles(repoRoot) {
     let text;
     try {
-        text = await readFile(path.join(repoRoot, SCENARIO_PROFILES), "utf8");
+        text = await readFile(resolveInside(repoRoot, SCENARIO_PROFILES), "utf8");
     } catch {
         return {};
     }
@@ -334,7 +335,7 @@ async function specIndex(repoRoot) {
     async function walk(current) {
         let entries;
         try {
-            entries = await readdir(path.join(repoRoot, current), { withFileTypes: true });
+            entries = await readdir(resolveInside(repoRoot, current), { withFileTypes: true });
         } catch {
             return;
         }
@@ -352,7 +353,7 @@ async function specIndex(repoRoot) {
     for (const spec of found.sort()) {
         let head;
         try {
-            head = (await readFile(path.join(repoRoot, spec), "utf8")).split(/\r?\n/).slice(0, SPEC_HEADER_LINES).join("\n");
+            head = (await readFile(resolveInside(repoRoot, spec), "utf8")).split(/\r?\n/).slice(0, SPEC_HEADER_LINES).join("\n");
         } catch {
             continue;
         }

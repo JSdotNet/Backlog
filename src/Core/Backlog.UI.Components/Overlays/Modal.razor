@@ -91,6 +91,13 @@
     [Parameter]
     public string CloseLabel { get; set; } = "Close dialog";
 
+    /// <summary>Disables the header's close button, for the moment a dialog cannot
+    /// be dismissed — ConfirmDialog while its confirmed act runs. Pair it with
+    /// <see cref="CloseOnEscape"/> and <see cref="CloseOnBackdropClick"/> off, or
+    /// the other two routes still close it.</summary>
+    [Parameter]
+    public bool CloseDisabled { get; set; }
+
     [Parameter]
     public EventCallback OnClosed { get; set; }
 
@@ -217,7 +224,7 @@
             {
                 <header class="@HeaderClassValue">
                     <h2 id="@TitleId" class="modal__title">@Title</h2>
-                    <IconButton AriaLabel="@CloseLabel" CssClass="modal__close" OnClick="CloseAsync">x</IconButton>
+                    <IconButton AriaLabel="@CloseLabel" CssClass="modal__close" Disabled="@CloseDisabled" OnClick="CloseAsync">x</IconButton>
                 </header>
             }
 

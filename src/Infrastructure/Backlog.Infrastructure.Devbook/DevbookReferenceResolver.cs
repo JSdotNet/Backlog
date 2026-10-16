@@ -405,15 +405,22 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
 
         return
         [
-            .. parts.Select(part => new ScenarioPartEvidence(
-                $"{page.Path}#{part.Anchor}",
-                page.Path,
-                title,
-                page.Stem,
-                part.Anchor,
-                part.Title,
-                ToPartState(ScenarioReferences.PartState(signature, run, part.Anchor)),
-                run?.RanAt))
+            .. parts.Select(part =>
+            {
+                var state = ToPartState(ScenarioReferences.PartState(signature, run, part.Anchor));
+                return new ScenarioPartEvidence(
+                    $"{page.Path}#{part.Anchor}",
+                    page.Path,
+                    title,
+                    page.Stem,
+                    part.Anchor,
+                    part.Title,
+                    state,
+                    run?.RanAt)
+                {
+                    FailedStep = state == ScenarioPartState.Failed ? run?.Part(part.Anchor)?.FailureStep : null
+                };
+            })
         ];
     }
 

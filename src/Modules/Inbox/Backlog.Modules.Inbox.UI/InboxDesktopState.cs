@@ -2,6 +2,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Feedback;
@@ -33,7 +34,7 @@ namespace Backlog.Desktop.UI.Inbox;
 /// backlog row is.
 /// </para>
 /// </summary>
-public sealed class InboxDesktopState
+public sealed class InboxDesktopState : IDisposable
 {
     /// <summary>The side menu's fixed row: the unfiled inbox. Every other row's id
     /// is a prefixed guid, so this word can never collide with one.</summary>
@@ -55,6 +56,10 @@ public sealed class InboxDesktopState
 
     private readonly IInboxItems _inbox;
     private readonly GitHubSettingsStore _gitHubSettings;
+
+    /// <summary>Show archived, per device (local ADR 0029, §3); null in a host that
+    /// composes none, which offers the active repositories only.</summary>
+    private readonly IShowArchivedRepositories? _showArchived;
     private readonly IBacklogTagSource _backlogTags;
     private readonly IToastChannel? _toasts;
     private readonly TimeProvider _clock;
@@ -76,10 +81,13 @@ public sealed class InboxDesktopState
         GitHubSettingsStore gitHubSettings,
         IToastChannel? toasts = null,
         TimeProvider? clock = null,
-        IBacklogTagSource? backlogTags = null)
+        IBacklogTagSource? backlogTags = null,
+        IShowArchivedRepositories? showArchived = null)
     {
         _inbox = inbox;
         _gitHubSettings = gitHubSettings;
+        _showArchived = showArchived;
+        if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
         _backlogTags = backlogTags ?? EmptyBacklogTagSource.Instance;
         _toasts = toasts;
         _clock = clock ?? TimeProvider.System;
@@ -350,10 +358,30 @@ public sealed class InboxDesktopState
     /// <summary>The repositories an item can be routed to, as the settings
     /// screen has them: the <c>owner/name</c> id is the value the module stores
     /// and the alias is what a reader recognises. Read on every access rather
-    /// than cached, so a repository added in Settings is offered at once.</summary>
+    /// than cached, so a repository added in Settings is offered at once. An
+    /// archived repository is offered only while show archived is on, and then
+    /// says so (local ADR 0029, §3).</summary>
     public IReadOnlyList<SelectorOption> RepositoryOptions =>
-        [.. _gitHubSettings.Current.Repositories.Select(repository =>
-            new SelectorOption(repository.FullName, repository.Alias))];
+        [.. OfferedRepositories().Select(repository =>
+            new SelectorOption(repository.FullName, ArchivedRepositoryLabel.Of(repository.Alias, repository.Archived)))];
+
+    /// <summary>The header's show archived switch moved: every picker on screen offers a
+    /// different set now, so the pane draws again.</summary>
+    private void OnShowArchivedChanged() => Changed?.Invoke();
+
+    /// <summary>Lets go of the show-archived port, which outlives this state.</summary>
+    public void Dispose()
+    {
+        if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
+    }
+
+    /// <summary>The configured repositories a picker offers: the active ones, and the
+    /// archived ones too while show archived is on. An archived repository stays
+    /// configured either way, so <see cref="RepositoryAlias"/> still names it.</summary>
+    private IEnumerable<GitHubRepositoryRef> OfferedRepositories() =>
+        _showArchived?.Shown == true
+            ? _gitHubSettings.Current.Repositories
+            : _gitHubSettings.Current.ActiveRepositories;
 
     /// <summary>Every tag in use across the inbox and the backlog, bare, so the
     /// picker offers what has been typed before on either side. Items of every
@@ -419,9 +447,31 @@ public sealed class InboxDesktopState
     /// reader could notice the difference.</summary>
     public async Task OpenedAsync()
     {
-        await ResurfaceDueItemsAsync();
-        await ReloadAsync();
+        // The list on screen is the one from when the pane was last open, and is
+        // left there while the sweep and the reload are out rather than blanked
+        // (interaction-guidelines.md#scoped-loading, Refresh); Reopening is what
+        // marks it busy meanwhile. A second opening while the first is out is the
+        // same refresh, and the flag stays up until the last of them is back.
+        _reopenings++;
+        Changed?.Invoke();
+
+        try
+        {
+            await ResurfaceDueItemsAsync();
+            await ReloadAsync();
+        }
+        finally
+        {
+            _reopenings--;
+            Changed?.Invoke();
+        }
     }
+
+    private int _reopenings;
+
+    /// <summary>Whether the pane is reading the inbox again after being shown
+    /// again: the rows on screen are last time's until it lands.</summary>
+    public bool Reopening => _reopenings > 0;
 
     /// <summary>Returns every deferred item whose review date has been reached
     /// to the queue, and says so on a toast when any did — an item appearing in
@@ -1677,9 +1727,10 @@ public sealed class InboxDesktopState
         item.Status == InboxStatus.Unprocessed && item.Routing is null;
 
     /// <summary>The repositories Settings lists, <c>owner/name</c>, as the
-    /// advisor may name them.</summary>
+    /// advisor may name them: the ones the pickers offer, so the advisor does not
+    /// propose an archived repository the reader cannot see.</summary>
     private IReadOnlyList<string> ConfiguredRepositories() =>
-        [.. _gitHubSettings.Current.Repositories.Select(repository => repository.FullName)];
+        [.. OfferedRepositories().Select(repository => repository.FullName)];
 
     /// <summary>Where the item being read sat in the rows, the last time it was
     /// in them. A decision takes an item out of the rows while it stays
@@ -1977,7 +2028,7 @@ public sealed class InboxDesktopState
 
     internal static string RouteHint(int repositories) => repositories switch
     {
-        0 => "one entry, no repository",
+        0 => $"one entry, in the {Backlog.SharedKernel.BrainScope.Name}",
         1 => "one entry",
         _ => $"{repositories} linked entries",
     };

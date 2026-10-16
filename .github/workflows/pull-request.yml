@@ -76,10 +76,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # The NuGet packages folder is cached, keyed on the lock files every
+      # project but the two heads commits (issue #748). The nightly run fills
+      # the cache on main, where pull request runs can read it.
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
 
       # DevbookBuilderParityTests runs tools/devbook/build-database.mjs to hold
       # the app's C# builder to it (local ADR 0015), and the writer needs
@@ -127,8 +132,14 @@ jobs:
 
       # No RuntimeIdentifierOverride / WindowsPackageType / Appx properties here:
       # those exist for the heads, which this job does not build.
+      #
+      # --locked-mode fails the restore (NU1004) when a package would resolve
+      # differently from a committed packages.lock.json, rather than building
+      # with it. The filter is the solution minus the heads, which is exactly
+      # the set of projects with a lock file. A package change regenerates them
+      # with a plain local restore; commit them with it.
       - name: Restore dependencies
-        run: dotnet restore Backlog.WithoutAppHeads.slnf
+        run: dotnet restore Backlog.WithoutAppHeads.slnf --locked-mode
 
       # The solution builds at zero warnings (the rule severities are in the
       # root .editorconfig), and this is where a new one stops. It is passed
@@ -267,6 +278,8 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
 
       # Scoped to the heads rather than to the solution: they are the only
       # projects with a platform target framework, and so the only reason any
@@ -277,6 +290,9 @@ jobs:
           dotnet workload restore src\App\Backlog.Desktop\Backlog.Desktop.csproj
           dotnet workload restore src\App\Backlog.Mobile\Backlog.Mobile.csproj
 
+      # Not --locked-mode, unlike the dotnet job: the heads keep no lock file,
+      # and -r win-x64 and RuntimeIdentifierOverride flow into every project
+      # they reference, whose lock files were written without them.
       - name: Restore dependencies
         shell: pwsh
         run: |

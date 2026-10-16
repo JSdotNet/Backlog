@@ -16,6 +16,7 @@ related: [.devbook/domain/context-map.md, .devbook/domain/dev-pc-management/doma
 | Collections MCP | ACL (Sessions = customer) | Optional append/read of sanitized session-activity documents keyed by `Session Identity` | `.devbook/domain/sessions/domain.md#session-activity-stream`, `.devbook/domain/sessions/domain.md#session-activity-publishing` | To layer externally reported milestone activity over the locally read session record, without making the collection authoritative for whether a session exists. Sessions owns the meaning of the stream and translates to and from the MCP's stored shape. **Planned.** Missing configuration is ordinary. Reporting that is configured but unreachable reads as degraded rather than failed. |
 | Dev PC Management | Customer/Supplier (Sessions = customer) | Machine-name lookup against the machine registry | `.devbook/domain/dev-pc-management/domain.md#machine-registry` | To say which registered machine an `Environment` corresponds to, when the two name the same box. **Not built**, because `src/` has no machine registry to ask. A session is stamped with the product-wide device identity, its id and name, issued by the shared kernel. A registry lookup would only correlate that device id with a registered Machine. Local ADR 0005 sends the machine's name on the replicated record, which meets the need without discharging it. That name is the sending machine's reading of itself when it last reported. So a box renamed since reads under its old name until it reports again, and a machine that has never reported has no name here. The cost is bounded because a section is keyed on the machine id, not the name: a stale label misnames a section and never splits or merges one. The row stays because only a registry could turn one of these names into a machine this product knows more about. |
 | Repository Management | Conformist | None for the recorded string, which is the `owner/name` an agent wrote, held verbatim. One read-only lookup places a working folder inside a registered clone directory. | `.devbook/domain/repository-management/domain.md#repository-registry` | A session's `Working Location` names a repository in that context's form. Conformist and deliberately inert for the recorded string: it is displayed, never resolved, so a repository this product does not know about still reads correctly. The resolved repository is the one question asked of that context: which registered clone contains this folder. It is asked through a port that can only answer, never register. |
+| [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | `SessionSyncWorker` and `SessionSyncSession` in `Backlog.Infrastructure.Sync` push this machine's session records to the sync service and pull the other machines' into the replicated session store | `SessionRecord` and `SessionRecordEntry` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#session-record-key`; local ADR 0005 §Session records | A session this context read on one machine reads again on the person's other machines. Sync keys a record by the machine that wrote it, so no machine overwrites another's, and carries only the whitelisted metadata. It never reads what a record says; what a session is stays with this context. |
 
 ## Inbound dependents (known)
 
@@ -52,10 +53,9 @@ related: [.devbook/domain/context-map.md, .devbook/domain/dev-pc-management/doma
   ([Session Log](domain.md#session-log)), not a translation of it, so it needs no ACL
   either.
 
-- **Replicating session records adds no row to either table above.** Local ADR 0005
-  carries a record this context already wrote to another of the person's machines,
-  where this context reads it again. That is transport, not a supplier: nothing outside
-  the boundary is asked for a fact, and no other context learns the language. The sync
-  service is infrastructure carrying the record, as the local file system carries an
-  agent's own record. Replication is also not the Collections MCP; the
-  [Session Log](domain.md#session-log) says why the two stay apart.
+- **Replicating session records is the one Sync row above.** Local ADR 0005 carries a
+  record this context already wrote to another of the person's machines, where this
+  context reads it again. [Sync](../sync/context.md) is the supplier of that replica
+  and of its protocol, and nothing else: it is asked for no fact about a session and
+  learns none of this context's language. Replication is also not the Collections MCP;
+  the [Session Log](domain.md#session-log) says why the two stay apart.

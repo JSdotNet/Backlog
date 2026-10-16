@@ -55,6 +55,12 @@ public sealed record ConnectedTargetOptions(
     /// <summary>When that sync failed, already formatted by the host, or null.</summary>
     public string? LastSyncFailed { get; init; }
 
+    /// <summary>Why the target is not syncing although it is switched on, in the
+    /// host's sentence, or null when it is not paused — a target whose repository
+    /// is archived. Derived by the host on every render and never stored, so
+    /// <see cref="Enabled"/> keeps what the person set.</summary>
+    public string? PausedReason { get; init; }
+
     /// <summary>The repository the target's new tasks are filed under, as the value
     /// of one of <see cref="RepositoryChoices"/>, or null for the connector's
     /// default. A stored value the choices no longer hold is still offered, so

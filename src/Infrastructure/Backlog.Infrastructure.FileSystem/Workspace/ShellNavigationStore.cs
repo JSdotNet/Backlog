@@ -39,7 +39,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <para>
 /// So do the Calendar's Month | Week range, the In progress view's two toggles and the
 /// header's repository scope, and the system tools pane's tab and host filter: each is
-/// how the reader last had a screen, kept on this device only. Every key is additive and left out while at its default — the tools
+/// how the reader last had a screen, kept on this device only. So is show archived
+/// (local ADR 0029, §3), whether the archived repositories are offered where they are
+/// otherwise hidden. Every key is additive and left out while at its default — the tools
 /// pane's two until it has been on a tab or a filter here — so a file
 /// written before it keeps its shape and an older build reads a newer file.
 /// </para>
@@ -115,6 +117,7 @@ public sealed class ShellNavigationStore
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
+        ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -200,6 +203,11 @@ public sealed class ShellNavigationStore
     /// <summary>The system tools pane's host filter, by the pane's own id; null until
     /// one was chosen.</summary>
     public string? ToolsHostFilter { get; private set; }
+
+    /// <summary>Whether the archived repositories are shown where they are otherwise
+    /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
+    /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
+    public bool ShowArchivedRepositories { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -345,6 +353,14 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetShowArchivedRepositories(bool shown)
+    {
+        if (shown == ShowArchivedRepositories) return;
+
+        ShowArchivedRepositories = shown;
+        Save();
+    }
+
     /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
     /// so the same aliases reordered are a change.</summary>
     public void SetRepositoryScope(IReadOnlyList<string> aliases)
@@ -368,11 +384,220 @@ public sealed class ShellNavigationStore
     private static IReadOnlyList<string> MigrateNoRepositoryOnly(IReadOnlyList<string> scope, bool? noRepositoryOnly) =>
         noRepositoryOnly is true ? [BrainScope.Value] : scope;
 
+    /// <summary>
+    /// Waits until every choice set on this store so far is on disk. The setters
+    /// return before the file is written; this is for whoever must read the file
+    /// itself — the app closing, or a test — rather than the properties.
+    /// </summary>
+    public void Flush() => WaitForPendingWrites(_path);
+
+    /// <summary>
+    /// Waits until every write queued for the file at <paramref name="path"/> —
+    /// by any store on it in this process — has landed.
+    /// </summary>
+    public static void WaitForPendingWrites(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        Task? writer;
+        lock (WriteGate)
+        {
+            writer = PendingWrites.TryGetValue(KeyOf(path), out var pending) ? pending.Writer : null;
+        }
+
+        try
+        {
+            writer?.Wait();
+        }
+        catch (AggregateException)
+        {
+            // A writer that faulted has already retired its entry and lost only its
+            // own write; waiting for it is over either way, and a reader goes on
+            // to the file as it stands.
+        }
+    }
+
+    /// <summary>
+    /// Snapshots the choices on the caller's thread and hands the file write to the
+    /// pool.
+    /// <para>
+    /// The setters run on the click path — a view option, a takeover, a toggle — and
+    /// on the desktop that is the renderer's UI thread, where a synchronous write
+    /// held the press's own repaint behind the disk, or OneDrive, or a virus scan
+    /// (.devbook/design/interaction-guidelines.md#press-feedback, "No synchronous IO
+    /// on the UI thread"). The properties are the truth for this process and change
+    /// at once, so nothing that reads them waits; only the file lags.
+    /// </para>
+    /// <para>
+    /// The JSON is taken here, in call order, and the writer only ever writes the
+    /// newest snapshot it holds, so the last choice made is the last one written
+    /// however the writes interleave. One writer per file, shared by every store
+    /// on it, so two stores on one path — a shell remounted, a test restarting —
+    /// cannot land their writes out of order, and a store constructed on a path
+    /// waits for the writes still queued for it before it reads.
+    /// </para>
+    /// </summary>
     private void Save()
+    {
+        Enqueue(_path, Serialize());
+        Changed?.Invoke();
+    }
+
+    /// <summary>Guards <see cref="PendingWrites"/>. Writes are rare — one per press
+    /// that changes something — so one gate for every path is enough.</summary>
+    private static readonly Lock WriteGate = new();
+
+    /// <summary>The file writes queued or running, by full path. An entry leaves
+    /// when its writer has nothing left to write.</summary>
+    private static readonly Dictionary<string, PendingWrite> PendingWrites = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The newest snapshot not yet written, and the pool task writing.</summary>
+    private sealed class PendingWrite
+    {
+        public string? Json { get; set; }
+
+        public Task Writer { get; set; } = Task.CompletedTask;
+    }
+
+    static ShellNavigationStore()
+    {
+        // A choice made in the last moment before the window closed is still in a
+        // writer's hands; the process waits a little for it rather than dropping it.
+        // The write itself is atomic, so a process that does not wait loses that
+        // choice and never the file.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => WaitForAllPendingWrites(TimeSpan.FromSeconds(2));
+    }
+
+    private static string KeyOf(string path) => Path.GetFullPath(path);
+
+    private static void Enqueue(string path, string json)
+    {
+        var key = KeyOf(path);
+
+        lock (WriteGate)
+        {
+            if (PendingWrites.TryGetValue(key, out var pending))
+            {
+                pending.Json = json;
+                return;
+            }
+
+            pending = new PendingWrite { Json = json };
+            PendingWrites[key] = pending;
+
+            // Assigned under the gate the writer takes first, so it can never look
+            // for its own entry before the entry knows it.
+            pending.Writer = Task.Run(() => DrainWrites(key));
+        }
+    }
+
+    /// <summary>Writes the newest snapshot for <paramref name="key"/> until none is
+    /// left, then retires the entry — under the gate, so a save arriving as it
+    /// finishes either lands in this loop or starts a writer of its own.</summary>
+    private static void DrainWrites(string key)
+    {
+        var retired = false;
+        try
+        {
+            while (true)
+            {
+                string json;
+                lock (WriteGate)
+                {
+                    var pending = PendingWrites[key];
+                    if (pending.Json is null)
+                    {
+                        PendingWrites.Remove(key);
+                        retired = true;
+                        return;
+                    }
+
+                    json = pending.Json;
+                    pending.Json = null;
+                }
+
+                try
+                {
+                    WriteFile(key, json);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    // One write lost, and only that one: the loop goes on to the
+                    // next snapshot, so a failure nobody foresaw cannot leave the
+                    // path with an entry and no writer behind it.
+                }
+            }
+        }
+        finally
+        {
+            // Out of the loop without retiring — something above the write
+            // itself threw. The entry goes anyway, so the next save starts a
+            // writer of its own instead of queueing behind a dead one.
+            if (!retired)
+            {
+                lock (WriteGate)
+                {
+                    PendingWrites.Remove(key);
+                }
+            }
+        }
+    }
+
+    private static void WaitForAllPendingWrites(TimeSpan timeout)
+    {
+        Task[] writers;
+        lock (WriteGate)
+        {
+            writers = [.. PendingWrites.Values.Select(pending => pending.Writer)];
+        }
+
+        try
+        {
+            Task.WaitAll(writers, timeout);
+        }
+        catch (AggregateException)
+        {
+            // Every write already swallows its own IO failure; nothing to report
+            // on the way out.
+        }
+    }
+
+    /// <summary>Written beside the file and moved over it, so a process that ends
+    /// mid-write leaves the previous file rather than half of a new one. The name
+    /// beside it is this write's own: several app instances share one debug
+    /// workspace and so this file, and two writers on one temporary name would fail
+    /// each other's writes or move each other's half-written file.</summary>
+    private static void WriteFile(string path, string json)
+    {
+        var temporary = $"{path}.{Guid.NewGuid():n}.tmp";
+        try
+        {
+            File.WriteAllText(temporary, json);
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Losing this write only costs the next launch its restore; what
+            // is on screen right now is unaffected. Its temporary file goes with
+            // it rather than lingering beside the real one.
+            TryDelete(temporary);
+        }
+    }
+
+    private static void TryDelete(string path)
     {
         try
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new ShellNavigationDto
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Left behind; a later write never reads it.
+        }
+    }
+
+    private string Serialize() =>
+            JsonSerializer.Serialize(new ShellNavigationDto
             {
                 LastSurface = LastSurface,
                 LastView = LastView,
@@ -392,20 +617,18 @@ public sealed class ShellNavigationStore
                 RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope],
                 // Left out until the tools pane has been on a tab or a filter here.
                 ToolsTab = ToolsTab,
-                ToolsHostFilter = ToolsHostFilter
-            }, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Losing this write only costs the next launch its restore; what
-            // is on screen right now is unaffected.
-        }
-
-        Changed?.Invoke();
-    }
+                ToolsHostFilter = ToolsHostFilter,
+                // Left out while off, the default. The key is a stored name: never
+                // rename it without reading the old one.
+                ShowArchivedRepositories = ShowArchivedRepositories ? true : null
+            }, JsonOptions);
 
     private ShellNavigationDto? Read()
     {
+        // A store on a path another store in this process has just written
+        // reads what that one wrote, not the file as it stood before.
+        WaitForPendingWrites(_path);
+
         try
         {
             if (!File.Exists(_path)) return null;
@@ -461,6 +684,10 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ToolsHostFilter { get; init; }
+
+        /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? ShowArchivedRepositories { get; init; }
 
         /// <summary>The retired "No repo" chip's state, read only to migrate it — see
         /// <see cref="MigrateNoRepositoryOnly"/>. Never set on a save, so never written.</summary>

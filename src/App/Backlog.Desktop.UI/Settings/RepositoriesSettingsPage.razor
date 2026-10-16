@@ -117,7 +117,7 @@
             @(" ")
             @if (AdditionalRepositoriesEnabled)
             {
-                <span>Type <code>@("@" + VisibleRepositories.First().Alias)</code> on an entry to assign it to <code>@VisibleRepositories.First().FullName</code>.</span>
+                <span>Type <code>@("@" + DefaultRepository.Alias)</code> on an entry to assign it to <code>@DefaultRepository.FullName</code>.</span>
             }
             else
             {
@@ -144,7 +144,7 @@
                Items="@VisibleRepositories"
                Columns="@RepositoryColumns"
                RowKey="@(repository => repository.FullName)"
-               RowAttributes="@(repository => new Dictionary<string, object> { ["data-repository"] = repository.Alias })"
+               RowAttributes="@RowAttributes"
                HasRowDetail="@IsExpanded"
                AriaLabel="Repositories"
                RowNoun="repository"
@@ -154,8 +154,34 @@
             <th scope="row" class="repo-table__alias">
                 <span class="repo-table__mark @($"repo-swatch--{ColourOf(repository)}")" aria-hidden="true"></span>
                 <span>@repository.Alias</span>
+                @* The row says it without being opened: Archived when it is,
+                   and GitHub's own word when GitHub reports it archived or
+                   cannot find it - a suggestion, never the flag itself
+                   (local ADR 0029). *@
+                @if (repository.Archived)
+                {
+                    <Badge Kind="tone" Slug="archived" CssClass="repo-table__flag" TestId="repo-table-archived">Archived</Badge>
+                }
+                else if (GitHubHint(repository)?.Label is { } hintLabel)
+                {
+                    <Badge Kind="tone" Slug="alert" CssClass="repo-table__flag" TestId="repo-table-github-hint"
+                           Title="@(IsLastActive(repository) ? GitHubHint(repository)!.Sentence : $"{GitHubHint(repository)!.Sentence} Open the row to archive it.")">@hintLabel</Badge>
+                }
             </th>
-            <td class="data-table__mono" data-testid="repo-table-folder">@(string.IsNullOrWhiteSpace(repository.CloneDirectory) ? "Not set" : repository.CloneDirectory)</td>
+            @* The folder is the one column that holds an unbounded value: a full
+               clone path pushed the account and the Edit button behind the box's
+               sideways scroll at a desktop width. It is cut to the column with an
+               ellipsis and carried whole in the tooltip; the editor shows it in full. *@
+            <td class="data-table__mono" data-testid="repo-table-folder">
+                @if (string.IsNullOrWhiteSpace(repository.CloneDirectory))
+                {
+                    <span>Not set</span>
+                }
+                else
+                {
+                    <span class="repo-table__folder" title="@repository.CloneDirectory">@repository.CloneDirectory</span>
+                }
+            </td>
             <td data-testid="repo-table-devbook">
                 @if (DevbookFolderSummary(repository) is { } devbook)
                 {
@@ -195,17 +221,43 @@
                            report, not an error to clear. *@
                         <p class="setting__status" data-testid="repo-rename-note" role="status">@_renameNote</p>
                     }
+                    @if (string.Equals(_archiveNoteId, activeRepo.FullName, StringComparison.OrdinalIgnoreCase) && _archiveNote is not null)
+                    {
+                        @* What Archive or Unarchive just did, and what became
+                           of the open tasks: a result, said on its card. *@
+                        <Alert BaseClass="setting__status" Role="status" TestId="repo-archive-note" Message="@_archiveNote" />
+                    }
                 </div>
 
-                @* Rename before Remove, in the order somebody reaching
-                   for one of them would want to meet them: the one that
-                   keeps everything, then the one that keeps nothing. *@
+                @* Rename, then Archive, then Remove, in the order somebody
+                   reaching for one of them would want to meet them: the one
+                   that keeps everything, the one that keeps everything and
+                   stops reading it (local ADR 0029), then the one that keeps
+                   nothing. *@
                 <div class="repo-card__actions">
                     <AppButton Variant="ButtonVariant.None"
                                data-testid="rename-repository-button"
                                OnClick="() => BeginRename(activeRepo)">
                         Rename
                     </AppButton>
+                    @if (activeRepo.Archived)
+                    {
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="unarchive-repository-button"
+                                   OnClick="() => Unarchive(activeRepo)">
+                            Unarchive
+                        </AppButton>
+                    }
+                    else
+                    {
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="archive-repository-button"
+                                   Disabled="@IsLastActive(activeRepo)"
+                                   aria-describedby="@(IsLastActive(activeRepo) ? $"archive-status-{activeRepo.Alias}" : null)"
+                                   OnClick="() => BeginArchiveAsync(activeRepo)">
+                            Archive
+                        </AppButton>
+                    }
                     <AppButton Variant="ButtonVariant.None"
                                data-testid="remove-repository-button"
                                OnClick="() => RemoveRepository(activeRepo)">
@@ -213,6 +265,59 @@
                     </AppButton>
                 </div>
             </header>
+
+            @* What archiving means for this repository, said on its card: why
+               Archive is not offered on the last active one, that an archived
+               one is kept and no longer read - with the move-or-drop offer for
+               the open tasks it still files - and GitHub's own word when it
+               reports the repository archived or cannot find it. That last
+               only suggests: the repository stays active until the person
+               chooses Archive (local ADR 0029). *@
+            @if (activeRepo.Archived)
+            {
+                <div class="repo-card__section" data-testid="repo-archived">
+                    <Alert BaseClass="setting__status"
+                           Role="status"
+                           Id="@($"archive-status-{activeRepo.Alias}")"
+                           TestId="repo-archive-status"
+                           Message="Archived. Backlog keeps its settings and tasks, no longer reads it from GitHub, and hides it unless show archived is on." />
+                    @if (Services.GetService<ITaskItems>() is not null)
+                    {
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="repo-open-tasks-button"
+                                       OnClick="() => OfferOpenTasksAsync(activeRepo)">
+                                Move or drop its open tasks
+                            </AppButton>
+                        </div>
+                    }
+                </div>
+            }
+            else if (IsLastActive(activeRepo))
+            {
+                @* GitHub's word still matters on the last active repository,
+                   but it cannot be acted on here, so it is said without the
+                   Archive action. *@
+                <Alert BaseClass="setting__status"
+                       Role="status"
+                       Id="@($"archive-status-{activeRepo.Alias}")"
+                       TestId="repo-archive-status"
+                       Message="@GitHubSettingsStore.LastActiveRepository" />
+                <Alert BaseClass="setting__status"
+                       Role="status"
+                       TestId="repo-github-hint"
+                       Message="@GitHubHint(activeRepo)?.Sentence" />
+            }
+            else if (GitHubHint(activeRepo) is { } hint)
+            {
+                <Alert BaseClass="setting__status"
+                       Role="status"
+                       Message="@($"{hint.Sentence} Archive it to stop reading it; it keeps its settings and tasks.")"
+                       ActionLabel="Archive"
+                       OnAction="() => BeginArchiveAsync(activeRepo)"
+                       ActionTestId="repo-github-hint-archive"
+                       TestId="repo-github-hint" />
+            }
 
             @if (_renamingAlias == activeRepo.Alias)
             {
@@ -251,6 +356,8 @@
                     <div class="setting__actions">
                         <AppButton Variant="ButtonVariant.None"
                                    data-testid="repo-rename-apply"
+                                   Busy="@_renaming"
+                                   BusyLabel="Renaming"
                                    OnClick="() => ApplyRenameAsync(activeRepo)">
                             Rename repository
                         </AppButton>
@@ -378,7 +485,17 @@
                                @onkeydown="e => OnClonePathKeyDown(e, activeRepo)" />
                     <p class="setting__status" data-testid="repo-clone-status" role="status">
                         @{ var cloneStatus = CloneStatus(activeRepo); }
-                        @if (cloneStatus.IsCloned)
+                        @if (cloneStatus is null)
+                        {
+                            @* Nothing until the answer is late, so a quick one
+                               does not flash a loader. *@
+                            @if (CloneCheckIsSlow(activeRepo))
+                            {
+                                <Spinner Size="SpinnerSize.Small" Label="Checking the local clone" />
+                                <span>Checking the local clone…</span>
+                            }
+                        }
+                        else if (cloneStatus.IsCloned)
                         {
                             <span>Local clone: <code>@cloneStatus.CloneDirectory</code></span>
                         }
@@ -388,11 +505,14 @@
                         }
                     </p>
                     <div class="setting__actions">
+                        @{ var cloning = _cloningRepositories.Contains(activeRepo.Alias); }
                         <AppButton Variant="ButtonVariant.None"
                                    data-testid="repo-clone-button"
-                                   Disabled="@(!CanClone(activeRepo))"
+                                   Disabled="@(!cloning && cloneStatus?.CanClone != true)"
+                                   Busy="@cloning"
+                                   BusyLabel="Cloning"
                                    OnClick="() => CloneRepositoryAsync(activeRepo)">
-                            @CloneButtonText(activeRepo)
+                            @(cloneStatus?.IsCloned == true ? "Already cloned" : "Clone repository")
                         </AppButton>
                     </div>
 
@@ -448,9 +568,10 @@
                         <div class="setting__actions">
                             <AppButton Variant="ButtonVariant.None"
                                        data-testid="repo-devbook-branches-button"
-                                       Disabled="@_loadingBranches"
+                                       Busy="@_loadingBranches"
+                                       BusyLabel="Loading branches"
                                        OnClick="() => LoadBranchesAsync(activeRepo)">
-                                @(_loadingBranches ? "Loading branches..." : "Load branches")
+                                Load branches
                             </AppButton>
                         </div>
                         <Alert Message="@_branchError" TestId="repo-devbook-branches-error" />
@@ -514,6 +635,8 @@
                             <div class="setting__actions">
                                 <AppButton Variant="ButtonVariant.None"
                                            data-testid="github-recheck-button"
+                                           Busy="@Screen.IsCheckingConnection"
+                                           BusyLabel="Checking"
                                            OnClick="Screen.CheckConnectionAsync">
                                     Check the connection
                                 </AppButton>
@@ -643,6 +766,59 @@
         </RowDetail>
     </DataTable>
 }
+
+@* The move-or-drop offer for an archived repository's open tasks (local ADR
+   0029): asked when Archive is chosen, and again from the archived row, which
+   is where Keep leaves it. Move files them under another active repository
+   and keeps their issue links; drop sets each one's Task Status to archived
+   and keeps its filing; nothing is deleted. *@
+@* Not dismissable while a refile runs: a refusal must land on the dialog
+   that asked for it, not on one already gone. *@
+<Modal Open="@(_offer is not null)"
+       OpenChanged="open => { if (!open && !_offerRunning) CloseOffer(); }"
+       CloseOnEscape="@(!_offerRunning)"
+       CloseOnBackdropClick="@(!_offerRunning)"
+       Title="@OfferTitle"
+       TestId="repo-archive-dialog">
+    <ChildContent>
+        @if (_offer is { } offer)
+        {
+            <p class="setting__note" data-testid="repo-archive-dialog-message">@OfferMessage(offer)</p>
+            <SelectField Form="true"
+                         Label="Move them to"
+                         Id="repo-archive-move-to"
+                         TestId="repo-archive-move-to"
+                         LabelCssClass="setting__label"
+                         SelectCssClass="setting__input"
+                         CurrentValue="@_moveToId"
+                         Options="@MoveTargets(offer.Repository)"
+                         IncludeEmptyOption="true"
+                         EmptyLabel="Choose an active repository"
+                         OnChanged="value => _moveToId = string.IsNullOrWhiteSpace(value) ? null : value" />
+            <Alert Message="@_offerError" TestId="repo-archive-error" />
+        }
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost"
+                   TestId="repo-archive-keep"
+                   Disabled="@_offerRunning"
+                   OnClick="KeepOpenTasks">
+            @(_offer?.Archiving == true ? "Keep them and archive" : "Keep them")
+        </AppButton>
+        <AppButton Variant="ButtonVariant.Secondary"
+                   TestId="repo-archive-drop"
+                   Disabled="@_offerRunning"
+                   OnClick="() => RefileOpenTasksAsync(drop: true)">
+            Drop them
+        </AppButton>
+        <AppButton Variant="ButtonVariant.Primary"
+                   TestId="repo-archive-move"
+                   Disabled="@(_moveToId is null || _offerRunning)"
+                   OnClick="() => RefileOpenTasksAsync(drop: false)">
+            Move them
+        </AppButton>
+    </Footer>
+</Modal>
     </ChildContent>
 </SettingsCard>
 
@@ -702,6 +878,11 @@
 
     private IReadOnlyList<GitHubRepositoryRef> VisibleRepositories => GitHub.Repositories;
 
+    /// <summary>The repository the assign hint names: the first active one, never an
+    /// archived one (local ADR 0029). The store refuses every change that would leave
+    /// configured repositories with no active one, so a configured list always has one.</summary>
+    private GitHubRepositoryRef DefaultRepository => GitHub.DefaultRepository ?? VisibleRepositories.First();
+
     protected override void OnInitialized()
     {
         _activityCache = Services.GetService<IPullRequestDetailCache>();
@@ -715,13 +896,248 @@
         Screen.FeaturesChanged += OnFeaturesChanged;
     }
 
+    /// <summary>Asks GitHub, once per opening of the list, whether it reports any
+    /// active repository archived or cannot find it - the hint on the row (local
+    /// ADR 0029). Only while the GitHub integration is on, and never for a
+    /// repository archived here. The page renders first; the hints arrive with the
+    /// answer.</summary>
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Features.IsEnabled(TasksFeatures.GitHubIntegration) || GitHub.ActiveRepositories.Count == 0) return;
+
+        try
+        {
+            _githubStates = await GitHub.ReadRepositoryStatesAsync(GitHub.ActiveRepositories, _closing.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // The page closed before GitHub answered; there is nothing to show.
+        }
+    }
+
     private void OnFeaturesChanged()
     {
         _draftRepos = RepositorySettingsText();
         EnsureExpandedRepository();
     }
 
-    public void Dispose() => Screen.FeaturesChanged -= OnFeaturesChanged;
+    public void Dispose()
+    {
+        _disposed = true;
+        _closing.Cancel();
+        _closing.Dispose();
+        Screen.FeaturesChanged -= OnFeaturesChanged;
+    }
+
+    // ---- Archive and Unarchive (local ADR 0029) ---------------------------
+
+    /// <summary>GitHub's own word on each active repository, keyed by
+    /// <c>owner/name</c>; empty until it answers, and for a repository it could not
+    /// be asked about.</summary>
+    private IReadOnlyDictionary<string, GitHubRepositoryState> _githubStates =
+        new Dictionary<string, GitHubRepositoryState>();
+
+    /// <summary>What the last Archive or Unarchive did, and the id of the
+    /// repository it was, so the sentence shows on that card alone.</summary>
+    private string? _archiveNote;
+    private string? _archiveNoteId;
+
+    /// <summary>The move-or-drop offer while its dialog is open: the repository,
+    /// how many open tasks it files, and whether choosing archives it too (from
+    /// Archive) or it is archived already (from its archived row).</summary>
+    private sealed record OpenTasksOffer(GitHubRepositoryRef Repository, int OpenTasks, bool Archiving);
+
+    private OpenTasksOffer? _offer;
+    private string? _moveToId;
+    private string? _offerError;
+    private bool _offerRunning;
+
+    /// <summary>Whether this is the one active repository left: Archive is not
+    /// offered on it, because the default repository and every single-repository
+    /// setup need one to fall back to.</summary>
+    private bool IsLastActive(GitHubRepositoryRef repository) =>
+        !repository.Archived
+        && !GitHub.ActiveRepositories.Any(other => !string.Equals(other.FullName, repository.FullName, StringComparison.OrdinalIgnoreCase));
+
+    private IReadOnlyDictionary<string, object> RowAttributes(GitHubRepositoryRef repository)
+    {
+        var attributes = new Dictionary<string, object> { ["data-repository"] = repository.Alias };
+        if (repository.Archived) attributes["data-archived"] = "true";
+        return attributes;
+    }
+
+    /// <summary>GitHub's answer on an active repository: the sentence its card says
+    /// and the two words its row's badge has room for. Null when GitHub reports it
+    /// live, was not asked, or could not answer.</summary>
+    private sealed record GitHubHintText(string Sentence, string Label);
+
+    private GitHubHintText? GitHubHint(GitHubRepositoryRef repository) =>
+        repository.Archived ? null : _githubStates.GetValueOrDefault(repository.FullName, GitHubRepositoryState.Active) switch
+        {
+            GitHubRepositoryState.Archived => new("GitHub reports this repository archived.", "Archived on GitHub"),
+            GitHubRepositoryState.NotFound => new("GitHub cannot find this repository.", "Not found on GitHub"),
+            _ => null,
+        };
+
+    /// <summary>
+    /// Archive, as chosen on the card or from GitHub's hint. A repository with open
+    /// tasks asks first what becomes of them; one with none, or a host that composes
+    /// no Tasks module, is archived at once. The store refuses the last active
+    /// repository even if the disabled button were somehow pressed.
+    /// </summary>
+    private async Task BeginArchiveAsync(GitHubRepositoryRef repository)
+    {
+        var open = await CountOpenTasksAsync(repository);
+        if (open > 0)
+        {
+            OpenOffer(new OpenTasksOffer(repository, open, Archiving: true));
+            return;
+        }
+
+        Archive(repository, "Archived.");
+    }
+
+    /// <summary>The same offer from an archived row, where Keep left it.</summary>
+    private async Task OfferOpenTasksAsync(GitHubRepositoryRef repository)
+    {
+        var open = await CountOpenTasksAsync(repository);
+        if (open == 0)
+        {
+            SetArchiveNote(repository, $"No open tasks are filed under {repository.FullName}.");
+            return;
+        }
+
+        OpenOffer(new OpenTasksOffer(repository, open, Archiving: false));
+    }
+
+    private void Unarchive(GitHubRepositoryRef repository)
+    {
+        var error = GitHub.Settings.SetRepositoryArchived(repository.FullName, archived: false);
+        if (error is not null)
+        {
+            _repoError = error;
+            return;
+        }
+
+        SetArchiveNote(repository, "Unarchived. Backlog reads it from GitHub again and shows it everywhere it did before.");
+    }
+
+    /// <summary>Writes the flag and says so on the card; a refusal goes to the
+    /// page's status line, as every other refused write on this page does.</summary>
+    private bool Archive(GitHubRepositoryRef repository, string note)
+    {
+        var error = GitHub.Settings.SetRepositoryArchived(repository.FullName, archived: true);
+        if (error is not null)
+        {
+            _repoError = error;
+            return false;
+        }
+
+        SetArchiveNote(repository, note);
+        return true;
+    }
+
+    private void SetArchiveNote(GitHubRepositoryRef repository, string note)
+    {
+        _archiveNote = note;
+        _archiveNoteId = repository.FullName;
+    }
+
+    private void OpenOffer(OpenTasksOffer offer)
+    {
+        _offer = offer;
+        _moveToId = null;
+        _offerError = null;
+    }
+
+    private void CloseOffer()
+    {
+        _offer = null;
+        _moveToId = null;
+        _offerError = null;
+    }
+
+    /// <summary>Keep: the tasks stay as they are. From Archive the repository is
+    /// archived all the same, and its archived row offers the choice again.</summary>
+    private void KeepOpenTasks()
+    {
+        if (_offer is not { } offer) return;
+
+        CloseOffer();
+        if (offer.Archiving)
+        {
+            Archive(offer.Repository, $"Archived. Its {Plural(offer.OpenTasks, "open task was", "open tasks were")} kept; move or drop them here whenever you like.");
+        }
+    }
+
+    /// <summary>
+    /// Move or drop, then archive when the offer came from Archive. The tasks go
+    /// first: a refusal from the Tasks module leaves the dialog open with its
+    /// sentence and the repository as it was, rather than archived with the half
+    /// of the choice that did not happen.
+    /// </summary>
+    private async Task RefileOpenTasksAsync(bool drop)
+    {
+        if (_offer is not { } offer || _offerRunning) return;
+        if (!drop && _moveToId is null) return;
+        if (Services.GetService<ITaskItems>() is not { } tasks) return;
+
+        _offerRunning = true;
+        try
+        {
+            var moveTo = drop ? null : _moveToId;
+            var result = await tasks.RefileRepositoryTasksAsync(offer.Repository.FullName, moveTo, drop);
+            if (result.IsFailure)
+            {
+                // Said on the dialog while it is up; on the page's status line if
+                // it has gone, so a refusal is never said to nobody.
+                if (_offer is null) _repoError = result.Error.Message;
+                else _offerError = result.Error.Message;
+                return;
+            }
+
+            var done = drop
+                ? $"{Plural(result.Value, "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
+                : $"{Plural(result.Value, "open task", "open tasks")} moved to {moveTo}.";
+
+            CloseOffer();
+            if (offer.Archiving) Archive(offer.Repository, $"Archived. {done}");
+            else SetArchiveNote(offer.Repository, done);
+        }
+        finally
+        {
+            _offerRunning = false;
+        }
+    }
+
+    /// <summary>How many open tasks (Draft, Ready, In progress) name the
+    /// repository; nought for a host that composes no Tasks module.</summary>
+    private async Task<int> CountOpenTasksAsync(GitHubRepositoryRef repository)
+    {
+        if (Services.GetService<ITaskItems>() is not { } tasks) return 0;
+
+        var entries = await tasks.ListAsync();
+        return entries.Count(entry =>
+            entry.Status is EntryStatus.Draft or EntryStatus.Ready or EntryStatus.InProgress
+            && (entry.RepoIds ?? []).Any(id => string.Equals(id, repository.FullName, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private string OfferTitle => _offer is { Archiving: true } offer
+        ? $"Archive {offer.Repository.FullName}"
+        : $"Open tasks of {_offer?.Repository.FullName}";
+
+    private static string OfferMessage(OpenTasksOffer offer) =>
+        $"{Plural(offer.OpenTasks, "open task is", "open tasks are")} filed under {offer.Repository.FullName}. "
+        + "Move them to another repository, drop them - each takes the archived status and keeps its filing, and nothing is deleted - or keep them as they are.";
+
+    /// <summary>The active repositories the open tasks can move to: every one but
+    /// the repository being archived.</summary>
+    private IReadOnlyList<SelectorOption> MoveTargets(GitHubRepositoryRef repository) =>
+        [.. GitHub.ActiveRepositories
+            .Where(other => !string.Equals(other.FullName, repository.FullName, StringComparison.OrdinalIgnoreCase))
+            .Select(other => new SelectorOption(other.FullName, $"{other.Alias} ({other.FullName})"))];
+
+    private static string Plural(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";
 
     /// <summary>The frame's headline: how many repositories, and how many of them
     /// carry a devbook a reader would find.</summary>
@@ -745,6 +1161,10 @@
     private void ToggleRepository(GitHubRepositoryRef repository)
     {
         _expandedId = IsExpanded(repository) ? null : repository.FullName;
+
+        // Opening a card asks about its clone again: the folder may have been
+        // cloned, emptied or moved since the card was last open.
+        _cloneChecks.Remove(repository.Alias);
 
         // A rename form left open belongs to the card it was opened on, so it
         // closes with it rather than reappearing the next time that row opens.
@@ -882,30 +1302,48 @@
     /// </summary>
     private async Task ApplyRenameAsync(GitHubRepositoryRef repository)
     {
-        if (_renamingAlias != repository.Alias) return;
+        if (_renamingAlias != repository.Alias || _renaming) return;
 
-        var error = GitHub.Settings.RenameRepository(repository.Alias, _renameDraft, out var rename);
-        if (rename is null)
+        // Busy from the press, so Enter pressed again while the entries and
+        // inbox items are being carried across applies nothing twice.
+        _renaming = true;
+        try
         {
-            _renameError = error;
-            return;
+            var error = GitHub.Settings.RenameRepository(repository.Alias, _renameDraft, out var rename);
+            if (rename is null)
+            {
+                _renameError = error;
+                return;
+            }
+
+            _repoError = error;
+            _draftRepos = RepositorySettingsText();
+            SyncRepositoryDrafts();
+
+            // The open row follows the repository to its new id. A merge leaves no
+            // row under the renamed one, so the note goes on the repository it was
+            // folded into, and that row is the one left open.
+            var kept = GitHub.Settings.Current.Find(rename.NewId);
+            var merged = kept is not null && kept.Alias != repository.Alias;
+            _expandedId = kept?.FullName;
+
+            // The form closes once the entries and inbox items have followed,
+            // not before: until then its button is what says the rename is
+            // still under way.
+            _renameNote = await FollowRenameAsync(rename, merged);
+            _renameNoteAlias = kept?.Alias ?? repository.Alias;
+
+            // Only this rename's form: another card may have been opened, and a
+            // rename started on it, while this one's entries were following.
+            if (_renamingAlias == repository.Alias) CancelRename();
         }
-
-        _repoError = error;
-        _draftRepos = RepositorySettingsText();
-        SyncRepositoryDrafts();
-        CancelRename();
-
-        // The open row follows the repository to its new id. A merge leaves no
-        // row under the renamed one, so the note goes on the repository it was
-        // folded into, and that row is the one left open.
-        var kept = GitHub.Settings.Current.Find(rename.NewId);
-        var merged = kept is not null && kept.Alias != repository.Alias;
-        _expandedId = kept?.FullName;
-
-        _renameNote = await FollowRenameAsync(rename, merged);
-        _renameNoteAlias = kept?.Alias ?? repository.Alias;
+        finally
+        {
+            _renaming = false;
+        }
     }
+
+    private bool _renaming;
 
     /// <summary>
     /// Re-points the entries and inbox items that named the renamed repository
@@ -1145,28 +1583,139 @@
         _forgottenActivity.Add(repository.Alias);
     }
 
-    private LocalGitRepositoryStatus CloneStatus(GitHubRepositoryRef repository) =>
-        LocalGit.GetStatus(repository, CloneDirectoryDraft(repository));
+    /// <summary>
+    /// What the open card knows about its clone, per alias: the question asked
+    /// (which repository, which folder), the answer once it is in, and whether
+    /// it has been long enough coming to show a loader.
+    /// <para>
+    /// Asked off the UI thread and kept, because the answer is a git process
+    /// (<c>git remote get-url origin</c>) and this screen used to ask it during
+    /// render, three times per render - every keystroke anywhere on the card
+    /// froze the window for as long as git took.
+    /// </para>
+    /// <para>
+    /// The question names the repository as well as the folder, because the
+    /// answer depends on both: a clone is "ready" only when its origin is the
+    /// repository the row names, and a rename, or a registry edit that points an
+    /// alias at another repository, keeps the alias and the folder and changes
+    /// that. The folder is the stored one, not the field's draft: it is asked
+    /// when the field is left or Enter pressed, not on every keystroke.
+    /// </para>
+    /// </summary>
+    private readonly Dictionary<string, CloneCheck> _cloneChecks = new(StringComparer.Ordinal);
 
-    private bool CanClone(GitHubRepositoryRef repository) =>
-        !_cloningRepositories.Contains(repository.Alias) && CloneStatus(repository).CanClone;
-
-    private string CloneButtonText(GitHubRepositoryRef repository)
+    private sealed class CloneCheck(string fullName, string directory)
     {
-        if (_cloningRepositories.Contains(repository.Alias)) return "Cloning...";
+        public string FullName { get; } = fullName;
 
-        var status = CloneStatus(repository);
-        return status.IsCloned ? "Already cloned" : "Clone repository";
+        public string Directory { get; } = directory;
+
+        public LocalGitRepositoryStatus? Status { get; set; }
+
+        /// <summary>The answer has taken longer than
+        /// <see cref="CloneCheckLoaderDelay"/>, so the loader shows.</summary>
+        public bool Slow { get; set; }
+
+        public bool Asks(string fullName, string directory) =>
+            string.Equals(FullName, fullName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(Directory, directory, StringComparison.Ordinal);
+    }
+
+    /// <summary>How long a check runs before "Checking" shows, per the
+    /// guideline's region-loader threshold: the usual answer is two
+    /// filesystem checks, and a loader for that would be a flash.</summary>
+    private static readonly TimeSpan CloneCheckLoaderDelay = TimeSpan.FromMilliseconds(300);
+
+    private bool _disposed;
+
+    /// <summary>Cancels the loader delay of a clone check still out when the page closes.</summary>
+    private readonly CancellationTokenSource _closing = new();
+
+    private static string StoredCloneDirectory(GitHubRepositoryRef repository) =>
+        repository.CloneDirectory ?? string.Empty;
+
+    /// <summary>The check for the repository's current question, or null when
+    /// none has been asked yet.</summary>
+    private CloneCheck? CurrentCloneCheck(GitHubRepositoryRef repository) =>
+        _cloneChecks.TryGetValue(repository.Alias, out var check)
+        && check.Asks(repository.FullName, StoredCloneDirectory(repository))
+            ? check
+            : null;
+
+    /// <summary>The clone status for the stored folder, or null while it is
+    /// still being worked out. No folder is answered at once: the service says
+    /// "none configured" without touching the disk or git, and asking it in the
+    /// background would only cost the card a second render.</summary>
+    private LocalGitRepositoryStatus? CloneStatus(GitHubRepositoryRef repository)
+    {
+        var directory = StoredCloneDirectory(repository);
+        if (string.IsNullOrWhiteSpace(directory)) return LocalGit.GetStatus(repository, directory);
+
+        return CurrentCloneCheck(repository)?.Status;
+    }
+
+    private bool CloneCheckIsSlow(GitHubRepositoryRef repository) => CurrentCloneCheck(repository)?.Slow == true;
+
+    /// <summary>Asks about the open card's clone after the render that drew the
+    /// card, so the card is on screen before git is. The loader shows only once
+    /// the answer is late; an answer to a question no longer asked - another
+    /// folder, another repository, a closed card - is dropped on arrival.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var open = VisibleRepositories.FirstOrDefault(IsExpanded);
+        if (open is null) return;
+
+        var directory = StoredCloneDirectory(open);
+        if (string.IsNullOrWhiteSpace(directory) || CurrentCloneCheck(open) is not null) return;
+
+        var check = new CloneCheck(open.FullName, directory);
+        _cloneChecks[open.Alias] = check;
+
+        var probe = Task.Run(() => ProbeClone(open, directory));
+        if (await Task.WhenAny(probe, Task.Delay(CloneCheckLoaderDelay, _closing.Token)) != probe && IsCurrent(open.Alias, check))
+        {
+            check.Slow = true;
+            StateHasChanged();
+        }
+
+        var status = await probe;
+        if (!IsCurrent(open.Alias, check)) return;
+
+        check.Status = status;
+        StateHasChanged();
+    }
+
+    private bool IsCurrent(string alias, CloneCheck check) =>
+        !_disposed && _cloneChecks.TryGetValue(alias, out var current) && ReferenceEquals(current, check);
+
+    /// <summary>The status, or a sentence saying why there is none. Everything is
+    /// caught: a status line that cannot be worked out is still a status line,
+    /// and a probe that threw out of a render callback would take the whole
+    /// Settings screen to the error boundary over one sentence.</summary>
+    private LocalGitRepositoryStatus ProbeClone(GitHubRepositoryRef repository, string directory)
+    {
+        try
+        {
+            return LocalGit.GetStatus(repository, directory);
+        }
+        catch (Exception ex)
+        {
+            return new LocalGitRepositoryStatus(directory, IsCloned: false, CanClone: false,
+                Summary: $"Couldn't check the local clone: {ex.Message}");
+        }
     }
 
     private async Task CloneRepositoryAsync(GitHubRepositoryRef repository)
     {
-        _cloningRepositories.Add(repository.Alias);
+        if (!_cloningRepositories.Add(repository.Alias)) return;
         _repoError = null;
 
         try
         {
-            var result = await LocalGit.CloneAsync(repository, CloneDirectoryDraft(repository));
+            // Run whole on the pool: CloneAsync settles the folder's status with
+            // git before its own first await.
+            var directory = CloneDirectoryDraft(repository);
+            var result = await Task.Run(() => LocalGit.CloneAsync(repository, directory));
             if (result.Success && result.CloneDirectory is not null)
             {
                 _repoError = GitHub.Settings.SetCloneDirectory(repository.Alias, result.CloneDirectory);
@@ -1178,9 +1727,18 @@
 
             SyncRepositoryDrafts();
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or System.ComponentModel.Win32Exception)
+        {
+            // Making the parent folder (a missing drive, a protected folder) or
+            // starting git can throw; the button comes back and the card says why.
+            _repoError = $"Couldn't clone {repository.FullName}: {ex.Message}";
+        }
         finally
         {
             _cloningRepositories.Remove(repository.Alias);
+
+            // The folder is a clone now, or half of one: asked again.
+            _cloneChecks.Remove(repository.Alias);
         }
     }
 

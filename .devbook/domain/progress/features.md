@@ -225,7 +225,7 @@ pull request linked to it is merged.
 type: feature
 status: draft
 feature-flag: .devbook/domain/progress/context.md#progress-area
-related: [.devbook/domain/progress/domain.md#sprint-progress, .devbook/domain/progress/requirements.md#following-a-sprint]
+related: [.devbook/domain/progress/domain.md#sprint-progress, .devbook/domain/progress/requirements.md#following-a-sprint, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 See the open sprint of the series in scope: its name, its dates, its goal, how

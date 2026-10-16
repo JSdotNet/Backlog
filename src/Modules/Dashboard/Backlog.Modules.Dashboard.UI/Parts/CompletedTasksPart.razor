@@ -15,7 +15,7 @@
 
 <PartFrame Title="Tasks completed"
            Note="@Note"
-           Busy="Status == MetricStatusKind.Loading"
+           Busy="IsLoading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-tasks-completed">
     @if (IsReady)

@@ -176,7 +176,7 @@ Every gesture arrives as a `Preview` — a proposed placement the bar draws itse
     </Story>
 
     <Story Name="Work past its window"
-           Description="A bar marked `Overdue`: its window has passed and its work is still open. It keeps the band's fill and gains a strong end cap and a warning marker after the title, so a late bar is found by its shape as well as its colour. A tentative bar that is late keeps its dotted outline and hatching and wears the warning too.
+           Description="A bar marked `Overdue`: its window has passed and its work is still open. That is an alert, so it is drawn in the fault tone: an outline round the whole bar in the error ink and a `!` chip after the title on the error surface. It keeps the band's fill and leading edge, so a late bar is found by its shape as well as its colour. A tentative bar that is late keeps its hatching and wears the alert too.
 
 The library holds no notion of today or of done: the host decides which bars are late and says so in their detail — the roadmap writes the day the window ended — because the marker is hidden from a screen reader."
            Code="@OverdueCode">
@@ -194,6 +194,40 @@ The library holds no notion of today or of done: the host decides which bars are
                                     TestId="solo-overdue-tentative" />
             </div>
         </div>
+    </Story>
+
+    <Story Name="Acting on a bar in place, and work that is done"
+           Description="A bar handed an `Action` draws one small icon button at its end, shown while the bar is hovered or holds the focus. Beyond the steps disclosure it is the only tab stop a bar adds, and only a bar with an action adds it. Its name is the whole act — the icon is all it draws — and using it raises `OnAction` (`OnBarAction` on the timeline), never the bar's own activation: the roadmap offers Open in Tasks on a plan tasks carry, and Complete on one nothing carries.
+
+A bar marked `Done` is drawn in the done tone — the success surface the progress fill uses, edged in its ink — with a tick after the title. The host says it in the detail as well, because the tick is hidden from a screen reader."
+           Code="@ActionCode">
+        <div class="sb-stack">
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloOpen"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    ShowAction="true"
+                                    OnAction="Act"
+                                    TestId="solo-action-open" />
+            </div>
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloComplete"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Finance, Pieter"
+                                    ShowAction="true"
+                                    OnAction="Act"
+                                    TestId="solo-action-complete" />
+            </div>
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloDone"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Finance, Pieter"
+                                    ShowAction="true"
+                                    OnAction="Act"
+                                    TestId="solo-done" />
+            </div>
+        </div>
+        <p class="sb-state" data-testid="solo-action-state">Last action: @(_lastAction ?? "(none)")</p>
     </Story>
 
     <Story Name="An item with its steps"
@@ -222,6 +256,21 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
                          ShowFilters="false"
                          ShowSteps="false"
                          TestId="parts" />
+    </Story>
+
+    <Story Name="An archived band, kept as history"
+           Description="A group handed `Archived` is history rather than current work. It is drawn greyed, neutral whatever `Color` it was handed, with a dashed edge, and the word Archived sits beside its name, so the grey is never the only thing saying it. Every row in it says `(archived)` after the band's name to a screen reader, because the tag sits in the hidden names column.
+
+What the band holds is the host's choice. The app hands an archived repository's band only its finished work in the drawn window, and its open work too once show archived is on."
+           Code="@ArchivedCode">
+        <RoadmapTimeline Groups="@ArchivedPlan"
+                         Bars="@ArchivedBars"
+                         Title="An archived repository"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         ShowFilters="false"
+                         ShowSteps="false"
+                         TestId="archived" />
     </Story>
 
     <Story Name="A band with a control of its own"
@@ -600,6 +649,36 @@ Every action is a real button named for its plan, and the shelf is a region name
         Overdue = true
     };
 
+    private static RoadmapBar SoloOpen => Solo with
+    {
+        Id = "solo-open",
+        Title = "Ship the importer",
+        Detail = "High priority",
+        Action = new RoadmapBarAction(RoadmapBarActionKind.Open, "Open Ship the importer in Tasks")
+    };
+
+    private static RoadmapBar SoloComplete => Solo with
+    {
+        Id = "solo-complete",
+        Title = "Write the launch post",
+        Detail = "Medium priority\nno task yet",
+        Tentative = true,
+        Action = new RoadmapBarAction(RoadmapBarActionKind.Complete, "Complete Write the launch post")
+    };
+
+    private static RoadmapBar SoloDone => Solo with
+    {
+        Id = "solo-done",
+        Title = "Close the quarter's books",
+        Detail = "Completed 9 Apr 2026, drawn where it was planned\nMedium priority",
+        Locked = true,
+        Done = true
+    };
+
+    private string? _lastAction;
+
+    private void Act(string barId) => _lastAction = barId;
+
     private static RoadmapChange? SoloInFlightPreview =>
         new("solo-in-flight", "row", On(1, 19), On(6, 7), RoadmapDrag.ResizeEnd);
 
@@ -720,6 +799,26 @@ Every action is a real button named for its plan, and the shelf is a region name
                             Geometry="@geometry" />
         """;
 
+    private const string ActionCode = """
+        // The host names the act in full; the library draws the icon and raises OnAction.
+        <RoadmapTimelineBar Bar="@(bar with
+                            {
+                                Action = new RoadmapBarAction(RoadmapBarActionKind.Complete, "Complete Write the launch post")
+                            })"
+                            Geometry="@geometry"
+                            ShowAction="true"
+                            OnAction="Complete" />
+
+        // Done: the done tone and a tick; the host says it in words.
+        <RoadmapTimelineBar Bar="@(bar with
+                            {
+                                Detail = "Completed 9 Apr 2026, drawn where it was planned",
+                                Locked = true,
+                                Done = true
+                            })"
+                            Geometry="@geometry" />
+        """;
+
     private const string OverdueCode = """
         // The host decides what late means and says it in words; the library
         // draws the warning and hides its marker from a screen reader.
@@ -805,6 +904,28 @@ Every action is a real button named for its plan, and the shelf is a region name
         // One stored plan, one bar per repository, each with that repository's tasks as steps
         new RoadmapBar("conventions@budgetbeheer", "budgetbeheer::planned", "Devbook conventions", start, end, Steps: budgetbeheerTasks),
         new RoadmapBar("conventions@spec-manager", "spec-manager::planned", "Devbook conventions", start, end, Steps: specManagerTasks),
+        """;
+
+    // --- An archived band ------------------------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> ArchivedPlan =>
+    [
+        new("spec-manager", "specs", [new("spec-manager::planned", string.Empty)], "var(--color-band-2)"),
+        new("budgetbeheer", "budget", [new("budgetbeheer::planned", string.Empty)], "var(--color-band-1)", Archived: true)
+    ];
+
+    private static readonly RoadmapBar[] ArchivedBars =
+    [
+        new("rollout", "spec-manager::planned", "Roll out", On(4, 6), On(5, 29), 2),
+        new("close-books", "budgetbeheer::planned", "Close the books", On(2, 2), On(3, 13), 1,
+            Detail: "finished, drawn where the work ran", Locked: true)
+    ];
+
+    private const string ArchivedCode = """
+        <RoadmapTimeline Groups="@groups" Bars="@bars" />
+
+        // Greyed and tagged Archived; the colour it is handed is not drawn.
+        new RoadmapGroup("budgetbeheer", "budget", rows, "var(--color-band-1)", Archived: true)
         """;
 
     /// <summary>The parts plan again, each repository asking for room for its control,

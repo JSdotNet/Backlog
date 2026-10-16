@@ -327,6 +327,8 @@ public class TaskInsightsTests
     /// </summary>
     [Theory]
     [InlineData(true, false, 10, 4, 7, "2026-09-30", PlanOutlook.Finished, "2026-09-20")]
+    // Finished with nothing sized and its window past: a task-less item completed by hand.
+    [InlineData(true, false, 0, 0, 7, "2026-09-23", PlanOutlook.Finished, "2026-09-20")]
     [InlineData(false, true, 10, 0, 7, "2026-09-26", PlanOutlook.PlacedByEffort, "2026-09-26")]
     [InlineData(false, false, 0, 0, 7, "2026-09-30", PlanOutlook.Unsized, null)]
     [InlineData(false, false, 5, 0, 0, "2026-09-30", PlanOutlook.NoPace, null)]
@@ -529,6 +531,20 @@ public class TaskInsightsTests
 
         Assert.Equal(new DateOnly(2026, 9, 24), result.Value!.WindowTo);
         Assert.Equal(new DateOnly(2026, 11, 20), result.Value.TimelineTo);
+    }
+
+    /// <summary>A finished item ends where its last entry landed, so its planned end
+    /// later on does not stretch the axis past the items still running.</summary>
+    [Fact]
+    public async Task A_finished_item_planned_to_end_later_does_not_stretch_the_timeline()
+    {
+        var plan = new StubPlanSource(
+            Item("Running", end: new DateOnly(2026, 10, 15)),
+            Item("Landed early", end: new DateOnly(2026, 12, 31), totalEffort: 5, doneEffort: 5, finished: true, lastCompletedOn: new DateOnly(2026, 9, 20)));
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 10, 15), result.Value!.TimelineTo);
     }
 
     [Fact]

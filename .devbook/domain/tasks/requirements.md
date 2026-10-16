@@ -14,12 +14,13 @@ related: [.devbook/domain/tasks/features.md]
 ```meta
 type: requirements
 status: draft
-related: [.devbook/domain/tasks/features.md#my-day]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
 ```
 
-> The requirements of My Day on the phone and how the phone's changes reach the
-> desktop. The feature chapter says what My Day is and why; this says what it
-> promises.
+> The requirements of My Day on the desktop and the phone, and how the phone's
+> changes reach the desktop. The feature chapter says what My Day is and why;
+> this says what it promises. A carried task is defined under
+> [My Day](domain.md#my-day).
 
 ### Requirement: Today places each task by its agenda time
 
@@ -176,6 +177,132 @@ Focus SHALL offer Complete task once every step of the task is ticked off, a pre
 - **Given** Focus offers Complete task on a task with all three steps ticked off
 - **When** the reader presses Complete task and the desktop syncs
 - **Then** the phone is on Today with the task under Done today, and the desktop shows it ticked off with its steps at 3 of 3
+
+### Requirement: An unfinished task carries over when My Day is kept
+
+```meta
+type: requirement
+status: draft
+```
+
+With Clear My Day overnight off, the system SHALL keep an unfinished task picked for an earlier day in today's My Day on every paired device.
+
+#### Scenario: Yesterday's open task on both heads
+
+- **Given** Clear My Day overnight is off and an open task was picked for yesterday
+- **When** the desktop opens the Tasks pane and the phone opens Today after its next pull
+- **Then** the desktop counts the task in My Day and shows it under the My Day filter, and the phone shows it under Anytime today
+
+#### Scenario: The same task with the switch on
+
+- **Given** Clear My Day overnight is on and an open task was picked for yesterday
+- **When** the desktop opens the Tasks pane and the phone opens Today after its next pull
+- **Then** neither device shows the task in today's My Day
+
+#### Scenario: Taking a carried task out
+
+- **Given** Clear My Day overnight is off and a carried task is in today's My Day on the desktop
+- **When** the reader chooses Remove from My Day on it
+- **Then** the task leaves My Day, its `myday:` date is cleared, and no other task changes
+
+#### Scenario: Finishing a carried task on the phone
+
+- **Given** Clear My Day overnight is off and the phone shows the page of a carried task
+- **When** the reader presses Mark done
+- **Then** the phone is on Today with the task under Done today
+
+### Requirement: A carried task ticked off today stays until the day ends
+
+```meta
+type: requirement
+status: draft
+```
+
+With Clear My Day overnight off, the system SHALL list a task picked for an earlier day under Done today when it was ticked off today, and leave it out when it was ticked off on an earlier day.
+
+#### Scenario: Ticked off today
+
+- **Given** Clear My Day overnight is off and a task picked for two days ago was ticked off this morning
+- **When** the reader opens Today on the phone
+- **Then** the task is under Done today
+
+#### Scenario: Ticked off yesterday
+
+- **Given** Clear My Day overnight is off and a task picked for two days ago was ticked off yesterday
+- **When** the reader opens Today on the phone or the Tasks pane on the desktop
+- **Then** the task is not in today's My Day
+
+### Requirement: A task picked for a later day never shows today
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL leave a task picked for a later day out of today's My Day, whatever Clear My Day overnight says.
+
+#### Scenario: Moved to tomorrow with the switch off
+
+- **Given** Clear My Day overnight is off and the phone shows the page of an open task in today's My Day
+- **When** the reader presses Move to tomorrow and the desktop syncs
+- **Then** neither device shows the task in today's My Day until tomorrow
+
+### Requirement: A carried task shows no agenda time
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show no agenda time for a carried task, on the desktop or the phone.
+
+#### Scenario: Yesterday's block
+
+- **Given** Clear My Day overnight is off and an open task was picked for yesterday with the block 10:00–11:00
+- **When** the phone opens Today and the desktop shows the task's row and detail pane
+- **Then** the phone shows the task under Anytime today without a block and offers no Focus, and the desktop row shows no block and the detail pane shows no agenda control
+
+### Requirement: A change to the switch reaches every paired device
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL bring a change to Clear My Day overnight made on one desktop to every paired device on that device's next pull.
+
+#### Scenario: Turning it off on one desktop
+
+- **Given** two paired desktops and a phone, all reading Clear My Day overnight as on
+- **When** the reader turns it off on the first desktop and the other devices pull
+- **Then** the second desktop reads it as off and all three devices list the same My Day
+
+#### Scenario: Two flips between syncs
+
+- **Given** the reader turns the switch off on the first desktop and later turns it on on the second, before either syncs
+- **When** both desktops and the phone sync
+- **Then** every device reads the switch as on, the later choice
+
+### Requirement: A device that never set the switch reads it as on
+
+```meta
+type: requirement
+status: draft
+```
+
+A device that never set Clear My Day overnight SHALL read it as on and send nothing for it.
+
+#### Scenario: A newly paired desktop
+
+- **Given** a desktop has Clear My Day overnight off and a second desktop that never set it is paired
+- **When** the second desktop syncs
+- **Then** the second desktop sends no choice of its own and reads the switch as off afterwards
+
+#### Scenario: A phone before any choice arrives
+
+- **Given** no desktop has ever set Clear My Day overnight and an open task was picked for yesterday
+- **When** the phone opens Today
+- **Then** the task is not in today's My Day
 
 ## Linked tasks
 
@@ -878,94 +1005,3 @@ When the same task was edited on two devices, the system SHALL keep on both the 
 - **Given** a task renamed on the desktop at ten and renamed again on the laptop at eleven
 - **When** both devices have synced
 - **Then** both hold the laptop's copy of the task
-
-## Pairing a device
-
-```meta
-type: requirements
-status: draft
-related: [.devbook/domain/tasks/features.md#pairing-a-device]
-```
-
-> What the sync service promises about pairing codes, credentials and device
-> tokens. The service is the `Backlog.Modules.Sync` module.
-
-### Requirement: A pairing code works for ten minutes
-
-```meta
-type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_code_stops_working_after_ten_minutes, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_code_still_works_a_minute_before_it_expires]
-```
-
-The sync service SHALL refuse a [Pairing code](domain.md#pairing-code) redeemed ten minutes or more after it was issued.
-
-#### Scenario: A code entered too late
-
-- **Given** a pairing code the first device showed eleven minutes ago
-- **When** the person enters it on a second device
-- **Then** the second device is not paired
-
-### Requirement: A pairing code pairs one device
-
-```meta
-type: requirement
-status: draft
-tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_code_pairs_one_device_and_no_more, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DevicePairingEndpointTests.The_same_code_cannot_pair_two_devices]
-```
-
-The sync service SHALL accept a pairing code once and refuse every later redemption of it.
-
-#### Scenario: A code entered twice
-
-- **Given** a pairing code a second device has already redeemed
-- **When** a third device enters the same code
-- **Then** the third device is not paired
-
-### Requirement: The registration credential is shown once
-
-```meta
-type: requirement
-status: draft
-tests: unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.Only_the_hash_of_the_credential_is_stored
-```
-
-The sync service SHALL hand a device its [Registration credential](domain.md#registration-credential) only in the answer to its registration or pairing, and SHALL keep only a hash of it.
-
-#### Scenario: A device registers
-
-- **Given** a device registering with the sync service
-- **When** the service answers
-- **Then** the answer carries the credential, and the service's store holds only its hash
-
-### Requirement: A device token expires
-
-```meta
-type: requirement
-status: draft
-tests: integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.SyncEndpointAuthenticationTests.An_expired_token_is_refused
-```
-
-The sync service SHALL refuse a [Device token](domain.md#device-token) after its lifetime, which is thirty minutes unless the deployment sets it between 15 and 60.
-
-#### Scenario: A token past its lifetime
-
-- **Given** a device token that expired five minutes ago
-- **When** the device calls the sync service with it
-- **Then** the call is refused as unauthorized
-
-### Requirement: Every sync call is scoped to the token's owner
-
-```meta
-type: requirement
-status: draft
-tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.TaskSyncEndpointTests.A_separate_owner_pulls_nothing, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.TaskSyncEndpointTests.A_cursor_minted_for_another_owner_is_refused, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DevicePairingEndpointTests.A_device_only_ever_sees_its_own_owners_captures]
-```
-
-The sync service SHALL answer a call only from the partition of the [Owner](domain.md#owner) its device token names.
-
-#### Scenario: Two unpaired backlogs
-
-- **Given** two devices registered as separate owners, one of which pushed tasks
-- **When** the other device pulls
-- **Then** it receives none of the first owner's tasks

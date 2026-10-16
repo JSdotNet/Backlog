@@ -78,7 +78,7 @@
                FixedWidthRemChanged="rem => _detailWidthRem = rem"
                MinRem="24">
         <Start>
-            <div class="backlog-list" aria-busy="@(State.IsLoading ? "true" : null)">
+            <div class="backlog-list">
                 @* Tags are the second label on an entry that already has one, so the
                    group is built from what people typed and sits in the middle.
                    Status narrows what is already in view, so it sits on the right. *@
@@ -386,6 +386,19 @@
                             <span class="open-work-summary__number">@OpenWork.Open</span><span class="open-work-summary__noun"> open</span><span class="open-work-summary__detail">@OpenWorkTail</span>
                         </AppButton>
                     </div>
+
+                    @* The list refreshing in place over rows it already has — the shell
+                       remounted, Settings and back — says so here, in the header of
+                       the region, and only once the wait is worth a loader: the
+                       spinner is held invisible for its first ~300 ms
+                       (interaction-guidelines.md#scoped-loading, Refresh; #timing). *@
+                    @if (State.IsLoading && State.Rows.Count > 0)
+                    {
+                        <Spinner Size="SpinnerSize.Small"
+                                 Label="Refreshing the tasks"
+                                 CssClass="region-refresh"
+                                 TestId="backlog-refreshing" />
+                    }
                 </div>
 
                 @* Everything below the filter bar scrolls, and the bar does not. The
@@ -395,7 +408,9 @@
                    the scroller now, so the bar stays at the top of the column and
                    the scrollbar starts under it; the bulk bar and the add-entry row
                    stick to this rather than to the half. *@
-                <div class="backlog-list__scroll" data-testid="backlog-list-scroll">
+                <div class="backlog-list__scroll"
+                     data-testid="backlog-list-scroll"
+                     aria-busy="@(State.IsLoading ? "true" : null)">
                     @* Between the filters and the list, and only while the reader is
                        picking. Above the rows rather than floating over them: the bar is
                        about a set the reader assembled out of that column, and a
@@ -429,14 +444,22 @@
                                       @onkeydown="OnSelectionBarKeyDown" />
                     }
 
-                    @if (State.IsLoading)
+                    @if (State.IsLoading && State.Rows.Count == 0)
                     {
                         @* The backlog is still being read. Placeholder rows in the
                            list's shape rather than "Nothing here yet.", which is an
                            answer the pane does not have yet
                            (.devbook/design/interaction-guidelines.md, Loading States).
                            Hidden in one piece, like every skeleton; aria-busy on the
-                           list half says it is on its way. *@
+                           scroller says it is on its way.
+
+                           Only on a first load. A shell that remounts — Settings
+                           and back — reads the backlog again over rows already in
+                           memory, and blanking those to placeholders is a reload
+                           that throws away what was on screen. They stay, dimmed by
+                           the scroller's aria-busy, with a spinner in the filter
+                           bar, until the read lands
+                           (interaction-guidelines.md#scoped-loading, Refresh). *@
                         <div class="backlog-list__loading" data-testid="backlog-loading" aria-hidden="true">
                             @foreach (var width in SkeletonWidths)
                             {
@@ -1537,24 +1560,29 @@
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(TasksFeatures.AdditionalRepositories);
 
-    /// <summary>The repositories an entry may be filed against. Without the
-    /// additional-repositories feature there is only ever the first one.</summary>
+    /// <summary>The repositories an entry may be filed against: the ones the scope
+    /// offers, so an archived repository only while show archived is on. Without the
+    /// additional-repositories feature there is only ever the default one, the
+    /// first active repository (local ADR 0029).</summary>
     private IReadOnlyList<GitHubRepositoryRef> DevbookRepositories
     {
         get
         {
-            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
+            if (AdditionalRepositoriesEnabled) return State.Repositories;
 
-            var repository = GitHub.Repositories.FirstOrDefault();
+            var repository = GitHub.DefaultRepository;
             return repository is null ? [] : [repository];
         }
     }
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
-        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
+        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.DefaultRepository;
 
+    /// <summary>The repository picker's options. An archived one, offered while show
+    /// archived is on, says so in its label: a native list draws no hint.</summary>
     private IReadOnlyList<SelectorOption> RepositoryOptions() =>
-        [.. DevbookRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
+        [.. DevbookRepositories.Select(repository =>
+            new SelectorOption(repository.Alias, ArchivedRepositoryLabel.Of(repository.Alias, repository.Archived)))];
 
     /// <summary>The split's classes, and with nothing selected the modifier that
     /// gives the list the whole width. A class rather than a different component:
@@ -1661,9 +1689,11 @@
             Source: State.LinkedSources.ToTaskSource(row.SourceRef))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence),
-            // Only while the row is in today's My Day, the same test the sun
-            // beside it passes: a slot in yesterday's plan is no slot today.
-            Agenda = IsInMyDay(row) ? FormatAgenda(row.PreviewAgendaTime) : null
+            // Only while the row was put in My Day today: a slot belongs to the
+            // stamp's day, so a slot in yesterday's plan is no slot today, even on
+            // a task Clear My Day overnight being off has carried into today's list
+            // (local ADR 0032, §5).
+            Agenda = IsPlannedForToday(row) ? FormatAgenda(row.PreviewAgendaTime) : null
         })];
 
     /// <summary>
@@ -1787,7 +1817,7 @@
                 @* The same list, the same resolve and the same write the panel's
                    picker uses, so the additional-repositories feature is honoured
                    here by construction rather than by a second reading of it. *@
-                <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                     Options="@RepositoryOptions()"
                                     Label="@($"Change repository of {title}")"
                                     TestId="row-repo-badge"
@@ -1929,6 +1959,8 @@
                                 Prominent="true"
                                 OnSet="OnBulkMyDaySetAsync"
                                 OnClear="OnBulkMyDayClearAsync"
+                                Busy="@(IsBulkRunning(BulkAct.MyDaySet) || IsBulkRunning(BulkAct.MyDayClear))"
+                                Blocked="@(_bulkRunning is not null)"
                                 TestId="bulk-action-myday" />
                 </TaskActionGroup>
 
@@ -1949,6 +1981,7 @@
                         @if (IsBulkGroupOpen(BulkGroup.Filing))
                         {
                             <span class="backlog-bulk__controls"
+                                  @key="_droppedPicks"
                                   id="@BulkGroupControlsId(BulkGroup.Filing)"
                                   @onkeydown:stopPropagation="true">
                                 <RepositorySelector CurrentValue=""
@@ -1974,6 +2007,7 @@
                     @if (IsBulkGroupOpen(BulkGroup.Classification))
                     {
                         <span class="backlog-bulk__controls"
+                              @key="_droppedPicks"
                               id="@BulkGroupControlsId(BulkGroup.Classification)"
                               @onkeydown:stopPropagation="true">
                             @* Slug is handed over empty rather than left to be derived:
@@ -2021,6 +2055,8 @@
                                            Size="ButtonSize.Small"
                                            AriaLabel="Mark the selected tasks as blocked"
                                            TestId="bulk-blocked-set"
+                                           Busy="@IsBulkRunning(BulkAct.BlockedSet)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkBlockedSetAsync">
                                     Mark as blocked
                                 </AppButton>
@@ -2028,6 +2064,8 @@
                                            Size="ButtonSize.Small"
                                            AriaLabel="Unblock the selected tasks"
                                            TestId="bulk-blocked-clear"
+                                           Busy="@IsBulkRunning(BulkAct.BlockedClear)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkBlockedClearAsync">
                                     Unblock
                                 </AppButton>
@@ -2048,6 +2086,7 @@
                     @if (IsBulkGroupOpen(BulkGroup.Scheduling))
                     {
                         <span class="backlog-bulk__controls"
+                              @key="_droppedPicks"
                               id="@BulkGroupControlsId(BulkGroup.Scheduling)"
                               @onkeydown:stopPropagation="true">
                             @* @onchange rather than ValueChanged, for the reason the
@@ -2073,6 +2112,8 @@
                                            Size="ButtonSize.Small"
                                            AriaLabel="Clear the due date of the selected tasks"
                                            TestId="bulk-due-clear"
+                                           Busy="@IsBulkRunning(BulkAct.DueClear)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkDueClearAsync">
                                     Clear due date
                                 </AppButton>
@@ -2090,6 +2131,8 @@
                                            Size="ButtonSize.Small"
                                            AriaLabel="Clear the reminder on the selected tasks"
                                            TestId="bulk-remind-clear"
+                                           Busy="@IsBulkRunning(BulkAct.ReminderClear)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkReminderClearAsync">
                                     Clear reminder
                                 </AppButton>
@@ -2116,6 +2159,7 @@
                     @if (IsBulkGroupOpen(BulkGroup.Tags))
                     {
                         <span class="backlog-bulk__controls"
+                              @key="_droppedPicks"
                               id="@BulkGroupControlsId(BulkGroup.Tags)"
                               @onkeydown:stopPropagation="true">
                             @* Picked first, applied on the button. Unlike every other
@@ -2136,6 +2180,8 @@
                                 <AppButton Size="ButtonSize.Small"
                                            Disabled="@(_bulkTags.Count == 0)"
                                            TestId="bulk-tags-apply"
+                                           Busy="@IsBulkRunning(BulkAct.AddTags)"
+                                           aria-disabled="@BulkBlocked"
                                            OnClick="OnBulkAddTagsAsync">
                                     Add tags
                                 </AppButton>
@@ -2168,6 +2214,8 @@
                                   Label="@($"Delete {State.SelectionCount} {TaskWord(State.SelectionCount)}")"
                                   AriaLabel="@($"Delete the {State.SelectionCount} selected {TaskWord(State.SelectionCount)}")"
                                   TestId="bulk-delete"
+                                  Busy="@IsBulkRunning(BulkAct.Delete)"
+                                  aria-disabled="@BulkBlocked"
                                   OnClick="OnBulkDeleteAsync" />
                 </TaskActionGroup>
             </Groups>
@@ -2313,6 +2361,46 @@
     /// band two lines rather than however many groups a reader has poked.</summary>
     private BulkGroup? _openBulkGroup;
 
+    /// <summary>The bulk acts, so the act a button raises and the act its Busy reads
+    /// are one name rather than two strings that can drift apart. <see cref="Pick"/>
+    /// is any choice from a select or a date field: those show no spinner of their
+    /// own, but they are acts all the same and are blocked like the rest.</summary>
+    private enum BulkAct
+    {
+        Pick,
+        MyDaySet,
+        MyDayClear,
+        BlockedSet,
+        BlockedClear,
+        DueClear,
+        ReminderClear,
+        AddTags,
+        Delete
+    }
+
+    /// <summary>The bulk change being written, or null while none is. Its button
+    /// shows Busy; every other bulk control reads blocked and is ignored.</summary>
+    private BulkAct? _bulkRunning;
+
+    private bool IsBulkRunning(BulkAct act) => _bulkRunning == act;
+
+    /// <summary>
+    /// <c>aria-disabled</c> for every bulk button while a batch is written — the
+    /// running one too, which its Busy says anyway. Not the native <c>disabled</c>:
+    /// a control blocked while busy stays in the tab order
+    /// (interaction-guidelines.md#accessibility, "Tab order").
+    /// </summary>
+    private string? BulkBlocked => _bulkRunning is null ? null : "true";
+
+    /// <summary>
+    /// Counts the picks dropped because a batch was already being written. The
+    /// open group's controls are keyed on it, so a select or a date field whose
+    /// pick was dropped is drawn again showing nothing picked, rather than showing a
+    /// value that was never written (interaction-guidelines.md#press-feedback,
+    /// "No double fire").
+    /// </summary>
+    private int _droppedPicks;
+
     /// <summary>The groups that have controls to open. My Day is not one of them:
     /// it applies on the press, so there is nothing for it to be open
     /// <em>into</em>.</summary>
@@ -2382,13 +2470,13 @@
             ? ApplyBulkAsync(() => State.BulkChangeTypeAsync(type))
             : Task.CompletedTask;
 
-    private Task OnBulkMyDaySetAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(Today));
+    private Task OnBulkMyDaySetAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(Today), act: BulkAct.MyDaySet);
 
-    private Task OnBulkMyDayClearAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(null));
+    private Task OnBulkMyDayClearAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(null), act: BulkAct.MyDayClear);
 
-    private Task OnBulkBlockedSetAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(true, Today));
+    private Task OnBulkBlockedSetAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(true, Today), act: BulkAct.BlockedSet);
 
-    private Task OnBulkBlockedClearAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(false, Today));
+    private Task OnBulkBlockedClearAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(false, Today), act: BulkAct.BlockedClear);
 
     private Task OnBulkDuePickedAsync(ChangeEventArgs e) =>
         DateOnly.TryParseExact(
@@ -2400,7 +2488,7 @@
             ? ApplyBulkAsync(() => State.BulkChangeDueAsync(due))
             : Task.CompletedTask;
 
-    private Task OnBulkDueClearAsync() => ApplyBulkAsync(() => State.BulkChangeDueAsync(null));
+    private Task OnBulkDueClearAsync() => ApplyBulkAsync(() => State.BulkChangeDueAsync(null), act: BulkAct.DueClear);
 
     private Task OnBulkReminderPickedAsync(ChangeEventArgs e) =>
         DateTime.TryParseExact(
@@ -2412,19 +2500,19 @@
             ? ApplyBulkAsync(() => State.BulkChangeReminderAsync(remindAt))
             : Task.CompletedTask;
 
-    private Task OnBulkReminderClearAsync() => ApplyBulkAsync(() => State.BulkChangeReminderAsync(null));
+    private Task OnBulkReminderClearAsync() => ApplyBulkAsync(() => State.BulkChangeReminderAsync(null), act: BulkAct.ReminderClear);
 
     private async Task OnBulkAddTagsAsync()
     {
         var picked = _bulkTags;
 
-        await ApplyBulkAsync(() => State.BulkAddTagsAsync(picked));
+        await ApplyBulkAsync(() => State.BulkAddTagsAsync(picked), act: BulkAct.AddTags);
 
         // Emptied after the write rather than before it, and the reason is that
         // the picked set is what the write is about: the closure above reads it,
         // so clearing first would hand the batch an empty list. Not for the
-        // reader's sake — ApplyBulkAsync closes the group before its first await,
-        // so the chips are off screen either way.
+        // reader's sake — ApplyBulkAsync closes the group once the write is back,
+        // so the chips go off screen with it either way.
         _bulkTags = [];
     }
 
@@ -2434,7 +2522,7 @@
             : ApplyBulkAsync(() => State.BulkRemoveTagAsync(tag));
 
     private Task OnBulkDeleteAsync() =>
-        ApplyBulkAsync(State.BulkDeleteAsync, did: "deleted", none: "No tasks deleted", refused: "could not be deleted");
+        ApplyBulkAsync(State.BulkDeleteAsync, did: "deleted", none: "No tasks deleted", refused: "could not be deleted", act: BulkAct.Delete);
 
     /// <summary>Runs one bulk change and says what it did. Nothing selected says
     /// nothing at all rather than raising a toast about no rows.
@@ -2445,15 +2533,40 @@
         Func<Task<BulkEditOutcome>> change,
         string did = "updated",
         string none = "No tasks changed",
-        string refused = "could not be saved")
+        string refused = "could not be saved",
+        BulkAct act = BulkAct.Pick)
     {
-        // The group that opened these controls has had its answer, so it closes —
-        // the same close-on-commit the detail pane's own date and select handlers
-        // do, and what puts the bar back to one line rather than leaving it on
-        // whatever the reader last touched.
-        _openBulkGroup = null;
+        // One batch at a time: a press — or a pick — while one is being written
+        // is a second press of an act already running, and twenty rows written
+        // twice over is worse than a press that did nothing
+        // (interaction-guidelines.md#press-feedback, "No double fire").
+        if (_bulkRunning is not null)
+        {
+            if (act == BulkAct.Pick) _droppedPicks++;
+            return;
+        }
 
-        var outcome = await change();
+        _bulkRunning = act;
+        var group = _openBulkGroup;
+        BulkEditOutcome outcome;
+        try
+        {
+            outcome = await change();
+        }
+        finally
+        {
+            _bulkRunning = null;
+
+            // The group that opened these controls has had its answer, so it
+            // closes — the same close-on-commit the detail pane's own date and
+            // select handlers do, and what puts the bar back to one line rather
+            // than leaving it on whatever the reader last touched. After the write
+            // rather than before it, so the button pressed stays where it was and
+            // shows its spinner while the rows are written
+            // (interaction-guidelines.md#busy-actions, "Stays in place"); and only
+            // if it is still the open one, since a reader may have opened another.
+            if (_openBulkGroup == group) _openBulkGroup = null;
+        }
 
         if (outcome.Total == 0) return;
 
@@ -3522,7 +3635,7 @@
 
                 @if (DevbookRepositories.Count > 0)
                 {
-                    <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                    <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                         Options="@RepositoryOptions()"
                                         Label="Change repository"
                                         TestId="repo-badge"
@@ -3720,8 +3833,10 @@
                    and borrows My Day's, so outside today's My Day there is nothing
                    for it to be a time of (.devbook/domain/tasks/domain.md#agenda-time).
                    In the lead rather than a group because it is part of the same
-                   morning decision, and it appears only once that decision is made. *@
-                @if (IsInMyDay(row))
+                   morning decision, and it appears only once that decision is made.
+                   Made today: a task carried over from an earlier day is in My Day
+                   with no slot, since its slot was that day's (local ADR 0032, §5). *@
+                @if (IsPlannedForToday(row))
                 {
                     <TaskAction Icon="🕒"
                                 Label="@(row.PreviewAgendaTime is null ? "Set a time" : "Planned for")"
@@ -4144,7 +4259,7 @@
                 {
                     <div class="entry-doc__acceptance">
                         <ScenarioPartChecklist Parts="@ChecklistParts(acceptance)"
-                                               Heading="Acceptance"
+                                               Heading="Acceptance · scenario parts"
                                                ShowProved="true"
                                                OnOpen="@AcceptanceOpener(row)"
                                                TestId="entry-acceptance" />
@@ -4324,15 +4439,19 @@
             _ => null
         };
 
-    /// <summary>The acceptance checklist's rows: part, state, page, last run.</summary>
+    /// <summary>The acceptance checklist's rows: part, state, the page's stem, last
+    /// run and — for a failed part — the step it stopped on. The stem rather than the
+    /// page title: it is the name the run folder, the spec and every screenshot path
+    /// carry, so the row reads the same as the evidence behind it.</summary>
     private static IReadOnlyList<ScenarioChecklistPart> ChecklistParts(ScenarioAcceptance acceptance) =>
         [
             .. acceptance.Parts.Select(part => new ScenarioChecklistPart(
                 part.Title,
                 part.State.ToWire(),
-                part.PageTitle,
-                part.LastRun is { } ranAt ? $"Ran {ranAt.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)}" : null,
-                part.Reference))
+                part.Stem,
+                part.LastRun is { } ranAt ? ranAt.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture) : null,
+                part.Reference,
+                part.FailedStep))
         ];
 
     /// <summary>Opens a checklist part in the Devbook pane, at the part — or
@@ -4534,11 +4653,18 @@
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
-    /// <summary>An entry is in My Day exactly while its stamp is today's local
-    /// date. A stamp from yesterday is not "in My Day yesterday" — it is simply
-    /// not in My Day, which is what lets the list clear itself overnight with no
-    /// timer and nothing to sweep.</summary>
-    private static bool IsInMyDay(EntryRow row) => row.PreviewInMyDayOn == Today;
+    /// <summary>An entry is in My Day while its stamp is today's local date. A
+    /// stamp from yesterday is not "in My Day yesterday" — with Clear My Day
+    /// overnight on, it is simply not in My Day, which is what lets the list clear
+    /// itself overnight with no timer and nothing to sweep. With it off, an
+    /// unfinished task carries over, as does one finished today. The state holds
+    /// the rule and the switch; this is where the clock is.</summary>
+    private bool IsInMyDay(EntryRow row) => State.IsInMyDay(row, Today);
+
+    /// <summary>Whether the entry was put in My Day today rather than carried
+    /// over: the only case that owns an agenda slot, since a slot belongs to the
+    /// stamp's day (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    private static bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
 
     private async Task OnMyDayToggledAsync(EntryRow row)
     {

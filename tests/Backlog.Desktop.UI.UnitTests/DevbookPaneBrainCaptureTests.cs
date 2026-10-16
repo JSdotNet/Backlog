@@ -18,10 +18,10 @@ public sealed class DevbookPaneBrainCaptureTests
         var component = harness.RenderBrain();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-brain-capture']")));
 
-        await component.Find("[data-testid='devbook-brain-capture']").ClickAsync(new());
-        component.Find("[data-testid='devbook-brain-capture-title'] input").Input("Ideas for the sync");
-        component.Find("[data-testid='devbook-brain-capture-body'] textarea").Input("Keep the outbox.");
-        await component.Find("[data-testid='devbook-brain-capture-save']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='devbook-brain-capture']");
+        await component.InputAsync("[data-testid='devbook-brain-capture-title'] input", "Ideas for the sync");
+        await component.InputAsync("[data-testid='devbook-brain-capture-body'] textarea", "Keep the outbox.");
+        await component.ClickAsync("[data-testid='devbook-brain-capture-save']");
 
         var note = Path.Combine(harness.BrainFolder, "_inbox", "ideas-for-the-sync.md");
         component.WaitForAssertion(() =>
@@ -44,13 +44,16 @@ public sealed class DevbookPaneBrainCaptureTests
         var component = harness.RenderBrain();
         component.WaitForElement("[data-testid='devbook-brain-capture']");
 
-        await component.Find("[data-testid='devbook-brain-capture']").ClickAsync(new());
-        component.Find("[data-testid='devbook-brain-capture-title'] input").Input("Odd");
-        component.Find("[data-testid='devbook-brain-capture-body'] textarea").Input("```meta\ntype: secret\n```\n## Not a chapter");
-        await component.Find("[data-testid='devbook-brain-capture-save']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='devbook-brain-capture']");
+        await component.InputAsync("[data-testid='devbook-brain-capture-title'] input", "Odd");
+        await component.InputAsync("[data-testid='devbook-brain-capture-body'] textarea", "```meta\ntype: secret\n```\n## Not a chapter");
+        await component.ClickAsync("[data-testid='devbook-brain-capture-save']");
 
+        // Polled rather than waited for on renders: the file is on disk whether or
+        // not a render follows it.
         var note = Path.Combine(harness.BrainFolder, "_inbox", "odd.md");
-        component.WaitForAssertion(() => Assert.True(File.Exists(note)), TimeSpan.FromSeconds(5));
+        await Polling.WaitUntilAsync(() => Task.FromResult(File.Exists(note)), () => $"{note} was not written.", TimeSpan.FromSeconds(5));
+        Assert.True(File.Exists(note));
         var text = File.ReadAllText(note);
         Assert.Equal(1, text.Split("\n```meta\n").Length - 1);
         Assert.EndsWith("\n\u200B```meta\ntype: secret\n\u200B```\n\u200B## Not a chapter\n", text, StringComparison.Ordinal);
@@ -64,12 +67,12 @@ public sealed class DevbookPaneBrainCaptureTests
         await using var harness = DevbookPaneBrainHarness.Create();
         var component = harness.RenderBrain();
         component.WaitForElement("[data-testid='devbook-brain-capture']");
-        await component.Find("[data-testid='devbook-search-toggle']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='devbook-search-toggle']");
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='devbook-search-toggle']").GetAttribute("aria-expanded")));
 
-        await component.Find("[data-testid='devbook-brain-capture']").ClickAsync(new());
-        component.Find("[data-testid='devbook-brain-capture-title'] input").Input("While searching");
-        await component.Find("[data-testid='devbook-brain-capture-save']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='devbook-brain-capture']");
+        await component.InputAsync("[data-testid='devbook-brain-capture-title'] input", "While searching");
+        await component.ClickAsync("[data-testid='devbook-brain-capture-save']");
 
         component.WaitForAssertion(() =>
         {
@@ -85,10 +88,10 @@ public sealed class DevbookPaneBrainCaptureTests
         var component = harness.RenderBrain();
         component.WaitForElement("[data-testid='devbook-brain-capture']");
 
-        await component.Find("[data-testid='devbook-brain-capture']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='devbook-brain-capture']");
 
         Assert.True(component.Find("[data-testid='devbook-brain-capture-save']").HasAttribute("disabled"));
-        component.Find("[data-testid='devbook-brain-capture-title'] input").Input("Now");
+        await component.InputAsync("[data-testid='devbook-brain-capture-title'] input", "Now");
         Assert.False(component.Find("[data-testid='devbook-brain-capture-save']").HasAttribute("disabled"));
     }
 

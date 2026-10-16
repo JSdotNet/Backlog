@@ -23,8 +23,15 @@
     hand: role="link", tabindex="0", and aria-disabled="true" on the link role,
     where ARIA defines it.
 
-    The button is written last and unchanged. Every existing caller passes no Href
-    and so renders exactly the markup it always did.
+    The button is written last. Every caller that passes no Href renders a button.
+
+    Busy keeps the button out of the native `disabled` state for the same promise
+    (.devbook/design/interaction-guidelines.md#accessibility): `disabled` drops the
+    element from the tab order and takes the focus off it mid-act, so a keyboard
+    reader who pressed Save would land on the body. Busy says aria-disabled
+    instead and the click is ignored here, and preventDefault keeps a busy submit
+    button from submitting its form. Disabled is a standing state and keeps the
+    native attribute.
 *@
 
 @if (Href is not null)
@@ -57,9 +64,11 @@ else
 <button type="@TypeAttribute"
         class="@ClassValue"
         data-testid="@TestId"
-        disabled="@(Disabled || Busy)"
+        disabled="@Disabled"
+        aria-disabled="@(Busy && !Disabled ? "true" : null)"
         aria-busy="@(Busy ? "true" : null)"
-        @onclick="OnClick"
+        @onclick="ClickAsync"
+        @onclick:preventDefault="Busy"
         @onclick:stopPropagation="StopPropagation"
         @attributes="AdditionalAttributes">
     @if (Busy)
@@ -143,6 +152,11 @@ else
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string TypeAttribute => Type is "submit" ? "submit" : "button";
+
+    /// <summary>A press on a busy button is a second press of an act already
+    /// running, so it is dropped rather than raised.</summary>
+    private Task ClickAsync(MouseEventArgs args) =>
+        Busy || Disabled ? Task.CompletedTask : OnClick.InvokeAsync(args);
 
     private string ClassValue
     {
