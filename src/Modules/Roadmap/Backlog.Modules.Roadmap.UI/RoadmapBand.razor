@@ -1049,9 +1049,9 @@
 
     /// <summary>
     /// Answers "Open in Tasks" in the editor: closes the editor and asks the host to show
-    /// the item's plan in the task list, scoped by the bar the editor was opened from —
-    /// one band's part to that repository, a whole-item bar to every configured
-    /// repository the item names (<see cref="RoadmapTasksRequest.For"/>).
+    /// the item's plan in the task list, across every repository — the bar the editor was
+    /// opened from rides along but does not scope the list
+    /// (<see cref="RoadmapTasksRequest.RepositoryAliases"/>).
     /// <para>
     /// Nothing is saved on the way: the editor enables the button only while its fields
     /// hold no unsaved change, so closing it here discards nothing.
@@ -1060,8 +1060,8 @@
     private Task OpenTasksAsync(Guid itemId) =>
         OpenTasksAsync(itemId, RoadmapPlanView.NodeIdOf(_selectedId) == itemId ? _selectedId : null);
 
-    /// <summary>Shows <paramref name="itemId"/>'s plan in the task list, scoped by
-    /// <paramref name="barId"/>, or to the whole item when null.</summary>
+    /// <summary>Shows <paramref name="itemId"/>'s plan in the task list, raised from
+    /// <paramref name="barId"/>, or from the whole item when null.</summary>
     private async Task OpenTasksAsync(Guid itemId, string? barId)
     {
         var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == itemId) ?? _edited;
@@ -1080,8 +1080,8 @@
     /// <summary>
     /// A bar's own action, from the button at its end: the item's plan in Tasks, or the item
     /// completed today — without opening the editor. The action sits on the item's last
-    /// part, but it is the item's: Open in Tasks shows the whole plan, in every configured
-    /// repository the item names, not that one part's share.
+    /// part, but it is the item's: Open in Tasks shows the whole plan, in every
+    /// repository, not that one part's share.
     /// </summary>
     private async Task ActOnBarAsync(string barId)
     {
