@@ -71,6 +71,47 @@ public sealed class MarkdownCommentTests
         Assert.Equal("Before", view.Find(".md-comment__body").TextContent);
     }
 
+    /// <summary>
+    /// A key pressed in a comment's draft is the draft's. The Devbook takes the
+    /// screen and closes on Escape from its surface's <c>&lt;main&gt;</c>; an Escape in
+    /// the draft must not reach it and throw the draft away with the surface. A key
+    /// pressed elsewhere in the view still reaches the host.
+    /// </summary>
+    [Fact]
+    public void A_key_pressed_in_a_comment_draft_does_not_reach_the_host()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var hostHeard = 0;
+
+        var host = context.Render(builder =>
+        {
+            builder.OpenElement(0, "main");
+            builder.AddAttribute(1, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, () => hostHeard++));
+            builder.OpenComponent<MarkdownView>(2);
+            builder.AddComponentParameter(3, nameof(MarkdownView.Blocks), Blocks);
+            builder.AddComponentParameter(4, nameof(MarkdownView.Comments), new MarkdownComment[] { new("c1", 1, "Before") });
+            builder.AddComponentParameter(5, nameof(MarkdownView.OnEditComment), EventCallback.Factory.Create<MarkdownComment>(this, _ => { }));
+            builder.CloseComponent();
+            builder.CloseElement();
+        });
+
+        host.Find("[data-testid='markdown-comment-edit-c1']").Click();
+
+        // The draft handles no key itself, so with the walk ended at its box no
+        // handler hears the key at all — which bUnit reports as having none to call.
+        Assert.Throws<MissingEventHandlerException>(() =>
+            host.Find("textarea").KeyDown(new KeyboardEventArgs { Key = "Escape" }));
+        Assert.Throws<MissingEventHandlerException>(() =>
+            host.Find("[data-testid='markdown-comment-save-c1']").KeyDown(new KeyboardEventArgs { Key = "Escape" }));
+
+        Assert.Equal(0, hostHeard);
+        Assert.NotEmpty(host.FindAll("textarea"));
+
+        host.Find("li").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        Assert.Equal(1, hostHeard);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

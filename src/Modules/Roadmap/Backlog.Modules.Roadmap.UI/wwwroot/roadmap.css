@@ -71,9 +71,11 @@
     font-size: var(--font-size-lg);
 }
 
-/* The Hours switch on the roadmap's toolbar (local ADR 0019, §4): the switch and its
-   one-word name on the toolbar's centre line, at the size of the buttons beside it. */
-.roadmap-band__hours {
+/* The Hours and Completed switches on the roadmap's toolbar (local ADR 0019, §4): the
+   switch and its one-word name on the toolbar's centre line, at the size of the
+   buttons beside it. */
+.roadmap-band__hours,
+.roadmap-band__completed {
     flex: none;
     align-items: center;
 }

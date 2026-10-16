@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Selects;
 
 using Bunit;
 
@@ -198,6 +199,72 @@ public sealed class SettingsDevbookFolderStatusTests
         Assert.Null(Marker(Row(settings.Component, "instructions")));
     }
 
+    // --- The devbook source select beside the sections ------------------------
+
+    /// <summary>
+    /// "Refresh branches" is a request, not a source, so once it has run the
+    /// select has to be rebuilt on the source actually read. With the list already
+    /// in, a refresh moves nothing else the control is keyed on; the load count
+    /// does, so the select is a new one showing the clone, not the request.
+    /// </summary>
+    [Fact]
+    public async Task After_a_refresh_the_source_select_is_rebuilt_on_the_source_read()
+    {
+        using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty, withOverview: true);
+        var overview = settings.TestContext.Services.GetRequiredService<DevbookBranchOverview>();
+        OpenRepositoryCard(settings.Component);
+
+        // The pane has already loaded the list, as it does on opening.
+        await overview.LoadAsync("backlog", TestContext.Current.CancellationToken);
+        settings.Component.Render();
+        var before = SourceSelect(settings.Component);
+
+        settings.Component.Find("[data-testid='repo-devbook-source-select'] select").Change(DevbookSourceSelection.LoadBranchesValue);
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, overview.Generation("backlog"));
+            Assert.NotSame(before, SourceSelect(settings.Component));
+            Assert.Equal(
+                DevbookSourceSelection.LocalFolderValue,
+                settings.Component.Find("[data-testid='repo-devbook-source-select'] select").GetAttribute("value"));
+        });
+    }
+
+    /// <summary>While the refresh runs, its entry leaves the list; the select is
+    /// rebuilt on the source read, so it never falls back to the first entry
+    /// ("Default branch") under a note saying the clone is read.</summary>
+    [Fact]
+    public async Task While_a_refresh_runs_the_source_select_shows_the_source_read()
+    {
+        using var settings = RenderSettings(cloneDirectory: CloneDirectory.Empty, withOverview: true);
+        var overview = settings.TestContext.Services.GetRequiredService<DevbookBranchOverview>();
+        var catalog = (StubBranchCatalog)settings.TestContext.Services.GetRequiredService<IGitHubBranchCatalog>();
+        OpenRepositoryCard(settings.Component);
+        await overview.LoadAsync("backlog", TestContext.Current.CancellationToken);
+        settings.Component.Render();
+        var before = SourceSelect(settings.Component);
+        var gate = new TaskCompletionSource();
+        catalog.Gates[string.Empty] = gate;
+
+        settings.Component.Find("[data-testid='repo-devbook-source-select'] select").Change(DevbookSourceSelection.LoadBranchesValue);
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.True(overview.IsLoading("backlog"));
+            Assert.NotSame(before, SourceSelect(settings.Component));
+            Assert.Equal(
+                DevbookSourceSelection.LocalFolderValue,
+                settings.Component.Find("[data-testid='repo-devbook-source-select'] select").GetAttribute("value"));
+        });
+
+        gate.SetResult();
+        settings.Component.WaitForAssertion(() => Assert.False(overview.IsLoading("backlog")));
+    }
+
+    private static SelectField SourceSelect(IRenderedComponent<Settings> component) =>
+        component.FindComponents<SelectField>().Single(select => select.Instance.TestId == "repo-devbook-source-select").Instance;
+
     private enum CloneDirectory
     {
         None,
@@ -222,7 +289,7 @@ public sealed class SettingsDevbookFolderStatusTests
     /// and for the one with no folder of its own.</summary>
     private static IElement? Marker(IElement row) => row.QuerySelector("[data-testid='devbook-folder-marker']");
 
-    private static SettingsRenderContext RenderSettings(CloneDirectory cloneDirectory, IDevbookSnapshotCache? snapshots = null)
+    private static SettingsRenderContext RenderSettings(CloneDirectory cloneDirectory, IDevbookSnapshotCache? snapshots = null, bool withOverview = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devbook-status-tests", Guid.NewGuid().ToString("n"));
 
@@ -260,9 +327,25 @@ public sealed class SettingsDevbookFolderStatusTests
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new UnreachableGitHub(), new NotConnectedProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
-        context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store, snapshots));
-        context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        if (withOverview)
+        {
+            // Composed as the application composes it, over fakes: the overview
+            // looks at the clone through git, so git is scripted rather than run.
+            var catalog = new StubBranchCatalog { Branches = { "main" }, Heads = { [string.Empty] = new GitHubBranchHead("main", "sha-main") } };
+            context.Services.AddSingleton(githubSettings);
+            context.Services.AddSingleton<ILocalGitRepositoryService>(new ScriptedGitRepositoryService());
+            context.Services.AddSingleton<IGitHubBranchCatalog>(catalog);
+            context.Services.AddSingleton<IGitHubBranchComparison>(new ScriptedBranchComparisons());
+            context.Services.AddSingleton<DevbookBranchComparisons>();
+            context.Services.AddSingleton<DevbookBranchOverview>();
+            context.Services.AddSingleton<DevbookSourceSelection>();
+        }
+        else
+        {
+            context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+            context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
+        }
 
         return new SettingsRenderContext(root, clone, context, context.Render<Settings>());
     }
