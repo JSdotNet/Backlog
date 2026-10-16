@@ -134,8 +134,6 @@ flowchart LR
   to keep. The move is a [hand move](domain.md#roadmap-item), so the item is no
   longer placed by its effort, and every part then draws over its one moved
   window.
-- The filter is built from what an item names rather than from where it was
-  drawn, so the item stays findable under any of its repositories.
 
 ## Gathering an item's work and totalling its effort
 
