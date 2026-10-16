@@ -58,6 +58,10 @@ public sealed class DevbookTools(
     internal const string ResolveAnnotation = "resolve_annotation";
     internal const string CaptureNote = "capture_note";
 
+    /// <summary>The code <c>resolve_annotation</c>'s refusal for an archived
+    /// repository carries (local ADR 0029 §4).</summary>
+    internal const string ArchivedCode = "repository.archived";
+
     /// <summary>The <c>repository</c> parameter every scoped tool here takes,
     /// described once so the four cannot say four things.</summary>
     private const string RepositoryDescription =
@@ -375,7 +379,8 @@ public sealed class DevbookTools(
     [Description(
         "The reader's own private notes on one knowledge chapter — Backlog's remarks, not the devbook `annotation` "
         + "fences in the file. Drafts nobody has typed into and deleted notes are left out. For " + BrainMcpScope.Value
-        + ", the notes on one Brain note. Read-only.")]
+        + ", the notes on one Brain note. `archived` is true when the repository is archived: its devbook is "
+        + "read-only, so write no `annotation` fence into it and do not resolve its notes. Read-only.")]
     public AnnotationsPayload ListAnnotationsOn(
         [Description(RepositoryDescription)]
         string repository,
@@ -406,7 +411,7 @@ public sealed class DevbookTools(
             .Select(Projections.Note)
             .ToList();
 
-        return new AnnotationsPayload(scope.Id, scope.Alias, normalized, notes.Count, notes);
+        return new AnnotationsPayload(scope.Id, scope.Alias, normalized, notes.Count, notes, scope.Archived);
     }
 
     // Not read-only, and one of the two tools here that are not. Idempotent because
@@ -427,7 +432,8 @@ public sealed class DevbookTools(
         + "chapter first, as a devbook `annotation` fence, with the devbook tooling in your own checkout — then call "
         + "this. That order matters: a fence nobody resolved can still be found, while a note resolved without its "
         + "answer written has lost the only record of where the answer is. Resolving a note that is already resolved "
-        + "changes nothing. A note left on a Brain note is resolved under " + BrainMcpScope.Value + ".")]
+        + "changes nothing. A note left on a Brain note is resolved under " + BrainMcpScope.Value + ". Refused for an "
+        + "archived repository, whose devbook is read-only.")]
     public ChapterNotePayload ResolveAnnotationFor(
         [Description(RepositoryDescription)]
         string repository,
@@ -435,6 +441,18 @@ public sealed class DevbookTools(
         Guid note)
     {
         var scope = ScopeOf(repository);
+
+        // Local ADR 0029 §4: an archived repository's devbook is read-only, so no
+        // fence answering a note can have been written there — and resolving a
+        // note with no answer written loses the only record of the remark. Asked
+        // before the note, so the refusal is the same whichever id was sent.
+        if (scope.Archived)
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                ArchivedCode,
+                $"{scope.Id} is archived, so its devbook is read-only and its notes are not resolved. "
+                + "Unarchive it in Backlog's Settings first."));
+        }
 
         if (annotations.Find(note) is not { IsLive: true } existing)
         {
@@ -533,15 +551,15 @@ public sealed class DevbookTools(
     /// The scope a call names, as the id its answer carries and the alias the
     /// note store keys by: <see cref="BrainMcpScope.Value"/> and
     /// <see cref="BrainScope.Value"/> for the Brain, matched before the
-    /// directory is asked, else the repository the directory resolves — or the
-    /// refusal it gives.
+    /// directory is asked, else the repository the directory resolves, with
+    /// whether it is archived — or the refusal it gives.
     /// </summary>
-    private (string Id, string Alias) ScopeOf(string repository)
+    private (string Id, string Alias, bool Archived) ScopeOf(string repository)
     {
-        if (BrainMcpScope.Is(repository)) return (BrainMcpScope.Value, BrainScope.Value);
+        if (BrainMcpScope.Is(repository)) return (BrainMcpScope.Value, BrainScope.Value, false);
 
         var resolved = RepositoryScope.Resolve(repositories, repository, acceptsBrain: true).ValueOrThrow();
 
-        return (resolved.Id, resolved.Alias);
+        return (resolved.Id, resolved.Alias, resolved.IsArchived);
     }
 }

@@ -93,6 +93,14 @@ public static class RoadmapItemParts
 
         if (placement is PartsPlacement.Stored) return Stored(item, bands, ordered, bandsOfTask, paces);
 
+        // Completed by hand: no task says where the work ran, so it is drawn where it was
+        // planned, every part of it finished.
+        if (placement is PartsPlacement.WhereItRan && ordered.Count == 0)
+        {
+            var kept = Stored(item, bands, ordered, bandsOfTask, paces);
+            return kept with { Placement = PartsPlacement.WhereItRan, Parts = [.. kept.Parts.Select(part => part with { Ran = true })] };
+        }
+
         var segments = Segments(ordered, bandsOfTask);
         var placed = new List<RoadmapItemPart>();
 
@@ -132,14 +140,16 @@ public static class RoadmapItemParts
     }
 
     /// <summary>
-    /// How the item's parts are placed: over the stored window when nothing was gathered or
-    /// there is no today to place from; where the work ran once it is all done; from the
-    /// work once some of it has begun; by effort while the import still sizes the window;
-    /// otherwise — a due date or a person placed it — over the stored window.
+    /// How the item's parts are placed: finished when no task carries it and a person
+    /// completed it (<see cref="RoadmapItemCompletion"/>), over the stored window when
+    /// nothing else was gathered or there is no today to place from; where the work ran once
+    /// it is all done; from the work once some of it has begun; by effort while the import
+    /// still sizes the window; otherwise — a due date or a person placed it — over the
+    /// stored window.
     /// </summary>
     private static PartsPlacement PlacementOf(RoadmapItemDto item, List<RoadmapGatheredLink> ordered, DateOnly? today)
     {
-        if (ordered.Count == 0) return PartsPlacement.Stored;
+        if (ordered.Count == 0) return item.CompletedOn is null ? PartsPlacement.Stored : PartsPlacement.WhereItRan;
         if (ordered.All(link => link.IsDone)) return PartsPlacement.WhereItRan;
         if (today is null) return PartsPlacement.Stored;
         if (ordered.Any(IsBegun)) return PartsPlacement.FromWork;
@@ -399,7 +409,8 @@ public enum PartsPlacement
     /// it ran.</summary>
     FromWork,
 
-    /// <summary>Finished: each part where its work ran.</summary>
+    /// <summary>Finished: each part where its work ran — or, for an item no task carries
+    /// that a person completed, each part over the window it was planned in.</summary>
     WhereItRan
 }
 

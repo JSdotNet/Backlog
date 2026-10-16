@@ -485,6 +485,59 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ACompletionDaySurvivesTheRoundTrip_UnderAnExplicitKey()
+    {
+        var plan = RoadmapPlan.Empty();
+        var completed = plan.AddItem("Completed", Window(5, 9)).Value;
+        plan.AddItem("Open", Window(5, 9));
+        plan.CompleteItem(completed.Id, new DateOnly(2026, 3, 12));
+
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
+        var json = await StoredDocumentAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
+
+        // Written once, for the completed item only, as a plain day: an open item costs no
+        // key. The key is persisted and synced, so its spelling is pinned here.
+        Assert.NotNull(json);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(json, "\"completedOn\":\"2026-03-12\""));
+        Assert.Equal([new DateOnly(2026, 3, 12), (DateOnly?)null], loaded.Items.Select(item => item.CompletedOn));
+    }
+
+    [Fact]
+    public async Task AReopenedItemWritesNoCompletionKey()
+    {
+        var plan = RoadmapPlan.Empty();
+        var item = plan.AddItem("Reopened", Window(5, 9)).Value;
+        plan.CompleteItem(item.Id, new DateOnly(2026, 3, 12));
+        plan.ReopenItem(item.Id);
+
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
+        var json = await StoredDocumentAsync();
+
+        Assert.NotNull(json);
+        Assert.DoesNotContain("completedOn", json, StringComparison.Ordinal);
+        Assert.Null(Assert.Single((await _plans.LoadAsync(TestContext.Current.CancellationToken)).Items).CompletedOn);
+    }
+
+    [Fact]
+    public async Task AnItemStoredBeforeItemsCouldBeCompleted_ReadsAsOpen()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            version = 1,
+            items = new[]
+            {
+                new { id = Guid.NewGuid().ToString(), title = "Older", start = "2026-01-05", end = "2026-01-09" }
+            }
+        });
+        await StoreDocumentAsync(json);
+
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(Assert.Single(loaded.Items).CompletedOn);
+    }
+
+    [Fact]
     public async Task EverySaveStampsAnInstantThatSurvivesTheRoundTrip_AndTheNextSaveMovesItOn()
     {
         var plan = RoadmapPlan.Empty();

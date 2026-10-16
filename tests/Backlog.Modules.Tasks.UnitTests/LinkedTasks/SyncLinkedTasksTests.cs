@@ -1354,6 +1354,61 @@ public sealed class SyncLinkedTasksTests
         Assert.Equal(0, _tasks.Writes);
     }
 
+    // --- A target whose repository is archived (local ADR 0029 §5) -----------------
+
+    /// <summary>The pause is derived from the repository, never written: the target
+    /// keeps its switch, gains no failure, and nothing is fetched or saved.</summary>
+    [Fact]
+    public async Task A_target_whose_repository_is_archived_is_paused_with_no_fetch_and_nothing_written()
+    {
+        _connector.Capabilities = new(TargetIsRepository: true);
+        _connector.Items.Add(Item("I_1"));
+        var registry = new FakeRepositoryDirectory([new TasksRepositoryRef("backlog", "JSdotNet", "Backlog") { IsArchived = true }]);
+
+        var result = await Handler(repositories: registry)
+            .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SyncLinkedTasksCommandHandler.RepositoryArchived, result.Error);
+        Assert.Empty(_connector.Fetches);
+        Assert.Equal(0, _tasks.Writes);
+        Assert.Equal(0, _targets.Updates);
+        var target = _targets.Get(StubTaskConnector.Id, Repo)!;
+        Assert.True(target.Enabled);
+        Assert.Null(target.LastSyncError);
+        Assert.Null(target.LastSyncedAt);
+    }
+
+    /// <summary>A product filed under a repository pauses with that repository too:
+    /// its tasks would land in a repository the person retired.</summary>
+    [Fact]
+    public async Task A_target_filed_under_an_archived_repository_is_paused()
+    {
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo) { RepositoryId = "JSdotNet/Docs" });
+        var registry = new FakeRepositoryDirectory([new TasksRepositoryRef("docs", "JSdotNet", "Docs") { IsArchived = true }]);
+
+        var result = await Handler(repositories: registry)
+            .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SyncLinkedTasksCommandHandler.RepositoryArchived, result.Error);
+        Assert.Empty(_connector.Fetches);
+    }
+
+    [Fact]
+    public async Task Unarchiving_the_repository_resumes_the_sync()
+    {
+        _connector.Capabilities = new(TargetIsRepository: true);
+        _connector.Items.Add(Item("I_1"));
+        var registry = new FakeRepositoryDirectory([new TasksRepositoryRef("backlog", "JSdotNet", "Backlog") { IsArchived = true }]);
+        await Handler(repositories: registry)
+            .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+
+        registry.SetArchived("JSdotNet/Backlog", archived: false);
+        var summary = await SyncAsync(repositories: registry);
+
+        Assert.Equal(1, summary.Created);
+        Assert.Single(_connector.Fetches);
+    }
+
     // --- Quiet syncs and other devices ---------------------------------------------
 
     [Fact]

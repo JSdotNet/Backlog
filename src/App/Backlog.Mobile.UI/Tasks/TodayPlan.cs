@@ -39,7 +39,20 @@ public sealed record TodayPlan(
     /// current and never next: it stays in Agenda until it is ticked.
     /// </para>
     /// </summary>
-    public static TodayPlan For(IEnumerable<TaskViewRow> day, TimeOnly now)
+    public static TodayPlan For(IEnumerable<TaskViewRow> day, TimeOnly now) =>
+        Group(day, row => row.AgendaTime, now);
+
+    /// <summary>
+    /// Groups <paramref name="day"/> as <see cref="For(IEnumerable{TaskViewRow}, TimeOnly)"/>
+    /// does, reading each row's slot on <paramref name="today"/>: a task carried over
+    /// from an earlier day with Clear My Day overnight off has none
+    /// (<see cref="TaskViewRow.AgendaTimeOn"/>), so it lands in Anytime today and is
+    /// never the card (.devbook/arc42/adr/0032, Verification 7).
+    /// </summary>
+    public static TodayPlan For(IEnumerable<TaskViewRow> day, DateOnly today, TimeOnly now) =>
+        Group(day, row => row.AgendaTimeOn(today), now);
+
+    private static TodayPlan Group(IEnumerable<TaskViewRow> day, Func<TaskViewRow, AgendaTime?> slotOf, TimeOnly now)
     {
         ArgumentNullException.ThrowIfNull(day);
 
@@ -48,8 +61,9 @@ public sealed record TodayPlan(
         var open = rows.Where(row => !IsTicked(row)).ToList();
 
         var timed = open
-            .Where(row => row.AgendaTime is not null)
-            .Select((row, order) => (Row: row, Time: row.AgendaTime!, Order: order))
+            .Select(row => (Row: row, Time: slotOf(row)))
+            .Where(entry => entry.Time is not null)
+            .Select((entry, order) => (entry.Row, Time: entry.Time!, Order: order))
             .OrderBy(entry => entry.Time.Start)
             .ThenBy(entry => entry.Order)
             .ToList();
@@ -68,7 +82,7 @@ public sealed record TodayPlan(
         return new TodayPlan(
             card,
             [.. timed.Where(entry => entry.Row.Id != card?.Task.Id).Select(entry => entry.Row)],
-            [.. open.Where(row => row.AgendaTime is null)],
+            [.. open.Where(row => slotOf(row) is null)],
             done);
     }
 

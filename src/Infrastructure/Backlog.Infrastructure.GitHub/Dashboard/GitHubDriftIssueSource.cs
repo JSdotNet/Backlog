@@ -58,6 +58,9 @@ internal sealed class GitHubDriftIssueSource(IGitHubClient client, GitHubSetting
         {
             if (settings.Current.Find(repository.Alias) is not { } reference) continue;
 
+            // Not read from GitHub, and so no failure either (local ADR 0029).
+            if (reference.Archived) continue;
+
             GitHubIssueSearchRead search;
             try
             {

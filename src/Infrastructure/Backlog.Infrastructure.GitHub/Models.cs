@@ -247,6 +247,19 @@ public sealed record GitHubOpenPullRequest(
         };
 }
 
+/// <summary>
+/// GitHub's own word on a repository: live, archived on GitHub, or not found
+/// (deleted, renamed away, or invisible to the credential). Read only to suggest
+/// Archive on the repository's row in Settings — it never archives anything, which
+/// stays the person's choice (local ADR 0029).
+/// </summary>
+public enum GitHubRepositoryState
+{
+    Active,
+    Archived,
+    NotFound,
+}
+
 /// <summary>One repository whose open pull requests could not be read, in the
 /// sentence GitHub or the transport refused with.</summary>
 public sealed record GitHubRepositoryFailure(string RepositoryFullName, string Message);

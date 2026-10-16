@@ -46,12 +46,19 @@ namespace Backlog.UI.Components.Roadmap;
 /// knows what "carried out" means; say it in <paramref name="Detail"/> as well,
 /// because the outline is not something a screen reader hears.</param>
 /// <param name="Overdue">Whether the bar's window has passed while its work is still
-/// open. Drawn in the warning tone with a marker after the title, over whatever else
-/// the bar is — a tentative bar keeps its outline. Only the caller knows what "open"
+/// open. An alert: drawn with an outline round the whole bar and a marker after the
+/// title, both in the error tone, over whatever else the bar is — a tentative bar keeps
+/// its hatching. Only the caller knows what "open"
 /// and "today" mean, so the library holds no status of its own; and as with
 /// <paramref name="Tentative"/>, say it in <paramref name="Detail"/> too, because the
 /// marker is hidden from a screen reader — as its first line, which the tooltip puts
 /// straight after the dates, ahead of the progress figures.</param>
+/// <param name="Done">Whether the bar's work is over. Drawn in the done tone with a tick
+/// after the title. As with the other states, say it in <paramref name="Detail"/> too:
+/// the tick is hidden from a screen reader.</param>
+/// <param name="Action">The one thing the bar offers to be done to it in place, or null
+/// for none. Drawn only while the timeline listens for it
+/// (<c>RoadmapTimeline.OnBarAction</c>).</param>
 public sealed record RoadmapBar(
     string Id,
     string RowId,
@@ -65,7 +72,9 @@ public sealed record RoadmapBar(
     IReadOnlyList<RoadmapStep>? Steps = null,
     bool EndResizable = false,
     bool Tentative = false,
-    bool Overdue = false)
+    bool Overdue = false,
+    bool Done = false,
+    RoadmapBarAction? Action = null)
 {
     public IReadOnlyList<RoadmapFacet> FacetList => Facets ?? [];
 

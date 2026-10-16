@@ -19,7 +19,10 @@ namespace Backlog.Modules.Roadmap.UI;
 /// that decided its own would be a second answer to the same question. See
 /// <c>.devbook/design/color-scheme.md#band-identity-tokens</c>.
 /// </para></param>
-public sealed record PlannedRepository(string Alias, string Title, int? Colour = null);
+/// <param name="Archived">The repository is archived (local ADR 0029): still configured,
+/// so its work never falls under No repository and its pace is still read, but its band
+/// is drawn greyed with only its finished work unless show archived is on.</param>
+public sealed record PlannedRepository(string Alias, string Title, int? Colour = null, bool Archived = false);
 
 /// <summary>
 /// What a plan's work in flight is forecast against: the day it is, and the pace each
@@ -31,16 +34,75 @@ public sealed record PlannedRepository(string Alias, string Title, int? Colour =
 /// left in an item is divided by — the same pace its window was placed at.</param>
 public sealed record RoadmapForecast(DateOnly Today, PacesInUseDto Paces);
 
-/// <summary>Everything <c>RoadmapTimeline</c> needs, in the four shapes it takes.</summary>
+/// <summary>Everything <c>RoadmapTimeline</c> needs, in the four shapes it takes, and what
+/// each item offers beside its bars.</summary>
+/// <param name="ItemStates">Whether tasks carry each item and whether a person completed it,
+/// by item id; empty when the plan was read without its gathered work, because then neither
+/// can be answered.</param>
 public sealed record RoadmapTimelineModel(
     IReadOnlyList<RoadmapGroup> Groups,
     IReadOnlyList<RoadmapBar> Bars,
     IReadOnlyList<RoadmapMilestone> Milestones,
-    IReadOnlyList<RoadmapLink> Links)
+    IReadOnlyList<RoadmapLink> Links,
+    IReadOnlyDictionary<Guid, RoadmapItemState>? ItemStates = null)
 {
     public static RoadmapTimelineModel Empty { get; } = new([], [], [], []);
 
     public bool HasAnythingToDraw => Groups.Count > 0;
+
+    /// <summary>What the item behind a bar offers - any of its parts answers for the whole
+    /// item - or <c>null</c> for a bar the view did not build, a milestone, or a plan read
+    /// without its gathered work.</summary>
+    public RoadmapItemState? StateOf(string? barId) =>
+        RoadmapPlanView.NodeIdOf(barId) is { } id && ItemStates is not null && ItemStates.TryGetValue(id, out var state)
+            ? state
+            : null;
+
+    /// <summary>The parts of an archived repository taken off the chart while show
+    /// archived is off (local ADR 0029). Never drawn; kept so an item is still measured
+    /// over all of its parts.</summary>
+    public IReadOnlyList<RoadmapBar> HiddenBars { get; init; } = [];
+
+    /// <summary>What an item's window is measured over when one of its bars is dragged
+    /// (<see cref="RoadmapPlanView.ItemWindowFor"/>, <see cref="RoadmapPlanView.PinnedEndFor"/>):
+    /// the drawn bars and the hidden ones, so whether show archived is on never changes
+    /// what a drag stores.</summary>
+    public IEnumerable<RoadmapBar> MeasuredBars => Bars.Concat(HiddenBars);
+}
+
+/// <summary>What a person may do to a roadmap item from its bar.</summary>
+public enum RoadmapItemAction
+{
+    /// <summary>Nothing: a task-less item already completed. Reopening it is left to the
+    /// editor.</summary>
+    None,
+
+    /// <summary>Show the tasks that carry it, in Tasks.</summary>
+    OpenInTasks,
+
+    /// <summary>Complete it by hand: no task carries it, so nothing else will.</summary>
+    Complete
+}
+
+/// <summary>
+/// Whether tasks carry a roadmap item and whether a person completed it by hand - what decides
+/// the actions it offers, on its bar and in its editor (<see cref="RoadmapItemCompletion"/>).
+/// </summary>
+/// <param name="HasTasks">It gathered at least one backlog entry. A knowledge chapter is no
+/// task.</param>
+/// <param name="CompletedOn">The day a person completed it, read only while no task carries
+/// it; <c>null</c> while it is open, and always once tasks carry it.</param>
+public sealed record RoadmapItemState(bool HasTasks, DateOnly? CompletedOn)
+{
+    /// <summary>A person completed it and no task outranks that.</summary>
+    public bool IsCompletedByHand => !HasTasks && CompletedOn is not null;
+
+    /// <summary>The one action its bar offers: Open in Tasks while tasks carry it, Complete
+    /// while nothing does and nobody completed it, and nothing once somebody has.</summary>
+    public RoadmapItemAction BarAction =>
+        HasTasks ? RoadmapItemAction.OpenInTasks
+        : IsCompletedByHand ? RoadmapItemAction.None
+        : RoadmapItemAction.Complete;
 }
 
 /// <summary>
@@ -89,6 +151,12 @@ public static class RoadmapPlanView
 
     public const string MilestoneGroupTitle = "Dates";
 
+    /// <summary>The day the roadmap's weeks start on. One value for the timeline
+    /// <c>RoadmapBand</c> draws and for the window this view measures an archived band's
+    /// past against (<see cref="WithoutHiddenArchivedWork"/>), so the two cannot rule
+    /// different weeks.</summary>
+    public const DayOfWeek WeekStart = DayOfWeek.Monday;
+
     private const string MilestoneRowId = "milestones::all";
 
     /// <param name="plan">The stored plan.</param>
@@ -101,6 +169,9 @@ public static class RoadmapPlanView
     /// keep-up projection does (<see cref="Layouts"/>): work sized by its effort part by
     /// part from today, work in flight from the work itself. Left unset, only finished
     /// items are drawn from their work and everything else where it was planned.</param>
+    /// <param name="showArchived">Show archived is on, on this device: an archived
+    /// repository's band is drawn whole, open work included. Off, it holds only its
+    /// finished work in the drawn window (<see cref="WithoutHiddenArchivedWork"/>).</param>
     /// <param name="hideFinished">Leave out every item whose work is all done — the
     /// roadmap's Completed switch turned off. Hidden before anything is stacked, so the
     /// lanes close up, and an arrow to a hidden item goes with it.</param>
@@ -109,6 +180,7 @@ public static class RoadmapPlanView
         IReadOnlyList<PlannedRepository>? repositories,
         IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups = null,
         RoadmapForecast? forecast = null,
+        bool showArchived = false,
         bool hideFinished = false)
     {
         if (plan is null || plan.IsEmpty) return RoadmapTimelineModel.Empty;
@@ -135,7 +207,7 @@ public static class RoadmapPlanView
             .Where(entry => !hideFinished || entry.Layout.Placement is not PartsPlacement.WhereItRan)
             .OrderBy(entry => entry.Layout.Start)
             .ThenBy(entry => entry.Item.Title, StringComparer.CurrentCulture)
-            .SelectMany(entry => PartsOf(entry.Item, entry.Layout))
+            .SelectMany(entry => PartsOf(entry.Item, entry.Layout, rollups?.GetValueOrDefault(entry.Item.Id)))
             // Again by start once split, so a part late in its item's window is
             // stacked after work that begins before it — first-fit needs the order.
             .OrderBy(part => part.Start)
@@ -148,6 +220,22 @@ public static class RoadmapPlanView
             .ThenBy(milestone => milestone.Title, StringComparer.CurrentCulture)
             .ToList();
 
+        // Before anything is stacked, so a hidden part takes no row and leaves no bar or
+        // arrow behind it.
+        // The hidden parts are still measured: a drag on an item's visible part moves the
+        // item over all of its parts (MeasuredBars), and the visible parts say how many
+        // of the item's parts are not drawn.
+        List<ItemPart> hidden = [];
+        if (!showArchived)
+        {
+            var kept = WithoutHiddenArchivedWork(items, configured, milestones, forecast);
+            var keptIds = kept.Select(part => part.BarId).ToHashSet(StringComparer.Ordinal);
+            hidden = [.. items.Where(part => !keptIds.Contains(part.BarId))];
+
+            var hiddenOf = hidden.GroupBy(part => part.Item.Id).ToDictionary(group => group.Key, group => group.Count());
+            items = [.. kept.Select(part => hiddenOf.TryGetValue(part.Item.Id, out var count) ? part with { HiddenParts = count } : part)];
+        }
+
         var stacked = Stack(items);
         var groups = BuildGroups(items, stacked.Rows, milestones.Count > 0, configured);
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
@@ -158,7 +246,9 @@ public static class RoadmapPlanView
                 stacked.RowOf[part.BarId],
                 contradicting,
                 configured,
-                HasNoTask(part.Item, rollups),
+                // A task-less item a person completed is done, not intent: it is not drawn
+                // as untouched work.
+                HasNoTask(part.Item, rollups) && part.DrawnFrom?.CompletedOn is null,
                 IsOverdue(part, forecast)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
@@ -185,7 +275,86 @@ public static class RoadmapPlanView
             .SelectMany(part => (part.WaitsForParts ?? []).Select(before => new RoadmapLink(before, part.BarId)))
             .Where(link => bars.Any(bar => bar.Id == link.FromId));
 
-        return new RoadmapTimelineModel(groups, bars, markers, [.. Links(plan, placed, segmented), .. handOvers]);
+        return new RoadmapTimelineModel(groups, bars, markers, [.. Links(plan, placed, segmented), .. handOvers], States(plan, rollups))
+        {
+            HiddenBars = [.. hidden.Select(part => new RoadmapBar(part.BarId, string.Empty, part.Item.Title, part.Start, part.End))]
+        };
+    }
+
+    /// <summary>
+    /// What <paramref name="item"/> offers, given what it gathered: whether tasks carry it,
+    /// and the day a person completed it while none does (<see cref="RoadmapItemCompletion"/>).
+    /// For the editor, which reads one item and its rollup rather than the whole plan.
+    /// </summary>
+    public static RoadmapItemState StateOf(RoadmapItemDto item, RoadmapItemRollupDto? rollup)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return new RoadmapItemState(
+            RoadmapItemCompletion.HasTasks(rollup),
+            RoadmapItemCompletion.IsCompletedByHand(item, rollup) ? item.CompletedOn : null);
+    }
+
+    /// <summary>
+    /// <paramref name="view"/> with each item's action on its bar (<see cref="RoadmapItemState.BarAction"/>):
+    /// Open in Tasks while tasks carry it and the host can show them, Complete while nothing
+    /// carries it and nobody completed it, and nothing otherwise.
+    /// <para>
+    /// On one bar per item, the one that ends last — the action sits at the bar's end, and
+    /// the end of the item's work is where finishing it is read. Two parts ending together
+    /// give it to the later in the chart. Every other part is left without, so an item
+    /// split over three bands is not three buttons for one act.
+    /// </para>
+    /// </summary>
+    /// <param name="canOpenTasks">Whether the host can show an item's plan in the task list.
+    /// Without it, an item tasks carry offers nothing on its bar.</param>
+    public static RoadmapTimelineModel WithActions(RoadmapTimelineModel view, bool canOpenTasks)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+
+        var carriers = view.Bars
+            .Select((bar, index) => (Bar: bar, Index: index, Node: NodeIdOf(bar.Id)))
+            .Where(entry => entry.Node is not null)
+            .GroupBy(entry => entry.Node!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(entry => entry.Bar.End).ThenBy(entry => entry.Index).Last().Bar.Id);
+
+        List<RoadmapBar> bars =
+        [
+            .. view.Bars.Select(bar =>
+            {
+                if (NodeIdOf(bar.Id) is not { } node || carriers[node] != bar.Id) return bar;
+
+                var action = view.StateOf(bar.Id)?.BarAction switch
+                {
+                    RoadmapItemAction.OpenInTasks when canOpenTasks =>
+                        new RoadmapBarAction(RoadmapBarActionKind.Open, $"Open {bar.Title} in Tasks"),
+                    RoadmapItemAction.Complete =>
+                        new RoadmapBarAction(RoadmapBarActionKind.Complete, $"Complete {bar.Title}"),
+                    _ => null
+                };
+
+                return action is null ? bar : bar with { Action = action };
+            })
+        ];
+
+        return view with { Bars = bars };
+    }
+
+    /// <summary>Every item's state, by id - none when the plan was read without its gathered
+    /// work, because whether tasks carry an item is then unknown and claiming either answer
+    /// would offer the wrong action.</summary>
+    private static Dictionary<Guid, RoadmapItemState> States(
+        RoadmapPlanDto plan,
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups)
+    {
+        var states = new Dictionary<Guid, RoadmapItemState>();
+        if (rollups is null) return states;
+
+        foreach (var item in plan.Items) states.TryAdd(item.Id, StateOf(item, rollups.GetValueOrDefault(item.Id)));
+
+        return states;
     }
 
     /// <summary>What separates an item's id from its band in the id of one of its
@@ -283,6 +452,62 @@ public static class RoadmapPlanView
         return layouts;
     }
 
+    /// <summary>
+    /// The parts with an archived repository's hidden work taken out, while show archived
+    /// is off (local ADR 0029): its open work, and its finished work outside the window
+    /// the timeline draws. Taken out, never re-homed — an archived repository is still
+    /// configured, so none of its work was ever filed under No repository, and a part of
+    /// an item filed in an active repository as well stays in that repository's band.
+    /// <para>
+    /// "In view" is the timeline's whole drawn window, as the rest of the plan makes it:
+    /// the window <see cref="RoadmapWindow.Graduated"/> rules around today over every
+    /// other part and the milestones, which is what <c>RoadmapBand</c> has the timeline
+    /// draw. The archived band's own past is left out of it, or it would stretch the
+    /// window back to itself and always be in view. Without a forecast there is no today,
+    /// so the window is the quarters the rest of the plan covers; with nothing else on the
+    /// plan, nothing bounds it and every finished part stays.
+    /// </para>
+    /// <para>
+    /// Finished is the item's finished work drawn where it ran, or a part whose own tasks
+    /// have all run in an item still in flight — both history of that repository.
+    /// </para>
+    /// </summary>
+    private static List<ItemPart> WithoutHiddenArchivedWork(
+        List<ItemPart> parts,
+        List<PlannedRepository> configured,
+        IReadOnlyList<RoadmapMilestoneDto> milestones,
+        RoadmapForecast? forecast)
+    {
+        var archived = configured
+            .Where(repository => repository.Archived)
+            .Select(repository => repository.Alias)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (archived.Count == 0) return parts;
+
+        bool Archived(ItemPart part) => archived.Contains(part.GroupId);
+
+        List<DateOnly> drawnElsewhere =
+        [
+            .. parts.Where(part => !Archived(part)).SelectMany(part => new[] { part.Start, part.End }),
+            .. milestones.Select(milestone => milestone.On)
+        ];
+
+        // The rule RoadmapTimeline draws its window by when it is Graduated and handed no
+        // Window, as RoadmapBand draws it, over the week RoadmapBand hands it (WeekStart).
+        var window = forecast is not null
+            ? RoadmapWindow.Graduated(drawnElsewhere, forecast.Today, WeekStart)
+            : drawnElsewhere.Count > 0 ? RoadmapWindow.Covering(drawnElsewhere, drawnElsewhere[0]) : null;
+
+        return
+        [
+            .. parts.Where(part =>
+                !Archived(part)
+                || (part.DrawnFrom is { Finished: true } or { Ran: true }
+                    && (window is null || (part.Start <= window.End && part.End >= window.Start))))
+        ];
+    }
+
     /// <summary>The paces handed to a layout placed from no day, which never divides by
     /// one.</summary>
     private static readonly PacesInUseDto NoPace = new(0m, new Dictionary<string, decimal>());
@@ -312,10 +537,13 @@ public static class RoadmapPlanView
     /// business, drawn in its steps.
     /// </para>
     /// </summary>
-    private static IEnumerable<ItemPart> PartsOf(RoadmapItemDto item, RoadmapItemLayout layout)
+    private static IEnumerable<ItemPart> PartsOf(RoadmapItemDto item, RoadmapItemLayout layout, RoadmapItemRollupDto? rollup)
     {
         var parts = layout.Parts;
         var finished = layout.Placement is PartsPlacement.WhereItRan;
+
+        // Finished by a person's hand rather than by tasks: drawn where it was planned.
+        var completedByHand = finished && RoadmapItemCompletion.IsCompletedByHand(item, rollup) ? item.CompletedOn : null;
         var inFlight = layout.Placement is PartsPlacement.FromWork;
 
         string GroupOf(RoadmapItemPart part) => part.Band ?? NoRepositoryGroupId;
@@ -348,7 +576,7 @@ public static class RoadmapPlanView
                 layout.HandsOver,
                 waitsFor,
                 finished
-                    ? new DrawnFrom(Finished: true)
+                    ? new DrawnFrom(Finished: true, CompletedOn: completedByHand)
                     : inFlight
                         ? new DrawnFrom(Finished: false, Ran: part.Ran, Pinned: Pinned(item, part), part.Forecast, part.Pace, Begun: part.Begun, Empty: part.Empty)
                         : null);
@@ -445,7 +673,12 @@ public static class RoadmapPlanView
         DateOnly End,
         bool IsSegment,
         IReadOnlyList<string> WaitsForParts,
-        DrawnFrom? DrawnFrom);
+        DrawnFrom? DrawnFrom)
+    {
+        /// <summary>How many of the item's parts are in an archived repository and not
+        /// drawn (<see cref="WithoutHiddenArchivedWork"/>).</summary>
+        public int HiddenParts { get; init; }
+    }
 
     private static List<PlannedRepository> Configured(IReadOnlyList<PlannedRepository>? repositories) =>
         [.. (repositories ?? [])
@@ -560,8 +793,8 @@ public static class RoadmapPlanView
         // chose and the one the plan stores; the full name is still what the
         // Repository filter offers, where there is room for it.
         var order = configured
-            .Select(repository => (Id: repository.Alias, Title: repository.Alias, repository.Colour))
-            .Append((Id: NoRepositoryGroupId, Title: NoRepositoryGroupTitle, Colour: (int?)null));
+            .Select(repository => (Id: repository.Alias, Title: repository.Alias, repository.Colour, repository.Archived))
+            .Append((Id: NoRepositoryGroupId, Title: NoRepositoryGroupTitle, Colour: (int?)null, Archived: false));
 
         var bands = new List<RoadmapGroup>();
 
@@ -575,7 +808,7 @@ public static class RoadmapPlanView
                 [new RoadmapRow(MilestoneRowId, "Milestones", RoadmapRowKind.Milestones)]));
         }
 
-        foreach (var (id, title, hue) in order)
+        foreach (var (id, title, hue, archived) in order)
         {
             var lanes = items
                 .Where(entry => entry.GroupId == id)
@@ -609,7 +842,9 @@ public static class RoadmapPlanView
             // repository, the default pace.
             // The no-repository band is told apart by being last and colourless, so it
             // shows no name; its title still names it to a screen reader.
-            bands.Add(new RoadmapGroup(id, title, rows, BandColour(hue), PaceRows, Unnamed: id == NoRepositoryGroupId));
+            // An archived repository's band is marked, so the timeline draws it greyed and
+            // tagged; it reached here only with work left to draw in it.
+            bands.Add(new RoadmapGroup(id, title, rows, BandColour(hue), PaceRows, Unnamed: id == NoRepositoryGroupId, Archived: archived));
         }
 
         return bands;
@@ -661,7 +896,7 @@ public static class RoadmapPlanView
             part.End,
             Shade(part.Item.Priority),
             Facets(part.Item, part.Aliases, configured),
-            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, part.DrawnFrom, noTask, overdue ? part.End : null),
+            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, part.DrawnFrom, noTask, overdue ? part.End : null, part.HiddenParts),
             Locked: part.DrawnFrom is not null,
             Steps: part.Steps,
             // Work in flight has a start that is a fact and an end that is a forecast, so
@@ -670,7 +905,10 @@ public static class RoadmapPlanView
             // drawn where its work ran is history, and stays put.
             EndResizable: part.DrawnFrom is { Finished: false, Ran: false },
             Tentative: noTask,
-            Overdue: overdue);
+            Overdue: overdue,
+            // Only a whole item that is over: a part that ran inside work still in flight
+            // is history, but the item it belongs to is not done.
+            Done: part.DrawnFrom is { Finished: true });
 
     /// <summary>
     /// Whether a part's drawn window has passed with its work still open: it ended before
@@ -743,6 +981,8 @@ public static class RoadmapPlanView
     /// what it waits on, and is not drawn from work that began in another part.</param>
     /// <param name="Empty">A repository the item names that holds none of its tasks, drawn
     /// over the window the other parts make.</param>
+    /// <param name="CompletedOn">The day a person completed an item no task carries: finished,
+    /// and drawn where it was planned, because no task says where the work ran.</param>
     private sealed record DrawnFrom(
         bool Finished,
         bool Ran = false,
@@ -750,7 +990,8 @@ public static class RoadmapPlanView
         DateOnly? Forecast = null,
         decimal? Pace = null,
         bool Begun = false,
-        bool Empty = false);
+        bool Empty = false,
+        DateOnly? CompletedOn = null);
 
     /// <summary>
     /// The item's gathered tasks as the steps drawn inside its bar (ADR 0013,
@@ -861,7 +1102,8 @@ public static class RoadmapPlanView
         bool segment = false,
         DrawnFrom? drawnFrom = null,
         bool noTask = false,
-        DateOnly? overdueSince = null)
+        DateOnly? overdueSince = null,
+        int hiddenParts = 0)
     {
         var parts = new List<string>();
 
@@ -885,6 +1127,9 @@ public static class RoadmapPlanView
             // make this one in progress (features.md#forecasting-work-in-flight).
             parts.Add(drawnFrom switch
             {
+                { CompletedOn: { } completed } => string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Completed {completed:d MMM yyyy}, drawn where it was planned"),
                 { Finished: true } or { Ran: true } => "finished, drawn where the work ran",
                 { Begun: true, Pinned: true } => "in progress, drawn from when the work began to the end you pinned",
                 { Begun: true } => "in progress, drawn from when the work began to when what is left should be done",
@@ -906,9 +1151,12 @@ public static class RoadmapPlanView
         // Said in words, because the other parts sit in bands a reader may not reach.
         if (partCount > 1)
         {
+            // Said, because a part in an archived repository is taken off the chart while
+            // show archived is off, and nothing else says where it went.
+            var notDrawn = hiddenParts > 0 ? $", {hiddenParts} in an archived repository and not drawn" : null;
             parts.Add(segment
-                ? $"one of {partCount} parts, handed over between repositories"
-                : $"one of {partCount} repository parts");
+                ? $"one of {partCount} parts, handed over between repositories{notDrawn}"
+                : $"one of {partCount} repository parts{notDrawn}");
         }
 
         if (item.DependsOn.Count > 0)

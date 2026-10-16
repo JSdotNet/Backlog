@@ -122,6 +122,12 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         return await inner.RenameRepositoryAsync(oldId, newId, cancellationToken);
     }
 
+    public async Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default)
+    {
+        _writingHere.Value = true;
+        return await inner.RefileRepositoryTasksAsync(repositoryId, moveToId, drop, cancellationToken);
+    }
+
     public async Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,
         string? defaultRepo = null,

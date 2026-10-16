@@ -29,8 +29,7 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
     private const string RegistrationFailed = "repositories.registration_failed";
 
     public IReadOnlyList<TasksRepositoryRef> Repositories =>
-        [.. settings.Current.Repositories.Select(repository =>
-            new TasksRepositoryRef(repository.Alias, repository.Owner, repository.Name))];
+        [.. settings.Current.Repositories.Select(ToTasks)];
 
     /// <summary>
     /// <see cref="GitHubSettings.Find"/>'s rule, asked of the store itself: a
@@ -49,7 +48,7 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
     public TasksRepositoryRef? Resolve(string name)
     {
         var match = Find(name);
-        return match is null ? null : new TasksRepositoryRef(match.Alias, match.Owner, match.Name);
+        return match is null ? null : ToTasks(match);
     }
 
     public Result<TasksRepositoryRef> Register(string name)
@@ -104,8 +103,13 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
             return new Error(RegistrationFailed, error);
         }
 
-        return new TasksRepositoryRef(registered.Alias, registered.Owner, registered.Name);
+        return ToTasks(registered);
     }
+
+    /// <summary>A configured repository in Tasks' terms, its archived flag included
+    /// (local ADR 0029).</summary>
+    private static TasksRepositoryRef ToTasks(GitHubRepositoryRef repository) =>
+        new(repository.Alias, repository.Owner, repository.Name) { IsArchived = repository.Archived };
 
     public bool WasRemoved(string id) => settings.Current.WasRemoved(id);
 

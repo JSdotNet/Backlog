@@ -1,3 +1,5 @@
+using Backlog.Modules.Tasks.Abstractions.Services;
+
 namespace Backlog.Modules.Tasks.Abstractions.Connectors;
 
 /// <summary>
@@ -112,6 +114,27 @@ public sealed record ConnectedTarget(string ConnectorId, string Target, bool Ena
     /// <paramref name="sourceStateName"/>, or null when it gives none.</summary>
     public EntryStatus? MappedStatusOf(string? sourceStateName) =>
         _statusMap.Find(sourceStateName);
+
+    /// <summary>The repository this target's tasks are filed under, as named rather
+    /// than resolved: <see cref="RepositoryId"/> when set, else the target itself
+    /// when its connector's targets are repositories, else null.</summary>
+    /// <param name="targetIsRepository">The connector's
+    /// <see cref="TaskConnectorCapabilities.TargetIsRepository"/>.</param>
+    public string? FilesUnder(bool targetIsRepository) =>
+        RepositoryId ?? (targetIsRepository ? Target.Trim() : null);
+
+    /// <summary>
+    /// The repository <see cref="FilesUnder"/> names, when the registry knows it and
+    /// it is archived; null otherwise. A target with one is paused: the sync, its
+    /// timer and its card's Sync now all read this, so the pause is derived on every
+    /// read and never written — <see cref="Enabled"/> keeps what the person set, and
+    /// Unarchive resumes the sync with nothing to undo (local ADR 0029 §5).
+    /// </summary>
+    public TasksRepositoryRef? ArchivedRepository(bool targetIsRepository, IRepositoryDirectory? repositories) =>
+        repositories is not null && FilesUnder(targetIsRepository) is { } named
+            && repositories.Resolve(named) is { IsArchived: true } repository
+            ? repository
+            : null;
 
     /// <summary>Whether this is the target named by the pair. Connector ids are
     /// compared exactly; targets without regard to case, because a repository
