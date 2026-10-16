@@ -14,7 +14,7 @@ namespace Backlog.Modules.Roadmap.Abstractions;
 /// envelope, and it stays the import's. Every other item is handed back as stored — a due
 /// date or a window a person placed is theirs, finished work is history, and an item that
 /// gathers nothing has no effort to read — and its stored end still holds back what waits on
-/// it.
+/// it, unless a person completed it by hand: then the day it was done does.
 /// </para>
 /// <para>
 /// One rule for the writer that stores the moved windows and for every reader that draws or
@@ -87,11 +87,15 @@ public static class RoadmapProjection
             // A wait on something not laid out yet — gone from the plan, or the item a
             // circle was released at — is no floor.
             var floor = StartAfter(item.DependsOn.Where(closes.ContainsKey).Select(id => closes[id]), today);
-            var (read, layout) = One(item, rollups.GetValueOrDefault(item.Id), paces, today, floor, bandOf);
+            var rollup = rollups.GetValueOrDefault(item.Id);
+            var (read, layout) = One(item, rollup, paces, today, floor, bandOf);
 
             projected[item.Id] = read;
             layouts[item.Id] = layout;
-            closes[item.Id] = read.End;
+
+            // An item completed by hand closed on the day it was done, which says more about
+            // when what waits on it may start than the window it was planned in.
+            closes[item.Id] = RoadmapItemCompletion.IsCompletedByHand(item, rollup) ? item.CompletedOn!.Value : read.End;
         }
 
         return new RoadmapPlanLayout([.. items.Select(item => projected[item.Id])], layouts);

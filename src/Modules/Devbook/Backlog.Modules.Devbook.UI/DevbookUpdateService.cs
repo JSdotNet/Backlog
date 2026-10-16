@@ -62,8 +62,20 @@ public sealed class DevbookUpdateService(
     /// latest?" is worth asking, because nothing about a snapshot tells you the
     /// branch has moved.
     /// </para>
+    /// <para>
+    /// An archived repository has none either (local ADR 0029 §4): its devbook is
+    /// read as it is, so there is no "bring the clone up to date" offer and no
+    /// check that would reach git or GitHub for it.
+    /// </para>
     /// </summary>
-    public bool CanCheck(string? repositoryAlias) => Repository(repositoryAlias) is not null;
+    public bool CanCheck(string? repositoryAlias) => Updatable(repositoryAlias) is not null;
+
+    /// <summary>The repository a check or pull may go to: <see cref="Repository"/>
+    /// unless it is archived. Kept apart from <see cref="Repository"/>, which the
+    /// pane also asks where the folder lives — still true of an archived
+    /// clone.</summary>
+    private GitHubRepositoryRef? Updatable(string? repositoryAlias) =>
+        Repository(repositoryAlias) is { Archived: false } repository ? repository : null;
 
     /// <summary>The repository whose clone or branch carries this scope's
     /// knowledge, or null when the scope has neither behind it.</summary>
@@ -85,7 +97,7 @@ public sealed class DevbookUpdateService(
     /// </summary>
     public async Task<DevbookUpdateState> CheckAsync(string? repositoryAlias, CancellationToken cancellationToken = default)
     {
-        var repository = Repository(repositoryAlias);
+        var repository = Updatable(repositoryAlias);
         if (repository is null) return DevbookUpdateState.NotApplicable;
 
         if (repository.DevbookSource is DevbookSourceKind.Branch)
@@ -118,7 +130,7 @@ public sealed class DevbookUpdateService(
     /// </summary>
     public async Task<DevbookUpdateState> PullAsync(string? repositoryAlias, CancellationToken cancellationToken = default)
     {
-        var repository = Repository(repositoryAlias);
+        var repository = Updatable(repositoryAlias);
         if (repository is null) return DevbookUpdateState.NotApplicable;
 
         if (repository.DevbookSource is DevbookSourceKind.Branch)

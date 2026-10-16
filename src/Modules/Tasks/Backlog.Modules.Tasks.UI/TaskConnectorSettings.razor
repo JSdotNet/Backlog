@@ -336,11 +336,28 @@
             : !string.IsNullOrWhiteSpace(_target));
 
     /// <summary>The chosen connector's choices, less the targets of it already
-    /// connected — compared the way a target is, without regard to case.</summary>
+    /// connected — compared the way a target is, without regard to case. Where the
+    /// target is a repository, an archived one is offered only while show archived
+    /// is on, and then says so (local ADR 0029, §3), as every repository picker does.</summary>
     private IReadOnlyList<SelectorOption> AvailableChoices =>
         [.. (_choices?.Choices ?? [])
             .Where(choice => Targets?.Get(_connectorId, choice.Target) is null)
-            .Select(choice => new SelectorOption(choice.Target, choice.Name))];
+            .Select(choice => (Choice: choice, Archived: IsArchivedRepositoryTarget(choice.Target)))
+            .Where(offered => !offered.Archived || ShowArchived)
+            .Select(offered => new SelectorOption(
+                offered.Choice.Target,
+                global::Backlog.SharedKernel.ArchivedRepositoryLabel.Of(offered.Choice.Name, offered.Archived)))];
+
+    /// <summary>Whether a target of the chosen connector names an archived repository
+    /// in the registry: only for a connector whose target is a repository.</summary>
+    private bool IsArchivedRepositoryTarget(string target) =>
+        Sources.TargetIsRepository(_connectorId)
+        && RepositoryDirectory?.Resolve(target) is { IsArchived: true };
+
+    /// <summary>Whether this device shows archived repositories; false in a host that
+    /// keeps no such switch.</summary>
+    private bool ShowArchived =>
+        Services.GetService<global::Backlog.SharedKernel.IShowArchivedRepositories>()?.Shown == true;
 
     private static string KeyOf(ConnectedTarget target) => $"{target.ConnectorId}/{target.Target}";
 
@@ -658,23 +675,54 @@
             LastSyncError = target.LastSyncError,
             LastSyncFailed = target.LastSyncFailedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
             RepositoryId = target.RepositoryId,
-            RepositoryChoices = RepositoryChoices,
+            RepositoryChoices = RepositoryChoicesFor(target),
             TargetIsRepository = Sources.TargetIsRepository(target.ConnectorId),
+            PausedReason = PausedReasonOf(target),
             StatusRows = StatusRowsOf(target),
             StatusChoices = StatusChoices,
         };
+
+    /// <summary>The card's line for a switched-on target whose repository is
+    /// archived, or null: the sync's own rule (ConnectedTarget.ArchivedRepository),
+    /// read on every render so Unarchive clears it with nothing stored (local ADR
+    /// 0029 §5). A switched-off target already says why it is not syncing - its
+    /// switch - so it gets no second reason.</summary>
+    private string? PausedReasonOf(ConnectedTarget target) =>
+        target.Enabled
+        && target.ArchivedRepository(Sources.TargetIsRepository(target.ConnectorId), RepositoryDirectory) is { } repository
+            ? $"Paused while {repository.Id} is archived."
+            : null;
 
     /// <summary>Where the registry's repositories come from, or null in a host that
     /// keeps none.</summary>
     private IRepositoryDirectory? RepositoryDirectory => Services.GetService<IRepositoryDirectory>();
 
-    /// <summary>The registry's repositories, stored by <c>owner/name</c> and named by
-    /// the alias every other picker reads.</summary>
-    private IReadOnlyList<SelectorOption> RepositoryChoices =>
-        [.. (RepositoryDirectory?.Repositories ?? [])
-            .Select(repository => new SelectorOption(
-                repository.Id,
-                string.IsNullOrWhiteSpace(repository.Alias) ? repository.Id : repository.Alias))];
+    /// <summary>
+    /// The registry's repositories a target may be filed under, stored by
+    /// <c>owner/name</c> and named by the alias every other picker reads. An archived
+    /// one is offered only while show archived is on (local ADR 0029, §3), and then says
+    /// so; the one the target is already filed under is always offered, so the card
+    /// never shows it filed nowhere.
+    /// </summary>
+    private IReadOnlyList<SelectorOption> RepositoryChoicesFor(ConnectedTarget target)
+    {
+        var shown = ShowArchived;
+        var stored = target.RepositoryId?.Trim();
+
+        return
+        [
+            .. (RepositoryDirectory?.Repositories ?? [])
+                .Where(repository =>
+                    !repository.IsArchived
+                    || shown
+                    || string.Equals(repository.Id, stored, StringComparison.OrdinalIgnoreCase))
+                .Select(repository => new SelectorOption(
+                    repository.Id,
+                    global::Backlog.SharedKernel.ArchivedRepositoryLabel.Of(
+                        string.IsNullOrWhiteSpace(repository.Alias) ? repository.Id : repository.Alias,
+                        repository.IsArchived)))
+        ];
+    }
 
     /// <summary>The task statuses a source status may be mapped to, stored by the
     /// status's name.</summary>

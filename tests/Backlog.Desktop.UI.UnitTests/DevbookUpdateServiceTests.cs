@@ -37,6 +37,33 @@ public sealed class DevbookUpdateServiceTests : IDisposable
         Assert.False(harness.Service.CanCheck("not-a-repository"));
     }
 
+    /// <summary>No "bring the clone up to date" offer for an archived repository
+    /// (local ADR 0029 §4): it cannot be checked, and a check or pull asked anyway
+    /// reaches neither git nor GitHub. Unarchive offers it again.</summary>
+    [Fact]
+    public async Task An_archived_repositorys_clone_is_not_offered_an_update_until_it_is_unarchived()
+    {
+        var harness = CreateHarness(alongside: "JSdotNet/Other");
+        Assert.Null(harness.Settings.SetRepositoryArchived(harness.Alias, archived: true));
+
+        Assert.False(harness.Service.CanCheck(harness.Alias));
+
+        var check = await harness.Service.CheckAsync(harness.Alias, TestContext.Current.CancellationToken);
+        var pull = await harness.Service.PullAsync(harness.Alias, TestContext.Current.CancellationToken);
+
+        Assert.Equal(DevbookUpdateAvailability.NotApplicable, check.Availability);
+        Assert.Equal(DevbookUpdateAvailability.NotApplicable, pull.Availability);
+        Assert.Equal(0, harness.Git.ChecksRequested);
+        Assert.Equal(0, harness.Git.PullsRequested);
+
+        // The repository itself is still found: the pane's "open the folder"
+        // affordance asks for it, and a clone stays a clone while archived.
+        Assert.NotNull(harness.Service.Repository(harness.Alias));
+
+        Assert.Null(harness.Settings.SetRepositoryArchived(harness.Alias, archived: false));
+        Assert.True(harness.Service.CanCheck(harness.Alias));
+    }
+
     [Fact]
     public async Task Checking_a_scope_with_no_clone_behind_it_asks_git_nothing()
     {
@@ -254,19 +281,22 @@ public sealed class DevbookUpdateServiceTests : IDisposable
         Assert.Equal(classes.Length, classes.Distinct(StringComparer.Ordinal).Count());
     }
 
-    private Harness CreateHarness(string? cloneDirectory = "clone", bool withOverview = false)
+    /// <param name="alongside">A second repository configured after the one
+    /// under test, for a test that archives it: one repository must stay
+    /// active.</param>
+    private Harness CreateHarness(string? cloneDirectory = "clone", bool withOverview = false, string? alongside = null)
     {
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(_root, "github", Guid.NewGuid().ToString("n"), "github.json"));
-        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        var (repositories, errors) = GitHubSettings.ParseText(alongside is null ? "JSdotNet/Backlog" : $"JSdotNet/Backlog\n{alongside}");
         Assert.Empty(errors);
 
         var resolvedClone = cloneDirectory is null ? null : Path.Combine(_root, cloneDirectory);
-        var repository = Assert.Single(repositories) with
+        var repository = repositories[0] with
         {
             CloneDirectory = resolvedClone,
             DevbookFolders = DevbookFolderSetting.Defaults()
         };
-        Assert.Null(gitHubSettings.SetRepositories([repository]));
+        Assert.Null(gitHubSettings.SetRepositories([repository, .. repositories.Skip(1)]));
 
         var git = new ScriptedGitRepositoryService();
         var folders = new AnnouncementCountingFolderSource();
@@ -287,6 +317,7 @@ public sealed class DevbookUpdateServiceTests : IDisposable
             folders,
             repository.Alias,
             resolvedClone,
+            gitHubSettings,
             overview);
     }
 
@@ -296,6 +327,7 @@ public sealed class DevbookUpdateServiceTests : IDisposable
         AnnouncementCountingFolderSource Folders,
         string Alias,
         string? CloneDirectory,
+        GitHubSettingsStore Settings,
         DevbookBranchOverview? Overview = null);
 
     public void Dispose()

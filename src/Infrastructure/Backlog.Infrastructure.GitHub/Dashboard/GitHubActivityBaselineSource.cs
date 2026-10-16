@@ -61,6 +61,9 @@ internal sealed class GitHubActivityBaselineSource(
         var byAuthor = repositories
             .Select(repository => current.Find(repository.Alias))
             .OfType<GitHubRepositoryRef>()
+
+            // An archived repository is not read from GitHub (local ADR 0029).
+            .Where(reference => !reference.Archived)
             .GroupBy(
                 reference => GitHubActivitySource.AuthorOf(current, reference, login),
                 StringComparer.OrdinalIgnoreCase)

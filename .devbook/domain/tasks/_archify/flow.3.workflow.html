@@ -5063,20 +5063,21 @@
 
         <!-- Edge paths -->
         <path data-edge-from="status-check" data-edge-to="readiness-done" data-edge-label="yes" data-edge-key="0" data-edge-id="status-yes" data-composition-points="220,145;220,166;88,166;88,217" d="M 220 145 L 220 166 L 88 166 L 88 217" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="status-check" data-edge-to="depends-check" data-edge-label="no" data-edge-key="1" data-edge-id="status-no" data-composition-points="280,119;335,119" d="M 280 119 L 335 119" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="status-check" data-edge-to="depends-check" data-edge-label="no" data-edge-key="1" data-edge-id="status-no" data-composition-points="295,119;335,119" d="M 295 119 L 335 119" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="depends-check" data-edge-to="readiness-ready" data-edge-label="yes" data-edge-key="2" data-edge-id="depends-yes" data-composition-points="423,145;423,166;500,166;500,217" d="M 423 145 L 423 166 L 500 166 L 500 217" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="depends-check" data-edge-to="readiness-blocked" data-edge-label="no, or an id resolves to nothing" data-edge-key="3" data-edge-id="depends-no" data-composition-points="437,145;437,166;625,166;625,217" d="M 437 145 L 437 166 L 625 166 L 625 217" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.4" marker-end="url(#arrowhead)"/>
 
         <!-- Nodes -->
-        <g id="node-status-check" data-node-id="status-check" data-node-label="Status is done?" tabindex="0" role="button" aria-label="Focus Status is done?, Derived on every read" aria-pressed="false" data-node-kind="security" data-node-context="Derived on every read">
-          <title>Status is done? · Derived on every read</title>
-          <rect x="160" y="93" width="120" height="52" rx="6" class="c-mask"/>
-          <rect x="160" y="93" width="120" height="52" rx="6" class="c-security" data-animate="node" style="--step:0" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(166 99) scale(0.6875)">
+        <g id="node-status-check" data-node-id="status-check" data-node-label="Ticked off?" tabindex="0" role="button" aria-label="Focus Ticked off?, completed, Derived on every read" aria-pressed="false" data-node-kind="security" data-node-sublabel="completed" data-node-context="Derived on every read">
+          <title>Ticked off? · completed · Derived on every read</title>
+          <rect x="145" y="93" width="150" height="52" rx="6" class="c-mask"/>
+          <rect x="145" y="93" width="150" height="52" rx="6" class="c-security" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(151 99) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" x="220" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Status is done?</text>
+          <text data-node-label="" data-detail-anchor="" x="220" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Ticked off?</text>
+          <text data-detail="context" x="220" y="131" class="t-muted" font-size="8" text-anchor="middle">completed</text>
         </g>
 
         <g id="node-depends-check" data-node-id="depends-check" data-node-label="All depends_on resolved?" tabindex="0" role="button" aria-label="Focus All depends_on resolved?, every id resolves to a completed entry, Derived on every read" aria-pressed="false" data-node-kind="security" data-node-sublabel="every id resolves to a completed entry" data-node-context="Derived on every read">
@@ -5131,8 +5132,8 @@
           <text x="154" y="156" class="t-muted" font-size="8" text-anchor="middle">yes</text>
         </g>
         <g data-detail="context" data-edge-from="status-check" data-edge-to="depends-check" data-edge-label="no" data-edge-key="1" data-edge-id="status-no">
-          <rect x="292.5" y="99" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="307.5" y="109" class="t-muted" font-size="8" text-anchor="middle">no</text>
+          <rect x="300" y="99" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="315" y="109" class="t-muted" font-size="8" text-anchor="middle">no</text>
         </g>
         <g data-detail="context" data-edge-from="depends-check" data-edge-to="readiness-ready" data-edge-label="yes" data-edge-key="2" data-edge-id="depends-yes">
           <rect x="446.5" y="146" width="30" height="14" rx="3" class="c-mask"/>
@@ -5360,12 +5361,12 @@
       <div class="card">
         <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Orthogonal to Task Status</h3>
+          <h3>The tick, not the status</h3>
         </div>
         <ul>
-          <li>&bull; Status is the recorded lifecycle state; readiness is a conclusion about starting</li>
-          <li>&bull; They share only done, and a recorded done wins over the derivation</li>
-          <li>&bull; An entry somebody marked done is done even if something it named is outstanding</li>
+          <li>&bull; The first question is the tick, completed, not Task Status</li>
+          <li>&bull; Readiness done is the tick, not the status of the same name</li>
+          <li>&bull; A ticked task reads done even if something it names is outstanding</li>
         </ul>
       </div>
 

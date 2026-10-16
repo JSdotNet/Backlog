@@ -29,6 +29,12 @@ public static class RoadmapErrors
             "roadmap.node_not_found",
             $"There is nothing in this plan with id {nodeId}, so nothing can depend on it.");
 
+    /// <summary>Work cannot be done on a day that has not come yet.</summary>
+    public static Error CompletedInFuture(DateOnly on) =>
+        Error.Validation(
+            "roadmap.completed_in_future",
+            $"Work cannot be completed on {on:d MMM yyyy}: that day has not come yet.");
+
     public static Error SelfDependency() =>
         Error.Validation("roadmap.self_dependency", "Something cannot wait for itself.");
 

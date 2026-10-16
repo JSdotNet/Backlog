@@ -185,6 +185,17 @@ public interface IGitHubClient
         CancellationToken cancellationToken = default) =>
         Task.FromException<GitHubIssueSearchRead>(new GitHubException("This GitHub client cannot list issues."));
 
+    /// <summary>
+    /// Whether GitHub reports the repository archived — <c>GET repos/{owner}/{name}</c>,
+    /// its <c>archived</c> field — or cannot find it (a 404). Any other refusal is
+    /// thrown, because it says nothing about the repository. A default body for the
+    /// reason <see cref="GetPullRequestAsync"/> has one.
+    /// </summary>
+    Task<GitHubRepositoryState> GetRepositoryStateAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<GitHubRepositoryState>(new GitHubException("This GitHub client cannot read a repository."));
+
     /// <summary>Takes a draft out of draft — GitHub's "Ready for review".</summary>
     /// <param name="pullRequestId">The pull request's GraphQL node id, from
     /// <see cref="ListOpenPullRequestsAsync"/>.</param>
@@ -328,6 +339,32 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         return new GitHubIssueSnapshot(issue, pullRequests, DateTimeOffset.UtcNow);
+    }
+
+    public async Task<GitHubRepositoryState> GetRepositoryStateAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        try
+        {
+            var response = await transport.SendAsync(
+                HttpMethod.Get,
+                $"repos/{repository.Owner}/{repository.Name}",
+                body: null,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            return response.ValueKind == JsonValueKind.Object
+                && response.TryGetProperty("archived", out var archived)
+                && archived.ValueKind == JsonValueKind.True
+                    ? GitHubRepositoryState.Archived
+                    : GitHubRepositoryState.Active;
+        }
+        catch (GitHubException ex) when (ex.IsNotFound)
+        {
+            return GitHubRepositoryState.NotFound;
+        }
     }
 
     public async Task<GitHubPullRequest> GetPullRequestAsync(
