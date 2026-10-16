@@ -85,8 +85,10 @@ the app reads it both ways from there:
   beside more than one backlog.
 - **From the task.** A task row, in the Brain scope and in a repository scope,
   carries a teal **◆ n note** badge counting the Brain notes that name it. With one
-  note, pressing it opens that note in the Devbook pane, Brain side; with several,
-  it lists them to pick from.
+  note, pressing it gives the Devbook the screen on the Brain side, at that note;
+  with several, it lists them to pick from. Where the Devbook is switched off or
+  has no Brain to read, the press shows a *not available* toast and opens
+  nothing.
 
 The reverse is read, never written: a task's record carries no note, and the badge
 is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so
@@ -107,7 +109,7 @@ the scope works for a person who has configured none.
 
 Brain is the scope of everything filed against no repository. Pressed alone, it
 narrows Tasks, Board, Calendar, In progress, the Dashboard and Sessions to the
-tasks with no repository. It also opens the Brain in the Devbook pane. Pull
+tasks with no repository. It also shows the Brain when the Devbook is opened. Pull
 requests and the Roadmap read Brain alone as nothing pressed: every pull request
 belongs to a repository, and the Roadmap reads one anchor. Ctrl adds it to the repositories already pressed, and nothing pressed still
 means everything.
@@ -117,7 +119,10 @@ The Tasks filter bar has no *No repo* chip: Brain is the one name for those rows
 With the Brain and repositories pressed together, each row's repository badge
 says where the task is filed: **Brain** for no repository, else the alias.
 Until a Brain folder is set up, the chip reads **Set up your Brain**, still
-scopes the tasks, and its tooltip points to Settings › Storage.
+scopes the tasks, and its tooltip points to Settings › Storage. The Devbook on the
+Brain side then shows a **Set up your Brain** button instead of areas. It opens
+Settings › Storage at the Brain folder card, inside the app rather than in the
+system browser.
 
 ## Brain folder setup
 
