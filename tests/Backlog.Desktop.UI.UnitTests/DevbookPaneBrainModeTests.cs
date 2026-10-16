@@ -114,7 +114,7 @@ public sealed class DevbookPaneBrainModeTests
     [Fact]
     public async Task The_repository_only_chrome_is_absent_and_its_services_are_not_asked()
     {
-        await using var harness = DevbookPaneBrainHarness.Create();
+        await using var harness = DevbookPaneBrainHarness.Create(branchOverview: true);
         GiveTheRepositoryItsChrome(harness);
         harness.WriteNote(BrainConventions.FileName, TwoAreas);
         harness.WriteNote("work/standup.md", "# Standup\n\nToday.\n");
@@ -134,6 +134,13 @@ public sealed class DevbookPaneBrainModeTests
         Assert.Empty(component.FindComponents<DevbookSyncVerdictBadges>());
         Assert.Empty(component.FindAll("[data-testid='devbook-open-vscode-button']"));
         Assert.Equal(0, harness.RepositoryFolders.Calls);
+
+        // No branch overview either: a Brain has no branches to list. A load once
+        // started reads as loading at once, so its absence is not a race.
+        var overview = harness.Context.Services.GetRequiredService<DevbookBranchOverview>();
+        Assert.False(overview.IsLoading(harness.RepositoryAlias));
+        Assert.Null(overview.Current(harness.RepositoryAlias));
+        Assert.Equal(0, harness.Catalog.HeadListings);
     }
 
     /// <summary>The control for the test above: the same harness, the same

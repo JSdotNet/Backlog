@@ -413,12 +413,17 @@ public sealed record ChapterDemoPayload(
 public sealed record CapturedNotePayload(string Path, string Title);
 
 /// <summary>The live, typed-into notes on one chapter.</summary>
+/// <param name="Archived">Whether the repository is archived (local ADR 0029
+/// §4). Its notes still list, because a remark already kept stays readable, but
+/// its devbook is read-only: no <c>annotation</c> fence is written into it and
+/// <c>resolve_annotation</c> refuses its notes. False for the Brain.</param>
 public sealed record AnnotationsPayload(
     string Repository,
     string RepositoryAlias,
     string ChapterPath,
     int Count,
-    IReadOnlyList<ChapterNotePayload> Annotations);
+    IReadOnlyList<ChapterNotePayload> Annotations,
+    bool Archived = false);
 
 /// <summary>
 /// One agent session.

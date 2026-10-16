@@ -28,6 +28,11 @@ upstream added in v2.16.0, and the module only it imports. See the third change
 below. `skill-release.json` is kept — it is inert version metadata that nothing else
 reads.
 
+`examples/*.html` (about 3.7 MB): upstream's sample renders. Local ADR 0034 stopped
+committing generated Archify HTML, and `.gitignore` carries
+`tools/archify/examples/*.html`, so `render-examples.mjs` output stays local. The
+examples' JSON specifications are kept; see below.
+
 ## What was changed
 
 `assets/template.html` — the ambient trace loops instead of running once.
@@ -65,9 +70,10 @@ stylesheet of its own, but `DiagramPair.razor` in the storybook points an `<ifra
 straight at the committed file and injects nothing. A host-side override would have
 fixed the knowledge panes and left the storybook comparison page frozen.
 
-`ArchifyArtifactMotionTests` fails if a re-copy drops this. It checks the template as
-well as all 42 artifacts, so the loss is reported on the re-copy itself rather than
-after the next regeneration — by which point every artifact is static again.
+`ArchifyArtifactMotionTests` fails if a re-copy drops this. It checks the template and
+the storybook's fixture artifact, so the loss is reported on the re-copy itself. The
+devbook's renders are drawn by the app from this template, so a lost patch would reach
+every one of them on its next view.
 `assets/template.html` — the Motion Governor guards its guided-views pause on the
 function, not just on the object.
 
@@ -92,7 +98,7 @@ indefinitely, that button is this artifact's WCAG 2.2.2 pause affordance, so a p
 control whose name is stuck is a defect on exactly the control the loop depends on.
 
 `ArchifyArtifactMotionTests` fails if a re-copy drops this one too, and checks the
-template alongside all 42 artifacts for the same reason.
+template alongside the storybook's fixture artifact for the same reason.
 
 `SKILL.md` — the **Update awareness** step is replaced by a note saying this copy has
 no update checker.
@@ -133,17 +139,19 @@ folder invisible. When re-copying at a newer revision, check `git status` shows
 everyone else. `ArchifyArtifactMotionTests.The_vendored_archify_cli_is_committed`
 fails if it goes missing again.
 
-`examples/` is **kept** even though it is 3.5 MB of the 5.4 MB total. `SKILL.md` step 2
-requires reading a matching example before authoring a specification, so removing it
-would break the documented authoring path — the one thing this vendoring exists to
-support.
+The JSON in `examples/` is **kept**. `SKILL.md` step 2 requires reading a matching
+example before authoring a specification, so removing it would break the documented
+authoring path — the one thing this vendoring exists to support. Step 2 reads the
+specifications, not the renders, so the example HTML is not vendored (see **What was
+omitted**). The desktop project already leaves `examples/` out of the copy it bundles
+beside the app.
 
 ## Updating
 
 Re-copy the folder at a newer revision, drop everything in **What was omitted**,
 record the new SHA above, re-apply all three changes in **What was changed**, then
-re-deliver every specification to its own artifact. Each one must exit 0; `deliver`
-refuses to write an artifact that fails any of its 9 checks.
+re-deliver every specification. Each one must exit 0; `deliver` refuses to write an
+artifact that fails any of its 9 checks.
 
 ```bash
 for spec in $(git ls-files '*_archify/*.json' 'src/Harness/*/Archify/*.json' | grep -v 'index\.json$'); do
@@ -153,6 +161,12 @@ for spec in $(git ls-files '*_archify/*.json' 'src/Harness/*/Archify/*.json' | g
 done
 node tools/diagrams/archify-artifacts.mjs verify
 ```
+
+The HTML this leaves beside each devbook specification is ignored by git; it is the
+check, not a deliverable. Only the storybook fixture under `src/Harness/` is committed
+and has to be staged. The app needs nothing: its render cache is keyed on this
+folder's content (local ADR 0034), so every diagram is drawn with the new generator
+on its next view.
 
 This is `deliver` with the arguments `archify-artifacts.mjs render` passes, run
 directly, and it is direct on purpose: an upgrade changes what an artifact looks like,

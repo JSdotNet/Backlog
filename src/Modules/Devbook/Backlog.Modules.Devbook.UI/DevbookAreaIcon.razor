@@ -1,0 +1,48 @@
+@*
+    The glyph a devbook section wears: on its tab, and on a branch in the source
+    picker that changes it. One map from section to glyph, so the tab and the
+    branch row cannot draw one section two ways.
+
+    Each glyph is the library's and hides itself from assistive technology; the
+    host says the section's name in words beside it — the tab's label, or the
+    row's "Changes Architecture". A section this map does not know draws nothing.
+*@
+
+@switch (Area)
+{
+    case DevbookAreaCatalog.InstructionsKey:
+        <ScrollTextIcon Size="@Size" CssClass="@CssClass" TestId="@TestId" />
+        break;
+    case "domain":
+        <BoxesIcon Size="@Size" CssClass="@CssClass" TestId="@TestId" />
+        break;
+    case "arc42":
+        <LandmarkIcon Size="@Size" CssClass="@CssClass" TestId="@TestId" />
+        break;
+    case "tech":
+        <CpuIcon Size="@Size" CssClass="@CssClass" TestId="@TestId" />
+        break;
+    case "design":
+        <PaletteIcon Size="@Size" CssClass="@CssClass" TestId="@TestId" />
+        break;
+    case "ai":
+        <SparklesIcon Size="@Size" CssClass="@CssClass" TestId="@TestId" />
+        break;
+}
+
+@code {
+    /// <summary>The section's key, as <see cref="DevbookAreaCatalog"/> names it.</summary>
+    [Parameter, EditorRequired]
+    public string Area { get; set; } = string.Empty;
+
+    /// <summary>Edge length; 16 is the iconography scale's <c>icon-sm</c>, the
+    /// size a glyph inline with text is drawn at.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+}

@@ -1560,24 +1560,29 @@
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(TasksFeatures.AdditionalRepositories);
 
-    /// <summary>The repositories an entry may be filed against. Without the
-    /// additional-repositories feature there is only ever the first one.</summary>
+    /// <summary>The repositories an entry may be filed against: the ones the scope
+    /// offers, so an archived repository only while show archived is on. Without the
+    /// additional-repositories feature there is only ever the default one, the
+    /// first active repository (local ADR 0029).</summary>
     private IReadOnlyList<GitHubRepositoryRef> DevbookRepositories
     {
         get
         {
-            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
+            if (AdditionalRepositoriesEnabled) return State.Repositories;
 
-            var repository = GitHub.Repositories.FirstOrDefault();
+            var repository = GitHub.DefaultRepository;
             return repository is null ? [] : [repository];
         }
     }
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
-        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
+        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.DefaultRepository;
 
+    /// <summary>The repository picker's options. An archived one, offered while show
+    /// archived is on, says so in its label: a native list draws no hint.</summary>
     private IReadOnlyList<SelectorOption> RepositoryOptions() =>
-        [.. DevbookRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
+        [.. DevbookRepositories.Select(repository =>
+            new SelectorOption(repository.Alias, ArchivedRepositoryLabel.Of(repository.Alias, repository.Archived)))];
 
     /// <summary>The split's classes, and with nothing selected the modifier that
     /// gives the list the whole width. A class rather than a different component:
@@ -1684,9 +1689,11 @@
             Source: State.LinkedSources.ToTaskSource(row.SourceRef))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence),
-            // Only while the row is in today's My Day, the same test the sun
-            // beside it passes: a slot in yesterday's plan is no slot today.
-            Agenda = IsInMyDay(row) ? FormatAgenda(row.PreviewAgendaTime) : null
+            // Only while the row was put in My Day today: a slot belongs to the
+            // stamp's day, so a slot in yesterday's plan is no slot today, even on
+            // a task Clear My Day overnight being off has carried into today's list
+            // (local ADR 0032, §5).
+            Agenda = IsPlannedForToday(row) ? FormatAgenda(row.PreviewAgendaTime) : null
         })];
 
     /// <summary>
@@ -1810,7 +1817,7 @@
                 @* The same list, the same resolve and the same write the panel's
                    picker uses, so the additional-repositories feature is honoured
                    here by construction rather than by a second reading of it. *@
-                <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                     Options="@RepositoryOptions()"
                                     Label="@($"Change repository of {title}")"
                                     TestId="row-repo-badge"
@@ -3628,7 +3635,7 @@
 
                 @if (DevbookRepositories.Count > 0)
                 {
-                    <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                    <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                         Options="@RepositoryOptions()"
                                         Label="Change repository"
                                         TestId="repo-badge"
@@ -3826,8 +3833,10 @@
                    and borrows My Day's, so outside today's My Day there is nothing
                    for it to be a time of (.devbook/domain/tasks/domain.md#agenda-time).
                    In the lead rather than a group because it is part of the same
-                   morning decision, and it appears only once that decision is made. *@
-                @if (IsInMyDay(row))
+                   morning decision, and it appears only once that decision is made.
+                   Made today: a task carried over from an earlier day is in My Day
+                   with no slot, since its slot was that day's (local ADR 0032, §5). *@
+                @if (IsPlannedForToday(row))
                 {
                     <TaskAction Icon="🕒"
                                 Label="@(row.PreviewAgendaTime is null ? "Set a time" : "Planned for")"
@@ -4644,11 +4653,18 @@
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
-    /// <summary>An entry is in My Day exactly while its stamp is today's local
-    /// date. A stamp from yesterday is not "in My Day yesterday" — it is simply
-    /// not in My Day, which is what lets the list clear itself overnight with no
-    /// timer and nothing to sweep.</summary>
-    private static bool IsInMyDay(EntryRow row) => row.PreviewInMyDayOn == Today;
+    /// <summary>An entry is in My Day while its stamp is today's local date. A
+    /// stamp from yesterday is not "in My Day yesterday" — with Clear My Day
+    /// overnight on, it is simply not in My Day, which is what lets the list clear
+    /// itself overnight with no timer and nothing to sweep. With it off, an
+    /// unfinished task carries over, as does one finished today. The state holds
+    /// the rule and the switch; this is where the clock is.</summary>
+    private bool IsInMyDay(EntryRow row) => State.IsInMyDay(row, Today);
+
+    /// <summary>Whether the entry was put in My Day today rather than carried
+    /// over: the only case that owns an agenda slot, since a slot belongs to the
+    /// stamp's day (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    private static bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
 
     private async Task OnMyDayToggledAsync(EntryRow row)
     {

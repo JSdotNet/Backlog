@@ -262,6 +262,44 @@ public class RoadmapPlanProgressSourceTests
         Assert.Null(only.LastCompletedOn);
     }
 
+    /// <summary>An item no task carries that a person completed crosses as finished, on the
+    /// day they completed it — so the outlook reads Finished rather than Unsized.</summary>
+    [Fact]
+    public void A_task_less_item_completed_by_hand_crosses_as_finished_on_the_day_it_was_completed()
+    {
+        var item = Item("Launch post") with { CompletedOn = new DateOnly(2026, 9, 3) };
+
+        var reading = RoadmapPlanProgressSource.Map(
+            [item],
+            new Dictionary<Guid, RoadmapItemRollupDto>(),
+            TwoWeeks,
+            Paces,
+            Today);
+
+        var only = Assert.Single(reading.Items);
+        Assert.True(only.IsFinished);
+        Assert.Equal(new DateOnly(2026, 9, 3), only.LastCompletedOn);
+    }
+
+    /// <summary>Once tasks carry the item, their progress wins over a day set by hand.</summary>
+    [Fact]
+    public void An_item_its_tasks_carry_crosses_by_its_tasks_whatever_day_was_set_by_hand()
+    {
+        var item = Item("Carried") with { CompletedOn = new DateOnly(2026, 9, 3) };
+        var rollup = new RoadmapItemRollupDto([Link("a", 3, RoadmapProgress.InProgress)], []);
+
+        var reading = RoadmapPlanProgressSource.Map(
+            [item],
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = rollup },
+            TwoWeeks,
+            Paces,
+            Today);
+
+        var only = Assert.Single(reading.Items);
+        Assert.False(only.IsFinished);
+        Assert.Null(only.LastCompletedOn);
+    }
+
     /// <summary>The pace quoted is the one the roadmap has in effect — the chosen
     /// stretch when it measured something, else the first that did, else the typed one.</summary>
     [Theory]

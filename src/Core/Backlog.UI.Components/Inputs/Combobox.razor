@@ -84,7 +84,14 @@
                     data-value="@option.Value"
                     data-testid="@Part($"option-{index}")"
                     @onmousedown:preventDefault="true"
-                    @onclick="() => PickAsync(option)">@option.Label</li>
+                    @onclick="() => PickAsync(option)">@if (OptionTemplate is null)
+                    {
+                        @option.Label
+                    }
+                    else
+                    {
+                        @OptionTemplate(option)
+                    }</li>
             }
         </ul>
     }
@@ -103,6 +110,20 @@
     /// <see cref="SelectorOption.Value"/> in the field; the list reads its label.</summary>
     [Parameter]
     public IReadOnlyList<SelectorOption> Options { get; set; } = [];
+
+    /// <summary>
+    /// What each option draws in place of its label — the Devbook source picker
+    /// puts a branch's section icons and its ahead and behind counts beside the
+    /// name. Unset, an option draws its label.
+    /// <para>
+    /// The option keeps <c>role="option"</c> and stays the one thing a pick lands
+    /// on, so the template draws content only: no button or link inside, which the
+    /// listbox pattern has no room for. Its text is the option's accessible name,
+    /// so a glyph the template draws is hidden and says itself in words.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment<SelectorOption>? OptionTemplate { get; set; }
 
     /// <summary>The host's value. Taken into the field whenever it changes.</summary>
     [Parameter]

@@ -5,6 +5,11 @@ namespace Backlog.Desktop.UI.Devbook;
 
 public static class DevbookAreaCatalog
 {
+    /// <summary>The instructions section's key. Not a devbook folder: it reads
+    /// the agent instruction files, so a branch changing only those changes no
+    /// devbook section.</summary>
+    public const string InstructionsKey = "instructions";
+
     private static readonly DevbookArea[] Areas =
     [
         new("instructions", "Instructions"),
@@ -21,7 +26,7 @@ public static class DevbookAreaCatalog
 
         var enabledAreaKeys = DevbookFolderSetting.Normalize(folders)
             .Where(folder => folder.Enabled)
-            .Select(AreaKey)
+            .Select(AreaKeyFor)
             .ToHashSet(StringComparer.Ordinal);
 
         return [.. Areas.Where(area => enabledAreaKeys.Contains(area.Key))];
@@ -75,7 +80,21 @@ public static class DevbookAreaCatalog
         _ => areaKey
     };
 
-    private static string AreaKey(DevbookFolderSetting folder) => folder.Key switch
+    /// <summary>Where a section sits in the tab order, so a list of sections reads
+    /// the way the tabs do. A key this catalog does not know goes last.</summary>
+    public static int Order(string areaKey)
+    {
+        var index = Array.FindIndex(Areas, area => string.Equals(area.Key, areaKey, StringComparison.Ordinal));
+        return index < 0 ? int.MaxValue : index;
+    }
+
+    /// <summary>The label a section's tab wears, or the key itself for one this
+    /// catalog does not know.</summary>
+    public static string Label(string areaKey) =>
+        Array.Find(Areas, area => string.Equals(area.Key, areaKey, StringComparison.Ordinal))?.Label ?? areaKey;
+
+    /// <summary>The section a configured folder is.</summary>
+    internal static string AreaKeyFor(DevbookFolderSetting folder) => folder.Key switch
     {
         "instructions" => "instructions",
         ".domain" => "domain",

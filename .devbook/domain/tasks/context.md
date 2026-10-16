@@ -65,3 +65,28 @@ related: [".devbook/domain/tasks/features.md#ai-assistance-over-the-visible-back
 ```
 
 Turning it on shows the assistant panel in the app chrome, which answers questions about the visible task content through Azure Foundry. It is on by default and marked `DEV`. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the assistant leaves `DEV`.
+
+## Clear My Day overnight
+
+```meta
+status: draft
+type: setting
+key: my-day-preferences.json
+scope: user
+default: on
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#my-day, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
+```
+
+Whether today's [My Day](domain.md#my-day) starts empty each morning. On, the
+default, a task is in My Day only on the date it was picked for, so yesterday's
+list clears itself. Off, an unfinished task picked on an earlier day stays in My
+Day until the person ticks it off or takes it out. A task ticked off on an
+earlier day leaves either way, and a task picked for a later day never shows
+early.
+
+The person sets it on the desktop, on the Tasks page of Settings. The phone has
+no switch of its own and follows the desktop's choice. The choice syncs, so
+every paired device lists the same My Day
+([ADR 0032](../../arc42/adr/0032-my-day-preferences-ride-the-task-feed.md),
+accepted). Flipping it never rewrites a task, because each device applies it
+when it reads My Day. A device that never received a choice reads it as on.

@@ -132,4 +132,10 @@ public sealed class SyncActivityPresentationTests
         Assert.Equal("Roadmap", SyncActivityPresentation.Kind(SyncItemKind.Roadmap));
         Assert.Equal("GitHub settings", SyncActivityPresentation.Kind(SyncItemKind.GitHubSettings));
     }
+
+    [Fact]
+    public void The_my_day_preferences_read_by_name()
+    {
+        Assert.Equal("My Day preferences", SyncActivityPresentation.Kind(SyncItemKind.MyDayPreferences));
+    }
 }

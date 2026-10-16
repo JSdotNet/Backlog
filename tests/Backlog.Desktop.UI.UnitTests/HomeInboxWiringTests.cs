@@ -153,7 +153,6 @@ public sealed class HomeInboxWiringTests
     {
         var pulled = new TaskItem("Pulled from the other machine", string.Empty, EntryType.Task);
         using var harness = CreateHarness(inboxOpenOnStart: false, pull: pulled);
-        harness.ShellNavigation.SetLastPanes(["Tasks"]);
 
         var component = Render(harness);
         var state = State(harness);
@@ -248,7 +247,6 @@ public sealed class HomeInboxWiringTests
     public async Task A_task_written_outside_the_pane_reloads_the_tasks_pane()
     {
         using var harness = CreateHarness(inboxOpenOnStart: false);
-        harness.ShellNavigation.SetLastPanes(["Tasks"]);
         var saved = await harness.Entries.SaveFromTextAsync(null, "# Moved along by an agent\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(saved.IsSuccess);
 

@@ -181,6 +181,23 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>An archived repository is not read from GitHub (local ADR 0029), so the
+    /// retired repository GitHub refuses puts no "Couldn't read" line on the pane.</summary>
+    [Fact]
+    public void An_archived_repository_is_not_read_and_names_no_failure()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
+            .Refuses("octo/broken", "Could not resolve to a Repository with the name 'octo/broken'.");
+        using var context = Context(client);
+        Assert.Null(SettingsOf(context).SetRepositoryArchived("broken", archived: true));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane)));
+        Assert.Empty(pane.FindAll("[data-testid='pull-requests-unreadable']"));
+    }
+
     /// <summary>A repository GitHub would not answer for is named, in its words, with
     /// a Retry — and every other repository is listed as if it were not there.</summary>
     [Fact]

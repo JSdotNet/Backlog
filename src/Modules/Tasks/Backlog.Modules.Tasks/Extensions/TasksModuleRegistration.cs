@@ -6,6 +6,7 @@ using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
 using Backlog.Modules.Tasks.Features.ReconcileRepositoryIds;
+using Backlog.Modules.Tasks.Features.RefileRepositoryTasks;
 using Backlog.Modules.Tasks.Features.RenameRepository;
 using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
@@ -59,6 +60,11 @@ public static class TasksModuleRegistration
         services.AddScoped<ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>>, ImportPlanCommandHandler>();
         services.AddScoped<ICommandHandler<ReconcileRepositoryIdsCommand, Result<int>>, ReconcileRepositoryIdsCommandHandler>();
         services.AddScoped<ICommandHandler<RenameRepositoryCommand, Result<int>>, RenameRepositoryCommandHandler>();
+        services.AddScoped<ICommandHandler<RefileRepositoryTasksCommand, Result<int>>, RefileRepositoryTasksCommandHandler>();
+
+        // The refile's drop stamps today's date; TryAdd so a host or a test that
+        // registered its own clock keeps it.
+        services.TryAddSingleton(TimeProvider.System);
 
         services.AddScoped<ITaskItems, TaskItems>();
 

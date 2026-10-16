@@ -4,15 +4,15 @@ namespace Backlog.UI.Components.UnitTests;
 /// How often a window resize reports the pane bounds to .NET.
 /// <para>
 /// A drag of the window edge fires <c>resize</c> dozens of times a second, and each
-/// report is two interop calls and a forced style read per registered layout. The
+/// report is an interop call and a forced style read per registered layout. The
 /// listener used to be the reporter itself, so every event paid all of that for a
 /// width the next event replaced before anything painted. One report per animation
 /// frame is as current as the screen can show.
 /// </para>
 /// <para>
-/// Only the resize listener is coalesced. <c>initialize</c> and <c>refresh</c> still
-/// report at once, because their callers act on the answer in the same render;
-/// <c>GlobalPaneMarkupTests</c> in the desktop suite pins those.
+/// Only the resize listener is coalesced. <c>initialize</c> still reports at once,
+/// because its caller acts on the answer in the same render;
+/// <c>GlobalPaneMarkupTests</c> in the desktop suite pins the report's shape.
 /// </para>
 /// </summary>
 public sealed class PaneBoundsResizeTests
