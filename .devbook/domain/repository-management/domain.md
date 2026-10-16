@@ -17,7 +17,7 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repository-management/domain.invariants.md#repository-registry]
+related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repository-management/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
 aliases: [RepositoryRegistry]
 ```
 
@@ -32,6 +32,13 @@ longer holds, because entries elsewhere still write them:
   the repository it became;
 - a [Removal Record](#removal-record) for each removal, so a removed name is not
   registered again by accident.
+
+A repository the registry still holds is either active or
+[archived](#archived-repository). Archive and Unarchive are registry edits beside
+Rename, Merge, Removal, Relabel and Alias swap
+([Following a repository rename](features.md#following-a-repository-rename)).
+Unlike a removal, an archive forgets nothing, so it needs no record of its own
+(local ADR 0029).
 
 A **placeholder** is a repository an import registered because a plan named it
 before anyone had configured it. Renaming the placeholder to the real
@@ -61,11 +68,13 @@ GitHub, such as "org/repo-name". The registry holds for each repository:
 - its [identity colour](features.md#repository-identity-colour), as one of the
   colours the design system sanctions;
 - the account it is worked as, and optionally a personal access token;
-- its [knowledge folder settings](features.md#repository-knowledge-folder-settings).
+- its [knowledge folder settings](features.md#repository-knowledge-folder-settings);
+- whether it is [archived](#archived-repository).
 
-The registry is ordered, and the first repository serves as the default. While
-[Additional repositories](context.md#additional-repositories) is off, every entry
-belongs to it. A knowledge reader asked for no repository also falls back to it.
+The registry is ordered, and the first repository that is not archived serves as
+the default. While [Additional repositories](context.md#additional-repositories)
+is off, every entry belongs to it. A knowledge reader asked for no repository also
+falls back to it.
 
 The scan, when it is built, adds:
 
@@ -116,7 +125,8 @@ entries reach another workspace by different routes and in no fixed order.
 
 A record lasts until its old name is registered again. A configured repository
 always wins over a record, so a repository re-created under a name once given up
-is that new repository, not the old one.
+is that new repository, not the old one. A rename leaves an
+[archived](#archived-repository) repository archived.
 
 ### Removal Record
 
@@ -128,6 +138,8 @@ related: [.devbook/domain/repository-management/features.md#following-a-reposito
 ```
 
 One repository somebody removed, and when. Entries that still name it outlive it.
+A removal is not undone by its record; a repository that should be quiet but kept
+is [archived](#archived-repository) instead.
 Without the record, the next start would read such a name as a repository
 registered on another workspace and register it again, undoing the removal. The
 record lasts until the name is registered again on purpose, from the list or by an
@@ -329,3 +341,59 @@ status: draft
 Repository Management has a single aggregate; `Repository Type` and `Severity`
 are documented under it. This chapter is reserved for future cross-aggregate
 enums.
+
+## Ubiquitous Language
+
+```meta
+type: ubiquitous-language
+status: draft
+```
+
+> The terms this context owns that are not chapters above.
+
+### Archived repository
+
+```meta
+type: term
+status: draft
+aliases: [Archived, archive, unarchive, archived row]
+related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/repository-management/features.md#archiving-a-repository, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
+```
+
+A registered [Repository](#repository) a person has set aside as no longer active
+work. It keeps its `RepositoryId`, its alias and every setting, and a task filed
+against it keeps naming it. Backlog reads nothing from GitHub for it, leaves it
+out of the scope and the pickers unless [show archived](#show-archived) is on,
+and opens its devbook for reading only. To **archive** a repository is the
+registry edit that sets it aside; to **unarchive** it is the edit that makes it
+active again. Both are a person's choice, never inferred from GitHub.
+
+It is not the `archived` [Task Status](../tasks/domain.md#task-status) of a task,
+nor a devbook note in its archive area. Those are archived things inside a
+repository; this is the repository itself.
+
+### Active repository
+
+```meta
+type: term
+status: draft
+aliases: [active]
+related: [.devbook/domain/repository-management/domain.md#repository]
+```
+
+A registered [Repository](#repository) that is not archived. Only active
+repositories are read from GitHub, offered in the scope by default, or served as
+the default repository.
+
+### Show archived
+
+```meta
+type: term
+status: draft
+aliases: [show-archived]
+related: [.devbook/domain/repository-management/requirements.md#archiving-a-repository]
+```
+
+The person's choice, kept per device, to see archived repositories where they are
+otherwise hidden: in the repository scope, the Board's columns, the pickers, and
+the roadmap's open work. It changes what is shown, never what is archived.

@@ -190,7 +190,7 @@ start of its tab strip. The switch sits right after the title, so it stays in
 place as the badge and the path come and go.
 
 The pane's own width decides its layout, not the window's. Narrower than a menu
-beside a readable column, as at the side pane's minimum, the menu sits above the
+beside a readable column, as in a narrow window, the menu sits above the
 note, capped so the note still starts on screen, and a note's title wraps above
 its path rather than ending in an ellipsis.
 
@@ -376,9 +376,9 @@ by the repository's own folder for that subject. Tasks are not an area. They are
 their own workspace section, read and written rather than browsed, so a
 repository's backlog folder is not a knowledge area.
 
-Areas are browsed from a side pane beside the task list, so knowledge and work
-stay in view together. The pane's width is adjustable, because the two compete for
-the same screen.
+Areas are browsed in the Devbook, which takes the whole screen in place of the
+task list and keeps it underneath, so one press moves between knowledge and work
+(local ADR 0022, amendment of 2026-10-15).
 
 ### Area selection and scope
 
@@ -386,7 +386,7 @@ the same screen.
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Switch between areas, and between repositories when more than one is registered,
@@ -634,7 +634,7 @@ repository read from a branch without a clone is prepared too.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Say whether the knowledge in view is the latest version the repository has, and
@@ -656,6 +656,9 @@ reported as they stand rather than reconciled on the reader's behalf:
 
 What to do about any of those belongs to whoever owns the clone. Knowledge kept
 outside a repository has no latest version to be on, and is not asked about.
+Nor is the devbook of an
+[archived repository](../repository-management/domain.md#archived-repository),
+which [is read-only](../repository-management/requirements.md#requirement-an-archived-repositorys-devbook-is-read-only).
 
 Bringing a clone up to date replaces what its folders say, so the knowledge on screen
 becomes the knowledge that arrived with it.

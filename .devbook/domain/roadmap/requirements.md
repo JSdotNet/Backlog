@@ -12,6 +12,145 @@ related: [.devbook/domain/roadmap/features.md]
 The scenarios use the default working week: Monday to Friday 09:00 to 17:30, 8.5
 hours a day and 42.5 a week. Friday 9 October 2026 is in week 41.
 
+## Planning work that has no task yet
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet]
+```
+
+> The requirements of completing a plan by hand. The feature chapter says why a
+> person completes it; this says what completing offers and how a completed plan
+> is read. The rules the item holds to are its
+> [invariants](domain.invariants.md#invariant-gathered-tasks-outrank-a-completion-by-hand).
+
+The scenarios plan "Write the launch post" from Monday 5 to Friday 9 October, and
+read the roadmap on Monday 12 October.
+
+### Requirement: Complete is offered only while no task carries the plan
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnOpenTaskLessItem_OffersToComplete_NeverToOpenInTasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemTasksCarry_OffersToOpenThemInTasks_NamedForTheItem, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.CompletingFromTheEditor_StoresTheDay_AndDrawsTheBarDone]
+```
+
+The system SHALL offer Complete on a plan that no task carries and that is open, and record the day the person completes it as its completion date.
+
+#### Scenario: Completing a task-less plan
+
+- **Given** "Write the launch post" gathers no task and is open
+- **When** the person chooses Complete at the end of its bar
+- **Then** the plan is completed on Monday 12 October
+- **And** its bar stays from Monday 5 to Friday 9 October
+
+#### Scenario: A plan that gathers only a knowledge chapter
+
+- **Given** "Write the launch post" gathers one knowledge chapter and no task
+- **When** the person opens its editor
+- **Then** the editor offers Complete
+
+#### Scenario: A plan a task carries
+
+- **Given** a task is filed under "Write the launch post"
+- **When** the person opens its editor
+- **Then** neither the editor nor the bar offers Complete
+
+### Requirement: The editor offers what fits the plan
+
+```meta
+type: requirement
+status: draft
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.OpenInTasksIsNotOfferedForAnItemNoTaskCarries, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.OpenInTasksIsOfferedForAnExistingItemWithATag_WhenTheShellCanOpenIt, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.CompleteRaisesTheItemsId_ForWorkNoTaskCarries, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.ReopenIsOfferedInsteadOfComplete_OnceTheWorkWasCompleted, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.CompleteIsNotOfferedForNewWork, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandEditingTests.ReopeningFromTheEditor_ClearsTheDay]
+```
+
+The system SHALL offer in a plan's editor Open in Tasks only while tasks carry the plan, Complete only while no task carries it and it is open, and Reopen only while it is completed by hand.
+
+#### Scenario: A plan completed by hand
+
+- **Given** "Write the launch post" gathers no task and was completed on Friday 9 October
+- **When** the person opens its editor
+- **Then** the editor offers Reopen, and neither Complete nor Open in Tasks
+
+#### Scenario: Reopening
+
+- **Given** "Write the launch post" was completed on Friday 9 October
+- **When** the person chooses Reopen in its editor
+- **Then** the plan is open again and has no completion date
+
+### Requirement: A plan completed by hand is drawn finished where it was planned
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.ATaskLessItemCompletedByHand_IsDrawnFinished_WhereItWasPlanned_AndNeverOverdue, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.ATaskLessItemCompletedByHand_IsDrawnFinished_WithoutAForecastToo]
+```
+
+The system SHALL draw a plan completed by hand over its planned window, locked and in the done style [every finished part wears](#requirement-a-finished-part-is-drawn-as-done), and never as overdue or as work with no task yet.
+
+#### Scenario: A plan completed after its window ended
+
+- **Given** "Write the launch post" gathers no task and was completed on Monday 12 October
+- **When** the roadmap draws the plan
+- **Then** its bar runs from Monday 5 to Friday 9 October in the done style
+- **And** the bar is locked, carries no overdue alert, and is not outlined as work with no task yet
+
+### Requirement: Keep-up leaves a plan completed by hand alone
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.TheKeepUpProjection_LeavesAnItemCompletedByHandWhereItWasPlanned
+```
+
+The system SHALL leave the window of a plan completed by hand as it is stored, even when the plan is sized by its effort.
+
+#### Scenario: An effort-sized plan completed by hand
+
+- **Given** "Write the launch post" was placed by its effort, gathers no task, and was completed on Thursday 8 October
+- **When** the roadmap draws the plan on Monday 12 October
+- **Then** its window stays from Monday 5 to Friday 9 October and does not start today
+
+### Requirement: Work waiting on a plan completed by hand waits until its completion date
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.WhatWaitsOnAnItemCompletedByHand_IsReleasedWhenItWasCompleted_NotWhenItsWindowEnds
+```
+
+The system SHALL end the wait of every item that depends on a plan completed by hand on the plan's completion date rather than on its planned end.
+
+#### Scenario: Completed early
+
+- **Given** "Publish the launch" waits on "Write the launch post", which was completed on Wednesday 7 October
+- **When** the roadmap lays out "Publish the launch"
+- **Then** its wait on "Write the launch post" ends on Wednesday 7 October, not on Friday 9 October
+
+### Requirement: The dashboard reads a plan completed by hand as finished
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/productivity/features.md#whether-each-plan-will-land-in-its-window]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests.A_task_less_item_completed_by_hand_crosses_as_finished_on_the_day_it_was_completed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests.An_item_its_tasks_carry_crosses_by_its_tasks_whatever_day_was_set_by_hand]
+```
+
+The system SHALL report a plan completed by hand as Finished in the dashboard's plan outlook, with its completion date as the day it landed.
+
+#### Scenario: The outlook after completing
+
+- **Given** "Write the launch post" gathers no task and was completed on Thursday 8 October
+- **When** the person reads the dashboard's plan outlook
+- **Then** the plan reads Finished and landed on Thursday 8 October
+
+#### Scenario: A task filed after completing
+
+- **Given** "Write the launch post" was completed on Thursday 8 October and an open task was filed under it afterwards
+- **When** the person reads the dashboard's plan outlook
+- **Then** the plan is not read as Finished, because its task is open
+
 ## Carrying the pace with the person
 
 ```meta
@@ -577,6 +716,39 @@ The system SHALL record each change made in the Days off dialog as the same day 
 - **When** the person adds days off from Monday 12 October to Sunday 25 October on the first device
 - **Then** the second device's Days off dialog lists the same ten blocked dates
 
+## Looking back at finished plans
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans]
+```
+
+> The requirements of showing or hiding finished plans. The feature chapter says
+> where a finished plan is drawn; this says what the Completed switch promises.
+
+### Requirement: The Completed switch shows or hides finished plans
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.WithFinishedWorkHidden_AFinishedItemIsNotDrawn_NorTheArrowToIt, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellNavigationStoreTests.The_roadmap_completed_switch_is_on_until_turned_off_and_off_survives_a_restart, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandTests.TheCompletedSwitch_IsOnUntilTurnedOff_AndOffIsKeptOnThisDevice]
+```
+
+The system SHALL put one Completed switch on the roadmap toolbar beside the Hours switch, on by default and remembered on the device without syncing, and SHALL draw no plan whose work is all done, or that was completed by hand, while it is off.
+
+#### Scenario: Turning the finished plans off
+
+- **Given** the Completed switch is on, "Write the launch post" was finished on Friday 9 October, and "Publish the launch" waits on it in the same lane
+- **When** the person turns the switch off
+- **Then** "Write the launch post" is not drawn, its lane closes up over "Publish the launch", and no arrow is drawn between them
+
+#### Scenario: The choice stays on the device
+
+- **Given** two paired devices with sync on, and the person turned the Completed switch off on the first
+- **When** the person restarts the app on the first device and opens the roadmap on the second
+- **Then** the first device's switch is still off and the second device's is on
+
 ## Forecasting work in flight
 
 ```meta
@@ -900,3 +1072,67 @@ The system SHALL propose no change to the plan when a bar is dropped on its own 
 - **Given** a bar from Monday 5 to Thursday 8 October
 - **When** the person drags its start one week later, past its end
 - **Then** the start stays on Monday 5 October and no change is proposed
+
+### Requirement: A bar's end carries one action
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/roadmap/requirements.md#planning-work-that-has-no-task-yet]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemTasksCarry_OffersToOpenThemInTasks_NamedForTheItem, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemTasksCarry_OffersNothing_WhereTheHostCannotShowTasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnOpenTaskLessItem_OffersToComplete_NeverToOpenInTasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.ACompletedTaskLessItem_OffersNothingOnItsBar, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemInTwoBands_CarriesItsActionOnTheBarThatEndsLast_Only, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.EachItemSaysWhetherTasksCarryIt_AndWhetherItWasCompletedByHand, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.AnItemTasksCarry_IsNotCompletedByHand_WhateverDayWasSet, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.EveryPartOfAnItemAnswersForTheItem, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.WithoutTheGatheredWork_NoItemSaysWhatItOffers]
+```
+
+The system SHALL show at the end of a plan's latest-ending bar, while that bar is hovered or focused, Open in Tasks when tasks carry its plan, Complete when no task carries it and it is open, and no action when it was completed by hand.
+
+#### Scenario: A plan its tasks carry
+
+- **Given** a plan with one task filed under it
+- **When** the person points at its bar
+- **Then** the bar's end shows Open in Tasks, which opens the plan's tasks in the Tasks view
+
+#### Scenario: A task-less open plan
+
+- **Given** a plan that gathers no task and is open
+- **When** the person moves keyboard focus to its bar
+- **Then** the bar's end shows Complete
+
+#### Scenario: A plan completed by hand
+
+- **Given** a plan that gathers no task and was completed by hand
+- **When** the person points at its bar
+- **Then** the bar's end shows no action
+
+#### Scenario: A bar at rest
+
+- **Given** a plan with one task filed under it
+- **When** the bar is neither hovered nor focused
+- **Then** its end shows no action
+
+### Requirement: A bar whose window ended with its work open is drawn as an alert
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.OnceTasksCarryAnItemCompletedByHand_TheTasksWin_AndItsPassedWindowIsOverdue
+```
+
+The system SHALL draw a bar whose window ended before today while its work is open with an error-red outline, which leaves the bar's leading edge in its band colour, and a "!" chip in the fault tone, and say "Overdue: ended" with the bar's end date in its detail.
+
+#### Scenario: A plan left open past its window
+
+- **Given** a plan placed by hand from Monday 5 to Friday 9 October with one open task
+- **When** the roadmap draws it on Monday 12 October
+- **Then** its bar has an error-red outline and a "!" chip in the fault tone
+- **And** its detail opens with "Overdue: ended 9 Oct 2026"
+
+#### Scenario: A plan whose tasks are all done
+
+- **Given** a plan placed by hand from Monday 5 to Friday 9 October whose one task was done on Thursday 8 October
+- **When** the roadmap draws it on Monday 12 October
+- **Then** its bar carries no overdue alert
+
+#### Scenario: A plan still inside its window
+
+- **Given** a plan placed by hand from Monday 12 to Friday 16 October with one open task
+- **When** the roadmap draws it on Monday 12 October
+- **Then** its bar carries no overdue alert

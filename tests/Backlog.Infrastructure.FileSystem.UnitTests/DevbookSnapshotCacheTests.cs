@@ -653,6 +653,11 @@ public class DevbookSnapshotCacheTests : IDisposable
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<string>>([branch]);
 
+        public Task<IReadOnlyList<GitHubBranchHead>> ListBranchHeadsAsync(
+            GitHubRepositoryRef repository,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<GitHubBranchHead>>([new GitHubBranchHead(branch, Sha)]);
+
         public Task<GitHubBranchHead?> ResolveHeadAsync(
             GitHubRepositoryRef repository,
             string? requested,

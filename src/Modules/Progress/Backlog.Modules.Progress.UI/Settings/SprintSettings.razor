@@ -28,6 +28,7 @@
 @using global::Backlog.UI.Components.Selects
 @inject ISprintSeriesPlanning Planning
 @inject ISprintRepositories RepositoryList
+@inject IServiceProvider Services
 
 <ProgressOnly>
     <div class="sprint-settings" data-testid="sprint-settings">
@@ -108,17 +109,27 @@
 
     /// <summary>The registered repositories no series holds, in the registry's order —
     /// what Add repository and Add another sprint offer, and what the Not in a sprint
-    /// card lists.</summary>
+    /// card lists. An archived repository is offered only while show archived is on
+    /// (local ADR 0029, §3); one a series already holds stays on its card.</summary>
     private IReadOnlyList<string> Free { get; set; } = [];
 
     /// <summary>Works out the free repositories once, after the series change, rather
     /// than on every read during a render.</summary>
-    private void RefreshFree() =>
+    private void RefreshFree()
+    {
+        // Optional, as the Tasks and Inbox pickers resolve it: a host that composes no
+        // show-archived choice offers the active repositories only.
+        var showArchived = Services.GetService(typeof(global::Backlog.SharedKernel.IShowArchivedRepositories))
+            is global::Backlog.SharedKernel.IShowArchivedRepositories { Shown: true };
+        IReadOnlyList<string> archived = showArchived ? [] : RepositoryList.ArchivedAliases;
+
         Free =
         [
             .. RepositoryList.Aliases.Where(alias =>
-                !_series.Any(series => series.Repositories.Contains(alias, StringComparer.OrdinalIgnoreCase)))
+                !archived.Contains(alias, StringComparer.OrdinalIgnoreCase)
+                && !_series.Any(series => series.Repositories.Contains(alias, StringComparer.OrdinalIgnoreCase)))
         ];
+    }
 
     private IReadOnlyList<SelectorOption> FreeOptions => [.. Free.Select(alias => new SelectorOption(alias, alias))];
 

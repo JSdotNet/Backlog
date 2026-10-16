@@ -106,9 +106,9 @@ internal sealed partial class DesktopHarness
     /// <summary>The key to the scenario dots under the pane's tree.</summary>
     public ILocator ScenarioLegend => DevbookPane.GetByTestId("devbook-scenario-legend");
 
-    /// <summary>Closes the Devbook side pane when it is open. Which panes are open is
-    /// the shared workspace's, so a test that opens an entry's detail sets it rather
-    /// than trusting what the last test left.</summary>
+    /// <summary>Leaves the Devbook when it has the screen. What the shell reopens on
+    /// is the shared workspace's, so a test that opens an entry's detail sets it
+    /// rather than trusting what the last test left.</summary>
     public Task CloseDevbookAsync()
     {
         var option = Page.GetByTestId("devbook-pane-option");
@@ -118,7 +118,7 @@ internal sealed partial class DesktopHarness
                 if (await option.CountAsync() > 0 && await option.GetAttributeAsync("aria-pressed") == "true") await option.ClickAsync();
             },
             async () => await option.CountAsync() == 0 || await option.GetAttributeAsync("aria-pressed") != "true",
-            "closing the Devbook pane");
+            "leaving the Devbook");
     }
 
     // ---- A task's acceptance checklist ----

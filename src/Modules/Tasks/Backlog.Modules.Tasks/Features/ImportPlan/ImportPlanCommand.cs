@@ -173,6 +173,8 @@ public sealed class ImportPlanCommandHandler(
 
         var roadmap = await LayOutOnRoadmapAsync(planEntries, parsedEntries, levels, command, cancellationToken);
 
+        var archived = ArchivedRepositoriesNamed(parsedEntries);
+
         return new ImportPlanResultDto(
             tasks.Created,
             tasks.Replaced,
@@ -181,8 +183,23 @@ public sealed class ImportPlanCommandHandler(
             tasks.Removed,
             tasks.Entries,
             roadmap,
-            unresolvedTaskDependencies.Count == 0 ? null : unresolvedTaskDependencies);
+            unresolvedTaskDependencies.Count == 0 ? null : unresolvedTaskDependencies,
+            archived.Count == 0 ? null : archived);
     }
+
+    /// <summary>
+    /// The archived repositories the resolved entries are filed under, in the order the
+    /// plan first names them. An entry naming one is filed there all the same and the
+    /// repository stays archived — registering a known repository never unarchives it
+    /// (local ADR 0029) — so the report is the only place the reader learns of it.
+    /// </summary>
+    private List<string> ArchivedRepositoriesNamed(IEnumerable<EntryTextParser.ParsedEntry> resolved) =>
+        [.. resolved
+            .SelectMany(parsed => parsed.RepoIds ?? [])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(repositories.Resolve)
+            .Where(repository => repository is { IsArchived: true })
+            .Select(repository => repository!.Id)];
 
     /// <summary>
     /// The task half, exactly as ADR 0007 has it: the shared tag, clear-then-write,

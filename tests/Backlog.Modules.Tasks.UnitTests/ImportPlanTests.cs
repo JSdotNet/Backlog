@@ -802,6 +802,41 @@ public sealed class ImportPlanTests
         Assert.Empty(directory.Registered);
     }
 
+    /// <summary>An import that names an archived repository files its entries under
+    /// that repository and leaves it archived: Register never unarchives, and the
+    /// report names it so the reader learns the work went somewhere Backlog no
+    /// longer reads (local ADR 0029).</summary>
+    [Fact]
+    public async Task An_import_naming_an_archived_repository_files_under_it_leaves_it_archived_and_reports_it()
+    {
+        var store = new InMemoryTaskRepository();
+        var directory = new FakeRepositoryDirectory("widgets", "budgetbeheer");
+        directory.SetArchived("someone/budgetbeheer", archived: true);
+
+        const string plan =
+            "# First prompt\n`prompt` `#myplan` `repo:budgetbeheer`\n\n"
+            + "# Second prompt\n`prompt` `#myplan` `repo:budgetbeheer` `repo:widgets`\n";
+
+        var result = await Import(store, plan, directory: directory);
+
+        Assert.All(result.Entries, entry => Assert.Contains("someone/budgetbeheer", entry.RepoIds!));
+        Assert.True(directory.Resolve("someone/budgetbeheer")!.IsArchived);
+        Assert.Equal(["someone/budgetbeheer"], result.ArchivedRepositories!);
+    }
+
+    /// <summary>An import that names only active repositories says nothing about
+    /// archiving: the report reads as it always did.</summary>
+    [Fact]
+    public async Task An_import_naming_only_active_repositories_reports_no_archived_repository()
+    {
+        var store = new InMemoryTaskRepository();
+        var directory = new FakeRepositoryDirectory("widgets");
+
+        var result = await Import(store, "# Only prompt\n`prompt` `repo:widgets`\n", directory: directory);
+
+        Assert.Null(result.ArchivedRepositories);
+    }
+
     /// <summary>The Import dialog's matching row is the reader saying "the plan
     /// calls it this, I mean that repository". That answer is the strongest
     /// signal there is — a person looked at it — so it is taken before the

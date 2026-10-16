@@ -234,6 +234,9 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
     public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
         throw Written(nameof(RenameRepositoryAsync));
 
+    public Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default) =>
+        throw Written(nameof(RefileRepositoryTasksAsync));
+
     public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,
         string? defaultRepo = null,

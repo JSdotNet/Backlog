@@ -4,12 +4,12 @@ namespace Backlog.Desktop.UI.Shell;
 /// The main view the workspace shows, picked by the header's view switch.
 /// <para>
 /// Exactly one is always on screen while the workspace is: a view is never closed,
-/// only replaced by another. That is the difference from a <see cref="GlobalPane"/>,
-/// which opens beside whichever view is showing and may be closed, and from a
+/// only replaced by another. That is the difference from a
 /// <see cref="WorkspaceSurface"/> takeover, which hides the workspace altogether and
-/// which Escape closes. The Tasks pane used to be one of the panes and the roadmap
-/// one of the takeovers; both are views now, so the Inbox and the Devbook open
-/// beside the roadmap as they do beside the task list.
+/// which a second press — or, but for the Inbox, Escape — closes. The Tasks pane
+/// used to be one of the side panes and the roadmap one of the takeovers; both are
+/// views now. The Inbox and the Devbook were side panes beside the view and are
+/// takeovers now, opened over whichever view is showing, which waits underneath.
 /// </para>
 /// <para>
 /// The shell stores the member's name as <c>lastView</c> in

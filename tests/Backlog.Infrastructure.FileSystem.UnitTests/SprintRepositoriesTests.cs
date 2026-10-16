@@ -35,6 +35,22 @@ public class SprintRepositoriesTests
         Assert.Equal(["backlog"], aliases);
     }
 
+    /// <summary>An archived repository (local ADR 0029) is still one of the aliases, since
+    /// a series keeps it, and is named among the archived ones so the page can leave it
+    /// out of what it offers.</summary>
+    [Fact]
+    public void An_archived_repository_stays_listed_and_is_named_archived()
+    {
+        var registry = new Registry(
+            new TasksRepositoryRef("backlog", "JSdotNet", "Backlog"),
+            new TasksRepositoryRef("docs", "JSdotNet", "Backlog-docs") { IsArchived = true });
+        var adapter = new SprintRepositories(() => registry);
+
+        Assert.Equal(["backlog", "docs"], adapter.Aliases);
+        Assert.Equal(["docs"], adapter.ArchivedAliases);
+        Assert.Empty(new SprintRepositories(() => null).ArchivedAliases);
+    }
+
     [Fact]
     public void A_host_with_no_repository_directory_offers_none()
     {

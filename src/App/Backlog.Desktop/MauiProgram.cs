@@ -105,6 +105,8 @@ public static class MauiProgram
             // The pace document carries the device's working week (local ADR 0019), and
             // the Roadmap's Days off presses block a day in it.
             PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(sp.GetRequiredService<WorkingHoursSettingsStore>()),
+            // %LOCALAPPDATA%\Backlog\my-day-preferences.json, beside the pace (local ADR 0032).
+            MyDayPreferences = _ => new MyDayPreferencesStore(),
             ShellNavigation = _ => new ShellNavigationStore(),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),

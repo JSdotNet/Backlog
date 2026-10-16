@@ -30,12 +30,13 @@
 {
     var task = row.Task;
     var editable = IsEditable(row);
-    var timed = IsTimedToday(row) && !TodayPlan.IsTicked(row);
+    var slot = TodayPlan.IsTicked(row) ? null : row.AgendaTimeOn(View.Today);
+    var timed = slot is not null;
 
     <DayTaskDetail Title="@task.Title"
                 BackHref="@TodayHref"
                 Area="@task.Area"
-                TimeLabel="@(timed ? TimeLabel(row.AgendaTime!) : null)"
+                TimeLabel="@(slot is { } time ? TimeLabel(time) : null)"
                 Effort="@task.Effort"
                 FocusHref="@(timed ? $"tasks/{row.Id}/focus" : null)"
                 Steps="@Steps(task)"
@@ -117,13 +118,13 @@ else if (_looked)
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    /// <summary>Picked for today and not ticked off: the only task the phone
-    /// changes (.devbook/domain/tasks/features.md#my-day).</summary>
+    /// <summary>In today's My Day and not ticked off: the only task the phone
+    /// changes (.devbook/domain/tasks/features.md#my-day). With Clear My Day
+    /// overnight off that takes in a task carried over from an earlier day, so it
+    /// can be finished or moved to tomorrow here (.devbook/arc42/adr/0032, §5).</summary>
     private bool IsEditable(TaskViewRow row) =>
-        row.Task.InMyDayOn == View.Today && !TodayPlan.IsTicked(row);
-
-    private bool IsTimedToday(TaskViewRow row) =>
-        row.Task.InMyDayOn == View.Today && row.AgendaTime is not null;
+        MyDay.Includes(row.Task.InMyDayOn, row.Task.CompletedOn, View.Today, View.ClearsOvernight)
+        && !TodayPlan.IsTicked(row);
 
     private Task ToggleStepAsync(DayStep step) => Edits.SetStepDoneAsync(Id, step.Id, step.Done);
 

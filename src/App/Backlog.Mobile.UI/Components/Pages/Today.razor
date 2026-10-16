@@ -93,7 +93,11 @@ else
         get
         {
             var now = Clock.GetLocalNow();
-            return TodayPlan.For(View.Day(View.Today), TimeOnly.FromDateTime(now.DateTime));
+            var today = View.Today;
+
+            // Read on today, so a task carried over from an earlier day shows no
+            // slot — it sits in Anytime today (.devbook/arc42/adr/0032, §5).
+            return TodayPlan.For(View.Day(today), today, TimeOnly.FromDateTime(now.DateTime));
         }
     }
 
@@ -216,7 +220,7 @@ else
     /// (<c>.devbook/design/typography-and-layout.md#metadata-lines</c>): the area
     /// it belongs to, how far through its steps it is, then when it runs.
     /// </summary>
-    private static string? Meta(TaskViewRow row)
+    private string? Meta(TaskViewRow row)
     {
         var parts = new List<string>(3);
 
@@ -225,7 +229,7 @@ else
         var steps = Steps(row.Task);
         if (steps.Count > 0) parts.Add($"{DoneCount(steps)} of {steps.Count} steps");
 
-        if (row.AgendaTime is { } time) parts.Add($"{Clock24(time.Start)}–{Clock24(time.End)}");
+        if (row.AgendaTimeOn(View.Today) is { } time) parts.Add($"{Clock24(time.Start)}–{Clock24(time.End)}");
 
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
