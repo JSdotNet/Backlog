@@ -1,4 +1,4 @@
-# ADR 0022: The desktop shell shows one main view, picked by a view switch; side panes open beside it and takeovers replace it
+# ADR 0022: The desktop shell shows one main view, picked by a view switch, and takeovers replace it
 
 ```meta
 date: 2026-10-07
@@ -340,9 +340,11 @@ before lists `Devbook`, or the older `Knowledge`, in `lastEnabledPanes`;
 |---|---|
 | `Devbook` or `Knowledge` in `lastEnabledPanes`, `lastSurface` absent or `Workspace` | The Devbook surface, over the remembered view |
 | `Devbook` or `Knowledge` in `lastEnabledPanes` under another stored surface | That surface; the Devbook was hidden under it |
+| `Inbox` and `Devbook` (or `Knowledge`) both in `lastEnabledPanes`, `lastSurface` absent or `Workspace` | The Inbox surface. An older file could hold both; the Inbox wins and the Devbook is dropped |
 
 Either way the name leaves the pane list, and `lastEnabledPanes` is never written
-again.
+again. Only one surface can be restored, so a file that lists both panes reopens
+on the Inbox, which the 2026-10-12 table already restored.
 
 What it costs: a chapter can no longer be read beside the task list. The reader
 moves between them with the toggle, and the view waits underneath.
@@ -364,10 +366,8 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
 
 1. **One view, never closed.** `HomeWorkspaceSurfaceTests.Pressing_the_pressed_view_again_changes_nothing`,
    `The_roadmap_view_replaces_the_task_list_inside_the_workspace`.
-2. **The side pane beside any view.** `The_devbook_opens_beside_the_roadmap_and_the_inbox_takes_the_screen_over_it`,
-   `The_side_pane_is_the_devbook_and_no_view_or_surface`,
-   `A_side_pane_toggle_opens_it_beside_the_view_and_closes_it_again`,
-   `GlobalPaneMarkupTests.A_side_pane_needs_neither_a_pin_nor_a_modifier`.
+2. **The side pane beside any view.** Withdrawn with the side pane by the
+   amendment of 2026-10-15; its tests were removed, and item 8 holds what replaced it.
 3. **Header order and groups.** `The_nav_reads_inbox_views_devbook_then_the_work_in_progress_and_the_other_takeovers`,
    `In_progress_is_a_main_view_that_leads_the_work_in_progress_group`.
 4. **Takeovers.** `A_takeover_keeps_the_view_switch_unpressed_and_a_view_option_returns_to_the_workspace`,
@@ -377,7 +377,7 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `A_window_resize_never_closes_the_roadmap`,
    `GlobalPaneMarkupTests.Roadmap_option_is_feature_gated_and_is_a_view_not_a_takeover`.
 6. **Migration.** `A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view`,
-   `A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_side_panes_keep_their_state`,
+   `A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_inbox_reopens`,
    `An_inbox_pane_from_before_the_inbox_took_the_screen_reopens_as_the_inbox_surface`,
    `The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it`, and
    `ShellNavigationStoreTests`.
@@ -385,7 +385,7 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `HomeInboxWiringTests.Routing_an_item_reloads_the_tasks_from_the_store_and_keeps_the_inbox_on_screen`,
    `HomeInboxWiringTests.Escape_heard_at_the_document_does_not_leave_the_inbox`,
    `GlobalPaneMarkupTests.Inbox_renders_as_its_own_surface_and_never_beside_the_main_view`,
-   `GlobalPaneSelectionTests.A_pane_name_that_names_no_side_pane_is_refused`, and the
+   and the
    `ShellNavigationStoreTests` whose names start `An_inbox_pane_` or `A_migrated_inbox_pane_`.
 8. **The Devbook takes the screen** (amendment of 2026-10-15).
    `HomeWorkspaceSurfaceTests.The_devbook_takes_the_screen_over_the_view_and_a_second_press_returns_to_it`,
@@ -408,6 +408,4 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `No_side_pane_remains_and_neither_does_its_pin_or_modifier`; and the
    `ShellNavigationStoreTests` whose names start `A_devbook_pane_` or
    `A_migrated_devbook_pane_`, with `The_devbook_surface_survives_a_restart`.
-   Item 2's tests and the `GlobalPaneSelectionTests` in item 7 went with the side
-   pane, and item 6's tasks-pane case now reads
-   `A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_inbox_reopens`.
+   No test yet holds the row where a file lists both the Inbox and the Devbook.

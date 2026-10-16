@@ -110,7 +110,7 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0019 — The roadmap counts the person's working week in hours, date by date, and the week travels with the pace](adr/0019-roadmap-counts-the-working-week.md)
 - [ADR 0020 — Items from GitHub and spec-manager arrive as linked tasks, through one connector contract](adr/0020-external-items-arrive-as-linked-tasks.md)
 - [ADR 0021 — The GitHub accounts and the repository registry ride the task feed as two whole documents](adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md)
-- [ADR 0022 — The desktop shell shows one main view, picked by a view switch; side panes open beside it and takeovers replace it](adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md)
+- [ADR 0022 — The desktop shell shows one main view, picked by a view switch, and takeovers replace it](adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md)
 - [ADR 0023 — Inbox items may be read by the Foundry model](adr/0023-inbox-items-may-be-read-by-the-foundry-model.md)
 - [ADR 0024 — Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener](adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md)
 - [ADR 0025 — Notes ride the task feed as a second Inbox document kind, synced both ways](adr/0025-notes-ride-the-task-feed.md)
