@@ -175,6 +175,25 @@ public sealed class AppButtonTests
         Assert.Equal("Open on GitHub", anchor.TextContent.Trim());
     }
 
+    /// <summary>A link to a page of the app itself stays in the app: no new window, so
+    /// the host navigates through its own router rather than handing the address to
+    /// the system browser.</summary>
+    [Fact]
+    public void An_in_app_href_opens_in_place_without_a_new_window()
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.Href, "settings/storage#brain-folder")
+            .Add(b => b.External, false)
+            .AddChildContent("Set up your Brain"));
+
+        var anchor = link.Find("a");
+        Assert.Equal("settings/storage#brain-folder", anchor.GetAttribute("href"));
+        Assert.False(anchor.HasAttribute("target"));
+        Assert.False(anchor.HasAttribute("rel"));
+    }
+
     /// <summary>An anchor has no disabled state, so a disabled one loses its address
     /// and says so.</summary>
     [Fact]

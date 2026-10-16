@@ -381,7 +381,7 @@ The system SHALL label the header's Devbook toggle *Brain* while the pane shows 
 
 - **Given** no chip is pressed and the Devbook pane is closed
 - **When** the reader looks at the header
-- **Then** the toggle reads *Brain* and its tooltip reads *Open Brain beside Tasks*
+- **Then** the toggle reads *Brain* and its tooltip reads *Open the Brain*
 
 #### Scenario: A repository anchor
 
