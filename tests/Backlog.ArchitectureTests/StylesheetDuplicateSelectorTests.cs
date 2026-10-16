@@ -25,6 +25,7 @@ public class StylesheetDuplicateSelectorTests
     private const string Capture = "src/Modules/Capture/Backlog.Modules.Capture.UI/wwwroot/capture.css";
     private const string Roadmap = "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/wwwroot/roadmap.css";
     private const string Dashboard = "src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/wwwroot/dashboard.css";
+    private const string DevPc = "src/Modules/DevPc/Backlog.Modules.DevPc.UI/wwwroot/devpc.css";
 
     /// <summary>A duplicate this test tolerates: the selector, how many top-level
     /// rules declare it, and why it has not been folded.</summary>
@@ -68,10 +69,6 @@ public class StylesheetDuplicateSelectorTests
             new(".inbox-pane__subtitle", 2, SharedWithSiblings),
             new(".inbox-pane__capture-result", 2, SharedWithSiblings),
             new(".inbox-pane__files", 2, SharedWithSiblings),
-            new(".tools-panel__eyebrow", 2, SharedWithSiblings),
-            new(".tools-panel__subtitle", 2, SharedWithSiblings),
-            new(".tools-panel__message", 2, SharedWithSiblings),
-            new(".tools-inventory__meta", 2, SharedWithSiblings),
             new(".sessions-panel__eyebrow", 2, SharedWithSiblings),
             new(".sessions-panel__title", 2, SharedWithSiblings),
             new(".sessions-panel__subtitle", 2, SharedWithSiblings),
@@ -201,10 +198,18 @@ public class StylesheetDuplicateSelectorTests
         [
             new(".dashboard-panel__eyebrow", 2, SharedWithSiblings),
             new(".dashboard-panel__title", 2, SharedWithSiblings),
+        ],
+        // Moved out of the desktop stylesheet with the tools pane's rules (issue #759).
+        [DevPc] =
+        [
+            new(".tools-panel__eyebrow", 2, SharedWithSiblings),
+            new(".tools-panel__subtitle", 2, SharedWithSiblings),
+            new(".tools-panel__message", 2, SharedWithSiblings),
+            new(".tools-inventory__meta", 2, SharedWithSiblings),
         ]
     };
 
-    public static TheoryData<string> Stylesheets => [App, Components, Capture, Roadmap, Dashboard];
+    public static TheoryData<string> Stylesheets => [App, Components, Capture, Roadmap, Dashboard, DevPc];
 
     [Theory]
     [MemberData(nameof(Stylesheets))]
@@ -283,10 +288,10 @@ public class StylesheetDuplicateSelectorTests
     /// fold.</summary>
     [Theory]
     [InlineData(App, ".shell--wide", "margin: 0; max-width: none")]
-    [InlineData(App, ".tools-panel__title", "color: var(--color-primary); font-size: var(--font-size-lg); margin: 0")]
-    [InlineData(App, ".tools-panel__eyebrow", "color: var(--color-primary); font-size: var(--font-size-xs); font-weight: 700; letter-spacing: 0.08em; margin: 0; overflow-wrap: anywhere; text-transform: uppercase")]
-    [InlineData(App, ".tools-panel__subtitle", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
-    [InlineData(App, ".tools-panel__message", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
+    [InlineData(DevPc, ".tools-panel__title", "color: var(--color-primary); font-size: var(--font-size-lg); margin: 0")]
+    [InlineData(DevPc, ".tools-panel__eyebrow", "color: var(--color-primary); font-size: var(--font-size-xs); font-weight: 700; letter-spacing: 0.08em; margin: 0; overflow-wrap: anywhere; text-transform: uppercase")]
+    [InlineData(DevPc, ".tools-panel__subtitle", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
+    [InlineData(DevPc, ".tools-panel__message", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
     [InlineData(App, ".tech-node", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-left: 4px solid var(--color-border-strong); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-sm); padding: var(--spacing-md)")]
     [InlineData(App, ".design-token", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); padding: var(--spacing-md)")]
     [InlineData(App, ".folder-section", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-md); grid-template-columns: minmax(0, 1fr); overflow-x: auto; padding: var(--spacing-md)")]
