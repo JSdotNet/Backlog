@@ -166,12 +166,60 @@ Confirm stays open with its button busy until the host's OnConfirm has finished,
         </DetailSheet>
     </Story>
 
+    @*
+        The same sheet while work it started is still running. Dismissible=false
+        is the hook for that: the close button disables, and Escape and the
+        backdrop do nothing, until the work ends and the result can be read where
+        it was asked for. The phone's update window holds itself open this way
+        while an install is in flight.
+    *@
+    <Story Name="Detail sheet held open while busy"
+           Description="`Dismissible` set to false while its work runs: the close button is disabled and Escape and the backdrop are inert. Finish the work and all three close it again."
+           Code="@BusySheetCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Primary" OnClick="OpenBusySheet" TestId="open-busy-sheet" id="open-busy-sheet-button">
+                Open the sheet
+            </AppButton>
+        </div>
+
+        <DetailSheet Open="_busySheetOpen"
+                     OpenChanged="value => _busySheetOpen = value"
+                     Kicker="Application updates"
+                     Title="Update Backlog"
+                     Dismissible="@(!_busySheetWorking)"
+                     RestoreFocusToId="open-busy-sheet-button"
+                     TestId="story-busy-sheet">
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Primary" Disabled="_busySheetWorking" OnClick="() => _busySheetWorking = true" TestId="busy-sheet-start">
+                    @(_busySheetWorking ? "Installing..." : "Start the work")
+                </AppButton>
+                <AppButton Variant="ButtonVariant.Secondary" Disabled="!_busySheetWorking" OnClick="() => _busySheetWorking = false" TestId="busy-sheet-finish">
+                    Finish it
+                </AppButton>
+            </div>
+        </DetailSheet>
+    </Story>
+
 </StoryPage>
 
 @code {
     private bool _sheetOpen;
 
     private void OpenSheet() => _sheetOpen = true;
+
+    private bool _busySheetOpen;
+    private bool _busySheetWorking;
+
+    private void OpenBusySheet() => _busySheetOpen = true;
+
+    private const string BusySheetCode = """
+        <DetailSheet Open="_open"
+                     OpenChanged="value => _open = value"
+                     Title="Update Backlog"
+                     Dismissible="@(!_working)">
+            ...
+        </DetailSheet>
+        """;
 
     private const string SheetCode = """
         <DetailSheet Open="_sheetOpen"

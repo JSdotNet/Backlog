@@ -113,6 +113,35 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .inbox-sheet__tags { display: flex; flex-wrap: wrap; gap: .25rem; }
 
 /*
+  The update window (AppUpdateControl): the library's sheet, risen from the
+  bottom edge rather than slid in from the side, because on a phone the side
+  sheet is the whole screen and the window holds two buttons and a line. The
+  two classes together outrank the library's own .detail-sheet rule.
+*/
+.detail-sheet.app-update-sheet {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    max-height: 80dvh;
+    border-left: 0;
+    border-top: var(--border-width) solid var(--color-border);
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(100%);
+}
+.detail-sheet.app-update-sheet[data-open="true"] { transform: translateY(0); }
+.app-update-sheet__current { margin: 0; }
+.app-update-sheet__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* The update window's status line. AppUpdatePresentation composes these names
+   in C#, the same ones the desktop window wears, so each head colours them. */
+.app-version__status { margin: 0; font-size: var(--font-size-sm); }
+.app-version__status--ok { color: var(--color-text-secondary); }
+.app-version__status--available { color: var(--color-primary); }
+.app-version__status--error { color: var(--color-error-text); }
+
+/*
   Today. The library draws the progress line, the card and the rows; this file
   only lays them out down the screen and pins the capture button above the tab
   bar, where a thumb already is. Colours are the library's tokens.

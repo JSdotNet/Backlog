@@ -1,30 +1,90 @@
 @*
     A block's `sync` direction, beside its status: which way changes flow between
     the chapter and its code. Given a state, it shows the direction in force there —
-    the block's own, or the one it inherits and from which level — and, editable, a
-    select over the five directions plus an entry that states none and inherits.
-    Given no state, it shows what the block states, if anything, as a plain badge:
-    a surface that cannot place the block should neither offer a picker nor hide
-    the word the author wrote.
+    the block's own, or the one it inherits and from which level — and, editable,
+    an arrow pad that states one. Given no state, it shows what the block states,
+    if anything, as a plain badge: a surface that cannot place the block should
+    neither offer a picker nor hide the word the author wrote.
+
+    The pad is four keys around the direction in force, each where its arrow points:
+    up states `report`, left `pull`, right `push`, and down states nothing, so the
+    block inherits. The centre names what is in force and opens a menu for the two
+    directions with no key — `sync` and `off` — and for inheriting again. One tab
+    stop, roving like RadioGroup's: the arrows state a direction from anywhere in
+    the pad and take the focus to its key, so the ring sits where the value went.
+    A key held with a modifier is someone else's chord, and a held arrow states
+    once rather than once per repeat — the host writes a file per change.
+
+    Raw buttons rather than IconButton, for the reason RadioGroup gives: focus
+    moves with an element reference, and IconButton hands none out. The arrows'
+    browser default — scrolling the pane — is refused in components.js
+    (ARROW_PAD_SWALLOWED_KEYS) by the pad's `data-arrow-pad` marker: a state-bound
+    @onkeydown:preventDefault is one key late.
 
     Outlined rather than filled, like priority: a direction is how the sweeps treat
     the unit, not how far along it is, and it must not read as a second status.
+
+    The menu opens under the centre, wherever the click came from: Enter or Space
+    on the centre is a click with no pointer, at (0,0), and the centre is the only
+    way to sync and off.
 *@
+@inject IJSRuntime Js
 
 @if (State is { } state)
 {
     if (Editable)
     {
-        <BadgeSelect CurrentValue="@(Stated(state) ?? string.Empty)"
-                     Options="@DirectionOptions"
-                     Label="@Label"
-                     TestId="@TestId"
-                     Id="@Id"
-                     BadgeKind="sync"
-                     Slug="@state.Effective.Direction"
-                     IncludeEmptyOption="true"
-                     EmptyLabel="@InheritLabel(state)"
-                     OnChanged="Change" />
+        var stated = Stated(state);
+        <div class="sync-pad"
+             role="group"
+             aria-label="@Label"
+             id="@Id"
+             data-testid="@TestId"
+             data-arrow-pad>
+            @foreach (var key in Layout)
+            {
+                if (key is null)
+                {
+                    <button type="button"
+                            @ref="_elements[Centre]"
+                            class="@($"badge badge--sync badge--sync-{state.Effective.Direction} sync-pad__value")"
+                            title="@($"{Describe(state)} sync and off are in its menu.")"
+                            aria-haspopup="menu"
+                            aria-expanded="@(_menuOpen ? "true" : "false")"
+                            tabindex="@(TabStop(stated) == Centre ? 0 : -1)"
+                            data-testid="@PartTestId("value")"
+                            @onclick="OpenMenuAsync"
+                            @onfocus="() => _stop = Centre"
+                            @onkeydown="e => OnKeyDownAsync(e, stated)">@Current(state)</button>
+                }
+                else
+                {
+                    <button type="button"
+                            @ref="_elements[key.Slot]"
+                            class="@($"sync-pad__key sync-pad__key--{key.Slot}")"
+                            aria-label="@key.Hint"
+                            title="@key.Hint"
+                            aria-pressed="@(string.Equals(key.Direction, stated, StringComparison.Ordinal) ? "true" : "false")"
+                            aria-keyshortcuts="@key.Key"
+                            tabindex="@(TabStop(stated) == key.Slot ? 0 : -1)"
+                            data-testid="@PartTestId(key.Name)"
+                            @onclick="() => StateAsync(key.Direction, stated)"
+                            @onfocus="() => _stop = key.Slot"
+                            @onkeydown="e => OnKeyDownAsync(e, stated)">
+                        <ChevronUpIcon Size="12" CssClass="@($"sync-pad__glyph sync-pad__glyph--{key.Slot}")" />
+                    </button>
+                }
+            }
+        </div>
+
+        <ContextMenu Open="_menuOpen"
+                     OpenChanged="MenuOpenChanged"
+                     X="@_menuX"
+                     Y="@_menuY"
+                     Items="@MenuItems(stated)"
+                     AriaLabel="@Label"
+                     TestId="@PartTestId("menu")"
+                     OnItemSelected="item => StateAsync(item.Id == Inherit ? null : item.Id, stated)" />
     }
     else
     {
@@ -37,6 +97,16 @@ else if (!string.IsNullOrWhiteSpace(Fallback))
 }
 
 @code {
+    private const string Centre = "centre";
+    private const string Inherit = "inherit";
+
+    private readonly Dictionary<string, ElementReference> _elements = [];
+    private string? _stop;
+    private string? _focusTarget;
+    private bool _menuOpen;
+    private double _menuX;
+    private double _menuY;
+
     /// <summary>Where the block sits and what is in force there. Null for a block
     /// the host cannot place, which draws <see cref="Fallback"/> instead.</summary>
     [Parameter]
@@ -52,39 +122,59 @@ else if (!string.IsNullOrWhiteSpace(Fallback))
     [Parameter]
     public bool Editable { get; set; }
 
+    /// <summary>The pad's accessible name, and its menu's.</summary>
     [Parameter]
     public string Label { get; set; } = "Sync direction";
 
+    /// <summary>On the pad or the badge; each part of the pad adds its own
+    /// suffix — <c>-push</c>, <c>-pull</c>, <c>-report</c>, <c>-inherit</c>,
+    /// <c>-value</c>, <c>-menu</c>.</summary>
     [Parameter]
     public string? TestId { get; set; } = "devbook-sync";
 
     [Parameter]
     public string? Id { get; set; }
 
-    /// <summary>Raised with the direction the reader picked, or null for the
-    /// empty entry: state none, and inherit.</summary>
+    /// <summary>Raised with the direction the reader stated, or null to state
+    /// none, and inherit. Never raised for what the block already states.</summary>
     [Parameter]
     public EventCallback<string?> OnChanged { get; set; }
 
-    private static readonly IReadOnlyList<SelectorOption> DirectionOptions =
-        [.. DevbookSync.Directions.Select(direction => new SelectorOption(direction, $"sync {direction}"))];
+    /// <summary>One key of the pad: the arrow that reaches it, the direction it
+    /// states (null to inherit), and the slot it sits in.</summary>
+    private sealed record PadKey(string Key, string? Direction, string Name, string Arrow, string Slot)
+    {
+        public string Hint => $"{char.ToUpperInvariant(Name[0])}{Name[1..]} ({Arrow})";
+    }
 
-    /// <summary>The block's own value, when it is one the select can show; a value
-    /// outside the five reads as the empty entry, the way the sweeps skip it.</summary>
+    /// <summary>The pad in reading order, the centre as null: up, left, the
+    /// value, right, down — the order a screen reader and Tab meet them.</summary>
+    private static readonly PadKey?[] Layout =
+    [
+        new("ArrowUp", "report", "report", "↑", "up"),
+        new("ArrowLeft", "pull", "pull", "←", "left"),
+        null,
+        new("ArrowRight", "push", "push", "→", "right"),
+        new("ArrowDown", null, Inherit, "↓", "down")
+    ];
+
+    /// <summary>The block's own value, when it is one of the five; a value outside
+    /// them reads as stating none, the way the sweeps skip it.</summary>
     private static string? Stated(DevbookSyncState state) =>
         DevbookSync.IsDirection(state.Stated) ? state.Stated!.Trim().ToLowerInvariant() : null;
 
-    /// <summary>What the inherit entry reads as: what the block would be left with.
-    /// A unit inherits from the levels above it; a page, a context or a folder
-    /// overview hands its value down and inherits from above it in turn.</summary>
-    private static string InheritLabel(DevbookSyncState state)
+    /// <summary>What the centre reads: the direction in force, and where it comes
+    /// from when the block does not state it. A unit inherits from the levels
+    /// above it; a page, a context or a folder overview hands its value down and
+    /// inherits from above it in turn.</summary>
+    private static string Current(DevbookSyncState state)
     {
-        var inherited = state.Effective;
-        if (Stated(state) is not null) return "sync · inherit";
+        var effective = state.Effective;
+        if (Stated(state) is not null) return $"sync {effective.Direction}";
 
-        return inherited.IsDefault
-            ? $"sync {inherited.Direction} · default"
-            : $"sync {inherited.Direction} · from {LevelName(inherited.From!.Value)}";
+        return effective.IsDefault
+            ? $"sync {effective.Direction} · default"
+            : $"sync {effective.Direction} · from {LevelName(effective.From!.Value)}";
     }
 
     private static string Text(DevbookSyncState state) =>
@@ -111,6 +201,97 @@ else if (!string.IsNullOrWhiteSpace(Fallback))
         _ => "folder"
     };
 
-    private Task Change(string value) =>
-        OnChanged.InvokeAsync(string.IsNullOrWhiteSpace(value) ? null : value);
+    /// <summary>The two directions with no key, and inheriting again when the
+    /// block states something. What it already states is drawn but cannot be
+    /// taken.</summary>
+    private static IReadOnlyList<MenuItem> MenuItems(string? stated)
+    {
+        var sync = new MenuItem("sync", "sync · two-way", Disabled: stated == "sync");
+        var off = new MenuItem("off", "off · the sweeps skip it", Disabled: stated == "off");
+
+        return stated is null
+            ? [sync, off]
+            : [sync, off, MenuItem.Divider("divider"), new MenuItem(Inherit, "inherit")];
+    }
+
+    /// <summary>The one part at <c>tabindex="0"</c>: the last one focused, else the
+    /// key for what the block states, else the centre — <c>sync</c> and
+    /// <c>off</c> have no key.</summary>
+    private string TabStop(string? stated) =>
+        _stop ?? Array.Find(Layout, key => key is not null && string.Equals(key.Direction, stated, StringComparison.Ordinal))?.Slot ?? Centre;
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+
+    private Task StateAsync(string? direction, string? stated) =>
+        string.Equals(direction, stated, StringComparison.Ordinal) ? Task.CompletedTask : OnChanged.InvokeAsync(direction);
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e, string? stated)
+    {
+        if (e.Repeat || e.AltKey || e.CtrlKey || e.MetaKey || e.ShiftKey) return Task.CompletedTask;
+
+        var key = Array.Find(Layout, candidate => candidate?.Key == e.Key);
+        if (key is null) return Task.CompletedTask;
+
+        // A key naming what the block already states still owes the focus a move.
+        _stop = key.Slot;
+        _focusTarget = key.Slot;
+        StateHasChanged();
+
+        return StateAsync(key.Direction, stated);
+    }
+
+    /// <summary>Under the centre's left edge. The pointer stands in only when the
+    /// page cannot say where the centre is; a keyboard click has no pointer.</summary>
+    private async Task OpenMenuAsync(MouseEventArgs e)
+    {
+        (_menuX, _menuY) = (e.ClientX, e.ClientY);
+
+        if (_elements.TryGetValue(Centre, out var centre))
+        {
+            try
+            {
+                if (await Js.InvokeAsync<double[]?>("backlogAnchorBelow", centre) is [var x, var y])
+                    (_menuX, _menuY) = (x, y);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+            {
+            }
+        }
+
+        _menuOpen = true;
+    }
+
+    /// <summary>The menu leaves nothing focused when it closes; the centre that
+    /// opened it takes the focus back.</summary>
+    private void MenuOpenChanged(bool open)
+    {
+        _menuOpen = open;
+        if (open) return;
+
+        _stop = Centre;
+        _focusTarget = Centre;
+    }
+
+    /// <summary>Moving the roving tabindex is not moving focus; see Tabs'
+    /// OnAfterRenderAsync for what goes wrong when the ring stays behind.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusTarget is null) return;
+
+        var target = _focusTarget;
+        _focusTarget = null;
+
+        if (!_elements.TryGetValue(target, out var element)) return;
+
+        try
+        {
+            await element.FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
 }

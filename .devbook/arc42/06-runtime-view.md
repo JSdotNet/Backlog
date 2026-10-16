@@ -485,27 +485,58 @@ stateDiagram-v2
 ## IDE Context-aware Capture
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#ide-extensions"]
+related: [".devbook/arc42/05-building-block-view.md#ide-extensions", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 ```
 
 ```mermaid
 sequenceDiagram
     actor ME
+    participant Desk as Desktop app
     participant Ext as VS Code extension
+    participant Secrets as SecretStorage
     participant Sync as Sync Service
+
+    opt Not paired yet, or the credential was rejected
+        ME->>Desk: Settings > Devices, Generate a code
+        Desk->>Sync: POST /api/sync/devices/codes (Bearer)
+        Sync-->>Desk: code, expiresAt
+        ME->>Ext: Run backlog.pair, type the code
+        Ext->>+Sync: POST /api/sync/devices/pair (code, deviceName)
+        Sync-->>-Ext: 201 deviceId, credential (shown once)
+        Ext->>Secrets: Store deviceId + credential
+    end
 
     ME->>Ext: Select text, run backlog.capture
     Ext->>ME: Title box, pre-filled with the selection's first line
     ME->>Ext: Confirm the title
-    Ext->>+Sync: POST /api/sync/inbox (title, source=vscode)
-    Sync-->>-Ext: 201 Created
-    Ext-->>ME: "Backlog: captured …"
+    opt No token cached, or it expires within two minutes
+        Ext->>Secrets: Read deviceId + credential
+        Ext->>+Sync: POST /api/sync/devices/token (deviceId, credential)
+        Sync-->>-Ext: accessToken, expiresAt
+    end
+    Ext->>+Sync: POST /api/sync/inbox (title, source=vscode), Bearer
+    alt Token accepted
+        Sync-->>Ext: 201 Created
+        Ext-->>ME: "Backlog: captured …"
+    else 401 on the inbox
+        Sync-->>-Ext: 401
+        Ext->>Sync: New token, then the same POST once more
+    end
+    opt 401 from the token endpoint
+        Ext->>Secrets: Delete the credential
+        Ext-->>ME: Offer Pair with Desktop
+    end
 ```
 
 The extension sends the selection as a title only. It carries no repository
-context (file, line, branch), keeps no local cache, and reaches the sync service at
-`backlog.cloudUrl` rather than the desktop
+context (file, line, branch), caches nothing but the token, and reaches the sync
+service at `backlog.cloudUrl` rather than the desktop
 (`.devbook/arc42/05-building-block-view.md#ide-extensions`).
+
+A 401 from the inbox says only that the token was refused, so a fresh token is worth
+one retry. A 401 from the token endpoint is a verdict on the credential itself, which
+pairing again is the only fix for. Without a stored credential the extension asks to
+pair before the title box and sends no inbox request.
 
 ## Copilot App Session Capture
 

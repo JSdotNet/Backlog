@@ -207,11 +207,6 @@
         return Task.CompletedTask;
     }
 
-    /// <summary>Part of the resizer's interop contract. A two-pane split has no
-    /// pane budget to report, so this is a no-op that keeps JS from failing.</summary>
-    [JSInvokable]
-    public Task SetGlobalPaneCapacityAsync(int capacity) => Task.CompletedTask;
-
     /// <summary>
     /// Which way an arrow moves the number.
     /// <para>

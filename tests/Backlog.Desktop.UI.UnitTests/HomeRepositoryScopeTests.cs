@@ -7,6 +7,7 @@ using AngleSharp.Dom;
 
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.Sessions.UI;
+using Backlog.Desktop.UI.Tasks;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -221,25 +222,37 @@ public sealed class HomeRepositoryScopeTests
     {
         using var harness = CreateHarness();
         var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
         Chips(component)[1].Click();
 
-        // Devbook opens beside the list, which has to stay for a second repository
-        // to have anywhere to be.
+        // The Devbook takes the screen over the list. It keeps the scope the list
+        // goes back to, so a second repository still has somewhere to be.
         component.WaitForElement("[data-testid='devbook-pane-option']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface']"));
             Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
         });
 
         Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
 
-        // Two repositories in the list, and the pane still reading the first one taken:
-        // adding a repository to the backlog scope must not move the knowledge the reader
-        // was already reading beside it.
+        // Two repositories in the scope, and the Devbook still reading the first one
+        // taken: adding a repository must not move the knowledge the reader was
+        // already reading.
         component.WaitForAssertion(() =>
-            Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+        {
+            Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
+            Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+        });
+
+        // And the list it returns to has both.
+        component.Find("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
+        });
     }
 
     /// <summary>
@@ -428,13 +441,10 @@ public sealed class HomeRepositoryScopeTests
         Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
         Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
 
-        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
         GoToTheRoadmap(component);
 
-        // The anchor, not the latest: docs was taken first, and it is what the
-        // knowledge pane was reading beside the list.
+        // The anchor, not the latest: docs was taken first.
         component.WaitForAssertion(() => Assert.Equal(["docs"], state.SelectedRepositoryAliases));
-        Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
     }
 
     [Fact]
@@ -696,8 +706,141 @@ public sealed class HomeRepositoryScopeTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal(BrainSetup.SettingsHref, component.Find("[data-testid='devbook-brain-set-up']").GetAttribute("href"));
+            var setUp = component.Find("[data-testid='devbook-brain-set-up']");
+            Assert.Equal(BrainSetup.SettingsHref, setUp.GetAttribute("href"));
+            Assert.False(setUp.HasAttribute("target"));
             Assert.Empty(component.FindAll(".devbook-stack__nav-item"));
+
+            // With no tabs at all the way back is still on the header row.
+            Assert.Equal("Close the Brain", component.Find("[data-testid='devbook-close']").GetAttribute("aria-label"));
+        });
+    }
+
+    // --- Links that opened the side pane open the Devbook surface ---------------------
+    //
+    // Local ADR 0022, amendment of 2026-10-15: the task row's Brain badge and an
+    // entry's Devbook reference give the Devbook the screen, over the list they were
+    // pressed from, which the Devbook option then returns to.
+
+    [Fact]
+    public async Task A_task_rows_brain_badge_gives_the_devbook_the_screen_on_the_brain()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<TasksPane>()));
+        var tasks = component.FindComponent<TasksPane>();
+
+        await component.InvokeAsync(() =>
+            tasks.Instance.OnOpenBrainNote.InvokeAsync(new Backlog.UI.Components.Brain.BrainNoteLink("work/plan.md", "Plan")));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal(BrainScope.Value, component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+        });
+        Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+
+        component.Find("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+        });
+    }
+
+    /// <summary>
+    /// The badges are read whatever the Devbook's flag says. With the flag off a
+    /// press says so on a toast, and neither opens nor remembers the Devbook: the
+    /// flag coming back later does not put the reader in it unasked.
+    /// </summary>
+    [Fact]
+    public async Task A_brain_badge_with_the_devbook_switched_off_says_so_and_opens_nothing()
+    {
+        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
+        var component = Render(harness);
+        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
+        var shellNavigation = harness.Context.Services.GetRequiredService<ShellNavigationStore>();
+        var toasts = harness.Context.Services.GetRequiredService<ToastChannel>();
+
+        Chips(component)[0].Click();
+        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']")));
+        var tasks = component.FindComponent<TasksPane>();
+
+        await component.InvokeAsync(() =>
+            tasks.Instance.OnOpenBrainNote.InvokeAsync(new Backlog.UI.Components.Brain.BrainNoteLink("work/plan.md", "Plan")));
+
+        component.WaitForAssertion(() =>
+        {
+            var toast = Assert.Single(toasts.Visible);
+            Assert.Equal("tasks-devbook-unavailable", toast.TestId);
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+        });
+        Assert.NotEqual("Devbook", shellNavigation.LastSurface);
+
+        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+        });
+    }
+
+    [Fact]
+    public async Task An_entrys_devbook_reference_gives_the_devbook_the_screen_on_that_repository()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component)[1].Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<TasksPane>()));
+        var tasks = component.FindComponent<TasksPane>();
+
+        await component.InvokeAsync(() =>
+            tasks.Instance.OnOpenDevbookReference.InvokeAsync(
+                new DevbookReferenceRequest("backlog", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md")));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+        });
+    }
+
+    /// <summary>
+    /// An Escape a field inside the Devbook handles stays there: the source field's
+    /// Escape clears the field and leaves the Devbook on screen. An Escape on the
+    /// surface itself is the way back.
+    /// </summary>
+    [Fact]
+    public async Task An_escape_in_the_devbooks_source_field_does_not_close_the_devbook()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component)[0].Click();
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        var field = component.WaitForElement("[data-testid='devbook-surface'] [data-testid='devbook-source-select'] input");
+
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        component.WaitForAssertion(() =>
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-stack']")));
+
+        await component.Find("[data-testid='devbook-surface']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }
 
@@ -1078,11 +1221,11 @@ public sealed class HomeRepositoryScopeTests
         var component = Render(harness);
 
         Chips(component);
-        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open Brain beside Tasks", brain: true));
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open the Brain", brain: true));
 
         DevbookOption(component).Click();
 
-        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Close Brain", brain: true));
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Back to Tasks", brain: true));
     }
 
     [Fact]
@@ -1093,7 +1236,7 @@ public sealed class HomeRepositoryScopeTests
 
         BrainChip(component).Click();
 
-        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open Brain beside Tasks", brain: true));
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open the Brain", brain: true));
     }
 
     [Fact]
@@ -1104,7 +1247,7 @@ public sealed class HomeRepositoryScopeTests
 
         Chips(component)[0].Click();
 
-        component.WaitForAssertion(() => AssertDevbookOption(component, "Devbook", "Open Devbook beside Tasks", brain: false));
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Devbook", "Open the Devbook", brain: false));
     }
 
     /// <summary>With the Brain and a repository both pressed, the option follows the
@@ -1118,16 +1261,16 @@ public sealed class HomeRepositoryScopeTests
 
         BrainChip(component).Click();
         Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
-        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open Brain beside Tasks", brain: true));
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Open the Brain", brain: true));
 
         DevbookOption(component).Click();
-        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Close Brain", brain: true));
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Back to Tasks", brain: true));
 
         component.WaitForElement("[data-testid='devbook-brain-switch-repository']").Click();
-        component.WaitForAssertion(() => AssertDevbookOption(component, "Devbook", "Close Devbook", brain: false));
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Devbook", "Back to Tasks", brain: false));
 
         component.Find("[data-testid='devbook-brain-switch-brain']").Click();
-        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Close Brain", brain: true));
+        component.WaitForAssertion(() => AssertDevbookOption(component, "Brain", "Back to Tasks", brain: true));
     }
 
     private static IElement DevbookOption(IRenderedComponent<Home> component) =>
@@ -1143,7 +1286,7 @@ public sealed class HomeRepositoryScopeTests
         Assert.Equal(word, string.Concat(option.ChildNodes.OfType<IText>().Select(text => text.Data)).Trim());
         Assert.Equal(title, option.GetAttribute("title"));
         Assert.Equal(brain, option.ClassList.Contains("header-group__option--brain"));
-        Assert.Equal("repository-devbook-pane", option.GetAttribute("aria-controls"));
+        Assert.Equal("devbook-surface", option.GetAttribute("aria-controls"));
     }
 
     [Fact]

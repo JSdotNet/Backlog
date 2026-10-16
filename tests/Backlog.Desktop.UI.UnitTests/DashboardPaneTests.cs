@@ -689,9 +689,15 @@ public class DashboardPaneTests
             services.AddSingleton<ISessionInsights>(sessions));
 
         var pane = context.Render<DashboardPane>();
+        var afterFirstRender = sessions.Calls;
+
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        Assert.True(sessions.Calls >= 2, "The filter change never reached the sessions part.");
+        // A moved filter acknowledges the press before it fetches (DashboardPartBase
+        // yields first), so Change() can return before the part has asked.
+        SpinWait.SpinUntil(() => sessions.Calls > afterFirstRender, TimeSpan.FromSeconds(5));
+
+        Assert.True(sessions.Calls > afterFirstRender, "The filter change never reached the sessions part.");
         Assert.DoesNotContain(true, sessions.PredecessorWithdrawnOnArrival);
     }
 
@@ -2919,10 +2925,12 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-window-4']").Click();
 
-        // A window press acknowledges before it fetches (DashboardPartBase yields first),
-        // so the parts ask again on the renderer's dispatcher after Click has returned.
-        pane.WaitForAssertion(() =>
-            Assert.Contains(DashboardPeriod.FourWeeks, productivity.Scopes.Select(scope => scope.Period)));
+        // A narrowed window is a press: the parts acknowledge it, then fetch.
+        SpinWait.SpinUntil(
+            () => productivity.Scopes.Any(scope => scope.Period == DashboardPeriod.FourWeeks),
+            TimeSpan.FromSeconds(5));
+
+        Assert.Contains(DashboardPeriod.FourWeeks, productivity.Scopes.Select(scope => scope.Period));
     }
 
     [Fact]
@@ -3682,24 +3690,39 @@ public class DashboardPaneTests
     /// cancelled by the time this one arrived.</summary>
     private sealed class TokenOrderSessionInsights : ISessionInsights
     {
+        private readonly Lock _gate = new();
+        private readonly List<bool> _withdrawn = [];
         private CancellationToken? _previous;
+        private int _calls;
 
-        public int Calls { get; private set; }
+        /// <summary>Read under the lock: a moved filter fetches after a yield, off the
+        /// test thread.</summary>
+        public int Calls
+        {
+            get { lock (_gate) return _calls; }
+        }
 
-        public List<bool> PredecessorWithdrawnOnArrival { get; } = [];
+        /// <summary>A snapshot, taken under the lock.</summary>
+        public IReadOnlyList<bool> PredecessorWithdrawnOnArrival
+        {
+            get { lock (_gate) return [.. _withdrawn]; }
+        }
 
         public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Calls++;
-
-            if (_previous is { } previous)
+            lock (_gate)
             {
-                PredecessorWithdrawnOnArrival.Add(previous.IsCancellationRequested);
-            }
+                _calls++;
 
-            _previous = cancellationToken;
+                if (_previous is { } previous)
+                {
+                    _withdrawn.Add(previous.IsCancellationRequested);
+                }
+
+                _previous = cancellationToken;
+            }
 
             return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
         }

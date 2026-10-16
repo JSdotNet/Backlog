@@ -390,6 +390,38 @@ public sealed class ComboboxTests
             harness.Instance.Commits);
     }
 
+    /// <summary>The option template draws what each option shows, and the option
+    /// around it stays the listbox's option: the role, the id the active
+    /// descendant names, and the pick, which still hands over the value.</summary>
+    [Fact]
+    public void An_option_template_draws_each_option_and_the_option_still_picks()
+    {
+        using var context = new BunitContext();
+        var host = new Host();
+        var combo = context.Render<Combobox>(parameters => parameters
+            .Add(c => c.Options, Options)
+            .Add(c => c.AriaLabel, "Hours")
+            .Add(c => c.ValueChanged, (string text) => host.Values.Add(text))
+            .Add(c => c.OnCommit, (ComboboxCommit commit) => host.Commits.Add((commit.Value, commit.Reason)))
+            .Add(c => c.OptionTemplate, (SelectorOption option) => builder =>
+            {
+                builder.OpenElement(0, "span");
+                builder.AddAttribute(1, "class", "hours-option");
+                builder.AddContent(2, $"{option.Label} planned");
+                builder.CloseElement();
+            }));
+
+        combo.Find("input").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+
+        var options = combo.FindAll("[role='option']");
+        Assert.Equal(["0.5h planned", "1h planned", "2h planned"], options.Select(option => option.TextContent));
+        Assert.All(options, option => Assert.NotNull(option.QuerySelector(".hours-option")));
+
+        options[1].Click();
+
+        Assert.Equal([("1", ComboboxCommitReason.Picked)], host.Commits);
+    }
+
     [Fact]
     public void A_disabled_combobox_opens_nothing()
     {
