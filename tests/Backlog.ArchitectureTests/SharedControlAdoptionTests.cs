@@ -111,13 +111,6 @@ public class SharedControlAdoptionTests
     /// once. Converting one and leaving the other would put two shapes on the
     /// same fact on the same screen, which reads worse than the duplication
     /// does.</item>
-    /// <item><c>pane-resizer</c> — the shell's side-pane separator. The class is
-    /// <c>SplitPane</c>'s, but this separator is driven from
-    /// <c>backlogPaneResizer</c> in the shell's app.js, which finds it by its
-    /// <c>data-pane-resizer</c> attribute and measures the layout by test id,
-    /// and the shell owns the arrow-key handling on it. SplitPane takes none of
-    /// that yet, so adopting it means moving the interop into the library
-    /// first.</item>
     /// <item><c>md-link</c> — one anchor into Settings from the domain knowledge
     /// panel, borrowing the class <c>MarkdownView</c> puts on a link inside
     /// rendered Markdown. There is no component to adopt: the library ships no
@@ -135,8 +128,7 @@ public class SharedControlAdoptionTests
     private static readonly string[] AllowedComponentClasses =
     [
         "badge--gh",
-        "md-link",
-        "pane-resizer"
+        "md-link"
     ];
 
     /// <summary>
