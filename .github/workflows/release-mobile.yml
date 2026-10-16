@@ -291,6 +291,12 @@ jobs:
           # Through env, as the signing values are, rather than spliced into the
           # script: it started life as a repository variable someone typed.
           BACKLOG_SYNC_SERVICE_URL: ${{ steps.sync_service.outputs.url }}
+          # The update channel: the repository whose releases the installed APK
+          # checks for a newer one (ApkUpdateChannel). Only this workflow sets it,
+          # because only its APKs carry the release key a later release can update;
+          # a build without it - Install-AndroidApp.ps1, a debug deploy - reports
+          # that it cannot update itself.
+          BACKLOG_UPDATE_REPOSITORY: ${{ github.repository }}
         run: |
           $ErrorActionPreference = 'Stop'
           # APK, not AAB: this package is sideloaded from GitHub Releases straight onto
@@ -302,6 +308,7 @@ jobs:
             -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} `
             -p:ApplicationVersion=${{ steps.version.outputs.code }} `
             "-p:BacklogSyncServiceUrl=$env:BACKLOG_SYNC_SERVICE_URL" `
+            "-p:BacklogUpdateRepository=$env:BACKLOG_UPDATE_REPOSITORY" `
             -p:AndroidKeyStore=true `
             "-p:AndroidSigningKeyStore=$env:KEYSTORE_PATH" `
             "-p:AndroidSigningKeyAlias=$env:ANDROID_KEY_ALIAS" `

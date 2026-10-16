@@ -1,8 +1,7 @@
-using Backlog.UI.Components;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Backlog.Desktop.UI.AppUpdate;
+namespace Backlog.UI.Components.AppUpdate;
 
 /// <summary>
 /// The update service used wherever the app cannot manage its own updates: the

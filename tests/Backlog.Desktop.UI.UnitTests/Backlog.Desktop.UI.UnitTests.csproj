@@ -80,6 +80,10 @@
          src/App/Backlog.Desktop.UI/Settings/_Imports.razor for the name
          collision that decided it. -->
     <Using Include="Backlog.Desktop.UI.AppUpdate" />
+    <!-- The port and its result types then moved again, into the shared library,
+         so the phone could implement the same contract; the App Installer
+         manifest reader stayed behind because it is MSIX-specific. -->
+    <Using Include="Backlog.UI.Components.AppUpdate" />
   </ItemGroup>
 
   <ItemGroup>

@@ -46,6 +46,22 @@ public class MainActivity : MauiAppCompatActivity
     }
 
     /// <summary>
+    /// On screen again: an update confirmation Android asked for while Backlog was in
+    /// the background, where it could not be shown, is shown now.
+    /// </summary>
+    protected override void OnResume()
+    {
+        base.OnResume();
+        ApkInstallStatusReceiver.ActivityResumed(this);
+    }
+
+    protected override void OnPause()
+    {
+        ApkInstallStatusReceiver.ActivityPaused(this);
+        base.OnPause();
+    }
+
+    /// <summary>
     /// Resolved from the app's services on each intent instead of being held in a
     /// field: the activity can outlive a MauiApp rebuild, and a stale receiver
     /// would publish into a buffer nothing is subscribed to.
