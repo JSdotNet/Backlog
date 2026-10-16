@@ -458,7 +458,7 @@ dialog promises is in
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/tasks/domain.md#started, .devbook/domain/tasks/domain.md#completed, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#forecasting-work-in-flight]
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/tasks/domain.md#started, .devbook/domain/tasks/domain.md#completed, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/requirements.md#looking-back-at-finished-plans]
 ```
 
 A plan whose tasks are all done is drawn where its work actually ran: from the day
@@ -477,6 +477,14 @@ A finished plan cannot be dragged: its dates are read off the work, so a move wo
 change nothing the next reading keeps. Opening it still edits the stored item. A
 plan still being worked on is drawn from its work too, to a forecast end
 ([Forecasting work in flight](#forecasting-work-in-flight)).
+
+The Completed switch on the toolbar, beside Hours, takes the finished plans off
+the chart when the person wants only what is left to do. It is the one narrowing
+the roadmap offers: a filter bar by repository, priority, lane or tag was dropped,
+because the bands already sort the plan by repository and a plan is small enough
+to read whole. Off, the lanes close up over the open work, and an arrow to a
+hidden plan goes with it. It is on by default and stays with the device, as the
+Hours switch does, because what is shown of the plan is not part of the plan.
 
 ### Forecasting work in flight
 
@@ -559,17 +567,16 @@ label.
 
 The colour is an **identity and nothing more**: it says which repository, never a
 status, a severity or a priority. It is never the only thing saying it either. The
-band is labelled, every span names its band when read aloud, and the repository
-filter lists them in full, so a reader who cannot tell two hues apart loses
-nothing. Priority on a plan is the ordinal shade ramp on the spans, which is one
+band is labelled and every span names its band when read aloud, so a reader who
+cannot tell two hues apart loses nothing. Priority on a plan is the ordinal shade ramp on the spans, which is one
 colour and stays that way.
 
 **The plan does not decide the colour and does not store it.** Which colour a
 repository wears is a fact about that repository, settled in the registry, and the
 plan is told it. This is the same reason this context holds repository aliases as
 opaque strings rather than resolving them. A plan that recorded a colour of its
-own would make the same project one colour here and another on the filter beside
-it. It would also have to be rewritten whenever the choice changed.
+own would make the same project one colour here and another in the registry it
+came from. It would also have to be rewritten whenever the choice changed.
 
 The band for work under no repository, and the band carrying the plan's dates,
 take no colour at all. A colour here means "which repository", and neither of those
