@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-09-16
-related: [".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
+related: [".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0034-archify-renders-are-generated-on-demand-not-committed.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
 ```
 
 ## Status
@@ -12,6 +12,22 @@ owner. Remediation window: before branch-sourced repositories are the common way
 a workspace reads a repository it does not build (see *Severity*).
 
 TDR lifecycle: identified → planned → in-progress → resolved.
+
+> **Decision recorded 2026-10-15: renders are generated on demand (local ADR
+> 0034).** Issue #752 asked for the choice between drawing the renders on demand
+> and keeping them committed in Git LFS to be recorded against this debt. ADR 0034
+> chose on demand. The rendered HTML is no longer committed: the app draws each
+> artifact from its specification into its own cache. `_archify/` now holds
+> only the specifications and `index.json`, a few kilobytes per diagram.
+>
+> That removes the cost premise of the exclusion described under *Origin*. It
+> changes the remediation: **Option C, drop the exclusion, is now the cheap fix
+> rather than the rejected one.** Fetching `_archify/` with its area restores the
+> index and the specifications, and the renderer then draws the picture as it
+> does for a clone. Options A and B, which existed to keep a heavy `.html`
+> lazy, lose their reason. The debt itself is still open: the exclusion is still
+> in `DevbookFolderSource`, and the generator a branch reader uses would be the
+> one bundled beside the app, since a snapshot carries no `tools/archify`.
 
 ## The debt
 
@@ -90,7 +106,7 @@ dependencies, because then most readers never see a rendered diagram at all.
 
 ## Remediation options
 
-### Option A — fetch `_archify` lazily per diagram (preferred)
+### Option A — fetch `_archify` lazily per diagram (preferred before local ADR 0034)
 
 When a diagram's chapter was resolved through a `Branch` location,
 `ArchifyDiagramArtifacts` asks `PrepareContentAsync(key, alias, [paths])` for the
@@ -117,13 +133,17 @@ only the `.html` excluded, and fetch the `.html` on demand as in A.
 - *Con:* still needs the async edge for the `.html`; the exclusion rule grows a
   second clause.
 
-### Option C — drop the exclusion
+### Option C — drop the exclusion (preferred since local ADR 0034)
 
 Fetch `_archify/` with the folder again.
 
 - *Pro:* smallest change; restores the pre-amendment behaviour.
 - *Con:* reintroduces exactly the cost the amendment removed. Rejected unless
   measurement shows the cost was never the artifacts.
+- *Since local ADR 0034:* the cost was the artifacts, and they are gone. The
+  folder is small JSON, so the con no longer applies. The renderer draws the
+  picture from the fetched specification with the generator bundled beside the
+  app.
 
 ### Not an option — say nothing
 
