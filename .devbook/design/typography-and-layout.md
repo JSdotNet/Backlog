@@ -275,6 +275,15 @@ Rules:
   view switch and the work in progress group
   (`interaction-guidelines.md#shell-header`). The glyph sits inline with the
   label's text, so the nav-item default does not apply.
+- A devbook area's glyph is `icon-sm`, 16 px, inline with the text it marks: before
+  the label on the Devbook pane's section tabs, and after the branch name on a
+  source picker option for each area the branch changes (never Instructions,
+  which a branch is not listed for). One map assigns the
+  glyphs, so an area is drawn the same way in both places: `scroll-text`
+  (Instructions), `boxes` (Domain), `landmark` (Architecture), `cpu` (Technology),
+  `palette` (Design), `sparkles` (AI). On a tab the glyph takes the tab's colour;
+  on an option it is `color-text-secondary`. The glyph is `aria-hidden`; the tab's
+  label, or a visually-hidden "Changes <area>" on the option, says it in words.
 - Standard status icons: `check-circle` (success), `alert-triangle` (warning),
   `x-circle` (error), `info` (info), `loader-2` (loading), `grip-vertical` (drag
   handle).
