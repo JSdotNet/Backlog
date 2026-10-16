@@ -402,43 +402,38 @@ terms. See [Record a run as it happens](#record-a-run-as-it-happens).
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#run-attachment, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
+related: [.devbook/domain/sessions/domain.md#run-attachment, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran, .devbook/domain/sessions/features.md#each-stage-against-its-usual-cost]
 ```
 
-A run attached to a listed session is shown under that session's own row, across
-every column of the list. Its parts are stacked the way a reader asks:
+A run attached to a listed session is shown on that session's run card, in the detail
+panel the row opens. The card reads top to bottom in the order a reader asks:
 
-1. the work it is linked to;
-2. the dashboard's status;
-3. one line of figures: stages done, the cost, the context peak, and the tool calls;
-4. the skill that owned it.
+1. **The header**: "Delivery run", the flow it ran in, the work it is linked to, and
+   its outcome at the right.
+2. **The insight**: once the run has finished, a callout on its cost against the usual
+   run of its flow ([Each stage against its usual cost](#each-stage-against-its-usual-cost)).
+3. **The figures**, as tiles: stages done, the cost, the context peak, and the tool
+   calls. A figure the run does not carry is left out, never shown as zero. Under them,
+   quietly, the run's share of the week.
+4. **The stages**: the legend, then one row per stage
+   ([How each stage of a run ran](#how-each-stage-of-a-run-ran)).
+5. **A footnote** saying what Configured means and what "vs typical" is compared with:
+   the stage's median over the last 30 runs of the run's own flow.
+6. **Run details**, behind a closed fold: the run's own title and id, the surfaces that
+   reported it, its change kind and schedule, its sync verdicts, the context gauge, the
+   token buckets, and the tool activity by category and by MCP server.
 
-The stages, the token buckets, the gauge, the tool activity by category and by MCP
-server, and the run's own title are behind a fold.
+The stages are a list. Each row says where its stage stands in a word beside its dot,
+so the run's progress reads without a diagram and in the same place as how each stage
+ran.
 
-Each stage the owner session worked in names that session in the fold. It names the
-model too when the run called exactly one, since then every call in every stage was on
-it. The run file records the models for the run as a whole, never per stage. So with
-more than one model, the session is named without a model rather than with a guess. A
-stage still pending or skipped names no one, because nobody worked in it.
+A session can drive more than one run. The latest is drawn whole; each earlier one folds
+to its header, which opens it. The run that matters now is open, and the others are one
+line each rather than a card each.
 
-Where the host can render one, the open fold shows the run's
-[Archify](../../tech/tooling.md#archify) artifact, a rendered diagram of the run, full
-width above the figures and in place of the stage flow. The artifact is produced only
-once the fold opens, and not again when a refresh brings the same stages. Where it
-cannot be produced, for example because Node.js is missing, the fold keeps the stage
-flow and says why.
-
-The run sits under the row rather than in a column, because a run is not a property of
-a session. It spans every column rather than sitting in the name cell, because a
-quarter of the width turned each of its parts into three lines while the rest of the
-row sat empty.
-
-The detail sits behind a fold because a run holds ten stages and tens of thousands of
-tool calls. A row that showed them would be a report with a table around it.
-
-[How each stage of a run ran](#how-each-stage-of-a-run-ran) extends this fold with each
-stage's mode and what ran beside what was configured.
+The run details sit behind a fold because a run holds ten stages, six token buckets per
+stage and tens of thousands of tool calls. A card that showed them all would be a report
+with a heading on it.
 
 ### One line for a run two surfaces reported
 
@@ -455,8 +450,8 @@ skill, come from different dashboards, start within five minutes of each other, 
 agree on the session.
 
 The line shows the record of the preferred surface: `delivery-surface-dashboard`, then
-`orch-dashboard`, then `backlog`. Its fold names the surfaces that reported the run, so
-a reader who sees one line where a dashboard shows two knows why.
+`orch-dashboard`, then `backlog`. Its run details name the surfaces that reported the
+run, so a reader who sees one run where a dashboard shows two knows why.
 
 ### The work a run is linked to
 
@@ -465,10 +460,10 @@ type: sub-feature
 related: [.devbook/domain/sessions/domain.md#delivery-run-reference]
 ```
 
-A run names what it was for and what it produced, and both are shown on its line. The
-tracker issue it was working and the pull requests it opened each show as a reference
-of the kind this product draws for work that lives elsewhere. There is one per line,
-and each opens where it lives.
+A run names what it was for and what it produced, and both are shown in its card's
+header, between its flow and its outcome. The tracker issue it was working and the pull
+requests it opened each show as a reference of the kind this product draws for work that
+lives elsewhere, and each opens where it lives.
 
 The Backlog entry it was started from is not a reference beside them. **The run's own
 status is how a reader reaches it**, because the entry is where this product tracks the
@@ -476,9 +471,9 @@ work, and the status is the run's answer about that work. Pressing the status ha
 entry back to whatever holds the task list, which shows and selects it. Where the
 prompt names no entry and no entry linked the session, the status stays a plain word.
 
-The run's own title is not shown on the line at all. A dashboard names a run after the
-work it was doing, so beside a reference to that work the title is the same sentence
-twice. It stays in the fold for a reader who wants the run's own words.
+The run's own title is not shown in the header at all. A dashboard names a run after
+the work it was doing, so beside a reference to that work the title is the same sentence
+twice. It stays in the run details for a reader who wants the run's own words.
 
 A run file records its references in three places, and one item named twice is one
 reference:
@@ -532,9 +527,9 @@ under it, newest first. Every scheduled run cuts a worktree of its own. A row pe
 would therefore add a line a week for a weekly sweep, each named after a folder nobody
 opens again. One row reads as the schedule's history instead.
 
-Each line carries a *scheduled* chip naming the schedule. Its fold names the schedule
-and repository. For a devbook sync sweep, the fold also counts the units it checked,
-by verdict. A scheduled run whose session the list does hold sits on that session's
+Each run carries a *scheduled* chip naming the schedule. Its run details name the
+schedule and repository. For a devbook sync sweep, they also count the units it
+checked, by verdict. A scheduled run whose session the list does hold sits on that session's
 row like any other run, still chipped.
 
 ### Only the rows with a run
@@ -637,7 +632,7 @@ each part as the page's name, the part, the part's outcome and when the run ran,
 read from the run the page committed. The stage keeps what it was last sent, and a
 later report about the same stage without evidence leaves it in place.
 
-The run shows this evidence inside the stage that reported it. Folded, the stage's
+The run shows this evidence inside the stage that reported it. Closed, the stage's
 row says how many of its parts passed, as "1 of 2 passing". Opened, the stage's panel
 lists them under "Scenario evidence", one row per part with the part's dot. A part
 there opens nothing: the run only says what the stage ran. A run is evidence and not
@@ -794,8 +789,11 @@ narrow width the panel drops under the list.
   - a row answered from this machine's own record says the transcript is gone;
   - a Copilot row says its state is read from silence, because Copilot leaves no
     liveness marker.
-- **The run card**: every run on the row, latest first, each the run's line as the list
-  draws it. A session with no run says so in its place.
+- **The run card**: every run on the row, latest first. The latest is drawn whole —
+  its header, the insight callout, the figure tiles, the legend and the stages, and the
+  footnote, with the run details folded under it — and each earlier run folds to its
+  header. [Under the session that drove it](#under-the-session-that-drove-it) has the
+  order and why. A session with no run says so in its place.
 - **What it produced**: a pull request card for each pull request, and the task card
   for the Backlog entry it was worked for. Each pull request card wears the readiness
   verdict of [One verdict per pull request](#one-verdict-per-pull-request) as read for
@@ -815,10 +813,13 @@ run. A flow's configuration names an agent, a model and an effort per phase. A r
 needs to know whether the run actually followed it, because a cheap or a poor run is
 usually explained by a stage that ran differently from its configuration.
 
-This deepens the fold described in
-[Under the session that drove it](#under-the-session-that-drove-it). That chapter names
-who worked in each stage; this one says how. The stages are listed in the run's fold,
-under the picture of its stages and above its figures, with a legend above them. What
+This deepens the run card described in
+[Under the session that drove it](#under-the-session-that-drove-it). The stages are
+listed on the card under the figure tiles and the legend, one row per stage on one grid:
+a status dot, the stage's name with its rounds where it took more than one, the mode
+chip, the model with its effort chip and mark, the time it took or the word for where it
+stands ("Failed", "Not yet"), its cost, its cost against its usual, and a chevron. The
+dot never carries the state alone: the word or the time beside it does. What
 each value means is the [Stage Resolution](domain.md#stage-resolution) of the domain.
 It is the same reading the delivery engine's own run view draws its pane with, so the
 two never say different things about one run.
@@ -837,10 +838,10 @@ related: [.devbook/design/effort-and-mode-chips.md#mode-chips]
 | fork | The session started the stage in a separate session that runs on its own. |
 | gate | The stage waited for a person to decide. |
 
-What a stage's latest pass found sits on its row beside the mode: Implement's and
-Review's round, the blockers Review left open, the defects Verify found, such as
-"round 2 · no blockers". A blocker left open or a defect found is drawn as an error; a
-stage that reported none of the three shows nothing, never a zero.
+What a stage's latest pass found sits on its row after its name: Implement's and
+Review's round as "· 2 rounds", then the blockers Review left open and the defects Verify
+found, such as "no blockers". A blocker left open or a defect found is drawn as an error;
+a stage that reported none of the three shows nothing, never a zero.
 
 Every stage shows its mode. A reader needs it to read the stage's figures: an inline stage
 shares the driving session's context and cost, while a delegated stage spends its own.
@@ -883,9 +884,9 @@ type: sub-feature
 ```
 
 A stage expands into a panel, and only one panel is open at a time: opening a stage
-closes the one that was open. The panel is closed by default, for the reason the run's
-fold is: a stage can hold hundreds of tool calls, and a list that showed them all would
-bury the stage strip.
+closes the one that was open. The panel is closed by default, for the reason the run
+details are: a stage can hold hundreds of tool calls, and a list that showed them all
+would bury the stage rows.
 
 The panel says:
 
@@ -899,13 +900,19 @@ The panel says:
 - **Configured**: the agent, model and effort the run resolved, and where that came
   from: the team default, or the team default with an overlay merged over it.
 - **Skill** and **MCP servers**: what the stage followed and was given, or "not recorded".
-- **Before and after**: the skills run before and after the stage.
-- **Why ≠ or ?**: the difference or the inference in words.
-- **Sub-agents**: every sub-agent call the stage made, with its agent, model, time,
-  tokens, tool calls and result, each left out where the run did not record it. A call
-  under the gate is marked as a [revise round](domain.md#revise-round), with the round
-  it worked where the run lists one, and every other call names its round. A delegated
-  stage whose calls the run did not record says so rather than claiming none ran.
+- **Around it**: the skills run before and after the stage.
+
+Under those facts:
+
+- **Why ≠ or ?**: the difference or the inference in words, as a callout wearing the
+  stage's mark. A difference wears the warning edge.
+- **Sub-agents**: every sub-agent call the stage made, as a table with the columns
+  Sub-agent run, Model, Time, Tokens, Tool calls and Result. A figure the run did not
+  record reads "—". What a call cost sits under its tokens. A call under the gate is
+  marked as a [revise round](domain.md#revise-round), with the round it worked where the
+  run lists one, and every other call names its round. A delegated stage whose calls the
+  run did not record says so rather than claiming none ran.
+- **Scenario evidence**, where the stage reported any.
 
 ## The cost of a run and its stages
 
@@ -960,8 +967,8 @@ The cost is shown in three places:
 
 - The session's detail panel has a **Cost** fact: the sum of every request the session
   reported.
-- Each stage row in a run's fold shows the stage's cost at its end, and the stage
-  panel's **Ran** line repeats it.
+- Each stage row on a run card shows the stage's cost, and the stage panel's **Ran**
+  line repeats it.
 - Each sub-agent call in the panel shows what that call cost.
 
 Which requests belong to which stage and which call is the
@@ -1020,33 +1027,35 @@ related: [.devbook/domain/sessions/features.md#delivery-economics, .devbook/doma
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunBaselinesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.A_finished_run_reads_its_cost_against_the_usual_run_of_its_flow, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests.A_finished_runs_insight_line_opens_delivery_economics_on_its_flow]
 ```
 
-Each stage row in a run's fold shows its cost, its share of the run's cost, and its ratio
+Each stage row on a run card shows its cost, its share of the run's cost, and its ratio
 to that stage's median cost over the last 30 finished runs of the same flow. The ratio
 wears the bands of the [Cost Baseline](domain.md#cost-baseline): green when lower than
 usual, "typical" near the median, highlighted when higher, and otherwise the plain
 ratio, such as "1.2×". The ratio's tooltip names the median and how many runs it was
 taken over. When a stage has no ratio is the baseline's rule too.
 
-The run's own figures, on the line that opens its fold, are stages done, the cost, the
-context peak and the tool calls. An estimated cost reads "est. cost". The output tokens
-are in the fold, with every other token count.
+The run's own figures are tiles under its header: stages done, the cost, the context
+peak and the tool calls. An estimated cost is labelled "Est. cost". The context peak is
+the peak in tokens, with its share of the limit under it where the limit is known. The
+output tokens are in the run details, with every other token count.
 
-One insight line sits under that line once the run has finished and five earlier runs of
-its flow were priced. It names the run's ratio to the flow's median and the stage that
-explains most of the difference. If that stage was entered again, the line says how many
-times, for example "2.0× the usual flow-code run · Implement explains most of it: $5.00
-over its usual, entered again once". Where that stage is Implement or Review, the line
-also names the run's review rounds, as in ", over 3 review rounds". A typical run names
-no stage. The line wears the same bands as the ratios. A run still active, blocked or
-parked has no line.
+An insight callout sits directly under the header once the run has finished and five
+earlier runs of its flow were priced. Its headline is the run's ratio to the flow's
+median, such as "2.0× the usual flow-code run". Under it, the why names the stage that
+explains most of the difference, and if that stage was entered again, how many times:
+"Implement explains most of it: $5.00 over its usual, entered again once". Where that
+stage is Implement or Review, the why also names the run's review rounds, as in ", over 3
+review rounds". A typical run reads "About the usual flow-code run (1.0× its median)" and
+names no stage. A run from 1.5× its usual wears the warning edge. A run still active,
+blocked or parked has no callout.
 
 The comparison is per flow and per stage because a review stage and an implement stage
 cost very different amounts. A run-wide average would flag every long run and explain
 none of them. How the earlier runs are chosen and matched is the
 [Cost Baseline](domain.md#cost-baseline)'s rule.
 
-The insight line is a button: it opens [Delivery economics](#delivery-economics) on the
-run's flow.
+The callout ends on "Compare configurations for this flow", which opens
+[Delivery economics](#delivery-economics) on the run's flow.
 
 ### Share of the week and the weekly limit
 
@@ -1103,8 +1112,8 @@ type: sub-feature
 related: [.devbook/domain/sessions/features.md#each-stage-against-its-usual-cost]
 ```
 
-The page has a button in the Sessions header. A run's one-line insight also opens it,
-filtered to that run's flow. The second way in exists because the insight raises the
+The page has a button in the Sessions header. A run's insight callout also opens it,
+through its "Compare configurations for this flow" link, filtered to that run's flow. The second way in exists because the insight raises the
 question, "is this stage always this expensive?", and the page is where it is answered.
 A Sessions breadcrumb at the top of the page leads back to the list, and the focus
 returns to whichever way in was used.
@@ -1273,7 +1282,7 @@ session where they can see it happen.
 
 ```meta
 type: feature
-related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
 ```
 
@@ -1513,7 +1522,7 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-related: [.devbook/domain/sessions/features.md#open-on-the-session-a-task-names]
+related: [.devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.In_progress_is_a_main_view_that_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_sessions_and_pull_requests_off_there_is_no_in_progress_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_card_draws_what_its_entry_links_and_the_rest_is_not_linked_to_a_task, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_no_repository_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_feature_that_is_off_draws_no_column_in_the_view_or_the_side_panel, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_feature_that_is_off_draws_no_column_and_no_count]
 ```
 

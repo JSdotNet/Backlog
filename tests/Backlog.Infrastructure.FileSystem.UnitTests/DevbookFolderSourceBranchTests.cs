@@ -44,6 +44,131 @@ public class DevbookFolderSourceBranchTests : IDisposable
         if (pending is not null) await pending;
     }
 
+    // --- The default repository (local ADR 0029) ---------------------------------
+
+    /// <summary>The devbook-only composition answers an unscoped question for the
+    /// default repository, which is the first active one: an archived first entry is
+    /// passed over for the next.</summary>
+    [Fact]
+    public void An_unscoped_question_falls_back_to_the_first_active_repository()
+    {
+        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"), () => WorkspaceRoot);
+        Assert.Null(settings.SetRepositories(
+        [
+            new GitHubRepositoryRef("budget", "innovadis-dev", "Budgetbeheer"),
+            new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")
+        ]));
+        Assert.Null(settings.SetRepositoryArchived("budget", archived: true));
+
+        var location = new DevbookFolderSource(settings, Workspace(), useRepositoryFallbackWhenNoAlias: true).Resolve(".domain");
+
+        Assert.Equal("JSdotNet/Backlog", location.RepositoryFullName);
+    }
+
+    // --- An archived repository (local ADR 0029 §4) ---------------------------
+
+    /// <summary>Only a clone of an active repository is editable: an archived
+    /// repository's clone still reads, says it is archived, and refuses every
+    /// edit — and Unarchive gives the edit back with nothing re-entered.</summary>
+    [Fact]
+    public void An_archived_repositorys_clone_reads_and_is_not_editable_until_it_is_unarchived()
+    {
+        var settings = TwoRepositories();
+        var clone = Path.Combine(_root, "clone");
+        Directory.CreateDirectory(Path.Combine(clone, ".domain"));
+        Assert.Null(settings.SetCloneDirectory("backlog", clone));
+        Assert.Null(settings.SetRepositoryArchived("backlog", archived: true));
+        var source = Source(settings, new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: true));
+
+        var archived = source.Resolve(".domain", "backlog");
+
+        Assert.True(archived.Available);
+        Assert.Equal(DevbookSourceKind.LocalFolder, archived.Source);
+        Assert.True(archived.RepositoryArchived);
+        Assert.False(archived.CanEdit);
+        Assert.Equal(Path.Combine(clone, ".domain"), archived.FullPath);
+
+        Assert.Null(settings.SetRepositoryArchived("backlog", archived: false));
+        var unarchived = source.Resolve(".domain", "backlog");
+
+        Assert.False(unarchived.RepositoryArchived);
+        Assert.True(unarchived.CanEdit);
+    }
+
+    /// <summary>No automatic snapshot fetch: the snapshot on disk is served as it
+    /// is, and neither the resolve nor the head re-check behind it asks GitHub.</summary>
+    [Fact]
+    public void An_archived_repositorys_snapshot_is_served_as_it_is_and_nothing_is_fetched()
+    {
+        var settings = TwoRepositories();
+        Assert.Null(settings.SetRepositoryArchived("backlog", archived: true));
+        var cache = new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: true, ".domain/context-map.md");
+        var source = Source(settings, cache);
+
+        var location = source.Resolve(".domain", "backlog");
+
+        Assert.True(location.Available);
+        Assert.Equal(DevbookSourceKind.Branch, location.Source);
+        Assert.True(location.RepositoryArchived);
+        Assert.False(location.CanEdit);
+        Assert.Null(source.PendingFetch(settings.Current.Find("backlog")!));
+        Assert.Equal(0, cache.Fetches);
+    }
+
+    /// <summary>With no snapshot on disk there is nothing to read, and the answer
+    /// says why rather than "fetching": nothing is on its way.</summary>
+    [Fact]
+    public void An_archived_repository_with_no_snapshot_says_it_is_archived_and_fetches_nothing()
+    {
+        var settings = TwoRepositories();
+        Assert.Null(settings.SetRepositoryArchived("backlog", archived: true));
+        var cache = new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: false, ".domain/context-map.md");
+        var source = Source(settings, cache);
+
+        var location = source.Resolve(".domain", "backlog");
+
+        Assert.False(location.Available);
+        Assert.False(location.Pending);
+        Assert.True(location.RepositoryArchived);
+        Assert.Contains("archived", location.Message, StringComparison.Ordinal);
+        Assert.Null(source.PendingFetch(settings.Current.Find("backlog")!));
+        Assert.Equal(0, cache.Fetches);
+    }
+
+    /// <summary>Preparing a listing or an area is the panels' own way of asking
+    /// for files, and for an archived repository it asks for none: what is on
+    /// disk is what reads.</summary>
+    [Fact]
+    public async Task Preparing_an_archived_repositorys_snapshot_fetches_nothing()
+    {
+        var settings = TwoRepositories();
+        Assert.Null(settings.SetRepositoryArchived("backlog", archived: true));
+        var cache = new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: true, ".arc42/01-intro.md", ".arc42/_meta/index.json");
+        var source = Source(settings, cache);
+
+        var listing = await source.PrepareListingAsync(".arc42", "backlog", TestContext.Current.CancellationToken);
+        var content = await source.PrepareContentAsync(".arc42", "backlog", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(listing.Available);
+        Assert.True(content.Available);
+        Assert.True(content.RepositoryArchived);
+        Assert.Empty(cache.Selections);
+        Assert.Equal(0, cache.Fetches);
+    }
+
+    /// <summary>An archived repository needs an active one beside it: the
+    /// registry never holds only archived repositories (local ADR 0029).</summary>
+    private GitHubSettingsStore TwoRepositories()
+    {
+        var store = new GitHubSettingsStore(Path.Combine(_root, "github.json"), () => WorkspaceRoot);
+        Assert.Null(store.SetRepositories(
+        [
+            new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
+            new GitHubRepositoryRef("other", "JSdotNet", "Other")
+        ]));
+        return store;
+    }
+
     // --- Reading a branch -----------------------------------------------------
 
     [Fact]

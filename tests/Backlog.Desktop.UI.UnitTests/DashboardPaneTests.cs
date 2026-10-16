@@ -662,6 +662,13 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
+        // A moved filter acknowledges the press before it fetches (DashboardPartBase
+        // yields first), so Change() can return before the part has asked. Wait on the
+        // stub itself.
+        SpinWait.SpinUntil(
+            () => sessions.Scopes.Any(scope => scope.MachineId == DashboardTestHost.MachineId),
+            TimeSpan.FromSeconds(5));
+
         Assert.Contains(DashboardTestHost.MachineId, sessions.Scopes.Select(scope => scope.MachineId));
     }
 
@@ -1941,6 +1948,11 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         FocusRepository(pane, "backlog");
 
+        // The same yield before the fetch as a moved machine filter.
+        SpinWait.SpinUntil(
+            () => sessions.Scopes.Any(scope => scope.Repositories.Contains("backlog")),
+            TimeSpan.FromSeconds(5));
+
         Assert.Contains(sessions.Scopes, scope => scope.Repositories.Contains("backlog"));
     }
 
@@ -3003,7 +3015,7 @@ public class DashboardPaneTests
         var first = context.Render<DashboardPane>();
         first.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
-        productivity.Scopes.Clear();
+        productivity.ClearScopes();
 
         var second = context.Render<DashboardPane>();
         _ = second;
@@ -3546,15 +3558,35 @@ public class DashboardPaneTests
 
     private sealed class RecordingProductivityInsights : IProductivityInsights
     {
-        public List<DashboardScope> Scopes { get; } = [];
+        private readonly List<DashboardScope> _scopes = [];
 
-        public int Invalidations { get; private set; }
+        private int _invalidations;
+
+        /// <summary>A snapshot, taken under the lock: the pane loads each region on
+        /// its own, so a load can still be recording while a test reads the calls,
+        /// and enumerating the live list then throws "Collection was modified".</summary>
+        public IReadOnlyList<DashboardScope> Scopes
+        {
+            get { lock (_scopes) return [.. _scopes]; }
+        }
+
+        public int Invalidations => Volatile.Read(ref _invalidations);
+
+        private void Record(DashboardScope scope)
+        {
+            lock (_scopes) _scopes.Add(scope);
+        }
+
+        public void ClearScopes()
+        {
+            lock (_scopes) _scopes.Clear();
+        }
 
         public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ProductivityHeadline>.Unavailable("Not configured."));
         }
 
@@ -3562,7 +3594,7 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable("Not configured."));
         }
 
@@ -3570,11 +3602,11 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            Record(scope);
             return Task.FromResult(InsightResult<ReworkInsight>.Unavailable("Not configured."));
         }
 
-        public void Invalidate(DashboardScope scope) => Invalidations++;
+        public void Invalidate(DashboardScope scope) => Interlocked.Increment(ref _invalidations);
     }
 
     /// <summary>
@@ -3615,16 +3647,26 @@ public class DashboardPaneTests
     }
 
     /// <summary>Sessions that remembers every scope it was asked for, so a test can say
-    /// which filters reached it and which did not.</summary>
+    /// which filters reached it and which did not. A moved filter's fetch runs after the
+    /// part's <c>Task.Yield</c>, off the test thread, so the list is read as a locked
+    /// snapshot.</summary>
     private sealed class RecordingSessionInsights : ISessionInsights
     {
-        public List<DashboardScope> Scopes { get; } = [];
+        private readonly List<DashboardScope> _scopes = [];
+
+        public IReadOnlyList<DashboardScope> Scopes
+        {
+            get
+            {
+                lock (_scopes) return [.. _scopes];
+            }
+        }
 
         public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default)
         {
-            Scopes.Add(scope);
+            lock (_scopes) _scopes.Add(scope);
             return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
         }
 

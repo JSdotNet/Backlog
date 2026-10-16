@@ -304,10 +304,6 @@ public class WebHarnessHostTests
     /// <c>Backlog.Infrastructure.Sessions</c> rather than from the module's screen
     /// project; the Ask AI source the screen project keeps is still composed beside
     /// them.
-    /// <para>
-    /// The diagram port is looked up by name in the module's published surface so that
-    /// the assertion that it lives there fails as an assertion rather than as a build.
-    /// </para>
     /// </summary>
     [Fact]
     public void The_desktop_harness_composes_the_sessions_adapters_from_their_infrastructure_project()
@@ -316,18 +312,11 @@ public class WebHarnessHostTests
 
         using var harness = new Harness<DesktopHarness::Program>();
 
-        var diagramPort = typeof(Backlog.Modules.Sessions.Abstractions.IAgentSessionSource).Assembly
-            .GetType("Backlog.Modules.Sessions.Abstractions.IDeliveryRunDiagrams");
-
-        Assert.NotNull(diagramPort);
-        Assert.True(diagramPort.IsPublic, "IDeliveryRunDiagrams is the module's published port.");
-
         object[] adapters =
         [
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IAgentSessionSource>(),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IAgentActivitySource>(),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunSource>(),
-            harness.Services.GetRequiredService(diagramPort),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliverySurfaceLifecycle>(),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunTelemetry>(),
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.ISessionRecordKeeper>(),
@@ -377,6 +366,27 @@ public class WebHarnessHostTests
 
         var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
         Assert.Contains(sections, section => section.Id == "inbox" && section.Title == "Inbox");
+    }
+
+    /// <summary>
+    /// The desktop harness carries the Tasks page — Clear My Day overnight — through
+    /// the shared composition, and the switch it draws is the one store both sync
+    /// ports read (local ADR 0032).
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_tasks_settings_section_over_the_my_day_preferences()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        var tasks = Assert.Single(sections, section => section.Id == "tasks");
+        Assert.Equal("Tasks", tasks.Title);
+        Assert.Equal(["My Day"], tasks.CardTitles!);
+        Assert.Same(
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferences>(),
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferencesReplication>());
     }
 
     /// <summary>

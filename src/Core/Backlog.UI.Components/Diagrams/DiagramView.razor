@@ -215,8 +215,8 @@
     /// An artifact the caller already has, drawn in place of whatever the registered
     /// <see cref="IDiagramArtifactSource"/> would have found for <see cref="Source"/>.
     /// <para>
-    /// For a diagram that is not a fence in a chapter — a delivery run's stages, which
-    /// the host generates from live data and re-generates as they move. There is no
+    /// For a diagram that is not a fence in a chapter — a picture the host generates
+    /// from live data and re-generates as the data moves. There is no
     /// source text such a picture was authored from for the lookup to hash, so the
     /// host hands the picture over and <see cref="Source"/> stays what the Mermaid side
     /// of the switch draws. A changed <see cref="DiagramArtifact.ArtifactPath"/> is
@@ -241,8 +241,8 @@
     /// <summary>Asks the artifact to leave out the card a node opens when it is
     /// focused — Archify's "Semantic passport" — in the page and in full screen
     /// alike. For a drawing whose connections say nothing the boxes do not, such as
-    /// a delivery run's stages, where every card would read "previous stage in, next
-    /// stage out". Focusing a node still highlights it.</summary>
+    /// a straight sequence of steps, where every card would read "previous step in,
+    /// next step out". Focusing a node still highlights it.</summary>
     [Parameter]
     public bool HideNodeDetails { get; set; }
 

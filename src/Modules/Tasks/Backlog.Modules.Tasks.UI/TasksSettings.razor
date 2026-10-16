@@ -1,0 +1,70 @@
+@*
+    The Tasks page on the settings screen (settings/tasks), which the shell draws
+    because the host registered it (AddTasksSettings) rather than because the shell
+    knows anything about tasks. One card today, My Day, holding one switch: Clear
+    My Day overnight (local ADR 0032; .devbook/domain/tasks/context.md#clear-my-day-overnight).
+
+    The switch changes how a myday: stamp from an earlier day is read, and never
+    writes one, so turning it back on restores the overnight list at once. It saves
+    on change, through IMyDayPreferences, and the sync carries it to the person's
+    other desktops and phone as one document.
+
+    The namespace is the project's root rather than a Settings folder's, for the
+    reason InboxSettings gives: a ...Tasks.Settings namespace would shadow the
+    settings screen's own component.
+*@
+@namespace Backlog.Desktop.UI.Tasks
+@using Backlog.UI.Components.Settings
+@implements IDisposable
+@inject IMyDayPreferences Preferences
+
+<SettingsHeadline>@Headline(Preferences.ClearsOvernight)</SettingsHeadline>
+
+@* In the grid every settings page lays its cards out in, so the one card keeps
+   the grid's width cap rather than stretching across the page. *@
+<div class="setting-columns">
+<SettingsCard Title="@MyDayCardTitle"
+              Id="tasks-my-day-title"
+              Description="What happens overnight to the tasks you put in My Day. The choice travels to your other paired devices."
+              TestId="tasks-my-day-card">
+    <Toggle Label="Clear My Day overnight"
+            Description="On, My Day starts empty every morning. Off, a task you have not finished stays in My Day until you finish it — without the time you had planned it for, which was that day's."
+            Checked="@Preferences.ClearsOvernight"
+            CheckedChanged="SetClearsOvernight"
+            TestId="tasks-my-day-clears-overnight" />
+
+    @* Said only when the value could not be written: the switch still moved, for
+       this session, and the line says why it may not survive a restart. *@
+    <Alert Message="@_error"
+           Role="status"
+           TestId="tasks-my-day-status" />
+</SettingsCard>
+</div>
+
+@code {
+    /// <summary>The page's one card - what its <c>SettingsSection.CardTitles</c>
+    /// declares.</summary>
+    public const string MyDayCardTitle = "My Day";
+
+    /// <summary>The cards the page draws, in order: what the settings search reads.</summary>
+    public static IReadOnlyList<string> CardTitles { get; } = [MyDayCardTitle];
+
+    /// <summary>The sentence the frame shows over this page: what My Day does
+    /// overnight, under the switch as it stands.</summary>
+    public static string Headline(bool clearsOvernight) => clearsOvernight
+        ? "My Day starts empty every morning."
+        : "My Day keeps what you have not finished until you finish it.";
+
+    private string? _error;
+
+    protected override void OnInitialized() => Preferences.Changed += OnPreferencesChanged;
+
+    private void SetClearsOvernight(bool clearsOvernight) =>
+        _error = Preferences.SetClearsOvernight(clearsOvernight);
+
+    /// <summary>The switch moved somewhere else — another window, or a copy a sync
+    /// pull took from another desktop — on whichever thread that happened.</summary>
+    private void OnPreferencesChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Preferences.Changed -= OnPreferencesChanged;
+}

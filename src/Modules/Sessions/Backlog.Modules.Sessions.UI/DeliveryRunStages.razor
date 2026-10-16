@@ -9,27 +9,35 @@
     means is DeliveryRunStageResolution's, the port of the delivery-run-view plugin's
     stage resolution, so this list and that pane say the same thing about a run.
 
+    Each row is one line on a fixed grid, so the columns line up down the list: the
+    status dot, the name with its rounds where it took more than one (and what its
+    latest pass found, and its scenario evidence, quietly after them), the mode chip,
+    the model with its effort chip and mark, the time it took or the word for where
+    it stands ("Failed", "Not yet"), its cost, its cost against its usual, and the
+    chevron. The dot is decorative; the word beside it carries the state.
+
     One panel open at a time. Each row is the library's fold, and opening one closes
     the one that was open: the panel is long, and two of them open would push the
     second stage a reader asked about off the card. The panel says in words what the
     row's chips and mark summarise — what ran, what was configured and where from,
-    the skill, the servers, the skills run before and after, why a stage is marked,
-    and every sub-agent call the stage made.
+    the skill, the servers, the skills run around it, what its passes found — then
+    why a stage is marked, as a callout with the mark as its glyph, and every
+    sub-agent call the stage made, as a table.
 
-    Cost, where the host worked one out (DeliveryRunCosts): on the row before its
-    figures, followed by its share of the run and its ratio to its usual
-    (DeliveryRunStageUsual), and on each sub-agent call. Reported by Claude Code, or estimated from
+    Cost, where the host worked one out (DeliveryRunCosts): on the row, followed by
+    its share of the run and its ratio to its usual (DeliveryRunStageUsual), and
+    under each sub-agent call's tokens. Reported by Claude Code, or estimated from
     tokens at the Settings prices and marked so; with neither, nothing is drawn —
     never a zero.
 
-    What the pass found (Stage Counts): Implement's and Review's round, Review's open
-    blockers and Verify's defects on the row, as the stage's latest pass reported them;
+    What the pass found (Stage Counts): the round rides on the name, and Review's open
+    blockers and Verify's defects follow it quietly, as the latest pass reported them;
     the panel's Found line adds the run's cumulative Quality Facts where it carries
     them, and each sub-agent call names the round it worked. Absent stays absent.
 
     Scenario evidence (BL2), where a stage reported any — the verify stage, for a
-    delivery run: the folded row says how many of its parts passed, and the panel
-    lists them, so the evidence sits under the stage that ran it.
+    delivery run: the row says how many of its parts passed after the name, and the
+    panel lists them, so the evidence sits under the stage that ran it.
 
     Screenshots and links, where a stage reported any. Verify sends scenarios, each
     with the screenshot paths it took — a scenario page's label shots, and a failed
@@ -49,146 +57,114 @@
             {
                 var position = index;
                 var stage = _stages[position];
+                var tone = DeliveryRunLine.Tone(stage.Status);
 
-                <li class="sessions-stage" data-testid="sessions-stage" data-stage="@stage.Name">
+                <li class="sessions-stage" data-testid="sessions-stage" data-stage="@stage.Name" data-tone="@tone.ToString().ToLowerInvariant()">
                     <FoldControl Expanded="@(_open == position)"
                                  ExpandedChanged="@(expanded => Toggle(position, expanded))"
                                  BaseClass="sessions-stage__fold"
                                  AriaLabel="@($"{stage.Name}: how it ran")"
                                  TestId="sessions-stage-toggle">
                         <LabelContent>
-                            <span class="sessions-stage__name">@stage.Name</span>
-                            <StatusBadge Status="@stage.Status"
-                                         Text="@DeliveryRunLine.StatusLabel(stage.Status)"
-                                         CssClass="sessions-stage__status"
-                                         TestId="sessions-stage-status" />
-                            <ModeChip Mode="@ModeWord(stage.Mode)" TestId="sessions-stage-mode" />
-                            @if (stage.Model is { } model)
-                            {
-                                <span class="sessions-stage__model" title="@model" data-testid="sessions-stage-model">@AgentModels.Label(model)</span>
-                            }
-                            <EffortChip Effort="@stage.Effort" TestId="sessions-stage-effort" />
-                            @if (Mark(stage) is var mark and not StageMarkKind.None)
-                            {
-                                <StageMark Kind="@mark"
-                                           Title="@(mark is StageMarkKind.Drift ? DeliveryRunStageResolution.DriftTitle(stage) : null)"
-                                           TestId="sessions-stage-mark" />
-                            }
-                            @if (Found(stage) is { } found)
-                            {
-                                <span class="sessions-stage__found"
-                                      data-testid="sessions-stage-found"
-                                      data-tone="@(FoundSomething(stage) ? "found" : "clean")">@found</span>
-                            }
-                            @if (EvidenceOf(position) is { Count: > 0 } evidence)
-                            {
-                                <span class="sessions-stage__evidence"
-                                      title="Scenario parts this stage ran; open the stage for each part"
-                                      data-testid="sessions-stage-evidence-summary">@ScenarioPartChecklist.SummaryOf(evidence)</span>
-                            }
-                            @if (CostOf(position) is { } cost)
-                            {
-                                <span class="sessions-stage__cost"
-                                      title="@CostTitle(cost)"
-                                      data-testid="sessions-stage-cost"
-                                      data-source="@CostSlug(cost)">
-                                    @cost.Label
-                                    @if (cost.Estimated)
-                                    {
-                                        <abbr class="sessions-stage__estimate" title="@CostFigure.EstimatedNote">est.</abbr>
-                                    }
-                                </span>
-                                <DeliveryRunStageUsual Comparison="@UsualOf(position)" />
-                            }
-                            @if (Figures(stage) is { } figures)
-                            {
-                                <span class="sessions-stage__figures">@figures</span>
-                            }
+                            @* The dot is decorative: the word or the time further along
+                               the row says where the stage stands. *@
+                            <StatusDot Tone="@tone" CssClass="sessions-stage__dot" TestId="sessions-stage-dot" />
+                            <span class="sessions-stage__name">
+                                @stage.Name
+                                @if (Rounds(stage) is { } rounds)
+                                {
+                                    <span class="sessions-stage__rounds" data-testid="sessions-stage-rounds">@rounds</span>
+                                }
+                                @* What the latest pass left behind, quietly after the
+                                   name: the round is already in the rounds. *@
+                                @if (RowFound(stage) is { } found)
+                                {
+                                    <span class="sessions-stage__found"
+                                          data-testid="sessions-stage-found"
+                                          data-tone="@(FoundSomething(stage) ? "found" : "clean")">@found</span>
+                                }
+                                @if (EvidenceOf(position) is { Count: > 0 } evidence)
+                                {
+                                    <span class="sessions-stage__evidence"
+                                          title="Scenario parts this stage ran; open the stage for each part"
+                                          data-testid="sessions-stage-evidence-summary">@ScenarioPartChecklist.SummaryOf(evidence)</span>
+                                }
+                            </span>
+                            <span class="sessions-stage__mode">
+                                <ModeChip Mode="@ModeWord(stage.Mode)" TestId="sessions-stage-mode" />
+                            </span>
+                            <span class="sessions-stage__ran-on">
+                                @if (stage.Model is { } model)
+                                {
+                                    <span class="sessions-stage__model" title="@model" data-testid="sessions-stage-model">@AgentModels.Label(model)</span>
+                                }
+                                <EffortChip Effort="@stage.Effort" TestId="sessions-stage-effort" />
+                                @if (Mark(stage) is var mark and not StageMarkKind.None)
+                                {
+                                    <StageMark Kind="@mark"
+                                               Title="@(mark is StageMarkKind.Drift ? DeliveryRunStageResolution.DriftTitle(stage) : null)"
+                                               TestId="sessions-stage-mark" />
+                                }
+                            </span>
+                            <span class="sessions-stage__took"
+                                  data-tone="@tone.ToString().ToLowerInvariant()"
+                                  data-testid="sessions-stage-took">@Took(stage)</span>
+                            <span class="sessions-stage__price">
+                                @if (CostOf(position) is { } cost)
+                                {
+                                    <span class="sessions-stage__cost"
+                                          title="@CostTitle(cost)"
+                                          data-testid="sessions-stage-cost"
+                                          data-source="@CostSlug(cost)">
+                                        @cost.Label
+                                        @if (cost.Estimated)
+                                        {
+                                            <abbr class="sessions-stage__estimate" title="@CostFigure.EstimatedNote">est.</abbr>
+                                        }
+                                    </span>
+                                }
+                            </span>
+                            <span class="sessions-stage__against">
+                                @if (CostOf(position) is not null)
+                                {
+                                    <DeliveryRunStageUsual Comparison="@UsualOf(position)" />
+                                }
+                            </span>
                         </LabelContent>
                         <ChildContent>
-                            <dl class="sessions-stage__panel" data-testid="sessions-stage-panel">
-                                <div class="sessions-stage__fact">
-                                    <dt>Ran</dt>
-                                    <dd data-testid="sessions-stage-ran">@Ran(stage, CostOf(position))</dd>
-                                </div>
-                                <div class="sessions-stage__fact">
-                                    <dt>Configured</dt>
-                                    <dd data-testid="sessions-stage-configured">@Configured(stage)</dd>
-                                </div>
-                                <div class="sessions-stage__fact">
-                                    <dt>Skill</dt>
-                                    <dd class="data-table__mono" data-testid="sessions-stage-skill">@(stage.Skill ?? NotRecorded)</dd>
-                                </div>
-                                <div class="sessions-stage__fact">
-                                    <dt>MCP servers</dt>
-                                    <dd class="data-table__mono" data-testid="sessions-stage-mcp">@Servers(stage)</dd>
-                                </div>
-                                @if (FoundFact(stage, Run.Quality) is { } foundFact)
-                                {
+                            <div class="sessions-stage__panel" data-testid="sessions-stage-panel">
+                                <dl class="sessions-stage__facts">
                                     <div class="sessions-stage__fact">
-                                        <dt>Found</dt>
-                                        <dd data-testid="sessions-stage-found-fact">@foundFact</dd>
+                                        <dt>Ran</dt>
+                                        <dd data-testid="sessions-stage-ran">@Ran(stage, CostOf(position))</dd>
                                     </div>
-                                }
-                                @if (stage.Before.Count > 0 || stage.After.Count > 0)
-                                {
                                     <div class="sessions-stage__fact">
-                                        <dt>Before · after</dt>
-                                        <dd class="data-table__mono" data-testid="sessions-stage-chores">@Chores(stage)</dd>
+                                        <dt>Configured</dt>
+                                        <dd data-testid="sessions-stage-configured">@Configured(stage)</dd>
                                     </div>
-                                }
-                                @if (DeliveryRunStageResolution.Explanations(stage) is { Count: > 0 } notes)
-                                {
                                     <div class="sessions-stage__fact">
-                                        <dt>@(stage.Drifted ? "Why ≠" : "Why ?")</dt>
-                                        <dd data-testid="sessions-stage-notes">
-                                            @foreach (var note in notes)
-                                            {
-                                                <span class="sessions-stage__note">@note</span>
-                                            }
-                                        </dd>
+                                        <dt>Skill</dt>
+                                        <dd class="data-table__mono" data-testid="sessions-stage-skill">@(stage.Skill ?? NotRecorded)</dd>
                                     </div>
-                                }
-                                <div class="sessions-stage__fact">
-                                    <dt>Sub-agents</dt>
-                                    <dd data-testid="sessions-stage-workers">
-                                        @if (stage.Workers.Count == 0)
-                                        {
-                                            <span class="sessions-stage__none">@NoWorkers(stage)</span>
-                                        }
-                                        else
-                                        {
-                                            <ul class="sessions-stage__workers">
-                                                @for (var w = 0; w < stage.Workers.Count; w++)
-                                                {
-                                                    var worker = stage.Workers[w];
-                                                    var workerCost = WorkerCostOf(position, w);
-                                                    <li class="sessions-stage__worker" data-testid="sessions-stage-worker">
-                                                        <span class="data-table__mono">@worker.Agent</span>
-                                                        @if (worker.Revise)
-                                                        {
-                                                            <Badge Kind="trigger" CssClass="sessions-stage__revise" Title="@ReviseTitle(worker)" TestId="sessions-stage-revise">@ReviseLabel(worker)</Badge>
-                                                        }
-                                                        <span class="sessions-stage__worker-facts">@WorkerFacts(worker, workerCost)</span>
-                                                    </li>
-                                                }
-                                            </ul>
-                                        }
-                                    </dd>
-                                </div>
-                                @if (EvidenceOf(position) is { Count: > 0 } parts)
-                                {
-                                    @* The parts stay plain text: a run's evidence opens
-                                       nothing, it only says what the stage ran. *@
                                     <div class="sessions-stage__fact">
-                                        <dt>Evidence</dt>
-                                        <dd>
-                                            <ScenarioPartChecklist Parts="@parts"
-                                                                   Heading="Scenario evidence"
-                                                                   TestId="sessions-stage-evidence" />
-                                        </dd>
+                                        <dt>MCP servers</dt>
+                                        <dd class="data-table__mono" data-testid="sessions-stage-mcp">@Servers(stage)</dd>
                                     </div>
-                                }
+                                    @if (stage.Before.Count > 0 || stage.After.Count > 0)
+                                    {
+                                        <div class="sessions-stage__fact">
+                                            <dt>Around it</dt>
+                                            <dd class="data-table__mono" data-testid="sessions-stage-chores">@Chores(stage)</dd>
+                                        </div>
+                                    }
+                                    @if (FoundFact(stage, Run.Quality) is { } foundFact)
+                                    {
+                                        <div class="sessions-stage__fact">
+                                            <dt>Found</dt>
+                                            <dd data-testid="sessions-stage-found-fact"
+                                                data-tone="@(FoundSomething(stage) ? "found" : "clean")">@foundFact</dd>
+                                        </div>
+                                    }
                                 @if (ScenariosOf(position) is { Count: > 0 } scenarios)
                                 {
                                     @* File names, not images: the paths are relative to
@@ -252,7 +228,70 @@
                                         </dd>
                                     </div>
                                 }
-                            </dl>
+                                </dl>
+
+                                @* Why the row carries its mark, as a callout under the
+                                   facts it qualifies: the mark is its glyph. *@
+                                @if (DeliveryRunStageResolution.Explanations(stage) is { Count: > 0 } notes)
+                                {
+                                    <Callout Tone="@(stage.Drifted ? "warning" : null)"
+                                             CssClass="sessions-stage__why"
+                                             TestId="sessions-stage-notes"
+                                             Icon="@MarkGlyph(stage)"
+                                             ChildContent="@Lines(notes)" />
+                                }
+
+                                @if (stage.Workers.Count == 0)
+                                {
+                                    <p class="sessions-stage__none" data-testid="sessions-stage-workers">@NoWorkers(stage)</p>
+                                }
+                                else
+                                {
+                                    <DataTable TItem="WorkerRow"
+                                               Columns="@WorkerColumns"
+                                               Items="@WorkersOf(position, stage)"
+                                               RowKey="@(row => row.Index)"
+                                               RowAttributes="@(_ => WorkerAttributes)"
+                                               AriaLabel="@($"Sub-agent runs of {stage.Name}")"
+                                               RowNoun="sub-agent run"
+                                               CssClass="sessions-stage__workers"
+                                               TestId="sessions-stage-workers">
+                                        <Row Context="row">
+                                            <td>
+                                                <span class="data-table__mono">@row.Worker.Agent</span>
+                                                @if (row.Worker.Revise)
+                                                {
+                                                    <Badge Kind="trigger" CssClass="sessions-stage__revise" Title="@ReviseTitle(row.Worker)" TestId="sessions-stage-revise">@ReviseLabel(row.Worker)</Badge>
+                                                }
+                                                @if (WorkerQualifier(row.Worker) is { } qualifier)
+                                                {
+                                                    <span class="sessions-stage__qualifier">@qualifier</span>
+                                                }
+                                            </td>
+                                            <td>@WorkerModel(row.Worker)</td>
+                                            <td class="sessions-stage__figure">@(row.Worker.DurationMs is { } ms ? DeliveryRunLine.Duration(ms) : NotReported)</td>
+                                            <td class="sessions-stage__figure data-table__mono">
+                                                @(row.Worker.Tokens is { } tokens ? MetricFormat.Compact(tokens) : NotReported)
+                                                @if (row.Cost is { } workerCost)
+                                                {
+                                                    <span class="sessions-stage__qualifier" title="@CostTitle(workerCost)">@CostText(workerCost)</span>
+                                                }
+                                            </td>
+                                            <td class="sessions-stage__figure">@(row.Worker.ToolCalls is { } calls ? calls.ToString(System.Globalization.CultureInfo.InvariantCulture) : NotReported)</td>
+                                            <td data-outcome="@WorkerOutcome(row.Worker)">@WorkerResult(row.Worker)</td>
+                                        </Row>
+                                    </DataTable>
+                                }
+
+                                @if (EvidenceOf(position) is { Count: > 0 } parts)
+                                {
+                                    @* The parts stay plain text: a run's evidence opens
+                                       nothing, it only says what the stage ran. *@
+                                    <ScenarioPartChecklist Parts="@parts"
+                                                           Heading="Scenario evidence"
+                                                           TestId="sessions-stage-evidence" />
+                                }
+                            </div>
                         </ChildContent>
                     </FoldControl>
                 </li>
@@ -383,16 +422,41 @@
     internal static StageMarkKind Mark(DeliveryRunStageExecution stage) =>
         stage.Drifted ? StageMarkKind.Drift : stage.Inferred ? StageMarkKind.Inferred : StageMarkKind.None;
 
-    /// <summary>The passes and the wall time at the row's end, where recorded.</summary>
-    private static string? Figures(DeliveryRunStageExecution stage)
+    /// <summary>"· 3 rounds" after the name, where the stage reported its round or was
+    /// entered more than once; nothing for a stage that ran once.</summary>
+    internal static string? Rounds(DeliveryRunStageExecution stage) =>
+        (stage.Round ?? stage.Passes) is var rounds and > 1 ? $"· {rounds} rounds" : null;
+
+    /// <summary>The row's time column: how long a finished stage took, or the word for
+    /// where an unfinished one stands — "Not yet" for one nobody reported on.</summary>
+    internal static string Took(DeliveryRunStageExecution stage) => DeliveryRunLine.Tone(stage.Status) switch
     {
-        var figures = new List<string>();
+        FlowStepTone.Pending => "Not yet",
+        FlowStepTone.Done when stage.DurationMs is { } ms => DeliveryRunLine.Duration(ms),
+        _ => DeliveryRunLine.StatusLabel(stage.Status)
+    };
 
-        if (stage.Passes > 1) figures.Add($"×{stage.Passes}");
-        if (stage.DurationMs is { } ms) figures.Add(DeliveryRunLine.Duration(ms));
+    /// <summary>The stage's mark, as the glyph of the callout that explains it.</summary>
+    private static RenderFragment MarkGlyph(DeliveryRunStageExecution stage) => builder =>
+    {
+        builder.OpenComponent<StageMark>(0);
+        builder.AddComponentParameter(1, nameof(StageMark.Kind), stage.Drifted ? StageMarkKind.Drift : StageMarkKind.Inferred);
+        builder.AddComponentParameter(2, nameof(StageMark.Title), stage.Drifted ? DeliveryRunStageResolution.DriftTitle(stage) : null);
+        builder.AddComponentParameter(3, nameof(StageMark.TestId), null);
+        builder.CloseComponent();
+    };
 
-        return figures.Count == 0 ? null : string.Join(" · ", figures);
-    }
+    /// <summary>Each explanation as a line of its own.</summary>
+    private static RenderFragment Lines(IReadOnlyList<string> notes) => builder =>
+    {
+        foreach (var note in notes)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "sessions-stage__note");
+            builder.AddContent(2, note);
+            builder.CloseElement();
+        }
+    };
 
     /// <summary>What ran: the mode, the agent or the owner session, the model and the
     /// effort, then what the stage cost where the run counted it.</summary>
@@ -483,6 +547,21 @@
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
 
+    /// <summary>
+    /// What the latest pass found, for the row: Review's open blockers and Verify's
+    /// defects, each left out where the stage did not report it — the round rides on
+    /// the name already. Null where it reported neither. Zero reads as clean.
+    /// </summary>
+    internal static string? RowFound(DeliveryRunStageExecution stage)
+    {
+        var parts = new List<string>();
+
+        if (stage.Blockers is { } blockers) parts.Add(blockers == 0 ? "no blockers" : Plural(blockers, "blocker") + " open");
+        if (stage.DefectsFound is { } defects) parts.Add(defects == 0 ? "no defects" : Plural(defects, "defect") + " found");
+
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
     /// <summary>Whether the latest pass left a blocker open or found a defect.</summary>
     internal static bool FoundSomething(DeliveryRunStageExecution stage) =>
         stage.Blockers is > 0 || stage.DefectsFound is > 0;
@@ -533,27 +612,56 @@
         ? $"Ran under the gate: a revise round after you asked for changes, working implement-review round {round}"
         : "Ran under the gate: a revise round after you asked for changes";
 
-    /// <summary>One sub-agent call: its model, its round, how long, its tokens and tool
-    /// calls, and how it ended — each left out where the run did not record it. A revise
-    /// call's round is on its badge instead.</summary>
-    internal static string WorkerFacts(DeliveryRunStageWorker worker, CostFigure? cost = null)
+    /// <summary>A sub-agent call and what it cost, in the order the run made them.</summary>
+    private sealed record WorkerRow(int Index, DeliveryRunStageWorker Worker, CostFigure? Cost);
+
+    private static readonly IReadOnlyList<DataTableColumn> WorkerColumns =
+    [
+        new("Sub-agent run"),
+        new("Model"),
+        new("Time", "sessions-stage__figure"),
+        new("Tokens", "sessions-stage__figure"),
+        new("Tool calls", "sessions-stage__figure"),
+        new("Result")
+    ];
+
+    private static readonly IReadOnlyDictionary<string, object> WorkerAttributes =
+        new Dictionary<string, object> { ["data-testid"] = "sessions-stage-worker" };
+
+    /// <summary>What a column says for a figure the run did not record.</summary>
+    private const string NotReported = "—";
+
+    private IReadOnlyList<WorkerRow> WorkersOf(int position, DeliveryRunStageExecution stage) =>
+        [.. stage.Workers.Select((worker, index) => new WorkerRow(index, worker, WorkerCostOf(position, index)))];
+
+    /// <summary>What qualifies the call under its name: the slice it built and the
+    /// round it worked — a revise call's round is on its badge instead.</summary>
+    internal static string? WorkerQualifier(DeliveryRunStageWorker worker)
     {
-        var facts = new List<string>();
+        var parts = new List<string>();
 
-        if (worker.Model is { } model) facts.Add(AgentModels.Label(model));
-        if (worker.Effort is { } effort) facts.Add($"{effort} effort");
-        if (worker.Slice is { } slice) facts.Add($"slice {slice}");
-        if (worker.Round is { } round && !worker.Revise) facts.Add($"round {round}");
-        if (worker.DurationMs is { } ms) facts.Add(DeliveryRunLine.Duration(ms));
-        if (worker.Tokens is { } tokens) facts.Add($"{MetricFormat.Compact(tokens)} tokens");
-        if (worker.ToolCalls is { } calls) facts.Add(calls == 1 ? "1 tool call" : $"{calls} tool calls");
-        if (cost is not null) facts.Add(CostText(cost));
+        if (worker.Slice is { } slice) parts.Add($"slice {slice}");
+        if (worker.Round is { } round && !worker.Revise) parts.Add($"round {round}");
 
-        facts.Add(worker.Declared ? "declared, not seen running"
-            : !worker.Observed ? "result not recorded"
-            : worker.Failed ? "failed"
-            : "completed");
-
-        return string.Join(" · ", facts);
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
+
+    /// <summary>The model the call ran on and its effort, where recorded.</summary>
+    internal static string WorkerModel(DeliveryRunStageWorker worker) => (worker.Model, worker.Effort) switch
+    {
+        ({ } model, { } effort) => $"{AgentModels.Label(model)} · {effort} effort",
+        ({ } model, null) => AgentModels.Label(model),
+        (null, { } effort) => $"{effort} effort",
+        _ => NotReported
+    };
+
+    /// <summary>How the call ended, in words.</summary>
+    internal static string WorkerResult(DeliveryRunStageWorker worker) =>
+        worker.Declared ? "declared, not seen running"
+        : !worker.Observed ? "result not recorded"
+        : worker.Failed ? "failed"
+        : "completed";
+
+    private static string WorkerOutcome(DeliveryRunStageWorker worker) =>
+        worker.Declared ? "declared" : !worker.Observed ? "unknown" : worker.Failed ? "failed" : "completed";
 }

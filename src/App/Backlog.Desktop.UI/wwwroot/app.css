@@ -812,6 +812,25 @@ h1, h2, h3 {
     text-underline-offset: 0.2em;
 }
 
+/*
+   An archived repository, offered only while show archived is on (local ADR 0029).
+   A dashed edge rather than a colour, so it reads in every theme and beside any
+   identity rule, and the word "(archived)" after the alias for whoever cannot see
+   the edge. The word drops to the secondary text colour until the chip is pressed.
+*/
+.chip--scope.chip--archived {
+    border-style: dashed;
+}
+
+.app-header__scope-archived {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.chip--scope.chip--active .app-header__scope-archived {
+    color: inherit;
+}
+
 /* Room for the repository identity rule, added to the chip's own leading padding so
    a coloured chip is exactly as wide as an uncoloured one beside it. The mark itself
    is the shared .repo-mark utility in components.css. */
@@ -2939,6 +2958,24 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
+/* At phone width the three tiles stacked into about 700px of boxes before the
+   first switch. Three short figures still read side by side, so they stay one
+   row, tighter. Asked of the settings frame's width, as its own phone rules are. */
+@container settings-frame (width < 50.25rem) {
+    .feature-board__tiles {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--spacing-xs);
+    }
+
+    .feature-board__tiles .metric-tile {
+        padding: var(--spacing-sm);
+    }
+
+    .feature-board__tiles .metric-tile__value {
+        font-size: var(--font-size-xl);
+    }
+}
+
 /* The always-available tile holds names rather than a count, and a list of
    names has to wrap where a number never does. */
 .feature-board__names .metric-tile__value {
@@ -2948,6 +2985,8 @@ h1, h2, h3 {
 /* The filter's chips are pills, and the chosen one is filled. Three classes so
    the fill outranks .btn--toggle's own pressed and hover rules. */
 .radio-group.feature-filter .feature-filter__option {
+    min-height: 44px;
+    padding-inline: var(--spacing-md);
     border-radius: var(--border-radius-full);
 }
 
@@ -2970,7 +3009,32 @@ h1, h2, h3 {
    neither could be read at. */
 .feature-flags {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: 0;
+}
+
+/* Inside a section card the rows are the card's own lines, as the design
+   canvas's Features board draws them: flat, a divider between, no box of their
+   own. A bordered box per row put a fourth frame inside the card. The shared
+   .feature-flag keeps its box for the hosts that list flags on a bare page. */
+.feature-flags > .feature-flag {
+    padding: var(--spacing-md) 0;
+    border: 0;
+    border-top: var(--border-width) solid color-mix(in srgb, var(--color-border) 60%, transparent);
+    border-radius: 0;
+    background: none;
+}
+
+/* A locked row is told by its "Always available" mark, not by a tint, so its
+   name reads as every other row's name does. */
+.feature-flags > .feature-flag--locked {
+    color: var(--color-text-primary);
+}
+
+.feature-flags .feature-flag__status {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 400;
 }
 
 /* The note the usage-metrics flag brings with it sits directly under that
@@ -3106,6 +3170,14 @@ h1, h2, h3 {
     font-weight: 500;
 }
 
+/* Archived, or GitHub's hint, after the alias: the row says it without being
+   opened (local ADR 0029). The badge's own tone carries the meaning; this only
+   spaces it off the name. */
+.repo-table__flag {
+    margin-left: var(--spacing-xs);
+    font-weight: normal;
+}
+
 /* The repository's band colour, as a 10px square before its alias. The hue comes
    from the swatch modifier the colour picker itself wears, so the two cannot
    name different colours. Decoration only: the alias beside it is the name. */
@@ -3117,6 +3189,17 @@ h1, h2, h3 {
     border-radius: var(--border-radius-none);
     background: var(--repo-mark-color, var(--color-border));
     vertical-align: baseline;
+}
+
+/* A clone path cut to the column (see the folder cell's note in the page): a
+   block with a max width is what a table cell's content respects, where a max
+   width on the cell itself is not. */
+.repo-table__folder {
+    display: block;
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .repo-table__edit,
@@ -7290,114 +7373,77 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-sm);
 }
 
-/* A delivery run, under the session that drove it or in a row of the runs table.
-
-   Detail-sized and detail-coloured, on purpose: in the sessions table it is the
-   third line of a name cell whose first line is the session, and a run drawn at
-   the row's own size would read as a second row. The title inside it takes the
-   primary ink back, because it is the one thing on the line a reader recognises,
-   and it is clamped the way every long value in this table is — at a width that
-   leaves the Type column where it was. In the runs table the same line is the
-   row's whole first cell, and the size holds: a run is a run wherever it is. */
-/* Two blocks across the row the run spans: the figures and the skill from the left
-   edge, under the session's name, and the references with the outcome at the right,
-   under the row's own State column. The grid's areas are what put the summary — which
-   comes first in the markup, because the work and the outcome are what matter first
-   — on the right without reordering the markup for the eye's sake.
-
-   And a third block under both, across the whole row: the fold's panel. The stages
-   are drawn as one line of them, and a line of eleven stages needs every column the
-   table has rather than the width left of the summary. */
+/* A delivery run, as a card in the session's detail: top to bottom, the header,
+   the insight callout, the figure tiles, the host's share-of-week line, the stage
+   list with its legend, the footnote, and the folded run details. Each block takes
+   the card's full width, so the stage rows line up on one grid down the list. */
 .sessions-run {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-        "facts summary"
-        "panel panel";
-    align-items: start;
-    column-gap: var(--spacing-md);
-    margin-top: var(--spacing-xs);
+    gap: var(--spacing-md);
     min-width: 0;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
     color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 400;
+    font-size: var(--font-size-sm);
 }
 
-.sessions-run__facts {
-    grid-area: facts;
-    display: grid;
-    gap: var(--spacing-2xs);
-    min-width: 0;
+/* An earlier run folded to its header: the header is the whole card until opened. */
+.sessions-run--collapsible {
+    padding-block: var(--spacing-sm);
 }
 
-/* Stacked, not strung out: one reference per line and the outcome under them. The
-   references are about the work and the badge is about the run, and side by side the
-   badge read as the state of the item beside it. Right-aligned, because the block
-   sits under the State column and a column is what the alignment follows.
-
-   Sticky along that edge, and this is the part worth arguing. Eight columns are wider
-   than the box they are in at 1400px, so State itself starts past the visible edge:
-   aligned to it and nothing more, the reference and the outcome were off screen on
-   every run — exactly the two things this block exists to show. Sticky keeps it at
-   the scroll box's right edge while the table is scrolled short of State, and leaves
-   it where it naturally falls — under State — the moment the window is wide enough to
-   show that column. The same mechanism the heading row already uses to stay put, on
-   the other axis. */
-.sessions-run__summary {
-    grid-area: summary;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: var(--spacing-2xs);
-    min-width: 0;
-    position: sticky;
-    right: 0;
-}
-
-/* The glyph and the skill id read as one thing, so they share a baseline and a
-   gap smaller than the one between facts. Under the fold, and quieter than what is
-   above it: it is the last question a reader asks about a run. */
-.sessions-run__skill {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
-    align-self: start;
-    color: var(--color-text-secondary);
-}
-
-.sessions-run__icon {
-    flex: 0 0 auto;
-    color: var(--color-text-secondary);
-}
-
-/* The run lines of one row, as a block: the detail cell's own padding lives here,
-   so a row with no runs leaves no stripe. */
+/* The runs of one row, latest first. */
 .sessions-runs {
     display: grid;
-    gap: var(--spacing-2xs);
+    gap: var(--spacing-sm);
     min-width: 0;
 }
 
-/* Folded by default; the grid above would otherwise outrank the hidden attribute. */
-.sessions-runs[hidden] {
-    display: none;
+/* "Delivery run", the flow, the work it is linked to, and the outcome pushed to the
+   right edge. Wraps on a narrow pane rather than clipping the outcome. */
+.sessions-run__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.sessions-run__title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+/* A folded run's title is the fold's trigger, at the title's own size and ink. */
+.sessions-run__fold .fold__trigger {
+    font: inherit;
+    color: inherit;
+}
+
+.sessions-run__flow {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
 }
 
 .sessions-run__reference {
-    align-self: end;
     min-width: 0;
 }
 
-/* The outcome sits under the work it is the outcome of.
+.sessions-run__outcome {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+}
 
-   Sized to its word, which is the one thing this host changes about the library's
-   status badge. That badge is 7.5rem wide because it stands in a column on the task
-   list, where a fixed width is what makes a column; here it trails a sentence in a
-   detail line, and 7.5rem of pill after four words pushed it onto a line of its own
-   on two rows in three. The tone, the weight and the capitals are the library's and
-   stay exactly as they are. */
+/* Sized to its word, which is the one thing this host changes about the library's
+   status badge: that badge is 7.5rem wide because it stands in a column on the task
+   list, and here it closes a header line. The tone, the weight and the capitals are
+   the library's. */
 .sessions-run__status {
-    align-self: end;
     width: auto;
     min-width: 0;
     height: auto;
@@ -7406,78 +7452,73 @@ a.pull-request-detail-checks__name:hover {
     letter-spacing: 0.02em;
 }
 
-/* The fold's trigger is the facts line — stages, tokens, context, calls — so it
-   inherits the run's size rather than the button default the library resets to
-   `inherit` from the cell, which is the row's size. */
-.sessions-run__fold .fold__trigger {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    align-items: baseline;
-}
-
-/* Four facts wrap onto a second line in a narrow cell rather than being cut at
-   the cell's edge with the last one half-said. On the label itself, because the
-   library clamps the label there and inheritance from the trigger does not reach
-   past a rule that names the element. */
-.sessions-run__fold .fold__label {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-}
-
-/* The fold's panel: the whole row, and no wider than the visible pane less the cell's
-   own inset, so the diagram's right edge is on screen rather than under State.
-
-   Sticky along the left edge, the mirror of the summary on the right: when the table
-   is scrolled sideways, the panel stays where the reader is looking instead of
-   scrolling off with the first column.
-
-   `display: grid` would override `hidden`, so the hidden state is said again. */
-.sessions-run__panel {
-    grid-area: panel;
+/* `display: grid` would override `hidden`, so the hidden state is said again. */
+.sessions-run__body {
     display: grid;
     gap: var(--spacing-md);
-    position: sticky;
-    left: 0;
-    width: min(100%, calc(100cqi - 2 * var(--spacing-md)));
     min-width: 0;
-    margin-top: var(--spacing-sm);
 }
 
-.sessions-run__panel[hidden] {
+.sessions-run__body[hidden] {
     display: none;
 }
 
-.sessions-run__diagram {
-    display: grid;
-    gap: var(--spacing-xs);
-    min-width: 0;
+/* The insight callout wears the run's band: the library draws the warning edge from
+   1.5× its usual; a run at 0.8× or below reads its headline in the success ink. */
+.sessions-run__insight[data-band="lower"] .callout__heading {
+    color: var(--color-success-text);
 }
 
-/* The Mermaid side of the switch draws the same one line of stages, which is a
-   strip a few boxes tall — not the chapter-sized picture the library's 18rem opening
-   height is sized for, which left bands of empty panel above and below it. */
-.sessions-run__artifact .diagram-view__rendered {
-    min-height: 0;
+/* Four tiles at most, on the alt surface, the value set smaller than a dashboard's
+   hero figure: these are a card's numbers, not a page's. */
+.sessions-run__figures {
+    gap: var(--spacing-sm);
 }
 
-.sessions-run__diagram-note {
-    margin: 0;
-    color: var(--color-text-secondary);
+.sessions-run__figure {
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.sessions-run__figure .metric-tile__value {
+    font-size: var(--font-size-xl);
+}
+
+.sessions-run__usage {
     font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
 }
 
-/* How each stage ran: the legend, then one row per stage on the alt surface the
-   chip guideline measures against, with one panel open under its row. */
+.sessions-run__footnote {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.sessions-run__more .fold__trigger {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.sessions-run__more .fold__region {
+    margin-top: var(--spacing-sm);
+}
+
+/* How each stage ran: the legend, then one row per stage, each on one fixed grid —
+   dot, name, mode, model with effort and mark, time, cost, against its usual, and the
+   chevron last — so the columns line up down the list. The fold's label is laid out
+   as `display: contents`, so its children are the grid's own items and the trigger's
+   chevron can be ordered to the end. The list is its own container, so the row
+   answers to the card's width rather than the window's: see the narrow layout
+   after the row's rules. */
 .sessions-stages {
     display: grid;
     gap: var(--spacing-xs);
     min-width: 0;
+    container: sessions-stages / inline-size;
 }
 
 .sessions-stages__list {
     display: grid;
-    gap: var(--spacing-2xs);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -7485,43 +7526,105 @@ a.pull-request-detail-checks__name:hover {
 
 .sessions-stage {
     min-width: 0;
-    padding: var(--spacing-2xs) var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-alt);
+    border-bottom: var(--border-width) solid var(--color-background-alt);
 }
 
-.sessions-stage .fold__label {
-    display: flex;
-    flex-wrap: wrap;
+.sessions-stage__fold > .fold__trigger {
+    display: grid;
+    grid-template-columns: 1.25rem minmax(0, 1fr) 5.25rem minmax(9.75rem, auto) 4rem 4.5rem minmax(4rem, auto) 2rem;
     align-items: center;
-    gap: var(--spacing-xs) var(--spacing-sm);
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-xs) 0;
+    font-size: var(--font-size-sm);
+    text-align: left;
+}
+
+.sessions-stage__fold > .fold__trigger > .fold__label {
+    display: contents;
+}
+
+.sessions-stage__fold > .fold__trigger > .fold__chevron {
+    order: 1;
+    justify-self: center;
+}
+
+.sessions-stage__dot {
+    justify-self: center;
 }
 
 .sessions-stage__name {
-    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: var(--font-weight-medium);
     color: var(--color-text-primary);
 }
 
-/* The library's status badge is sized for a table column, a fixed 7.5rem; on a
-   stage row it is one fact among the chips, so it takes only the width of its word. */
-.sessions-stage .sessions-stage__status {
-    width: auto;
-    min-width: 0;
-    height: auto;
-    margin-left: 0;
-    font-size: var(--font-size-xs);
+.sessions-stage[data-tone="pending"] .sessions-stage__name,
+.sessions-stage[data-tone="skipped"] .sessions-stage__name {
+    color: var(--color-text-secondary);
 }
 
-/* The stage's cost leads the row's end, so it pushes the figures over rather than
-   sitting after them; an estimate wears a dotted "est." whose title says so. */
+.sessions-stage__rounds {
+    margin-left: var(--spacing-2xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-secondary);
+}
+
+/* What the latest pass left behind and the scenario parts it ran, quiet after the
+   name; a blocker left open or a defect found is the one fact drawn as an error. */
+.sessions-stage__found,
+.sessions-stage__evidence {
+    margin-left: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__found[data-tone="found"] {
+    color: var(--color-error-text);
+}
+
+.sessions-stage__ran-on {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    white-space: nowrap;
+}
+
+.sessions-stage__model {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__took {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.sessions-stage__took[data-tone="blocked"] {
+    color: var(--color-error-text);
+}
+
+.sessions-stage__took[data-tone="active"] {
+    color: var(--color-primary-light);
+}
+
+.sessions-stage__price {
+    text-align: right;
+}
+
 .sessions-stage__cost {
-    margin-left: auto;
+    font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
-    color: var(--color-text-primary);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 .sessions-stage__estimate {
@@ -7531,34 +7634,12 @@ a.pull-request-detail-checks__name:hover {
     cursor: help;
 }
 
-.sessions-stage__cost + .sessions-stage__figures {
-    margin-left: 0;
+.sessions-stage__against {
+    text-align: right;
 }
 
-/* What the stage's latest pass found: Implement's and Review's round, Review's open
-   blockers, Verify's defects. Quiet when clean; a blocker left open or a defect found
-   is drawn in the error text, the one fact on the row a reader has to act on. */
-.sessions-stage__found {
-    font-size: var(--font-size-xs);
-    font-variant-numeric: tabular-nums;
-    color: var(--color-text-secondary);
-}
-
-.sessions-stage__found[data-tone="found"] {
-    color: var(--color-error-text);
-    font-weight: 500;
-}
-
-.sessions-stage__figures {
-    margin-left: auto;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-}
-
-/* After the cost: the stage's share of the run, then its ratio to its usual. The
-   ratio is drawn in its band — green at 0.8× or below, the warning surface from 1.5×,
-   quiet when typical, plain in between — and the insight line under the run header
-   wears the same bands. */
+/* The stage's share of the run, then its ratio to its usual, in its band — green at
+   0.8× or below, the warning surface from 1.5×, quiet when typical, plain between. */
 .sessions-stage__usual {
     display: inline-flex;
     align-items: baseline;
@@ -7566,10 +7647,7 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
     color: var(--color-text-secondary);
-}
-
-.sessions-stage__usual + .sessions-stage__figures {
-    margin-left: 0;
+    white-space: nowrap;
 }
 
 .sessions-stage__ratio {
@@ -7582,8 +7660,7 @@ a.pull-request-detail-checks__name:hover {
     color: var(--color-text-secondary);
 }
 
-.sessions-stage__ratio[data-band="lower"],
-.sessions-run__insight[data-band="lower"] {
+.sessions-stage__ratio[data-band="lower"] {
     color: var(--color-success-text);
 }
 
@@ -7592,38 +7669,86 @@ a.pull-request-detail-checks__name:hover {
     font-weight: 500;
 }
 
-.sessions-run__insight {
-    display: block;
-    color: var(--color-text-secondary);
+/* A card narrower than the fixed grid — about 34rem of columns and gaps — as in the
+   side-by-side detail panel or a narrow stacked one. The row becomes two lines: the
+   dot, the name and the chevron on the first, so the way into the panel stays at the
+   card's right edge, and the mode, model, time, cost and usual wrapping under the
+   name on the second. The trigger's ::after is the line break: a flex item a whole
+   line wide, ordered between the two groups. */
+@container sessions-stages (max-width: 38rem) {
+    .sessions-stage__fold > .fold__trigger {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-2xs) var(--spacing-sm);
+    }
+
+    .sessions-stage__fold > .fold__trigger::after {
+        content: "";
+        order: 1;
+        flex: 0 0 100%;
+        height: 0;
+    }
+
+    .sessions-stage__fold > .fold__trigger > .fold__chevron {
+        order: 0;
+        flex: 0 0 2rem;
+        text-align: center;
+    }
+
+    /* Ahead of the chevron, which comes first in the trigger's own markup. The dot
+       keeps its own size and its margins fill the grid's 1.25rem column, so the
+       name starts where it does in the wide layout. */
+    .sessions-stage__dot {
+        order: -1;
+        flex: 0 0 auto;
+        margin-inline: calc((1.25rem - 0.75rem) / 2);
+    }
+
+    .sessions-stage__name {
+        order: -1;
+        flex: 1 1 0;
+    }
+
+    .sessions-stage__mode,
+    .sessions-stage__ran-on,
+    .sessions-stage__took,
+    .sessions-stage__price,
+    .sessions-stage__against {
+        order: 2;
+        min-width: 0;
+    }
+
+    /* Under the name, past the dot. */
+    .sessions-stage__mode {
+        margin-left: calc(1.25rem + var(--spacing-sm));
+    }
+
+    .sessions-stage__ran-on {
+        flex-wrap: wrap;
+    }
+
+    .sessions-stage__price,
+    .sessions-stage__against {
+        text-align: left;
+    }
 }
 
-.sessions-run__insight[data-band="higher"] {
-    color: var(--color-text-primary);
-    font-weight: 500;
-}
-
-.sessions-stage__model {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-primary);
-}
-
-/* The folded row's count of the scenario parts the stage ran; the panel lists them. */
-.sessions-stage__evidence {
-    font-size: var(--font-size-xs);
-    font-variant-numeric: tabular-nums;
-    color: var(--color-text-secondary);
-}
-
-/* The panel: the open stage's whole execution, on the panel surface so the chips
-   inside it sit on the second surface the guideline measures. */
+/* The panel: the open stage's whole execution, indented past the dot and on the alt
+   surface, so the chips inside it sit on the surface the guideline measures. */
 .sessions-stage__panel {
     display: grid;
-    gap: var(--spacing-xs);
-    margin: var(--spacing-xs) 0 var(--spacing-2xs);
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background);
+    gap: var(--spacing-sm);
+    margin: 0 0 var(--spacing-sm) calc(1.25rem + var(--spacing-sm));
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
     font-size: var(--font-size-sm);
+}
+
+.sessions-stage__facts {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
 }
 
 .sessions-stage__fact {
@@ -7634,43 +7759,49 @@ a.pull-request-detail-checks__name:hover {
 }
 
 .sessions-stage__fact dt {
-    font-weight: 500;
     color: var(--color-text-secondary);
 }
 
 .sessions-stage__fact dd {
-    display: grid;
-    gap: var(--spacing-2xs);
     margin: 0;
     min-width: 0;
     color: var(--color-text-primary);
     overflow-wrap: anywhere;
 }
 
+.sessions-stage__fact dd[data-tone="found"] {
+    color: var(--color-error-text);
+}
+
 .sessions-stage__note {
-    color: var(--color-primary-light);
+    display: block;
+    color: var(--color-text-primary);
 }
 
 .sessions-stage__none {
+    margin: 0;
     color: var(--color-text-secondary);
 }
 
 .sessions-stage__workers {
-    display: grid;
-    gap: var(--spacing-2xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    font-size: var(--font-size-xs);
 }
 
-.sessions-stage__worker {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--spacing-xs);
+.sessions-stage__figure {
+    text-align: right;
 }
 
-.sessions-stage__worker-facts {
+.sessions-stage__qualifier {
+    display: block;
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__workers td[data-outcome="failed"] {
+    color: var(--color-error-text);
+}
+
+.sessions-stage__workers td[data-outcome="declared"],
+.sessions-stage__workers td[data-outcome="unknown"] {
     color: var(--color-text-secondary);
 }
 
@@ -7714,14 +7845,15 @@ a.pull-request-detail-checks__name:hover {
     min-width: 0;
 }
 
-/* The figures under the diagram, in as many columns as fit — the run's identity and
-   context, its tokens, its tool calls and its servers side by side on a wide pane,
-   stacked on a narrow one. */
+/* The run details, folded under the footnote: the run's identity and context, its
+   tokens, its tool calls and its servers side by side on a wide pane, stacked on a
+   narrow one. */
 .sessions-run__details {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
     gap: var(--spacing-md) var(--spacing-lg);
     margin: 0;
+    font-size: var(--font-size-xs);
 }
 
 .sessions-run__group {
@@ -7742,42 +7874,11 @@ a.pull-request-detail-checks__name:hover {
     margin: 0;
     min-width: 0;
     color: var(--color-text-primary);
-    /* A table cell does not wrap, and the Run line is three identifiers joined
-       with dots — a run id, a dashboard and a worktree name — with no space a
-       browser would break at. Found on a real profile: a long worktree name ran
-       18px into the Type column. Wrapping anywhere is the honest answer for text
-       that is identifiers rather than prose. */
+    /* The Run line is three identifiers joined with dots — a run id, a dashboard and
+       a worktree name — with no space a browser would break at. Wrapping anywhere is
+       the honest answer for text that is identifiers rather than prose. */
     white-space: normal;
     overflow-wrap: anywhere;
-}
-
-/* The insight line as a way into Delivery economics: still the line it was, in the
-   same band colours, with the underline a link wears so the press is not a guess.
-   Its own box is the 44px target accessibility.md asks for, the text centred in it:
-   a hit area that reached past the box would sit over the fold trigger above. */
-.sessions-run__insight--action {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    min-height: 44px;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    text-align: left;
-    text-decoration: underline;
-    text-decoration-color: var(--color-border-strong);
-    text-underline-offset: 2px;
-    cursor: pointer;
-}
-
-.sessions-run__insight--action:hover {
-    text-decoration-color: currentColor;
-}
-
-.sessions-run__insight--action:focus-visible {
-    outline: 2px solid var(--color-border-focus);
-    outline-offset: 2px;
 }
 
 /* ---------------------------------------------------------------------------

@@ -144,7 +144,10 @@ public sealed class DevicePairingClient
 
         try
         {
-            _credentials.Save(credential);
+            // Not cancellable: the service has already issued this credential and
+            // will not issue it again, so a save abandoned now would throw away
+            // the only copy of a registration that did happen.
+            await _credentials.SaveAsync(credential, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
         {

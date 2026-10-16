@@ -4,6 +4,8 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions;
 
+using MyDayRule = Backlog.Modules.Tasks.Abstractions.MyDay;
+
 namespace Backlog.Mobile.UI.Tasks;
 
 /// <summary>
@@ -33,6 +35,9 @@ public sealed class TaskViewProjection : IDisposable
     private readonly Lock _rowsLock = new();
     private readonly Dictionary<Guid, TaskViewRow> _rows;
 
+    /// <summary>The My Day preferences last pulled, under <see cref="_rowsLock"/>.</summary>
+    private MyDayPreferencesDocument? _preferences;
+
     public TaskViewProjection(ITaskViewStore store, DeviceOutbox outbox, CloudSyncClient sync, TimeProvider clock)
     {
         _store = store;
@@ -42,46 +47,67 @@ public sealed class TaskViewProjection : IDisposable
 
         // Read once, here: the list is drawn from this before any pull answers.
         _rows = store.ReadRows().ToDictionary(row => row.Id);
+        _preferences = store.ReadMyDayPreferences();
     }
 
-    /// <summary>Raised when a row was added, changed or deleted. May be raised off
-    /// the render thread.</summary>
+    /// <summary>Raised when a row was added, changed or deleted, or a later copy of
+    /// the My Day preferences was taken. May be raised off the render thread.</summary>
     public event Action? Changed;
+
+    /// <summary>
+    /// Clear My Day overnight, as a desktop last set it (.devbook/arc42/adr/0032). On
+    /// when no desktop has sent the preferences — the rule as it always was. The phone
+    /// only reads it: it has no switch and pushes no preferences.
+    /// </summary>
+    public bool ClearsOvernight
+    {
+        get
+        {
+            lock (_rowsLock) return _preferences?.ClearsOvernight ?? true;
+        }
+    }
 
     /// <summary>The phone's own date. My Day is picked for a day as the person
     /// lives it, so it is the local calendar and not UTC's.</summary>
     public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
 
-    /// <summary>What is in My Day on <paramref name="today"/>, in the order My Day
-    /// keeps — see <see cref="InMyDayOrder"/>.</summary>
+    /// <summary>What is in My Day on <paramref name="today"/> under
+    /// <see cref="ClearsOvernight"/>, in the order My Day keeps — see
+    /// <see cref="InMyDayOrder"/>.</summary>
     public IReadOnlyList<TaskViewRow> MyDay(DateOnly today)
     {
         lock (_rowsLock)
         {
+            var clearsOvernight = _preferences?.ClearsOvernight ?? true;
+
             return
             [
-                .. InMyDayOrder(_rows.Values.Where(row => row.IsInMyDay(today)))
+                .. InMyDayOrder(_rows.Values.Where(row => row.IsInMyDay(today, clearsOvernight)))
             ];
         }
     }
 
     /// <summary>
-    /// Everything picked for <paramref name="today"/>, ticked or not, in the order
+    /// Everything in My Day on <paramref name="today"/>, ticked or not, in the order
     /// <see cref="MyDay"/> keeps — what the Today screen groups. Unlike
     /// <see cref="MyDay"/> a done task stays in: it is ticked off today, which is
     /// the Done today group, and an unticked task whose status still reads done
     /// (the desktop's untick leaves the status alone) is open again. A deleted or
-    /// archived task is gone.
+    /// archived task is gone. With <see cref="ClearsOvernight"/> off, a task picked on
+    /// an earlier day is in while unticked and on the day it is ticked
+    /// (<see cref="MyDayRule.Includes"/>).
     /// </summary>
     public IReadOnlyList<TaskViewRow> Day(DateOnly today)
     {
         lock (_rowsLock)
         {
+            var clearsOvernight = _preferences?.ClearsOvernight ?? true;
+
             return
             [
                 .. InMyDayOrder(_rows.Values
                     .Where(row => row.DeletedAt is null
-                        && row.Task.InMyDayOn == today
+                        && MyDayRule.Includes(row.Task.InMyDayOn, row.Task.CompletedOn, today, clearsOvernight)
                         && !string.Equals(row.Task.Status, "archived", StringComparison.OrdinalIgnoreCase)))
             ];
         }
@@ -130,13 +156,27 @@ public sealed class TaskViewProjection : IDisposable
                     continue;
                 }
 
+                var records = page.Tasks ?? [];
                 IReadOnlyList<TaskViewRow> changed;
-                lock (_rowsLock) changed = TaskFold.Apply(_rows, page.Tasks ?? []);
+                MyDayPreferencesDocument? preferences;
 
-                await _store.SaveAsync(changed, page.Since, cancellationToken);
+                lock (_rowsLock)
+                {
+                    changed = TaskFold.Apply(_rows, records);
+                    preferences = MyDayPreferencesDocument.Fold(_preferences, records);
+                }
+
+                // The preferences go in the page's own write, so the cursor never
+                // moves past a copy the file did not keep (.devbook/arc42/adr/0032, §4).
+                await _store.SaveAsync(changed, page.Since, preferences, cancellationToken);
                 since = page.Since;
 
-                if (changed.Count > 0) Changed?.Invoke();
+                if (preferences is not null)
+                {
+                    lock (_rowsLock) _preferences = preferences;
+                }
+
+                if (changed.Count > 0 || preferences is not null) Changed?.Invoke();
                 if (!page.HasMore) return;
             }
         }

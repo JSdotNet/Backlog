@@ -386,7 +386,7 @@ the same screen.
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Switch between areas, and between repositories when more than one is registered,
@@ -634,7 +634,7 @@ repository read from a branch without a clone is prepared too.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Say whether the knowledge in view is the latest version the repository has, and
@@ -656,6 +656,9 @@ reported as they stand rather than reconciled on the reader's behalf:
 
 What to do about any of those belongs to whoever owns the clone. Knowledge kept
 outside a repository has no latest version to be on, and is not asked about.
+Nor is the devbook of an
+[archived repository](../repository-management/domain.md#archived-repository),
+which [is read-only](../repository-management/requirements.md#requirement-an-archived-repositorys-devbook-is-read-only).
 
 Bringing a clone up to date replaces what its folders say, so the knowledge on screen
 becomes the knowledge that arrived with it.

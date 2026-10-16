@@ -20,6 +20,7 @@
           GrowCssClass=""
           InputCssClass="ai-panel__question"
           AriaLabel="Ask about this content"
+          Id="@InputId"
           data-testid="ai-question-input"
           Rows="3"
           Placeholder="What should I focus on next?"
@@ -36,6 +37,10 @@
 </div>
 
 @code {
+    /// <summary>The box's element id, so Home can take focus to it when it opens the
+    /// panel with a question begun — a dashboard part's Ask AI.</summary>
+    public const string InputId = "ai-question-input";
+
     /// <summary>The question as Home last kept it: what the box opens with.</summary>
     [Parameter]
     public string Question { get; set; } = string.Empty;

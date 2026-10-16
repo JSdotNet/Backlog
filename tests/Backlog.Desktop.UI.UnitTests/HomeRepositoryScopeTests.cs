@@ -1285,6 +1285,147 @@ public sealed class HomeRepositoryScopeTests
 
     private static string ShellNavigationPath(string root) => Path.Combine(root, "shell", "shell-navigation.json");
 
+    // --- Archived repositories (local ADR 0029) ----------------------------------------
+    //
+    // requirements.md#archiving-a-repository: "Pickers and the scope hide an archived
+    // repository", "Show archived is remembered on this device" and "A remembered scope
+    // drops an archived repository". docs is archived in each of these; backlog stays
+    // active.
+
+    private static void DocsArchived(GitHubSettingsStore settings) =>
+        Assert.Null(settings.SetRepositoryArchived("docs", archived: true));
+
+    private static IElement ShowArchivedSwitch(IRenderedComponent<Home> component) =>
+        component.WaitForElement("[data-testid='show-archived-toggle'] [role='switch']");
+
+    /// <summary>Scenario "The repository scope": the Brain chip and backlog, no chip
+    /// for the archived repository.</summary>
+    [Fact]
+    public void An_archived_repository_has_no_scope_chip_while_show_archived_is_off()
+    {
+        using var harness = CreateHarness(DocsArchived);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["backlog"], Chips(component).Select(chip => chip.TextContent.Trim()));
+            Assert.NotNull(BrainChip(component));
+        });
+        Assert.Equal("false", ShowArchivedSwitch(component).GetAttribute("aria-checked"));
+    }
+
+    /// <summary>With nothing archived the switch has nothing to show, so it is not
+    /// drawn.</summary>
+    [Fact]
+    public void The_show_archived_switch_is_drawn_only_while_a_repository_is_archived()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component);
+        Assert.Empty(component.FindAll("[data-testid='show-archived-toggle']"));
+    }
+
+    /// <summary>Scenarios "Show archived is on" and "A restart": the chip comes back
+    /// marked Archived in words, and the choice is on disk under its own key for the
+    /// next launch on this device.</summary>
+    [Fact]
+    public void Turning_show_archived_on_offers_the_archived_repository_marked_and_remembers_it()
+    {
+        using var harness = CreateHarness(DocsArchived);
+        var component = Render(harness);
+        var path = ShellNavigationPath(harness.Root);
+
+        ShowArchivedSwitch(component).Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var chips = Chips(component);
+            Assert.Equal(2, chips.Count);
+            Assert.Null(chips[0].GetAttribute("data-archived"));
+            Assert.Equal("true", chips[1].GetAttribute("data-archived"));
+            Assert.Contains("chip--archived", chips[1].ClassList);
+            Assert.Equal("docs (archived)", chips[1].TextContent.Trim());
+            Assert.StartsWith("Archived. ", chips[1].GetAttribute("title"), StringComparison.Ordinal);
+        });
+        Assert.Equal("true", ShowArchivedSwitch(component).GetAttribute("aria-checked"));
+        Assert.True(new ShellNavigationStore(path).ShowArchivedRepositories);
+        Assert.Contains("\"showArchivedRepositories\": true", File.ReadAllText(path), StringComparison.Ordinal);
+    }
+
+    /// <summary>Scenario "A restart": a shell opened afresh with the choice on draws
+    /// the archived chip and the switch on, read from the file rather than a field.</summary>
+    [Fact]
+    public void Show_archived_left_on_comes_back_on_with_a_fresh_shell()
+    {
+        using var harness = CreateHarness(DocsArchived, remembered: shell => shell.SetShowArchivedRepositories(true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+            Assert.Equal(["backlog", "docs (archived)"], Chips(component).Select(chip => chip.TextContent.Trim())));
+        Assert.Equal("true", ShowArchivedSwitch(component).GetAttribute("aria-checked"));
+    }
+
+    /// <summary>Scenario "The repository was archived since": the remembered scope comes
+    /// back without the archived repository, backlog alone pressed.</summary>
+    [Fact]
+    public void A_remembered_scope_drops_a_repository_archived_since_while_show_archived_is_off()
+    {
+        using var harness = CreateHarness(DocsArchived, remembered: shell => shell.SetRepositoryScope(["backlog", "docs"]));
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+            Assert.Equal("true", Assert.Single(Chips(component)).GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>Scenario "Show archived is on" under "A remembered scope drops an
+    /// archived repository": both come back pressed.</summary>
+    [Fact]
+    public void A_remembered_scope_keeps_an_archived_repository_while_show_archived_is_on()
+    {
+        using var harness = CreateHarness(DocsArchived, remembered: shell =>
+        {
+            shell.SetShowArchivedRepositories(true);
+            shell.SetRepositoryScope(["backlog", "docs"]);
+        });
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["backlog", "docs"], state.SelectedRepositoryAliases);
+            Assert.All(Chips(component), chip => Assert.Equal("true", chip.GetAttribute("aria-pressed")));
+        });
+    }
+
+    /// <summary>Turning the switch off takes the archived chip out of the live scope as
+    /// well: there is no chip left to say it is pressed.</summary>
+    [Fact]
+    public void Turning_show_archived_off_takes_an_archived_repository_out_of_the_scope()
+    {
+        using var harness = CreateHarness(DocsArchived, remembered: shell =>
+        {
+            shell.SetShowArchivedRepositories(true);
+            shell.SetRepositoryScope(["docs"]);
+        });
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForAssertion(() => Assert.Equal(["docs"], state.SelectedRepositoryAliases));
+
+        ShowArchivedSwitch(component).Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(state.SelectedRepositoryAliases);
+            Assert.Equal(["backlog"], Chips(component).Select(chip => chip.TextContent.Trim()));
+        });
+        Assert.False(new ShellNavigationStore(ShellNavigationPath(harness.Root)).ShowArchivedRepositories);
+    }
+
     // --- The repository colour visualization ----------------------------------
     //
     // The switch is here, on the main page, beside the chips it is most visibly about.
@@ -1564,6 +1705,9 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
         context.Services.AddSingleton(new ShellNavigationStore(ShellNavigationPath(root)));
+        // Show archived, answered over that file the way the desktop composition does.
+        context.Services.AddSingleton<IShowArchivedRepositories>(sp =>
+            new ShowArchivedRepositories(sp.GetRequiredService<ShellNavigationStore>()));
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
@@ -1619,7 +1763,8 @@ public sealed class HomeRepositoryScopeTests
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
-            toasts: sp.GetRequiredService<IToastChannel>()));
+            toasts: sp.GetRequiredService<IToastChannel>(),
+            showArchived: sp.GetRequiredService<IShowArchivedRepositories>()));
         // Home answers the Inbox's Capture button through the module's runner and
         // injects it hard, so a host that renders Home composes the module and
         // picks where its sources are kept, the same as the application hosts do.

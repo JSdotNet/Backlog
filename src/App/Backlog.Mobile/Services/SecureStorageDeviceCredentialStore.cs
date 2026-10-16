@@ -65,7 +65,8 @@ public sealed class SecureStorageDeviceCredentialStore : IDeviceCredentialStore
     public string StorePath => _inner.StorePath;
 
     /// <inheritdoc />
-    public void Save(DeviceCredential credential) => _inner.Save(credential);
+    public Task SaveAsync(DeviceCredential credential, CancellationToken cancellationToken = default) =>
+        _inner.SaveAsync(credential, cancellationToken);
 
     /// <inheritdoc />
     public void Clear() => _inner.Clear();
