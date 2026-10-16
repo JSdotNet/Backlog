@@ -21,9 +21,10 @@ public class DesignTokenTests
     /// about the design system.</summary>
     private static readonly HashSet<string> AppOwnedTokens =
     [
-        "--workspace-min-width",
         "--ease-saved-flash",
-        // Aliased onto the app's own name for the same measurement.
+        // The app's own minimum for a split's companion pane, over the library's
+        // fallback. It aliased --workspace-min-width until the side pane that read
+        // that name went.
         "--pane-min-width"
     ];
 

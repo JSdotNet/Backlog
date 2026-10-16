@@ -14,9 +14,13 @@
     act whose whole effect is "go and look at this on GitHub" is a link: it can be
     middle-clicked, copied and opened in a new window, and a button that navigates
     cannot. The alternative was an app anchor wearing `btn`, which is a second
-    button the library cannot keep in step with this one. It opens in a new
-    window, because the address is always another site's and the app has no
-    browser history to come back through. A disabled or busy link has no href,
+    button the library cannot keep in step with this one. By default it opens in a
+    new window, because such an address is another site's and the app has no
+    browser history to come back through. A link to a page of the app itself -
+    Settings, say - sets External to false and opens in place: the desktop and
+    mobile WebViews hand every new-window link to the system browser, so a
+    `target="_blank"` on an app route would leave the app instead of navigating
+    through its router. A disabled or busy link has no href,
     since an anchor has no disabled state of its own - but an anchor without an
     href leaves the tab order and stops being a link, which would break Busy's
     promise that focus survives the round trip. So the inert one keeps both by
@@ -40,8 +44,8 @@
 
     <a class="@ClassValue"
        href="@(inert ? null : Href)"
-       target="_blank"
-       rel="noopener noreferrer"
+       target="@(External ? "_blank" : null)"
+       rel="@(External ? "noopener noreferrer" : null)"
        data-testid="@TestId"
        role="@(inert ? "link" : null)"
        tabindex="@(inert ? "0" : null)"
@@ -105,11 +109,17 @@ else
     public string Type { get; set; } = "button";
 
     /// <summary>Where the act leads, when it is a page rather than something done
-    /// here. Set, the button renders as an anchor opening that address in a new
-    /// window, and <see cref="OnClick"/>, <see cref="Type"/> and
-    /// <see cref="StopPropagation"/> do not apply.</summary>
+    /// here. Set, the button renders as an anchor opening that address - in a new
+    /// window unless <see cref="External"/> is false - and <see cref="OnClick"/>,
+    /// <see cref="Type"/> and <see cref="StopPropagation"/> do not apply.</summary>
     [Parameter]
     public string? Href { get; set; }
+
+    /// <summary>Whether <see cref="Href"/> is another site's address, opened in a new
+    /// window. False for a page of the app itself, which opens in place through the
+    /// app's router.</summary>
+    [Parameter]
+    public bool External { get; set; } = true;
 
     [Parameter]
     public RenderFragment? Icon { get; set; }

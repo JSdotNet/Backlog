@@ -552,8 +552,15 @@
                            loading the branch list has to rebuild the
                            control, or the browser keeps the value of
                            the entry that triggered the load and shows
-                           a branch nobody selected. *@
-                        <SelectField @key="@($"{activeRepo.Alias}:{DevbookSource.HasBranches(activeRepo.Alias)}")"
+                           a branch nobody selected. Keyed on the
+                           load count too: once the list is in, a
+                           refresh changes nothing else here, and the
+                           control kept "Refresh branches" as chosen.
+                           And on the load running: the refresh entry
+                           leaves the list while it runs, and a select
+                           not rebuilt then fell back to its first
+                           entry, "Default branch". *@
+                        <SelectField @key="@($"{activeRepo.Alias}:{DevbookSource.HasBranches(activeRepo.Alias)}:{DevbookSource.ListGeneration(activeRepo.Alias)}:{DevbookSource.IsLoading(activeRepo.Alias)}")"
                                      LabelCssClass="setting__label"
                                      SelectCssClass="setting__input"
                                      Label="Read the devbook from"

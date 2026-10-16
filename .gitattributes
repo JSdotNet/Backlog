@@ -22,11 +22,10 @@
 # would break under line-ending conversion.
 tests/**/Fixtures/** binary
 
-# GitHub's language bar (Linguist) counts bytes per language. The rendered
-# Archify pages outweigh the C# source, so the repository was labelled HTML.
-# Marking them generated drops them from the count and collapses them in pull
-# request diffs; the hand-authored JSON specifications beside them stay visible.
-**/_archify/*.html linguist-generated
+# GitHub's language bar (Linguist) counts bytes per language. The vendored
+# Archify examples are sample input, not this repository's code. The rendered
+# Archify pages used to be marked generated here too; local ADR 0034 stopped
+# committing them, and .gitignore keeps them out.
 tools/archify/examples/** linguist-documentation
 
 # Third-party builds vendored into the component library, kept byte for byte as

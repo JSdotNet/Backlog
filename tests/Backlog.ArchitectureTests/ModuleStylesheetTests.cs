@@ -14,8 +14,8 @@ namespace Backlog.ArchitectureTests;
 /// component library serves <c>components.css</c>, and every host that renders
 /// the module links it after the library.</para>
 ///
-/// <para>Capture, Roadmap and Dashboard are moved; the rest of the module rules
-/// are still in <c>app.css</c> until their own moves.</para>
+/// <para>Capture, Roadmap, Dashboard and DevPc's tools pane are moved; the rest
+/// of the module rules are still in <c>app.css</c> until their own moves.</para>
 /// </summary>
 public class ModuleStylesheetTests
 {
@@ -83,6 +83,20 @@ public class ModuleStylesheetTests
             [".workspace-surface > .dashboard-panel"],
             // Only the desktop UI references the Dashboard module; neither mobile
             // head renders the takeover.
+            [
+                "src/App/Backlog.Desktop/wwwroot/index.html",
+                "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor"
+            ]),
+        new(
+            "DevPc",
+            "src/Modules/DevPc/Backlog.Modules.DevPc.UI/wwwroot/devpc.css",
+            "_content/Backlog.Modules.DevPc.UI/devpc.css",
+            [".tools-"],
+            [],
+            // The takeover the pane fills is the shell's (Home.razor).
+            [".workspace-surface > .tools-panel"],
+            // Only the desktop UI references the DevPc module; neither mobile head
+            // renders the tools takeover.
             [
                 "src/App/Backlog.Desktop/wwwroot/index.html",
                 "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor"
@@ -187,8 +201,9 @@ public class ModuleStylesheetTests
 
     /// <summary>The move carries the rules over as they were; these are the
     /// Capture panel's grid and log, the Roadmap band, its pace and the two
-    /// rules that reach into the library's timeline, and the Dashboard's title,
-    /// tab strip and timeline, as <c>app.css</c> declared them.</summary>
+    /// rules that reach into the library's timeline, the Dashboard's title,
+    /// tab strip and timeline, and the tools pane's header, content grid, rail
+    /// and transcript, as <c>app.css</c> declared them.</summary>
     [Theory]
     [InlineData("Capture", ".capture-sources__grid", "align-items: start; display: grid; gap: var(--spacing-md); grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr))")]
     [InlineData("Capture", ".capture-sources__log", "background: color-mix(in srgb, var(--color-text-primary) 3%, transparent); border-radius: var(--border-radius-sm); color: var(--color-text-secondary); display: grid; font-family: var(--font-family-mono); font-size: var(--font-size-xs); gap: var(--spacing-xs); list-style: none; margin: 0; max-height: 14rem; overflow-y: auto; padding: var(--spacing-sm)")]
@@ -205,6 +220,10 @@ public class ModuleStylesheetTests
     [InlineData("Dashboard", ".dashboard-timeline__scroll", "min-width: 0; overflow-x: auto")]
     [InlineData("Dashboard", ".dashboard-timeline__grid", "min-width: calc(var(--dashboard-timeline-label) + var(--dashboard-timeline-weeks, 1) * var(--dashboard-timeline-week)); position: relative")]
     [InlineData("Dashboard", ".dashboard-timeline__fill", "background: var(--dashboard-timeline-tone); display: block; height: 100%")]
+    [InlineData("DevPc", ".tools-panel__header-actions", "align-items: center; display: flex; flex: 0 1 auto; flex-wrap: wrap; gap: var(--spacing-xs) var(--spacing-sm); justify-content: flex-end; min-width: 0")]
+    [InlineData("DevPc", ".tools-panel__content", "display: grid; gap: var(--spacing-md); min-width: 0")]
+    [InlineData("DevPc", ".tools-panel__side", "border-top: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent); min-width: 0; padding-top: var(--spacing-sm)")]
+    [InlineData("DevPc", ".tools-panel__log .code-view__body", "max-height: 22rem")]
     public void A_moved_rule_keeps_the_declarations_it_had(string module, string selector, string declarations)
     {
         var css = File.ReadAllText(Path.Combine(Repository.Root.FullName, Find(module).File));
@@ -246,6 +265,38 @@ public class ModuleStylesheetTests
             css.IndexOf(".dashboard-timeline__scroll {", StringComparison.Ordinal) < narrow.Index
                 && narrow.Index < css.IndexOf(".dashboard-timeline__grid {", StringComparison.Ordinal),
             "The narrow-card step sits between the timeline's scroll and grid rules, as it did in app.css.");
+    }
+
+    /// <summary>The tools pane's width steps move with it: the five
+    /// <c>@container</c> blocks that answer to the pane and to its inventory,
+    /// whose names the moved <c>.tools-panel</c> and <c>.tools-inventory</c>
+    /// rules declare, and the reduced-motion block that stills its progress
+    /// bar. The rail's two-column gate is checked as the desktop declared it;
+    /// <see cref="The_desktop_stylesheet_no_longer_declares_the_module_classes"/>
+    /// cannot see a container name, so none may be left in <c>app.css</c>.</summary>
+    [Fact]
+    public void The_tools_pane_width_steps_move_with_the_pane()
+    {
+        var css = File.ReadAllText(Path.Combine(Repository.Root.FullName, Find("DevPc").File));
+        var desktop = File.ReadAllText(Path.Combine(Repository.Root.FullName, App));
+
+        string[] blocks =
+        [
+            "@container tools-panel (min-width: 74rem) {",
+            "@container tools-panel (max-width: 56.25rem) {",
+            "@container tools-panel (max-width: 36rem) {",
+            "@container tools-panel (max-width: 32rem) {",
+            "@container tools-inventory (max-width: 46rem) {",
+        ];
+
+        Assert.All(blocks, block => Assert.Contains(block, css, StringComparison.Ordinal));
+        Assert.DoesNotMatch(@"@container tools-", desktop);
+        Assert.Matches(@"@media \(prefers-reduced-motion: reduce\) \{\s*\.tools-run__progress-fill \{", css);
+
+        Assert.Equal(
+            "border-inline-start: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent); border-top: 0; "
+            + "padding-inline-start: var(--spacing-md); padding-top: 0; position: sticky; top: var(--spacing-sm)",
+            Canonical(CssRules.Effective(Body(css, blocks[0]), ".tools-panel__side")));
     }
 
     /// <summary>The desktop shell's scoped stylesheet was emptied and still
@@ -298,15 +349,28 @@ public class ModuleStylesheetTests
     /// narrow-window and narrow-card rules are its rules too.</summary>
     private static IEnumerable<CssRules.Rule> Conditional(string css) =>
         Regex.Matches(css, @"@(?:media|container)[^{]*\{")
-            .SelectMany(match =>
-            {
-                var depth = 1;
-                var end = match.Index + match.Length;
-                for (; end < css.Length && depth > 0; end++)
-                {
-                    depth += css[end] switch { '{' => 1, '}' => -1, _ => 0 };
-                }
+            .SelectMany(match => CssRules.TopLevel(BodyFrom(css, match.Index + match.Length)));
 
-                return CssRules.TopLevel(css[(match.Index + match.Length)..(end - 1)]);
-            });
+    /// <summary>What the block opened by <paramref name="opening"/> holds, braces
+    /// matched so its nested rules do not end it early.</summary>
+    private static string Body(string css, string opening)
+    {
+        var start = css.IndexOf(opening, StringComparison.Ordinal);
+
+        Assert.True(start >= 0, $"{opening} should exist.");
+
+        return BodyFrom(css, start + opening.Length);
+    }
+
+    private static string BodyFrom(string css, int start)
+    {
+        var depth = 1;
+        var end = start;
+        for (; end < css.Length && depth > 0; end++)
+        {
+            depth += css[end] switch { '{' => 1, '}' => -1, _ => 0 };
+        }
+
+        return css[start..(end - 1)];
+    }
 }
