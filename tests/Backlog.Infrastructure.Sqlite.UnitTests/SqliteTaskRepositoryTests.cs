@@ -1,4 +1,5 @@
 ﻿using Backlog.Infrastructure.Sqlite;
+using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
 
@@ -313,6 +314,47 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         loaded.SetSourceRef(null);
         await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
         Assert.Null((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.SourceRef);
+    }
+
+    /// <summary>The restore's read answers the tombstones and nothing else, whatever
+    /// their stamps, and hands each back with its deletion.</summary>
+    [Fact]
+    public async Task Listing_the_deleted_tasks_answers_the_tombstones_only()
+    {
+        var live = new TaskItem("Still here", string.Empty, EntryType.Task);
+        var deletedEarly = new TaskItem("Deleted long ago", string.Empty, EntryType.Task);
+        deletedEarly.LoadStamps(Noon.AddYears(-1), Noon.AddYears(-1));
+        var deletedNow = new TaskItem("Deleted just now", string.Empty, EntryType.Task);
+        deletedNow.MarkDeleted();
+        foreach (var task in new[] { live, deletedEarly, deletedNow })
+        {
+            await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        }
+
+        ITaskRepository repository = _repository;
+        var deleted = await repository.ListDeletedAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            new[] { deletedEarly.Id, deletedNow.Id }.Order(),
+            deleted.Select(task => task.Id).Order());
+        Assert.All(deleted, task => Assert.NotNull(task.DeletedAt));
+    }
+
+    /// <summary>A linked task deleted with its source keeps saying so as a
+    /// tombstone: the flag is what the sync reads to bring it back once the source
+    /// is connected again, so it has to survive the row it is hidden in.</summary>
+    [Fact]
+    public async Task A_tombstone_deleted_with_its_source_keeps_its_flag()
+    {
+        var task = new TaskItem("Deleted with its source", string.Empty, EntryType.Task);
+        task.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_3", "u", "#3", null, "open", Noon, [LinkedTaskFlags.DeletedWithSource]));
+        task.MarkDeleted();
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetIncludingDeletedAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded?.DeletedAt);
+        Assert.True(loaded!.SourceRef!.HasFlag(LinkedTaskFlags.DeletedWithSource));
     }
 
     /// <summary>The source's own word that an item is blocked, and its reason, come

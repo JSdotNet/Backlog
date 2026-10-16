@@ -689,6 +689,66 @@ public sealed class SyncLinkedTasksTests
         Assert.NotNull(_tasks.Entries[task.Id].DeletedAt);
     }
 
+    /// <summary>A linked task deleted with its source (the settings page's Delete
+    /// tasks) is the one tombstone the sync takes back: live again, the flag that
+    /// said so cleared, stamped past the tombstone so the restore wins on every
+    /// copy, and the source's word re-applied as on any other sync. Counted as
+    /// restored, not as made or updated.</summary>
+    [Fact]
+    public async Task A_linked_task_deleted_with_its_source_is_restored_and_follows_the_source_again()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var task = DeleteWithSource("I_1");
+        var tombstonedAt = task.UpdatedAt;
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Active) with { Title = "Renamed at the source", Assignee = "Job" };
+
+        var summary = await SyncAsync();
+
+        Assert.Equal((0, 1, 0, 0, 0), (summary.Created, summary.Restored, summary.Updated, summary.Unchanged, summary.SkippedTombstoned));
+        Assert.Null(task.DeletedAt);
+        Assert.True(task.UpdatedAt > tombstonedAt);
+        Assert.Same(task, Assert.Single(await _tasks.ListAsync(TestContext.Current.CancellationToken)));
+        Assert.Equal("Renamed at the source", task.Title);
+        Assert.Equal(EntryStatus.InProgress, task.Status);
+        Assert.Equal("Job", task.SourceRef!.Assignee);
+        Assert.False(task.SourceRef.HasFlag(LinkedTaskFlags.DeletedWithSource));
+    }
+
+    /// <summary>The first sync's cut-off decides which items are new enough to make
+    /// a task of. A task deleted with its source existed already, so it comes back
+    /// however long its item has been untouched.</summary>
+    [Fact]
+    public async Task A_linked_task_deleted_with_its_source_is_restored_past_the_first_sync_cutoff()
+    {
+        _connector.Items.Add(Item("I_old") with { UpdatedAt = Now.AddDays(-40) });
+        await SyncAsync();
+        var task = DeleteWithSource("I_old");
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo) { SkipUntouchedOlderThan = TimeSpan.FromDays(30) });
+
+        var summary = await SyncAsync();
+
+        Assert.Equal((1, 0), (summary.Restored, summary.SkippedUntouched));
+        Assert.Null(task.DeletedAt);
+    }
+
+    /// <summary>A task restored by a sync is linked by it: an item that waits on its
+    /// item finds it in the same sync, as it would a task made there.</summary>
+    [Fact]
+    public async Task An_item_waiting_on_a_restored_task_depends_on_it_in_the_same_sync()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var waitedOn = DeleteWithSource("I_1");
+        _connector.Items.Add(Item("I_2") with { WaitsOn = ["I_1"] });
+
+        var summary = await SyncAsync();
+
+        Assert.Equal((1, 1), (summary.Created, summary.Restored));
+        var waiting = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_2")];
+        Assert.Equal([waitedOn.Id.ToString()], waiting.DependsOn);
+    }
+
     [Fact]
     public async Task A_local_done_stays_done_and_is_flagged_while_the_source_holds_it_open()
     {
@@ -1701,6 +1761,16 @@ public sealed class SyncLinkedTasksTests
     }
 
     // --- Helpers -------------------------------------------------------------------
+
+    /// <summary>The task of <paramref name="externalId"/> tombstoned the way the
+    /// settings page's Delete tasks leaves it: flagged as deleted with its source.</summary>
+    private TaskItem DeleteWithSource(string externalId)
+    {
+        var task = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, externalId)];
+        task.SetSourceRef(task.SourceRef!.WithFlag(LinkedTaskFlags.DeletedWithSource, set: true));
+        task.MarkDeleted();
+        return task;
+    }
 
     private void MapStatuses(Dictionary<string, EntryStatus> map) =>
         _targets.Save(_targets.Get(StubTaskConnector.Id, Repo)! with { StatusMap = map });

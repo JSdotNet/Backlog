@@ -698,15 +698,38 @@ public sealed class TaskItem
     /// past the retention its first deletion started.
     /// </para>
     /// <para>
-    /// There is deliberately no matching undelete: no decision here says what
-    /// resurrecting a task means once the other machines have been told it is
-    /// gone.
+    /// <see cref="Restore"/> undoes it, for linked tasks only: the sync restores a
+    /// task deleted with its source when the source is connected again, and the
+    /// connector settings page's Restore deleted tasks restores every deleted task
+    /// of a connected target, after asking (ADR 0020, §5).
     /// </para></summary>
     public void MarkDeleted()
     {
         if (DeletedAt is not null) return;
         Touch();
         DeletedAt = UpdatedAt;
+    }
+
+    /// <summary>Brings a tombstoned task back: live again, and stamped as the
+    /// latest version of itself.
+    /// <para>
+    /// What resurrecting a task means once the other machines have been told it is
+    /// gone is the same thing an edit after a deletion means: the later version
+    /// wins. The restamp is the whole of it — the live copy is later than the
+    /// tombstone, so the replica keeps it, the person's other machines take it over
+    /// the tombstone they hold, and the store's expiry for tombstones no longer
+    /// applies to it. Restoring without restamping would lose to the very deletion
+    /// it undoes.
+    /// </para>
+    /// <para>
+    /// Restoring a live task says nothing new and leaves the stamp alone, as
+    /// deleting a deleted one does.
+    /// </para></summary>
+    public void Restore()
+    {
+        if (DeletedAt is null) return;
+        Touch();
+        DeletedAt = null;
     }
 
     // --- Sub-items ----------------------------------------------------------

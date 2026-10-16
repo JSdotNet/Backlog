@@ -95,6 +95,26 @@ public interface ITaskRepository
         (await ListAsync(cancellationToken).ConfigureAwait(false)).Count;
 
     /// <summary>
+    /// Every tombstone — the tasks <see cref="ListAsync"/> hides and nothing else.
+    /// <para>
+    /// For the one screen that offers to bring deleted tasks back: the connector
+    /// settings page's Restore deleted tasks, which counts and restores a connected
+    /// target's deleted linked tasks. It answers with tombstones only, so the
+    /// question "what to do with one" has the single answer that screen asks it
+    /// for, and a screen listing live tasks never meets one.
+    /// </para>
+    /// <para>
+    /// Implemented by default over <see cref="ListChangedSinceAsync"/> from the
+    /// beginning of time, the one list that already sees a tombstone, so an
+    /// in-memory store needs nothing new; a store that can filter on the deletion
+    /// stamp overrides it.
+    /// </para>
+    /// </summary>
+    async Task<IReadOnlyList<TaskItem>> ListDeletedAsync(CancellationToken cancellationToken = default) =>
+        [.. (await ListChangedSinceAsync(DateTimeOffset.MinValue, cancellationToken).ConfigureAwait(false))
+            .Where(task => task.DeletedAt is not null)];
+
+    /// <summary>
     /// Every task whose <see cref="TaskItem.UpdatedAt"/> is strictly later than
     /// <paramref name="since"/>, oldest first — <b>tombstones included</b>. The
     /// sync read, and the only list that sees one.

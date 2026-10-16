@@ -54,6 +54,22 @@ public sealed class TaskFoldTests
         Assert.NotNull(rows[id].DeletedAt);
     }
 
+    /// <summary>A task restored on another device arrives as a live copy stamped
+    /// after its tombstone, and takes the tombstone's place.</summary>
+    [Fact]
+    public void A_later_live_copy_brings_a_tombstoned_task_back()
+    {
+        var id = Guid.CreateVersion7();
+        var rows = new Dictionary<Guid, TaskViewRow>();
+
+        TaskFold.Apply(rows, [Record(TestTasks.Task("Book the train", T0, inMyDayOn: Today, id: id, deletedAt: T0), 1)]);
+        var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("Book the train", T0.AddMinutes(1), inMyDayOn: Today, id: id), 2)]);
+
+        Assert.Single(changed);
+        Assert.Null(rows[id].DeletedAt);
+        Assert.True(rows[id].IsInMyDay(Today));
+    }
+
     /// <summary>The replayed and reordered pages a phone that lost a response
     /// meets: every order the three writes can arrive in ends on the tombstone.</summary>
     [Fact]

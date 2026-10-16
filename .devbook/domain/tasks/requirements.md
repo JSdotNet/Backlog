@@ -312,9 +312,10 @@ status: proposed
 related: [.devbook/domain/tasks/features.md#linked-tasks, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/domain.md#source-state, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
-> Where a connected target's tasks are filed and which status each one gets.
-> The feature chapter says what linked tasks are; ADR 0020 §4 and §9 say why
-> the map and the repository are per target.
+> Where a connected target's tasks are filed, which status each one gets, and
+> which deleted tasks come back. The feature chapter says what linked tasks
+> are; ADR 0020 §4 and §9 say why the map and the repository are per target,
+> and §5 says when a deleted task is restored.
 
 ### Requirement: A target's repository files its unfiled tasks
 
@@ -489,16 +490,72 @@ The sync SHALL leave a linked task the person finished here Done, and flag that 
 ```meta
 type: requirement
 status: draft
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_deleted_linked_task_is_never_made_again
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_deleted_linked_task_is_never_made_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.DeleteDisconnectedLinkedTasksTests.A_task_brought_back_and_then_deleted_on_its_own_stays_deleted]
 ```
 
-A sync SHALL NOT create again a linked task the person deleted.
+A sync SHALL NOT create again a linked task the person deleted on its own.
 
 #### Scenario: The person deletes a linked task
 
 - **Given** a linked task for an open GitHub issue, which the person deleted
 - **When** the target syncs again
 - **Then** the backlog holds no task for that issue
+
+#### Scenario: A restored task deleted on its own
+
+- **Given** a linked task deleted with its source and restored by the sync of the target connected again
+- **When** the person deletes that task and the target syncs again
+- **Then** the backlog holds no task for that item
+
+### Requirement: Reconnecting a target restores the tasks deleted with it
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.DeleteDisconnectedLinkedTasksTests.Connecting_the_source_again_brings_the_deleted_tasks_back, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_linked_task_deleted_with_its_source_is_restored_and_follows_the_source_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_linked_task_deleted_with_its_source_is_restored_past_the_first_sync_cutoff]
+```
+
+A sync of a connected target SHALL restore each task that Delete tasks deleted with that target and whose item it fetches, and SHALL update it from the item.
+
+#### Scenario: The target is connected again
+
+- **Given** a disconnected GitHub repository whose tasks the person deleted with Delete tasks, and whose issues are still open
+- **When** the person connects the repository again and it syncs
+- **Then** each of those tasks is live again, follows its issue, and is counted as restored
+
+#### Scenario: The item is older than the first sync's cut-off
+
+- **Given** a task deleted with its source whose item has not changed for longer than the first sync skips
+- **When** the target is connected again and syncs for the first time
+- **Then** the task is restored
+
+### Requirement: Restore deleted tasks restores every deleted task of the target
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.RestoreDeletedLinkedTasksTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TaskConnectorSettingsTests.Confirming_restores_the_tasks_says_how_many_and_takes_the_offer_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.TaskConnectorSettingsTests.Cancelling_the_restore_confirmation_restores_nothing]
+```
+
+After the person confirms, Restore deleted tasks SHALL restore every deleted linked task of one connected target, the tasks deleted one by one included, and no other task.
+
+#### Scenario: The person restores a target's deleted tasks
+
+- **Given** a connected spec-manager product with three deleted tasks, one of them deleted on its own, and a deleted task of another product
+- **When** the person chooses Restore deleted tasks on the product's card and confirms
+- **Then** the three tasks are live again, and the other product's task stays deleted
+
+#### Scenario: The person cancels
+
+- **Given** a connected target with deleted tasks
+- **When** the person chooses Restore deleted tasks and cancels the confirmation
+- **Then** every one of those tasks stays deleted
+
+#### Scenario: The target was disconnected meanwhile
+
+- **Given** a target whose card offers Restore deleted tasks
+- **When** the target is disconnected and the person then confirms the restore
+- **Then** the restore is refused and nothing is restored
 
 ### Requirement: The assignee follows the source
 

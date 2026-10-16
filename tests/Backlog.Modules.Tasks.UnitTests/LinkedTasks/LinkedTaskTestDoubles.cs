@@ -194,7 +194,7 @@ internal sealed class RecordingSyncHandler : ICommandHandler<SyncLinkedTasksComm
     public Dictionary<string, Task> Holding { get; } = [];
 
     /// <summary>What a sync that succeeds answers.</summary>
-    public LinkedTaskSyncSummary Summary { get; set; } = new(0, 0, 0, 0, 0, 0, 0);
+    public LinkedTaskSyncSummary Summary { get; set; } = new(0, 0, 0, 0, 0, 0, 0, 0);
 
     public async Task<Result<LinkedTaskSyncSummary>> Handle(SyncLinkedTasksCommand command, CancellationToken cancellationToken = default)
     {

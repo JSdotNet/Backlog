@@ -78,6 +78,17 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.SetStatus)] = task => task.SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1)),
         [nameof(TaskItem.ChangeStatus)] = task => task.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1)),
         [nameof(TaskItem.MarkDeleted)] = task => task.MarkDeleted(),
+
+        // Bringing a tombstone back is the edit that has to beat it: every copy
+        // keeps whichever version is later, so a restore that did not restamp
+        // would lose to the very deletion it undoes. Seeded first, because
+        // restoring a live task leaves the stamp alone by design.
+        [nameof(TaskItem.Restore)] = task =>
+        {
+            task.MarkDeleted();
+            task.LoadStamps(Stamped, Stamped);
+            task.Restore();
+        },
         [nameof(TaskItem.AddSubItem)] = task => task.AddSubItem("Step"),
         [nameof(TaskItem.AddProjectionRef)] = task => task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "issue")),
 
@@ -132,6 +143,11 @@ public sealed class TaskItemStampTests
             task.LoadSubItem(task.CreateSubItemForLoad(Guid.NewGuid(), "Loaded", SubItemStatus.Pending, null, 0)),
         [nameof(TaskItem.LoadUsageEvent)] = task => task.LoadUsageEvent(new UsageEvent(Stamped, "copilot-cli")),
         [nameof(TaskItem.LoadStamps)] = task => task.LoadStamps(Stamped, deletedAt: null),
+
+        // Restoring a task nobody deleted says nothing new, the way deleting a
+        // deleted one does not; a stamp moved here would win last-write-wins
+        // with no edit to show for it.
+        ["Restore(live)"] = task => task.Restore(),
     };
 
     public static TheoryData<string> EditNames => [.. Edits.Keys];

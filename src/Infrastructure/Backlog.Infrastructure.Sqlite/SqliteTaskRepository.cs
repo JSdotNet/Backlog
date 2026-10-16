@@ -273,6 +273,25 @@ public sealed class SqliteTaskRepository : ITaskRepository
             System.Globalization.CultureInfo.InvariantCulture);
     }
 
+    /// <summary>The tombstones, filtered by the store rather than by reading every
+    /// task to keep the deleted ones: the connector settings page asks on every
+    /// visit, and a store holds far more live tasks than deleted ones.</summary>
+    public async Task<IReadOnlyList<TaskItem>> ListDeletedAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {Columns} FROM tasks WHERE deleted_at IS NOT NULL ORDER BY deleted_at;";
+
+        var tasks = new List<TaskItem>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            tasks.Add(Read(reader));
+        }
+
+        return tasks;
+    }
+
     /// <summary>
     /// The sync read. No <c>deleted_at IS NULL</c> clause, deliberately: this is
     /// the one list a tombstone belongs in, because a deletion travels as a

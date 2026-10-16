@@ -993,12 +993,19 @@ with, are the [Sync](../sync/context.md) context's: see
 ```meta
 type: term
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#multi-device-sync]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/tasks/features.md#restoring-deleted-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
 A deleted task that is kept rather than removed, marked by its `deleted_at`.
-[A sync never makes a deleted Linked Task again](requirements.md#requirement-a-deleted-linked-task-is-never-made-again),
-so deleting one is how a person says they do not want it back.
+[A sync never makes a Linked Task deleted on its own again](requirements.md#requirement-a-deleted-linked-task-is-never-made-again),
+so deleting one task is how a person says they do not want it back.
+
+Deleting the tasks a disconnected [Connected Target](#connected-target) left
+behind does not say that. Each of those tombstones is marked as deleted with
+its source, and
+[a sync of the target connected again restores it](requirements.md#requirement-reconnecting-a-target-restores-the-tasks-deleted-with-it).
+A restored task is live again and stamped later than its tombstone, so the
+restore reaches the other devices the way the deletion did.
 
 It exists because deletion has to travel. A task that is simply absent from one
 device is indistinguishable from one that device has never seen. An outright
@@ -1079,7 +1086,7 @@ descriptors.
 type: term
 status: proposed
 aliases: [connected repository, connected product, target]
-related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/domain/tasks/domain.md#source-state, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/domain/tasks/domain.md#source-state, .devbook/domain/tasks/domain.md#tombstone, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
 One GitHub repository or one spec-manager product a person has connected. It
@@ -1103,7 +1110,11 @@ next sync still asks from there, and the next success clears it.
 
 It never holds credentials. Disconnecting a target keeps its tasks. The person
 can later delete the tasks a disconnected target left behind, which makes each
-one a [Tombstone](#tombstone).
+one a [Tombstone](#tombstone) marked as deleted with its source. Connecting the
+target again brings those tasks back with its next sync. A connected target
+with deleted tasks can also
+[restore every one of them](requirements.md#requirement-restore-deleted-tasks-restores-every-deleted-task-of-the-target),
+the ones deleted one by one included.
 
 ### Source State
 

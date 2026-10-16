@@ -33,6 +33,12 @@
     Disconnecting keeps a target's tasks, so the sources that left tasks behind are
     listed under the cards, each with a confirmed "Delete tasks"
     (IDisconnectedLinkedTasks). Nothing is listed in a host without that port.
+    Connecting such a source again brings those tasks back with its next sync.
+
+    A connected target with deleted tasks offers a confirmed "Restore deleted
+    tasks" on its card (IDeletedLinkedTasks): every deleted task of that target,
+    the ones deleted one by one included, which the sync never brings back by
+    itself. Nothing is offered in a host without that port.
 
     The namespace is the project's root rather than a Settings folder's, for the
     reason InboxSettings gives: a ...Tasks.Settings namespace would shadow the
@@ -170,6 +176,7 @@
                                            OnChange="options => Change(target, options)"
                                            OnSyncNow="@(Sync is null ? default(EventCallback<ConnectedTargetOptions>) : EventCallback.Factory.Create<ConnectedTargetOptions>(this, _ => SyncNowAsync(target)))"
                                            OnRemove="_ => RemoveAsync(target)"
+                                           OnRestoreDeleted="@(Deleted is null ? default(EventCallback<ConnectedTargetOptions>) : EventCallback.Factory.Create<ConnectedTargetOptions>(this, _ => _restoring = target))"
                                            TestId="task-connector-target-card"
                                            IdPrefix="@IdPrefixOf(target)" />
                 }
@@ -230,6 +237,17 @@
                    CancelTestId="task-connector-delete-cancel"
                    OnConfirm="ConfirmDeleteAsync"
                    OnCancel="() => _deleting = null" />
+
+    @* Not destructive: it brings tasks back rather than taking them away. *@
+    <ConfirmDialog Open="@(_restoring is not null)"
+                   Title="Restore deleted tasks?"
+                   Message="@RestoreMessage"
+                   ConfirmText="Restore tasks"
+                   TestId="task-connector-restore-dialog"
+                   ConfirmTestId="task-connector-restore-confirm"
+                   CancelTestId="task-connector-restore-cancel"
+                   OnConfirm="ConfirmRestoreAsync"
+                   OnCancel="() => _restoring = null" />
 }
 
 @code {
@@ -284,6 +302,21 @@
     /// <summary>What lists and deletes the tasks a disconnected source left behind,
     /// or null in a host that has no such port or keeps no connected targets.</summary>
     private IDisconnectedLinkedTasks? Disconnected => Targets is null ? null : Services.GetService<IDisconnectedLinkedTasks>();
+
+    /// <summary>What counts and restores the deleted tasks of a connected target, or
+    /// null in a host that has no such port or keeps no connected targets.</summary>
+    private IDeletedLinkedTasks? Deleted => Targets is null ? null : Services.GetService<IDeletedLinkedTasks>();
+
+    /// <summary>The sources with deleted tasks, as last listed, connected or not;
+    /// each card reads its own count from here.</summary>
+    private IReadOnlyList<DeletedLinkedSource> _deleted = [];
+
+    /// <summary>The connected target whose "Restore deleted tasks" is being
+    /// confirmed, or null.</summary>
+    private ConnectedTarget? _restoring;
+
+    /// <summary>Counts the deleted-source requests, so only the latest one lands.</summary>
+    private int _deletedRequest;
 
     /// <summary>The sources that left tasks behind, as last listed.</summary>
     private IReadOnlyList<DisconnectedSource> _disconnected = [];
@@ -393,6 +426,7 @@
         LoadStatuses();
         await LoadChoicesAsync();
         await RefreshDisconnectedAsync();
+        await RefreshDeletedAsync();
     }
 
     /// <summary>
@@ -550,6 +584,7 @@
 
         LoadStatuses();
         await RefreshDisconnectedAsync();
+        await RefreshDeletedAsync();
         StateHasChanged();
     });
 
@@ -594,6 +629,46 @@
         if (_disposed || request != _disconnectedRequest) return;
         _disconnected = sources;
     }
+
+    /// <summary>
+    /// Asks which sources have deleted tasks. Only the latest request lands. Never
+    /// throws into the page: a list that fails is logged and offers nothing, rather
+    /// than a restore for a count it could not read.
+    /// </summary>
+    private async Task RefreshDeletedAsync()
+    {
+        if (_disposed) return;
+
+        var request = ++_deletedRequest;
+        if (Deleted is not { } deleted)
+        {
+            _deleted = [];
+            return;
+        }
+
+        IReadOnlyList<DeletedLinkedSource> sources;
+        try
+        {
+            sources = await deleted.ListAsync(_lifetime.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Listing the deleted linked tasks threw.");
+            sources = [];
+        }
+
+        if (_disposed || request != _deletedRequest) return;
+        _deleted = sources;
+    }
+
+    /// <summary>How many of a connected target's tasks are deleted, its pair matched
+    /// the way a target is (<see cref="ConnectedTarget.Is"/>).</summary>
+    private int DeletedCountOf(ConnectedTarget target) =>
+        _deleted.Where(source => target.Is(source.ConnectorId, source.Target)).Sum(source => source.TaskCount);
 
     private SignInState SignInStateOf(string connectorId)
     {
@@ -680,6 +755,7 @@
             PausedReason = PausedReasonOf(target),
             StatusRows = StatusRowsOf(target),
             StatusChoices = StatusChoices,
+            DeletedTaskCount = DeletedCountOf(target),
         };
 
     /// <summary>The card's line for a switched-on target whose repository is
@@ -783,6 +859,7 @@
         // And the new card asks its source for the statuses its map is offered.
         LoadStatuses();
         await RefreshDisconnectedAsync();
+        await RefreshDeletedAsync();
     }
 
     private void Change(ConnectedTarget target, ConnectedTargetOptions options)
@@ -837,8 +914,8 @@
     }
 
     /// <summary>What the confirmation says: what is deleted and from where, what is
-    /// not touched, that connecting again does not undo it, that it reaches the
-    /// other devices, and how many tasks will be left waiting on a missing
+    /// not touched, that it reaches the other devices, that connecting again brings
+    /// the tasks back, and how many tasks will be left waiting on a missing
     /// one.</summary>
     private string DeleteMessage
     {
@@ -846,15 +923,19 @@
         {
             if (_deleting is not { } source) return string.Empty;
 
-            var message =
-                $"This deletes {TaskCount(source.TaskCount)} from {source.Target}. The items at the source stay untouched. "
-                + $"Connecting {source.Target} again will not bring these tasks back, and the deletion reaches your other devices.";
+            var one = source.TaskCount == 1;
+            var message = one
+                ? $"This deletes 1 task from {source.Target}. The item at the source stays untouched, and the deletion reaches your other devices. "
+                  + $"Connecting {source.Target} again brings this task back."
+                : $"This deletes {TaskCount(source.TaskCount)} from {source.Target}. The items at the source stay untouched, and the deletion reaches your other devices. "
+                  + $"Connecting {source.Target} again brings these tasks back.";
+            var waitedOn = one ? "it" : "these";
 
             return source.DependentCount switch
             {
                 0 => message,
-                1 => $"{message} 1 task that waits on these will show as blocked on a missing task.",
-                var count => $"{message} {count} tasks that wait on these will show as blocked on a missing task.",
+                1 => $"{message} 1 task that waits on {waitedOn} will show as blocked on a missing task.",
+                var count => $"{message} {count} tasks that wait on {waitedOn} will show as blocked on a missing task.",
             };
         }
     }
@@ -894,6 +975,60 @@
 
         _message = message;
         await RefreshDisconnectedAsync();
+        await RefreshDeletedAsync();
+    }
+
+    /// <summary>What the restore confirmation says: how many tasks come back and
+    /// from where, that the ones deleted one by one are among them — the sync would
+    /// never bring those back — and that the next sync brings them up to date and
+    /// the restore reaches the other devices.</summary>
+    private string RestoreMessage
+    {
+        get
+        {
+            if (_restoring is not { } target) return string.Empty;
+
+            var count = DeletedCountOf(target);
+            return count == 1
+                ? $"This restores 1 task deleted from {target.Target}, even if you deleted it on its own. "
+                  + "It comes back as it was, the next sync brings it up to date with the source, and the restore reaches your other devices."
+                : $"This restores {TaskCount(count)} deleted from {target.Target}, including tasks you deleted one by one. "
+                  + "They come back as they were, the next sync brings them up to date with the source, and the restore reaches your other devices.";
+        }
+    }
+
+    /// <summary>
+    /// Restores the confirmed target's deleted tasks and says how it went on the
+    /// page's status line: how many came back, or why none did — a target
+    /// disconnected since its card offered the restore is refused. Not tied to the
+    /// page's lifetime, for the reason the delete is not. The counts are asked for
+    /// again either way.
+    /// </summary>
+    private async Task ConfirmRestoreAsync()
+    {
+        if (_restoring is not { } target) return;
+        _restoring = null;
+
+        if (Deleted is not { } deleted) return;
+
+        string message;
+        try
+        {
+            var result = await deleted.RestoreAsync(target.ConnectorId, target.Target, CancellationToken.None);
+            message = result.IsSuccess
+                ? $"Restored {TaskCount(result.Value)} from {target.Target}. The next sync brings {(result.Value == 1 ? "it" : "them")} up to date."
+                : result.Error.Message;
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Restoring the deleted tasks of {Connector} {Target} threw.", target.ConnectorId, target.Target);
+            message = $"Restoring the tasks of {target.Target} did not finish. Try again.";
+        }
+
+        if (_disposed) return;
+
+        _message = message;
+        await RefreshDeletedAsync();
     }
 
     /// <summary>
@@ -928,6 +1063,10 @@
         // A card disconnected while it synced keeps no answer, or reconnecting the
         // same target would show the old one.
         if (!_disposed && Targets?.Get(target.ConnectorId, target.Target) is not null) _syncMessages[key] = message;
+
+        // The sync brings back the tasks deleted with their source, so the card's
+        // offer to restore may have less to restore now, or nothing.
+        await RefreshDeletedAsync();
     }
 
     public void Dispose()

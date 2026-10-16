@@ -319,6 +319,19 @@ The later-edit-wins comparison between devices reads this stamp, so an edit that
 
 Enforced at: all mutations (each calls `Touch()`); `RecordUsage()`, `LoadSubItem()`, `LoadUsageEvent()` and `LoadStamps()` deliberately do not
 
+### Invariant: A restored task is stamped after its tombstone
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.A_restored_task_is_live_again_and_stamped_after_its_tombstone, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.A_restored_task_deleted_again_is_a_tombstone_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.A_non_edit_leaves_the_stamp_alone]
+```
+
+Restoring a deleted task clears its `deleted_at` and moves its `updated_at` later than the tombstone's, and restoring a task that is not deleted changes nothing.
+The later-edit-wins merge then takes the live copy over the tombstone on every device.
+
+Enforced at: `Restore()`
+
 ### Invariant: Unlinking removes every reference to the named artifact
 
 ```meta
