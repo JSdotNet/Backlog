@@ -84,7 +84,7 @@ public sealed class DevbookPaneSourceStatusTests
             "Reading the local clone. Devbook can be edited here.",
             component.Find("[data-testid='devbook-source-status']").TextContent.Trim()));
 
-        component.Find("[data-testid='devbook-update-action']").Click();
+        await component.InvokeAsync(() => component.Find("[data-testid='devbook-update-action']").Click());
 
         component.WaitForAssertion(() =>
         {
@@ -362,11 +362,14 @@ public sealed class DevbookPaneSourceStatusTests
         component.Find("[data-testid='devbook-source-select'] input");
 
     /// <summary>Types the text into the source field and presses Enter, which
-    /// commits what was typed while no option is highlighted.</summary>
+    /// commits what was typed while no option is highlighted.
+    /// Each event is found and raised on the renderer's dispatcher, so the
+    /// overview landing in the background cannot re-render between the find and
+    /// the raise and leave the handler id stale.</summary>
     private static void CommitSource(IRenderedComponent<DevbookPane> component, string text)
     {
-        SourceInput(component).Input(text);
-        SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        component.InvokeAsync(() => SourceInput(component).Input(text)).GetAwaiter().GetResult();
+        component.InvokeAsync(() => SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Enter" })).GetAwaiter().GetResult();
     }
 
     private static Harness CreateHarness(List<string>? branches = null, Dictionary<string, GitHubBranchHead>? heads = null)
@@ -446,8 +449,16 @@ public sealed class DevbookPaneSourceStatusTests
         GitHubSettingsStore Settings,
         StubBranchCatalog Catalog) : IAsyncDisposable
     {
-        public IRenderedComponent<DevbookPane> Render() =>
-            Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
+        /// <summary>Renders the pane and waits for the branch overview it starts
+        /// on opening to land, so no test races that background re-render.</summary>
+        public IRenderedComponent<DevbookPane> Render()
+        {
+            var component = Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
+            var overview = Context.Services.GetRequiredService<DevbookBranchOverview>();
+            component.WaitForAssertion(() => Assert.NotNull(overview.Current(RepositoryAlias)));
+            component.WaitForAssertion(() => Assert.False(overview.IsLoading(RepositoryAlias)));
+            return component;
+        }
 
         public async ValueTask DisposeAsync()
         {
