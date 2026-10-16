@@ -8421,6 +8421,50 @@ a.pull-request-detail-checks__name:hover {
     text-overflow: ellipsis;
 }
 
+/* One row of the source list: the name, which truncates, then what the branch
+   changes — its sections' glyphs at icon-sm and how far ahead and behind it is —
+   which never does, so a long name cannot push the counts out of sight. */
+.devbook-stack__source-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.devbook-stack__source-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.devbook-stack__source-area {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+}
+
+.devbook-stack__source-maybe,
+.devbook-stack__source-drift {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The section tabs: the section's glyph before its name, at icon-sm, in the
+   tab's own colour so it follows the active and hover states with the text. */
+.devbook-stack__tab-title {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.devbook-stack__tab-icon {
+    flex: 0 0 auto;
+}
+
 /* The pane's title, on the strip and only while there can be two devbooks — on
    the Brain, or beside the Brain | repository switch (local ADR 0027 §4). One
    quiet word, so it names the pane without competing with the tabs. */

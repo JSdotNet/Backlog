@@ -129,7 +129,41 @@
                           Value="@DevbookSource.Label(ActiveRepositoryAlias)"
                           ValueChanged="SetSourceQuery"
                           Options="@SourceSuggestions"
-                          OnCommit="CommitDevbookSourceAsync" />
+                          OnCommit="CommitDevbookSourceAsync">
+                    @* Each row says what a branch is worth reading for: the sections
+                       it changes and how far it is from the default branch — or, on
+                       the clone, from its upstream. Content only, no action: a button
+                       inside an option breaks the listbox. The glyphs are hidden and
+                       their sections said in words, so the option's name carries
+                       everything the row shows. *@
+                    <OptionTemplate Context="option">
+                        <span class="devbook-stack__source-option">
+                            <span class="devbook-stack__source-name">@option.Label</span>
+                            @if (DevbookSource.Row(ActiveRepositoryAlias, option.Value) is { } row)
+                            {
+                                @foreach (var area in row.Areas)
+                                {
+                                    <DevbookAreaIcon Area="@area"
+                                                     CssClass="devbook-stack__source-area"
+                                                     TestId="@($"devbook-source-area-{area}")" />
+                                    <span class="sr-only">Changes @DevbookAreaCatalog.Label(area)</span>
+                                }
+                                @if (row.MayChange)
+                                {
+                                    <span class="devbook-stack__source-maybe"
+                                          title="GitHub listed only part of what this branch changes">may change the devbook</span>
+                                }
+                                @if (row.AheadBy is { } ahead && row.BehindBy is { } behind)
+                                {
+                                    <span class="devbook-stack__source-drift" data-testid="devbook-source-drift">
+                                        <span aria-hidden="true">↑@ahead ↓@behind</span>
+                                        <span class="sr-only">@ahead ahead, @behind behind</span>
+                                    </span>
+                                }
+                            }
+                        </span>
+                    </OptionTemplate>
+                </Combobox>
             </span>
         }
     </ListLeading>
@@ -252,7 +286,10 @@
            always a sentence — "on the latest version", or the reason git gave for
            refusing. Role status, because it answers something the reader asked
            for and interrupting them with it would be too much. *@
-        <Alert Message="@_updateState.Message"
+        @* Not for a state the branch overview seeded on opening: nobody asked,
+           and a sentence on every open would be noise. The badge and the button
+           already say what the seeded answer found. *@
+        <Alert Message="@(_updateStateSeeded ? null : _updateState.Message)"
                BaseClass="@DevbookUpdatePresentation.StatusClass(_updateState)"
                Role="status"
                TestId="devbook-update-status" />
@@ -336,6 +373,12 @@
                     <TabPanel Id="@area.Key"
                               Title="@area.Label"
                               BaseClass="@(_atlasOpen || _searchOpen || _reviewOpen ? "devbook-stack__section devbook-stack__section--atlas" : "devbook-stack__section")">
+                        @* The section's glyph before its name: the same glyph a
+                           branch in the source picker wears for changing it. *@
+                        <TitleContent>
+                            <span class="devbook-stack__tab-title"><DevbookAreaIcon Area="@area.Key" CssClass="devbook-stack__tab-icon" TestId="@($"devbook-tab-icon-{area.Key}")" />@area.Label</span>
+                        </TitleContent>
+                        <ChildContent>
                         @if (_reviewOpen)
                         {
                             @* The branch's changes are one reading whichever tab
@@ -385,6 +428,7 @@
                                                    OnOpenNote="@(OpenSearchResultElsewhere.HasDelegate ? _openBacklinkNote : default)" />
                             }
                         }
+                        </ChildContent>
                     </TabPanel>
                 }
             }
@@ -410,6 +454,10 @@
     private int _menuLoadSequence;
     private readonly Dictionary<bool, string> _sectionsByMode = [];
     private DevbookUpdateState _updateState = DevbookUpdateState.NotChecked;
+
+    /// <summary>Whether <see cref="_updateState"/> is the branch overview's look
+    /// at the clone rather than an answer somebody pressed for.</summary>
+    private bool _updateStateSeeded;
     private bool _updateBusy;
     private string? _checkedRepositoryAlias;
 
@@ -805,6 +853,7 @@
         _brainSettings = Services.GetService<IBrainSettings>();
         _brainWriter = Services.GetService<IBrainNoteWriter>();
         _review = Services.GetService<DevbookBranchReview>();
+        _overview = Services.GetService<DevbookBranchOverview>();
     }
 
     /// <summary>The writer behind Capture, when the host composes one.</summary>
@@ -918,7 +967,7 @@
         await InvokeAsync(async () =>
         {
             _visibleAreas = null;
-            _updateState = DevbookUpdateState.NotChecked;
+            ReseedUpdateState();
             _folderOpenError = null;
             CloseReviewWhenNotApplicable();
             await ReloadMenuAsync();
@@ -965,6 +1014,7 @@
         CloseRepositoryReadingsOnModeChange();
         CloseReviewWhenNotApplicable();
         ForgetUpdateStateOnScopeChange();
+        StartBranchOverview();
         TakeOpenRequest();
         await RefreshMenuAsync();
 
@@ -1202,6 +1252,13 @@
 
         var value = DevbookSource.ValueFor(alias, commit.Value);
 
+        // "Loading branches…" says the list is coming; picking it changes nothing.
+        if (DevbookSourceSelection.IsLoadingEntry(value))
+        {
+            commit.Refuse();
+            return;
+        }
+
         // Leaving the field is abandoning a search as often as finishing one, so
         // it switches only to a source the text already names: never a fetch,
         // never an error about a half-typed name.
@@ -1278,7 +1335,10 @@
 
         if (DevbookSourceSelection.IsLoadRequest(value))
         {
-            _sourceError = await DevbookSource.LoadBranchesAsync(ActiveRepositoryAlias, CancellationToken.None);
+            // Not awaited: the field's commit waits on this handler, and a field
+            // waiting on a load reads "Refresh branches" until the load lands. The
+            // list shows "Loading branches…" meanwhile, and the answer re-renders.
+            _ = RefreshBranchesAsync(ActiveRepositoryAlias);
             return;
         }
 
@@ -1286,8 +1346,9 @@
 
         // The version state was about the source that was just left, so it is
         // dropped rather than shown against the new one — "up to date" earned by
-        // a clone must not sit beside a branch nobody has fetched.
-        _updateState = DevbookUpdateState.NotChecked;
+        // a clone must not sit beside a branch nobody has fetched. Switching back
+        // to the clone takes up what the branch overview last knew of it.
+        ReseedUpdateState();
 
         // Only when the choice was written: a refused switch already has the
         // error beside the control, and a sentence claiming the new source under
@@ -1955,10 +2016,101 @@
 
     private static string BuildFolderOpenError(string label, string details) => $"Couldn't open {label} in VS Code. {details}";
 
-    /// <summary>Whether this scope has a version to be behind. A repository
-    /// configured to read its clone, with no clone on this machine, has none —
-    /// a control would only ever say so.</summary>
-    private bool ShowUpdateControl => !BrainMode && DevbookUpdate.CanCheck(RepositoryAlias);
+    /// <summary>Whether the version control shows: only while the local clone is
+    /// the source. A branch snapshot is kept current by its own cadence, so a
+    /// control on it would only hurry along what happens anyway.</summary>
+    private bool ShowUpdateControl => !BrainMode && DevbookUpdate.CanUpdateClone(RepositoryAlias);
+
+    /// <summary>
+    /// The version state for the scope on screen, starting from what the branch
+    /// overview found when it looked at the clone — so a clone found behind
+    /// offers "Pull latest" at once — or from nothing asked yet.
+    /// </summary>
+    private void ReseedUpdateState()
+    {
+        var seeded = DevbookUpdate.SeededState(RepositoryAlias);
+        _updateState = seeded ?? DevbookUpdateState.NotChecked;
+        _updateStateSeeded = seeded is not null;
+    }
+
+    /// <summary>The branch overview, when the host composed one. Resolved rather
+    /// than injected, as the review is: a host without it lists branches on
+    /// request, as before.</summary>
+    private DevbookBranchOverview? _overview;
+
+    /// <summary>The repository whose overview this pane last asked for.</summary>
+    private string? _overviewRequestedAlias;
+
+    /// <summary>
+    /// Asks for the branch overview of the repository on screen, once per
+    /// repository the pane is pointed at. The overview loads it once per session
+    /// and hands every later ask the same answer, so a second window, a reopened
+    /// picker or a tab switch costs nothing. Never awaited here: the load is
+    /// network work, and the pane draws without it and redraws when it lands.
+    /// Not on the Brain, which has no branches.
+    /// </summary>
+    private void StartBranchOverview()
+    {
+        if (_overview is null || BrainMode) return;
+
+        var alias = ActiveRepositoryAlias;
+        if (alias is null || !DevbookSource.CanChoose(alias)) return;
+        if (string.Equals(alias, _overviewRequestedAlias, StringComparison.Ordinal)) return;
+
+        _overviewRequestedAlias = alias;
+        _ = LoadBranchOverviewAsync(_overview, alias);
+    }
+
+    /// <summary>
+    /// Asks for the branch list again and takes up its answer when it lands: the
+    /// refusal, if any, beside the field, and a version state nobody pressed for
+    /// following the clone's new look. An answer somebody pressed for stands.
+    /// </summary>
+    private async Task RefreshBranchesAsync(string? alias)
+    {
+        var error = await DevbookSource.LoadBranchesAsync(alias, CancellationToken.None);
+
+        await InvokeAsync(() =>
+        {
+            if (_disposed || !string.Equals(alias, ActiveRepositoryAlias, StringComparison.Ordinal)) return;
+
+            _sourceError = error;
+            if (_updateStateSeeded || _updateState.Availability is DevbookUpdateAvailability.NotChecked) ReseedUpdateState();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadBranchOverviewAsync(DevbookBranchOverview overview, string alias)
+    {
+        DevbookBranchList list;
+        try
+        {
+            list = await overview.LoadAsync(alias, CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            // The overview answers a failure as a list carrying the reason; a
+            // throw here is nothing the picker could act on, and it keeps working
+            // without the list as it always did.
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            if (_disposed || !string.Equals(alias, ActiveRepositoryAlias, StringComparison.Ordinal)) return;
+
+            // Only over a state nobody has asked for: a press already answered
+            // more recently than the load did.
+            if (_updateState.Availability is DevbookUpdateAvailability.NotChecked) ReseedUpdateState();
+
+            // Why the list holds only the default, the clone and the configured
+            // branch — said where a refused source is said, unless that row is
+            // already saying something the reader asked about.
+            _sourceError ??= list.Error;
+
+            StateHasChanged();
+        });
+    }
 
     private string? BehindLabel => DevbookUpdatePresentation.BehindLabel(_updateState);
 
@@ -1984,6 +2136,7 @@
             _updateState = pulling
                 ? await DevbookUpdate.PullAsync(alias)
                 : await DevbookUpdate.CheckAsync(alias);
+            _updateStateSeeded = false;
             _checkedRepositoryAlias = alias;
 
             // The row is the version's now. The switch it was announcing is the
@@ -2014,7 +2167,7 @@
         if (string.Equals(_checkedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal)) return;
 
         _checkedRepositoryAlias = RepositoryAlias;
-        _updateState = DevbookUpdateState.NotChecked;
+        ReseedUpdateState();
 
         // Same reasoning for the source sentence: it named the repository that
         // was just left, and read under another one it would be a lie about it.

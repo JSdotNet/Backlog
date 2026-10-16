@@ -26,11 +26,22 @@ public interface IGitHubBranchCatalog
     /// a list that reaches it may be missing some, and the picker asks GitHub
     /// for a typed name it does not hold before saying there is no such branch.
     /// </para>
-    /// <para>
-    /// Fetched only when somebody asks for it, never on opening a screen.
-    /// </para>
     /// </summary>
     Task<IReadOnlyList<string>> ListBranchesAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The repository's branches with the commit each points at, in the order
+    /// GitHub lists them, paged to the same ceiling as
+    /// <see cref="ListBranchesAsync"/>.
+    /// <para>
+    /// The same calls as the names alone: GitHub puts each branch's commit on its
+    /// row of the listing. A row with no commit is left out, since it cannot say
+    /// where the branch points.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<GitHubBranchHead>> ListBranchHeadsAsync(
         GitHubRepositoryRef repository,
         CancellationToken cancellationToken = default);
 
@@ -73,14 +84,32 @@ public sealed class GitHubBranchCatalog(IGitHubTransport transport) : IGitHubBra
         GitHubRepositoryRef repository,
         CancellationToken cancellationToken = default)
     {
+        var rows = await ListRowsAsync(repository, cancellationToken).ConfigureAwait(false);
+        return [.. rows.Select(row => row.Name)];
+    }
+
+    public async Task<IReadOnlyList<GitHubBranchHead>> ListBranchHeadsAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await ListRowsAsync(repository, cancellationToken).ConfigureAwait(false);
+        return [.. rows.Where(row => row.Sha is not null).Select(row => new GitHubBranchHead(row.Name, row.Sha!))];
+    }
+
+    /// <summary>Every named row of the listing, up to the ceiling, with the commit
+    /// the row carries where it carries one.</summary>
+    private async Task<List<(string Name, string? Sha)>> ListRowsAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(repository);
 
-        var names = new List<string>();
+        var rows = new List<(string Name, string? Sha)>();
 
         // Paged until a short page rather than by the Link header: the transport
         // hands back the parsed body only, and a page holding fewer than asked
         // for is GitHub's own way of saying it was the last.
-        for (var page = 1; names.Count < BranchListLimit; page++)
+        for (var page = 1; rows.Count < BranchListLimit; page++)
         {
             var payload = await _transport.SendAsync(
                 HttpMethod.Get,
@@ -89,17 +118,32 @@ public sealed class GitHubBranchCatalog(IGitHubTransport transport) : IGitHubBra
 
             if (payload.ValueKind is not JsonValueKind.Array) break;
 
-            var rows = payload.GetArrayLength();
+            var count = payload.GetArrayLength();
 
-            names.AddRange(payload.EnumerateArray()
-                .Select(branch => branch.ValueKind is JsonValueKind.Object && branch.TryGetProperty("name", out var name) ? name.GetString() : null)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Select(name => name!.Trim()));
+            foreach (var branch in payload.EnumerateArray())
+            {
+                if (branch.ValueKind is not JsonValueKind.Object
+                    || !branch.TryGetProperty("name", out var name)
+                    || name.ValueKind is not JsonValueKind.String
+                    || string.IsNullOrWhiteSpace(name.GetString()))
+                {
+                    continue;
+                }
 
-            if (rows < PageSize) break;
+                var sha = branch.TryGetProperty("commit", out var commit)
+                          && commit.ValueKind is JsonValueKind.Object
+                          && commit.TryGetProperty("sha", out var value)
+                          && value.ValueKind is JsonValueKind.String
+                    ? value.GetString()
+                    : null;
+
+                rows.Add((name.GetString()!.Trim(), string.IsNullOrWhiteSpace(sha) ? null : sha.Trim()));
+            }
+
+            if (count < PageSize) break;
         }
 
-        return names.Count > BranchListLimit ? names.GetRange(0, BranchListLimit) : names;
+        return rows.Count > BranchListLimit ? rows.GetRange(0, BranchListLimit) : rows;
     }
 
     public async Task<GitHubBranchHead?> ResolveHeadAsync(
