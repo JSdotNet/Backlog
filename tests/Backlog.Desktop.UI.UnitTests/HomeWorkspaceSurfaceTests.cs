@@ -2946,8 +2946,8 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Equal("+plan-a", state.SelectedPlan);
-            // The roadmap counts a plan's tasks in every repository, so Open in
-            // Tasks scopes to all of them rather than to the item's own.
+            // Every repository, not the bar's: the roadmap gathers a plan's work
+            // whatever repository it is filed under, and the list shows all of it.
             Assert.Empty(state.SelectedRepositoryAliases);
         });
     }
