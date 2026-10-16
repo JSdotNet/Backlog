@@ -52,7 +52,7 @@ C4Container
     Rel(desktop, claude, "Reads usage", "HTTPS, optional")
 
     Rel(mobile, cloud, "Syncs items and pulls state", "HTTPS")
-    Rel(ide, cloud, "Reads and posts inbox items", "HTTPS /api/sync/inbox")
+    Rel(ide, cloud, "Reads and posts inbox items as a paired device", "HTTPS /api/sync/inbox, Bearer")
 
     Rel(cloud, cloudDb, "Reads and writes sync state", "")
     Rel(cloud, attachments, "Stores and serves attachments", "Blob SDK")
@@ -704,6 +704,9 @@ graph LR
     Tree["backlogInbox\n(explorer tree view)"]
     Refresh["backlog.refreshInbox"]
     Capture["backlog.capture\n(selection to title)"]
+    Pair["backlog.pair / backlog.unpair"]
+    Client["sync-client\n(token cache)"]
+    Secrets[("SecretStorage\ndevice id + credential")]
   end
 
   subgraph "Agent sessions"
@@ -711,12 +714,17 @@ graph LR
     Copilot["GitHub Copilot"]
   end
 
-  Sync["Sync service\n(/api/sync/inbox at backlog.cloudUrl)"]
+  Sync["Sync service\n(/api/sync at backlog.cloudUrl)"]
   Mcp["MCP server in the desktop app\n(Backlog.Infrastructure.Mcp)"]
 
   Refresh --> Tree
-  Tree -->|"GET /api/sync/inbox"| Sync
-  Capture -->|"POST /api/sync/inbox"| Sync
+  Tree --> Client
+  Capture --> Client
+  Pair --> Client
+  Client <-->|"credential"| Secrets
+  Client -->|"POST /devices/pair (code)"| Sync
+  Client -->|"POST /devices/token (credential)"| Sync
+  Client -->|"GET, POST /inbox (Bearer)"| Sync
   Claude -->|"Streamable HTTP, loopback"| Mcp
   Copilot -->|"Streamable HTTP, loopback"| Mcp
 ```
@@ -726,16 +734,28 @@ extension talks to the sync service. Claude Code and GitHub Copilot sessions tal
 desktop app through its MCP server. Domain lifecycle rules stay with the owning domains.
 
 The VS Code extension, `Backlog.Ide.VsCode`, serves the Inbox (capture intake). It adds one
-explorer tree view, `backlogInbox`, and two commands:
+explorer tree view, `backlogInbox`, and four commands:
 
 - `backlog.refreshInbox` reloads the tree, which lists the captures from `GET /api/sync/inbox`.
 - `backlog.capture` turns the editor selection into a title and sends it to
   `POST /api/sync/inbox` with the source `vscode`.
+- `backlog.pair` redeems a pairing code from the desktop's Devices settings at
+  `POST /api/sync/devices/pair`, and `backlog.unpair` forgets the pairing.
 
 The extension reads the service's base URL from the `backlog.cloudUrl` setting. Local ADR
-0009 fixes the shape of both calls. Local ADR 0005 is why the extension goes to the sync
-service rather than to the desktop's files: only the service can serve an editor on a second
-machine. The extension has no webview and keeps no local cache.
+0009 fixes the shape of both inbox calls. Local ADR 0005 is why the extension goes to the
+sync service rather than to the desktop's files: only the service can serve an editor on a
+second machine.
+
+The inbox routes require a paired device, so the extension joins the desktop's owner as a
+second device, per local ADR 0005 §Identity. It redeems a code rather than registering,
+because a registration mints a new owner with an empty inbox. The device id and credential
+go into VS Code's `SecretStorage`. `src/sync-client.ts` trades the credential for a
+short-lived token at `POST /api/sync/devices/token`, reuses it until two minutes before it
+expires, and sends it as `Authorization: Bearer` on both inbox calls. An inbox 401 gets one
+retry with a fresh token. A 401 from the token endpoint means the credential is rejected:
+the extension clears it and offers to pair again. With no pairing it sends no inbox request.
+The extension has no webview and caches nothing but the token.
 
 The extension is a TypeScript project outside `Backlog.sln`. In development the AppHost
 hosts it through two explicit-start resources. `ide-vscode-build` runs `npm run watch`, and
