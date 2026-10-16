@@ -28,10 +28,10 @@ public sealed class DevbookPaneBranchOverviewTests
 
         OpenPicker(component);
         component.WaitForAssertion(() => Assert.Contains("docs/adr", OptionNames(component)));
-        SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        Raise(component, () => SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Escape" }));
         OpenPicker(component);
         component.WaitForAssertion(() => Assert.Contains("docs/adr", OptionNames(component)));
-        component.FindAll("[role='tab']")[^1].Click();
+        Raise(component, () => component.FindAll("[role='tab']")[^1].Click());
 
         Assert.Equal(1, harness.Catalog.HeadListings);
         Assert.Single(harness.Comparisons.Compared);
@@ -134,7 +134,7 @@ public sealed class DevbookPaneBranchOverviewTests
 
         OpenPicker(component);
         component.WaitForAssertion(() => Assert.Contains(DevbookSourceSelection.RefreshBranchesLabel, OptionNames(component)));
-        Option(component, DevbookSourceSelection.RefreshBranchesLabel).Click();
+        Raise(component, () => Option(component, DevbookSourceSelection.RefreshBranchesLabel).Click());
 
         component.WaitForAssertion(() =>
         {
@@ -167,7 +167,7 @@ public sealed class DevbookPaneBranchOverviewTests
             Assert.DoesNotContain(DevbookSourceSelection.RefreshBranchesLabel, OptionNames(component));
         });
 
-        Option(component, DevbookSourceSelection.LoadingBranchesLabel).Click();
+        Raise(component, () => Option(component, DevbookSourceSelection.LoadingBranchesLabel).Click());
         component.WaitForAssertion(() => Assert.Equal(DevbookSourceSelection.LocalFolderLabel, SourceInput(component).GetAttribute("value")));
         Assert.Empty(component.FindAll("[data-testid='devbook-source-error']"));
         Assert.Empty(component.FindAll("[data-testid='devbook-source-status']"));
@@ -231,7 +231,7 @@ public sealed class DevbookPaneBranchOverviewTests
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Equal("Pull latest", component.Find("[data-testid='devbook-update-action']").TextContent.Trim()));
 
-        component.Find("[data-testid='devbook-update-action']").Click();
+        Raise(component, () => component.Find("[data-testid='devbook-update-action']").Click());
         component.WaitForAssertion(() => Assert.Equal("Check now", component.Find("[data-testid='devbook-update-action']").TextContent.Trim()));
 
         OpenPicker(component);
@@ -265,7 +265,13 @@ public sealed class DevbookPaneBranchOverviewTests
     private static AngleSharp.Dom.IElement SourceInput(IRenderedComponent<DevbookPane> component) =>
         component.Find("[data-testid='devbook-source-select'] input");
 
-    private static void OpenPicker(IRenderedComponent<DevbookPane> component) => SourceInput(component).Click();
+    private static void OpenPicker(IRenderedComponent<DevbookPane> component) => Raise(component, () => SourceInput(component).Click());
+
+    /// <summary>Finds and raises an event on the renderer's dispatcher, so a
+    /// background landing of the overview cannot re-render between the find and
+    /// the raise and leave the handler id stale.</summary>
+    private static void Raise(IRenderedComponent<DevbookPane> component, Action raise) =>
+        component.InvokeAsync(raise).GetAwaiter().GetResult();
 
     private static List<string> OptionNames(IRenderedComponent<DevbookPane> component) =>
         [.. component.FindAll("[data-testid='devbook-source-select-list'] [role=option] .devbook-stack__source-name").Select(name => name.TextContent.Trim())];
