@@ -466,7 +466,7 @@ public class ArchifyArtifactMotionTests
 
     /// <summary>
     /// The rendered artifacts this suite can read, which is the storybook fixture
-    /// alone. The devbook's renders are no longer committed (local ADR 0033): the
+    /// alone. The devbook's renders are no longer committed (local ADR 0034): the
     /// app draws each from its specification on demand, so the specification rule
     /// is the guard for every devbook diagram, and the template rules
     /// are the guard for what any render of it will carry. A preview the generator

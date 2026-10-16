@@ -120,4 +120,5 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0030 — Every stored credential goes through the OS-protected envelope](adr/0030-stored-credentials-go-through-the-os-protected-envelope.md)
 - [ADR 0031 — GitHub calls resolve their account per repository, and a token taken from the GitHub CLI is never stored](adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md)
 - [ADR 0032 — The My Day preferences ride the task feed as one whole document, and the phone folds it](adr/0032-my-day-preferences-ride-the-task-feed.md)
-- [ADR 0033 — Archify renders are generated on demand into app storage, not committed](adr/0033-archify-renders-are-generated-on-demand-not-committed.md)
+- [ADR 0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)
+- [ADR 0034 — Archify renders are generated on demand into app storage, not committed](adr/0034-archify-renders-are-generated-on-demand-not-committed.md)

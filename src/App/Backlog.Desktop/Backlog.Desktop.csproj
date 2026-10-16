@@ -62,7 +62,7 @@
     <!--
       The vendored Archify generator, beside the executable as archify\, for the
       Devbook pane's diagrams: a chapter diagram is drawn from its specification on
-      demand (local ADR 0033), with this copy when the opened repository carries no
+      demand (local ADR 0034), with this copy when the opened repository carries no
       tools\archify. An installed app has no tools\archify up the tree to find, as a
       debug build would.
       The examples stay behind (3.4 MB of sample output nothing runs); the rest is

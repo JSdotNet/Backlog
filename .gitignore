@@ -109,7 +109,7 @@ build/.local/
 # directory, so `!tools/archify/bin/**` on its own would keep it invisible.
 !tools/archify/bin/
 
-# Generated Archify renders (local ADR 0033). Each is a self-contained page of
+# Generated Archify renders (local ADR 0034). Each is a self-contained page of
 # roughly 700 KB derived from the specification beside it; committed, they were
 # more than half the tracked tree and every regeneration rewrote megabytes of
 # history. The app draws them on demand into its own storage, so only the

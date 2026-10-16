@@ -14,7 +14,7 @@
 // Only the specifications and the index are committed. The HTML `render` writes
 // beside a specification is a local preview, ignored by git: the app draws each
 // artifact itself, on demand, from the specification into its own storage (local
-// ADR 0033). So "rendered" here means an index entry filed under the fence's hash
+// ADR 0034). So "rendered" here means an index entry filed under the fence's hash
 // whose specification is still there — not a file on disk.
 //
 //   node tools/diagrams/archify-artifacts.mjs scan [--json] [--missing]
@@ -343,7 +343,7 @@ function parseSpecName(specFile) {
  *
  *  Six states, because the button the app draws has to tell them apart:
  *    rendered    hash matches an index entry and the specification it names exists;
- *                the app draws the picture from it (local ADR 0033)
+ *                the app draws the picture from it (local ADR 0034)
  *    stale       an entry names this chapter and ordinal, but for a different hash
  *    unrendered  a specification exists and no entry for this hash does
  *    missing     no specification, and Archify has a type for this kind
@@ -488,7 +488,7 @@ function assertAuthoredFrom(specFile, chapterFile, ordinal, fence, index) {
  *
  *  The HTML it writes beside the specification is a local preview for the author,
  *  ignored by git; the index entry is what is committed, and the app draws its own
- *  copy from the specification (local ADR 0033).
+ *  copy from the specification (local ADR 0034).
  *
  *  `deliver` validates before it writes and exits non-zero if it cannot, so this
  *  adds no checking of the picture — it forwards the receipt. What it does check

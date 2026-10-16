@@ -196,15 +196,15 @@
             </AppButton>
         }
 
-        @* The plan's tasks, in the task list: offered for stored work that carries a
-           tag a task can be filed under, and only where the host has a list to show
-           them in. Shown even before any task carries the tag — an empty list under
-           the plan chip says exactly that. Going there closes the dialog, so while it
-           holds an unsaved change the button waits, and says why — to the pointer
-           through `title` and to assistive technology through aria-describedby, as
-           IntegrationAction and CopyButton do: a disabled button leaves the tab order
-           and a title is not announced reliably. *@
-        @if (CanOpenTasks && Item is { Tag.Length: > 0 } tagged)
+        @* The plan's tasks, in the task list: offered for stored work that tasks
+           already carry — it gathered at least one — and only where the host has a list
+           to show them in. Work no task carries offers Complete instead, below: an
+           empty list under the plan chip is nothing to go and look at. Going there
+           closes the dialog, so while it holds an unsaved change the button waits, and
+           says why — to the pointer through `title` and to assistive technology through
+           aria-describedby, as IntegrationAction and CopyButton do: a disabled button
+           leaves the tab order and a title is not announced reliably. *@
+        @if (CanOpenTasks && State.HasTasks && Item is { Tag.Length: > 0 } tagged)
         {
             <AppButton Variant="ButtonVariant.Secondary"
                        Disabled="@HasUnsavedChanges"
@@ -220,6 +220,31 @@
                 <span id="@_openTasksReasonId"
                       class="sr-only"
                       data-testid="roadmap-editor-open-tasks-reason">@OpenTasksWaitReason</span>
+            }
+        }
+
+        @* Work no task carries has nothing to say it is done, so the person does:
+           Complete records today, Reopen takes it back. Both write and close the
+           dialog, so they wait out an unsaved change the way Open in Tasks does. Once
+           tasks carry the item neither is offered — their progress decides. *@
+        @if (Item is { } stored && !State.HasTasks && (State.IsCompletedByHand ? OnReopen.HasDelegate : OnComplete.HasDelegate))
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@HasUnsavedChanges"
+                       Busy="@(_pending is PendingWrite.Completion)"
+                       aria-disabled="@Blocked"
+                       title="@(HasUnsavedChanges ? OpenTasksWaitReason : null)"
+                       aria-describedby="@(HasUnsavedChanges ? _completionReasonId : null)"
+                       OnClick="() => CompletionAsync(stored.Id)"
+                       TestId="@(State.IsCompletedByHand ? "roadmap-editor-reopen" : "roadmap-editor-complete")">
+                @(State.IsCompletedByHand ? "Reopen" : "Complete")
+            </AppButton>
+
+            @if (HasUnsavedChanges)
+            {
+                <span id="@_completionReasonId"
+                      class="sr-only"
+                      data-testid="roadmap-editor-completion-reason">@OpenTasksWaitReason</span>
             }
         }
 
@@ -348,6 +373,34 @@
     /// task list.</summary>
     [Parameter]
     public EventCallback<Guid> OnOpenTasks { get; set; }
+
+    /// <summary>Raised with the item's id when the person completes work no task carries.
+    /// The band records today and closes the dialog, or refuses through
+    /// <see cref="Refuse"/>.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnComplete { get; set; }
+
+    /// <summary>Raised with the item's id when the person reopens work they completed.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnReopen { get; set; }
+
+    /// <summary>Whether tasks carry the item and whether it was completed by hand, read
+    /// from the item and what it gathered — the same answer its bar is drawn from.</summary>
+    private RoadmapItemState State =>
+        Item is null ? new RoadmapItemState(false, null) : RoadmapPlanView.StateOf(Item, Rollup);
+
+    private readonly string _completionReasonId = $"roadmap-editor-completion-reason-{Guid.NewGuid():N}";
+
+    /// <summary>Complete or Reopen, whichever is offered. One write at a time, like Save
+    /// and Delete; nothing is written while the fields hold an unsaved change.</summary>
+    private async Task CompletionAsync(Guid id)
+    {
+        if (_pending is not PendingWrite.None || HasUnsavedChanges) return;
+
+        _error = null;
+        var reopen = State.IsCompletedByHand;
+        await WriteAsync(PendingWrite.Completion, () => (reopen ? OnReopen : OnComplete).InvokeAsync(id));
+    }
 
     private bool IsNew => Item is null;
 
@@ -587,7 +640,8 @@
     {
         None,
         Save,
-        Delete
+        Delete,
+        Completion
     }
 
     /// <summary>Marks the pressed button busy, lets that paint, then waits on the

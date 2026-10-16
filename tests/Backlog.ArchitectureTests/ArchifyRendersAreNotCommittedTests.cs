@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// Generated Archify renders stay out of version control (local ADR 0033).
+/// Generated Archify renders stay out of version control (local ADR 0034).
 ///
 /// <para>Each render is a self-contained HTML document of roughly 700 KB with two
 /// font blobs inside it, derived by a script from the specification beside it.
@@ -54,7 +54,7 @@ public class ArchifyRendersAreNotCommittedTests
         Assert.True(
             tracked.Count == 0,
             "These generated Archify renders are tracked. The app draws each one on demand from its "
-            + "specification into its own storage (local ADR 0033), so committing them only rewrites "
+            + "specification into its own storage (local ADR 0034), so committing them only rewrites "
             + "megabytes of history on every regeneration. git rm --cached them:\n"
             + string.Join('\n', tracked));
     }

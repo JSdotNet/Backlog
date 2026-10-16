@@ -14908,18 +14908,26 @@ select.field__input {
 }
 
 /*
-  Late: the window has passed and the work is still open — the dashboard's Behind, a
-  warning rather than a fault. Drawn as a strong end cap and a warning marker after
-  the title, never as the fill: the fill is the band's, and the tentative hatching
-  under it still says the bar is only intent. The cap is the neutral strong border,
-  not a warning tone: --color-warning is a surface and invisible as a boundary
-  (1.31:1). Only the marker carries the warning, as a chip in the alert tone of
-  .devbook/design/color-scheme.md#badge-and-chip-tones, as the outlook badge is.
-  Colour is never the only carrier: the marker is a shape, and the caller says
-  "Overdue" in words in the bar's detail.
+  Late: the window has passed and the work is still open — an alert that asks the
+  reader to act, so it is drawn in the fault tone of
+  .devbook/design/color-scheme.md#badge-and-chip-tones: an outline round the whole
+  bar and a marker after the title. Never as the fill: the fill is the band's, and the
+  tentative hatching under it still says the bar is only intent. The outline is the
+  error ink, --color-error-text, because the error surface is a fill and too faint to
+  be a boundary; the ink clears 3:1 against the chart. It is the border itself, made
+  heavier, and colour and width only: the style stays whatever the bar already is —
+  dashed for a fixed bar, dotted for intent — and the rings that say selected, grabbed
+  or refused are box-shadows this leaves alone. The band keeps its own leading edge,
+  which says whose work it is. Colour is never the only carrier: the marker is a
+  shape, and the caller says "Overdue" in words in the bar's detail.
 */
 .roadmap-bar--overdue .roadmap-bar__body {
-    border-right: var(--border-width-4) solid var(--color-border-strong);
+    border-top-width: var(--border-width-2);
+    border-right-width: var(--border-width-2);
+    border-bottom-width: var(--border-width-2);
+    border-top-color: var(--color-error-text);
+    border-right-color: var(--color-error-text);
+    border-bottom-color: var(--color-error-text);
 }
 
 .roadmap-bar__overdue {
@@ -14931,14 +14939,105 @@ select.field__input {
     min-width: 1.05rem;
     height: 1.05rem;
     padding: 0 var(--spacing-2xs);
-    border: var(--border-width) solid var(--color-border-strong);
+    border: var(--border-width) solid var(--color-error-text);
     border-radius: var(--border-radius-full);
-    background: var(--color-warning);
-    color: var(--color-text-primary);
+    background: var(--color-error);
+    color: var(--color-error-text);
     font-size: var(--font-size-xs);
     font-style: normal;
     font-weight: var(--font-weight-semibold);
     line-height: 1;
+}
+
+/*
+  Done: the work is over. Drawn in the done tone the progress fill already uses — the
+  success surface, edged in its ink — with a tick after the title, so a finished bar
+  reads as finished whether its tasks filled it or a person completed it by hand. The
+  band keeps its leading edge. The tick is a shape, and the caller says it in words in
+  the detail.
+*/
+.roadmap-bar--done .roadmap-bar__body {
+    border-color: var(--color-success-text);
+    border-left-color: var(--roadmap-group-color, var(--color-border-strong));
+    background: var(--color-success);
+}
+
+.roadmap-bar__done {
+    position: relative;
+    flex: none;
+    color: var(--color-success-text);
+}
+
+/*
+  The bar's one in-place action — Open in Tasks, Complete — at its end, clear of the
+  end grip. Shown while the bar is hovered or holds the focus anywhere in it, the
+  action's own included, so a keyboard reader tabbing onto it sees what they reached;
+  until then the bar keeps its whole width for the title, and the room the action
+  needs is only taken while it shows. Where nothing hovers — a touch screen — it is
+  always shown, because there is no hover to reveal it and an invisible button a tap
+  can still land on is worse than a visible one.
+*/
+.roadmap-bar--has-action:hover .roadmap-bar__body,
+.roadmap-bar--has-action:focus-within .roadmap-bar__body {
+    padding-right: 1.875rem;
+}
+
+.roadmap-bar__action {
+    position: absolute;
+    top: 50%;
+    right: 0.625rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    padding: 0;
+    translate: 0 -50%;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+/*
+  The hit target, 24px square around the 18px glyph (WCAG 2.5.8), the way the bar body
+  grows its own: drawn bigger than it looks rather than making the bar taller, since a
+  1.5rem bar has exactly the 24px. Placed 0.625rem in from the end so the target stops
+  short of the end grip's 0.375rem inside the bar.
+*/
+.roadmap-bar__action::before {
+    content: "";
+    position: absolute;
+    inset: -0.1875rem;
+}
+
+.roadmap-bar:hover .roadmap-bar__action,
+.roadmap-bar:focus-within .roadmap-bar__action {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .roadmap-bar--has-action .roadmap-bar__body {
+        padding-right: 1.875rem;
+    }
+
+    .roadmap-bar__action {
+        opacity: 1;
+    }
+}
+
+.roadmap-bar__action:hover {
+    background: var(--color-background);
+}
+
+.roadmap-bar__action:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
 }
 
 /*

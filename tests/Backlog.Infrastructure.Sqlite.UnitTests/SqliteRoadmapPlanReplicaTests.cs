@@ -108,6 +108,27 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         Assert.False(Assert.Single((await b.LoadAsync(Cancellation)).Items).EndPinned);
     }
 
+    /// <summary>A completion day travels inside the plan document: the copy one device sent
+    /// carries it to the device that took it, and a copy without it reads as open.</summary>
+    [Fact]
+    public async Task A_completion_day_travels_with_the_copy_and_a_copy_without_it_reads_as_open()
+    {
+        var a = new SqliteRoadmapPlanRepository(Device("a"));
+        var b = new SqliteRoadmapPlanRepository(Device("b"));
+        var plan = RoadmapPlan.Empty();
+        var id = plan.AddItem("Write the launch post", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Value.Id;
+        plan.CompleteItem(id, new DateOnly(2026, 10, 7));
+        await a.SaveAsync(plan, Cancellation);
+
+        Assert.True(await b.TryWriteAsync((await a.ReadAsync(Cancellation))!, Cancellation));
+
+        Assert.Equal(new DateOnly(2026, 10, 7), Assert.Single((await b.LoadAsync(Cancellation)).Items).CompletedOn);
+
+        var older = """{"version":1,"items":[{"id":"7f3c0a52-0d0b-4a07-9d55-2f4a6b1c1111","title":"Old","start":"2026-10-01","end":"2026-10-09"}],"milestones":[],"bands":{}}""";
+        Assert.True(await b.TryWriteAsync(new RoadmapReplicaCopyDto(older, Morning), Cancellation));
+        Assert.Null(Assert.Single((await b.LoadAsync(Cancellation)).Items).CompletedOn);
+    }
+
     /// <summary>Verbatim, never re-serialised: a newer build's field survives on disk
     /// even though this build does not know it (ADR 0018, Decision §3).</summary>
     [Fact]

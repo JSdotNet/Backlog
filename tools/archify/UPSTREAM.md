@@ -28,7 +28,7 @@ upstream added in v2.16.0, and the module only it imports. See the third change
 below. `skill-release.json` is kept — it is inert version metadata that nothing else
 reads.
 
-`examples/*.html` (about 3.7 MB): upstream's sample renders. Local ADR 0033 stopped
+`examples/*.html` (about 3.7 MB): upstream's sample renders. Local ADR 0034 stopped
 committing generated Archify HTML, and `.gitignore` carries
 `tools/archify/examples/*.html`, so `render-examples.mjs` output stays local. The
 examples' JSON specifications are kept; see below.
@@ -165,7 +165,7 @@ node tools/diagrams/archify-artifacts.mjs verify
 The HTML this leaves beside each devbook specification is ignored by git; it is the
 check, not a deliverable. Only the storybook fixture under `src/Harness/` is committed
 and has to be staged. The app needs nothing: its render cache is keyed on this
-folder's content (local ADR 0033), so every diagram is drawn with the new generator
+folder's content (local ADR 0034), so every diagram is drawn with the new generator
 on its next view.
 
 This is `deliver` with the arguments `archify-artifacts.mjs render` passes, run

@@ -1,4 +1,4 @@
-# ADR 0033: Archify renders are generated on demand into app storage, not committed
+# ADR 0034: Archify renders are generated on demand into app storage, not committed
 
 ```meta
 date: 2026-10-15

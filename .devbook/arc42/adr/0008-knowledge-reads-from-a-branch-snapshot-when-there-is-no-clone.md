@@ -10,12 +10,12 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbo
 Proposed.
 
 > **Amended 2026-10-15: `_archify/` is small now.** *(Proposed with local ADR
-> 0033.)* The rendered Archify pages are no longer committed; the app draws them
+> 0034.)* The rendered Archify pages are no longer committed; the app draws them
 > on demand from the specifications. What the lazy snapshot leaves out of an area
 > is therefore a folder of small JSON files, not hundreds of kilobytes per
 > diagram, and the reason given below for excluding it no longer holds. The
 > exclusion itself is unchanged by that record; TDR 0001 tracks lifting it. See
-> `0033-archify-renders-are-generated-on-demand-not-committed.md`.
+> `0034-archify-renders-are-generated-on-demand-not-committed.md`.
 
 > **Amended 2026-09-15: Knowledge → Devbook.** The context and module this record
 > is about were renamed, and with them the code it names (`KnowledgeSnapshotCache`
@@ -269,7 +269,7 @@ previously-offline workspace acquires a network dependency by upgrading.
 - Rendered diagram artifacts (`_archify/`) are not fetched with an area. On a
   branch, a diagram is drawn from its source; the pre-rendered picture is a
   clone-only nicety until somebody decides it is worth fetching on demand.
-  *(Amended by local ADR 0033: there is no pre-rendered picture to fetch any more,
+  *(Amended by local ADR 0034: there is no pre-rendered picture to fetch any more,
   only specifications and the index, and the app draws the picture itself.)*
 - The Devbook panels can now be looking at a commit rather than at a working
   tree. The scope label names the branch so this is visible rather than inferred.
