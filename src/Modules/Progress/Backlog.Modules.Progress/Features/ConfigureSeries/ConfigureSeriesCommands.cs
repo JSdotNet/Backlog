@@ -22,11 +22,16 @@ public sealed record RenameSeriesCommand(Guid SeriesId, string Name, string Name
 /// <summary>Chooses which briefs show the series' open sprint.</summary>
 public sealed record ShowInBriefsCommand(Guid SeriesId, bool Daily, bool Weekly);
 
-/// <summary>Switches a series on or off; nothing it holds changes.</summary>
+/// <summary>Switches a series on or off; nothing it holds changes. On is refused while
+/// another switched-on series has one of its repositories.</summary>
 public sealed record SwitchSeriesCommand(Guid SeriesId, bool On);
 
 /// <summary>Chooses the goal rules and the share of goal tasks that meets the goal.</summary>
 public sealed record SetGoalRulesCommand(Guid SeriesId, IReadOnlyList<GoalRuleDto> Rules, int GoalShare);
+
+/// <summary>Deletes a series with every sprint it recorded, on or off; its repositories
+/// are in no series from then on, and no task changes.</summary>
+public sealed record DeleteSeriesCommand(Guid SeriesId);
 
 public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
     : ICommandHandler<AddRepositoryCommand, Result<SprintSeriesDto>>,
@@ -35,7 +40,8 @@ public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
       ICommandHandler<RenameSeriesCommand, Result<SprintSeriesDto>>,
       ICommandHandler<ShowInBriefsCommand, Result<SprintSeriesDto>>,
       ICommandHandler<SwitchSeriesCommand, Result<SprintSeriesDto>>,
-      ICommandHandler<SetGoalRulesCommand, Result<SprintSeriesDto>>
+      ICommandHandler<SetGoalRulesCommand, Result<SprintSeriesDto>>,
+      ICommandHandler<DeleteSeriesCommand, Result>
 {
     public Task<Result<SprintSeriesDto>> Handle(AddRepositoryCommand command, CancellationToken cancellationToken = default)
     {
@@ -83,13 +89,9 @@ public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
     public Task<Result<SprintSeriesDto>> Handle(SwitchSeriesCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return changes.ChangeAsync(
+        return changes.ChangeAcrossAsync(
             command.SeriesId,
-            series =>
-            {
-                series.Switch(command.On);
-                return Result.Success();
-            },
+            (all, series) => SeriesAssignment.SwitchOn(all, series, command.On),
             cancellationToken);
     }
 
@@ -106,5 +108,11 @@ public sealed class ConfigureSeriesCommandHandler(SeriesChanges changes)
         }
 
         return changes.ChangeAsync(command.SeriesId, series => series.SetGoalRules(rules, command.GoalShare), cancellationToken);
+    }
+
+    public Task<Result> Handle(DeleteSeriesCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return changes.DeleteAsync(command.SeriesId, cancellationToken);
     }
 }

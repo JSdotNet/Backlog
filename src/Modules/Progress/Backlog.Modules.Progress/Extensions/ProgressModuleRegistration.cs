@@ -62,7 +62,8 @@ public static class ProgressModuleRegistration
             sp.GetRequiredService<MarkSprintItemCommandHandler>(),
             sp.GetRequiredService<CloseSprintCommandHandler>(),
             sp.GetRequiredService<ReadSprintProgressQueryHandler>(),
-            sp.GetService<IAppFeatureSettings>()));
+            sp.GetService<IAppFeatureSettings>(),
+            sp.GetRequiredService<SeriesSaved>()));
         services.AddScoped<ISprintSeriesPlanning>(sp => sp.GetRequiredService<SprintSeriesPlanning>());
         services.AddScoped<ISprintProgress>(sp => sp.GetRequiredService<SprintSeriesPlanning>());
 
@@ -75,7 +76,8 @@ public static class ProgressModuleRegistration
         services.TryAddSingleton<ISprintSeriesReplication>(sp => new SprintSeriesReplication(
             sp.GetService<ISprintSeriesReplicaStore>(),
             sp.GetRequiredService<SeriesSaved>(),
-            sp.GetRequiredService<ProgressGate>()));
+            sp.GetRequiredService<ProgressGate>(),
+            sp.GetService<ISprintSeriesRepository>()));
 
         return services;
     }

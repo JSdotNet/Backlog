@@ -11,7 +11,13 @@
     Every change goes through ISprintSeriesPlanning as it is made and the card is drawn
     again from what the port answers, so the page shows what the series holds rather
     than what was typed. A refused change keeps the series as it was and says why on
-    its card, in the module's own words.
+    its card, in the module's own words. Delete series… is the one change a card asks
+    about first; once confirmed the card goes and its repositories are free.
+
+    A series saved anywhere else - pulled from another desktop by the sync, or changed
+    from the sprint view or a task - raises ISprintSeriesPlanning.Changed, and the page
+    reads every series again. Each card keeps its place (@key) and its own drafts: a
+    plan or tag half typed, a pattern held back for want of {n}.
 
     The namespace is the project's root rather than the folder's, on the
     WorkingWeekSettings precedent.
@@ -29,6 +35,7 @@
 @inject ISprintSeriesPlanning Planning
 @inject ISprintRepositories RepositoryList
 @inject IServiceProvider Services
+@implements IDisposable
 
 <ProgressOnly>
     <div class="sprint-settings" data-testid="sprint-settings">
@@ -37,7 +44,7 @@
             In progress view.
         </p>
 
-        <Alert Message="@_pageError" TestId="sprint-settings-error" />
+        <Alert Message="@(_readError ?? _pageError)" TestId="sprint-settings-error" />
 
         @foreach (var series in _series)
         {
@@ -53,7 +60,22 @@
                               OnStartWeekdayChanged="day => ChangeCadenceAsync(series.Id, null, day)"
                               OnNamePatternChanged="pattern => ChangeAsync(series.Id, ct => Planning.RenameAsync(series.Id, series.Name, pattern, ct))"
                               OnGoalChanged="goal => ChangeAsync(series.Id, ct => Planning.SetGoalRulesAsync(series.Id, RulesOf(goal), goal.Share, ct))"
-                              OnShowInChanged="briefs => ChangeAsync(series.Id, ct => Planning.ShowInBriefsAsync(series.Id, briefs.Daily, briefs.Weekly, ct))" />
+                              OnShowInChanged="briefs => ChangeAsync(series.Id, ct => Planning.ShowInBriefsAsync(series.Id, briefs.Daily, briefs.Weekly, ct))"
+                              OnStartSprint="() => OpenStart(series)"
+                              OnDelete="() => DeleteAsync(series.Id)" />
+        }
+
+        @if (_starting is { } starting)
+        {
+            <SprintStartDialog Open="true"
+                               OpenChanged="CloseStart"
+                               SprintName="@FirstSprintName(starting)"
+                               SeriesName="@starting.Name"
+                               StartWeekday="@starting.StartWeekday"
+                               DefaultStart="@SprintStartRules.DefaultStart(Today, starting.StartWeekday)"
+                               Busy="_startBusy"
+                               Error="@_startError"
+                               OnStart="start => StartAsync(starting.Id, start)" />
         }
 
         <Card Title="@FreeRepositoriesCardTitle" TestId="sprint-settings-free">
@@ -97,6 +119,9 @@
     /// <c>SettingsSection.CardTitles</c> declares; a series card is titled by its series.</summary>
     public const string FreeRepositoriesCardTitle = "Not in a sprint";
 
+    /// <summary>The module's code for a series that is not there.</summary>
+    private const string SeriesNotFoundCode = "progress.series_not_found";
+
     private readonly Dictionary<Guid, string> _errors = [];
 
     /// <summary>The length and weekday last asked for per series, ahead of the store:
@@ -104,8 +129,78 @@
     /// saved has to carry the first rather than what the card last drew.</summary>
     private readonly Dictionary<Guid, (SprintLength Length, DayOfWeek Start)> _cadence = [];
     private List<SprintSeriesDto> _series = [];
+    /// <summary>Why the series could not be read, from the last read; null once one
+    /// succeeds.</summary>
+    private string? _readError;
+
+    /// <summary>Why the person's last Add did not go through. Kept across a read the
+    /// page did not ask for, so a series pulled from another desktop does not wipe it.</summary>
     private string? _pageError;
     private bool _adding;
+    private SprintSeriesDto? _starting;
+    private bool _startBusy;
+    private string? _startError;
+
+    /// <summary>Today by the host's clock, the day the Start dialog counts its default
+    /// from — the module's own TimeProvider, so a test can set it.</summary>
+    private DateOnly Today =>
+        DateOnly.FromDateTime(((Services.GetService(typeof(TimeProvider)) as TimeProvider) ?? TimeProvider.System).GetLocalNow().DateTime);
+
+    /// <summary>The name a series' first sprint will carry, from its pattern.</summary>
+    public static string FirstSprintName(SprintSeriesDto series) =>
+        SprintSeriesCardModel.NextName(series.NamePattern, NextNumberOf(series)) ?? "the first sprint";
+
+    private void OpenStart(SprintSeriesDto series)
+    {
+        _startError = null;
+        _starting = series;
+    }
+
+    private void CloseStart(bool open)
+    {
+        if (open || _startBusy) return;
+        _starting = null;
+        _startError = null;
+    }
+
+    /// <summary>
+    /// Starts the series' first sprint through the module
+    /// (.devbook/domain/progress/features.md#starting-the-first-sprint) and draws the
+    /// card from its answer, which then names the sprint running. A refusal stays in the
+    /// dialog in the module's words.
+    /// </summary>
+    private async Task StartAsync(Guid seriesId, SprintStart start)
+    {
+        if (_startBusy) return;
+
+        _startBusy = true;
+        try
+        {
+            var started = await Planning.StartSprintAsync(seriesId, start.On, start.Goal);
+            if (started.IsFailure)
+            {
+                _startError = started.Error.Message;
+                return;
+            }
+
+            _startError = null;
+            _starting = null;
+            _errors.Remove(seriesId);
+            var index = _series.FindIndex(series => series.Id == seriesId);
+            if (index >= 0) _series[index] = started.Value;
+        }
+        catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
+        {
+            _startError = $"The sprint could not be started: {exception.Message}";
+        }
+        finally
+        {
+            _startBusy = false;
+        }
+    }
+
+    /// <summary>Changes handed to the port and not yet answered.</summary>
+    private int _saving;
 
     /// <summary>The registered repositories no series holds, in the registry's order —
     /// what Add repository and Add another sprint offer, and what the Not in a sprint
@@ -133,23 +228,44 @@
 
     private IReadOnlyList<SelectorOption> FreeOptions => [.. Free.Select(alias => new SelectorOption(alias, alias))];
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override Task OnInitializedAsync()
+    {
+        Planning.Changed += OnSeriesChanged;
+        return LoadAsync();
+    }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// A series was saved somewhere else - most often pulled from another desktop - so
+    /// every series is read again. What the page said about the person's own last Add
+    /// stays; the page's own saves raise this too, after they have drawn their answer,
+    /// and cost one more read.
+    /// </summary>
+    private void OnSeriesChanged() => _ = InvokeAsync(async () =>
+    {
+        await LoadAsync(keepCadence: _saving > 0);
+        StateHasChanged();
+    });
+
+    public void Dispose() => Planning.Changed -= OnSeriesChanged;
+
+    /// <param name="keepCadence">A read between a cadence change and its save: the
+    /// length or weekday asked for and not yet stored stays, so the next change still
+    /// carries it.</param>
+    private async Task LoadAsync(bool keepCadence = false)
     {
         try
         {
             var listed = await Planning.ListSeriesAsync();
             _series = listed.IsSuccess ? [.. listed.Value] : [];
-            _pageError = listed.IsSuccess ? null : listed.Error.Message;
+            _readError = listed.IsSuccess ? null : listed.Error.Message;
         }
         catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
         {
             _series = [];
-            _pageError = $"The sprint series could not be read: {exception.Message}";
+            _readError = $"The sprint series could not be read: {exception.Message}";
         }
 
-        _cadence.Clear();
+        if (!keepCadence) _cadence.Clear();
         RefreshFree();
     }
 
@@ -176,6 +292,7 @@
     private async Task ChangeAsync(Guid seriesId, Func<CancellationToken, Task<global::Backlog.SharedKernel.Results.Result<SprintSeriesDto>>> change)
     {
         global::Backlog.SharedKernel.Results.Result<SprintSeriesDto> changed;
+        _saving++;
         try
         {
             changed = await change(CancellationToken.None);
@@ -185,6 +302,10 @@
             _errors[seriesId] = $"The change could not be saved: {exception.Message}";
             await LoadAsync();
             return;
+        }
+        finally
+        {
+            _saving--;
         }
 
         if (changed.IsFailure)
@@ -198,6 +319,42 @@
         var index = _series.FindIndex(series => series.Id == seriesId);
         if (index >= 0) _series[index] = changed.Value;
         else await LoadAsync();
+        RefreshFree();
+    }
+
+    /// <summary>
+    /// Deletes a series the person confirmed on its card. Once it is gone its card goes
+    /// and its repositories join the Not in a sprint card, free for another series. A
+    /// refusal, or a store that could not be written, is said on the card, which the
+    /// page reads again so it shows what is stored.
+    /// </summary>
+    private async Task DeleteAsync(Guid seriesId)
+    {
+        global::Backlog.SharedKernel.Results.Result deleted;
+        try
+        {
+            deleted = await Planning.DeleteSeriesAsync(seriesId);
+        }
+        catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
+        {
+            _errors[seriesId] = $"The series could not be deleted: {exception.Message}";
+            await LoadAsync();
+            return;
+        }
+
+        // A series already gone — most often deleted by a pull from another desktop
+        // while the confirmation was open — is what the person asked for: the card goes.
+        if (deleted.IsFailure && deleted.Error.Code != SeriesNotFoundCode)
+        {
+            _errors[seriesId] = deleted.Error.Message;
+            await LoadAsync();
+            return;
+        }
+
+        _errors.Remove(seriesId);
+        _cadence.Remove(seriesId);
+        if (_starting?.Id == seriesId) CloseStart(false);
+        _series.RemoveAll(series => series.Id == seriesId);
         RefreshFree();
     }
 
@@ -217,7 +374,10 @@
             }
 
             _pageError = null;
-            _series.Add(created.Value);
+            // The save's own notice may have read the new series in already.
+            var index = _series.FindIndex(series => series.Id == created.Value.Id);
+            if (index >= 0) _series[index] = created.Value;
+            else _series.Add(created.Value);
             RefreshFree();
         }
         catch (Exception exception) when (exception is IOException or System.Data.Common.DbException or UnauthorizedAccessException)
@@ -267,7 +427,8 @@
                 series.GoalRules.Any(rule => rule.Kind == GoalRuleKind.Everything),
                 series.GoalShare),
             series.ShowInDailyBrief,
-            series.ShowInWeeklyBrief);
+            series.ShowInWeeklyBrief,
+            series.OffReason);
     }
 
     /// <summary>The number the next sprint will carry: one past the open sprint, or

@@ -143,6 +143,24 @@ public sealed class SqliteSprintSeriesRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_series_keeps_when_it_was_set_up_and_why_it_was_switched_off()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setUp = new DateTimeOffset(2026, 10, 14, 10, 0, 0, TimeSpan.Zero);
+        var series = SprintSeries.Restore(
+            Guid.NewGuid(), "Main", ["backlog"], SprintLength.TwoWeeks, DayOfWeek.Monday, "Sprint {n}",
+            BriefVisibility.Neither, [], 100, [], isOn: false, createdAt: setUp,
+            offReason: "Switched off: backlog already works to \"Core\", which was set up first.");
+
+        await _repository.SaveAsync(series, ct);
+        var loaded = await _repository.GetAsync(series.Id, ct);
+
+        Assert.Equal(setUp, loaded!.CreatedAt);
+        Assert.Equal(series.OffReason, loaded.OffReason);
+        Assert.False(loaded.IsOn);
+    }
+
+    [Fact]
     public async Task A_document_written_before_the_switch_existed_reads_as_on()
     {
         var ct = TestContext.Current.CancellationToken;

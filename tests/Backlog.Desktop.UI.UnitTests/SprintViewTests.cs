@@ -93,6 +93,54 @@ public sealed class SprintViewTests : IDisposable
         rendered.WaitForAssertion(() => Assert.Equal("now:switch", rendered.Find("[data-testid=now]").TextContent));
     }
 
+    /// <summary>
+    /// The weekly brief's "Open Sprint n" (<c>.devbook/domain/progress/features.md#sprints-in-the-briefs</c>)
+    /// opens the sprint view on that series and that sprint — here a closed one, of the
+    /// second series in an every-repository scope, which the scope alone would never pick —
+    /// and tells the host it was taken, once.
+    /// </summary>
+    [Fact]
+    public async Task An_open_request_opens_the_sprint_view_on_that_series_and_sprint()
+    {
+        var first = Series("Tools", ["tools"]);
+        var second = Series("Fincent", ["fincent"]);
+        second = second with { Sprints = [Sprint(41, Start.AddDays(-14), isOpen: false), .. second.Sprints] };
+        var progress = Compose(on: true, first, second);
+        var reads = new List<bool>();
+        var taken = 0;
+        var request = new SprintViewRequest(second.Id, 41);
+
+        var rendered = RenderTab([], onRead: reads.Add, configure: parameters => parameters
+            .Add(p => p.Open, request)
+            .Add(p => p.OnOpened, () => taken++));
+
+        rendered.WaitForAssertion(() => Assert.Single(rendered.FindAll("[data-testid=sprint-board]")));
+        rendered.WaitForAssertion(() => Assert.Equal(41, progress.LastNumber));
+        Assert.Equal("Sprint 41", rendered.Find("[data-testid=in-progress-view-switch-sprint]").TextContent.Trim());
+        Assert.StartsWith("Fincent · ", rendered.Find("[data-testid=sprint-board-series]").TextContent, StringComparison.Ordinal);
+        Assert.Equal([false], reads);
+        Assert.Equal(1, taken);
+
+        // The same request handed again is not a second press.
+        await rendered.InvokeAsync(() => rendered.Render(parameters => parameters.Add(p => p.Open, request)));
+        Assert.Equal(1, taken);
+    }
+
+    /// <summary>A request for a sprint the series does not hold, or a series switched off,
+    /// leaves the tab as it was.</summary>
+    [Fact]
+    public void An_open_request_for_a_missing_sprint_leaves_the_now_view()
+    {
+        var series = Series("Fincent", ["fincent"]);
+        Compose(on: true, series);
+
+        var rendered = RenderTab(["fincent"], configure: parameters => parameters
+            .Add(p => p.Open, new SprintViewRequest(series.Id, 7)));
+
+        rendered.WaitForAssertion(() => Assert.Equal("now:switch", rendered.Find("[data-testid=now]").TextContent));
+        Assert.Empty(rendered.FindAll("[data-testid=sprint-board]"));
+    }
+
     /// <summary>Copy as table (<c>.devbook/domain/progress/features.md#copying-a-sprint-as-a-table</c>)
     /// hands the clipboard the whole sprint as HTML and as plain text together.</summary>
     [Fact]
@@ -259,6 +307,19 @@ public sealed class SprintViewTests : IDisposable
         Assert.Equal(5, rendered.FindAll("[data-testid=sprint-row]").Count);
     }
 
+    [Fact]
+    public void A_series_of_one_repository_draws_no_repository_filter_and_a_filter_left_over_lets_go()
+    {
+        var rendered = _context.Render<SprintBoard>(parameters => parameters.Add(p => p.Model, Board()));
+        rendered.Find("[data-testid=sprint-board-repository] select").Change("marketplace");
+
+        rendered.Render(parameters => parameters.Add(p => p.Model, Board() with { Repositories = ["marketplace"] }));
+
+        Assert.Empty(rendered.FindAll("[data-testid=sprint-board-repository]"));
+        Assert.NotEmpty(rendered.FindAll("[data-testid=sprint-board-group]"));
+        Assert.Equal(5, rendered.FindAll("[data-testid=sprint-row]").Count);
+    }
+
     // ---- The words and the done line -------------------------------------------------------
 
     [Fact]
@@ -289,6 +350,14 @@ public sealed class SprintViewTests : IDisposable
             "Goal: 5 open with 3 working days left; Openspec is blocked. All work is 7 behind the even pace.",
             SprintBoardMapper.PaceReading(progress));
         Assert.Equal("Day 7 of 10 · 3 working days left", SprintBoardMapper.DayText(progress));
+    }
+
+    [Fact]
+    public void Before_its_first_working_day_an_open_sprint_reads_when_it_starts_and_how_many_working_days_it_has()
+    {
+        var progress = Progress(0) with { Start = new DateOnly(2026, 10, 26) };
+
+        Assert.Equal("Starts Mon 26 Oct · 10 working days", SprintBoardMapper.DayText(progress));
     }
 
     [Fact]
@@ -381,7 +450,9 @@ public sealed class SprintViewTests : IDisposable
             var client = new TasksPaneHost.FakeGitHubClient();
             client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(4, "u", "t", "JSdotNet/Backlog", GitHubItemState.Merged, "jsdotnet", new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero)));
             client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(5, "u", "t", "JSdotNet/Backlog", GitHubItemState.Open, "octo", null, new DateTimeOffset(2026, 10, 6, 12, 0, 0, TimeSpan.Zero)));
-            var reader = new GitHubSprintPullRequests(() => new GitHubIntegration(settings, client, new ConnectedProbe()));
+            // One adapter, as the host composes it: what has been read is kept there.
+            var gitHub = new GitHubIntegration(settings, client, new ConnectedProbe());
+            var reader = new GitHubSprintPullRequests(() => gitHub);
 
             var first = await reader.ReadAsync([new("JSdotNet/Backlog", "4"), new("JSdotNet/Backlog", "5"), new("JSdotNet/Backlog", "6")], TestContext.Current.CancellationToken);
 
@@ -416,7 +487,9 @@ public sealed class SprintViewTests : IDisposable
             var client = new TasksPaneHost.FakeGitHubClient();
             client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(5, "u", "t", "JSdotNet/Archify", GitHubItemState.Open, "octo", null));
             var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero));
-            var reader = new GitHubSprintPullRequests(() => new GitHubIntegration(settings, client, new ConnectedProbe()), clock);
+            // One adapter, as the host composes it: the shared cache that keeps what was read lives there.
+            var gitHub = new GitHubIntegration(settings, client, new ConnectedProbe(), time: clock);
+            var reader = new GitHubSprintPullRequests(() => gitHub);
 
             Assert.Equal(LinkedPullRequestState.Open, Assert.Single(await reader.ReadAsync([new("JSdotNet/Archify", "5")], TestContext.Current.CancellationToken)).State);
 
@@ -456,8 +529,11 @@ public sealed class SprintViewTests : IDisposable
         return progress;
     }
 
-    private IRenderedComponent<InProgressSprints> RenderTab(IReadOnlyList<string> scope, Action<bool>? onRead = null) =>
-        _context.Render<InProgressSprints>(parameters => parameters
+    private IRenderedComponent<InProgressSprints> RenderTab(
+        IReadOnlyList<string> scope,
+        Action<bool>? onRead = null,
+        Action<ComponentParameterCollectionBuilder<InProgressSprints>>? configure = null) =>
+        _context.Render<InProgressSprints>(parameters => Configure(parameters, configure)
             .Add(p => p.Repositories, scope)
             .Add(p => p.OnRead, (bool refresh) => onRead?.Invoke(refresh))
             .Add(p => p.Now, (RenderFragment<RenderFragment?>)(viewSwitch => builder =>
@@ -468,6 +544,14 @@ public sealed class SprintViewTests : IDisposable
                 builder.CloseElement();
                 builder.AddContent(3, viewSwitch);
             })));
+
+    private static ComponentParameterCollectionBuilder<InProgressSprints> Configure(
+        ComponentParameterCollectionBuilder<InProgressSprints> parameters,
+        Action<ComponentParameterCollectionBuilder<InProgressSprints>>? configure)
+    {
+        configure?.Invoke(parameters);
+        return parameters;
+    }
 
     private static SprintSeriesDto Series(string name, IReadOnlyList<string> repositories) =>
         new(Guid.NewGuid(), name, repositories, SprintLength.TwoWeeks, DayOfWeek.Monday, "Sprint {n}", false, false,
@@ -537,6 +621,8 @@ public sealed class SprintViewTests : IDisposable
     /// the same three members. Nothing else is asked of them here.</summary>
     private sealed class FakeProgress(IReadOnlyList<SprintSeriesDto> series) : ISprintSeriesPlanning, ISprintProgress
     {
+        public event Action? Changed { add { } remove { } }
+
         public int? LastNumber { get; private set; }
 
         public bool Fails { get; set; }
@@ -585,5 +671,7 @@ public sealed class SprintViewTests : IDisposable
         public Task<Result<SprintSeriesDto>> SetNoteAsync(Guid seriesId, int number, Guid taskId, string? note, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<SprintSeriesDto>> SetOpenQuestionAsync(Guid seriesId, int number, Guid taskId, bool openQuestion, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<SprintSeriesDto>> CloseSprintAsync(Guid seriesId, IReadOnlyDictionary<Guid, CloseOutcome> outcomes, string nextGoal, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Result> DeleteSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

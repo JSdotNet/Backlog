@@ -30,6 +30,7 @@ The cadence a set of repositories works to, and the consistency boundary for
 every sprint in it. A series holds:
 
 - its `name`, which defaults to its repositories' aliases;
+- the moment it was set up, which travels with it to every desktop;
 - its [Series Repositories](#series-repositories);
 - its [Sprint Length](#sprint-length) and the weekday its sprints start on;
 - its [Name Pattern](#name-pattern);
@@ -46,6 +47,15 @@ across sprints, so they need the series to hold them.
 
 A series exists only while it has at least one repository. The rules it holds
 are in [its invariants](domain.invariants.md#sprint-series).
+
+A person can **delete** a series, whether it is on or off and whatever sprints it
+recorded, an open one included. Its sprints go with it, with their goals, marks,
+notes and outcomes. No task changes, because a sprint only names its tasks. Its
+repositories are in no series from then on. Nothing offers to bring a deleted
+series back. It leaves a **tombstone** under its id, stamped like any other
+change, so the deletion travels to every paired desktop the way a change does, and
+the [newer change wins](features.md#syncing-sprints-between-devices) over it as
+over any other.
 
 ### Sprint
 
@@ -112,6 +122,13 @@ A task brought in only by a plan has no item until something is recorded on it.
 The note and the open-question mark belong to Progress, not to the task: they
 say something about the task in this sprint, and the next sprint starts without
 them.
+
+Removing a task added directly ends what the item says about how it joined. While
+a linked plan still brings the task in, it stays a member and its item keeps its
+goal mark, note and open question. When no linked plan brings it in, its
+membership ends and the item goes with it: added again, the task starts with no
+goal mark, no note and no open question. The marks belong to a membership, not to
+the task, so they do not outlive it.
 
 A row shows the authors of the task's linked pull requests as its owner. There is
 no owner field, in the item or anywhere else in this context.
@@ -193,6 +210,11 @@ against every other series. Its repositories read as in no series: they show the
 In progress view until it is switched back on, and nothing it holds changed in
 between.
 
+A series the system switched off carries an **Off Reason**: one line saying why,
+such as `Switched off: backlog already works to "Core", which was set up
+first.` Switching the series on clears it. A series a person switched off has
+none.
+
 ### Goal Rule
 
 ```meta
@@ -263,6 +285,11 @@ repository belongs to at most one. It is a service because no single series can
 see the others. Its rules are in
 [its invariants](domain.invariants.md#series-assignment).
 
+A person can only break the rule on two desktops at once, offline, so it is also
+what a synced series is held to: when a repository arrives in two switched-on
+series, it keeps the repository in the one set up first and switches the other
+off with its [Off Reason](#series-switch).
+
 ## Sprint Progress
 
 ```meta
@@ -304,6 +331,10 @@ related: [.devbook/domain/tasks/domain.md#task-status]
 A member is done in a sprint when its task's status is Done, or when every pull
 request linked to the task is merged. Either is enough. A task with no linked pull
 request is done only by its status. An archived task is not done by its status.
+
+A pull request counts from the moment it is linked, whenever it merged. Work that
+merged before its task was linked is linked by its number or its link from the task's
+side panel, and the member is then done by it like any other.
 
 ### Added after the start
 

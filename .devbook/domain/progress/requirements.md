@@ -9,7 +9,7 @@ related: [.devbook/domain/progress/features.md]
 > What this context's features guarantee, one chapter per feature. Each
 > requirement is one SHALL sentence with the scenarios that prove it.
 
-Progress is not built yet, so no requirement names a test. The scenarios use a
+Progress is partly built: a requirement names its tests where it has them. The scenarios use a
 series over the repositories `backlog` and `docs`, with two-week sprints starting
 on a Monday. Sprint 4 runs from Monday 12 October to Sunday 25 October 2026.
 
@@ -71,6 +71,33 @@ The system SHALL treat the repositories of a switched-off series as in no series
 - **Given** the series "Core" is switched off and has `backlog`
 - **When** the person adds `backlog` to the series "Docs"
 - **Then** the change is refused and `backlog` stays in "Core"
+
+### Requirement: A deleted series frees its repositories
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL, once the person confirms deleting a series, remove the series and every sprint it recorded, leave every task as it was, and treat its repositories as in no series.
+
+#### Scenario: Deleting a series with sprints
+
+- **Given** the series "Core" over `backlog` and `docs`, with Sprint 4 open
+- **When** the person deletes "Core" and confirms
+- **Then** "Core" and its four sprints are gone, every task of Sprint 4 is unchanged, and `backlog` and `docs` show under "Not in a sprint"
+
+#### Scenario: Cancelling the delete
+
+- **Given** the series "Core" over `backlog`
+- **When** the person deletes "Core" and cancels
+- **Then** "Core" stays as it was
+
+#### Scenario: A freed repository joins another series
+
+- **Given** the series "Core" over `backlog` was deleted
+- **When** the person adds `backlog` to the series "Docs"
+- **Then** `backlog` belongs to "Docs"
 
 ### Requirement: A sprint is named by the pattern
 
@@ -142,6 +169,18 @@ The system SHALL leave a task's status, tags and plan unchanged when it is added
 - **Given** an In progress task added directly to Sprint 4
 - **When** the person removes it from Sprint 4
 - **Then** the task is still In progress, with the same tags and plan
+
+#### Scenario: Adding a removed task again starts it clean
+
+- **Given** a task added directly to Sprint 4, marked as a goal task and given a note, that no linked plan brings in
+- **When** the person removes it from Sprint 4 and adds it again
+- **Then** it is in Sprint 4 with no goal mark, no note and no open question
+
+#### Scenario: Removing a task a linked plan still brings in
+
+- **Given** a task added directly to Sprint 4 and marked as a goal task, whose plan is linked to Sprint 4
+- **When** the person removes it from Sprint 4
+- **Then** it is still in Sprint 4, brought in by its plan, and keeps its goal mark
 
 ## Setting the sprint goal
 
@@ -322,6 +361,7 @@ The system SHALL close a sprint only once every unfinished member has an outcome
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.Closing_starts_the_next_sprint_with_only_the_carried_task_and_leaves_every_task_alone, unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.Closing_early_starts_the_next_sprint_after_the_closed_ones_window_not_after_today, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Before_its_first_working_day_an_open_sprint_reads_when_it_starts_and_how_many_working_days_it_has]
 ```
 
 The system SHALL start the next sprint when it closes one, with the next goal given at closing and every carried task as a member.
@@ -332,6 +372,14 @@ The system SHALL start the next sprint when it closes one, with the next goal gi
 - **When** the person closes Sprint 4 with the next goal "Ship the sprint view"
 - **Then** Sprint 5 is open from Monday 26 October to Sunday 8 November 2026, with the goal "Ship the sprint view"
 - **And** Sprint 5 has the carried task as a member, and neither of the other two
+
+#### Scenario: Closing Sprint 4 early
+
+- **Given** Sprint 4 runs from Monday 12 October to Sunday 25 October 2026 and today is Monday 19 October
+- **When** the person closes Sprint 4
+- **Then** Sprint 5 is open from Monday 26 October to Sunday 8 November 2026
+- **And** Sprint 4 keeps its window to Sunday 25 October
+- **And** the sprint view reads "Starts Mon 26 Oct · 10 working days" until Monday 26 October
 
 ### Requirement: No outcome changes the task
 
@@ -395,6 +443,27 @@ The system SHALL keep, for each series, the change saved last when two desktops 
 - **When** the person changes Sprint 4's goal of "Core" on A and of "Docs" on B, and both sync
 - **Then** both desktops show both new goals
 
+### Requirement: A pulled series shows at once
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL redraw, on the desktop a series arrives at, every screen that shows that series, without the person moving away or pressing Refresh, and SHALL keep what the person has typed or chosen in a dialog left open.
+
+#### Scenario: A task added on one desktop
+
+- **Given** the series "Core" on A and B, with Sprint 4 open in B's sprint view and in B's Settings › Sprints
+- **When** the person adds a task to Sprint 4 and renames the series "Platform" on A, and A and then B sync
+- **Then** B's sprint view lists the task, its Sprint section reads "In Sprint 4", its weekly brief counts it, and its settings card reads "Platform"
+
+#### Scenario: A close under way on the other desktop
+
+- **Given** B's Close dialog open on Sprint 4, one item set to Drop and the next goal typed
+- **When** a task is added to Sprint 4 on A, and A and then B sync
+- **Then** B's dialog lists the new item on Carry, and still shows Drop and the typed goal
+
 ### Requirement: A desktop with no series sends none
 
 ```meta
@@ -409,6 +478,48 @@ The system SHALL send no series from a desktop that never set one up.
 - **Given** the series "Core" on A, and B newly paired with no series
 - **When** B syncs
 - **Then** B holds "Core" as A has it, and A still holds its own "Core"
+
+### Requirement: A deleted series is deleted on every desktop
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL remove a series from every paired desktop once one desktop deleted it and both have synced, unless the series was changed on another desktop after the deletion.
+
+#### Scenario: Deleted on one desktop
+
+- **Given** the series "Core" on A and B
+- **When** the person deletes "Core" on A, and A and then B sync
+- **Then** neither desktop holds "Core", and its repositories are in no series on both
+
+#### Scenario: A change older than the deletion
+
+- **Given** the series "Core" on A and B
+- **When** the person writes a note on B, then deletes "Core" on A, and both sync
+- **Then** neither desktop holds "Core"
+
+### Requirement: A repository two desktops gave to two series stays in the first
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL, when syncing leaves a repository in two switched-on series, keep it working to the series set up first and switch the other off with a line saying why, on every paired desktop alike, without asking the person and without losing a sprint.
+
+#### Scenario: Two desktops set up a series for one repository offline
+
+- **Given** A and B are both offline, A sets up the series "Core" over `backlog`, and later B sets up the series "Main" over `backlog`
+- **When** A and B both sync, in either order
+- **Then** both desktops show `backlog` working to "Core", and "Main" switched off with the line `Switched off: backlog already works to "Core", which was set up first.`, and "Main" keeps every sprint it recorded
+
+#### Scenario: The switched-off series cannot be switched back on
+
+- **Given** "Main" was switched off because `backlog` works to "Core"
+- **When** the person switches "Main" on
+- **Then** the change is refused and "Main" stays off
 
 ## Sprints in the briefs
 

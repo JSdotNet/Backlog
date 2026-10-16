@@ -12,7 +12,9 @@
     names anything — because a rule that names no plan is not one the series can hold.
 
     Every change commits as it is made, with no save button: the settings screen's
-    house rule. A text field commits when it is left or Enter is pressed.
+    house rule. A text field commits when it is left or Enter is pressed. Delete
+    series… is the one exception: it cannot be taken back, so it asks first
+    (.devbook/domain/progress/features.md#deleting-a-series).
 *@
 
 <section class="sprint-card@(Model.IsOn ? null : " sprint-card--off")" data-testid="@TestId" aria-labelledby="@TitleId">
@@ -26,7 +28,20 @@
                 CssClass="sprint-card__switch" />
         <h3 class="sprint-card__title" id="@TitleId">@Model.Name</h3>
         <span class="sprint-card__running" data-testid="@Part("running")">@RunningText</span>
+        @if (CanStart)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       CssClass="sprint-card__start"
+                       TestId="@Part("start")"
+                       OnClick="() => OnStartSprint.InvokeAsync()">Start @FirstName…</AppButton>
+        }
     </div>
+
+    @if (!Model.IsOn && !string.IsNullOrWhiteSpace(Model.OffReason))
+    {
+        <p class="sprint-card__hint" data-testid="@Part("off-reason")">@Model.OffReason</p>
+    }
 
     <Alert Message="@Error" TestId="@Part("error")" />
 
@@ -231,6 +246,28 @@
                       TestId="@Part("weekly")" />
         </div>
     </div>
+
+    @if (OnDelete.HasDelegate)
+    {
+        <div class="sprint-card__foot">
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       CssClass="sprint-card__delete"
+                       TestId="@Part("delete")"
+                       OnClick="() => _confirmingDelete = true">Delete series…</AppButton>
+        </div>
+
+        <ConfirmDialog Open="@_confirmingDelete"
+                       OpenChanged="open => _confirmingDelete = open"
+                       Title="@($"Delete {Model.Name}?")"
+                       Message="@DeleteMessage"
+                       ConfirmText="Delete series"
+                       Destructive="true"
+                       OnConfirm="() => OnDelete.InvokeAsync()"
+                       TestId="@Part("delete-dialog")"
+                       ConfirmTestId="@Part("delete-confirm")"
+                       CancelTestId="@Part("delete-cancel")" />
+    }
 </section>
 
 @code {
@@ -299,8 +336,46 @@
     [Parameter]
     public EventCallback<(bool Daily, bool Weekly)> OnShowInChanged { get; set; }
 
+    /// <summary>Start was pressed on a switched-on series with no sprint yet: the host
+    /// asks for the first sprint's goal and day. Unset, the card offers no Start.</summary>
+    [Parameter]
+    public EventCallback OnStartSprint { get; set; }
+
     [Parameter]
     public string? TestId { get; set; }
+
+    /// <summary>The person confirmed deleting the series: the host deletes it with every
+    /// sprint it recorded. Raised only from the confirmation <b>Delete series…</b> opens;
+    /// unset, the card offers no delete. The confirmation stays open, busy, until the
+    /// host has finished.</summary>
+    [Parameter]
+    public EventCallback OnDelete { get; set; }
+
+    private bool _confirmingDelete;
+
+    /// <summary>What the confirmation says goes, and what does not: the sprints recorded
+    /// so far, the repositories freed, and that no task changes.</summary>
+    private string DeleteMessage
+    {
+        get
+        {
+            var recorded = Math.Max(Model.NextNumber - 1, 0);
+            var sprints = recorded switch
+            {
+                0 => "It has no sprint yet.",
+                1 => "Its one sprint is deleted with it, with its goal, notes and outcomes.",
+                _ => $"Its {recorded} sprints are deleted with it, with their goals, notes and outcomes."
+            };
+            var repositories = Model.Repositories.Count switch
+            {
+                0 => string.Empty,
+                1 => $" {Model.Repositories[0]} goes back to no sprint.",
+                _ => $" {string.Join(", ", Model.Repositories)} go back to no sprint."
+            };
+
+            return $"{sprints}{repositories} No task changes, and it is deleted on every desktop you have paired. To keep the sprints, switch the series off instead.";
+        }
+    }
 
     private SprintSeriesCardModel? _drawn;
     private SprintGoalSettings _goal = SprintGoalSettings.Default;
@@ -324,6 +399,12 @@
     private string TitleId => Part("title");
 
     private string RunningText => Model.Running ?? "No sprint has started yet.";
+
+    /// <summary>A first sprint can be started on a switched-on series that has none,
+    /// when the host offers it. Every later one starts by closing the one before.</summary>
+    private bool CanStart => Model.IsOn && Model.Running is null && Model.NextNumber == 1 && OnStartSprint.HasDelegate;
+
+    private string FirstName => SprintSeriesCardModel.NextName(Model.NamePattern, Model.NextNumber) ?? "the first sprint";
 
     private bool InPlansShown => _goal.InPlans || _plansPending;
 

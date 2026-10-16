@@ -28,6 +28,20 @@ public sealed class ProgressSprintBriefSource(
     ISprintProgress? progress,
     IAppFeatureSettings? features) : ISprintBriefSource
 {
+    /// <summary>Progress's own series notice, passed through: a series saved here or
+    /// pulled from another device. Nothing is raised where Progress is not composed.</summary>
+    public event Action? Changed
+    {
+        add
+        {
+            if (planning is not null) planning.Changed += value;
+        }
+        remove
+        {
+            if (planning is not null) planning.Changed -= value;
+        }
+    }
+
     public async Task<IReadOnlyList<SprintBriefSprint>> ReadAsync(
         DateOnly from,
         DateOnly to,
@@ -58,6 +72,13 @@ public sealed class ProgressSprintBriefSource(
     private static SprintBriefSprint Map(SprintSeriesDto series, SprintProgressDto sprint)
     {
         var goal = sprint.GoalTaskIds.ToHashSet();
+        var goalPlans = sprint.GoalRules
+            .Where(rule => rule.Kind is GoalRuleKind.InPlans)
+            .SelectMany(rule => rule.Choices)
+            .Select(Bare)
+            .Where(plan => plan.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         return new SprintBriefSprint(
             series.Id,
@@ -88,6 +109,23 @@ public sealed class ProgressSprintBriefSource(
                         LinkedPullRequestState.Closed => SprintBriefPullRequestState.Closed,
                         _ => SprintBriefPullRequestState.Unknown
                     },
-                    pull.MergedOn))]))]);
+                    pull.MergedOn))])
+            {
+                IsInProgress = member.State == SprintWorkState.InProgress,
+                Repository = member.Repository,
+                Owners = member.Owners,
+                Note = member.Note,
+                OpenQuestion = member.OpenQuestion
+            })])
+        {
+            GoalPlans = goalPlans
+        };
+    }
+
+    /// <summary>A plan tag without its sigil, as the sprint view's board reads it.</summary>
+    private static string Bare(string tag)
+    {
+        var trimmed = tag.Trim();
+        return trimmed.StartsWith('+') ? trimmed[1..].Trim() : trimmed;
     }
 }

@@ -36,6 +36,32 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
         </div>
     </Story>
 
+    <Story Name="No sprint has started yet"
+           Description="A series just added: switched on, with no sprint yet. Beside the running line the card offers Start Sprint 1…, which asks for the first sprint's goal and the day it starts — the next start weekday, today when today is one. Once started the card names the sprint running; every later sprint starts by closing the one before. A switched-off series offers no Start."
+           Code="@StartCode">
+        <div class="sb-menu-wide">
+            <SprintSeriesCard Model="@_new"
+                              TestId="sprint-new"
+                              OnStartSprint="() => _starting = true" />
+            <SprintStartDialog Open="_starting"
+                               OpenChanged="open => _starting = open"
+                               SprintName="Sprint 1"
+                               SeriesName="@_new.Name"
+                               StartWeekday="@_new.StartWeekday"
+                               DefaultStart="@SprintStartRules.DefaultStart(DateOnly.FromDateTime(DateTime.Today), _new.StartWeekday)"
+                               TestId="sprint-new-start-dialog"
+                               OnStart="Start" />
+        </div>
+    </Story>
+
+    <Story Name="Switched off by sync"
+           Description="Two desktops each set up a series for one repository while offline. Once both synced, the repository stays in the series set up first and this one is switched off, with a line saying why. It keeps every sprint it recorded; take the repository out and it can be switched back on."
+           Code="@SyncOffCode">
+        <div class="sb-menu-wide">
+            <SprintSeriesCard Model="@(Fincent with { IsOn = false, Running = null, OffReason = SyncOffReason })" TestId="sprint-off-by-sync" />
+        </div>
+    </Story>
+
     <Story Name="A goal counted by plans and tags, met at a share"
            Description="Two plans and a tag pick the goal tasks, and the goal is met once 80% of them are done. A task picked by more than one rule counts once."
            Code="@ShareCode">
@@ -51,6 +77,22 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
             <SprintSeriesCard Model="@Fincent"
                               TestId="sprint-refused"
                               Error="JSdotNet/Backlog already belongs to another sprint series." />
+        </div>
+    </Story>
+
+    <Story Name="Deleting a series"
+           Description="Delete series… sits last on the card, apart from the settings, because it is the one act there that cannot be taken back. It asks first, naming how many sprints go with the series and which repositories it frees; Cancel, Escape and the backdrop all keep the series. Confirm, and the host deletes it — here the card is replaced by what the page would then say."
+           Code="@DeleteCode">
+        <div class="sb-menu-wide">
+            @if (_deleted)
+            {
+                <p data-testid="sprint-deleted">Deleted. innovadis-dev/Fincent and JSdotNet/devbook-marketplace are in no sprint.</p>
+                <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" TestId="sprint-deleted-again" OnClick="() => _deleted = false">Show the card again</AppButton>
+            }
+            else
+            {
+                <SprintSeriesCard Model="@Fincent" TestId="sprint-delete" OnDelete="() => _deleted = true" />
+            }
         </div>
     </Story>
 
@@ -106,6 +148,41 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
     };
 
     private SprintSeriesCardModel _live = Fincent with { Id = "live" };
+
+    private static readonly SprintSeriesCardModel NotStarted = Fincent with
+    {
+        Id = "new",
+        Name = "Backlog",
+        Running = null,
+        Repositories = ["JSdotNet/Backlog"],
+        NextNumber = 1
+    };
+
+    private SprintSeriesCardModel _new = NotStarted;
+    private bool _starting;
+
+    private void Start(SprintStart start)
+    {
+        var end = start.On.AddDays(_new.Weeks * 7 - 1);
+        _new = _new with
+        {
+            Running = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Sprint 1 runs {start.On:ddd d MMM} to {end:ddd d MMM}"),
+            NextNumber = 2
+        };
+        _starting = false;
+    }
+
+    private const string StartCode = """
+        <SprintSeriesCard Model="@series" OnStartSprint="() => starting = true" />
+        <SprintStartDialog Open="starting"
+                           OpenChanged="open => starting = open"
+                           SprintName="@firstName"
+                           SeriesName="@series.Name"
+                           StartWeekday="@series.StartWeekday"
+                           DefaultStart="@SprintStartRules.DefaultStart(today, series.StartWeekday)"
+                           Error="@startError"
+                           OnStart="StartAsync" />
+        """;
     private List<string> _free = ["JSdotNet/Backlog", "JSdotNet/Backlog-docs"];
     private string? _error;
 
@@ -151,6 +228,12 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
         <SprintSeriesCard Model="@(series with { IsOn = false })" />
         """;
 
+    private const string SyncOffReason = "Switched off: innovadis-dev/Fincent already works to \"Platform\", which was set up first.";
+
+    private const string SyncOffCode = """
+        <SprintSeriesCard Model="@(series with { IsOn = false, OffReason = series.OffReason })" />
+        """;
+
     private const string ShareCode = """
         <SprintSeriesCard Model="@(series with { Goal = new SprintGoalSettings(
             InPlans: true, ["rekeningen", "verplaatsen-specs"],
@@ -174,5 +257,11 @@ Tick Tasks in these plans and the rule waits for a plan before it counts, becaus
             @foreach (var alias in free) { <TagChip Text="@alias" /> }
         </Card>
         <AppButton OnClick="AddSeriesAsync">Add another sprint</AppButton>
+        """;
+
+    private bool _deleted;
+
+    private const string DeleteCode = """
+        <SprintSeriesCard Model="@series" OnDelete="() => DeleteAsync(series.Id)" />
         """;
 }

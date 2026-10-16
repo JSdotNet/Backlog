@@ -144,11 +144,53 @@ public sealed class SprintSeriesPlanningTests : IDisposable
         var removed = await Planning.RemoveTaskAsync(series.Id, 1, task.Id, ct);
 
         Assert.Same(task, Assert.Single(_tasks.Tasks));
-        var item = Assert.Single(removed.Value.OpenSprint!.Items);
+        Assert.Empty(removed.Value.OpenSprint!.Items);
+    }
+
+    /// <summary>No linked plan brings the task in, so removing it ends its membership,
+    /// and what the sprint recorded on it goes with it: added again, it starts clean.</summary>
+    [Fact]
+    public async Task A_removed_task_no_plan_brings_in_comes_back_without_its_old_marks()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        var task = Make.Task("Direct", SprintTaskStatus.InProgress, "+unlinked");
+        _tasks.Tasks.Add(task);
+
+        await Planning.AddTaskAsync(series.Id, 1, task.Id, ct);
+        await Planning.MarkGoalAsync(series.Id, 1, task.Id, true, ct);
+        await Planning.SetNoteAsync(series.Id, 1, task.Id, "Waiting on review", ct);
+        await Planning.SetOpenQuestionAsync(series.Id, 1, task.Id, true, ct);
+        await Planning.RemoveTaskAsync(series.Id, 1, task.Id, ct);
+        var added = (await Planning.AddTaskAsync(series.Id, 1, task.Id, ct)).Value;
+
+        var item = Assert.Single(added.OpenSprint!.Items);
+        Assert.True(item.AddedDirectly);
+        Assert.False(item.IsGoal);
+        Assert.Null(item.Note);
+        Assert.False(item.OpenQuestion);
+    }
+
+    /// <summary>A linked plan still brings the task in, so it stays a member when it is
+    /// no longer added directly, and keeps what the sprint recorded on it.</summary>
+    [Fact]
+    public async Task A_removed_task_a_linked_plan_still_brings_in_keeps_its_marks()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        var task = Make.Task("Planned", SprintTaskStatus.InProgress, "+plan");
+        _tasks.Tasks.Add(task);
+        await Planning.LinkPlanAsync(series.Id, 1, "+plan", ct);
+
+        await Planning.AddTaskAsync(series.Id, 1, task.Id, ct);
+        await Planning.MarkGoalAsync(series.Id, 1, task.Id, true, ct);
+        await Planning.SetNoteAsync(series.Id, 1, task.Id, "Waiting on review", ct);
+        var removed = (await Planning.RemoveTaskAsync(series.Id, 1, task.Id, ct)).Value;
+
+        var item = Assert.Single(removed.OpenSprint!.Items);
         Assert.False(item.AddedDirectly);
         Assert.True(item.IsGoal);
         Assert.Equal("Waiting on review", item.Note);
-        Assert.True(item.OpenQuestion);
     }
 
     [Fact]
@@ -208,6 +250,38 @@ public sealed class SprintSeriesPlanningTests : IDisposable
         var first = (await Progress.ReadAsync(series.Id, 1, ct)).Value;
         Assert.Equal(CloseOutcome.Drop, first.Members.Single(member => member.TaskId == drop.Id).Outcome);
         Assert.Equal(SprintTaskStatus.InProgress, _tasks.Tasks.Single(task => task.Id == drop.Id).Status);
+    }
+
+    // Thursday 15 October is the day that tells the two apart: a next sprint started after
+    // today would begin Monday 19 October. Monday 19 October is the scenario's own day.
+    [Theory]
+    [InlineData(15)]
+    [InlineData(19)]
+    public async Task Closing_early_starts_the_next_sprint_after_the_closed_ones_window_not_after_today(int octoberDay)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        _time.SetUtcNow(new DateTimeOffset(2026, 10, octoberDay, 9, 0, 0, TimeSpan.Zero));
+
+        var closed = (await Planning.CloseSprintAsync(series.Id, new Dictionary<Guid, CloseOutcome>(), "Next", ct)).Value;
+
+        var first = closed.Sprints.Single(sprint => sprint.Number == 1);
+        Assert.False(first.IsOpen);
+        Assert.Equal(new DateOnly(2026, 10, 12), first.Start);
+        Assert.Equal(new DateOnly(2026, 10, 25), first.End);
+        var next = closed.OpenSprint!;
+        Assert.Equal(new DateOnly(2026, 10, 26), next.Start);
+        Assert.Equal(new DateOnly(2026, 11, 8), next.End);
+
+        var reading = (await Progress.ReadAsync(series.Id, cancellationToken: ct)).Value;
+        Assert.True(reading.IsOpen);
+        Assert.Equal(new DateOnly(2026, 10, 26), reading.Start);
+        Assert.Equal(10, reading.WorkingDays);
+        Assert.Equal(0, reading.WorkingDaysElapsed);
+
+        _time.SetUtcNow(new DateTimeOffset(2026, 10, 26, 9, 0, 0, TimeSpan.Zero));
+        var onTheFirstDay = (await Progress.ReadAsync(series.Id, cancellationToken: ct)).Value;
+        Assert.Equal(1, onTheFirstDay.WorkingDaysElapsed);
     }
 
     [Fact]
@@ -283,6 +357,97 @@ public sealed class SprintSeriesPlanningTests : IDisposable
         var added = await Planning.AddTaskAsync(series.Id, 1, Guid.NewGuid(), ct);
 
         Assert.Equal("progress.sprint_closed", added.Error.Code);
+    }
+
+    // --- Deleting a series (.devbook/domain/progress/requirements.md#requirement-a-deleted-series-frees-its-repositories)
+
+    [Fact]
+    public async Task Deleting_a_series_removes_it_and_every_sprint_it_recorded()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        var task = Guid.NewGuid();
+        await Planning.AddTaskAsync(series.Id, 1, task, ct);
+
+        var deleted = await Planning.DeleteSeriesAsync(series.Id, ct);
+
+        Assert.True(deleted.IsSuccess);
+        Assert.Empty((await Planning.ListSeriesAsync(ct)).Value);
+        Assert.Equal("progress.series_not_found", (await Planning.GetSeriesAsync(series.Id, ct)).Error.Code);
+        Assert.Null((await Planning.FindSeriesOfAsync("backlog", ct)).Value);
+        Assert.Equal(1, _repository.Deletes);
+    }
+
+    [Fact]
+    public async Task A_deleted_series_frees_its_repositories_for_another_series()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var core = (await Planning.CreateSeriesAsync(new CreateSprintSeries(["backlog"], "Core"), ct)).Value;
+        var docs = (await Planning.CreateSeriesAsync(new CreateSprintSeries(["docs"], "Docs"), ct)).Value;
+        await Planning.SwitchAsync(core.Id, on: false, ct);
+
+        await Planning.DeleteSeriesAsync(core.Id, ct);
+        var added = await Planning.AddRepositoryAsync(docs.Id, "backlog", ct);
+
+        Assert.True(added.IsSuccess);
+        Assert.Equal(docs.Id, (await Planning.FindSeriesOfAsync("backlog", ct)).Value!.Id);
+    }
+
+    [Fact]
+    public async Task Deleting_leaves_every_other_series_as_it_was()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var core = (await Planning.CreateSeriesAsync(new CreateSprintSeries(["backlog"], "Core"), ct)).Value;
+        var docs = (await Planning.CreateSeriesAsync(new CreateSprintSeries(["docs"], "Docs"), ct)).Value;
+
+        await Planning.DeleteSeriesAsync(core.Id, ct);
+
+        var left = Assert.Single((await Planning.ListSeriesAsync(ct)).Value);
+        Assert.Equal(docs.Id, left.Id);
+        Assert.Equal(["docs"], left.Repositories);
+        Assert.True(left.IsOn);
+    }
+
+    [Fact]
+    public async Task Deleting_a_series_that_is_not_there_is_refused_and_deletes_nothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await CreateWithOpenSprintAsync();
+
+        var deleted = await Planning.DeleteSeriesAsync(Guid.NewGuid(), ct);
+
+        Assert.Equal("progress.series_not_found", deleted.Error.Code);
+        Assert.Single((await Planning.ListSeriesAsync(ct)).Value);
+        Assert.Equal(0, _repository.Deletes);
+    }
+
+    [Fact]
+    public async Task Deleting_answers_off_while_progress_is_off_and_keeps_the_series()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        _features.ProgressOn = false;
+
+        var deleted = await Planning.DeleteSeriesAsync(series.Id, ct);
+
+        Assert.Equal("progress.off", deleted.Error.Code);
+        Assert.Equal(0, _repository.Deletes);
+        _features.ProgressOn = true;
+        Assert.True((await Planning.GetSeriesAsync(series.Id, ct)).IsSuccess);
+    }
+
+    [Fact]
+    public async Task A_delete_is_announced_to_the_sync_like_any_change()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var series = await CreateWithOpenSprintAsync();
+        var replication = _provider.GetRequiredService<ISprintSeriesReplication>();
+        var heard = 0;
+        replication.Changed += () => heard++;
+
+        await Planning.DeleteSeriesAsync(series.Id, ct);
+
+        Assert.Equal(1, heard);
     }
 
     public void Dispose()

@@ -71,6 +71,23 @@ Switch one series off without losing it. Its repositories show the In progress
 view again, and it keeps everything it holds until it is switched back on. A
 repository of a switched-off series still cannot join another series.
 
+### Deleting a series
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#sprint-series, .devbook/domain/progress/requirements.md#requirement-a-deleted-series-frees-its-repositories]
+```
+
+Delete a series made by mistake, or one no longer worked to. Any series can be
+deleted, on or off, with or without sprints. "Delete series…" on its card asks
+first, naming the series, how many sprints go with it and which repositories
+it frees. Cancel changes nothing. Once confirmed, the series and every sprint it
+recorded are gone, and its repositories show under "Not in a sprint", free to
+join another series. No task changes, and the series is deleted on every paired
+desktop. Nothing offers to bring it back: to keep its sprints, switch it off
+instead.
+
 ### The Sprints settings page
 
 ```meta
@@ -82,12 +99,29 @@ related: [.devbook/domain/progress/context.md#progress-area]
 Settings › Sprints is where a series is set up, offered while the Progress area is
 on. It draws one card per series: its switch, its repositories, its length, start
 weekday and name pattern with the next sprint's name, its goal rules and when the
-goal is met, and which briefs show it. "Add repository" offers only the
+goal is met, which briefs show it, and "Delete series…". "Add repository" offers only the
 repositories in no series. A "Not in a sprint" card lists those repositories, and
 "Add another sprint" starts a series over the one picked. Every change is saved as
 it is made, and a refused change is said on its card in the module's words. Done
 is shown as the rule it is, not a choice: a task's status Done, or every linked pull
 request merged.
+
+### Starting the first sprint
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#sprint-window, .devbook/domain/progress/features.md#closing-a-sprint]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_added_on_the_settings_page_starts_its_first_sprint_from_its_card, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_switched_off_series_offers_no_start, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_with_no_sprint_carries_the_switch_and_its_sprint_side_starts_the_first, unit:dotnet:Backlog.UI.Components.UnitTests.SprintStartComponentsTests]
+```
+
+A new series runs no sprint until its first is started. While a series is switched on
+and has none, its card on Settings › Sprints says "No sprint has started yet." and
+offers **Start Sprint 1…**, named by the series' pattern; the sprint view of a scope
+holding it offers the same. Start asks for the first sprint's goal in words and the
+day it starts: the next start weekday, today when today is one. A day on another
+weekday is held back with the reason beside it. Every later sprint starts when the
+one before it [closes](#closing-a-sprint), so Start is offered once per series.
 
 ## Filling a sprint
 
@@ -107,11 +141,14 @@ sprint, or linking a plan, changes nothing on the task.
 type: sub-feature
 status: draft
 related: [.devbook/domain/progress/domain.md#sprint-item]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.A_removed_task_no_plan_brings_in_comes_back_without_its_old_marks, unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.A_removed_task_a_linked_plan_still_brings_in_keeps_its_marks]
 ```
 
 Add one task to the open sprint by its id. Any task in the series' repositories
 can be added, whatever its status. Removing it again takes it out of the sprint
-and leaves the task as it was.
+and leaves the task as it was. What the sprint recorded on it — its goal mark,
+note and open question — goes with it, unless a linked plan still brings the
+task in ([Sprint Item](domain.md#sprint-item)).
 
 ### Linking a plan
 
@@ -196,6 +233,21 @@ Choose any combination of rules for the series:
 
 A task picked by more than one rule counts once.
 
+### Writing the sprint goal
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/domain.md#sprint]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.Edit_goal_on_the_open_sprint_writes_the_goal_through_the_module, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_closed_sprints_goal_card_only_reads, unit:dotnet:Backlog.UI.Components.UnitTests.SprintStartComponentsTests.The_goal_card_offers_edit_goal_only_when_the_host_does]
+```
+
+Write or change the open sprint's goal in words from the sprint view's goal card:
+**Edit goal**, or **Set goal** while the sprint has none. Blank clears it. The goal is
+the sprint's own; the first sprint's is asked when it [starts](#starting-the-first-sprint)
+and every later one's when the sprint before it [closes](#closing-a-sprint). A closed
+sprint's goal only reads.
+
 ### Marking a task as goal
 
 ```meta
@@ -239,20 +291,24 @@ task's linked pull requests. A task with no linked pull request shows no owner.
 type: sub-feature
 status: draft
 related: [.devbook/domain/progress/requirements.md#requirement-a-repository-in-no-series-keeps-the-in-progress-view, .devbook/domain/sessions/features.md#in-progress-by-task]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.With_progress_off_the_now_view_is_drawn_with_no_switch, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_repository_in_no_series_keeps_the_now_view_unchanged, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_switched_off_series_reads_as_no_series, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Choosing_the_sprint_draws_the_sprint_view_and_choosing_now_brings_the_now_view_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Pull_request_chips_are_coloured_by_state_and_the_owner_is_their_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.The_pace_reading_names_the_open_goal_tasks_the_blocked_ones_and_the_gap_to_the_even_pace]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.With_progress_off_the_now_view_is_drawn_with_no_switch, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_repository_in_no_series_keeps_the_now_view_unchanged, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_switched_off_series_reads_as_no_series, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Choosing_the_sprint_draws_the_sprint_view_and_choosing_now_brings_the_now_view_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Pull_request_chips_are_coloured_by_state_and_the_owner_is_their_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.The_pace_reading_names_the_open_goal_tasks_the_blocked_ones_and_the_gap_to_the_even_pace, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_with_no_sprint_carries_the_switch_and_its_sprint_side_starts_the_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.With_every_repository_in_scope_a_series_that_runs_a_sprint_comes_before_one_that_has_not_started]
 ```
 
 The [In progress](../sessions/features.md#in-progress-by-task) tab shows the sprint.
-While the header's repository scope holds a repository of a series that is switched on
-and has a sprint, a **Now | Sprint n** switch sits beside the title. Now is the view by
-task, unchanged. With no such repository in scope, or Progress off, there is no switch.
-A scope with repositories of several series shows the first series in scope order.
+While the header's repository scope holds a repository of a series that is switched on,
+a **Now | Sprint n** switch sits beside the title. Now is the view by task, unchanged.
+With no such repository in scope, or Progress off, there is no switch. A scope with
+repositories of several series shows the first series in scope order; with every
+repository in scope, the first series that runs a sprint. A series with no sprint yet
+names the switch for the sprint it will start, and its sprint side
+[starts the first](#starting-the-first-sprint).
 
 The sprint side opens on the open sprint and steps to the previous and next one. It
 shows:
 
 - the series' name, how many repositories it has and the sprint's dates;
-- a filter to one of the series' repositories, and grouping by plan or none;
+- a filter to one of the series' repositories, drawn only when the series has more
+  than one, and grouping by plan or none;
 - the goal card: the goal in words, the goal tasks done of their total with a bar by
   status, the goal rules that counted them, then all the sprint's work done of its
   total, how much is outside the goal and how much was added after the start;
@@ -373,6 +429,16 @@ No outcome changes the task. The next sprint is numbered one higher and starts o
 the first start weekday after the closed sprint's last day. It starts with no
 linked plan: an unfinished task a plan brought in moves on only when it is carried.
 
+Closing before the last day ends a sprint's work, not its window: a window always
+starts on the series' start weekday, on a [shared calendar](domain.invariants.md#sprint-series).
+The closed sprint keeps its planned days, and nothing more is recorded against it.
+The next sprint still starts on the first start weekday after the planned last day,
+but is open at once, so work can be added to it. Until its first working
+day the views show it as starting: for a Sprint 5 from Monday 26 October, the sprint
+view reads "Starts Mon 26 Oct · 10 working days", the daily strip "Sprint 5, starts
+Mon 26 Oct" with no at-risk landing from pace, and the burn-up chart's description
+says the sprint has not reached its first working day.
+
 ### Closing from the sprint view
 
 ```meta
@@ -410,6 +476,7 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
 related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md, .devbook/domain/progress/domain.md#sprint-series, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/domain/progress/requirements.md#syncing-sprints-between-devices]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesReplicationTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.SprintSyncRefreshTests]
 ```
 
 Keep every sprint series the same on every desktop the person has paired. A series
@@ -426,9 +493,33 @@ every device** and the older one is lost. Two different series are two documents
 so a change to one never displaces a change to the other. A device that has **never
 set up a series has nothing to send**.
 
+A **deleted series is deleted on every desktop**. The deletion travels as the
+series' last change, so the newer-change rule decides it like any other. A change
+made to the series on another desktop before that desktop heard of the deletion
+is older and is lost with it. A change saved after the deletion is newer and
+brings the series back on every desktop.
+
+Two desktops that each set up a series for the same repository while offline both
+keep theirs. Once both have synced, **the repository works to the series set up
+first**, and the other is switched off with a line saying why. It keeps every sprint
+it recorded, and once the person takes the repository out of it, it can be switched
+back on. Every desktop decides this the same way, from the series alone, and asks
+nobody.
+
 Series travel whether the [Progress area](context.md#progress-area) is on or off,
 because the series recorded while it is off are kept. The phone keeps no sprints and
 lists none.
+
+A series that arrives from another desktop **shows at once** on every screen that draws
+it — [the Sprints settings page](#the-sprints-settings-page),
+[the sprint view](#the-sprint-view), a task's
+[Sprint section](#planning-from-a-task) and the weekly brief's
+[Sprint block](#sprints-in-the-briefs) — without the person moving away or pressing
+Refresh, as a task pulled by sync shows in the Tasks pane. What the person has open
+keeps what they put in it: the Close dialog keeps its choices and next goal and lists
+any item that turned unfinished, a note being written keeps its text, and a sprint
+name held back for want of `{n}` stays in its field. The Close dialog closes only when
+the sprint it would close was closed on the other desktop.
 
 ## Sprints in the briefs
 
@@ -437,7 +528,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/progress/context.md#progress-area
 related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/productivity/features.md#the-weekly-brief, .devbook/domain/progress/requirements.md#sprints-in-the-briefs]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintWeekBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.ProgressSprintBriefSourceTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintWeekBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.ProgressSprintBriefSourceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintBriefTableTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests]
 ```
 
 Read the open sprint of a series in the daily and the weekly brief, for a series
@@ -458,7 +549,13 @@ The block holds:
 - "Shipped, by plan": the members done that week, under their plan, each with the
   pull requests it merged, linked to GitHub;
 - "Into week n", or "Into next week" in the sprint's last week: the items still open,
-  the blocked among them, and the pull requests waiting on review.
+  the blocked among them, and the pull requests waiting on review;
+- **Copy as table**, which copies the sprint the way the sprint view does
+  ([Copying a sprint as a table](#copying-a-sprint-as-a-table)): every item of the
+  block's sprint, whatever week the brief shows;
+- **Open Sprint n**, which opens In progress on that series' sprint view, on that
+  sprint, whichever series the repository scope would show first. Where In progress
+  is not offered there is no such button.
 
 The even pace is the share of the sprint's items that would be done by the week's end
 at the same rate every working day, Monday to Friday. Blocked, added and removed are

@@ -48,7 +48,25 @@ public sealed record SprintBriefMember(
     DateOnly? DoneOn,
     bool AddedAfterStart,
     bool Removed,
-    IReadOnlyList<SprintBriefPullRequest> PullRequests);
+    IReadOnlyList<SprintBriefPullRequest> PullRequests)
+{
+    /// <summary>Being worked on by the Progress context's rule, neither done nor blocked
+    /// — what the sprint view's table writes as In progress or In review rather than Not
+    /// started.</summary>
+    public bool IsInProgress { get; init; }
+
+    /// <summary>The repository the task belongs to, by alias, or null.</summary>
+    public string? Repository { get; init; }
+
+    /// <summary>Who works on it, as the sprint view's Owner column lists them.</summary>
+    public IReadOnlyList<string> Owners { get; init; } = [];
+
+    /// <summary>The sprint's note on the item, or null.</summary>
+    public string? Note { get; init; }
+
+    /// <summary>Whether the item is marked as an open question in the sprint.</summary>
+    public bool OpenQuestion { get; init; }
+}
 
 /// <summary>One sprint of a series shown in the weekly brief, with its members read
 /// against their current state.</summary>
@@ -65,7 +83,12 @@ public sealed record SprintBriefSprint(
     string Name,
     DateOnly Start,
     DateOnly End,
-    IReadOnlyList<SprintBriefMember> Members);
+    IReadOnlyList<SprintBriefMember> Members)
+{
+    /// <summary>The plans the series' "in these plans" goal rule names, without the
+    /// sigil — the groups the sprint's table puts first.</summary>
+    public IReadOnlyList<string> GoalPlans { get; init; } = [];
+}
 
 /// <summary>
 /// PORT — the sprints the weekly brief reports, for its Sprint block.
@@ -78,6 +101,14 @@ public sealed record SprintBriefSprint(
 /// </summary>
 public interface ISprintBriefSource
 {
+    /// <summary>
+    /// Raised when what <see cref="ReadAsync"/> answers may have changed — a sprint
+    /// series saved on this machine, by a person or pulled from another device — so the
+    /// Sprint block reads again rather than waiting for the brief to be opened afresh. It
+    /// may arrive on any thread.
+    /// </summary>
+    event Action? Changed;
+
     /// <summary>
     /// For every sprint series marked to show in the weekly brief, each of its sprints
     /// whose start–end overlaps <paramref name="from"/> to <paramref name="to"/>, both

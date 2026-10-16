@@ -13,6 +13,8 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// everything it holds, and its repositories read as in no series
 /// (<c>.devbook/domain/progress/domain.md#series-switch</c>). Last and defaulted, so a
 /// caller written before the switch still constructs one.</param>
+/// <param name="OffReason">Why the system switched the series off, as one line — a
+/// repository syncing left in two series stays in the one set up first — or null.</param>
 public sealed record SprintSeriesDto(
     Guid Id,
     string Name,
@@ -25,7 +27,8 @@ public sealed record SprintSeriesDto(
     IReadOnlyList<GoalRuleDto> GoalRules,
     int GoalShare,
     IReadOnlyList<SprintDto> Sprints,
-    bool IsOn = true)
+    bool IsOn = true,
+    string? OffReason = null)
 {
     /// <summary>The open sprint, or null before the first one starts.</summary>
     public SprintDto? OpenSprint => Sprints.LastOrDefault(sprint => sprint.IsOpen);

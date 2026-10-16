@@ -15,6 +15,20 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 /// </summary>
 public interface ISprintSeriesPlanning
 {
+    /// <summary>
+    /// Raised after a series was stored on this machine, whoever stored it: a person's
+    /// change through any screen or scope, or a copy the sync took from another device
+    /// (<see cref="ISprintSeriesReplication.ApplyAsync"/>). Every screen that draws a
+    /// series reads it again on this, the way the Tasks pane re-reads a task pulled by
+    /// sync. A refused change stored nothing and raises nothing.
+    /// <para>
+    /// Heard across scopes, on the terms the roadmap's plan notice is: a screen holds the
+    /// port from its own scope while the sync applies copies from another. It may arrive
+    /// on any thread.
+    /// </para>
+    /// </summary>
+    event Action? Changed;
+
     /// <summary>Every series, in the order they were created.</summary>
     Task<Result<IReadOnlyList<SprintSeriesDto>>> ListSeriesAsync(CancellationToken cancellationToken = default);
 
@@ -101,6 +115,16 @@ public interface ISprintSeriesPlanning
         IReadOnlyDictionary<Guid, CloseOutcome> outcomes,
         string nextGoal,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a series, on or off, with every sprint it recorded — an open one
+    /// included — and frees its repositories: from then on they are in no series and
+    /// can join another. No task changes. The deletion travels to every paired desktop
+    /// as the series' last change (<c>.devbook/domain/progress/features.md#deleting-a-series</c>).
+    /// Refused for a series that is not there. A host asks the person first; this
+    /// does not.
+    /// </summary>
+    Task<Result> DeleteSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>What a new series starts with. Everything but the repositories has the

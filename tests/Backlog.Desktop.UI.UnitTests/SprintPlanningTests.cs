@@ -282,6 +282,8 @@ public sealed class SprintPlanningTests : IDisposable
     /// </summary>
     private sealed class FakeProgress(SprintSeriesDto series) : ISprintSeriesPlanning, ISprintProgress
     {
+        public event Action? Changed { add { } remove { } }
+
         private SprintSeriesDto _series = series;
 
         public List<string> Writes { get; } = [];
@@ -363,5 +365,7 @@ public sealed class SprintPlanningTests : IDisposable
         public Task<Result<SprintSeriesDto>> StartSprintAsync(Guid seriesId, DateOnly startOn, string goal, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<SprintSeriesDto>> SetSprintGoalAsync(Guid seriesId, int number, string goal, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<SprintSeriesDto>> CloseSprintAsync(Guid seriesId, IReadOnlyDictionary<Guid, CloseOutcome> outcomes, string nextGoal, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Result> DeleteSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

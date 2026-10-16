@@ -28,10 +28,21 @@ namespace Backlog.Modules.Progress.Services;
 /// asynchronous-local depth counter — the arrangement Roadmap's replication uses, for
 /// the same reason.
 /// </para>
+/// <para>
+/// <b>One repository, one series, after the copy is taken.</b> Two desktops that each
+/// set up a series for one repository offline both keep theirs, so a taken copy can
+/// leave a repository in two switched-on series. Still inside the gate,
+/// <see cref="SeriesAssignment.ResolveClaims"/> switches every series but the one set
+/// up first off, with a line saying why, and each is saved here as a change of this
+/// device's own — the next push carries it. It reads the series alone, so the other
+/// desktop switches off the same series when the copy reaches it
+/// (<c>.devbook/domain/progress/domain.invariants.md#invariant-a-synced-repository-keeps-to-the-series-set-up-first</c>).
+/// </para>
 /// </summary>
 internal sealed class SprintSeriesReplication : ISprintSeriesReplication
 {
     private readonly ISprintSeriesReplicaStore? _store;
+    private readonly ISprintSeriesRepository? _repository;
     private readonly SeriesSaved _saved;
     private readonly ProgressGate _gate;
     private readonly AsyncLocal<int> _applying = new();
@@ -40,12 +51,19 @@ internal sealed class SprintSeriesReplication : ISprintSeriesReplication
     /// none — then there is nothing to send, and every copy reads as unreadable.</param>
     /// <param name="saved">The series' save notice.</param>
     /// <param name="gate">The one-writer gate every Progress command holds.</param>
-    public SprintSeriesReplication(ISprintSeriesReplicaStore? store, SeriesSaved saved, ProgressGate gate)
+    /// <param name="repository">The series as aggregates, which a taken copy's claims are
+    /// resolved over; null leaves them as they arrived.</param>
+    public SprintSeriesReplication(
+        ISprintSeriesReplicaStore? store,
+        SeriesSaved saved,
+        ProgressGate gate,
+        ISprintSeriesRepository? repository = null)
     {
         ArgumentNullException.ThrowIfNull(saved);
         ArgumentNullException.ThrowIfNull(gate);
 
         _store = store;
+        _repository = repository;
         _saved = saved;
         _gate = gate;
         _saved.Changed += OnLocalChange;
@@ -97,9 +115,24 @@ internal sealed class SprintSeriesReplication : ISprintSeriesReplication
             if (inbound.UpdatedAt < local.UpdatedAt) return SprintSeriesReplicaOutcome.Refused;
         }
 
-        return await store.TryWriteAsync(inbound, cancellationToken).ConfigureAwait(false)
-            ? SprintSeriesReplicaOutcome.Taken
-            : SprintSeriesReplicaOutcome.Unreadable;
+        if (!await store.TryWriteAsync(inbound, cancellationToken).ConfigureAwait(false))
+        {
+            return SprintSeriesReplicaOutcome.Unreadable;
+        }
+
+        await ResolveClaimsAsync(cancellationToken).ConfigureAwait(false);
+        return SprintSeriesReplicaOutcome.Taken;
+    }
+
+    private async Task ResolveClaimsAsync(CancellationToken cancellationToken)
+    {
+        if (_repository is null) return;
+
+        var all = await _repository.ListAsync(cancellationToken).ConfigureAwait(false);
+        foreach (var switchedOff in SeriesAssignment.ResolveClaims(all))
+        {
+            await _repository.SaveAsync(switchedOff, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private void OnLocalChange()

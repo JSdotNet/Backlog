@@ -55,6 +55,35 @@ internal sealed record SprintSeriesDocument
     /// was then — so the shape is still <see cref="CurrentVersion"/>.</summary>
     public bool IsOn { get; init; } = true;
 
+    /// <summary>When the series was set up. Absent from a document written before it was
+    /// kept, which then reads as set up before every series that has one.</summary>
+    public DateTimeOffset? CreatedAt { get; init; }
+
+    /// <summary>Why the system switched the series off, or absent.</summary>
+    public string? OffReason { get; init; }
+
+    /// <summary>When a person deleted the series, or absent while it exists. A document
+    /// carrying it is a <b>tombstone</b>: the series' id and name and nothing it held, kept
+    /// so the deletion travels as the series' last change and no older copy brings the
+    /// series back (<c>.devbook/domain/progress/domain.md#sprint-series</c>). It is written
+    /// switched off with no repository, so a build that does not know the field shows
+    /// at most an empty series that is off, never one holding a repository.</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
+
+    /// <summary>Whether this document is a deleted series' tombstone.</summary>
+    [JsonIgnore]
+    public bool IsTombstone => DeletedAt is not null;
+
+    /// <summary>The tombstone a deleted series leaves.</summary>
+    public static SprintSeriesDocument Tombstone(Guid id, string name, DateTimeOffset deletedAt) =>
+        new()
+        {
+            Id = id,
+            Name = name,
+            IsOn = false,
+            DeletedAt = deletedAt
+        };
+
     public static SprintSeriesDocument From(SprintSeries series) =>
         new()
         {
@@ -69,7 +98,9 @@ internal sealed record SprintSeriesDocument
             GoalRules = [.. series.GoalRules.Select(rule => new GoalRuleDocument(rule.Kind, [.. rule.Choices]))],
             GoalShare = series.Threshold.Share,
             Sprints = [.. series.Sprints.Select(SprintDocument.From)],
-            IsOn = series.IsOn
+            IsOn = series.IsOn,
+            CreatedAt = series.CreatedAt,
+            OffReason = series.OffReason
         };
 
     public SprintSeries ToSeries() =>
@@ -84,7 +115,9 @@ internal sealed record SprintSeriesDocument
             (GoalRules ?? []).Select(rule => (rule.Kind, (IReadOnlyList<string>)(rule.Choices ?? []))),
             GoalShare,
             (Sprints ?? []).Select(sprint => sprint.ToSprint()),
-            IsOn);
+            IsOn,
+            CreatedAt,
+            OffReason);
 }
 
 internal sealed record GoalRuleDocument(GoalRuleKind Kind, List<string>? Choices);

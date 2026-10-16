@@ -3,12 +3,17 @@
     in the weekly brief" whose sprint overlaps the reported week, the series, its
     repositories and which week of the sprint this is; one templated sentence (goal tasks
     and items done against the even pace, added and removed, blocked); the figures; what
-    shipped that week, by plan, with the pull requests it merged; and what carries on.
+    shipped that week, by plan, with the pull requests it merged; what carries on;
+    and, last, Copy as table — the sprint view's own table, built from the block's sprint
+    (SprintBriefTable) — and Open Sprint n, which the host answers by opening In progress
+    on that series' sprint view, on that sprint.
 
     It reads Progress through the dashboard's own port, ISprintBriefSource, which an
     adapter answers from Progress's published surface — this project may not name a
     Progress type. Every week the brief can step to is read once, when it opens; stepping
-    a week moves what the block draws and never what it fetches (SprintWeekBrief).
+    a week moves what the block draws and never what it fetches (SprintWeekBrief). The
+    port's Changed — a sprint series saved here or pulled from another desktop — reads
+    them again, over the figures already drawn.
 
     With Progress switched off, not composed, or no series marked, the port answers with
     no sprint and the block draws nothing at all — no heading, no spinner, no "missing"
@@ -17,6 +22,7 @@
 *@
 @inherits BriefPartBase<IReadOnlyList<SprintBriefSprint>>
 @using global::Backlog.UI.Components.Integrations
+@using global::Backlog.UI.Components.Progress
 
 @if (IsReady)
 {
@@ -77,6 +83,27 @@
                 <p class="dashboard-brief-block__tag" data-testid="dashboard-brief-sprint-into-heading">@WeeklyBriefSentences.SprintIntoHeading(brief)</p>
                 <p class="dashboard-brief-sprint__note" data-testid="dashboard-brief-sprint-into-detail">@WeeklyBriefSentences.SprintInto(brief)</p>
             </div>
+
+            @{ var table = TableOf(brief.Sprint); }
+            <div class="dashboard-brief-sprint__actions" data-testid="dashboard-brief-sprint-actions">
+                @* The sprint view's own table, over every member of this sprint, whatever
+                   week the brief shows. *@
+                <CopyButton Text="@table.Text"
+                            Html="@table.Html"
+                            Label="Copy as table"
+                            ButtonBaseClass="btn btn--secondary"
+                            StatusCssClass="copy-button__status"
+                            TestId="dashboard-brief-sprint-copy-table"
+                            ButtonTestId="dashboard-brief-sprint-copy-table-button"
+                            StatusTestId="dashboard-brief-sprint-copy-table-status">Copy as table</CopyButton>
+                @if (OnOpenSprint.HasDelegate)
+                {
+                    var sprint = brief.Sprint;
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               TestId="dashboard-brief-sprint-open"
+                               OnClick="() => OnOpenSprint.InvokeAsync(sprint)">@($"Open {sprint.Name}")</AppButton>
+                }
+            </div>
         </section>
     }
 }
@@ -84,6 +111,27 @@
 @code {
     [Inject]
     private IServiceProvider Services { get; set; } = default!;
+
+    /// <summary>"Open Sprint n" was pressed: the host opens In progress on that series'
+    /// sprint view, on that sprint. Unset — the host has no In progress to open — the
+    /// block draws no such button.</summary>
+    [Parameter]
+    public EventCallback<SprintBriefSprint> OnOpenSprint { get; set; }
+
+    private readonly Dictionary<SprintBriefSprint, SprintTable> _tables = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The table Copy as table puts on the clipboard, built once per sprint
+    /// read rather than on every render.</summary>
+    private SprintTable TableOf(SprintBriefSprint sprint)
+    {
+        if (!_tables.TryGetValue(sprint, out var table))
+        {
+            table = SprintBriefTable.Build(sprint);
+            _tables[sprint] = table;
+        }
+
+        return table;
+    }
 
     /// <summary>The series' repositories decide what the block shows, not the fetch,
     /// so moving the repository filter re-reads nothing.</summary>
@@ -123,5 +171,29 @@
     // Nothing cached: the port reads Progress afresh every time.
     protected override void InvalidateSource()
     {
+    }
+
+    private ISprintBriefSource? _source;
+
+    /// <summary>A series saved here or pulled from another device reads the block again,
+    /// over the figures already drawn, as its Refresh would.</summary>
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _source = Services.GetService(typeof(ISprintBriefSource)) as ISprintBriefSource;
+        if (_source is not null) _source.Changed += OnSeriesChanged;
+    }
+
+    private void OnSeriesChanged() => _ = InvokeAsync(RefreshAsync);
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && _source is not null)
+        {
+            _source.Changed -= OnSeriesChanged;
+            _source = null;
+        }
+
+        base.Dispose(disposing);
     }
 }
