@@ -17,7 +17,7 @@ using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Desktop.UI.Inbox;
+using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.UI.Components.Diagrams;

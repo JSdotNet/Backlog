@@ -1,4 +1,3 @@
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions;
 using Backlog.Modules.Capture.Abstractions.DataTransferObjects;
@@ -6,6 +5,7 @@ using Backlog.Modules.Capture.Ports;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.UI;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -1,8 +1,8 @@
 using AngleSharp.Dom;
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.Modules.Inbox.UI;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 using Bunit;

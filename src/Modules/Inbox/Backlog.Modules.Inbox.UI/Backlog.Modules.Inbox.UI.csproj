@@ -9,21 +9,6 @@
     the join to the backlog is a port in Inbox.Abstractions that an adapter
     under src/Infrastructure answers, never a reference from here.
   -->
-  <PropertyGroup>
-    <!--
-      The root namespace deliberately does not match the project name, and must
-      not be "tidied" to match it. The Razor generator emits a component's
-      @using directives *inside* the component's namespace and without a
-      global:: prefix, so a namespace with a second "Backlog" segment shadows
-      the repository root: inside Backlog.Modules.Inbox.UI a sibling project's
-      "Backlog.UI.Components.Buttons" would bind to Backlog.Modules.* and fail
-      with CS0234. Keeping the types in Backlog.Desktop.UI.Inbox also means the
-      move to this project changed no using, @using or namespace line anywhere,
-      and DesktopDomainBoundaryTests reads the contexts by that namespace.
-    -->
-    <RootNamespace>Backlog.Desktop.UI.Inbox</RootNamespace>
-  </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
     <!-- For AddInboxAiContentSource(), the composition root a host calls to put

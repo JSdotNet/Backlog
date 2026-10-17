@@ -3,7 +3,7 @@ using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Ai;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// The Inbox's answer to <see cref="IAiContentSource"/>: everything captured and

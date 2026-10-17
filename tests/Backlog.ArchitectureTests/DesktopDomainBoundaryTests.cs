@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
@@ -22,10 +24,9 @@ namespace Backlog.ArchitectureTests;
 /// the Inbox the compiler will accept any Backlog-Management file naming any
 /// Inbox type. These rules read the source text instead, so a <c>using</c> is
 /// caught in the file that wrote it rather than at the reference it would
-/// eventually need. They read namespaces, which for the first three contexts
-/// still say <c>Backlog.Desktop.UI.*</c> — see the <c>RootNamespace</c> comments
-/// in those csproj files for why renaming them does not compile — and for the
-/// later ones say <c>Backlog.Modules.*.UI</c>, so each rule asks the project.
+/// eventually need. They read namespaces, which for Tasks and Devbook still say
+/// <c>Backlog.Desktop.UI.*</c> — see the <c>RootNamespace</c> comments in those
+/// csproj files — and for Inbox and the later ones say <c>Backlog.Modules.*.UI</c>, so each rule asks the project.
 /// </para>
 /// <para>
 /// The contexts are read from <c>src/Modules</c> rather than listed here. The
@@ -136,7 +137,37 @@ public class DesktopDomainBoundaryTests
         }
 
         Assert.Equal("Backlog.Desktop.UI.Tasks", ContextNamespaces["Tasks"]);
+        Assert.Equal("Backlog.Modules.Inbox.UI", ContextNamespaces["Inbox"]);
         Assert.Equal("Backlog.Modules.Sessions.UI", ContextNamespaces["Sessions"]);
+    }
+
+    /// <summary>
+    /// A context whose namespace is <c>Backlog.Modules.*.UI</c> writes every
+    /// Backlog import in its Razor files as <c>@using global::Backlog.Something</c>.
+    /// The Razor generator emits those directives inside the component's namespace
+    /// without a global:: prefix, so a bare "Backlog" can bind to Backlog.Modules
+    /// and fail with CS0234 the day the reference closure declares a matching
+    /// namespace. The contexts still in <c>Backlog.Desktop.UI.*</c> are not held to
+    /// it until they move.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Contexts))]
+    public void A_module_namespaced_context_imports_backlog_through_global(string context)
+    {
+        if (!ContextNamespaces[context].StartsWith("Backlog.Modules.", StringComparison.Ordinal)) return;
+
+        var offenders = Repository.SourceFilesUnder(new DirectoryInfo(Folder(ContextProjects[context])), ".razor")
+            .SelectMany(file => File.ReadAllLines(file.FullName)
+                .Select((line, index) => (file, line, number: index + 1)))
+            .Where(entry => Regex.IsMatch(entry.line, @"^\s*@using\s+Backlog\."))
+            .Select(entry => $"{Repository.RelativePath(entry.file)}:{entry.number}: {entry.line.Trim()}")
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            $"{context} declares {ContextNamespaces[context]} but imports Backlog without global::, which the "
+            + "Razor generator can bind to Backlog.Modules:" + Environment.NewLine
+            + string.Join(Environment.NewLine, offenders));
     }
 
     /// <summary>

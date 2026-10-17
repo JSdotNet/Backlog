@@ -1,7 +1,7 @@
 using Backlog.SharedKernel.Ai;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// Wires the Inbox's answer to <see cref="IAiContentSource"/>.

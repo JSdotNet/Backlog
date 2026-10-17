@@ -254,8 +254,8 @@ The shell's `_Imports.razor` deliberately imports none of the contexts: each
 module UI project carries its own, so a component can only reach into another
 context by saying so in writing.
 
-The projects keep their original root namespaces — `Backlog.Desktop.UI.Inbox`,
-`.Tasks`, `.Devbook` — set explicitly in each
+The Tasks and Devbook projects keep their original root namespaces —
+`Backlog.Desktop.UI.Tasks` and `.Devbook` — set explicitly in each
 `.csproj` and deliberately not matching the project name. The Razor generator
 emits a component's `@using` directives *inside* the component's namespace and
 without a `global::` prefix, so a namespace carrying a second `Backlog` segment
@@ -266,7 +266,9 @@ reason, and it is also the context's name in the context map — so the constrai
 and the domain language agree. The modules whose code was never in the shell to
 begin with (`Dashboard`, `Roadmap`, `DevPc`, `Sessions`) use their own
 `Backlog.Modules.<Context>.UI` namespaces, because there was no original namespace
-for them to keep.
+for them to keep. Inbox has moved to `Backlog.Modules.Inbox.UI` and writes every
+`Backlog` import as `@using global::Backlog.…`, which is what makes the matching
+namespace safe; Tasks and Devbook follow (issue #756).
 
 Everything under `src/Harness/` is a development-time host. It ships nothing to a
 user; it exists so the shared Razor components can be started by the Aspire

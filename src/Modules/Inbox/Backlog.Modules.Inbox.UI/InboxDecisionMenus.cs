@@ -2,7 +2,7 @@ using System.Globalization;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Menus;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// The two menus a decision opens — "Move to list" and "Defer until" — and

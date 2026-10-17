@@ -1,4 +1,3 @@
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
@@ -6,6 +5,7 @@ using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Infrastructure.Sync;
+using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;

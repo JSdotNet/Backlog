@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// What somebody typed into the Inbox's capture field: a title, and whatever they

@@ -1,6 +1,6 @@
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.Modules.Inbox.UI;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;

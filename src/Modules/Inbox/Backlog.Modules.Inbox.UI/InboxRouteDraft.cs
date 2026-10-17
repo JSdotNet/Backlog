@@ -1,7 +1,7 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// A batch the person is deciding on in the "Before you route" panel, before

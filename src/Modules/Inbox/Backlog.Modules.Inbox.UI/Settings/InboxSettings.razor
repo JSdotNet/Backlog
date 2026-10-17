@@ -6,14 +6,14 @@
     touches the Inbox and not the desktop shell.
 
     The namespace is the project's root rather than the folder's: a
-    Backlog.Desktop.UI.Inbox.Settings namespace would shadow the settings screen's
-    own component for everything under Backlog.Desktop.UI.Inbox, the collision
+    Backlog.Modules.Inbox.UI.Settings namespace would shadow the settings screen's
+    own component for everything under Backlog.Modules.Inbox.UI, the collision
     Settings.razor explains at length.
 *@
-@namespace Backlog.Desktop.UI.Inbox
-@using Backlog.SharedKernel
-@using Backlog.Modules.Inbox.Abstractions.Services
-@using Backlog.UI.Components.Settings
+@namespace Backlog.Modules.Inbox.UI
+@using global::Backlog.SharedKernel
+@using global::Backlog.Modules.Inbox.Abstractions.Services
+@using global::Backlog.UI.Components.Settings
 @using Microsoft.Extensions.DependencyInjection
 @inject IAppFeatureSettings Features
 @* Read off this rather than injected: a host that keeps no rules registers no

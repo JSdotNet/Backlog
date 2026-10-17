@@ -1,6 +1,6 @@
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.UI;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

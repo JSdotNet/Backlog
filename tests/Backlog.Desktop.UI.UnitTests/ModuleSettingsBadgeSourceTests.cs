@@ -1,9 +1,9 @@
 using System.Net;
 
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Sessions.UI.Extensions;

@@ -1,6 +1,6 @@
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Inbox.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
