@@ -107,4 +107,23 @@ public sealed class SqliteRegistrationTests
         Assert.Same(store, provider.GetRequiredService<IGoalRepository>());
         Assert.Same(store, provider.GetRequiredService<IGoalReplicaStore>());
     }
+
+    [Fact]
+    public void One_impediment_store_answers_both_of_its_ports()
+    {
+        var services = new ServiceCollection();
+        services.AddSqlite(_ => Path.GetTempPath());
+
+        Assert.All(
+            services.Where(d => d.ServiceType == typeof(IImpedimentRepository)
+                || d.ServiceType == typeof(IImpedimentReplicaStore)
+                || d.ServiceType == typeof(RootedSqliteImpedimentRepository)),
+            d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));
+
+        using var provider = services.BuildServiceProvider();
+
+        var store = provider.GetRequiredService<RootedSqliteImpedimentRepository>();
+        Assert.Same(store, provider.GetRequiredService<IImpedimentRepository>());
+        Assert.Same(store, provider.GetRequiredService<IImpedimentReplicaStore>());
+    }
 }

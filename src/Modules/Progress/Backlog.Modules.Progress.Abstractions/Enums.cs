@@ -102,3 +102,25 @@ public enum GoalAttachmentKind
     /// <summary>A pull request, by its repository and number.</summary>
     PullRequest
 }
+
+/// <summary>Where an impediment stands
+/// (<c>.devbook/domain/progress/domain.md#impediment-state</c>). It moves forward only —
+/// New, Reported, Escalated, Being handled — and any open state may move to Resolved.
+/// Stored by name, so the names are persisted values and never renamed.</summary>
+public enum ImpedimentState
+{
+    /// <summary>Raised, and not yet reported to anyone.</summary>
+    New,
+
+    /// <summary>Told to whoever can remove it.</summary>
+    Reported,
+
+    /// <summary>Taken higher because the report was not enough. A state a move may skip.</summary>
+    Escalated,
+
+    /// <summary>Someone is working on removing it. Shown as "Being handled".</summary>
+    BeingHandled,
+
+    /// <summary>No longer in the way. A resolved impediment moves to no other state.</summary>
+    Resolved
+}

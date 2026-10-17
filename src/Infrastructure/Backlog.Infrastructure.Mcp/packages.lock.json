@@ -26,6 +26,12 @@
       "backlog.modules.devbook.abstractions": {
         "type": "Project"
       },
+      "backlog.modules.progress.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.roadmap.abstractions": {
         "type": "Project",
         "dependencies": {

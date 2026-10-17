@@ -191,8 +191,15 @@ public static class BacklogMcpTools
         typeof(SurfaceTools),
         DeliverySurfaceOperations.All);
 
+    /// <summary>The impediment tools beside <c>set_blocked</c>, behind <c>goals</c>: Progress's
+    /// own context and key, so their own group (local ADR 0035 §5).</summary>
+    public static McpToolGroup Impediments { get; } = new(
+        Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals,
+        typeof(ImpedimentTools),
+        [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState]);
+
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

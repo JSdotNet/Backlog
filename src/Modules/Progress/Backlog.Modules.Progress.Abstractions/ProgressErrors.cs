@@ -122,4 +122,31 @@ public static class ProgressErrors
     /// the message names that goal, as the requirement asks.</summary>
     public static Error ItemInOtherGoal(string goalTitle) =>
         Error.Conflict("progress.item_in_other_goal", $"Already in {goalTitle}");
+
+    // --- Impediments (.devbook/domain/progress/domain.invariants.md#impediment) ---
+
+    public static Error ImpedimentNotFound(Guid impedimentId) =>
+        Error.NotFound("progress.impediment_not_found", $"There is no impediment {impedimentId}.");
+
+    public static Error ImpedimentWithoutTitle() =>
+        Error.Validation("progress.impediment_without_title", "An impediment needs a title.");
+
+    /// <summary>A move the state order does not allow: backwards, to the state it is in, or
+    /// skipping a state other than Escalated.</summary>
+    public static Error ImpedimentMoveNotAllowed(ImpedimentState from, ImpedimentState to) =>
+        Error.Conflict(
+            "progress.impediment_move_not_allowed",
+            $"An impediment moves forward from New to Reported, Escalated and Being handled; {from} cannot move to {to}.");
+
+    public static Error ImpedimentResolved() =>
+        Error.Conflict(
+            "progress.impediment_resolved",
+            "A resolved impediment stays resolved. Raise a new one when the blocker comes back.");
+
+    /// <summary>A move dated before the impediment's last step: its history's days never go
+    /// backwards.</summary>
+    public static Error ImpedimentMoveBeforeLastStep(DateOnly lastStep) =>
+        Error.Validation(
+            "progress.impediment_move_before_last_step",
+            $"The impediment's last step was on {lastStep:d MMM yyyy}, so a move cannot be dated before it.");
 }

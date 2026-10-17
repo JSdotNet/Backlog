@@ -132,7 +132,8 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// </para>
 /// <para>
 /// <b>Nor is a goal.</b> A <c>goal</c> document is one of Progress's goals, whole
-/// (local ADR 0035 §9), and goes to its replication port on the series' terms.
+/// (local ADR 0035 §9), and goes to its replication port on the series' terms. So does
+/// an <c>impediment</c> document, to its own port.
 /// </para>
 /// <para>
 /// <b>Nor are the My Day preferences.</b> A <c>my-day-preferences</c> document goes to
@@ -152,7 +153,8 @@ public sealed class TaskReplicaMerge(
     IInboxNoteReplication? notes = null,
     ISprintSeriesReplication? sprints = null,
     IMyDayPreferencesReplication? myDay = null,
-    IGoalReplication? goals = null)
+    IGoalReplication? goals = null,
+    IImpedimentReplication? impediments = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -193,6 +195,9 @@ public sealed class TaskReplicaMerge(
     /// <summary>Where a goal goes, or null on a head without Progress — the phone, or a
     /// build from before the port.</summary>
     private readonly IGoalReplication? _goals = goals;
+
+    /// <summary>Where an impediment goes, or null on a head without Progress.</summary>
+    private readonly IImpedimentReplication? _impediments = impediments;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -644,6 +649,11 @@ public sealed class TaskReplicaMerge(
             return await ApplyGoalAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
+        if (ImpedimentReplicaDocuments.IsImpediment(record.Change))
+        {
+            return await ApplyImpedimentAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
         var local = await _tasks
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
@@ -912,6 +922,48 @@ public sealed class TaskReplicaMerge(
                 return ApplyOutcome.Unreadable;
 
             // An echo or an older copy: the local one stands, as it does for a task.
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands an impediment document to Progress's port and counts what it answered, exactly
+    /// as <see cref="ApplyGoalAsync"/> does for a goal (local ADR 0035 §9).
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyImpedimentAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        if (_impediments is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no impediments.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _impediments
+            .ApplyAsync(ImpedimentReplicaDocuments.ToCopy(record.Change), cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case ImpedimentReplicaOutcome.Taken:
+                Moved(moved, SyncDirection.Received, SyncItemKind.Impediment, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case ImpedimentReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that impediment. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
             default:
                 return ApplyOutcome.Held;
         }

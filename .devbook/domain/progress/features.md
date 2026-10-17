@@ -195,10 +195,16 @@ related: [.devbook/domain/progress/domain.md#blocked-task-policy, .devbook/domai
 
 Marking a task blocked raises an impediment for it, so nothing blocked goes untracked.
 A task is [marked blocked](../tasks/features.md#marking-a-task-blocked) by its
-`blocked:` token or a `set_blocked` call. When it is
-and no open impediment holds it back already, Progress raises a New impediment titled
-with the task's title that holds the task back. When one already does, nothing is
-raised. Unblocking the task leaves the impediment as it is: the person resolves it.
+`blocked:` token or a `set_blocked` call. When it is marked and no open impediment
+holds it back already, Progress raises a New impediment titled with the task's title
+that holds the task back. When one already does, nothing is raised, and nor is one
+when the person resolved the impediment this block raised while the task is still
+marked. Unblocking the task leaves the impediment as it is: the person resolves it.
+
+An agent works with impediments through two MCP tools beside `set_blocked`, behind
+the same goals switch: `raise_impediment` raises one with its title, the tasks it
+holds back and a note, and `set_impediment_state` moves one to reported, escalated,
+being-handled or resolved, with who it is with at that step.
 
 The task gains no impediment field. Progress reacts to the mark, and Tasks never
 calls Progress.

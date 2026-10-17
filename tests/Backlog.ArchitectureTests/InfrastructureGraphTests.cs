@@ -14,10 +14,10 @@ public class InfrastructureGraphTests
 {
     /// <summary>
     /// How many projects under <c>src/Modules</c> one infrastructure project may
-    /// reference. Four is today's widest adapter that is still one adapter:
-    /// <c>Backlog.Infrastructure.Mcp</c> answers the agent tools over Tasks,
-    /// Roadmap, Devbook and Sessions. Past that an adapter is usually several
-    /// adapters sharing a project.
+    /// reference. Four was the widest adapter that is still one adapter when the
+    /// cap was set: <c>Backlog.Infrastructure.Mcp</c> answering the agent tools
+    /// over Tasks, Roadmap, Devbook and Sessions. Past that an adapter is usually
+    /// several adapters sharing a project.
     /// </summary>
     internal const int MaxModuleReferences = 4;
 
@@ -48,7 +48,12 @@ public class InfrastructureGraphTests
         ("Backlog.Infrastructure.Sync", 7,
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Progress, "
             + "Devbook and Sessions — over the Sync module's own contract, so it sees each context's published "
-            + "surface by design.")
+            + "surface by design."),
+        ("Backlog.Infrastructure.Mcp", 5,
+            "The MCP server is one adapter: the agent tools over each context's published port, one tool "
+            + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
+            + "Sessions and, for the impediment tools beside set_blocked, Progress (local ADR 0035). It "
+            + "references abstractions only, never a module's implementation.")
     ];
 
     /// <summary>

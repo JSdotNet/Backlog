@@ -67,6 +67,7 @@ public sealed class TaskSyncSession
     private readonly ISprintSeriesReplication? _sprints;
     private readonly IMyDayPreferencesReplication? _myDay;
     private readonly IGoalReplication? _goals;
+    private readonly IImpedimentReplication? _impediments;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -91,6 +92,8 @@ public sealed class TaskSyncSession
     /// reason.</param>
     /// <param name="goals">Where every goal is read from for the push (local ADR 0035),
     /// or null on a head without Progress. Optional for the same reason.</param>
+    /// <param name="impediments">Where every impediment is read from for the push (local
+    /// ADR 0035), or null on a head without Progress. Optional for the same reason.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -105,7 +108,8 @@ public sealed class TaskSyncSession
         IInboxNoteReplication? notes = null,
         ISprintSeriesReplication? sprints = null,
         IMyDayPreferencesReplication? myDay = null,
-        IGoalReplication? goals = null)
+        IGoalReplication? goals = null,
+        IImpedimentReplication? impediments = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -128,6 +132,7 @@ public sealed class TaskSyncSession
         _sprints = sprints;
         _myDay = myDay;
         _goals = goals;
+        _impediments = impediments;
     }
 
     /// <summary>
@@ -361,6 +366,15 @@ public sealed class TaskSyncSession
             refused += documents.Value.Refused;
         }
 
+        if (_impediments is not null)
+        {
+            var documents = await PushImpedimentsAsync(_impediments, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
         return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
 
@@ -517,6 +531,22 @@ public sealed class TaskSyncSession
             SyncItemKind.Goal,
             cancellationToken,
             change => GoalReplicaDocuments.MarkOf(change.Id)).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends every impediment, each as one whole document, on the terms
+    /// <see cref="PushGoalsAsync"/> gives a goal, with a mark per impediment.</summary>
+    private async Task<Result<(int Pushed, int Refused)>> PushImpedimentsAsync(
+        IImpedimentReplication impediments,
+        CancellationToken cancellationToken)
+    {
+        var held = await impediments.ReadAllAsync(cancellationToken).ConfigureAwait(false);
+
+        return await PushWholeDocumentsAsync(
+            held,
+            copy => Task.FromResult<TaskChange?>(ImpedimentReplicaDocuments.ToChange(copy)),
+            SyncItemKind.Impediment,
+            cancellationToken,
+            change => ImpedimentReplicaDocuments.MarkOf(change.Id)).ConfigureAwait(false);
     }
 
     /// <summary>The note a sent task's log line carries: what was already known
