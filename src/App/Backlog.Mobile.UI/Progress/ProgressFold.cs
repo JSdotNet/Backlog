@@ -8,7 +8,8 @@ namespace Backlog.Mobile.UI.Progress;
 /// The phone reads these and owns none of them (local ADR 0035 §8).
 /// </summary>
 /// <param name="Kind">The document's kind token: <see cref="ProgressFold.GoalType"/>,
-/// <see cref="ProgressFold.ImpedimentType"/> or <see cref="ProgressFold.StandUpContextType"/>.</param>
+/// <see cref="ProgressFold.ImpedimentType"/>, <see cref="ProgressFold.StandUpContextType"/>
+/// or <see cref="ProgressFold.ImpedimentEditType"/>.</param>
 /// <param name="UpdatedAt">The document's own last-write-wins stamp.</param>
 /// <param name="DeletedAt">Set on a tombstone, which is kept hidden so an older copy
 /// arriving later cannot bring the document back.</param>
@@ -48,11 +49,14 @@ public static class ProgressFold
     public const string ImpedimentEditType = Tasks.TaskFold.ImpedimentEditType;
 
     /// <summary>Whether this fold keeps documents of <paramref name="type"/>. Ordinal, as
-    /// every token on the feed is compared.</summary>
+    /// every token on the feed is compared. Impediment edits are kept too, live and retired:
+    /// a live one is an edit the phone sent and no desktop has answered yet, and its tombstone
+    /// is a desktop's answer to it (local ADR 0035 §8).</summary>
     public static bool Keeps(string? type) =>
         string.Equals(type, GoalType, StringComparison.Ordinal)
         || string.Equals(type, ImpedimentType, StringComparison.Ordinal)
-        || string.Equals(type, StandUpContextType, StringComparison.Ordinal);
+        || string.Equals(type, StandUpContextType, StringComparison.Ordinal)
+        || string.Equals(type, ImpedimentEditType, StringComparison.Ordinal);
 
     /// <summary>Folds the Progress documents among <paramref name="records"/> into
     /// <paramref name="rows"/>, and answers with the rows that changed — the ones to write.</summary>

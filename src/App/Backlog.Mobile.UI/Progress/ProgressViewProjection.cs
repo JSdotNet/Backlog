@@ -47,11 +47,13 @@ public sealed class ProgressViewProjection : IDisposable
     private readonly Lock _rowsLock = new();
     private readonly Dictionary<Guid, ProgressViewRow> _rows;
 
-    /// <summary>The edits asked for each impediment's field, oldest first, under
-    /// <see cref="_rowsLock"/>: what the next edit of the same field says the phone saw, so
-    /// edits in a row apply in the order they were asked (<see cref="ImpedimentEditDto"/>).
-    /// Seeded from the outbox, so the edits still waiting to leave outlive a restart.</summary>
-    private readonly Dictionary<(Guid Impediment, ImpedimentEditKind Kind), List<ImpedimentEditDto>> _asked = [];
+    /// <summary>The edits asked for each impediment's field, oldest first, each under the id
+    /// of the document it travels as, under <see cref="_rowsLock"/>: what the next edit of the
+    /// same field says the phone saw, so edits in a row apply in the order they were asked
+    /// (<see cref="ImpedimentEditDto"/>). Seeded from the outbox and from the live edit rows
+    /// the phone keeps, so an edit still waiting to leave, and one that has left and that no
+    /// desktop has retired, both outlive a restart.</summary>
+    private readonly Dictionary<(Guid Impediment, ImpedimentEditKind Kind), List<SentEdit>> _asked = [];
 
     /// <summary>For a chain whose every edit has left the outbox, the stamp of the copy of its
     /// impediment the phone held when the last of them left, under <see cref="_rowsLock"/>.
@@ -59,6 +61,10 @@ public sealed class ProgressViewProjection : IDisposable
     /// newer copy of the impediment arriving after that, and only that makes a chain the
     /// copy does not bear out give way.</summary>
     private readonly Dictionary<(Guid Impediment, ImpedimentEditKind Kind), DateTimeOffset> _leftAt = [];
+
+    /// <summary>The edit rows marked settled and not yet written, under <see cref="_rowsLock"/>
+    /// (<see cref="Settle"/>).</summary>
+    private readonly List<ProgressViewRow> _settled = [];
 
     public ProgressViewProjection(IProgressViewStore store, DeviceOutbox outbox, CloudSyncClient sync, TimeProvider clock)
     {
@@ -70,9 +76,14 @@ public sealed class ProgressViewProjection : IDisposable
         // Read once, here: the pages are drawn from this before any pull answers.
         _rows = store.ReadRows().ToDictionary(row => row.Id);
 
+        foreach (var row in _rows.Values.Where(row => row.DeletedAt is null && IsEdit(row)))
+        {
+            if (ReadEdit(row.Content) is { } edit) Remember(row.Id, edit);
+        }
+
         foreach (var entry in outbox.Entries.Where(entry => entry.Kind == ImpedimentEditOutboxKind.Token))
         {
-            if (Asked(entry) is { } edit) Remember(edit);
+            if (Asked(entry) is { } edit) Remember(entry.Id, edit);
         }
 
         _outbox.Delivered += OnDelivered;
@@ -206,8 +217,16 @@ public sealed class ProgressViewProjection : IDisposable
                 await _store.SaveAsync(changed, page.Since, cancellationToken);
                 lock (_rowsLock)
                 {
-                    foreach (var row in changed) _rows[row.Id] = row;
+                    // An edit queued or settled while the page was on its way may hold a later
+                    // copy than the one the page was folded against.
+                    foreach (var row in changed)
+                    {
+                        if (!_rows.TryGetValue(row.Id, out var held) || ProgressFold.Wins(row, held)) _rows[row.Id] = row;
+                    }
                 }
+
+                AnswerChains();
+                await KeepSettledAsync(cancellationToken);
 
                 since = page.Since;
 
@@ -288,7 +307,9 @@ public sealed class ProgressViewProjection : IDisposable
     /// <summary>
     /// Queues one edit for an impediment the phone holds, open and readable; answers null and
     /// queues nothing for one it does not. The outbox is the promise to send it: the entry
-    /// goes out as soon as there is a network, and a desktop applies it on its next pull.
+    /// goes out as soon as there is a network, and a desktop applies it on its next pull. The
+    /// edit is kept as a row too, the one the feed returns it as, so once it has left the
+    /// outbox it is still what the phone saw after a restart, until a desktop retires it.
     /// </summary>
     private async Task<ImpedimentEditDto?> QueueAsync(
         Guid impedimentId,
@@ -329,9 +350,21 @@ public sealed class ProgressViewProjection : IDisposable
             }
 
             var id = Guid.CreateVersion7();
-            await _outbox.EnqueueAsync(ImpedimentEditOutboxKind.Token, id, TaskOutboxKind.Write(NewEdit(id, edit, impediment.Title)), cancellationToken);
+            var document = NewEdit(id, edit, impediment.Title);
 
-            lock (_rowsLock) Remember(edit);
+            // Kept before it is queued, while no copy of it can exist anywhere else. Server
+            // stamp 0: the copy the feed returns, same stamp and a real server stamp, wins.
+            var row = new ProgressViewRow(id, ProgressFold.ImpedimentEditType, document.UpdatedAt, null, 0, document.Task.ContentMd ?? string.Empty);
+            await _store.SaveAsync([row], cancellationToken: cancellationToken);
+            await _outbox.EnqueueAsync(ImpedimentEditOutboxKind.Token, id, TaskOutboxKind.Write(document), cancellationToken);
+
+            lock (_rowsLock)
+            {
+                if (!_rows.TryGetValue(id, out var held) || ProgressFold.Wins(row, held)) _rows[id] = row;
+                Remember(id, edit);
+            }
+
+            await KeepSettledAsync(cancellationToken);
             return edit;
         }
         finally
@@ -345,42 +378,50 @@ public sealed class ProgressViewProjection : IDisposable
     /// still holds what the first edit of the chain saw, or what one of the chain asked for —
     /// a desktop has applied part of it. Otherwise the field was changed elsewhere, the chain
     /// is forgotten, and null answers that the impediment's own value is what the phone saw.
-    /// A chain that has left the outbox whole is forgotten too once a newer copy of the
-    /// impediment has arrived and still does not say what it asked: the desktop refused it or
-    /// found it stale. Under <see cref="_rowsLock"/>.
+    /// A chain whose every edit a desktop has retired is answered: the copy the phone holds is
+    /// the desktop's verdict, and a chain it does not bear out whole — one move applied and the
+    /// next refused, or none — is forgotten. A chain that has left the outbox whole and is not
+    /// yet retired is forgotten too once a newer copy of the impediment has arrived and bears
+    /// out none of it. Under <see cref="_rowsLock"/>.
     /// </summary>
     private ImpedimentEditDto? Pending(ImpedimentDto impediment, ImpedimentEditKind kind)
     {
         var key = (impediment.Id, kind);
         if (_asked.GetValueOrDefault(key) is not { Count: > 0 } chain) return null;
 
+        var first = chain[0].Edit;
+        var last = chain[^1].Edit;
+
         var live = kind switch
         {
-            ImpedimentEditKind.State => chain[0].WasState is null || impediment.State == chain[0].WasState || chain.Any(edit => edit.State == impediment.State),
-            ImpedimentEditKind.CheckAgain => impediment.CheckAgain == chain[0].WasCheckAgain || chain.Any(edit => edit.CheckAgain == impediment.CheckAgain),
-            _ => SameNote(impediment.Note, chain[0].WasNote) || chain.Any(edit => SameNote(edit.Note, impediment.Note)),
+            ImpedimentEditKind.State => first.WasState is null || impediment.State == first.WasState || chain.Any(sent => sent.Edit.State == impediment.State),
+            ImpedimentEditKind.CheckAgain => impediment.CheckAgain == first.WasCheckAgain || chain.Any(sent => sent.Edit.CheckAgain == impediment.CheckAgain),
+            _ => SameNote(impediment.Note, first.WasNote) || chain.Any(sent => SameNote(sent.Edit.Note, impediment.Note)),
         };
 
         // Applied whole: the impediment says what the last edit asked, so the chain is done.
         var done = kind switch
         {
-            ImpedimentEditKind.State => impediment.State == chain[^1].State,
-            ImpedimentEditKind.CheckAgain => impediment.CheckAgain == chain[^1].CheckAgain,
-            _ => SameNote(impediment.Note, chain[^1].Note),
+            ImpedimentEditKind.State => impediment.State == last.State,
+            ImpedimentEditKind.CheckAgain => impediment.CheckAgain == last.CheckAgain,
+            _ => SameNote(impediment.Note, last.Note),
         };
 
         // Part of the chain applied: the impediment says what one of its edits asked.
         var partly = kind switch
         {
-            ImpedimentEditKind.State => chain.Any(edit => edit.State == impediment.State),
-            ImpedimentEditKind.CheckAgain => chain.Any(edit => edit.CheckAgain == impediment.CheckAgain),
-            _ => chain.Any(edit => SameNote(edit.Note, impediment.Note)),
+            ImpedimentEditKind.State => chain.Any(sent => sent.Edit.State == impediment.State),
+            ImpedimentEditKind.CheckAgain => chain.Any(sent => sent.Edit.CheckAgain == impediment.CheckAgain),
+            _ => chain.Any(sent => SameNote(sent.Edit.Note, impediment.Note)),
         };
 
-        // A newer copy that bears out none of the chain is the desktop's answer to it; one
-        // that bears out part of it is progress, and the rest waits for the copy after it.
-        var answered = false;
-        if (!chain.Any(InOutbox))
+        // Every edit retired: a desktop answered each one, and pushes the impediment it changed
+        // before the tombstones, so the copy held now is its verdict (local ADR 0035 §8).
+        // Otherwise a newer copy that bears out none of the chain is the desktop's answer to
+        // it; one that bears out part of it is progress, and the rest waits for the copy or
+        // the tombstones after it.
+        var answered = chain.All(sent => Retired(sent.Id));
+        if (!answered && !chain.Any(InOutbox))
         {
             var stamp = StampOf(impediment.Id);
             if (!_leftAt.TryGetValue(key, out var left)) _leftAt[key] = stamp;
@@ -388,11 +429,56 @@ public sealed class ProgressViewProjection : IDisposable
             else answered = stamp > left;
         }
 
-        if (live && !done && !answered) return chain[^1];
+        if (live && !done && !answered) return last;
 
         _asked.Remove(key);
         _leftAt.Remove(key);
+        foreach (var sent in chain) Settle(sent);
         return null;
+    }
+
+    /// <summary>
+    /// Marks an edit of a chain the phone has finished with as settled: its row becomes a
+    /// tombstone of the phone's own, kept on disk by the next pull or edit, so a restart does
+    /// not seed it again — a desktop that never retired it, closed before it pushed the
+    /// tombstone, would otherwise leave it showing as asked. The highest server stamp keeps
+    /// the copy the feed returns of the live edit from bringing it back; a desktop's own
+    /// tombstone, stamped later, still replaces it. Under <see cref="_rowsLock"/>.
+    /// </summary>
+    private void Settle(SentEdit sent)
+    {
+        var held = _rows.GetValueOrDefault(sent.Id);
+        if (held is { DeletedAt: not null }) return;
+
+        var at = held?.UpdatedAt ?? sent.Edit.AskedAt;
+        var settled = new ProgressViewRow(sent.Id, ProgressFold.ImpedimentEditType, at, at, long.MaxValue, held?.Content ?? ProgressDocuments.WriteEdit(sent.Edit));
+        _rows[sent.Id] = settled;
+        _settled.Add(settled);
+    }
+
+    /// <summary>Writes the edits settled since the last write. Called by the pull and by an
+    /// edit, each under its own gate; the store keeps the later copy whichever writes last.</summary>
+    private async Task KeepSettledAsync(CancellationToken cancellationToken)
+    {
+        List<ProgressViewRow> settled;
+        lock (_rowsLock)
+        {
+            if (_settled.Count == 0) return;
+            settled = [.. _settled];
+            _settled.Clear();
+        }
+
+        await _store.SaveAsync(settled, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>Answers every chain against the copies a pull just kept, so a chain the pull
+    /// settled is marked before the app can close.</summary>
+    private void AnswerChains()
+    {
+        List<(Guid Impediment, ImpedimentEditKind Kind)> keys;
+        lock (_rowsLock) keys = [.. _asked.Keys];
+
+        foreach (var (impediment, kind) in keys) AskedFor(impediment, kind);
     }
 
     /// <summary>Notes the moment a chain left the phone whole, before any pull can bring a
@@ -411,28 +497,30 @@ public sealed class ProgressViewProjection : IDisposable
         }
     }
 
-    /// <summary>Whether the outbox still holds <paramref name="edit"/>.</summary>
-    private bool InOutbox(ImpedimentEditDto edit) =>
-        _outbox.Entries
-            .Where(entry => entry.Kind == ImpedimentEditOutboxKind.Token)
-            .Select(Asked)
-            .Any(queued => queued is not null
-                && queued.ImpedimentId == edit.ImpedimentId
-                && queued.Kind == edit.Kind
-                && queued.AskedAt == edit.AskedAt);
+    /// <summary>Whether the outbox still holds <paramref name="sent"/>.</summary>
+    private bool InOutbox(SentEdit sent) => _outbox.Entries.Any(entry => entry.Id == sent.Id);
+
+    /// <summary>Whether a desktop has retired the edit sent as <paramref name="id"/>: the phone
+    /// holds its tombstone. Under <see cref="_rowsLock"/>.</summary>
+    private bool Retired(Guid id) => _rows.GetValueOrDefault(id) is { DeletedAt: not null } row && IsEdit(row);
+
+    private static bool IsEdit(ProgressViewRow row) => string.Equals(row.Kind, ProgressFold.ImpedimentEditType, StringComparison.Ordinal);
 
     /// <summary>The stamp of the copy of the impediment the phone holds. Under <see cref="_rowsLock"/>.</summary>
     private DateTimeOffset StampOf(Guid impedimentId) =>
         _rows.GetValueOrDefault(impedimentId)?.UpdatedAt ?? DateTimeOffset.MinValue;
 
-    /// <summary>Adds an edit to its field's chain. Under <see cref="_rowsLock"/>, or in the constructor.</summary>
-    private void Remember(ImpedimentEditDto edit)
+    /// <summary>Adds an edit, sent as <paramref name="id"/>, to its field's chain, once. Under
+    /// <see cref="_rowsLock"/>, or in the constructor.</summary>
+    private void Remember(Guid id, ImpedimentEditDto edit)
     {
         var key = (edit.ImpedimentId, edit.Kind);
         if (!_asked.TryGetValue(key, out var chain)) _asked[key] = chain = [];
-        chain.Add(edit);
+        if (chain.Any(sent => sent.Id == id)) return;
+
+        chain.Add(new SentEdit(id, edit));
         _leftAt.Remove(key);
-        chain.Sort((left, right) => left.AskedAt.CompareTo(right.AskedAt));
+        chain.Sort((left, right) => left.Edit.AskedAt.CompareTo(right.Edit.AskedAt));
     }
 
     /// <summary>The edit a queued outbox entry carries, or null for one this build cannot read.</summary>
@@ -440,13 +528,29 @@ public sealed class ProgressViewProjection : IDisposable
     {
         try
         {
-            return ProgressDocuments.ReadEdit(TaskOutboxKind.Read(entry).Task.ContentMd);
+            return ReadEdit(TaskOutboxKind.Read(entry).Task.ContentMd);
         }
         catch (Exception failure) when (failure is System.Text.Json.JsonException or InvalidOperationException)
         {
             return null;
         }
     }
+
+    /// <summary>The edit a document's text carries, or null for one this build cannot read.</summary>
+    private static ImpedimentEditDto? ReadEdit(string? content)
+    {
+        try
+        {
+            return ProgressDocuments.ReadEdit(content);
+        }
+        catch (Exception failure) when (failure is System.Text.Json.JsonException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>An edit the phone asked for, under the id of the document it travels as.</summary>
+    private sealed record SentEdit(Guid Id, ImpedimentEditDto Edit);
 
     private static bool SameNote(string? left, string? right) =>
         string.Equals(string.IsNullOrWhiteSpace(left) ? null : left.Trim(), string.IsNullOrWhiteSpace(right) ? null : right.Trim(), StringComparison.Ordinal);

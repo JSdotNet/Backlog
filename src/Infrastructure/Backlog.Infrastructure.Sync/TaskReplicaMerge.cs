@@ -295,7 +295,11 @@ public sealed class TaskReplicaMerge(
 
         try
         {
-            foreach (var record in Winners(page))
+            // A page's impediment edits go after its other documents: an edit a closed desktop
+            // never retired then meets the latest copy of its impediment, and a change made
+            // since stands, rather than the edit stamping over it (local ADR 0035 §8). Stable,
+            // so edits keep the order they were asked in.
+            foreach (var record in Winners(page).OrderBy(record => ImpedimentEditReplicaDocuments.Is(record.Change)))
             {
                 switch (await ApplyOneAsync(record, moved, cancellationToken).ConfigureAwait(false))
                 {

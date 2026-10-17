@@ -238,9 +238,21 @@ the edit with a tombstone.
 
 The phone offers only the moves `ImpedimentMoves.Allows` permits, the rule the
 aggregate refuses by, published in `Progress.Abstractions` beside `GoalItems`. It
-shows an edit as asked until a copy of the impediment says it, says what a
-desktop changed since, or, once the edit has left the outbox, still does not say
-it.
+shows an edit as asked until a copy of the impediment says it, or says what a
+desktop changed since.
+
+A desktop's tombstone of an edit is its answer to that edit, and the phone
+settles by it. The phone keeps the `impediment-edit` documents the task feed
+returns, live and retired, so an edit it sent outlives a restart and the next
+edit of the field still names what that one asked. Once every edit asked of a
+field is retired and the impediment does not say the last of them, a desktop
+refused or found stale part of the run, and the phone shows its copy. An edit
+no tombstone has answered yet gives way only to a newer copy that bears out
+none of the run, and the phone then marks it settled itself, so a restart does
+not bring it back. A desktop applies the edits a page carries after the page's
+other documents: an edit a closed desktop never retired, arriving in one page
+with a later copy of its impediment, meets that copy first, and a change made
+since stands.
 
 ### 9. Goals and impediments ride the task feed
 
