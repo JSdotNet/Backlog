@@ -100,7 +100,7 @@ public static class WorkLinker
     /// Links the pull request a person named by number or link — "Link a session or pull
     /// request…" on a task's side panel — whatever its state: open, draft, merged or
     /// closed. Work that merged before its task was linked is still the task's work, and
-    /// a sprint member counts as done by its pull requests only once they are linked.
+    /// a task a goal holds counts as done by its pull requests only once they are linked.
     /// <para>
     /// The pull request must be in a repository registered here: a link or
     /// <c>owner/name#123</c> names it, a bare number is the task's own repository's. It

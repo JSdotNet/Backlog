@@ -6,8 +6,8 @@ namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
 /// How a goal is written on the task feed: a whole document under the goal's own id with
-/// the kind token <c>goal</c> (local ADR 0035 §9), on the terms a sprint series travels on
-/// (<see cref="SprintReplicaDocuments"/>). The wire half only — what a goal says, and which
+/// the kind token <c>goal</c> (local ADR 0035 §9), on the terms the roadmap's plan travels
+/// on (local ADR 0018). The wire half only — what a goal says, and which
 /// copy wins, is Progress's, behind <see cref="IGoalReplication"/>.
 /// <para>
 /// The kind token is a literal duplicated where it is read, for the reason

@@ -71,25 +71,6 @@ public sealed class SqliteRegistrationTests
     }
 
     [Fact]
-    public void One_sprint_series_store_answers_both_of_its_ports()
-    {
-        var services = new ServiceCollection();
-        services.AddSqlite(_ => Path.GetTempPath());
-
-        Assert.All(
-            services.Where(d => d.ServiceType == typeof(ISprintSeriesRepository)
-                || d.ServiceType == typeof(ISprintSeriesReplicaStore)
-                || d.ServiceType == typeof(RootedSqliteSprintSeriesRepository)),
-            d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));
-
-        using var provider = services.BuildServiceProvider();
-
-        var store = provider.GetRequiredService<RootedSqliteSprintSeriesRepository>();
-        Assert.Same(store, provider.GetRequiredService<ISprintSeriesRepository>());
-        Assert.Same(store, provider.GetRequiredService<ISprintSeriesReplicaStore>());
-    }
-
-    [Fact]
     public void One_goal_store_answers_both_of_its_ports()
     {
         var services = new ServiceCollection();

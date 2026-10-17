@@ -18,22 +18,22 @@ public sealed class GoalCountingTests
     private static PullRequestRefDto Pr(int number) => new(Repo, number.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private static LinkedPullRequestDto Merged(int number, DateOnly on) =>
-        new(Repo, number.ToString(System.Globalization.CultureInfo.InvariantCulture), LinkedPullRequestState.Merged, on, "jobs");
+        new(Repo, number.ToString(System.Globalization.CultureInfo.InvariantCulture), LinkedPullRequestState.Merged, on);
 
     private static LinkedPullRequestDto Open(int number) =>
-        new(Repo, number.ToString(System.Globalization.CultureInfo.InvariantCulture), LinkedPullRequestState.Open, null, "jobs");
+        new(Repo, number.ToString(System.Globalization.CultureInfo.InvariantCulture), LinkedPullRequestState.Open, null);
 
-    private static List<SprintTaskDto> Plan(string tag, int entries, int done, string repository = "backlog") =>
+    private static List<ProgressTaskDto> Plan(string tag, int entries, int done, string repository = "backlog") =>
     [
         .. Enumerable.Range(0, entries).Select(i => Make.Task(
             $"Entry {i}",
-            i < done ? SprintTaskStatus.Done : SprintTaskStatus.Ready,
+            i < done ? ProgressTaskStatus.Done : ProgressTaskStatus.Ready,
             plan: tag,
             repository: repository,
             completedOn: i < done ? MakeGoal.Today : null))
     ];
 
-    private static GoalProgress Count(Goal goal, IReadOnlyList<SprintTaskDto> tasks, IReadOnlyList<LinkedPullRequestDto>? pulls = null, IReadOnlyList<Goal>? all = null, DayWindow? window = null) =>
+    private static GoalProgress Count(Goal goal, IReadOnlyList<ProgressTaskDto> tasks, IReadOnlyList<LinkedPullRequestDto>? pulls = null, IReadOnlyList<Goal>? all = null, DayWindow? window = null) =>
         GoalCounting.Count(goal, all ?? [goal], tasks, pulls ?? [], window);
 
     /// <summary>Scenario "A plan of nine entries": 5/9.</summary>
@@ -75,7 +75,7 @@ public sealed class GoalCountingTests
     [Fact]
     public void An_attached_task_counts_once_with_its_pull_requests()
     {
-        var task = Make.Task("Invoice PDF export", SprintTaskStatus.InProgress, pullRequests: [Pr(1338), Pr(1340)]);
+        var task = Make.Task("Invoice PDF export", ProgressTaskStatus.InProgress, pullRequests: [Pr(1338), Pr(1340)]);
         var goal = MakeGoal.Named("G", MakeGoal.Task(task.Id));
 
         var progress = Count(goal, [task], [Open(1338), Open(1340)]);
@@ -144,8 +144,8 @@ public sealed class GoalCountingTests
     [Fact]
     public void A_task_is_done_when_every_pull_request_it_links_is_merged()
     {
-        var merged = Make.Task("Both merged", SprintTaskStatus.InProgress, pullRequests: [Pr(1), Pr(2)]);
-        var half = Make.Task("One merged", SprintTaskStatus.InProgress, pullRequests: [Pr(3), Pr(4)]);
+        var merged = Make.Task("Both merged", ProgressTaskStatus.InProgress, pullRequests: [Pr(1), Pr(2)]);
+        var half = Make.Task("One merged", ProgressTaskStatus.InProgress, pullRequests: [Pr(3), Pr(4)]);
         var goal = MakeGoal.Named("G", MakeGoal.Task(merged.Id), MakeGoal.Task(half.Id));
 
         var progress = Count(
@@ -159,7 +159,7 @@ public sealed class GoalCountingTests
     [Fact]
     public void A_task_without_a_pull_request_is_done_by_its_status_alone()
     {
-        var task = Make.Task("No PR", SprintTaskStatus.InProgress);
+        var task = Make.Task("No PR", ProgressTaskStatus.InProgress);
         var goal = MakeGoal.Named("G", MakeGoal.Task(task.Id));
 
         Assert.Equal(0, Count(goal, [task]).Done);
@@ -169,10 +169,10 @@ public sealed class GoalCountingTests
     [Fact]
     public void Open_items_stand_as_doing_blocked_or_to_do()
     {
-        var doing = Make.Task("Doing", SprintTaskStatus.InProgress);
-        var blocked = Make.Task("Blocked", SprintTaskStatus.InProgress, blocked: true);
-        var todo = Make.Task("To do", SprintTaskStatus.Ready);
-        var done = Make.Task("Done", SprintTaskStatus.Done, blocked: true, completedOn: MakeGoal.Today);
+        var doing = Make.Task("Doing", ProgressTaskStatus.InProgress);
+        var blocked = Make.Task("Blocked", ProgressTaskStatus.InProgress, blocked: true);
+        var todo = Make.Task("To do", ProgressTaskStatus.Ready);
+        var done = Make.Task("Done", ProgressTaskStatus.Done, blocked: true, completedOn: MakeGoal.Today);
         var goal = MakeGoal.Named("G", MakeGoal.Task(doing.Id), MakeGoal.Task(blocked.Id), MakeGoal.Task(todo.Id), MakeGoal.Task(done.Id));
 
         var progress = Count(goal, [doing, blocked, todo, done]);
@@ -187,9 +187,9 @@ public sealed class GoalCountingTests
     {
         var monday = new DateOnly(2026, 10, 12);
         var friday = new DateOnly(2026, 10, 16);
-        var inside = Make.Task("Inside", SprintTaskStatus.Done, completedOn: monday.AddDays(1));
-        var before = Make.Task("Before", SprintTaskStatus.Done, completedOn: monday.AddDays(-1));
-        var byMerge = Make.Task("By merge", SprintTaskStatus.InProgress, pullRequests: [Pr(7), Pr(8)]);
+        var inside = Make.Task("Inside", ProgressTaskStatus.Done, completedOn: monday.AddDays(1));
+        var before = Make.Task("Before", ProgressTaskStatus.Done, completedOn: monday.AddDays(-1));
+        var byMerge = Make.Task("By merge", ProgressTaskStatus.InProgress, pullRequests: [Pr(7), Pr(8)]);
         var goal = MakeGoal.Named("G", MakeGoal.Task(inside.Id), MakeGoal.Task(before.Id), MakeGoal.Task(byMerge.Id), MakeGoal.PullRequest(Repo, 9));
 
         var progress = Count(

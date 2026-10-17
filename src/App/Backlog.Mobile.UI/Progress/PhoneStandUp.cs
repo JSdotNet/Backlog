@@ -38,7 +38,7 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
             [.. progress.Goals().Select(view => view.Goal)],
             progress.Impediments(),
             Work(tasks.Live()),
-            [.. (context?.PullRequests ?? []).Select(Linked)],
+            [.. (context?.PullRequests ?? []).Select(LinkedPullRequestDto.Of)],
             context?.PointsPerWeek));
     }
 
@@ -50,7 +50,7 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
     /// phone holds, still waits on open work. A capture, a note and every whole document the
     /// desktop replicates never reach here — the task fold keeps no row for one.
     /// </summary>
-    public static IReadOnlyList<SprintTaskDto> Work(IReadOnlyList<TaskViewRow> rows)
+    public static IReadOnlyList<ProgressTaskDto> Work(IReadOnlyList<TaskViewRow> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
 
@@ -62,11 +62,11 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
         return [.. rows.Select(row => Task(row) with { WaitsOnOpenWork = WaitsOnOpenWork(row, index, byId) })];
     }
 
-    private static SprintTaskDto Task(TaskViewRow row)
+    private static ProgressTaskDto Task(TaskViewRow row)
     {
         var task = row.Task;
 
-        return new SprintTaskDto(
+        return new ProgressTaskDto(
             row.Id,
             task.Title,
             StatusOf(task.Status),
@@ -91,7 +91,7 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
     /// <summary>The status token as Progress reads it, through the Tasks token map the desktop
     /// writes it with; a token this build does not know reads as archived, as the desktop's
     /// source reads every status it does not list.</summary>
-    private static SprintTaskStatus StatusOf(string? token)
+    private static ProgressTaskStatus StatusOf(string? token)
     {
         EntryStatus status;
         try
@@ -100,16 +100,16 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
         }
         catch (FormatException)
         {
-            return SprintTaskStatus.Archived;
+            return ProgressTaskStatus.Archived;
         }
 
         return status switch
         {
-            EntryStatus.Draft => SprintTaskStatus.Draft,
-            EntryStatus.Ready => SprintTaskStatus.Ready,
-            EntryStatus.InProgress => SprintTaskStatus.InProgress,
-            EntryStatus.Done => SprintTaskStatus.Done,
-            _ => SprintTaskStatus.Archived
+            EntryStatus.Draft => ProgressTaskStatus.Draft,
+            EntryStatus.Ready => ProgressTaskStatus.Ready,
+            EntryStatus.InProgress => ProgressTaskStatus.InProgress,
+            EntryStatus.Done => ProgressTaskStatus.Done,
+            _ => ProgressTaskStatus.Archived
         };
     }
 
@@ -122,9 +122,6 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
         return DependencyResolution.ResolveAll(declared, index, row.Task.ImportPlanId, row.Task.Tags)
             .Any(value => !Guid.TryParse(value, out var id)
                 || !byId.TryGetValue(id, out var predecessor)
-                || (StatusOf(predecessor.Task.Status) != SprintTaskStatus.Done && predecessor.Task.CompletedOn is null));
+                || (StatusOf(predecessor.Task.Status) != ProgressTaskStatus.Done && predecessor.Task.CompletedOn is null));
     }
-
-    private static LinkedPullRequestDto Linked(GoalPullRequestDto pull) =>
-        new(pull.Repository, pull.Number, pull.State, pull.MergedOn, pull.Author, pull.OpenedOn);
 }

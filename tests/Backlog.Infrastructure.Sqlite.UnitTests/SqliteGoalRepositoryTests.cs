@@ -222,17 +222,23 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         Assert.True((await _repository.ReadAsync(goal.Id, Cancellation))!.UpdatedAt > ahead.UpdatedAt);
     }
 
-    /// <summary>The goals' setup runs under a stamp of its own, beside the series', so the
-    /// two never re-run each other, and a file the series already set up gains the table.</summary>
+    /// <summary>The goals' setup runs under a stamp of its own, and a file an older build
+    /// gave the retired <c>progress_series</c> table gains the goals' table and keeps that
+    /// one as it was: local ADR 0006 adds and never drops (ADR 0035, Consequences).</summary>
     [Fact]
-    public async Task The_table_is_set_up_beside_the_series_under_its_own_stamp()
+    public async Task The_table_is_set_up_under_its_own_stamp_and_the_retired_table_is_kept()
     {
-        await new SqliteSprintSeriesRepository(_dir).ListAsync(Cancellation);
+        Directory.CreateDirectory(Path.GetDirectoryName(_repository.DatabasePath)!);
+        await ExecuteAsync("""
+            CREATE TABLE progress_series (id TEXT PRIMARY KEY NOT NULL, document TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+            INSERT INTO progress_series VALUES ('5a0c7a51-6f4e-4f2b-8d7e-1c2b3a4d5e60', '{}', '2026-10-12', '2026-10-12');
+            """);
+
         await _repository.ListAsync(Cancellation);
 
         Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'progress_goals';"));
         Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM schema_stamps WHERE owner = 'progress_goals';"));
-        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM schema_stamps WHERE owner = 'progress';"));
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM progress_series;"));
     }
 
     [Fact]

@@ -14,8 +14,8 @@ namespace Backlog.Desktop.UI.InProgress;
 /// status, plan tags, linked pull requests and whether the header's repository scope holds
 /// it; the plan tags Roadmap Planning holds; and the open pull requests the shell's reader
 /// found, with the same scope question. The shell builds these because it holds the task
-/// list, and Progress UI may not reach Tasks (ADR 0035 §6, local ADR 0028) — the
-/// <see cref="SprintCandidates"/> precedent. Read on every asking, never kept.
+/// list, and Progress UI may not reach Tasks (ADR 0035 §6, local ADR 0028). Read on every
+/// asking, never kept.
 /// </summary>
 internal static class GoalsCandidateSource
 {

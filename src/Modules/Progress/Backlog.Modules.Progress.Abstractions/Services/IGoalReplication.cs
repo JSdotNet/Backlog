@@ -3,8 +3,7 @@ using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 namespace Backlog.Modules.Progress.Abstractions.Services;
 
 /// <summary>What <see cref="IGoalReplication.ApplyAsync"/> did with an inbound copy of a
-/// goal — the four answers <see cref="SprintSeriesReplicaOutcome"/> gives a series, for
-/// the same reason: the sync client counts the first as work applied, the last as a
+/// goal: the sync client counts the first as work applied, the last as a
 /// document this build could not read, and the two between as nothing to do.</summary>
 public enum GoalReplicaOutcome
 {
@@ -27,7 +26,7 @@ public enum GoalReplicaOutcome
 /// The port the sync client hands replicated goals to, and reads them from: one whole
 /// <c>goal</c> document per goal, the newer write winning per goal
 /// (<c>.devbook/domain/progress/features.md#syncing-goals-and-impediments</c>, local ADR
-/// 0035 §9) — the terms a sprint series and the roadmap's plan travel on (local ADR 0018).
+/// 0035 §9) — the terms the roadmap's plan travels on (local ADR 0018).
 /// <para>
 /// A goal is the unit because it is the consistency boundary for its attachments. The
 /// client routes by kind and never looks inside; which copy wins, and whether a copy can

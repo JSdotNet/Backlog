@@ -11,10 +11,10 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
 /// Progress reads tasks through Tasks' published surface only: this adapter is the one
-/// place the two meet. It answers the ids a sprint names in any repository, and a linked
-/// plan's tasks only in the series' repositories, finished or not.
+/// place the two meet. It answers the ids a goal names in any repository, and a linked
+/// plan's tasks only in the asked repositories, finished or not.
 /// </summary>
-public class SprintTaskSourceTests
+public class ProgressTaskSourceTests
 {
     private static readonly TasksRepositoryRef BacklogRepository = new("backlog", "JSdotNet", "Backlog");
     private static readonly TasksRepositoryRef ToolsRepository = new("tools", "JSdotNet", "Tools");
@@ -45,20 +45,20 @@ public class SprintTaskSourceTests
             CreatedAt: new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero),
             BlockedSince: blockedSince);
 
-    private static IReadOnlyList<SprintTaskDto> Select(
+    private static IReadOnlyList<ProgressTaskDto> Select(
         IReadOnlyList<TaskItemDto> backlog,
-        SprintTaskQuery query) =>
-        SprintTaskSource.Select(backlog, query, [BacklogRepository, ToolsRepository]);
+        ProgressTaskQuery query) =>
+        ProgressTaskSource.Select(backlog, query, [BacklogRepository, ToolsRepository]);
 
     [Fact]
-    public void A_linked_plan_brings_in_its_tasks_in_the_series_repositories_finished_or_not()
+    public void A_linked_plan_brings_in_its_tasks_in_the_asked_repositories_finished_or_not()
     {
-        var open = Entry("Open", tags: ["+progress-sprints"]);
-        var done = Entry("Done", EntryStatus.Done, tags: ["+progress-sprints"], completedOn: new DateOnly(2026, 10, 12));
-        var elsewhere = Entry("Elsewhere", tags: ["+progress-sprints"], repoId: "JSdotNet/Tools");
+        var open = Entry("Open", tags: ["+goals-standup"]);
+        var done = Entry("Done", EntryStatus.Done, tags: ["+goals-standup"], completedOn: new DateOnly(2026, 10, 12));
+        var elsewhere = Entry("Elsewhere", tags: ["+goals-standup"], repoId: "JSdotNet/Tools");
         var otherPlan = Entry("Other plan", tags: ["+other"]);
 
-        var read = Select([open, done, elsewhere, otherPlan], new SprintTaskQuery([], ["+progress-sprints"], ["backlog"]));
+        var read = Select([open, done, elsewhere, otherPlan], new ProgressTaskQuery([], ["+goals-standup"], ["backlog"]));
 
         Assert.Equal([open.Id, done.Id], read.Select(task => task.Id));
     }
@@ -72,7 +72,7 @@ public class SprintTaskSourceTests
         var elsewhere = Entry("Elsewhere", tags: ["+bank-integration"], repoId: "JSdotNet/Tools");
         var unregistered = Entry("Unregistered", tags: ["+bank-integration"], repoId: "Someone/Else");
 
-        var read = Select([here, elsewhere, unregistered], new SprintTaskQuery([], ["bank-integration"], [], AnyRepository: true));
+        var read = Select([here, elsewhere, unregistered], new ProgressTaskQuery([], ["bank-integration"], [], AnyRepository: true));
 
         Assert.Equal([here.Id, elsewhere.Id, unregistered.Id], read.Select(task => task.Id));
     }
@@ -85,7 +85,7 @@ public class SprintTaskSourceTests
             StartedOn = new DateOnly(2026, 10, 7)
         };
 
-        var task = Assert.Single(Select([entry], new SprintTaskQuery([entry.Id], [], ["backlog"])));
+        var task = Assert.Single(Select([entry], new ProgressTaskQuery([entry.Id], [], ["backlog"])));
 
         Assert.Equal(new DateOnly(2026, 10, 7), task.StartedOn);
         Assert.Equal(new DateOnly(2026, 10, 9), task.BlockedSince);
@@ -96,7 +96,7 @@ public class SprintTaskSourceTests
     {
         var elsewhere = Entry("Elsewhere", repoId: "JSdotNet/Tools");
 
-        var read = Select([elsewhere, Entry("Unnamed")], new SprintTaskQuery([elsewhere.Id], [], ["backlog"]));
+        var read = Select([elsewhere, Entry("Unnamed")], new ProgressTaskQuery([elsewhere.Id], [], ["backlog"]));
 
         var task = Assert.Single(read);
         Assert.Equal(["tools"], task.RepositoryAliases);
@@ -108,7 +108,7 @@ public class SprintTaskSourceTests
         var entry = Entry(
             "Model",
             EntryStatus.InProgress,
-            tags: ["+Progress-Sprints", "#release"],
+            tags: ["+Goals-Standup", "#release"],
             blockedSince: new DateOnly(2026, 10, 13),
             projections:
             [
@@ -117,12 +117,12 @@ public class SprintTaskSourceTests
                 new EntryProjectionDto("JSdotNet/Backlog", "session-1", EntryProjectionDto.SessionTargetType)
             ]);
 
-        var task = Assert.Single(Select([entry], new SprintTaskQuery([entry.Id], [], [])));
+        var task = Assert.Single(Select([entry], new ProgressTaskQuery([entry.Id], [], [])));
 
-        Assert.Equal(SprintTaskStatus.InProgress, task.Status);
+        Assert.Equal(ProgressTaskStatus.InProgress, task.Status);
         Assert.True(task.IsBlocked);
-        Assert.Equal(["Progress-Sprints"], task.PlanTags);
-        Assert.Equal(["+Progress-Sprints", "#release"], task.Tags);
+        Assert.Equal(["Goals-Standup"], task.PlanTags);
+        Assert.Equal(["+Goals-Standup", "#release"], task.Tags);
         Assert.Equal(["backlog"], task.RepositoryAliases);
         Assert.Equal(new DateOnly(2026, 10, 1), task.CreatedOn);
         var pull = Assert.Single(task.PullRequests);
@@ -134,7 +134,7 @@ public class SprintTaskSourceTests
     {
         var entry = Entry("Recurring invoices") with { DueOn = new DateOnly(2026, 10, 22), Effort = 5, Order = 7 };
 
-        var task = Assert.Single(Select([entry], new SprintTaskQuery([entry.Id], [], [])));
+        var task = Assert.Single(Select([entry], new ProgressTaskQuery([entry.Id], [], [])));
 
         Assert.Equal((new DateOnly(2026, 10, 22), 5, 7), (task.DueOn, task.Effort, task.Order));
         Assert.False(task.WaitsOnOpenWork);
@@ -152,7 +152,7 @@ public class SprintTaskSourceTests
 
         var read = Select(
             [finished, finishedBefore, due, dueLater],
-            new SprintTaskQuery(
+            new ProgressTaskQuery(
                 [],
                 [],
                 [],
@@ -169,7 +169,7 @@ public class SprintTaskSourceTests
     {
         var finished = Entry("Done", EntryStatus.Done, completedOn: new DateOnly(2026, 10, 14)) with { DueOn = new DateOnly(2026, 10, 14) };
 
-        Assert.Empty(Select([finished], new SprintTaskQuery([], [], [])));
+        Assert.Empty(Select([finished], new ProgressTaskQuery([], [], [])));
     }
 
     /// <summary>An entry waits on open work while one of its <c>after:</c> values — a real id
@@ -187,7 +187,7 @@ public class SprintTaskSourceTests
 
         var read = Select(
             [done, open, afterDone, afterOpen, afterNothing, completedNotDone, afterCompleted],
-            new SprintTaskQuery([afterDone.Id, afterOpen.Id, afterNothing.Id, afterCompleted.Id], [], []));
+            new ProgressTaskQuery([afterDone.Id, afterOpen.Id, afterNothing.Id, afterCompleted.Id], [], []));
 
         Assert.Equal(
             [("After done", false), ("After open", true), ("After nothing", true), ("After completed", false)],
@@ -199,9 +199,9 @@ public class SprintTaskSourceTests
     {
         var entry = Entry("Only", tags: ["+plan"]);
         var tasks = new ListOnlyTaskItems([entry]);
-        var source = new SprintTaskSource(() => tasks, () => null);
+        var source = new ProgressTaskSource(() => tasks, () => null);
 
-        var read = await source.ReadAsync(new SprintTaskQuery([], ["plan"], ["JSdotNet/Backlog"]), TestContext.Current.CancellationToken);
+        var read = await source.ReadAsync(new ProgressTaskQuery([], ["plan"], ["JSdotNet/Backlog"]), TestContext.Current.CancellationToken);
 
         Assert.Equal([entry.Id], read.Select(task => task.Id));
         Assert.Equal(1, tasks.Lists);

@@ -26,8 +26,7 @@ public sealed class GoalReplicationTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton<IGoalReplicaStore>(_store);
         services.AddSingleton<IGoalRepository>(_repository);
-        services.AddSingleton<ISprintSeriesRepository>(new InMemorySprintSeriesRepository());
-        services.AddSingleton<ISprintTaskSource>(new FakeTaskSource());
+        services.AddSingleton<IProgressTaskSource>(new FakeTaskSource());
         services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
         _provider = services.BuildServiceProvider();
@@ -103,7 +102,6 @@ public sealed class GoalReplicationTests : IDisposable
     public async Task A_head_that_keeps_no_goals_sends_nothing_and_reads_every_copy_as_unreadable()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ISprintSeriesRepository>(new InMemorySprintSeriesRepository());
         services.AddProgressModule();
         using var provider = services.BuildServiceProvider();
         var replication = provider.GetRequiredService<IGoalReplication>();

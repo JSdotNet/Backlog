@@ -78,15 +78,9 @@ public static class AppFeatures
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(RoadmapFeatures.Roadmap, "Roadmap view", "Offer the Roadmap view in the Home shell's view switch, beside Tasks: plans on a graduated axis under their own Planning heading."),
         new(
-            ProgressFeatures.Progress,
-            "Progress",
-            "Work in sprints: give a set of repositories one cadence, fill each sprint with tasks and whole plans, follow its goal and close it into the next. Repositories in no sprint series keep the In progress view.",
-            EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
-        new(
             ProgressFeatures.Goals,
             "Goals",
-            "Work towards goals: give each a due date, attach the plans, tasks and pull requests that reach it, and read its progress and the stand-up. Replaces sprints once it leaves DEV.",
+            "Work towards goals: give each a due date, attach the plans, tasks and pull requests that reach it, and read its progress and the stand-up.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
         // The devbook keys carried the context's former name; the former keys

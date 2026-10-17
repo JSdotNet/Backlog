@@ -440,15 +440,10 @@ internal static class StorybookIndex
             new("roadmap", "Roadmap", "RoadmapTimeline and RoadmapTimelineBar: a plan against a quarter-ruled time axis, with swimlanes, dependency arrows and bars you can drag — and RoadmapPlanShelf, the work still waiting for a place on it.")
         ]),
 
-        // Its own chapter, after Roadmap: a sprint series is a cadence a set of
-        // repositories works to, a convention of its own. The page draws the card
-        // its folder holds and the Card, TagChip and AppButton the Settings page
-        // lays around it, all three introduced further up.
+        // Its own chapter, after Roadmap: goals and the stand-up are a convention of
+        // their own, read over iteration windows rather than over a plan's axis.
         new("Progress",
         [
-            new("sprint-settings", "Sprint settings", "SprintSeriesCard: one sprint series on Settings › Sprints — its switch, its repositories with only the free ones offered, its length, start day and name pattern, how the sprint goal is counted, which briefs show it, and Delete series…, which asks first."),
-            new("sprint-view", "Sprint view", "SprintBoard and SprintViewSwitch: the In progress tab's sprint view — the Since yesterday strip, the goal card, the done line against the even pace, Needs you, one group per plan with its rows and pull request chips, and the folded Outside the sprint line."),
-            new("sprint-planning", "Sprint planning", "SprintAddPicker, SprintItemNoteDialog, SprintTaskPanel and the row menu SprintBoard carries while its sprint takes writes: adding a task or a whole plan to the open sprint, taking it out, marking it as goal, and its note and open question — from the sprint view and from a task's side panel."),
             // Before the Goals view, which draws it on every goal's pull requests: nothing
             // is shown before its parts.
             new("pull-request-status", "Pull request status", "PullRequestStatus: a pull request's #n pill, its checks as passed/total and its approvals as received/required, each a glyph and a count in the mark's ink, the words said only to a screen reader — on every pull request row in Progress and the Pull requests pane."),

@@ -688,7 +688,6 @@
                            RepositoryAliases="@State.SelectedRepositoryAliases"
                            RepositoryColour="@RepositoryColourFor"
                            OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)"
-                           OnOpenSprint="@(InProgressViewOffered ? EventCallback.Factory.Create<Backlog.Modules.Dashboard.Abstractions.Services.SprintBriefSprint>(this, OpenSprintFromBrief) : default)"
                            OnAskAi="@(DashboardAskAiOffered ? EventCallback.Factory.Create<string>(this, AskAboutDashboardPartAsync) : default)" />
         </main>
     }
@@ -809,8 +808,7 @@
             else if (InProgressViewVisible)
             {
                 @* A view like the roadmap: no Escape, no filter bar. The tab is the
-                   view by task and, while the scope holds a repository in a sprint
-                   series, the sprint view beside it (InProgressTab). *@
+                   view by task (InProgressTab). *@
                 <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
                     <InProgressTab Reader="_work"
                                    OnOpenTask="OpenEntryAsync"
@@ -821,9 +819,7 @@
                                    NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
                                    NeedsYouFirstChanged="OnNeedsYouFirstChanged"
                                    IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
-                                   IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged"
-                                   OpenSprint="_sprintRequest"
-                                   OnSprintOpened="() => _sprintRequest = null" />
+                                   IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
                 </div>
             }
             else
@@ -1254,17 +1250,6 @@
     /// During a takeover no view is on screen, so none reads pressed.</summary>
     private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;
 
-    /// <summary>The weekly brief's "Open Sprint n": In progress, on that series' sprint
-    /// view, on that sprint (.devbook/domain/progress/features.md#sprints-in-the-briefs).
-    /// The request stays until the sprint view takes it.</summary>
-    private Backlog.Modules.Progress.UI.InProgress.SprintViewRequest? _sprintRequest;
-
-    private void OpenSprintFromBrief(Backlog.Modules.Dashboard.Abstractions.Services.SprintBriefSprint sprint)
-    {
-        _sprintRequest = new Backlog.Modules.Progress.UI.InProgress.SprintViewRequest(sprint.SeriesId, sprint.Number);
-        ShowView(ShellView.Goals);
-    }
-
     /// <summary>
     /// A press on a view's option: that view becomes the workspace's main view, and
     /// a takeover that was up closes, so the press is also the way back.
@@ -1533,25 +1518,12 @@
 
     /// <summary>The fragment behind <see cref="LinkedWorkFor"/>. It reads the flags
     /// and the reader as it draws, so only whether it is offered at all is decided
-    /// here, and that is a feature's to change.
-    /// <para>
-    /// The slot carries the entry's Sprint section too, composed from Progress UI the
-    /// same way (<c>.devbook/domain/progress/features.md#planning-from-a-task</c>): the
-    /// Tasks pane draws whatever the shell hands it and gains no sprint field (local
-    /// ADR 0028). The section draws nothing while the entry's repositories are in no
-    /// series switched on.
-    /// </para></summary>
+    /// here, and that is a feature's to change.</summary>
     private RenderFragment<EntryRow>? BuildLinkedWork()
     {
-        var linked = InProgressViewOffered;
-        var sprint = SprintSectionOffered;
-        if (!linked && !sprint) return null;
+        if (!InProgressViewOffered) return null;
 
-        return row => builder =>
-        {
-            if (linked) builder.AddContent(0, LinkedWorkSectionFor(row));
-            if (sprint) builder.AddContent(1, SprintSectionFor(row));
-        };
+        return row => builder => builder.AddContent(0, LinkedWorkSectionFor(row));
     }
 
     private RenderFragment LinkedWorkSectionFor(EntryRow row) =>
@@ -1563,14 +1535,6 @@
                             OnOpenInProgress="() => ShowView(ShellView.Goals)"
                             ShowSessions="SessionsOffered"
                             ShowPullRequests="PullRequestsOffered" />;
-
-    private RenderFragment SprintSectionFor(EntryRow row) =>
-        @<Backlog.Modules.Progress.UI.Planning.TaskSprintSection @key="row.Key"
-                                                                Candidate="SprintCandidates.Of(State, row)" />;
-
-    /// <summary>Whether an entry's side panel carries its Sprint section: while the
-    /// Progress area is on.</summary>
-    private bool SprintSectionOffered => IsFeatureEnabled(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Progress);
 
     /// <summary>
     /// The repository an entry's reference asked the Devbook pane to read, and the

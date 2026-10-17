@@ -8,19 +8,19 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 namespace Backlog.Infrastructure.FileSystem.Progress;
 
 /// <summary>
-/// Progress's <see cref="ISprintTaskSource"/>, answered from Tasks' published surface
+/// Progress's <see cref="IProgressTaskSource"/>, answered from Tasks' published surface
 /// alone: <see cref="ITaskItems"/> for the tasks and <see cref="IRepositoryDirectory"/>
-/// for the aliases their repository ids are known by. It reads and never writes — a
-/// sprint never changes a task (local ADR 0028).
+/// for the aliases their repository ids are known by. It reads and never writes —
+/// Progress never changes a task (local ADR 0035).
 /// <para>
 /// Both ports are resolved per call, for the reason the roadmap's adapters give: they
 /// are scoped, and taking them in the constructor would tie this adapter to whichever
 /// scope built it.
 /// </para>
 /// </summary>
-public sealed class SprintTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDirectory?> repositories) : ISprintTaskSource
+public sealed class ProgressTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDirectory?> repositories) : IProgressTaskSource
 {
-    public async Task<IReadOnlyList<SprintTaskDto>> ReadAsync(SprintTaskQuery query, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ProgressTaskDto>> ReadAsync(ProgressTaskQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
 
@@ -29,9 +29,9 @@ public sealed class SprintTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDir
     }
 
     /// <summary>The tasks <paramref name="query"/> asks for, in Progress's words.</summary>
-    internal static IReadOnlyList<SprintTaskDto> Select(
+    internal static IReadOnlyList<ProgressTaskDto> Select(
         IReadOnlyList<TaskItemDto> backlog,
-        SprintTaskQuery query,
+        ProgressTaskQuery query,
         IReadOnlyList<TasksRepositoryRef> registry)
     {
         var aliasById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -42,7 +42,7 @@ public sealed class SprintTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDir
         var repos = query.RepositoryAliases.Select(alias => alias.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var selected = backlog
-            .Select(entry => (Entry: entry, Task: ToSprintTask(entry, aliasById)))
+            .Select(entry => (Entry: entry, Task: ToProgressTask(entry, aliasById)))
             .Where(pair =>
                 ids.Contains(pair.Task.Id)
                 || (pair.Task.PlanTags.Any(plans.Contains) && (query.AnyRepository || pair.Task.RepositoryAliases.Any(repos.Contains)))
@@ -78,17 +78,17 @@ public sealed class SprintTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDir
                 || (predecessor.Status != EntryStatus.Done && predecessor.CompletedOn is null));
     }
 
-    internal static SprintTaskDto ToSprintTask(TaskItemDto entry, IReadOnlyDictionary<string, string> aliasById) =>
+    internal static ProgressTaskDto ToProgressTask(TaskItemDto entry, IReadOnlyDictionary<string, string> aliasById) =>
         new(
             entry.Id,
             entry.Title,
             entry.Status switch
             {
-                EntryStatus.Draft => SprintTaskStatus.Draft,
-                EntryStatus.Ready => SprintTaskStatus.Ready,
-                EntryStatus.InProgress => SprintTaskStatus.InProgress,
-                EntryStatus.Done => SprintTaskStatus.Done,
-                _ => SprintTaskStatus.Archived
+                EntryStatus.Draft => ProgressTaskStatus.Draft,
+                EntryStatus.Ready => ProgressTaskStatus.Ready,
+                EntryStatus.InProgress => ProgressTaskStatus.InProgress,
+                EntryStatus.Done => ProgressTaskStatus.Done,
+                _ => ProgressTaskStatus.Archived
             },
             entry.BlockedSince is not null,
             [.. entry.Tags.Where(tag => tag.TrimStart().StartsWith('+')).Select(Bare).Where(tag => tag.Length > 0)

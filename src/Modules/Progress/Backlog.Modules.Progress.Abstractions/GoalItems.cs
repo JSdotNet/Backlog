@@ -20,7 +20,7 @@ public enum GoalItemState
 /// <see cref="PullRequest"/> is set.</summary>
 /// <param name="DoneOn">The day it was done, when it is: its task's completion day, or the
 /// day its last pull request merged.</param>
-public sealed record GoalItem(SprintTaskDto? Task, PullRequestRefDto? PullRequest, GoalItemState State, DateOnly? DoneOn);
+public sealed record GoalItem(ProgressTaskDto? Task, PullRequestRefDto? PullRequest, GoalItemState State, DateOnly? DoneOn);
 
 /// <summary>
 /// Counts a goal's items from the current state of its work — the rules of
@@ -51,12 +51,12 @@ public static class GoalItems
 {
     /// <summary>What a reading of <paramref name="goals"/> has to ask Tasks for: every
     /// attached task's id and every attached plan's tag, in any repository.</summary>
-    public static SprintTaskQuery TaskQuery(IEnumerable<GoalDto> goals)
+    public static ProgressTaskQuery TaskQuery(IEnumerable<GoalDto> goals)
     {
         ArgumentNullException.ThrowIfNull(goals);
 
         var items = goals.SelectMany(goal => goal.Attachments).Select(attachment => attachment.Item).ToList();
-        return new SprintTaskQuery(
+        return new ProgressTaskQuery(
             [.. items.Where(item => item.Kind == GoalAttachmentKind.Task && item.TaskId is not null).Select(item => item.TaskId!.Value).Distinct()],
             [.. items.Where(item => item.Kind == GoalAttachmentKind.Plan).Select(item => Bare(item.PlanTag)).Where(tag => tag.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)],
             [],
@@ -65,7 +65,7 @@ public static class GoalItems
 
     /// <summary>The tasks <paramref name="goal"/> counts, among <paramref name="tasks"/>:
     /// its own and its plans' entries, less the entries another goal holds directly.</summary>
-    public static IReadOnlyList<SprintTaskDto> TasksOf(GoalDto goal, IReadOnlyList<GoalDto> all, IReadOnlyList<SprintTaskDto> tasks)
+    public static IReadOnlyList<ProgressTaskDto> TasksOf(GoalDto goal, IReadOnlyList<GoalDto> all, IReadOnlyList<ProgressTaskDto> tasks)
     {
         ArgumentNullException.ThrowIfNull(goal);
         ArgumentNullException.ThrowIfNull(all);
@@ -96,7 +96,7 @@ public static class GoalItems
 
     /// <summary>The pull requests a reading has to ask GitHub about for
     /// <paramref name="goal"/>: those its counted tasks link, and those attached.</summary>
-    public static IReadOnlyList<PullRequestRefDto> PullRequestsOf(GoalDto goal, IReadOnlyList<SprintTaskDto> countedTasks)
+    public static IReadOnlyList<PullRequestRefDto> PullRequestsOf(GoalDto goal, IReadOnlyList<ProgressTaskDto> countedTasks)
     {
         ArgumentNullException.ThrowIfNull(goal);
         ArgumentNullException.ThrowIfNull(countedTasks);
@@ -111,7 +111,7 @@ public static class GoalItems
 
     /// <summary>Every pull request a reading of <paramref name="goals"/> has to ask about,
     /// each once: the ones each goal's counted tasks link, and the ones attached.</summary>
-    public static IReadOnlyList<PullRequestRefDto> PullRequestsOf(IReadOnlyList<GoalDto> goals, IReadOnlyList<SprintTaskDto> tasks)
+    public static IReadOnlyList<PullRequestRefDto> PullRequestsOf(IReadOnlyList<GoalDto> goals, IReadOnlyList<ProgressTaskDto> tasks)
     {
         ArgumentNullException.ThrowIfNull(goals);
         ArgumentNullException.ThrowIfNull(tasks);
@@ -132,7 +132,7 @@ public static class GoalItems
     public static IReadOnlyList<GoalItem> Items(
         GoalDto goal,
         IReadOnlyList<GoalDto> all,
-        IReadOnlyList<SprintTaskDto> tasks,
+        IReadOnlyList<ProgressTaskDto> tasks,
         IReadOnlyList<LinkedPullRequestDto> pullRequests)
     {
         ArgumentNullException.ThrowIfNull(pullRequests);
@@ -216,13 +216,13 @@ public static class GoalItems
             .Where(item => item.Kind == GoalAttachmentKind.PullRequest && item.Repository is not null && item.Number is not null)
             .Select(item => new PullRequestRefDto(item.Repository!.Trim(), item.Number!.Value.ToString(CultureInfo.InvariantCulture)));
 
-    private static (GoalItemState, DateOnly?) StateOf(SprintTaskDto task, Dictionary<string, LinkedPullRequestDto> answers)
+    private static (GoalItemState, DateOnly?) StateOf(ProgressTaskDto task, Dictionary<string, LinkedPullRequestDto> answers)
     {
         var linked = task.PullRequests
             .Select(pull => answers.TryGetValue(KeyOf(pull), out var answer) ? answer : null)
             .ToList();
 
-        if (task.Status == SprintTaskStatus.Done) return (GoalItemState.Done, task.CompletedOn);
+        if (task.Status == ProgressTaskStatus.Done) return (GoalItemState.Done, task.CompletedOn);
 
         if (linked.Count > 0 && linked.All(answer => answer?.State == LinkedPullRequestState.Merged))
         {
@@ -230,7 +230,7 @@ public static class GoalItems
         }
 
         if (task.IsBlocked) return (GoalItemState.Blocked, null);
-        return task.Status == SprintTaskStatus.InProgress ? (GoalItemState.Doing, null) : (GoalItemState.ToDo, null);
+        return task.Status == ProgressTaskStatus.InProgress ? (GoalItemState.Doing, null) : (GoalItemState.ToDo, null);
     }
 
     private static (GoalItemState, DateOnly?) StateOf(LinkedPullRequestDto? answer) =>

@@ -2,8 +2,7 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 
 /// <summary>
 /// One copy of a replicated goal: its id, the title it shows under, the stored text whole,
-/// and the stamp it was stored at — the arrangement <see cref="SprintSeriesReplicaCopyDto"/>
-/// has for a series, for the same reasons. The text is a string and not a shape, so whatever
+/// and the stamp it was stored at, as the roadmap's plan travels (local ADR 0018). The text is a string and not a shape, so whatever
 /// carries it never reads it and a copy a newer build wrote keeps the fields this one does
 /// not know. <paramref name="Title"/> is for the sync log and never decides anything.
 /// </summary>

@@ -3,9 +3,9 @@
   <!--
     The Progress module's public surface — everything a host or another module is
     allowed to see (ADR 0005, ADR 0009, local ADR 0028):
-      DataTransferObjects/  what a caller receives instead of a sprint series
-      Services/             ISprintSeriesPlanning and ISprintProgress, the ports a
-                            host calls, and ISprintTaskSource and
+      DataTransferObjects/  what a caller receives instead of a goal or an impediment
+      Services/             IGoals, IImpediments and IStandUp, the ports a
+                            host calls, and IProgressTaskSource and
                             IGoalPullRequestReader, the ports the module asks
                             outward through — answered by infrastructure adapters
       Enums                 the vocabulary those DTOs are written in

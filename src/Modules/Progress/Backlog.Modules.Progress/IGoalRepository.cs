@@ -35,7 +35,7 @@ public interface IGoalRepository
 
 /// <summary>
 /// Where the replicated goals are kept, read and written as stored text rather than as
-/// the aggregate — the arrangement <see cref="ISprintSeriesReplicaStore"/> has for a series.
+/// the aggregate.
 /// A copy from another device is stored verbatim, and the store is the one place that
 /// knows the document's shape, so it also says whether a copy reads as a goal before
 /// anything is written. Answered by the adapter that holds the goals, registered by the host.

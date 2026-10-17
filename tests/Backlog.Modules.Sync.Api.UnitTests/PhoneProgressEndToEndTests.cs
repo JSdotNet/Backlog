@@ -231,7 +231,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
             var services = new ServiceCollection();
             services.AddSingleton(TimeProvider.System);
             services.AddSingleton<IAppFeatureSettings, GoalsOn>();
-            services.AddSingleton<ISprintTaskSource, NoTasks>();
+            services.AddSingleton<IProgressTaskSource, NoTasks>();
             services.AddSingleton<IGoalPullRequestReader, OneOpenPullRequest>();
             services.AddSqlite(_ => root);
             services.AddProgressModule();
@@ -310,10 +310,10 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         public string? SetEnabled(string key, bool enabled) => null;
     }
 
-    private sealed class NoTasks : ISprintTaskSource
+    private sealed class NoTasks : IProgressTaskSource
     {
-        public Task<IReadOnlyList<SprintTaskDto>> ReadAsync(SprintTaskQuery query, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<SprintTaskDto>>([]);
+        public Task<IReadOnlyList<ProgressTaskDto>> ReadAsync(ProgressTaskQuery query, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ProgressTaskDto>>([]);
     }
 
     /// <summary>GitHub's answer, as the desktop's reader would give it: every pull request

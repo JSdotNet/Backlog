@@ -37,7 +37,7 @@ public sealed class StandUpContextSource(
 
         using var scope = scopes.CreateScope();
         var services = scope.ServiceProvider;
-        var tasks = services.GetRequiredService<ISprintTaskSource>();
+        var tasks = services.GetRequiredService<IProgressTaskSource>();
         var pullRequests = services.GetRequiredService<IGoalPullRequestReader>();
         var pace = services.GetService<IStandUpPace>();
 

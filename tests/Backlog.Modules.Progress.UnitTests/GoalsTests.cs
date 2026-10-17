@@ -29,9 +29,8 @@ public sealed class GoalsTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(_time);
-        services.AddSingleton<ISprintSeriesRepository>(new InMemorySprintSeriesRepository());
         services.AddSingleton<IGoalRepository>(_repository);
-        services.AddSingleton<ISprintTaskSource>(_tasks);
+        services.AddSingleton<IProgressTaskSource>(_tasks);
         services.AddSingleton<IGoalPullRequestReader>(_pulls);
         services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
@@ -238,12 +237,12 @@ public sealed class GoalsTests : IDisposable
         var search = await CreateAsync("Devbook search ships");
         _tasks.Tasks.AddRange(Enumerable.Range(0, 9).Select(i => Make.Task(
             $"Entry {i}",
-            i < 5 ? SprintTaskStatus.Done : SprintTaskStatus.Ready,
+            i < 5 ? ProgressTaskStatus.Done : ProgressTaskStatus.Ready,
             plan: "bank-integration",
             repository: i % 2 == 0 ? "backlog" : "docs",
             completedOn: i < 5 ? new DateOnly(2026, 10, 13) : null)));
         var mapping = _tasks.Tasks[8];
-        _pulls.Known.Add(new GoalPullRequestDto("JSdotNet/Backlog", "1352", LinkedPullRequestState.Merged, new DateOnly(2026, 10, 14), Checks: null, Approvals: null, Author: "jobs"));
+        _pulls.Known.Add(new GoalPullRequestDto("JSdotNet/Backlog", "1352", LinkedPullRequestState.Merged, new DateOnly(2026, 10, 14), Checks: null, Approvals: null));
 
         await Goals.AttachAsync(paid.Id, GoalItemDto.ForPlan("+bank-integration"), cancellationToken: Cancellation);
         await Goals.AttachAsync(search.Id, GoalItemDto.ForTask(mapping.Id), cancellationToken: Cancellation);
@@ -261,7 +260,7 @@ public sealed class GoalsTests : IDisposable
     public async Task Without_a_window_nothing_is_counted_as_done_in_it()
     {
         var goal = await CreateAsync();
-        var task = Make.Task("Done", SprintTaskStatus.Done, completedOn: MakeGoal.Today);
+        var task = Make.Task("Done", ProgressTaskStatus.Done, completedOn: MakeGoal.Today);
         _tasks.Tasks.Add(task);
         await Goals.AttachAsync(goal.Id, GoalItemDto.ForTask(task.Id), cancellationToken: Cancellation);
 

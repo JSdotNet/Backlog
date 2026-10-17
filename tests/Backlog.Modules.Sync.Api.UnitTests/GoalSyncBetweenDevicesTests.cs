@@ -22,8 +22,7 @@ namespace Backlog.Modules.Sync.Api.UnitTests;
 /// Two paired desktops sharing their goals through this service, end to end — each the
 /// real Progress module over real <c>progress_goals</c> rows in its own <c>backlog.db</c>,
 /// the real merge and session, and the real sync API between them
-/// (<c>.devbook/domain/progress/requirements.md#syncing-goals-and-impediments</c>). The
-/// shape of <see cref="SprintSyncBetweenDevicesTests"/>.
+/// (<c>.devbook/domain/progress/requirements.md#syncing-goals-and-impediments</c>).
 /// </summary>
 public sealed class GoalSyncBetweenDevicesTests : IDisposable
 {
@@ -164,7 +163,7 @@ public sealed class GoalSyncBetweenDevicesTests : IDisposable
             var services = new ServiceCollection();
             services.AddSingleton<TimeProvider>(new FakeTimeProvider(Morning));
             services.AddSingleton<IAppFeatureSettings, GoalsOn>();
-            services.AddSingleton<ISprintTaskSource, NoTasks>();
+            services.AddSingleton<IProgressTaskSource, NoTasks>();
             services.AddSqlite(_ => root);
             services.AddProgressModule();
 
@@ -233,9 +232,9 @@ public sealed class GoalSyncBetweenDevicesTests : IDisposable
         public string? SetEnabled(string key, bool enabled) => null;
     }
 
-    private sealed class NoTasks : ISprintTaskSource
+    private sealed class NoTasks : IProgressTaskSource
     {
-        public Task<IReadOnlyList<SprintTaskDto>> ReadAsync(SprintTaskQuery query, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<SprintTaskDto>>([]);
+        public Task<IReadOnlyList<ProgressTaskDto>> ReadAsync(ProgressTaskQuery query, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ProgressTaskDto>>([]);
     }
 }

@@ -6,9 +6,8 @@ namespace Backlog.Infrastructure.Sqlite.Progress;
 
 /// <summary>
 /// A <see cref="IGoalRepository"/> that follows a folder somebody can move: the current
-/// root is read per call and the underlying repository rebuilt only when it changes — the
-/// arrangement <see cref="RootedSqliteSprintSeriesRepository"/> has, following the same
-/// root to the same file.
+/// root is read per call and the underlying repository rebuilt only when it changes, so it
+/// follows the root the tasks follow to the same file.
 /// </summary>
 public sealed class RootedSqliteGoalRepository(Func<string> currentRootDirectory)
     : IGoalRepository, IGoalReplicaStore

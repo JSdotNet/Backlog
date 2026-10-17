@@ -5,16 +5,14 @@ namespace Backlog.Modules.Progress.Services;
 
 /// <summary>
 /// The published <see cref="IGoalReplication"/> port: each goal as one whole document,
-/// last write wins on each goal's own stamp — the rule <see cref="SprintSeriesReplication"/>
-/// keeps for a series (local ADR 0018, ADR 0035 §9).
+/// last write wins on each goal's own stamp (local ADR 0018, ADR 0035 §9).
 /// <para>
 /// It decides by stamp and nothing else. A later copy is written through the store,
 /// verbatim; an equal one is an echo and an older one is refused, both writing nothing.
 /// Whether a copy reads as a goal is the store's question.
 /// </para>
 /// <para>
-/// <b>Inside the progress gate</b>, for the reason the series' replication gives: a goal
-/// command loads every goal, changes some and saves them while holding
+/// <b>Inside the progress gate</b>: a goal command loads every goal, changes some and saves them while holding
 /// <see cref="ProgressGate"/>, and a copy written in between would be saved over.
 /// </para>
 /// <para>

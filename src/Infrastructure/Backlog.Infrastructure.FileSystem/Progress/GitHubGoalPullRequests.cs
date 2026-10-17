@@ -129,11 +129,10 @@ public sealed class GitHubGoalPullRequests(Func<GitHubIntegration?> gitHub) : IG
     }
 
     /// <summary>
-    /// One pull request GitHub answered, as Progress reads it: the state; the merge and
-    /// opened days in local time; the check counts with the failing checks' names, or
-    /// none where the head commit has no checks or they were refused; the approvals
-    /// received and the approvals the base branch requires, null where no rule requires
-    /// one; and the author.
+    /// One pull request GitHub answered, as Progress reads it: the state; the merge day
+    /// in local time; the check counts with the failing checks' names, or none where the
+    /// head commit has no checks or they were refused; and the approvals received and the
+    /// approvals the base branch requires, null where no rule requires one.
     /// </summary>
     public static GoalPullRequestDto Map(GitHubLinkedPullRequest pull)
     {
@@ -147,9 +146,7 @@ public sealed class GitHubGoalPullRequests(Func<GitHubIntegration?> gitHub) : IG
             pull.CheckCounts is { } checks
                 ? new GoalPullRequestChecksDto(checks.Passed, checks.Failed, checks.Pending, [.. pull.FailingChecks])
                 : null,
-            new GoalPullRequestApprovalsDto(pull.Reviews.Approvals, pull.Reviews.Required),
-            string.IsNullOrWhiteSpace(pull.AuthorLogin) ? null : pull.AuthorLogin,
-            pull.CreatedAt is { } opened ? DateOnly.FromDateTime(opened.ToLocalTime().Date) : null);
+            new GoalPullRequestApprovalsDto(pull.Reviews.Approvals, pull.Reviews.Required));
     }
 
     private static GitHubPullRequestReference? Reference(PullRequestRefDto pull) =>

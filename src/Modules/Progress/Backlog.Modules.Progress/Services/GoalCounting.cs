@@ -35,7 +35,7 @@ public static class GoalCounting
 {
     /// <summary>What a reading of <paramref name="goals"/> has to ask Tasks for: every
     /// attached task's id and every attached plan's tag, in any repository.</summary>
-    public static SprintTaskQuery TaskQuery(IEnumerable<Goal> goals)
+    public static ProgressTaskQuery TaskQuery(IEnumerable<Goal> goals)
     {
         ArgumentNullException.ThrowIfNull(goals);
         return GoalItems.TaskQuery(goals.Select(goal => goal.ToDto()));
@@ -43,7 +43,7 @@ public static class GoalCounting
 
     /// <summary>The tasks <paramref name="goal"/> counts, among <paramref name="tasks"/>:
     /// its own and its plans' entries, less the entries another goal holds directly.</summary>
-    public static IReadOnlyList<SprintTaskDto> TasksOf(Goal goal, IReadOnlyList<Goal> all, IReadOnlyList<SprintTaskDto> tasks)
+    public static IReadOnlyList<ProgressTaskDto> TasksOf(Goal goal, IReadOnlyList<Goal> all, IReadOnlyList<ProgressTaskDto> tasks)
     {
         ArgumentNullException.ThrowIfNull(goal);
         ArgumentNullException.ThrowIfNull(all);
@@ -53,7 +53,7 @@ public static class GoalCounting
 
     /// <summary>The pull requests a reading has to ask GitHub about for
     /// <paramref name="goal"/>: those its counted tasks link, and those attached.</summary>
-    public static IReadOnlyList<PullRequestRefDto> PullRequestsOf(Goal goal, IReadOnlyList<SprintTaskDto> countedTasks)
+    public static IReadOnlyList<PullRequestRefDto> PullRequestsOf(Goal goal, IReadOnlyList<ProgressTaskDto> countedTasks)
     {
         ArgumentNullException.ThrowIfNull(goal);
         return GoalItems.PullRequestsOf(goal.ToDto(), countedTasks);
@@ -68,7 +68,7 @@ public static class GoalCounting
     public static GoalProgress Count(
         Goal goal,
         IReadOnlyList<Goal> all,
-        IReadOnlyList<SprintTaskDto> tasks,
+        IReadOnlyList<ProgressTaskDto> tasks,
         IReadOnlyList<LinkedPullRequestDto> pullRequests,
         DayWindow? window = null)
     {

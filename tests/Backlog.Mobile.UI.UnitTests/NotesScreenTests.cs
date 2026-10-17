@@ -26,8 +26,8 @@ public sealed class NotesScreenTests
     {
         var books = Note("Books to read", "Shape Up. *The Making of a Manager*.", Now.AddDays(-5));
         var call = Note("Conflict cases from the call", "- Last write wins for the **title**.", Now.AddHours(-4).AddMinutes(-40));
-        var sprint = Note("Sprint goals — draft", "Ship the phone Today view.", Now.AddDays(-1));
-        var tasks = new ScriptedTaskService(books, call, sprint);
+        var goals = Note("Release goals — draft", "Ship the phone Today view.", Now.AddDays(-1));
+        var tasks = new ScriptedTaskService(books, call, goals);
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
 
         var app = host.Open("notes");
@@ -38,7 +38,7 @@ public sealed class NotesScreenTests
 
         var rows = app.FindAll("[data-testid='note-row']");
         Assert.Equal(
-            ["Conflict cases from the call", "Sprint goals — draft", "Books to read"],
+            ["Conflict cases from the call", "Release goals — draft", "Books to read"],
             rows.Select(row => row.QuerySelector("[data-testid='note-row-title']")!.TextContent));
         Assert.Equal(
             ["09:50", "Yesterday", "Fri"],
