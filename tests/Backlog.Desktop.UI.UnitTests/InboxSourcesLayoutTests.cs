@@ -5,7 +5,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// body — the queue, or, when the header's Sources button is pressed, the
 /// sources the shell put in the slot. The sources take the whole body the
 /// header leaves rather than a strip squeezed above the rows; these pin the
-/// rules that make that so.
+/// rules that make that so. The pane's rules ship with the Inbox module in
+/// <c>inbox.css</c>; the queue's floor is a shell token in <c>app.css</c>.
 /// </summary>
 public sealed class InboxSourcesLayoutTests
 {
@@ -36,7 +37,7 @@ public sealed class InboxSourcesLayoutTests
 
         Assert.Contains("min-height: var(--inbox-queue-min-height);", rule, StringComparison.Ordinal);
         Assert.Contains("flex: 1 1 0;", rule, StringComparison.Ordinal);
-        Assert.Contains("--inbox-queue-min-height:", Rule(":root {"), StringComparison.Ordinal);
+        Assert.Contains("--inbox-queue-min-height:", Rule(":root {", Shell()), StringComparison.Ordinal);
     }
 
     /// <summary>The sources used to be capped so the queue beneath them kept
@@ -45,18 +46,24 @@ public sealed class InboxSourcesLayoutTests
     public void The_sources_height_cap_is_gone()
     {
         Assert.DoesNotContain("--inbox-sources-max-height", Css(), StringComparison.Ordinal);
+        Assert.DoesNotContain("--inbox-sources-max-height", Shell(), StringComparison.Ordinal);
     }
 
     private static string Css() =>
+        File.ReadAllText(RepositoryRoot.File("src", "Modules", "Inbox", "Backlog.Modules.Inbox.UI", "wwwroot", "inbox.css"))
+            .Replace("\r\n", "\n");
+
+    private static string Shell() =>
         File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css"))
             .Replace("\r\n", "\n");
 
-    private static string Rule(string opening)
+    private static string Rule(string opening) => Rule(opening, Css());
+
+    private static string Rule(string opening, string css)
     {
-        var css = Css();
         var start = css.IndexOf(opening, StringComparison.Ordinal);
 
-        Assert.True(start >= 0, $"app.css should hold a rule opening with '{opening}'.");
+        Assert.True(start >= 0, $"The stylesheet should hold a rule opening with '{opening}'.");
 
         return css[start..css.IndexOf("\n}\n", start, StringComparison.Ordinal)];
     }

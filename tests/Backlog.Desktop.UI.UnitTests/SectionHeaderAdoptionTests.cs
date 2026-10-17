@@ -15,7 +15,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 ///
 /// <para>The class hooks that make that possible are pinned in the library's own
 /// <c>ClassHookTests</c>; these are the sites, where a wrong parameter would
-/// silently move a class out from under <c>app.css</c>.</para>
+/// silently move a class out from under the stylesheet that styles it — the
+/// Inbox module's <c>inbox.css</c>, or <c>app.css</c>.</para>
 /// </summary>
 public sealed class SectionHeaderAdoptionTests
 {

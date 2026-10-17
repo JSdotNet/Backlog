@@ -14,8 +14,9 @@ namespace Backlog.ArchitectureTests;
 /// component library serves <c>components.css</c>, and every host that renders
 /// the module links it after the library.</para>
 ///
-/// <para>Capture, Roadmap, Dashboard and DevPc's tools pane are moved; the rest
-/// of the module rules are still in <c>app.css</c> until their own moves.</para>
+/// <para>Capture, Roadmap, Dashboard, DevPc's tools pane and the Inbox pane are
+/// moved; the rest of the module rules are still in <c>app.css</c> until their
+/// own moves.</para>
 /// </summary>
 public class ModuleStylesheetTests
 {
@@ -97,6 +98,25 @@ public class ModuleStylesheetTests
             [".workspace-surface > .tools-panel"],
             // Only the desktop UI references the DevPc module; neither mobile head
             // renders the tools takeover.
+            [
+                "src/App/Backlog.Desktop/wwwroot/index.html",
+                "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor"
+            ]),
+        new(
+            "Inbox",
+            "src/Modules/Inbox/Backlog.Modules.Inbox.UI/wwwroot/inbox.css",
+            "_content/Backlog.Modules.Inbox.UI/inbox.css",
+            [".inbox-pane", ".inbox-triage", ".inbox-pass", ".inbox-route-panel", ".inbox-zero"],
+            // The toggle is the library's; these two colour it only where a pass
+            // row's proposals are accepted.
+            [
+                ".btn--toggle.inbox-pass__accept--on",
+                ".btn--toggle.inbox-pass__accept--mixed"
+            ],
+            // The takeover the pane fills is the shell's (Home.razor).
+            [".workspace-surface > .inbox-pane"],
+            // Only the desktop UI references the Inbox module; the mobile heads draw
+            // their own inbox sheet from Backlog.Mobile.UI.
             [
                 "src/App/Backlog.Desktop/wwwroot/index.html",
                 "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor"
@@ -202,8 +222,9 @@ public class ModuleStylesheetTests
     /// <summary>The move carries the rules over as they were; these are the
     /// Capture panel's grid and log, the Roadmap band, its pace and the two
     /// rules that reach into the library's timeline, the Dashboard's title,
-    /// tab strip and timeline, and the tools pane's header, content grid, rail
-    /// and transcript, as <c>app.css</c> declared them.</summary>
+    /// tab strip and timeline, the tools pane's header, content grid, rail and
+    /// transcript, and the Inbox pane's sources, split, triage, accepted pass
+    /// toggles and inbox zero, as <c>app.css</c> declared them.</summary>
     [Theory]
     [InlineData("Capture", ".capture-sources__grid", "align-items: start; display: grid; gap: var(--spacing-md); grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr))")]
     [InlineData("Capture", ".capture-sources__log", "background: color-mix(in srgb, var(--color-text-primary) 3%, transparent); border-radius: var(--border-radius-sm); color: var(--color-text-secondary); display: grid; font-family: var(--font-family-mono); font-size: var(--font-size-xs); gap: var(--spacing-xs); list-style: none; margin: 0; max-height: 14rem; overflow-y: auto; padding: var(--spacing-sm)")]
@@ -224,6 +245,11 @@ public class ModuleStylesheetTests
     [InlineData("DevPc", ".tools-panel__content", "display: grid; gap: var(--spacing-md); min-width: 0")]
     [InlineData("DevPc", ".tools-panel__side", "border-top: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent); min-width: 0; padding-top: var(--spacing-sm)")]
     [InlineData("DevPc", ".tools-panel__log .code-view__body", "max-height: 22rem")]
+    [InlineData("Inbox", ".inbox-pane__sources", "display: flex; flex: 1 1 0; flex-direction: column; gap: var(--spacing-sm); min-height: 0; min-width: 0; overflow-y: auto")]
+    [InlineData("Inbox", ".inbox-pane__split", "min-height: 0; min-width: 0")]
+    [InlineData("Inbox", ".inbox-triage", "display: flex; flex: 1 1 0; flex-direction: column; gap: var(--spacing-md); min-height: 0; min-width: 0; overflow: auto")]
+    [InlineData("Inbox", ".btn--toggle.inbox-pass__accept--on", "background: var(--color-success); border-color: var(--color-success-text); color: var(--color-text-primary)")]
+    [InlineData("Inbox", ".btn--toggle.inbox-pass__accept--mixed", "border-color: var(--color-success-text); border-style: dashed; color: var(--color-text-primary)")]
     public void A_moved_rule_keeps_the_declarations_it_had(string module, string selector, string declarations)
     {
         var css = File.ReadAllText(Path.Combine(Repository.Root.FullName, Find(module).File));
@@ -297,6 +323,28 @@ public class ModuleStylesheetTests
             "border-inline-start: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent); border-top: 0; "
             + "padding-inline-start: var(--spacing-md); padding-top: 0; position: sticky; top: var(--spacing-sm)",
             Canonical(CssRules.Effective(Body(css, blocks[0]), ".tools-panel__side")));
+    }
+
+    /// <summary>The Inbox pane's narrow step moves with it: the
+    /// <c>@container inbox-pane (max-width: 56rem)</c> block, whose name the moved
+    /// <c>.inbox-pane</c> rule declares, restacks the body and the split as the
+    /// desktop declared it. No <c>inbox-pane</c> container query may be left in
+    /// <c>app.css</c>, where nothing would name the container.</summary>
+    [Fact]
+    public void The_inbox_pane_narrow_step_moves_with_the_pane()
+    {
+        var css = File.ReadAllText(Path.Combine(Repository.Root.FullName, Find("Inbox").File));
+        var desktop = File.ReadAllText(Path.Combine(Repository.Root.FullName, App));
+        const string block = "@container inbox-pane (max-width: 56rem) {";
+
+        Assert.Contains("container-name: inbox-pane;", css, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"@container inbox-", desktop);
+        Assert.Equal(
+            "grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr)",
+            Canonical(CssRules.Effective(Body(css, block), ".inbox-pane__body")));
+        Assert.Equal(
+            "grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto",
+            Canonical(CssRules.Effective(Body(css, block), ".inbox-pane__split")));
     }
 
     /// <summary>The desktop shell's scoped stylesheet was emptied and still
