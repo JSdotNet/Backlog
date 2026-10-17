@@ -7,6 +7,12 @@
     NavLink does the matching, so "which one am I on" has the same answer here as
     in every other link list in the product, and it survives a deep link and a
     back press without the host telling it anything.
+
+    A tab whose item carries an Icon draws it above its word, as a phone's tab
+    bar does. The glyph is decoration: the word stays the link's name, so the
+    glyph is hidden from assistive technology and the tab's text is its label
+    alone. A host gives every tab a glyph or none
+    (.devbook/design/interaction-guidelines.md#phone-tab-bar).
 *@
 
 <nav class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -16,7 +22,7 @@
                  ActiveClass="tab-bar__tab--active"
                  href="@item.Href"
                  Match="@(item.Match ? NavLinkMatch.All : NavLinkMatch.Prefix)"
-                 data-testid="@TabTestId(item)">@item.Label</NavLink>
+                 data-testid="@TabTestId(item)">@if (item.Icon is not null){<span class="tab-bar__icon">@item.Icon</span><span class="tab-bar__label">@item.Label</span>}else{@item.Label}</NavLink>
     }
 </nav>
 

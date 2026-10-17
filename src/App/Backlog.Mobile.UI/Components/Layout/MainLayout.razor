@@ -58,19 +58,28 @@
 </div>
 
 @code {
+    // Every tab leads with a glyph, or none would: a bar where one tab has a
+    // picture and the rest do not reads as that one being different. The glyphs
+    // are drawn at icon-md and hidden from assistive technology, so each tab's
+    // name stays its word (.devbook/design/interaction-guidelines.md#phone-tab-bar).
+    private static readonly RenderFragment TodayGlyph = @<SunIcon Size="20" />;
+    private static readonly RenderFragment InboxGlyph = @<InboxIcon Size="20" />;
+    private static readonly RenderFragment StandUpGlyph = @<TargetIcon Size="20" />;
+    private static readonly RenderFragment NotesGlyph = @<StickyNoteIcon Size="20" />;
+
     private static readonly IReadOnlyList<NavItem> TabsWithoutStandUp =
     [
-        new("", "Today", Match: true),
-        new("inbox", "Inbox"),
-        new("notes", "Notes")
+        new("", "Today", Match: true, Icon: TodayGlyph),
+        new("inbox", "Inbox", Icon: InboxGlyph),
+        new("notes", "Notes", Icon: NotesGlyph)
     ];
 
     private static readonly IReadOnlyList<NavItem> TabsWithStandUp =
     [
-        new("", "Today", Match: true),
-        new("inbox", "Inbox"),
-        new("standup", "Stand-up"),
-        new("notes", "Notes")
+        new("", "Today", Match: true, Icon: TodayGlyph),
+        new("inbox", "Inbox", Icon: InboxGlyph),
+        new("standup", "Stand-up", Icon: StandUpGlyph),
+        new("notes", "Notes", Icon: NotesGlyph)
     ];
 
     private bool _pullingProgress;
