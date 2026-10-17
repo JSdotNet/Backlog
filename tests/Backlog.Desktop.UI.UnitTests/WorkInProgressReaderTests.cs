@@ -15,7 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The pull requests tasks link, as <see cref="WorkInProgressReader"/> reads them beside
 /// the open read: by number, only the ones the open read did not list, with their state,
 /// merge date and author — after the open read lands rather than as part of it, and a
-/// merged one read once and kept, so a visit to the In progress view does not sweep
+/// merged one read once and kept, so a visit to the Goals view does not sweep
 /// GitHub for work that has already landed.
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
@@ -275,7 +275,7 @@ public sealed class WorkInProgressReaderTests
     }
 
     /// <summary>Progress reads each pull request's status — checks and approvals — through
-    /// a cache of its own, so the In progress view's slim read by number never stands in
+    /// a cache of its own, so the reader's slim read by number never stands in
     /// for it, and the slim read keeps asking only for what a link records. Each read is
     /// still asked once while fresh.</summary>
     [Fact]

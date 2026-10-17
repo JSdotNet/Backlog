@@ -20302,8 +20302,8 @@ select.field__input {
     flex: none;
 }
 
-/* The side panel section: the heading with "Open in In progress" beside it, the
-   two columns stacked, and the link action under them. */
+/* The side panel section: the heading, the two columns stacked, and the link
+   action under them. */
 .work-links-panel {
     display: flex;
     flex-direction: column;
@@ -20323,10 +20323,6 @@ select.field__input {
     font-weight: var(--font-weight-semibold);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-}
-
-.work-links-panel__open {
-    margin-left: auto;
 }
 
 .work-links-panel__link {

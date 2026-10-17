@@ -80,7 +80,7 @@
     </Story>
 
     <Story Name="A section of a task's side panel"
-           Description="`WorkLinksPanel` is the same columns stacked, under a `Sessions and pull requests` heading with `Open in In progress` beside it, `Unlink` beside each card, and `Link a session or pull request…` under them. With one feature off the heading and the link action name only the kind left — `Pull requests`, `Link a pull request…` — and the other column is not drawn. Each control is drawn only while the host listens for it. The button opens the host's `WorkLinkPicker`, shown here with the tasks a loose session could be linked to."
+           Description="`WorkLinksPanel` is the same columns stacked, under a `Sessions and pull requests` heading, `Unlink` beside each card, and `Link a session or pull request…` under them. With one feature off the heading and the link action name only the kind left — `Pull requests`, `Link a pull request…` — and the other column is not drawn. Each control is drawn only while the host listens for it. The button opens the host's `WorkLinkPicker`, shown here with the tasks a loose session could be linked to."
            Code="@PanelCode">
         <div class="sb-board-column" data-testid="work-links-panel-sample">
             <WorkLinksPanel Sessions="@([IntegrationFixtures.QuietSession])"
@@ -89,7 +89,6 @@
                             OnOpenPullRequest="OpenPullRequest"
                             OnUnlinkSession="UnlinkSession"
                             OnUnlinkPullRequest="UnlinkPullRequest"
-                            OnOpenInProgress="ShowInProgress"
                             OnLink="() => _picking = true" />
         </div>
         <div class="sb-board-column" data-testid="work-links-panel-one-feature">
@@ -143,8 +142,6 @@
     private void OpenSession(WorkSession session) => _opened = $"session {session.Id}";
 
     private void OpenPullRequest(WorkPullRequest pull) => _opened = pull.Key;
-
-    private void ShowInProgress() => _opened = "In progress";
 
     private void UnlinkSession(WorkSession session) => _opened = $"unlinked session {session.Id}";
 
@@ -250,7 +247,6 @@
                         OnOpenPullRequest="OpenPullRequest"
                         OnUnlinkSession="UnlinkSessionAsync"
                         OnUnlinkPullRequest="UnlinkPullRequestAsync"
-                        OnOpenInProgress="ShowInProgress"
                         OnLink="() => _picking = true" />
 
         <WorkLinkPicker Open="_picking"

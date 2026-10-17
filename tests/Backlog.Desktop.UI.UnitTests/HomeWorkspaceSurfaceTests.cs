@@ -2669,8 +2669,7 @@ public sealed class HomeWorkspaceSurfaceTests
     private const string InProgressEntryText = "# Wire the In progress view\n`prompt` `!in-progress`\n";
 
     /// <summary>A task's side panel carries its sessions and pull requests while either
-    /// feature is on, with nothing that leads to the In progress view the goals flag
-    /// retired.</summary>
+    /// feature is on.</summary>
     [Fact]
     public async Task A_tasks_side_panel_carries_its_sessions_and_pull_requests()
     {
@@ -2682,10 +2681,7 @@ public sealed class HomeWorkspaceSurfaceTests
         await component.InvokeAsync(() => state.SelectAsync(state.Rows[0]));
 
         component.WaitForAssertion(() =>
-        {
-            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail'] [data-testid='entry-linked-work']"));
-            Assert.Empty(component.FindAll("[data-testid='work-links-open-in-progress']"));
-        });
+            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail'] [data-testid='entry-linked-work']")));
     }
 
     /// <summary>
