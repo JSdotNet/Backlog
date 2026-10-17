@@ -1,49 +1,18 @@
-@implements IDisposable
-@using Backlog.Desktop.UI.Tasks
-@using Backlog.Modules.Progress.UI.InProgress
-@using Backlog.UI.Components.Integrations
-@using Backlog.UI.Components.Progress
-@inject TasksDesktopState State
-@inject IServiceProvider Services
-
 @*
-    The In progress tab: the view by task (InProgressView) and, beside it, the sprint
-    view of the series the header's repository scope works to
-    (.devbook/domain/progress/features.md#following-a-sprint).
-
-    InProgressSprints decides whether there is a sprint to switch to and draws it; this
-    hands it the things only the shell holds — the header's repository scope, the live
-    sessions and open pull requests the shell's reader found, for the "Outside the
-    sprint" line, and the task list, for "Add to sprint…" — and draws the Now view under
-    the switch it is given.
-    With no series in scope, or Progress off, the switch is null and the Now view is
-    exactly what it was.
-    OpenSprint, the weekly brief's "Open Sprint n", is handed on as InProgressSprints'
-    Open request.
+    The In progress tab: the view by task (InProgressView), shown while the goals flag is
+    off (.devbook/domain/sessions/features.md#in-progress-by-task). With the flag on the
+    shell draws the Goals view in its place (GoalsTab).
 *@
-<InProgressSprints Repositories="@State.SelectedRepositoryAliases"
-                   Outside="OutsideOf"
-                   Candidates="SprintCandidatesOf"
-                   Revision="_revision"
-                   OnOpenTask="OnOpenTask"
-                   OnOpenPullRequest="OnOpenPullRequest"
-                   OnRead="Read"
-                   Open="OpenSprint"
-                   OnOpened="OnSprintOpened">
-    <Now Context="viewSwitch">
-        <InProgressView Reader="Reader"
-                        ViewSwitch="viewSwitch"
-                        OnOpenTask="OnOpenTask"
-                        OnOpenSession="OnOpenSession"
-                        OnOpenPullRequest="OnOpenPullRequest"
-                        ShowSessions="ShowSessions"
-                        ShowPullRequests="ShowPullRequests"
-                        NeedsYouFirst="NeedsYouFirst"
-                        NeedsYouFirstChanged="NeedsYouFirstChanged"
-                        IncludeFinishedToday="IncludeFinishedToday"
-                        IncludeFinishedTodayChanged="IncludeFinishedTodayChanged" />
-    </Now>
-</InProgressSprints>
+<InProgressView Reader="Reader"
+                OnOpenTask="OnOpenTask"
+                OnOpenSession="OnOpenSession"
+                OnOpenPullRequest="OnOpenPullRequest"
+                ShowSessions="ShowSessions"
+                ShowPullRequests="ShowPullRequests"
+                NeedsYouFirst="NeedsYouFirst"
+                NeedsYouFirstChanged="NeedsYouFirstChanged"
+                IncludeFinishedToday="IncludeFinishedToday"
+                IncludeFinishedTodayChanged="IncludeFinishedTodayChanged" />
 
 @code {
     /// <summary>The shell's reader, shared with the side panel.</summary>
@@ -76,112 +45,4 @@
 
     [Parameter]
     public EventCallback<bool> IncludeFinishedTodayChanged { get; set; }
-
-    /// <summary>Open the sprint view on this sprint — the weekly brief's "Open Sprint
-    /// n" — until <see cref="OnSprintOpened"/> says it was taken.</summary>
-    [Parameter]
-    public SprintViewRequest? OpenSprint { get; set; }
-
-    [Parameter]
-    public EventCallback OnSprintOpened { get; set; }
-
-    private int _revision;
-    private TimeProvider _clock = TimeProvider.System;
-
-    protected override void OnInitialized()
-    {
-        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
-        Reader.Changed += OnReaderChanged;
-    }
-
-    public void Dispose() => Reader.Changed -= OnReaderChanged;
-
-    // A read landing is new work to place inside or outside the sprint.
-    private void OnReaderChanged() => _ = InvokeAsync(() =>
-    {
-        _revision++;
-        StateHasChanged();
-    });
-
-    /// <summary>The sprint view opened, or its Refresh was pressed: the reader reads as
-    /// the Now view's opening and Refresh do. Not awaited — the sprint is drawn from the
-    /// task list at once, and the outside line fills in when the read lands.</summary>
-    private Task Read(bool refresh)
-    {
-        Reader.ReadsSessions = ShowSessions;
-        Reader.ReadsPullRequests = ShowPullRequests;
-        _ = refresh ? Reader.ReadAsync() : Reader.EnsureAllAsync();
-        return Task.CompletedTask;
-    }
-
-    /// <summary>Every saved task, for the sprint view's "Add to sprint…": the picker keeps
-    /// those in the series' repositories, whatever the header's scope.</summary>
-    private IReadOnlyList<Backlog.Modules.Progress.UI.Planning.SprintCandidate> SprintCandidatesOf() => SprintCandidates.Of(State);
-
-    /// <summary>
-    /// The live sessions and open pull requests running against tasks the sprint does not
-    /// hold, under the header's repository scope: one item per such task, then one per
-    /// session or pull request no task links — what the Now view lists, less the
-    /// sprint's members and less what is finished.
-    /// </summary>
-    private IReadOnlyList<SprintBoardOutside> OutsideOf(IReadOnlySet<Guid> members) =>
-        Outside(
-            new InProgressProjection(
-                State.Rows,
-                Reader.Sessions,
-                Reader.PullRequests,
-                State.RepositoryAliasFor,
-                State.RepositoryColourFor,
-                State.SessionStateOf,
-                _clock.GetLocalNow(),
-                Reader.SessionsRead,
-                Reader.LinkedPullRequests),
-            State.RowsInRepositoryScope,
-            State.SelectedRepositoryAliases,
-            members,
-            ShowSessions,
-            ShowPullRequests);
-
-    /// <summary>The outside work a projection holds, for <see cref="OutsideOf"/> and its
-    /// tests.</summary>
-    internal static IReadOnlyList<SprintBoardOutside> Outside(
-        InProgressProjection projection,
-        IEnumerable<EntryRow> scopedRows,
-        IReadOnlyCollection<string> scope,
-        IReadOnlySet<Guid> members,
-        bool showSessions,
-        bool showPullRequests)
-    {
-        var outside = new List<SprintBoardOutside>();
-
-        foreach (var task in projection.Tasks(scopedRows))
-        {
-            if (task.Finished || (Guid.TryParse(task.Id, out var id) && members.Contains(id))) continue;
-
-            var sessions = showSessions ? task.Sessions.Count(IsLive) : 0;
-            var pulls = showPullRequests ? task.PullRequests.Count(IsOpen) : 0;
-            if (sessions + pulls > 0) outside.Add(new SprintBoardOutside(task.Id, task.Title, sessions, pulls, task.Id));
-        }
-
-        foreach (var loose in projection.Loose(scope))
-        {
-            if (loose.Session is { } session && showSessions && IsLive(session))
-            {
-                outside.Add(new SprintBoardOutside(session.Id, session.Title, 1, 0));
-            }
-            else if (loose.PullRequest is { } pull && showPullRequests && IsOpen(pull))
-            {
-                outside.Add(new SprintBoardOutside(pull.Key, $"#{pull.Number} {pull.Title}", 0, 1));
-            }
-        }
-
-        return outside;
-    }
-
-    private static bool IsLive(WorkSession session) =>
-        session.State is IntegrationSessionState.Starting or IntegrationSessionState.Running
-            or IntegrationSessionState.Waiting or IntegrationSessionState.Stalled;
-
-    private static bool IsOpen(WorkPullRequest pull) =>
-        (pull.ReadState ?? pull.State) is IntegrationArtifactState.Open or IntegrationArtifactState.Draft;
 }

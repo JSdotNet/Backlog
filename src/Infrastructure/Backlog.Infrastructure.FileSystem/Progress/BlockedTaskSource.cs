@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// Progress's <see cref="IBlockedTaskSource"/>, answered from Tasks' published
 /// <see cref="ITaskItems"/> alone: every task carrying the stored blocked mark — its
 /// <c>blocked:</c> token — that is not Done or Archived. It reads and never writes.
-/// Resolved per call, for the reason <see cref="SprintTaskSource"/> gives.
+/// Resolved per call, for the reason <see cref="ProgressTaskSource"/> gives.
 /// </summary>
 public sealed class BlockedTaskSource(Func<ITaskItems> tasks) : IBlockedTaskSource
 {

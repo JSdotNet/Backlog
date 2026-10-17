@@ -69,10 +69,11 @@
          surface only, taken as optional like the Inbox's, so this project routes by
          kind and holds no roadmap logic. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
-    <!-- Progress's replication port, on the roadmap's terms: the merge hands a
-         sprint-series document to ISprintSeriesReplication, and the session reads
-         every series from it on the push. The published surface only, taken as
-         optional, so this project routes by kind and holds no sprint logic. -->
+    <!-- Progress's replication ports, on the roadmap's terms: the merge hands a goal
+         or an impediment document to IGoalReplication or IImpedimentReplication, and
+         the session reads every one from them on the push. The published surface
+         only, taken as optional, so this project routes by kind and holds no goal
+         logic. -->
     <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
     <!-- Devbook's annotation port and record: the annotation exchange pushes what
          the store changed and applies what other devices did through the same

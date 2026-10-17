@@ -27,7 +27,6 @@ using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Progress.Extensions;
-using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
@@ -140,9 +139,9 @@ public static class DesktopCompositionRegistration
         // planning port it holds exists.
         services.AddRoadmapAiContentSource();
 
-        // Progress (local ADR 0028): the sprint series and the progress service. Its
-        // ports ask the progress switch at every call and its screens draw under it,
-        // so composing it offers nothing while the switch is off.
+        // Progress (local ADR 0035): goals, impediments and the stand-up. Its ports ask
+        // the goals switch at every call and its screens draw under it, so composing it
+        // offers nothing while the switch is off.
         services.AddProgressModule();
 
         // Capture: the module brings the run, and the head decides where the
@@ -158,7 +157,7 @@ public static class DesktopCompositionRegistration
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
 
-        // The tasks a sprint names, read through Tasks' published ITaskItems.
+        // The tasks goals name, read through Tasks' published ITaskItems.
         services.AddProgressCrossContextAdapters();
 
         // The backlog's work badges ask what state a linked agent session is in; the
@@ -296,9 +295,6 @@ public static class DesktopCompositionRegistration
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();
-        // The Sprints page: a card per sprint series and the repositories in none.
-        // Offered behind the progress switch, like every Progress screen.
-        services.AddProgressSettings();
         // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
         services.AddGoalControls();
         // The band under every route reads the backlog's save state through the

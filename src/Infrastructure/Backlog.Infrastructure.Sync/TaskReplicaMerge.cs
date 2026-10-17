@@ -125,14 +125,13 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// notes on the replica, as it holds captures.
 /// </para>
 /// <para>
-/// <b>Nor is a sprint series.</b> A <c>sprint-series</c> document is one of
-/// Progress's series, whole, and goes to its replication port on the terms the
-/// roadmap's documents do: the port decides by the series' own stamp, and a head
-/// without it skips the document.
+/// <b>Nor is a retired kind.</b> A <c>sprint-series</c> document, one of the sprint
+/// series an older build pushed, is read and dropped (<see cref="RetiredReplicaDocuments"/>,
+/// local ADR 0035): counted as nothing to do, never written and never taken as a task.
 /// </para>
 /// <para>
 /// <b>Nor is a goal.</b> A <c>goal</c> document is one of Progress's goals, whole
-/// (local ADR 0035 §9), and goes to its replication port on the series' terms. So does
+/// (local ADR 0035 §9), and goes to its replication port on the roadmap's terms. So does
 /// an <c>impediment</c> document, to its own port.
 /// </para>
 /// <para>
@@ -151,7 +150,6 @@ public sealed class TaskReplicaMerge(
     IRoadmapReplication? roadmap = null,
     IGitHubSettingsReplication? github = null,
     IInboxNoteReplication? notes = null,
-    ISprintSeriesReplication? sprints = null,
     IMyDayPreferencesReplication? myDay = null,
     IGoalReplication? goals = null,
     IImpedimentReplication? impediments = null,
@@ -185,10 +183,6 @@ public sealed class TaskReplicaMerge(
     /// <summary>Where a note goes, or null on a head without an inbox store,
     /// which leaves notes on the replica.</summary>
     private readonly IInboxNoteReplication? _notes = notes;
-
-    /// <summary>Where a sprint series goes, or null on a head without Progress — the
-    /// phone, or a build from before the port.</summary>
-    private readonly ISprintSeriesReplication? _sprints = sprints;
 
     /// <summary>Where the My Day preferences go, or null on a head that keeps none — an
     /// older desktop build. The phone folds the document itself and composes no
@@ -648,9 +642,14 @@ public sealed class TaskReplicaMerge(
             return await ApplyGitHubSettingsAsync(record, settings, moved, cancellationToken).ConfigureAwait(false);
         }
 
-        if (SprintReplicaDocuments.IsSeries(record.Change))
+        if (RetiredReplicaDocuments.IsRetired(record.Change))
         {
-            return await ApplySprintSeriesAsync(record, moved, cancellationToken).ConfigureAwait(false);
+            _log.LogDebug(
+                "Dropping {Kind} document {DocumentId} from the replica: this build no longer keeps that kind.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Held;
         }
 
         if (MyDayReplicaDocuments.Is(record.Change))
@@ -860,54 +859,8 @@ public sealed class TaskReplicaMerge(
     }
 
     /// <summary>
-    /// Hands a sprint series document to Progress's port and counts what it answered,
-    /// exactly as <see cref="ApplyRoadmapAsync"/> does for the roadmap's.
-    /// </summary>
-    private async Task<ApplyOutcome> ApplySprintSeriesAsync(
-        TaskChangeRecord record,
-        List<SyncActivityEntry> moved,
-        CancellationToken cancellationToken)
-    {
-        // Skipped, not held, on a head without the port, for the reason the roadmap's
-        // documents give: the series will not land until this build can take it.
-        if (_sprints is null)
-        {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no sprint series.",
-                record.Change.Task.Type,
-                record.Change.Id);
-
-            return ApplyOutcome.Unreadable;
-        }
-
-        var outcome = await _sprints
-            .ApplyAsync(SprintReplicaDocuments.ToCopy(record.Change), cancellationToken)
-            .ConfigureAwait(false);
-
-        switch (outcome)
-        {
-            case SprintSeriesReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.SprintSeries, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case SprintSeriesReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that series. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
-    }
-
-    /// <summary>
     /// Hands a goal document to Progress's port and counts what it answered, exactly as
-    /// <see cref="ApplySprintSeriesAsync"/> does for a series (local ADR 0035 §9).
+    /// <see cref="ApplyRoadmapAsync"/> does for the roadmap's (local ADR 0035 §9).
     /// </summary>
     private async Task<ApplyOutcome> ApplyGoalAsync(
         TaskChangeRecord record,

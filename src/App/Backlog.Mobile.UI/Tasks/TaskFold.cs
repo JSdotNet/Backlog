@@ -39,9 +39,9 @@ public static class TaskFold
     /// <inheritdoc cref="RepositoryRegistryType"/>
     public const string GitHubAccountsType = "github-accounts";
 
-    /// <summary>The kind token of a sprint series — Progress's whole series, synced
-    /// between desktops the way the roadmap's plan is. The phone keeps no sprints, so it
-    /// keeps no row for one. A literal duplicated for the reason
+    /// <summary>The kind token of a retired sprint series — what desktops pushed before
+    /// local ADR 0035 retired sprints. A replica may still hold one, so the phone reads it
+    /// and drops it, keeping no row. A literal duplicated for the reason
     /// <see cref="CaptureType"/> is.</summary>
     public const string SprintSeriesType = "sprint-series";
 

@@ -1,7 +1,6 @@
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Progress.Features.ReadSprintProgress;
 using Backlog.Modules.Progress.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Handlers;
@@ -36,7 +35,7 @@ public sealed record ReadStandUpQuery(DateOnly Today, IterationLength Length);
 public sealed class ReadStandUpQueryHandler(
     IGoalRepository goals,
     IImpedimentRepository impediments,
-    ISprintTaskSource tasks,
+    IProgressTaskSource tasks,
     IGoalPullRequestReader pullRequests,
     IIterationSettings iteration,
     IStandUpPace pace,
@@ -58,7 +57,7 @@ public sealed class ReadStandUpQueryHandler(
         var asked = GoalItems.PullRequestsOf(all, read);
         IReadOnlyList<LinkedPullRequestDto> answers = asked.Count == 0
             ? []
-            : [.. (await pullRequests.ReadAsync(asked, cancellationToken).ConfigureAwait(false)).Select(ReadSprintProgressQueryHandler.Linked)];
+            : [.. (await pullRequests.ReadAsync(asked, cancellationToken).ConfigureAwait(false)).Select(LinkedPullRequestDto.Of)];
 
         IReadOnlyList<ImpedimentDto> raised = [.. (await impediments.ListAsync(cancellationToken).ConfigureAwait(false)).Select(impediment => impediment.ToDto())];
         var pointsPerWeek = await pace.PointsPerWeekAsync(cancellationToken).ConfigureAwait(false);

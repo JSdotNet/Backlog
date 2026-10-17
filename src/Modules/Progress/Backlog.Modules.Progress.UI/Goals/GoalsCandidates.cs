@@ -5,8 +5,8 @@ namespace Backlog.Modules.Progress.UI.Goals;
 
 /// <summary>
 /// One of the shell's tasks as the Goals view reads it: Progress UI may not reach Tasks
-/// (local ADR 0028, ADR 0035 §6), so the shell builds these from its task list — the
-/// <see cref="Planning.SprintCandidate"/> precedent. Read on every asking, never kept.
+/// (local ADR 0028, ADR 0035 §6), so the shell builds these from its task list. Read on
+/// every asking, never kept.
 /// </summary>
 /// <param name="Id">The task's stored id.</param>
 /// <param name="Title">What the task reads.</param>

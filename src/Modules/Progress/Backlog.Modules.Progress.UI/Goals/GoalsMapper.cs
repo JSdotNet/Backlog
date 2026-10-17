@@ -12,8 +12,7 @@ namespace Backlog.Modules.Progress.UI.Goals;
 /// <see cref="Abstractions.Services.IGoals.ListAsync"/>, the pull requests' status from
 /// <see cref="Abstractions.Services.IGoalPullRequestReader"/>, and the shell's candidates
 /// for titles, plan counts, the attach search and No goal. The library takes plain values,
-/// so every Progress word is translated here — the <see cref="InProgress.SprintBoardMapper"/>
-/// precedent. Pure.
+/// so every Progress word is translated here. Pure.
 /// </summary>
 public static class GoalsMapper
 {

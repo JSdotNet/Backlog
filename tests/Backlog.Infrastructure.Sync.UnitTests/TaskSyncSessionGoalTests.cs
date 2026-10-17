@@ -97,8 +97,8 @@ public sealed class TaskSyncSessionGoalTests
     private static IReadOnlyList<TaskChange> Pushed(string body) =>
         JsonSerializer.Deserialize<PushTasksRequest>(body, Web)!.Tasks;
 
-    /// <summary>The shape of <c>TaskSyncSessionSprintTests.Fixture</c>, with the goal port
-    /// threaded through the merge and the session alike.</summary>
+    /// <summary>A session over a scripted replica, with the goal port threaded through the
+    /// merge and the session alike.</summary>
     private sealed class Fixture : IDisposable
     {
         private readonly HttpClient _http;

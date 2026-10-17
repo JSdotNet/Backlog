@@ -4,7 +4,7 @@ using Backlog.Modules.Progress.Abstractions.Services;
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>Progress's goal replication port, holding the goals the test set and answering
-/// whatever the test said — the shape of <see cref="RecordingSprintSeriesReplication"/>.</summary>
+/// whatever the test said.</summary>
 internal sealed class RecordingGoalReplication : IGoalReplication
 {
     public event Action? Changed;

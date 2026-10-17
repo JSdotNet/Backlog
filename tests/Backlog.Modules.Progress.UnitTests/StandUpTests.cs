@@ -34,10 +34,9 @@ public sealed class StandUpTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(_time);
-        services.AddSingleton<ISprintSeriesRepository>(new InMemorySprintSeriesRepository());
         services.AddSingleton<IGoalRepository>(_goals);
         services.AddSingleton<IImpedimentRepository>(_impediments);
-        services.AddSingleton<ISprintTaskSource>(_tasks);
+        services.AddSingleton<IProgressTaskSource>(_tasks);
         services.AddSingleton<IGoalPullRequestReader>(_pulls);
         services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddSingleton<IStandUpPace>(_pace);
@@ -69,13 +68,13 @@ public sealed class StandUpTests : IDisposable
         return goal;
     }
 
-    private SprintTaskDto Add(SprintTaskDto task)
+    private ProgressTaskDto Add(ProgressTaskDto task)
     {
         _tasks.Tasks.Add(task);
         return task;
     }
 
-    private SprintTaskDto Entry(string title, SprintTaskStatus status = SprintTaskStatus.Ready, int order = 0, DateOnly? completedOn = null) =>
+    private ProgressTaskDto Entry(string title, ProgressTaskStatus status = ProgressTaskStatus.Ready, int order = 0, DateOnly? completedOn = null) =>
         Add(Make.Task(title, status, plan: Bank, completedOn: completedOn) with { Order = order });
 
     private static IReadOnlyList<string> Titles(IReadOnlyList<StandUpGroupDto> groups, string? goal) =>
@@ -121,15 +120,15 @@ public sealed class StandUpTests : IDisposable
     [Fact]
     public async Task The_stand_up_has_four_blocks_with_their_counts()
     {
-        var doing1 = Add(Make.Task("Customer search by IBAN", SprintTaskStatus.InProgress));
-        var doing2 = Add(Make.Task("Index the chapters", SprintTaskStatus.InProgress));
-        var done = Enumerable.Range(0, 5).Select(i => Add(Make.Task($"Done {i}", SprintTaskStatus.Done, completedOn: Oct(12 + i)))).ToList();
+        var doing1 = Add(Make.Task("Customer search by IBAN", ProgressTaskStatus.InProgress));
+        var doing2 = Add(Make.Task("Index the chapters", ProgressTaskStatus.InProgress));
+        var done = Enumerable.Range(0, 5).Select(i => Add(Make.Task($"Done {i}", ProgressTaskStatus.Done, completedOn: Oct(12 + i)))).ToList();
         await GoalAsync("Customers get paid faster", [MakeGoal.Task(doing1.Id), .. done.Take(3).Select(task => MakeGoal.Task(task.Id))]);
         await GoalAsync("Devbook search ships", [MakeGoal.Task(doing2.Id), .. done.Skip(3).Select(task => MakeGoal.Task(task.Id))]);
         await GoalAsync("Phone capture in daily use", MakeGoal.PullRequest("JSdotNet/Backlog", 77));
         _pulls.Known.Add(new GoalPullRequestDto("JSdotNet/Backlog", "77", LinkedPullRequestState.Open, null, null, null));
-        Add(Make.Task("VAT rate per line item", SprintTaskStatus.Done, completedOn: Oct(14)));
-        Add(Make.Task("Credit note layout", SprintTaskStatus.Done, completedOn: Oct(15)));
+        Add(Make.Task("VAT rate per line item", ProgressTaskStatus.Done, completedOn: Oct(14)));
+        Add(Make.Task("Credit note layout", ProgressTaskStatus.Done, completedOn: Oct(15)));
         Add(Make.Task("Due Tuesday") with { DueOn = Oct(20) });
         Add(Make.Task("Due Thursday") with { DueOn = Oct(22) });
         foreach (var title in new[] { "Bank sample files missing", "Credit note numbering unclear", "Phone build signing" })
@@ -149,10 +148,10 @@ public sealed class StandUpTests : IDisposable
     [Fact]
     public async Task Finished_is_grouped_by_goal_with_no_goal_last()
     {
-        var invoice = Add(Make.Task("Invoice PDF export", SprintTaskStatus.Done, completedOn: Oct(14)));
-        Add(Make.Task("VAT rate per line item", SprintTaskStatus.Done, completedOn: Oct(14)));
-        Add(Make.Task("Done the week before", SprintTaskStatus.Done, completedOn: Oct(9)));
-        Add(Make.Task("Completed, not done", SprintTaskStatus.Ready, completedOn: Oct(14)));
+        var invoice = Add(Make.Task("Invoice PDF export", ProgressTaskStatus.Done, completedOn: Oct(14)));
+        Add(Make.Task("VAT rate per line item", ProgressTaskStatus.Done, completedOn: Oct(14)));
+        Add(Make.Task("Done the week before", ProgressTaskStatus.Done, completedOn: Oct(9)));
+        Add(Make.Task("Completed, not done", ProgressTaskStatus.Ready, completedOn: Oct(14)));
         await GoalAsync("Devbook search ships");
         await GoalAsync("Customers get paid faster", MakeGoal.Task(invoice.Id));
 
@@ -180,8 +179,8 @@ public sealed class StandUpTests : IDisposable
     [Fact]
     public async Task Planned_is_derived_from_three_sources()
     {
-        Entry("Bank import mapping", SprintTaskStatus.Done, order: 0, completedOn: Oct(9));
-        Entry("Customer search by IBAN", SprintTaskStatus.InProgress, order: 1);
+        Entry("Bank import mapping", ProgressTaskStatus.Done, order: 0, completedOn: Oct(9));
+        Entry("Customer search by IBAN", ProgressTaskStatus.InProgress, order: 1);
         Add(Make.Task("Statement parser", plan: Bank, blocked: true) with { Order = 2 });
         Add(Make.Task("Reconcile fees", plan: Bank) with { Order = 3, WaitsOnOpenWork = true });
         var elsewhere = Entry("Held by another goal", order: 4);
@@ -202,7 +201,7 @@ public sealed class StandUpTests : IDisposable
     [Fact]
     public async Task An_item_from_two_sources_is_planned_once()
     {
-        var iban = Add(Make.Task("Customer search by IBAN", SprintTaskStatus.InProgress) with { DueOn = Oct(21) });
+        var iban = Add(Make.Task("Customer search by IBAN", ProgressTaskStatus.InProgress) with { DueOn = Oct(21) });
         await GoalAsync("Customers get paid faster", MakeGoal.Task(iban.Id));
 
         var item = Assert.Single(Assert.Single((await ReadAsync()).Planned).Items);
@@ -216,8 +215,8 @@ public sealed class StandUpTests : IDisposable
         await GoalAsync("Customers get paid faster");
         Add(Make.Task("Due Thursday") with { DueOn = Oct(22) });
         Add(Make.Task("Due next week") with { DueOn = Oct(27) });
-        Add(Make.Task("Archived, due Thursday", SprintTaskStatus.Archived) with { DueOn = Oct(22) });
-        Add(Make.Task("In progress, nobody's", SprintTaskStatus.InProgress));
+        Add(Make.Task("Archived, due Thursday", ProgressTaskStatus.Archived) with { DueOn = Oct(22) });
+        Add(Make.Task("In progress, nobody's", ProgressTaskStatus.InProgress));
 
         var planned = Assert.Single((await ReadAsync()).Planned);
 
@@ -228,7 +227,7 @@ public sealed class StandUpTests : IDisposable
     [Fact]
     public async Task A_blocked_task_is_not_planned_as_in_progress()
     {
-        var blocked = Add(Make.Task("Statement parser", SprintTaskStatus.InProgress, blocked: true));
+        var blocked = Add(Make.Task("Statement parser", ProgressTaskStatus.InProgress, blocked: true));
         await GoalAsync("Customers get paid faster", MakeGoal.Task(blocked.Id));
 
         Assert.Empty((await ReadAsync()).Planned);
@@ -239,7 +238,7 @@ public sealed class StandUpTests : IDisposable
     public async Task The_points_tag_adds_up_planned_effort_beside_the_weekly_pace()
     {
         int?[] efforts = [5, 8, 3, 5, null];
-        var doing = efforts.Select((effort, i) => Add(Make.Task($"Doing {i}", SprintTaskStatus.InProgress) with { Effort = effort })).ToList();
+        var doing = efforts.Select((effort, i) => Add(Make.Task($"Doing {i}", ProgressTaskStatus.InProgress) with { Effort = effort })).ToList();
         await GoalAsync("Customers get paid faster", [.. doing.Select(task => MakeGoal.Task(task.Id))]);
         _pace.PointsPerWeek = 18m;
 
@@ -252,7 +251,7 @@ public sealed class StandUpTests : IDisposable
     [Fact]
     public async Task The_points_tag_scales_the_pace_to_a_day()
     {
-        var doing = Add(Make.Task("Customer search by IBAN", SprintTaskStatus.InProgress) with { Effort = 5 });
+        var doing = Add(Make.Task("Customer search by IBAN", ProgressTaskStatus.InProgress) with { Effort = 5 });
         await GoalAsync("Customers get paid faster", MakeGoal.Task(doing.Id));
         _pace.PointsPerWeek = 18m;
 
@@ -303,7 +302,7 @@ public sealed class StandUpTests : IDisposable
     public async Task The_goals_block_carries_progress_standing_and_landing_date()
     {
         DateOnly[] doneOn = [new(2026, 9, 21), new(2026, 9, 30), Oct(1), Oct(2), Oct(6), Oct(8), Oct(13), Oct(15)];
-        foreach (var (day, i) in doneOn.Select((day, i) => (day, i))) Entry($"Done {i}", SprintTaskStatus.Done, order: i, completedOn: day);
+        foreach (var (day, i) in doneOn.Select((day, i) => (day, i))) Entry($"Done {i}", ProgressTaskStatus.Done, order: i, completedOn: day);
         foreach (var i in Enumerable.Range(0, 6)) Entry($"Open {i}", order: 10 + i);
         var goal = await GoalAsync("Customers get paid faster", MakeGoal.Plan("+" + Bank));
 
@@ -322,8 +321,8 @@ public sealed class StandUpTests : IDisposable
     public async Task An_open_impediment_puts_a_goal_landing_in_time_at_risk()
     {
         // Two done in the four weeks read and one open: it lands on Friday 30 October, in time.
-        Entry("Done earlier", SprintTaskStatus.Done, completedOn: Oct(6));
-        Entry("Done", SprintTaskStatus.Done, completedOn: Oct(13));
+        Entry("Done earlier", ProgressTaskStatus.Done, completedOn: Oct(6));
+        Entry("Done", ProgressTaskStatus.Done, completedOn: Oct(13));
         var mapping = Entry("Bank import mapping", order: 1);
         await GoalAsync("Customers get paid faster", MakeGoal.Plan("+" + Bank));
 
@@ -344,8 +343,8 @@ public sealed class StandUpTests : IDisposable
     public async Task A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track()
     {
         // Two done in the four weeks read and one open: it lands on Friday 30 October, in time.
-        Entry("Done earlier", SprintTaskStatus.Done, completedOn: Oct(6));
-        Entry("Done", SprintTaskStatus.Done, completedOn: Oct(13));
+        Entry("Done earlier", ProgressTaskStatus.Done, completedOn: Oct(6));
+        Entry("Done", ProgressTaskStatus.Done, completedOn: Oct(13));
         var open = Entry("Open", order: 1);
         await GoalAsync("Customers get paid faster", MakeGoal.Plan("+" + Bank));
         var impediment = MakeImpediment.Raised();

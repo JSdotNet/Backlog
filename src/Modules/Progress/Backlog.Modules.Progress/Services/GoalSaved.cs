@@ -4,8 +4,7 @@ using Backlog.Modules.Progress.DomainModels;
 namespace Backlog.Modules.Progress.Services;
 
 /// <summary>
-/// The one place a saved goal is announced, on the terms <see cref="SeriesSaved"/> gives a
-/// series: every command that saves or deletes a goal raises it once the gate is let go,
+/// The one place a saved goal is announced: every command that saves or deletes a goal raises it once the gate is let go,
 /// and a pulled copy raises it too. <see cref="GoalReplication"/> forwards a person's
 /// change to the sync loop, and <see cref="Abstractions.Services.IGoals.Changed"/>, the
 /// published notice every goal screen re-reads on, is held on it. A singleton, because the commands run in scopes of their own.

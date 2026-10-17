@@ -12,7 +12,8 @@ namespace Backlog.Infrastructure.Sqlite.Progress;
 /// <summary>
 /// Local-first <see cref="IGoalRepository"/>: one row per goal in <c>progress_goals</c>,
 /// in the same SQLite database the tasks live in, each row the whole goal as one JSON
-/// document — <see cref="SqliteSprintSeriesRepository"/>'s pattern, for the same reasons.
+/// document, because the goal is the consistency boundary for its attachments and the
+/// document is what travels.
 /// <para>
 /// The row is also the travelling <c>goal</c> document (<see cref="IGoalReplicaStore"/>,
 /// local ADR 0035 §9): read and written as stored text, so a copy from another device is

@@ -3,7 +3,7 @@ using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 namespace Backlog.Modules.Progress.Abstractions.Services;
 
 /// <summary>
-/// The tasks a sprint names, read from Tasks
+/// The tasks goals and the stand-up name, read from Tasks
 /// (<c>.devbook/domain/progress/dependencies.md</c>, Progress = customer).
 /// <para>
 /// A port the module asks outward through, answered by an adapter that reads
@@ -11,7 +11,7 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 /// never writes a task: this is a read, on every reading, and nothing is kept.
 /// </para>
 /// </summary>
-public interface ISprintTaskSource
+public interface IProgressTaskSource
 {
     /// <summary>
     /// The tasks with one of <paramref name="query"/>'s ids, in whatever repository,
@@ -20,15 +20,14 @@ public interface ISprintTaskSource
     /// completion range or due in its due range, when it gives them. Each task once. An id
     /// no live task has is left out.
     /// </summary>
-    Task<IReadOnlyList<SprintTaskDto>> ReadAsync(SprintTaskQuery query, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProgressTaskDto>> ReadAsync(ProgressTaskQuery query, CancellationToken cancellationToken = default);
 }
 
-/// <summary>What a sprint asks Tasks for. Plan tags are compared without the
+/// <summary>What a reading asks Tasks for. Plan tags are compared without the
 /// <c>+</c> sigil and without regard to case; so are repository aliases.</summary>
 /// <param name="AnyRepository">Whether a plan tag brings in its tasks in every repository,
 /// <paramref name="RepositoryAliases"/> aside — how a goal's attached plan counts its
-/// entries (<c>.devbook/domain/progress/domain.md#goal-attachment</c>). Last and defaulted,
-/// so a sprint's query reads as it did.</param>
+/// entries (<c>.devbook/domain/progress/domain.md#goal-attachment</c>).</param>
 /// <param name="CompletedFrom">With <paramref name="CompletedThrough"/>, also selects every
 /// task completed from the one day through the other, both included, in any repository —
 /// what the stand-up's Finished reads the work no goal holds from.</param>
@@ -37,7 +36,7 @@ public interface ISprintTaskSource
 /// the one day through the other, both included, in any repository — what Planned reads the
 /// work due in the next window from.</param>
 /// <param name="DueThrough">The last due day selected; see <paramref name="DueFrom"/>.</param>
-public sealed record SprintTaskQuery(
+public sealed record ProgressTaskQuery(
     IReadOnlyCollection<Guid> TaskIds,
     IReadOnlyCollection<string> PlanTags,
     IReadOnlyCollection<string> RepositoryAliases,

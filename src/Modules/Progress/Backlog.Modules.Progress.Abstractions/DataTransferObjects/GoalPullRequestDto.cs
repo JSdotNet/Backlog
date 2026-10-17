@@ -15,18 +15,13 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <param name="Approvals">How many approvals it has and how many its base branch
 /// requires; null only for a pull request nothing read
 /// (<see cref="LinkedPullRequestState.Unknown"/>).</param>
-/// <param name="Author">Who opened it; null where unread or GitHub no longer knows the
-/// account.</param>
-/// <param name="OpenedOn">The day it was opened, in local time; null where unread.</param>
 public sealed record GoalPullRequestDto(
     string Repository,
     string Number,
     LinkedPullRequestState State,
     DateOnly? MergedOn,
     GoalPullRequestChecksDto? Checks,
-    GoalPullRequestApprovalsDto? Approvals,
-    string? Author = null,
-    DateOnly? OpenedOn = null)
+    GoalPullRequestApprovalsDto? Approvals)
 {
     /// <summary>A pull request nothing has read: unknown, with no checks and no approvals.</summary>
     public static GoalPullRequestDto Unread(PullRequestRefDto pullRequest)

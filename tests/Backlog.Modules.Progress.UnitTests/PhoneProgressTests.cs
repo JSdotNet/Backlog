@@ -34,10 +34,9 @@ public sealed class PhoneProgressTests : IDisposable
 
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(_time);
-        services.AddSingleton<ISprintSeriesRepository>(new InMemorySprintSeriesRepository());
         services.AddSingleton<IGoalRepository>(_goals);
         services.AddSingleton<IImpedimentRepository>(_impediments);
-        services.AddSingleton<ISprintTaskSource>(_tasks);
+        services.AddSingleton<IProgressTaskSource>(_tasks);
         services.AddSingleton<IGoalPullRequestReader>(_pulls);
         services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
@@ -57,7 +56,7 @@ public sealed class PhoneProgressTests : IDisposable
     public async Task The_context_carries_every_pull_request_the_goals_count_with_its_checks_and_approvals()
     {
         var linked = new PullRequestRefDto("JSdotNet/Backlog", "1360");
-        var task = Make.Task("Read the checks", SprintTaskStatus.InProgress, pullRequests: linked);
+        var task = Make.Task("Read the checks", ProgressTaskStatus.InProgress, pullRequests: linked);
         _tasks.Tasks.Add(task);
         await _goals.SaveAsync(MakeGoal.Named("Merge without opening GitHub", MakeGoal.Task(task.Id), MakeGoal.PullRequest("JSdotNet/Backlog", 1364)), Cancellation);
         _pulls.Known.Add(new GoalPullRequestDto("JSdotNet/Backlog", "1360", LinkedPullRequestState.Open, null,

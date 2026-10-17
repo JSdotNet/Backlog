@@ -315,8 +315,8 @@ public sealed class WorkInProgressReader(
         {
             try
             {
-                // Fresh means read since this read began: what the sprint view asked
-                // on the same Refresh, not what an earlier one left behind.
+                // Fresh means read since this read began: what another view asked on
+                // the same Refresh, not what an earlier one left behind.
                 listing = await configured.ReadLinkedPullRequestsAsync(wanted, _clock.GetUtcNow() - startedAt);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)

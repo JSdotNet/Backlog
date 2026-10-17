@@ -164,8 +164,7 @@ public sealed record StandUpModel(
 /// The whole Goals view in plain values
 /// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): the library carries no
 /// domain, so the host turns its stand-up reading, its goals and its candidates into this,
-/// and the board's callbacks back into its own calls — the <see cref="SprintBoardModel"/>
-/// precedent.
+/// and the board's callbacks back into its own calls.
 /// </summary>
 /// <param name="Iteration">The length the switch has checked.</param>
 /// <param name="Last">The last window: what Finished covers.</param>

@@ -165,7 +165,7 @@
     private RenderFragment Sections => @<text>
         @if (_showBrief)
         {
-            <WeeklyBrief Scope="_scope" OnOpenOverview="OpenOverview" OnOpenTab="OpenTabFromBrief" OnOpenSprint="@OnOpenSprint" />
+            <WeeklyBrief Scope="_scope" OnOpenOverview="OpenOverview" OnOpenTab="OpenTabFromBrief" />
         }
         else
         {
@@ -408,12 +408,6 @@
     /// pane is the shell's move; with nobody listening the tab draws no link.</summary>
     [Parameter]
     public EventCallback OnOpenSessions { get; set; }
-
-    /// <summary>Raised by a weekly brief Sprint block's "Open Sprint n", with the sprint it
-    /// names. Opening In progress on that series' sprint view is the shell's move; with
-    /// nobody listening the block draws no such button.</summary>
-    [Parameter]
-    public EventCallback<SprintBriefSprint> OnOpenSprint { get; set; }
 
     /// <summary>
     /// Which identity hue a repository alias wears, or null while the hues are switched

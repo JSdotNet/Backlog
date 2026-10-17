@@ -64,7 +64,6 @@ public sealed class TaskSyncSession
     private readonly IRoadmapReplication? _roadmap;
     private readonly IGitHubSettingsReplication? _github;
     private readonly IInboxNoteReplication? _notes;
-    private readonly ISprintSeriesReplication? _sprints;
     private readonly IMyDayPreferencesReplication? _myDay;
     private readonly IGoalReplication? _goals;
     private readonly IImpedimentReplication? _impediments;
@@ -87,8 +86,6 @@ public sealed class TaskSyncSession
     /// <param name="github">Where the repository registry and the GitHub accounts are
     /// read from for the push (local ADR 0021), or null on a head that keeps no GitHub
     /// settings. Optional for the same reason.</param>
-    /// <param name="sprints">Where every sprint series is read from for the push, or
-    /// null on a head without Progress. Optional for the same reason.</param>
     /// <param name="myDay">Where the My Day preferences are read from for the push
     /// (local ADR 0032), or null on a head that keeps none. Optional for the same
     /// reason.</param>
@@ -112,7 +109,6 @@ public sealed class TaskSyncSession
         IRoadmapReplication? roadmap = null,
         IGitHubSettingsReplication? github = null,
         IInboxNoteReplication? notes = null,
-        ISprintSeriesReplication? sprints = null,
         IMyDayPreferencesReplication? myDay = null,
         IGoalReplication? goals = null,
         IImpedimentReplication? impediments = null,
@@ -137,7 +133,6 @@ public sealed class TaskSyncSession
         _roadmap = roadmap;
         _github = github;
         _notes = notes;
-        _sprints = sprints;
         _myDay = myDay;
         _goals = goals;
         _impediments = impediments;
@@ -231,8 +226,7 @@ public sealed class TaskSyncSession
     /// <b>Last, the roadmap's two documents</b> (local ADR 0018): the plan and the
     /// pace, each sent whole when its stamp is later than the one this device last
     /// had accepted for it — see <see cref="PushRoadmapAsync"/>. A device that never
-    /// saved either sends nothing. Then the GitHub settings' two, and every sprint
-    /// series, on the same terms with a mark per series.
+    /// saved either sends nothing. Then the GitHub settings' two on the same terms.
     /// </para>
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
@@ -349,15 +343,6 @@ public sealed class TaskSyncSession
             refused += documents.Value.Refused;
         }
 
-        if (_sprints is not null)
-        {
-            var documents = await PushSprintSeriesAsync(_sprints, cancellationToken).ConfigureAwait(false);
-            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
-
-            pushed += documents.Value.Pushed;
-            refused += documents.Value.Refused;
-        }
-
         if (_myDay is not null)
         {
             var documents = await PushMyDayPreferencesAsync(_myDay, cancellationToken).ConfigureAwait(false);
@@ -451,7 +436,7 @@ public sealed class TaskSyncSession
 
     /// <summary>
     /// The loop every kind of whole document shares — the roadmap's, the GitHub
-    /// settings' and the sprint series: one request per document whose copy is later
+    /// settings', the goals and the impediments: one request per document whose copy is later
     /// than its mark, the mark moved past whatever was offered, and the accepted and
     /// refused counts kept apart. <paramref name="read"/> answers the document as a
     /// change, or null for one this device never saved. <paramref name="markOf"/> names
@@ -516,30 +501,9 @@ public sealed class TaskSyncSession
             cancellationToken);
 
     /// <summary>
-    /// Sends every sprint series, each as one whole document, when its stamp is later
-    /// than the one this device last had accepted for that series — on the terms
-    /// <see cref="PushRoadmapAsync"/> gives for the roadmap's, with a mark per series
-    /// rather than per kind, because each series is a document of its own. A device
-    /// that never set up a series sends nothing.
-    /// </summary>
-    private async Task<Result<(int Pushed, int Refused)>> PushSprintSeriesAsync(
-        ISprintSeriesReplication sprints,
-        CancellationToken cancellationToken)
-    {
-        var held = await sprints.ReadAllAsync(cancellationToken).ConfigureAwait(false);
-
-        return await PushWholeDocumentsAsync(
-            held,
-            copy => Task.FromResult<TaskChange?>(SprintReplicaDocuments.ToChange(copy)),
-            SyncItemKind.SprintSeries,
-            cancellationToken,
-            change => SprintReplicaDocuments.MarkOf(change.Id)).ConfigureAwait(false);
-    }
-
-    /// <summary>
     /// Sends every goal, each as one whole document, when its stamp is later than the one
     /// this device last had accepted for that goal — on the terms
-    /// <see cref="PushSprintSeriesAsync"/> gives a series, with a mark per goal. A device
+    /// <see cref="PushRoadmapAsync"/> gives the roadmap's, with a mark per goal. A device
     /// that never set a goal sends nothing.
     /// </summary>
     private async Task<Result<(int Pushed, int Refused)>> PushGoalsAsync(

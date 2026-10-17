@@ -13,7 +13,7 @@ namespace Backlog.UI.Components.Progress;
 public static class StandUpClipboard
 {
     /// <summary>Line breaks are Windows', where Teams and Outlook run, whatever the host is;
-    /// the <see cref="SprintTableClipboard"/> precedent.</summary>
+    /// so the text pastes as separate lines there.</summary>
     private const string NewLine = "\r\n";
 
     private const string NoGoal = "No goal";

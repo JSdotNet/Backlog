@@ -9,11 +9,9 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 
 /// <summary>
 /// What Progress asks of the world outside it, answered by adapters that may see both
-/// sides: the tasks a sprint names, read through Tasks' published
-/// <see cref="ITaskItems"/> (<see cref="ISprintTaskSource"/>), and the repositories a
-/// series may be given, read from Tasks' <see cref="IRepositoryDirectory"/>
-/// (<see cref="ISprintRepositories"/>), and the state, merge day, checks, approvals and
-/// author of the pull requests goals count and tasks link, read from GitHub
+/// sides: the tasks goals and the stand-up name, read through Tasks' published
+/// <see cref="ITaskItems"/> (<see cref="IProgressTaskSource"/>), and the state, merge
+/// day, checks and approvals of the pull requests goals count and tasks link, read from GitHub
 /// (<see cref="IGoalPullRequestReader"/>).
 /// <para>
 /// Scoped, because <see cref="ITaskItems"/> is: a singleton over a scoped port is a
@@ -31,12 +29,10 @@ public static class ProgressCrossContextAdapterRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddScoped<ISprintTaskSource>(sp =>
-            new SprintTaskSource(
+        services.AddScoped<IProgressTaskSource>(sp =>
+            new ProgressTaskSource(
                 () => sp.GetRequiredService<ITaskItems>(),
                 () => sp.GetService<IRepositoryDirectory>()));
-        services.AddScoped<ISprintRepositories>(sp =>
-            new SprintRepositories(() => sp.GetService<IRepositoryDirectory>()));
         services.Replace(ServiceDescriptor.Singleton<IGoalPullRequestReader>(sp =>
             new GitHubGoalPullRequests(() => sp.GetService<GitHubIntegration>())));
 

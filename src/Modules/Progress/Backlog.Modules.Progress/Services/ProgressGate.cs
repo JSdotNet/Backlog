@@ -2,7 +2,7 @@ namespace Backlog.Modules.Progress.Services;
 
 /// <summary>
 /// Held by every command from load to save, so two writes in one host cannot save over
-/// each other — and so the rule across series (a repository belongs to one) is checked
+/// each other — and so the rules across goals (an item belongs to one) are checked
 /// against what every other write has already saved. One for the whole host.
 /// </summary>
 public sealed class ProgressGate

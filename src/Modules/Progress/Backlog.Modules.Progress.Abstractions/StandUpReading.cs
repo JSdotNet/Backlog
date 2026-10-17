@@ -29,7 +29,7 @@ public sealed record StandUpInputs(
     WorkingHours Week,
     IReadOnlyList<GoalDto> Goals,
     IReadOnlyList<ImpedimentDto> Impediments,
-    IReadOnlyList<SprintTaskDto> Tasks,
+    IReadOnlyList<ProgressTaskDto> Tasks,
     IReadOnlyList<LinkedPullRequestDto> PullRequests,
     decimal? PointsPerWeek);
 
@@ -65,7 +65,7 @@ public static class StandUpReading
 
     /// <summary>What a reading has to ask Tasks for: the goals' own work, the tasks
     /// completed inside the four windows the forecast reads, and those due inside next.</summary>
-    public static SprintTaskQuery TaskQuery(IReadOnlyList<GoalDto> goals, DateOnly today, IterationLength length, DateOnly? twoWeekStart, WorkingHours week)
+    public static ProgressTaskQuery TaskQuery(IReadOnlyList<GoalDto> goals, DateOnly today, IterationLength length, DateOnly? twoWeekStart, WorkingHours week)
     {
         ArgumentNullException.ThrowIfNull(goals);
 
@@ -115,7 +115,7 @@ public static class StandUpReading
     private static StandUpGoalDto GoalOf(
         GoalDto goal,
         IReadOnlyList<GoalItem> items,
-        IReadOnlyList<SprintTaskDto> counted,
+        IReadOnlyList<ProgressTaskDto> counted,
         HashSet<Guid> heldBack,
         IterationWindow last,
         IterationWindow next,
@@ -134,7 +134,7 @@ public static class StandUpReading
     }
 
     /// <summary>The tasks read that no goal counts.</summary>
-    private static List<SprintTaskDto> NoGoalTasks(IReadOnlyList<SprintTaskDto> read, Dictionary<Guid, IReadOnlyList<SprintTaskDto>> counted)
+    private static List<ProgressTaskDto> NoGoalTasks(IReadOnlyList<ProgressTaskDto> read, Dictionary<Guid, IReadOnlyList<ProgressTaskDto>> counted)
     {
         var held = counted.Values.SelectMany(list => list).Select(task => task.Id).ToHashSet();
         return [.. read.Where(task => !held.Contains(task.Id))];
@@ -143,7 +143,7 @@ public static class StandUpReading
     private static List<StandUpGroupDto> Finished(
         IReadOnlyList<GoalDto> all,
         Dictionary<Guid, IReadOnlyList<GoalItem>> items,
-        List<SprintTaskDto> noGoal,
+        List<ProgressTaskDto> noGoal,
         IterationWindow last)
     {
         var listed = new Listed();
@@ -158,7 +158,7 @@ public static class StandUpReading
         }
 
         Add(groups, null, noGoal
-            .Where(task => task.Status == SprintTaskStatus.Done && task.CompletedOn is { } on && last.Contains(on))
+            .Where(task => task.Status == ProgressTaskStatus.Done && task.CompletedOn is { } on && last.Contains(on))
             .Select(task => new GoalItem(task, null, GoalItemState.Done, task.CompletedOn))
             .Where(listed.First)
             .Select(ItemOf));
@@ -169,7 +169,7 @@ public static class StandUpReading
     private static List<StandUpGroupDto> Planned(
         IReadOnlyList<GoalDto> all,
         Dictionary<Guid, IReadOnlyList<GoalItem>> items,
-        List<SprintTaskDto> noGoal,
+        List<ProgressTaskDto> noGoal,
         IterationWindow next)
     {
         var listed = new Listed();
@@ -206,18 +206,18 @@ public static class StandUpReading
         string.Equals(GoalItems.Bare(left), GoalItems.Bare(right), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Open by the Done rule as far as the task itself says, and not archived.</summary>
-    private static bool IsOpenTask(SprintTaskDto task) =>
-        task.Status is not (SprintTaskStatus.Done or SprintTaskStatus.Archived);
+    private static bool IsOpenTask(ProgressTaskDto task) =>
+        task.Status is not (ProgressTaskStatus.Done or ProgressTaskStatus.Archived);
 
     /// <summary>A plan's entry the stand-up may plan next: not in progress, not marked
     /// blocked, not archived, and waiting on no open work.</summary>
-    private static bool IsReady(SprintTaskDto task) =>
-        IsOpenTask(task) && task.Status != SprintTaskStatus.InProgress && !task.IsBlocked && !task.WaitsOnOpenWork;
+    private static bool IsReady(ProgressTaskDto task) =>
+        IsOpenTask(task) && task.Status != ProgressTaskStatus.InProgress && !task.IsBlocked && !task.WaitsOnOpenWork;
 
     private static StandUpImpedimentDto ImpedimentOf(
         ImpedimentDto impediment,
         IReadOnlyList<GoalDto> all,
-        Dictionary<Guid, IReadOnlyList<SprintTaskDto>> counted,
+        Dictionary<Guid, IReadOnlyList<ProgressTaskDto>> counted,
         DateOnly today,
         WorkingHours week)
     {

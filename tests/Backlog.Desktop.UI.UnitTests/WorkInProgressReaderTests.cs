@@ -291,7 +291,6 @@ public sealed class WorkInProgressReaderTests
         Assert.Equal([$"{Repository} 656"], host.Client.ReadByNumber);
         Assert.Equal([$"{Repository} 656"], host.Client.StatusReadByNumber);
         Assert.Equal(LinkedPullRequestState.Closed, answer.State);
-        Assert.Equal("octocat", answer.Author);
     }
 
     /// <summary>The In progress reader and the goals reader over one GitHub adapter, as the

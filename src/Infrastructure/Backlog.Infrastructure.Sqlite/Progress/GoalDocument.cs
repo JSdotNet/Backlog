@@ -10,8 +10,7 @@ namespace Backlog.Infrastructure.Sqlite.Progress;
 /// The stored shape of one <see cref="Goal"/>: one JSON document per row of
 /// <c>progress_goals</c>, and the <c>goal</c> document that travels between devices
 /// (local ADR 0035 §9). Dates are written as <c>yyyy-MM-dd</c> and the kind by name, so
-/// the stored text reads the same on every machine — the conventions
-/// <see cref="SprintSeriesDocument"/> keeps.
+/// the stored text reads the same on every machine.
 /// </summary>
 internal sealed record GoalDocument
 {

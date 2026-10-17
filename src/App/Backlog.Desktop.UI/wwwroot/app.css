@@ -2650,26 +2650,6 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
-/* Settings › Sprints: a card per series, the repositories in no series, and Add
-   another sprint, stacked. */
-.sprint-settings {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-.sprint-settings__chips,
-.sprint-settings__add {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-sm);
-}
-
-.sprint-settings__add .setting__body {
-    margin: 0;
-}
-
 /* A second topic inside one setting block - the Foundry resource's spend under
    its chat connection - headed like the block but a size down. */
 .setting__subtitle {

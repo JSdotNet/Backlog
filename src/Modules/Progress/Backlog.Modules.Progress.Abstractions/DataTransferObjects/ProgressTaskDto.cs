@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// One task as Progress reads it from Tasks, through <see cref="Services.ISprintTaskSource"/>.
+/// One task as Progress reads it from Tasks, through <see cref="Services.IProgressTaskSource"/>.
 /// A snapshot for one reading: Progress keeps no copy of it.
 /// </summary>
 /// <param name="IsBlocked">Whether a person marked the task blocked.</param>
@@ -22,10 +22,10 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <param name="WaitsOnOpenWork">Whether one of the task's <c>after:</c> dependencies, resolved
 /// against the whole backlog, names a task that is not done or names no live task — so the
 /// task is not ready yet (<c>.devbook/domain/tasks/domain.md#readiness</c>).</param>
-public sealed record SprintTaskDto(
+public sealed record ProgressTaskDto(
     Guid Id,
     string Title,
-    SprintTaskStatus Status,
+    ProgressTaskStatus Status,
     bool IsBlocked,
     IReadOnlyList<string> PlanTags,
     IReadOnlyList<string> RepositoryAliases,
@@ -44,19 +44,24 @@ public sealed record SprintTaskDto(
 /// number, as the task records it.</summary>
 public sealed record PullRequestRefDto(string Repository, string Number);
 
-/// <summary>What a linked pull request says about itself: its state, when it merged,
-/// who opened it and when. <see cref="LinkedPullRequestState.Unknown"/> and no author until
+/// <summary>What a linked pull request says about itself, as the counting rules read it:
+/// its state and when it merged. <see cref="LinkedPullRequestState.Unknown"/> until
 /// something reads it.</summary>
-/// <param name="OpenedOn">The day it was opened, when read. Last and defaulted, so a caller
-/// written before it still constructs one.</param>
 public sealed record LinkedPullRequestDto(
     string Repository,
     string Number,
     LinkedPullRequestState State,
-    DateOnly? MergedOn,
-    string? Author,
-    DateOnly? OpenedOn = null)
+    DateOnly? MergedOn)
 {
     public static LinkedPullRequestDto Unread(PullRequestRefDto pullRequest) =>
-        new(pullRequest.Repository, pullRequest.Number, LinkedPullRequestState.Unknown, null, null);
+        new(pullRequest.Repository, pullRequest.Number, LinkedPullRequestState.Unknown, null);
+
+    /// <summary>The goals reader's answer as the counting rules read it: the state and the
+    /// merge day. The checks and the approvals are the Goals view's, read from the answer
+    /// itself.</summary>
+    public static LinkedPullRequestDto Of(GoalPullRequestDto pull)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+        return new(pull.Repository, pull.Number, pull.State, pull.MergedOn);
+    }
 }

@@ -6,8 +6,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Progress.Services;
 
 /// <summary>
-/// The load–change–save every command over goals shares, as <see cref="SeriesChanges"/> is
-/// for a series: under the <see cref="ProgressGate"/>, load every goal, apply the change,
+/// The load–change–save every command over goals shares: under the <see cref="ProgressGate"/>, load every goal, apply the change,
 /// and save only the goals it changed, only when it succeeded — a refused change leaves
 /// every stored goal as it was. Every goal is loaded because the one-goal rule spans them.
 /// </summary>

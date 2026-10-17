@@ -34,9 +34,7 @@ public sealed class GoalPullRequestReaderTests
             var first = await reader.ReadAsync([new("JSdotNet/Backlog", "4"), new("JSdotNet/Backlog", "5"), new("JSdotNet/Backlog", "6")], TestContext.Current.CancellationToken);
 
             Assert.Equal([LinkedPullRequestState.Merged, LinkedPullRequestState.Open, LinkedPullRequestState.Unknown], first.Select(pull => pull.State));
-            Assert.Equal(["jsdotnet", "octo", null], first.Select(pull => pull.Author));
             Assert.Equal(new DateOnly(2026, 10, 7), first[0].MergedOn);
-            Assert.Equal(new DateOnly(2026, 10, 6), first[1].OpenedOn);
 
             Assert.Equal(["JSdotNet/Backlog 4,5,6"], client.StatusReadByNumber);
             Assert.Empty(client.ReadByNumber);
@@ -192,7 +190,6 @@ public sealed class GoalPullRequestReaderTests
 
         Assert.Equal(LinkedPullRequestState.Draft, mapped.State);
         Assert.Null(mapped.Checks);
-        Assert.Null(mapped.Author);
         Assert.Equal(new GoalPullRequestApprovalsDto(0, null), mapped.Approvals);
     }
 
