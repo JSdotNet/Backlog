@@ -1,0 +1,87 @@
+@*
+    The Goals view's New goal (.devbook/domain/progress/features.md#setting-a-goal): a
+    title, a one-line outcome and a due date. Save hands the draft back trimmed — a blank
+    outcome as null, a blank or unreadable date as null — and the host creates the goal
+    through the module, closing the dialog, or keeps it open with the module's refusal in
+    Error. The module owns every rule: a goal needs a title and a due date, and its
+    outcome is one line. The fields start empty at each opening.
+*@
+<Modal Open="Open"
+       OpenChanged="OpenChanged"
+       Title="New goal"
+       CssClass="goal-create-dialog"
+       TestId="@TestId">
+    <ChildContent>
+        <TextField Label="Title"
+                   Value="@_title"
+                   ValueChanged="value => _title = value"
+                   Placeholder="What the work is for"
+                   TestId="@Part("title")" />
+        <TextField Label="Outcome"
+                   Value="@_outcome"
+                   ValueChanged="value => _outcome = value"
+                   Placeholder="One line on what is true once it lands"
+                   TestId="@Part("outcome")" />
+        <TextField Label="Due date"
+                   Type="date"
+                   Value="@_due"
+                   ValueChanged="value => _due = value"
+                   TestId="@Part("due")" />
+        <Alert Message="@Error" TestId="@Part("error")" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OpenChanged.InvokeAsync(false)" TestId="@Part("cancel")">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Busy="Busy" BusyLabel="Saving" OnClick="SaveAsync" TestId="@Part("save")">Save</AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    private string? _title;
+    private string? _outcome;
+    private string? _due;
+    private bool _wasOpen;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>Save was pressed, with the draft trimmed.</summary>
+    [Parameter]
+    public EventCallback<NewGoalDraft> OnSave { get; set; }
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Why the save was refused, in the module's words.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>Lands on the dialog; its fields take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; } = "goal-create-dialog";
+
+    protected override void OnParametersSet()
+    {
+        if (Open && !_wasOpen)
+        {
+            _title = null;
+            _outcome = null;
+            _due = null;
+        }
+
+        _wasOpen = Open;
+    }
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    private Task SaveAsync()
+    {
+        var outcome = string.IsNullOrWhiteSpace(_outcome) ? null : _outcome.Trim();
+        DateOnly? due = DateOnly.TryParseExact(_due?.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var day) ? day : null;
+
+        return OnSave.InvokeAsync(new NewGoalDraft(_title?.Trim() ?? string.Empty, outcome, due));
+    }
+}

@@ -155,7 +155,7 @@ public sealed class Impediment
     public Result MoveTo(ImpedimentState state, DateOnly on, string? with = null)
     {
         if (!IsOpen) return Result.Failure(ProgressErrors.ImpedimentResolved());
-        if (!Allows(State, state)) return Result.Failure(ProgressErrors.ImpedimentMoveNotAllowed(State, state));
+        if (!ImpedimentMoves.Allows(State, state)) return Result.Failure(ProgressErrors.ImpedimentMoveNotAllowed(State, state));
 
         var last = _history[^1].On;
         if (on < last) return Result.Failure(ProgressErrors.ImpedimentMoveBeforeLastStep(last));
@@ -197,20 +197,6 @@ public sealed class Impediment
 
     /// <summary>Whether it holds back the task <paramref name="taskId"/>.</summary>
     public bool Holds(Guid taskId) => _holdsBack.Contains(taskId);
-
-    /// <summary>The state order: forward along New, Reported, Escalated, Being handled,
-    /// Escalated the one state a move may skip, and any open state to Resolved.</summary>
-    internal static bool Allows(ImpedimentState from, ImpedimentState to) =>
-        (from, to) switch
-        {
-            (ImpedimentState.Resolved, _) => false,
-            (_, ImpedimentState.Resolved) => true,
-            (ImpedimentState.New, ImpedimentState.Reported) => true,
-            (ImpedimentState.Reported, ImpedimentState.Escalated) => true,
-            (ImpedimentState.Reported, ImpedimentState.BeingHandled) => true,
-            (ImpedimentState.Escalated, ImpedimentState.BeingHandled) => true,
-            _ => false,
-        };
 
     private static Result<string> CleanTitle(string? title) =>
         string.IsNullOrWhiteSpace(title) ? ProgressErrors.ImpedimentWithoutTitle() : title.Trim();

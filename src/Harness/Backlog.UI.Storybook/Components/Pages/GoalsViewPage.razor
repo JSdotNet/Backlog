@@ -1,0 +1,269 @@
+@page "/goals-view"
+
+<PageTitle>Goals view — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Goals view"
+           Summary="GoalsBoard and its parts — GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow and GoalCreateDialog: the desktop Goals view behind the goals switch, with the iteration switch, the goals and what no goal holds, and the stand-up beside them. Every value is handed in and every act is a callback, so the goals below are stubs with no module behind them."
+           Guidelines="@Rules">
+
+    <Story Name="At risk"
+           Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows.
+
+No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it asks which. Beside the goals the stand-up lists Finished, Planned with its points tag, and Impediments with a state picker that offers only the moves an impediment may make. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
+           Code="@BoardCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@Board"
+                        TestId="goals-view-board"
+                        IterationChanged="@(length => _said = $"Read by {GoalsText.Iteration(length)}")"
+                        OnNewGoal="@(() => _dialogOpen = true)"
+                        OnRefresh="@(() => _said = "Refresh")"
+                        OnAttach="@(request => _said = $"Attach {request.ItemKey} to {request.GoalId}")"
+                        OnMoveImpediment="@(request => _said = $"Move {request.ImpedimentId} to {GoalsText.State(request.State)}")" />
+            <p class="sb-state" data-testid="goals-view-said">@(_said ?? "Switch the iteration, attach an item or move an impediment.")</p>
+        </div>
+    </Story>
+
+    <Story Name="On track"
+           Description="An On track goal, folded and open. It has nothing done in the last window and no landing date, so its line carries neither +n nor lands ~."
+           Code="@OnTrackCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@Search" TestId="goals-view-on-track" />
+            <GoalCard Goal="@Search" Expanded="true" TestId="goals-view-on-track-open" />
+        </div>
+    </Story>
+
+    <Story Name="Empty"
+           Description="No goals, and nothing in progress outside one: the goals column is an empty state with New goal as its action, and the stand-up beside it still says what was finished and planned."
+           Code="@EmptyCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@Empty" TestId="goals-view-empty-board" EmptyTestId="goals-view-empty-state" OnNewGoal="@(() => _dialogOpen = true)" />
+        </div>
+    </Story>
+
+    <Story Name="Progress bar"
+           Description="A goal's items as one stacked bar — done, in progress, blocked, and not started as the track — at the folded and the open size."
+           Code="@BarCode">
+        <div class="sb-stack">
+            <GoalProgressBar Counts="@Paid.Counts" TestId="goals-view-bar" />
+            <GoalProgressBar Counts="@Paid.Counts" Large="true" TestId="goals-view-bar-large" />
+        </div>
+    </Story>
+
+    <Story Name="Stand-up"
+           Description="The aside on its own: Finished with the item no goal holds last as title · no goal, Planned with a pull request's status line and the points tag titled in words, and Impediments followed by how many the last window resolved."
+           Code="@StandUpCode">
+        <div class="sb-menu">
+            <StandUpPanel StandUp="@Board.StandUp" Iteration="GoalsIteration.Week" TestId="goals-view-stand-up" />
+        </div>
+    </Story>
+
+    @foreach (var impediment in StateSamples)
+    {
+        <Story Name="@($"Impediment {GoalsText.State(impediment.State)}")"
+               Description="@StateDescription(impediment.State)"
+               Code="@ImpedimentCode(impediment)">
+            <div class="sb-menu">
+                <ImpedimentRow Impediment="@impediment"
+                               OnMove="@(state => _said = $"Move to {GoalsText.State(state)}")"
+                               TestId="@($"goals-view-impediment-{ImpedimentRow.Slug(impediment.State)}")" />
+            </div>
+        </Story>
+    }
+
+    <Story Name="New goal"
+           Description="New goal opens a dialog over a title, a one-line outcome and a due date. Save hands the draft back trimmed; the host creates the goal through the module and closes the dialog, or keeps it open with the module's refusal under the fields."
+           Code="@DialogCode">
+        <AppButton OnClick="@(() => _dialogOpen = true)" TestId="goals-view-new-goal">New goal</AppButton>
+        <GoalCreateDialog Open="_dialogOpen"
+                          OpenChanged="open => _dialogOpen = open"
+                          Error="@_dialogError"
+                          TestId="goals-view-dialog"
+                          OnSave="SaveDraft" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#goal-forecast-badges", "Why At risk and On track differ by edge as well as hue."),
+        new("color-scheme.md#impediment-state-tones", "Which tone each impediment state takes, and why New carries a dot."),
+        new("color-scheme.md#pull-request-status-marks", "The glyph and ink of each checks and approvals mark on a goal's pull requests."),
+        new("accessibility.md#iconography-accessibility", "Why the bar, the dots and the glyphs say their figures in words."),
+        new("typography-and-layout.md#iconography", "The glyphs the view draws, and the size they are drawn at.")
+    ];
+
+    private string? _said;
+    private bool _dialogOpen;
+    private string? _dialogError;
+
+    private static DateOnly Oct(int day) => new(2026, 10, day);
+
+    private static readonly GoalCardModel Paid = new(
+        "paid", "Customers get paid faster", Oct(30), new DateOnly(2026, 11, 6), true,
+        new GoalCounts(9, 15, 3, 1, 2, 3),
+        [new GoalPlanModel("Bank integration", 5, 9)],
+        [
+            new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done),
+            new GoalTaskModel("t2", "Reminder emails", GoalTaskStatus.Done),
+            new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing),
+            new GoalTaskModel("t4", "Credit notes", GoalTaskStatus.Blocked)
+        ],
+        [
+            new PullRequestStatusModel(1341, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(1, 2)),
+            new PullRequestStatusModel(1358, "draft", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(0, null)),
+            new PullRequestStatusModel(1352, "merged"),
+            new PullRequestStatusModel(1355, "merged")
+        ]);
+
+    private static readonly GoalCardModel Search = new(
+        "search", "Devbook search ships", Oct(23), null, false,
+        new GoalCounts(5, 6, 0, 0, 1, 0),
+        [new GoalPlanModel("Devbook search", 5, 6)],
+        [new GoalTaskModel("t5", "Highlight matches", GoalTaskStatus.ToDo)],
+        []);
+
+    private static readonly GoalCardModel Phone = new(
+        "phone", "Phone capture in daily use", new DateOnly(2026, 11, 30), new DateOnly(2026, 11, 27), false,
+        new GoalCounts(3, 10, 1, 0, 6, 1), [], [], []);
+
+    private static readonly StandUpModel StandUp = new(
+        Finished:
+        [
+            new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export"), new StandUpEntry("Reminder emails")]),
+            new StandUpGroup("Devbook search ships", [new StandUpEntry("Rank results by heading")]),
+            new StandUpGroup(null, [new StandUpEntry("VAT rate per line item")])
+        ],
+        Planned:
+        [
+            new StandUpGroup("Customers get paid faster",
+            [
+                new StandUpEntry("Customer search by IBAN"),
+                new StandUpEntry("Payment status webhook", new PullRequestStatusModel(1357, "open", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(1, 2)))
+            ])
+        ],
+        PlannedEffort: 21,
+        Capacity: 18,
+        Impediments:
+        [
+            new StandUpImpediment("bank", "Bank sample files missing", StandUpImpedimentState.Escalated,
+                [StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 3, null, "Customers get paid faster"),
+            new StandUpImpediment("runner", "Android build runner flaky", StandUpImpedimentState.BeingHandled,
+                [StandUpImpedimentState.Resolved], "Platform team", 4, Oct(20), null),
+            new StandUpImpediment("credit", "Credit note numbering unclear", StandUpImpedimentState.New,
+                [StandUpImpedimentState.Reported, StandUpImpedimentState.Resolved], null, 1, null, "Customers get paid faster")
+        ],
+        ResolvedInLast: 1);
+
+    private static readonly GoalsBoardModel Board = new(
+        GoalsIteration.Week,
+        new GoalsWindow(Oct(12), Oct(16)),
+        new GoalsWindow(Oct(19), Oct(23)),
+        [Paid, Search, Phone],
+        [
+            new GoalsItem("task:terms", GoalsItemKind.Task, "Payment terms on quotes"),
+            new GoalsItem("task:vat", GoalsItemKind.Task, "VAT rate per line item"),
+            new GoalsItem("pr:1357", GoalsItemKind.PullRequest, "Payment status webhook", 1357)
+        ],
+        StandUp,
+        [
+            new GoalsItem("plan:payment-provider", GoalsItemKind.Plan, "Payment provider switch"),
+            new GoalsItem("task:terms", GoalsItemKind.Task, "Payment terms on quotes"),
+            new GoalsItem("pr:1357", GoalsItemKind.PullRequest, "Payment status webhook", 1357),
+            new GoalsItem("task:widget", GoalsItemKind.Task, "Quick-capture widget")
+        ]);
+
+    private static readonly GoalsBoardModel Empty = Board with
+    {
+        Goals = [],
+        NoGoal = [],
+        StandUp = StandUp with { Impediments = [], ResolvedInLast = 0 }
+    };
+
+    private static readonly IReadOnlyList<StandUpImpediment> StateSamples =
+    [
+        new("s-new", "Credit note numbering unclear", StandUpImpedimentState.New,
+            [StandUpImpedimentState.Reported, StandUpImpedimentState.Resolved], null, 1, null, "Customers get paid faster"),
+        new("s-reported", "Bank sample files missing", StandUpImpedimentState.Reported,
+            [StandUpImpedimentState.Escalated, StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 2, null, "Customers get paid faster"),
+        new("s-escalated", "Bank sample files missing", StandUpImpedimentState.Escalated,
+            [StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 3, null, "Customers get paid faster"),
+        new("s-being-handled", "Android build runner flaky", StandUpImpedimentState.BeingHandled,
+            [StandUpImpedimentState.Resolved], "Platform team", 4, Oct(20), null),
+        new("s-resolved", "Signing certificate expired", StandUpImpedimentState.Resolved, [], "Platform team", 5, null, null)
+    ];
+
+    private static string StateDescription(StandUpImpedimentState state) => state switch
+    {
+        StandUpImpedimentState.New => "A New impediment with nobody named: the quiet outline with a leading dot, and the line reads Not reported yet. The picker offers Reported and Resolved.",
+        StandUpImpedimentState.Reported => "A Reported impediment: the quiet outline. The picker offers Escalated, Being handled and Resolved.",
+        StandUpImpedimentState.Escalated => "An Escalated impediment: the fault fill, and the goal it holds back named last on the line.",
+        StandUpImpedimentState.BeingHandled => "A Being handled impediment with a check-again day: the alert fill, and check Tue in place of the age.",
+        _ => "A Resolved impediment: the settled fill, and a picker with no move to offer."
+    };
+
+    private void SaveDraft(NewGoalDraft draft)
+    {
+        if (draft.Title.Length == 0) { _dialogError = "A goal needs a title."; return; }
+        if (draft.DueDate is null) { _dialogError = "A goal needs a due date."; return; }
+
+        _dialogError = null;
+        _dialogOpen = false;
+        _said = $"New goal {draft.Title}, due {draft.DueDate:d MMM}";
+    }
+
+    private const string BoardCode = """
+        <GoalsBoard Model="@board"
+                    IterationChanged="length => ReadAsync(length)"
+                    OnNewGoal="() => _newGoal = true"
+                    OnRefresh="ReadAsync"
+                    OnAttach="request => AttachAsync(request.GoalId, request.ItemKey)"
+                    OnMoveImpediment="request => MoveAsync(request.ImpedimentId, request.State)"
+                    Error="@_error" />
+        """;
+
+    private const string OnTrackCode = """
+        <GoalCard Goal="@goal" />
+        <GoalCard Goal="@goal" Expanded="true" Candidates="@candidates" OnAttach="AttachAsync" />
+        """;
+
+    private const string EmptyCode = """
+        <GoalsBoard Model="@(board with { Goals = [], NoGoal = [] })" OnNewGoal="() => _newGoal = true" />
+        """;
+
+    private const string BarCode = """
+        <GoalProgressBar Counts="@(new GoalCounts(Done: 9, Total: 15, Doing: 3, Blocked: 1, ToDo: 2, DoneInWindow: 3))" />
+        <GoalProgressBar Counts="@counts" Large="true" />
+        """;
+
+    private const string StandUpCode = """
+        <StandUpPanel StandUp="@board.StandUp" Iteration="GoalsIteration.Week" OnMoveImpediment="MoveAsync" />
+        """;
+
+    /// <summary>The usage that produced the sample: its own state, moves, person, age,
+    /// check-again day and goal.</summary>
+    private static string ImpedimentCode(StandUpImpediment sample)
+    {
+        static string State(StandUpImpedimentState state) => $"StandUpImpedimentState.{state}";
+        static string Text(string? text) => text is null ? "null" : $"\"{text}\"";
+
+        var moves = string.Join(", ", sample.Moves.Select(State));
+        var checkAgain = sample.CheckAgain is { } day ? $"new DateOnly({day.Year}, {day.Month}, {day.Day})" : "null";
+
+        return $$"""
+            <ImpedimentRow Impediment="@(new StandUpImpediment(id, {{Text(sample.Title)}},
+                               {{State(sample.State)}},
+                               Moves: [{{moves}}],
+                               With: {{Text(sample.With)}}, DaysOpen: {{sample.DaysOpen}}, CheckAgain: {{checkAgain}},
+                               GoalTitle: {{Text(sample.GoalTitle)}}))"
+                           OnMove="state => MoveAsync(id, state)" />
+            """;
+    }
+
+    private const string DialogCode = """
+        <GoalCreateDialog Open="_newGoal"
+                          OpenChanged="open => _newGoal = open"
+                          Busy="_saving"
+                          Error="@_refusal"
+                          OnSave="draft => CreateAsync(draft.Title, draft.Outcome, draft.DueDate)" />
+        """;
+}

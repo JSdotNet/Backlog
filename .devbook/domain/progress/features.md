@@ -19,6 +19,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#goal-forecast, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/requirements.md#the-goals-view, .devbook/domain/sessions/features.md#in-progress-by-task]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests]
 ```
 
 Answer "where are my goals, and what is in the way" as one desktop view. **Goals** is
@@ -38,20 +39,25 @@ flowchart LR
 ```
 
 The header holds the [iteration switch](#choosing-the-iteration), the last and next
-window, such as "12–16 Oct → 19–23 Oct", and **New goal**.
+window, such as "12–16 Oct → 19–23 Oct", **New goal**, **Copy**
+([copying the stand-up](#copying-the-stand-up)) and **Refresh**.
 
 Each goal reads as one row: its title, its progress as `done/total`, the items done in
 the last iteration as `+3`, its due date, its landing date as "lands ~6 Nov" and an
-**At risk** or **On track** badge. Opened, the row lists what is attached to it under
+**At risk** or **On track** badge. A bar shows how much is done, in progress, blocked
+and not started, and says it in words to a screen reader. One goal is open at a time,
+the first when the view opens. Opened, the row lists what is attached to it under
 Plan, Tasks and Pull requests. A plan shows its own `done/total`; a pull request shows
-its [status](#pull-request-status).
+its [status](#pull-request-status), and a merged one reads as its number and "merged".
 
 Below the goals, **No goal** lists the tasks in progress and the open pull requests in
 the header's repository scope that no goal holds, each with **Attach…**. The view lists
-every goal, whatever the repository scope.
+every goal, whatever the repository scope. With no goals and nothing in progress
+outside one, the view says so and offers **New goal**.
 
 Beside them sits the [stand-up](#the-stand-up), read over the same windows. The view is
-read when it opens, on a change of iteration and on Refresh.
+read when it opens, on a change of iteration, on Refresh, after each change made in
+it, and whenever goals, impediments or the iteration setting change elsewhere.
 
 ## Setting a goal
 
@@ -83,10 +89,13 @@ Say which work reaches a goal. Three kinds of item attach:
 - a **task**, by its id, whose linked pull requests come with it;
 - a **pull request**, by its repository and number, for work no task covers.
 
-"Attach a plan, task or pull request" on a goal's row opens a picker, and **Attach…**
-on a No goal row attaches that item to the goal chosen. An item belongs to at most one
-goal: one another goal holds is refused, naming that goal. Detaching an item changes
-nothing on it. Attaching is a desktop action.
+An open goal offers "Attach a plan, task or pull request": typing lists the matching
+plans, tasks and pull requests, each named by its kind, and a pull request is found by
+its number too. **Attach…** on a No goal row attaches the item to the open goal, or
+asks which goal when none is open. An item belongs to at most one goal. An item
+another goal holds is not attached silently: the view names that goal and asks
+whether to move the item, and moves it on yes. Detaching an item changes nothing on
+it. Attaching is a desktop action.
 
 [Goal Progress](domain.md#goal-progress) says how the attached work is counted.
 Attaching changes nothing on the task, the plan or the pull request.
@@ -131,15 +140,22 @@ blocks, read over the [iteration](#choosing-the-iteration):
 Each block's heading carries its count. A planned item shows its `effort:` in points,
 and a planned item with a pull request shows its [status](#pull-request-status).
 
+On the desktop, the Goals block is the goals beside the stand-up, which holds
+Finished, Planned and Impediments. A finished item no goal holds reads "… · no goal",
+last.
+
 The **points tag** on Planned compares the planned effort with what the person
 usually gets done in such a window, such as `21 / 18 pts`. The first figure is the
 `effort:` of the planned items added up. The second is the person's
 [pace](domain.md#pace) from the Roadmap, scaled to the next window's working days. A
-planned item without an effort adds nothing to the first figure.
+planned item without an effort adds nothing to the first figure. The tag's title says
+it in words, such as "21 points planned, you usually finish 18 a week", the period
+following the iteration. Without a pace the tag is the planned points alone, such as
+`21 pts`.
 
 An impediment's line names who it is with, its age in working days and the goal it
 holds back, such as "Account manager · 3 days · Customers get paid faster". A New one
-reads "Not reported yet". A check-again date reads "check Tue".
+reads "Not reported yet". A check-again date takes the age's place: "check Tue".
 
 ### Copying the stand-up
 
@@ -149,11 +165,11 @@ status: draft
 related: [.devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
-**Copy for stand-up** puts the four blocks on the clipboard, as they stand. The
-clipboard carries them twice: as HTML with every style inline, which pastes formatted
-into Teams, Outlook and PowerPoint, and as plain text for anything that takes no HTML.
-Every sentence is a fixed template filled from the reading; none is written by a
-model. Copying is a desktop action.
+**Copy** puts the four blocks on the clipboard as plain text, each heading with its
+count, Finished and Planned grouped by goal with No goal last, the points tag beside
+Planned and "n resolved" after Impediments. Every line is a fixed template filled
+from the reading; none is written by a model. Copying is a desktop action. Formatted
+(HTML) copy is a later addition.
 
 ## Tracking an impediment
 
@@ -162,6 +178,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#impediment-state, .devbook/domain/progress/requirements.md#tracking-an-impediment, .devbook/design/color-scheme.md]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentMovesTests]
 ```
 
 Keep track of what holds work back until it is out of the way. An impediment is raised
@@ -181,6 +198,11 @@ records its day, and who the impediment is with at that step. The impediment's p
 shows that history as a stepper, its check-again date, its note and the tasks it
 holds back, and through them the goal. Each state has its own colour, so a row says
 its state at a glance; [the colour scheme](../../design/color-scheme.md) gives them.
+
+In the stand-up, each impediment's state is a picker wearing the state's badge. It
+offers only the moves the impediment may make, and picking one keeps who it was last
+with. A move the impediment may not make is refused with the reason, and the state
+stays as it was.
 
 An open impediment that holds back a goal's item makes that goal
 [At risk](domain.md#goal-forecast).
@@ -219,7 +241,9 @@ related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook
 ```
 
 See whether a pull request can merge without opening it. Every pull request row in
-Progress carries two marks:
+Progress, and each row of the
+[Pull requests pane](../sessions/features.md#pull-request-readiness), carries its
+number and two marks:
 
 - **checks**: an icon and `passed/total`, such as `14/14`, with a running variant
   (`9/14`, still running) and a failing one (`2/14`, failing);
@@ -230,7 +254,9 @@ Progress carries two marks:
   show.
 
 The words "checks" and "approvals" are screen-reader labels only, so the row stays
-short. A merged pull request reads "merged" instead of both marks.
+short. A merged pull request reads "merged" instead of both marks. Checks that have
+not run draw no checks mark. With no required total, the approvals read as the
+number received alone.
 
 ## Goals on the phone
 

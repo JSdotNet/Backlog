@@ -1,0 +1,96 @@
+@*
+    One pull request's status line (.devbook/domain/progress/features.md#pull-request-status):
+    its #n pill in the gh badge family, then two marks — checks as passed/total and
+    approvals as received/required — each a Lucide glyph and a count in the mark's ink
+    (.devbook/design/color-scheme.md#pull-request-status-marks). A merged pull request
+    reads "merged" in place of both.
+
+    The words "checks" and "approvals" are never printed. The glyph is decorative and the
+    visible count is hidden from assistive technology too, so a screen reader hears one
+    phrase per mark, "14 of 14 checks passed", rather than "14/14" and then the words.
+
+    A mark is left out when there is nothing to count: no checks read or none ran, or
+    approvals not read. With no rule asking for an approval the received count stands
+    alone, and so it does when the read never asked the rules — then with no verdict in
+    the spoken words either. A host that draws the number itself — the Pull requests pane's row — passes
+    ShowNumber="false" and gets the marks alone.
+*@
+<span class="@ClassValue" data-testid="@TestId" data-state="@Model.Slug">
+    @if (ShowNumber)
+    {
+        <Badge Kind="gh" Slug="@Model.Slug" Href="@Model.Url" Title="@Model.Title" CssClass="pull-request-status__number" TestId="@Part("number")">#@Model.Number</Badge>
+    }
+    @if (Model.IsMerged)
+    {
+        <span class="pull-request-status__merged" data-testid="@Part("merged")">merged</span>
+    }
+    else
+    {
+        @if (Model.ChecksVariant is not PullRequestChecksVariant.None)
+        {
+            <span class="@($"pull-request-status__mark pull-request-status__mark--{Slug(Model.ChecksVariant)}")"
+                  data-mark="checks"
+                  data-variant="@Slug(Model.ChecksVariant)"
+                  data-testid="@Part("checks")">
+                @switch (Model.ChecksVariant)
+                {
+                    case PullRequestChecksVariant.Passed:
+                        <CircleCheckIcon Size="14" CssClass="pull-request-status__glyph" />
+                        break;
+                    case PullRequestChecksVariant.Failing:
+                        <CircleXIcon Size="14" CssClass="pull-request-status__glyph" />
+                        break;
+                    default:
+                        <CircleDashedIcon Size="14" CssClass="pull-request-status__glyph" />
+                        break;
+                }
+                <span class="pull-request-status__count" aria-hidden="true">@Model.ChecksCount</span>
+                <span class="sr-only">@Model.ChecksSpoken</span>
+            </span>
+        }
+        @if (Model.ApprovalsVariant is not PullRequestApprovalsVariant.None)
+        {
+            <span class="@($"pull-request-status__mark pull-request-status__mark--{Slug(Model.ApprovalsVariant)}")"
+                  data-mark="approvals"
+                  data-variant="@Slug(Model.ApprovalsVariant)"
+                  data-testid="@Part("approvals")">
+                <UserCheckIcon Size="14" CssClass="pull-request-status__glyph" />
+                <span class="pull-request-status__count" aria-hidden="true">@Model.ApprovalsCount</span>
+                <span class="sr-only">@Model.ApprovalsSpoken</span>
+            </span>
+        }
+    }
+</span>
+
+@code {
+    /// <summary>The pull request to draw.</summary>
+    [Parameter, EditorRequired]
+    public PullRequestStatusModel Model { get; set; } = new(0, "unknown");
+
+    /// <summary>Whether the <c>#n</c> pill leads the line. Off for a host whose row
+    /// already names the pull request.</summary>
+    [Parameter]
+    public bool ShowNumber { get; set; } = true;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Lands on the line; the pill and each mark take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? "pull-request-status" : $"pull-request-status {CssClass}";
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    private static string Slug(PullRequestChecksVariant variant) => variant.ToString().ToLowerInvariant();
+
+    private static string Slug(PullRequestApprovalsVariant variant) => variant switch
+    {
+        PullRequestApprovalsVariant.Met => "met",
+        PullRequestApprovalsVariant.Short => "short",
+        PullRequestApprovalsVariant.Received => "received",
+        _ => "unrequired"
+    };
+}

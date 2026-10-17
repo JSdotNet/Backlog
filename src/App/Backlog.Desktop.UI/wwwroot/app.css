@@ -5002,30 +5002,12 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-/* GitHub's "8/9", drawn: three parts of one bar, each growing by its own count,
-   beside the words. The bar is aria-hidden; the words and the title carry it. */
-.pull-request-checks-meter {
-    display: inline-flex;
+/* The shared status line's marks sit at the row's end, where the checks meter was. */
+.pull-requests-row__marks {
     flex: none;
-    gap: var(--spacing-xs);
-    align-items: center;
+    flex-wrap: nowrap;
     margin-left: auto;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
-
-.pull-request-checks-meter__bar {
-    display: flex;
-    overflow: hidden;
-    width: 3.5rem;
-    height: 0.375rem;
-    border-radius: var(--border-radius-full);
-    background: var(--color-border);
-}
-
-.pull-request-checks-meter__passed { flex: var(--checks-passed, 0) 1 0; background: var(--color-success-text); }
-.pull-request-checks-meter__failed { flex: var(--checks-failed, 0) 1 0; background: var(--color-error-text); }
-.pull-request-checks-meter__running { flex: var(--checks-running, 0) 1 0; background: var(--color-primary-light); }
 
 /* The detail of the picked pull request, beside the list or under it. */
 .pull-request-detail {

@@ -2923,6 +2923,41 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='goals-view']")));
     }
 
+    /// <summary>
+    /// The Goals view in the shell draws the board from the Progress ports over the
+    /// shell's own task list: the goals and the stand-up aside, and the task in progress
+    /// that no goal holds under No goal. Without the ports — every other test here —
+    /// the view says the module is not set up rather than drawing nothing.
+    /// </summary>
+    [Fact]
+    public void The_goals_view_draws_the_board_over_the_shells_tasks()
+    {
+        using var harness = CreateHarness(
+            features => features.SetEnabled(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals, true),
+            seed: InProgressEntryText,
+            configureServices: services =>
+            {
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IGoals>(new GoalsHostTests.FakeGoals());
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IImpediments>(new GoalsHostTests.FakeImpediments());
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>(new GoalsHostTests.FakeIterationSettings());
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>(new GoalsHostTests.FakePullRequests());
+            });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='goals-view-option']")));
+        component.Find("[data-testid='goals-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var view = component.Find("[data-testid='goals-view']");
+            Assert.Equal("Goals", view.QuerySelector("h1")!.TextContent);
+            Assert.NotNull(view.QuerySelector("aside[aria-label='Stand-up']"));
+            Assert.Contains("Wire the In progress view", view.QuerySelector("[data-testid='goals-board-no-goal']")!.TextContent);
+            Assert.Null(view.QuerySelector("[data-testid='goals-view-empty']"));
+        });
+    }
+
     /// <summary>A file from before the rename, read with the goals flag on, reopens on
     /// the Goals view: the retired name is the same view.</summary>
     [Fact]

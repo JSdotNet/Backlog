@@ -1,0 +1,54 @@
+@*
+    A goal's items as one stacked bar (.devbook/domain/progress/features.md#the-goals-view):
+    done in color-success-text, in progress in color-primary, blocked in
+    color-error-text, and not started left as the track, color-background-raised. Each
+    segment grows by its count, so its share is its count over the total; a segment with
+    nothing in it is not drawn and takes no gap, and the not-started segment is drawn
+    clear so the track shows through it. The bar is an image with its figures said
+    in words, "9 done, 3 in progress, 1 blocked, 2 not started", so colour never carries
+    them alone. The sprint board's private status bar is the precedent; it stays its own.
+*@
+<div class="@ClassValue" role="img" aria-label="@GoalsText.BarLabel(Counts)" data-testid="@TestId">
+    @foreach (var (count, part) in Segments)
+    {
+        @if (count > 0)
+        {
+            <span class="@($"goal-progress-bar__{part}")" style="flex: @count 1 0%"></span>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public GoalCounts Counts { get; set; } = new(0, 0, 0, 0, 0, 0);
+
+    /// <summary>The thicker bar the expanded goal draws.</summary>
+    [Parameter]
+    public bool Large { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Not started is what the total leaves once the other three are counted, so a
+    /// total the counts do not add up to still draws to scale.</summary>
+    private (int Count, string Part)[] Segments =>
+    [
+        (Counts.Done, "done"),
+        (Counts.Doing, "doing"),
+        (Counts.Blocked, "blocked"),
+        (Math.Max(Counts.ToDo, Counts.Total - Counts.Done - Counts.Doing - Counts.Blocked), "todo")
+    ];
+
+    private string ClassValue
+    {
+        get
+        {
+            var size = Large ? " goal-progress-bar--large" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"goal-progress-bar{size}{extra}";
+        }
+    }
+}

@@ -1,0 +1,55 @@
+@implements IDisposable
+@using Backlog.Desktop.UI.Tasks
+@using Backlog.Modules.Progress.UI.Goals
+@inject TasksDesktopState State
+
+@*
+    The Goals view in the shell (.devbook/domain/progress/features.md#the-goals-view):
+    GoalsHost reads and writes through the Progress ports; this hands it what only the
+    shell holds — the task list, the plan tags and the open pull requests the shell's
+    reader found — as GoalsCandidates, and reads that reader when the view opens and on
+    Refresh, as the In progress tab does. A read landing, or the task list moving, maps
+    the view again without reading the module.
+*@
+<GoalsHost Candidates="CandidatesOf" Revision="_revision" OnRead="Read" />
+
+@code {
+    /// <summary>The shell's reader, shared with the side panel.</summary>
+    [Parameter, EditorRequired]
+    public WorkInProgressReader Reader { get; set; } = default!;
+
+    /// <summary>Whether pull requests are read at all: the Pull requests switch.</summary>
+    [Parameter]
+    public bool ReadsPullRequests { get; set; } = true;
+
+    private int _revision;
+
+    protected override void OnInitialized()
+    {
+        Reader.Changed += OnChanged;
+        State.Changed += OnChanged;
+    }
+
+    public void Dispose()
+    {
+        Reader.Changed -= OnChanged;
+        State.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(() =>
+    {
+        _revision++;
+        StateHasChanged();
+    });
+
+    /// <summary>The view opened, or its Refresh was pressed. Not awaited: the board is drawn
+    /// from what the reader holds, and No goal fills in when the read lands.</summary>
+    private Task Read(bool refresh)
+    {
+        Reader.ReadsPullRequests = ReadsPullRequests;
+        _ = refresh ? Reader.ReadAsync() : Reader.EnsureAllAsync();
+        return Task.CompletedTask;
+    }
+
+    private GoalsCandidates CandidatesOf() => GoalsCandidateSource.Of(State, Reader);
+}

@@ -448,7 +448,11 @@ internal static class StorybookIndex
         [
             new("sprint-settings", "Sprint settings", "SprintSeriesCard: one sprint series on Settings › Sprints — its switch, its repositories with only the free ones offered, its length, start day and name pattern, how the sprint goal is counted, which briefs show it, and Delete series…, which asks first."),
             new("sprint-view", "Sprint view", "SprintBoard and SprintViewSwitch: the In progress tab's sprint view — the Since yesterday strip, the goal card, the done line against the even pace, Needs you, one group per plan with its rows and pull request chips, and the folded Outside the sprint line."),
-            new("sprint-planning", "Sprint planning", "SprintAddPicker, SprintItemNoteDialog, SprintTaskPanel and the row menu SprintBoard carries while its sprint takes writes: adding a task or a whole plan to the open sprint, taking it out, marking it as goal, and its note and open question — from the sprint view and from a task's side panel.")
+            new("sprint-planning", "Sprint planning", "SprintAddPicker, SprintItemNoteDialog, SprintTaskPanel and the row menu SprintBoard carries while its sprint takes writes: adding a task or a whole plan to the open sprint, taking it out, marking it as goal, and its note and open question — from the sprint view and from a task's side panel."),
+            // Before the Goals view, which draws it on every goal's pull requests: nothing
+            // is shown before its parts.
+            new("pull-request-status", "Pull request status", "PullRequestStatus: a pull request's #n pill, its checks as passed/total and its approvals as received/required, each a glyph and a count in the mark's ink, the words said only to a screen reader — on every pull request row in Progress and the Pull requests pane."),
+            new("goals-view", "Goals view", "GoalsBoard, GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow and GoalCreateDialog: the Goals view — the iteration switch and its windows, each goal with its stacked bar, forecast and attached work, No goal, and the stand-up with Finished, Planned and the impediment state picker.")
         ]),
 
         new("Dashboard",
