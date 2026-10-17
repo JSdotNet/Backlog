@@ -9,8 +9,9 @@ related: [.devbook/domain/progress/features.md]
 > What this context's features guarantee, one chapter per feature. Each
 > requirement is one SHALL sentence with the scenarios that prove it.
 
-The requirements of the Goals view, the stand-up and pull request status name the
-tests that prove them; none is proved end to end yet. The scenarios use the goal
+The requirements of the Goals view, the stand-up, pull request status and syncing name
+the tests that prove them. Syncing is proved between two desktops through the real sync
+service; none is proved end to end in the app yet. The scenarios use the goal
 "Customers get paid faster", due Friday 30 October 2026, with the plan `+bank-integration`
 attached. Today is Monday 19 October 2026 unless a scenario says otherwise, and the
 person reads by Week, so the last window is 12 to 16 October and the next is 19 to
@@ -766,6 +767,7 @@ related: [.devbook/domain/progress/features.md#syncing-goals-and-impediments]
 ```meta
 type: requirement
 status: draft
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.A_goal_set_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.An_impediment_raised_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_sprint_series_on_the_replica_is_still_dropped_beside_an_impediment]
 ```
 
 The system SHALL carry each goal as one `goal` document and each impediment as one `impediment` document on the task feed, under its own id, while sync is on and the device is paired.
@@ -776,11 +778,24 @@ The system SHALL carry each goal as one `goal` document and each impediment as o
 - **When** the person sets the goal "Customers get paid faster" on the first
 - **Then** the second shows the goal after its next pull, without a Refresh
 
+#### Scenario: An impediment reaches the other desktop
+
+- **Given** two paired desktops with sync on
+- **When** the person raises "Bank sample files missing" on the first, holding back one task
+- **Then** the second shows it New, with its note and the task it holds back, after its next pull, without a Refresh
+
+#### Scenario: A sprint series an older build left
+
+- **Given** the replica holds a `sprint-series` document an older desktop pushed, beside the impediment "Bank sample files missing"
+- **When** the second desktop pulls
+- **Then** it shows the impediment and writes nothing for the sprint series
+
 ### Requirement: The newer change wins per document
 
 ```meta
 type: requirement
 status: draft
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.The_newer_change_wins_per_goal_on_both_desktops, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.The_newer_move_wins_per_impediment_on_both_desktops]
 ```
 
 The system SHALL keep, when two devices both changed one goal or one impediment since they last synced, the copy with the newer change on every device.
@@ -790,6 +805,12 @@ The system SHALL keep, when two devices both changed one goal or one impediment 
 - **Given** the phone set "Bank sample files missing" to Being handled at 09:10, and the desktop changed its note at 09:20 before pulling
 - **When** both have synced
 - **Then** every device holds the desktop's copy, and the move to Being handled is lost
+
+#### Scenario: Two moves made apart
+
+- **Given** the first desktop reported "Bank sample files missing" to Finance, and the second resolved it later, before either synced
+- **When** both have synced
+- **Then** both desktops hold it Resolved, and the report to Finance is lost
 
 #### Scenario: Two goals changed at once
 
@@ -802,6 +823,7 @@ The system SHALL keep, when two devices both changed one goal or one impediment 
 ```meta
 type: requirement
 status: draft
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.A_goal_deleted_on_one_desktop_is_deleted_on_the_other]
 ```
 
 The system SHALL delete a goal or impediment on every paired device once its deletion is the newer change.
