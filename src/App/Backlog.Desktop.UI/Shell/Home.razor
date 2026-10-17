@@ -797,15 +797,12 @@
             else if (GoalsViewVisible)
             {
                 @* The Goals view, while the goals flag is on: In progress's place and
-                   no Now board (local ADR 0035 §10). Its goals and stand-up are the
-                   Goals view's own build; until then the body says what lands here. *@
+                   no Now board (local ADR 0035 §10). The goals, No goal and the
+                   stand-up, read through the Progress ports over the shell's task
+                   list and open pull requests (GoalsTab). *@
                 <div class="goals-view" id="goals-view" data-testid="goals-view">
                     <div class="goals-view__body" data-testid="goals-view-body">
-                        <EmptyState Title="Goals"
-                                    Description="Your goals and the stand-up show here."
-                                    TestId="goals-view-empty">
-                            <Icon><TargetIcon Size="24" /></Icon>
-                        </EmptyState>
+                        <GoalsTab Reader="_work" ReadsPullRequests="PullRequestsOffered" />
                     </div>
                 </div>
             }

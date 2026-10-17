@@ -189,7 +189,7 @@ public sealed class PhoneStandupTests
         Assert.Equal("open", steps.Find("[data-testid='steps-being-handled'] .impediment-steps__marker").GetAttribute("data-phase"));
     }
 
-    /// <summary>The domain's moves (ImpedimentStates.Allows), written out: the library
+    /// <summary>The domain's moves (ImpedimentMoves.Allows), written out: the library
     /// references no module, so its host hands the rule in.</summary>
     private static bool Allows(StandupImpedimentState from, StandupImpedimentState to) =>
         (from, to) switch

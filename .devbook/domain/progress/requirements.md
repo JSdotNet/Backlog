@@ -9,7 +9,8 @@ related: [.devbook/domain/progress/features.md]
 > What this context's features guarantee, one chapter per feature. Each
 > requirement is one SHALL sentence with the scenarios that prove it.
 
-Nothing here is built yet, so no requirement names a test. The scenarios use the goal
+The requirements of the Goals view, the stand-up and pull request status name the
+tests that prove them; none is proved end to end yet. The scenarios use the goal
 "Customers get paid faster", due Friday 30 October 2026, with the plan `+bank-integration`
 attached. Today is Monday 19 October 2026 unless a scenario says otherwise, and the
 person reads by Week, so the last window is 12 to 16 October and the next is 19 to
@@ -28,6 +29,7 @@ related: [.devbook/domain/progress/features.md#the-goals-view]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Two_a_week_with_six_open_lands_at_the_end_of_the_third_week_from_now, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Month_reads_the_done_rate_from_June_to_September, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.A_goal_line_reads_done_over_total_plus_the_window_due_and_landing]
 ```
 
 The system SHALL forecast a goal's landing date from the average number of its items done in each of the last four iterations of the chosen length.
@@ -49,6 +51,7 @@ The system SHALL forecast a goal's landing date from the average number of its i
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Landing_after_the_due_date_is_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Landing_on_the_due_date_is_on_track, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_goal_card_reads_its_line_and_forecast_and_its_bar_in_words]
 ```
 
 The system SHALL show a goal as At risk when its landing date falls after its due date.
@@ -70,6 +73,7 @@ The system SHALL show a goal as At risk when its landing date falls after its du
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.An_open_impediment_puts_a_goal_landing_in_time_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Without_an_open_impediment_a_goal_landing_in_time_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track]
 ```
 
 The system SHALL show a goal as At risk while an impediment that is not Resolved holds back one of the items it counts, whatever its landing date.
@@ -91,6 +95,7 @@ The system SHALL show a goal as At risk while an impediment that is not Resolved
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Nothing_done_in_four_iterations_with_open_items_is_at_risk_with_no_landing_date, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.A_goal_line_drops_plus_nought_and_a_missing_landing]
 ```
 
 The system SHALL show a goal that had no item done in the last four iterations and still has open items as At risk, with no landing date.
@@ -106,6 +111,7 @@ The system SHALL show a goal that had no item done in the last four iterations a
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHoldingTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Work_in_progress_no_goal_holds_is_listed_under_no_goal, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks]
 ```
 
 The system SHALL list under No goal each task in progress and each open pull request in the repository scope that no goal holds, each with Attach.
@@ -402,6 +408,7 @@ The system SHALL list under Finished every item done in the last window, grouped
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Planned_is_derived_from_three_sources, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.An_item_from_two_sources_is_planned_once]
 ```
 
 The system SHALL list under Planned, each once, the items goals hold that are in progress, the items due inside the next window, and for each attached plan its first ready entry in plan order that is not in progress.
@@ -423,6 +430,7 @@ The system SHALL list under Planned, each once, the items goals hold that are in
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_points_tag_adds_up_planned_effort_beside_the_weekly_pace, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_points_tag_scales_the_pace_to_a_day, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.The_points_tag_compares_planned_with_capacity]
 ```
 
 The system SHALL tag Planned with the planned items' `effort:` added up, then the person's pace from the Roadmap scaled to the next window's working days, as `planned / capacity pts`.
@@ -444,6 +452,7 @@ The system SHALL tag Planned with the planned items' `effort:` added up, then th
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Read_by_Day_impediments_list_the_open_ones_with_who_age_and_goal_and_count_the_resolved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.An_impediment_with_nobody_named_reads_not_reported_yet, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.An_impediment_row_names_who_it_is_with_its_age_and_its_goal_in_the_error_ink]
 ```
 
 The system SHALL list under Impediments every impediment that is not Resolved, with its state, who it is with, its age in working days and the goal it holds back, followed by how many were resolved in the last window.
@@ -465,15 +474,16 @@ The system SHALL list under Impediments every impediment that is not Resolved, w
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.StandUpClipboardTests]
 ```
 
-The system SHALL put the four blocks on the clipboard on the desktop, as HTML with inline styles and as plain text beside it.
+The system SHALL put the four blocks on the clipboard on the desktop as plain text, each heading with its count.
 
 #### Scenario: Pasting into Teams
 
 - **Given** the stand-up is read on the desktop
 - **When** the person chooses Copy for stand-up and pastes into a Teams message
-- **Then** the message holds the four blocks, formatted, with their counts
+- **Then** the message holds the four blocks as plain text, with their counts
 
 ## Tracking an impediment
 
@@ -602,6 +612,7 @@ related: [.devbook/domain/progress/features.md#pull-request-status]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Every_check_passed_reads_passed_and_14_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Checks_still_running_read_running_and_9_of_14, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_failed_check_reads_failing_even_while_others_run, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_running_or_failing_check_draws_its_own_glyph]
 ```
 
 The system SHALL show on every open pull request row in Progress an icon and its checks as `passed/total`, in a running variant while a check runs and a failing variant once one fails.
@@ -629,6 +640,7 @@ The system SHALL show on every open pull request row in Progress an icon and its
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.One_of_two_approvals_is_short, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.No_required_total_shows_the_received_count_alone, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.A_ruleset_pull_request_rule_gives_its_count, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.The_larger_of_the_protection_rule_and_every_ruleset_rule_is_required, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLinkedPullRequestStatusTests.A_base_branch_with_no_rule_has_no_required_total]
 ```
 
 The system SHALL show on every open pull request row in Progress an icon and its approvals as `approvals/required`, reading required as the larger of the base branch's protection rule and its rulesets' pull request rules, and SHALL read no required total for a base branch no rule asks an approval of.
@@ -656,6 +668,7 @@ The system SHALL show on every open pull request row in Progress an icon and its
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.The_visible_text_holds_counts_and_a_screen_reader_hears_the_words]
 ```
 
 The system SHALL name the checks and approvals marks with the words "checks" and "approvals" in their accessible labels and not in their visible text.

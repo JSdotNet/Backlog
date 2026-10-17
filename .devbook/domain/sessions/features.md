@@ -1282,7 +1282,7 @@ session where they can see it happen.
 
 ```meta
 type: feature
-related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/progress/features.md#pull-request-status]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
 ```
 
@@ -1309,7 +1309,8 @@ A row shows:
 - the repository's [identity edge](../../design/color-scheme.md#the-identity-edge);
 - the number, the verdict chip and the title;
 - the head branch, and how long ago it was updated;
-- a meter of its checks, with how many passed.
+- its [pull request status](../progress/features.md#pull-request-status) marks: checks
+  as passed over total once any ran, and the approvals it has.
 
 A pull request stacked on another is indented and says which one it waits on, so the
 reader merges that one first. A pinned one keeps both in the Pinned group, so a pin never

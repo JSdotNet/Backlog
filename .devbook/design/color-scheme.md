@@ -686,8 +686,12 @@ Rules:
 - The state history in an impediment's detail draws each step's marker in the
   ink of its state's row above. A step not reached yet is an empty ring in
   `color-border`, and the word beside it carries the meaning.
+- The stand-up's state picker wears the same badge as a read-only state, so an
+  editable state and a shown one look alike.
 
-Review surface: storybook → *Stand-up*, **Badges** and **State list**.
+Review surface: storybook → *Progress* → **Goals view** (the stories
+*Impediment New* through *Impediment Resolved*, and *Stand-up*), and the phone's
+storybook → *Stand-up*, **Badges** and **State list**.
 
 ### Goal forecast badges
 
@@ -706,6 +710,8 @@ A goal's forecast is one of two badges, from the [tone scale](#badge-and-chip-to
 At risk takes its own ink as its edge, which the tone scale allows a `fault`
 chip alone. On track takes `color-border-strong`, as every other filled chip
 does, so the two badges differ by more than their hue.
+
+Review surface: storybook → *Progress* → **Goals view** (*At risk*, *On track*).
 
 ### Pull request status marks
 
@@ -729,8 +735,9 @@ and both take the mark's ink.
 Rules:
 
 - The words "checks" and "approvals" MUST NOT be printed on the row. Each mark
-  carries them as visually hidden text after its count, together with the
-  variant, so a screen reader hears "9/14 checks running" or "1/2 approvals".
+  carries them as visually hidden text, together with the variant, and the
+  visible count is hidden from assistive technology, so a screen reader hears
+  one phrase: "9 of 14 checks running", "1 of 2 approvals".
 - The glyph is decorative and hidden from assistive technology, per
   `accessibility.md#iconography-accessibility`. The count and the hidden words
   carry the meaning, so the ink is never the sole carrier.
@@ -739,8 +746,21 @@ Rules:
 - Every ink here measures at least 3:1 as a glyph and 4.5:1 as text on the
   surfaces a row sits on, per the
   [contrast rules](#contrast-rules-wcag-aa-minimum).
-- A pull request with no checks, or a base branch with no required approvals,
-  draws [TODO: clarify] in place of the mark.
+- A pull request with no checks, or whose checks total nought, draws no checks
+  mark.
+- A base branch no rule asks an approval of (required unset or nought) draws the
+  `user-check` glyph and the received count alone, in `color-text-secondary`,
+  spoken "n approvals, none required".
+- Where the rules were not read, the count stands alone in the same ink, spoken
+  "n approvals", with no verdict.
+- Approvals not read at all draw no approvals mark.
+- A merged pull request reads "merged" in `color-text-secondary` in place of
+  both marks.
+- The line leads with the pull request's `#n` pill in the `gh` badge family
+  ([badge tones](#badge-and-chip-tones)). A row that already names the number
+  shows the marks alone.
+
+Review surface: storybook → *Progress* → **Pull request status**.
 
 ### Chart roles
 

@@ -69,7 +69,7 @@ public class StorybookOrderTests
         ["Overlays"] = ["overlays"],
         ["PhoneStandup"] = ["standup"],
         ["Roadmap"] = ["roadmap"],
-        ["Progress"] = ["sprint-settings", "sprint-view", "sprint-planning"],
+        ["Progress"] = ["sprint-settings", "sprint-view", "sprint-planning", "pull-request-status", "goals-view"],
         ["Selection"] = ["selection-bar"],
         ["Selects"] = ["selects"],
         ["Settings"] = ["settings-"],

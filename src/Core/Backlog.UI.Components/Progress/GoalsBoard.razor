@@ -1,0 +1,257 @@
+@*
+    The Goals view (.devbook/domain/progress/features.md#the-goals-view), drawn from a
+    GoalsBoardModel with every act a callback, so the storybook draws it with no module
+    behind it and the host turns each callback into its own call.
+
+    The header holds the title, the iteration switch — Day, Week, 2 weeks, Month — the
+    last and next window as "12–16 Oct → 19–23 Oct", New goal, an icon-only Copy that
+    puts the four stand-up blocks on the clipboard as plain text, and Refresh.
+
+    Under GOALS each goal is a GoalCard; one is open at a time, the first when the view
+    first draws. Below the goals, No goal lists the work in progress in scope that no
+    goal holds, each with Attach…: with a goal open it attaches to that goal, titled
+    "Attach to ‹goal›"; with none open it opens a menu of the goals' titles. That menu
+    is plain library use, not a goal picker of its own.
+
+    Beside the goals sits the StandUpPanel aside, which falls under them in one column
+    once the board is narrower than 900 px. With no goals and nothing in progress
+    outside one, the goals column is a real empty state with New goal as its action.
+*@
+<div class="@ClassValue" data-testid="@TestId">
+    <header class="goals-board__header">
+        <h1 class="goals-board__title">Goals</h1>
+        <RadioGroup TValue="GoalsIteration"
+                    Options="Iterations"
+                    Value="Model.Iteration"
+                    ValueChanged="length => IterationChanged.InvokeAsync(length)"
+                    OptionLabel="GoalsText.Iteration"
+                    OptionTestId="@(length => Part($"iteration-{length.ToString().ToLowerInvariant()}"))"
+                    AriaLabel="Iteration"
+                    Disabled="Busy"
+                    CssClass="goals-board__iteration"
+                    TestId="@Part("iteration")" />
+        <span class="goals-board__window" data-testid="@Part("window")">@GoalsText.Window(Model.Last, Model.Next)</span>
+        <span class="goals-board__spacer" aria-hidden="true"></span>
+        <AppButton OnClick="() => OnNewGoal.InvokeAsync()" TestId="@Part("new-goal")">New goal</AppButton>
+        <CopyButton Text="@StandUpClipboard.Text(Model)"
+                    Label="Copy"
+                    StatusCssClass="sr-only"
+                    TestId="@Part("copy")"
+                    ButtonTestId="@Part("copy-button")"
+                    StatusTestId="@Part("copy-status")" />
+        <IconButton AriaLabel="Refresh" Title="Refresh" Disabled="Busy" OnClick="() => OnRefresh.InvokeAsync()" TestId="@Part("refresh")">
+            <RefreshCwIcon />
+        </IconButton>
+    </header>
+
+    <Alert Message="@Error" TestId="@Part("error")" />
+
+    <div class="goals-board__layout">
+        <div class="goals-board__goals" data-testid="@Part("goals")">
+            <SectionHeader Title="Goals" Level="2" CssClass="goals-board__section-header" />
+
+            @if (IsEmpty)
+            {
+                <EmptyState Title="No goals yet"
+                            Description="Set a goal for what the work should land, then attach the plans, tasks and pull requests that count towards it."
+                            TestId="@EmptyTestId">
+                    <Icon><TargetIcon Size="20" /></Icon>
+                    <Action>
+                        <AppButton Variant="ButtonVariant.Primary" OnClick="() => OnNewGoal.InvokeAsync()" TestId="@Part("empty-new-goal")">New goal</AppButton>
+                    </Action>
+                </EmptyState>
+            }
+            else
+            {
+                @foreach (var goal in Model.Goals)
+                {
+                    <GoalCard @key="goal.Id"
+                              Goal="goal"
+                              Expanded="@(goal.Id == _selected)"
+                              OnToggle="() => ToggleAsync(goal.Id)"
+                              Candidates="Model.Candidates"
+                              OnAttach="key => OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, key))"
+                              TestId="@Part($"goal-{goal.Id}")" />
+                }
+
+                @if (Model.NoGoal.Count > 0)
+                {
+                    <section class="goals-board__no-goal" aria-labelledby="@($"{_id}-no-goal")" data-testid="@Part("no-goal")">
+                        <h3 class="goals-board__no-goal-title" id="@($"{_id}-no-goal")">No goal</h3>
+                        @foreach (var item in Model.NoGoal)
+                        {
+                            <div class="goals-board__no-goal-row" data-kind="@GoalCard.KindLabel(item.Kind)">
+                                <span class="goals-board__no-goal-item">
+                                    @if (item.Number is { } number)
+                                    {
+                                        <span class="goals-board__number">#@number</span>@(" ")
+                                    }
+                                    @item.Title
+                                </span>
+                                <AppButton Size="ButtonSize.Small"
+                                           Variant="ButtonVariant.Ghost"
+                                           Disabled="@(Model.Goals.Count == 0)"
+                                           title="@AttachTitle"
+                                           OnClick="args => AttachFromNoGoalAsync(item, args)"
+                                           TestId="@Part($"attach-{item.Key}")">Attach…</AppButton>
+                            </div>
+                        }
+                    </section>
+                }
+            }
+        </div>
+
+        <StandUpPanel StandUp="Model.StandUp"
+                      Iteration="Model.Iteration"
+                      Busy="Busy"
+                      OnMoveImpediment="request => OnMoveImpediment.InvokeAsync(request)"
+                      CssClass="goals-board__stand-up"
+                      TestId="@Part("stand-up")" />
+    </div>
+
+    <ContextMenu Open="_menuOpen"
+                 OpenChanged="open => _menuOpen = open"
+                 X="_menuX"
+                 Y="_menuY"
+                 Items="GoalItems"
+                 AriaLabel="Attach to goal"
+                 OnItemSelected="AttachFromMenuAsync"
+                 TestId="@(Part("attach-menu") ?? "goals-board-attach-menu")" />
+</div>
+
+@code {
+    private static readonly IReadOnlyList<GoalsIteration> Iterations =
+        [GoalsIteration.Day, GoalsIteration.Week, GoalsIteration.TwoWeeks, GoalsIteration.Month];
+
+    private readonly string _id = "goals-" + Guid.NewGuid().ToString("N");
+    private string? _selected;
+    private string? _selectedParameter;
+    private bool _initialised;
+    private bool _announce;
+    private bool _menuOpen;
+    private double _menuX;
+    private double _menuY;
+    private string? _menuItemKey;
+
+    [Parameter, EditorRequired]
+    public GoalsBoardModel Model { get; set; } = default!;
+
+    /// <summary>The goal to open; null opens the first when the board first draws.</summary>
+    [Parameter]
+    public string? SelectedGoalId { get; set; }
+
+    /// <summary>A goal was opened, or folded to none — including the first goal the board
+    /// opens on its own.</summary>
+    [Parameter]
+    public EventCallback<string?> SelectedGoalIdChanged { get; set; }
+
+    /// <summary>The iteration switch was moved.</summary>
+    [Parameter]
+    public EventCallback<GoalsIteration> IterationChanged { get; set; }
+
+    /// <summary>New goal was pressed: the host opens <see cref="GoalCreateDialog"/>.</summary>
+    [Parameter]
+    public EventCallback OnNewGoal { get; set; }
+
+    /// <summary>Refresh was pressed: the host reads the view again.</summary>
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    /// <summary>An item was picked to attach to a goal, from a goal's search or No goal.</summary>
+    [Parameter]
+    public EventCallback<GoalAttachRequest> OnAttach { get; set; }
+
+    /// <summary>An impediment's state was picked.</summary>
+    [Parameter]
+    public EventCallback<ImpedimentMoveRequest> OnMoveImpediment { get; set; }
+
+    /// <summary>A refusal to show above the board, in the module's words.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>While the host reads or writes: the switch, Refresh and the pickers wait.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Lands on the board; its parts take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; } = "goals-board";
+
+    /// <summary>The empty state's test id.</summary>
+    [Parameter]
+    public string EmptyTestId { get; set; } = "goals-view-empty";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "goals-board" : $"goals-board {CssClass}";
+
+    private bool IsEmpty => Model.Goals.Count == 0 && Model.NoGoal.Count == 0;
+
+    private GoalCardModel? Selected => Model.Goals.FirstOrDefault(goal => goal.Id == _selected);
+
+    private string AttachTitle => Selected is { } goal
+        ? $"Attach to {goal.Title}"
+        : Model.Goals.Count == 0 ? "Set a goal first" : "Attach to a goal";
+
+    private IReadOnlyList<MenuItem> GoalItems => [.. Model.Goals.Select(goal => new MenuItem(goal.Id, goal.Title))];
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    protected override void OnParametersSet()
+    {
+        if (SelectedGoalId != _selectedParameter)
+        {
+            _selectedParameter = SelectedGoalId;
+            _selected = SelectedGoalId;
+            _initialised = true;
+        }
+
+        if (!_initialised && Model.Goals.Count > 0)
+        {
+            _selected = Model.Goals[0].Id;
+            _initialised = true;
+            _announce = true;
+        }
+    }
+
+    /// <summary>The first goal opened on the board's own say: a host bound to the selection
+    /// is told, so it never believes no goal is open.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_announce) return;
+
+        _announce = false;
+        await SelectedGoalIdChanged.InvokeAsync(_selected);
+    }
+
+    private async Task ToggleAsync(string goalId)
+    {
+        _selected = _selected == goalId ? null : goalId;
+        await SelectedGoalIdChanged.InvokeAsync(_selected);
+    }
+
+    private async Task AttachFromNoGoalAsync(GoalsItem item, MouseEventArgs args)
+    {
+        if (Selected is { } goal)
+        {
+            await OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, item.Key));
+            return;
+        }
+
+        _menuItemKey = item.Key;
+        _menuX = args.ClientX;
+        _menuY = args.ClientY;
+        _menuOpen = true;
+    }
+
+    private async Task AttachFromMenuAsync(MenuItem goal)
+    {
+        _menuOpen = false;
+        if (_menuItemKey is { } key)
+        {
+            _menuItemKey = null;
+            await OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, key));
+        }
+    }
+}

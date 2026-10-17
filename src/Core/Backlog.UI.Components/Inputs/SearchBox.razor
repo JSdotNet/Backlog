@@ -7,7 +7,8 @@
 *@
 
 <div class="@ClassValue" role="search" data-testid="@TestId">
-    <input id="@FieldId"
+    <input @ref="_input"
+           id="@FieldId"
            class="search-box__input"
            type="search"
            value="@Value"
@@ -28,6 +29,7 @@
 @code {
     private readonly string _id = "search-" + Guid.NewGuid().ToString("N");
     private CancellationTokenSource? _pending;
+    private ElementReference _input;
 
     [Parameter]
     public string? Value { get; set; }
@@ -113,6 +115,10 @@
         _pending?.Dispose();
         _pending = null;
     }
+
+    /// <summary>Puts the focus in the field: for a host whose list under the field took the
+    /// focused element away with it, such as a pick that closes the matches.</summary>
+    public ValueTask FocusAsync() => _input.FocusAsync();
 
     public void Dispose() => CancelPending();
 }

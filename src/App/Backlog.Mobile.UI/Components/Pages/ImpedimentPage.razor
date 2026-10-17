@@ -94,7 +94,7 @@ else if (Impediment is { } impediment)
             <ImpedimentStateSteps Current="StandupText.State(state)"
                                   History="Steps(impediment)"
                                   OnSelect="MoveAsync"
-                                  CanMoveTo="to => ImpedimentStates.Allows(state, StandupText.State(to))"
+                                  CanMoveTo="to => ImpedimentMoves.Allows(state, StandupText.State(to))"
                                   TestId="impediment-steps" />
         </section>
 

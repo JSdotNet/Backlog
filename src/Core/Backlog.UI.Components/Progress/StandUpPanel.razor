@@ -1,0 +1,171 @@
+@inject IJSRuntime Js
+@*
+    The stand-up beside the goals (.devbook/domain/progress/features.md#the-stand-up), as
+    an aside named "Stand-up": Finished, Planned and Impediments, each heading with its
+    count. Finished lists the items done in the last window, a goal's first and those no
+    goal holds last, read "title · no goal". Planned lists the next window's items, a
+    pull request with its status line, and tags the heading with the points planned
+    against the scaled pace, "21 / 18 pts", titled in words. Impediments lists every open
+    one with its state picker, then "n resolved" when the last window resolved any.
+
+    While a move is saved the other pickers wait, and the one being moved stays enabled:
+    a disabled select loses the focus, so a keyboard user would be dropped to the page. A
+    resolve the host accepts takes its row out of the list, focused picker and all, so the
+    focus moves on to the impediment that took its place, the last one when it was the
+    last, or the "n resolved" line once none is left.
+
+    The Goals block of the stand-up is the goals column beside this; the clipboard text
+    carries all four.
+*@
+<aside class="@ClassValue" aria-label="Stand-up" data-testid="@TestId">
+    <SectionHeader Title="Stand-up" Level="2" CssClass="stand-up-panel__header" />
+
+    <section class="stand-up-panel__block" aria-labelledby="@($"{_id}-finished")" data-testid="@Part("finished")">
+        <div class="stand-up-panel__block-head">
+            <span class="stand-up-panel__dot stand-up-panel__dot--finished" aria-hidden="true"></span>
+            <h3 class="stand-up-panel__block-title" id="@($"{_id}-finished")">Finished</h3>
+            <Badge Kind="tone" Slug="quiet" TestId="@Part("finished-count")">@StandUpGroups.ItemCount(StandUp.Finished)</Badge>
+        </div>
+        @foreach (var (entry, goal) in Flatten(StandUp.Finished))
+        {
+            <span class="@(goal is null ? "stand-up-panel__item stand-up-panel__item--no-goal" : "stand-up-panel__item")">
+                @Entry(entry)
+                @if (goal is null)
+                {
+                    <span> · no goal</span>
+                }
+            </span>
+        }
+    </section>
+
+    <section class="stand-up-panel__block" aria-labelledby="@($"{_id}-planned")" data-testid="@Part("planned")">
+        <div class="stand-up-panel__block-head">
+            <span class="stand-up-panel__dot stand-up-panel__dot--planned" aria-hidden="true"></span>
+            <h3 class="stand-up-panel__block-title" id="@($"{_id}-planned")">Planned</h3>
+            <Badge Kind="tone" Slug="quiet" TestId="@Part("planned-count")">@StandUpGroups.ItemCount(StandUp.Planned)</Badge>
+            <span class="stand-up-panel__points"
+                  title="@GoalsText.PointsTitle(StandUp.PlannedEffort, StandUp.Capacity, Iteration)"
+                  data-testid="@Part("points")">@GoalsText.PointsTag(StandUp.PlannedEffort, StandUp.Capacity)</span>
+        </div>
+        @foreach (var (entry, _) in Flatten(StandUp.Planned))
+        {
+            <span class="stand-up-panel__item">@Entry(entry)</span>
+        }
+    </section>
+
+    <section class="stand-up-panel__block stand-up-panel__block--impediments" aria-labelledby="@($"{_id}-impediments")" data-testid="@Part("impediments")">
+        <div class="stand-up-panel__block-head">
+            <span class="stand-up-panel__dot stand-up-panel__dot--impediments" aria-hidden="true"></span>
+            <h3 class="stand-up-panel__block-title" id="@($"{_id}-impediments")">Impediments</h3>
+            <Badge Kind="tone" Slug="quiet" TestId="@Part("impediments-count")">@StandUp.Impediments.Count</Badge>
+        </div>
+        @for (var index = 0; index < StandUp.Impediments.Count; index++)
+        {
+            var impediment = StandUp.Impediments[index];
+            var at = index;
+            <ImpedimentRow @key="impediment.Id"
+                           @ref="_rows[impediment.Id]"
+                           Impediment="impediment"
+                           Disabled="@(Busy && impediment.Id != _moving)"
+                           OnMove="state => MoveAsync(impediment.Id, at, state)"
+                           TestId="@Part($"impediment-{impediment.Id}")" />
+        }
+        @if (StandUp.ResolvedInLast > 0)
+        {
+            <span class="stand-up-panel__resolved" id="@ResolvedLineId" tabindex="-1" data-testid="@Part("resolved")">@StandUp.ResolvedInLast resolved</span>
+        }
+    </section>
+</aside>
+
+@code {
+    private readonly string _id = "stand-up-" + Guid.NewGuid().ToString("N");
+    private readonly Dictionary<string, ImpedimentRow> _rows = new(StringComparer.Ordinal);
+    private string? _moving;
+    private int _parameterSets;
+    private (string Id, int Index, int ParameterSets)? _resolving;
+
+    [Parameter, EditorRequired]
+    public StandUpModel StandUp { get; set; } = StandUpModel.Empty;
+
+    /// <summary>The length the view reads, for the points tag's title.</summary>
+    [Parameter]
+    public GoalsIteration Iteration { get; set; } = GoalsIteration.Week;
+
+    /// <summary>An impediment's state was picked.</summary>
+    [Parameter]
+    public EventCallback<ImpedimentMoveRequest> OnMoveImpediment { get; set; }
+
+    /// <summary>While a move is being saved: the pickers wait.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Lands on the aside; its blocks take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "stand-up-panel" : $"stand-up-panel {CssClass}";
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    private string ResolvedLineId => _id + "-resolved";
+
+    private async Task MoveAsync(string impedimentId, int index, StandUpImpedimentState state)
+    {
+        _moving = impedimentId;
+        try
+        {
+            await OnMoveImpediment.InvokeAsync(new ImpedimentMoveRequest(impedimentId, state));
+        }
+        finally
+        {
+            _moving = null;
+        }
+
+        if (state == StandUpImpedimentState.Resolved) _resolving = (impedimentId, index, _parameterSets);
+    }
+
+    protected override void OnParametersSet() => _parameterSets++;
+
+    /// <summary>
+    /// After a resolve: the row gone means the move was taken, and the focus moves on. The
+    /// row still there in a reading handed in after the move was saved means it was
+    /// refused, and the focus stays on its picker. Until such a reading arrives the row's
+    /// presence proves nothing — the host's fresh reading and this panel's own redraw may
+    /// land in either order — so the panel waits.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_resolving is not { } resolving || Busy) return;
+
+        var open = StandUp.Impediments;
+        if (open.Any(impediment => impediment.Id == resolving.Id))
+        {
+            if (_parameterSets > resolving.ParameterSets) _resolving = null;
+            return;
+        }
+
+        _resolving = null;
+
+        if (open.Count > 0)
+        {
+            var next = open[Math.Min(resolving.Index, open.Count - 1)];
+            if (_rows.TryGetValue(next.Id, out var row)) await row.FocusAsync();
+        }
+        else if (StandUp.ResolvedInLast > 0)
+        {
+            await global::Backlog.UI.Components.Tasks.QuickEditField.FocusAsync(Js, ResolvedLineId, select: false);
+        }
+    }
+
+    /// <summary>Every item, a goal's first and No goal's last, with the goal it is under.</summary>
+    private static IEnumerable<(StandUpEntry Entry, string? Goal)> Flatten(IReadOnlyList<StandUpGroup> groups) =>
+        StandUpGroups.InOrder(groups)
+            .SelectMany(group => group.Items.Select(item => (item, group.GoalTitle)));
+
+    private static RenderFragment Entry(StandUpEntry entry) => entry.PullRequest is { } pull
+        ? @<span class="stand-up-panel__pull"><PullRequestStatus Model="pull" /><span>@entry.Title</span></span>
+        : @<span>@entry.Title</span>;
+}

@@ -235,7 +235,7 @@ desktop applies it through the impediment features only while the field still
 holds that value, so a change made on a desktop since stands, and then retires
 the edit with a tombstone.
 
-The phone offers only the moves `ImpedimentStates.Allows` permits, the rule the
+The phone offers only the moves `ImpedimentMoves.Allows` permits, the rule the
 aggregate refuses by, published in `Progress.Abstractions` beside `GoalItems`. It
 shows an edit as asked until a copy of the impediment says it, says what a
 desktop changed since, or, once the edit has left the outbox, still does not say
@@ -352,6 +352,7 @@ and tag, read on every reading (§2's rule). Tasks knowing nothing of Progress
 ## Verification
 
 ```meta
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_in_progress_with_the_goals_flag_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_goals_flag_on_goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests]
 ```
 
 Look for tests that show these behaviours:
