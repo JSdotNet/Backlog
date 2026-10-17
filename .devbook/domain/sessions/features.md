@@ -1522,38 +1522,37 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-related: [.devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+status: deprecated
+related: [.devbook/domain/progress/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.In_progress_is_a_main_view_that_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_sessions_and_pull_requests_off_there_is_no_in_progress_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_card_draws_what_its_entry_links_and_the_rest_is_not_linked_to_a_task, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_no_repository_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_feature_that_is_off_draws_no_column_in_the_view_or_the_side_panel, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_feature_that_is_off_draws_no_column_and_no_count]
 ```
 
-Answer "what is moving, and what needs me" as one view: every task in progress in the
-repository scope, each with the sessions and pull requests linked to it beside it.
+The In progress view is renamed **Goals** and becomes
+[the Goals view](../progress/features.md#the-goals-view), which Progress owns. Local
+[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md) decides it.
+Its board by task is dropped: the view no longer lists every task in progress with
+its sessions and pull requests, and no longer puts the quiet sessions and the pull
+requests with failing checks first under **Needs you**. There is no switch beside the
+title any more, because the Goals view has one side.
 
-- A session shows its title, state and last activity.
-- A pull request shows its number, title, draft or open, review verdict, checks and
-  size.
-- A task with nothing of a kind says "None yet".
+What this view answered moves elsewhere. Goal progress, the stand-up and the work no
+goal holds are the Goals view's. A session that has gone quiet is the session list's,
+and a pull request that needs attention is the pull requests list's. The sub-features
+below that live in a task's side panel stay: linking, unlinking and the reads of a
+linked pull request.
 
-It is the first option of the work in progress group in the header. It is a main view
-rather than a takeover, so the Devbook still opens beside it. It is offered while the
-session list or the pull requests list is. While the scope holds a repository of a
-sprint series, a **Now | Sprint n** switch beside the title opens
-[the sprint view](../progress/features.md#the-sprint-view); this view is its Now side,
-unchanged.
-
-The scope is the task list's whole repository scope: the repositories chosen in the
-header, and its "No repository" scope too. Under "No repository", only the tasks filed
-against no repository show, and, of the loose work, only a session placed in no
-registered repository. With only one of the session list and the pull requests list on,
-the other kind is not drawn at all. There is no column and no count in the summary,
-rather than a column saying "None yet" for a list that is switched off.
+Until the plan `+goals-standup` retires it, the code still draws the board as this
+chapter's tests describe.
 
 ### Needs you first
 
 ```meta
 type: sub-feature
+status: deprecated
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Needs_you_comes_first_then_moving_each_in_the_hosts_order, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_failing_check_or_requested_changes_on_an_open_pull_request_needs_you, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_quiet_session_needs_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_linked_session_that_has_gone_quiet_needs_you_and_says_quiet_30_min, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_in_progress_toggles_are_remembered_and_a_fresh_shell_reopens_on_them]
 ```
+
+This goes with the board ([In progress, by task](#in-progress-by-task)).
 
 A task is under **Needs you** when its linked session has gone quiet, which is
 `Stalled`, shown as "Quiet 30 min". It is also there when its open pull request has a
@@ -1567,8 +1566,13 @@ is on and "Include finished today" is off.
 
 ```meta
 type: sub-feature
+status: deprecated
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_session_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_pull_request_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_what_the_entry_already_holds_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_moves_the_focus_to_the_card_the_item_now_sits_under, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Each_task_card_is_a_focus_target_a_host_can_name]
 ```
+
+This goes with the board ([In progress, by task](#in-progress-by-task)). The Goals view
+lists the work no goal holds under
+[No goal](../progress/features.md#the-goals-view) instead.
 
 Live sessions and the reader's own open pull requests that no task links are listed
 last, under **Not linked to a task**, each with "Link to a task…". Linking records the
@@ -1627,8 +1631,8 @@ features off, the heading and the link action name only the kind left.
 
 Under the list of what no task claims, the link action takes a pull request by its
 number or its link, whatever its state: open, draft, merged or closed. Work that merged
-before its task was linked is linked this way, and a sprint member is then
-[done](../progress/domain.md#done) by it. A bare number is the task's own repository's, and a task with two has to be given the link;
+before its task was linked is linked this way, and the task is then
+[done](../progress/domain.md#done) by it in the goal that counts it. A bare number is the task's own repository's, and a task with two has to be given the link;
 a link or `owner/name#123` names one, and it must be registered in Settings. The pull
 request is read by number before anything is recorded, so one GitHub does not know is
 refused under the field and nothing is written. A merged one is kept from that read for
