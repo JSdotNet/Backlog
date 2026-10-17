@@ -28,6 +28,7 @@ using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
+using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -298,6 +299,8 @@ public static class DesktopCompositionRegistration
         // The Sprints page: a card per sprint series and the repositories in none.
         // Offered behind the progress switch, like every Progress screen.
         services.AddProgressSettings();
+        // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
+        services.AddGoalControls();
         // The band under every route reads the backlog's save state through the
         // library's interface, and the toast tray in MainLayout reads the channel a
         // screen puts a message in; concrete type and interface resolve the same one.

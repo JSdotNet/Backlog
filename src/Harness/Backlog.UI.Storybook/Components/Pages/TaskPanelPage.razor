@@ -279,6 +279,21 @@ Pressing a chip's title opens it in the Devbook pane; here the line under the pa
         <p class="sb-state" data-testid="panel-devbook-state">Open in the Devbook: @(_devbookOpened ?? "(nothing asked yet)")</p>
     </Story>
 
+    <Story Name="The goal it counts toward"
+           Description="A host that sets goals hands the panel a `Goal`, and the panel draws it on its own line under the detail rows and above the body: one more fact set on the task, in the place facts are set, and never between the reader and the text. The control is the goal's library control — a small Goal label and one quiet button reading the goal's title, or Attach to goal while there is none — and pressing it opens the picker the goal page shows. Leave `Goal` unset and there is no line at all, which is what a host without goals gets."
+           Code="@GoalCode">
+        <div class="sb-side-panel">
+            <TaskPanel Title="Review the spacing tokens"
+                       Status="In progress"
+                       TestId="panel-goal">
+                <Goal>
+                    <GoalControl GoalTitle="@_panelGoal" OnOpen="TogglePanelGoal" />
+                </Goal>
+            </TaskPanel>
+        </div>
+        <p class="sb-state" data-testid="task-panel-goal-state">Goal: @(_panelGoal ?? "(none)") — press the control to attach or clear it here; a host opens the picker.</p>
+    </Story>
+
     <Story Name="A title, and only what there is"
            Description="Every part under the heading is optional, and an absent one is left out rather than drawn empty. A task with no tags gets no tag strip, because a row of blank space is where a reader learns there is nothing to learn; a task nobody has set anything on gets no pane; a title-only task is a heading, and that is all it is.
 
@@ -766,6 +781,16 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
             // cannot be saved without.
             private Task OpenNewTaskAsync() => _panel?.EditTitleAsync() ?? Task.CompletedTask;
         }
+        """;
+
+    private string? _panelGoal = GoalFixtures.Launch.Title;
+
+    private void TogglePanelGoal() => _panelGoal = _panelGoal is null ? GoalFixtures.Launch.Title : null;
+
+    private const string GoalCode = """
+        @* The host draws its goal control in the slot; GoalSlot is the one it cascades. *@
+        <TaskPanel Title="@task.Title" Status="@task.Status"
+                   Goal="@GoalSlot?.Render(GoalSubject.ForTask(task.Id))" />
         """;
 
     private const string BareCode = """

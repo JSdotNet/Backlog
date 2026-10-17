@@ -22183,3 +22183,144 @@ button.sprint-pr:focus-visible {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* The goal a piece of work counts toward: a small label and one quiet button, inline
+   so it sits in a heading line, a card row or a field list without a row of its own. */
+.goal-control {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.goal-control__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.goal-control__button {
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.goal-control__button--none {
+    color: var(--color-text-secondary);
+}
+
+.goal-picker__description {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.goal-picker__search {
+    margin-bottom: var(--spacing-sm);
+}
+
+.goal-picker__options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 20rem;
+    margin: 0 0 var(--spacing-sm);
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.goal-picker__option {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.goal-picker__option:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+}
+
+.goal-picker__option:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.goal-picker__option--selected {
+    border-color: var(--color-border-focus);
+}
+
+.goal-picker__option:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.goal-picker__title {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.goal-picker__meta {
+    grid-column: 1;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.goal-picker__attached {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.goal-picker__new {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.goal-picker__mode {
+    align-self: flex-start;
+}
+
+.goal-picker__move {
+    margin-top: var(--spacing-sm);
+}
+
+/* A shelf row's goal sits with its "Plan it", the tag keeping the rest of the line. */
+.roadmap-shelf__goal {
+    display: inline-flex;
+    flex: none;
+    margin-left: auto;
+}
+
+/* A work card's goal sits at its top edge beside Unlink, as quiet as it. */
+.work-links__goal {
+    display: inline-flex;
+    flex: none;
+}
+
+/* The task panel's goal line: under the detail rows, above the body. */
+.task-panel__goal {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}

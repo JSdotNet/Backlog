@@ -1,0 +1,250 @@
+@*
+    "Attach to goal" (.devbook/domain/progress/features.md#attaching-work-to-a-goal): the
+    dialog behind every goal control, choosing the one goal a plan, a task or a pull
+    request counts toward — or setting a new goal for it.
+
+    The host lists the open goals and the goal that holds the work now; the dialog
+    narrows them to a search, marks the current one Attached, and hands back the id of
+    the goal chosen, or the title and due date of a new one. A choice is made, then
+    confirmed with Attach, rather than taken on the press: attaching work another goal
+    holds moves it out of that goal, and the dialog says so before the move is made.
+
+    Nothing here writes. The host attaches, then closes the dialog — or keeps it open
+    with the module's refusal in Error.
+*@
+<Modal Open="Open"
+       OpenChanged="OpenChanged"
+       Title="Attach to goal"
+       CssClass="goal-picker"
+       TestId="@TestId">
+    <ChildContent>
+        <p class="goal-picker__description">The goal this @(Subject?.Noun ?? "work") counts toward. Attaching changes nothing on the @(Subject?.Noun ?? "work") itself.</p>
+
+        @if (_creating)
+        {
+            <div class="goal-picker__new" data-testid="goal-picker-new-form">
+                <TextField Label="Title"
+                           Value="@_draftTitle"
+                           ValueChanged="value => _draftTitle = value"
+                           Placeholder="What the goal is for"
+                           TestId="goal-picker-new-title" />
+                <TextField Label="Due"
+                           Type="date"
+                           Value="@_draftDue"
+                           ValueChanged="value => _draftDue = value"
+                           HelpText="The day it should be reached by."
+                           TestId="goal-picker-new-due" />
+            </div>
+            @if (Goals.Count > 0)
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           CssClass="goal-picker__mode"
+                           TestId="goal-picker-choose-existing"
+                           OnClick="ChooseExisting">Choose an existing goal</AppButton>
+            }
+        }
+        else
+        {
+            @if (Goals.Count == 0)
+            {
+                <EmptyState Title="No open goals yet"
+                            Description="Set one with New goal…, and this work counts toward it."
+                            TestId="goal-picker-empty" />
+            }
+            else
+            {
+                <SearchBox Value="@_search"
+                           ValueChanged="value => _search = value"
+                           Placeholder="Search goals"
+                           AriaLabel="Search goals"
+                           DebounceMilliseconds="SearchDebounceMilliseconds"
+                           CssClass="goal-picker__search"
+                           TestId="goal-picker-search" />
+
+                var shown = Shown;
+                @if (shown.Count == 0)
+                {
+                    <EmptyState Title="No goal matches the search"
+                                Description="Try another word, or set a new goal."
+                                TestId="goal-picker-no-match" />
+                }
+                else
+                {
+                    <ul class="goal-picker__options" role="list" aria-label="Open goals" data-testid="goal-picker-options">
+                        @foreach (var goal in shown)
+                        {
+                            var current = CurrentGoal?.Id == goal.Id;
+                            <li @key="goal.Id">
+                                <ToggleButton BaseClass="goal-picker__option"
+                                              PressedCssClass="goal-picker__option--selected"
+                                              Pressed="@(_selected == goal.Id)"
+                                              PressedChanged="_ => Choose(goal.Id)"
+                                              Disabled="Busy"
+                                              TestId="goal-picker-option"
+                                              data-goal-id="@goal.Id">
+                                    <span class="goal-picker__title">@goal.Title</span>
+                                    <span class="goal-picker__meta">@goal.Meta</span>
+                                    @if (current)
+                                    {
+                                        <span class="goal-picker__attached" data-testid="goal-picker-attached">Attached</span>
+                                    }
+                                </ToggleButton>
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       CssClass="goal-picker__mode"
+                       TestId="goal-picker-new"
+                       OnClick="StartNew">New goal…</AppButton>
+        }
+
+        @if (MoveNote is { } note)
+        {
+            <Callout Heading="@note" Tone="warning" CssClass="goal-picker__move" TestId="goal-picker-move-note" />
+        }
+        <Alert Message="@Error" TestId="goal-picker-error" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" TestId="goal-picker-cancel" OnClick="() => OpenChanged.InvokeAsync(false)">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary"
+                   Busy="Busy"
+                   BusyLabel="Attaching"
+                   Disabled="@(!CanAttach)"
+                   TestId="goal-picker-attach"
+                   OnClick="AttachAsync">Attach</AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The work being attached, for the dialog's wording.</summary>
+    [Parameter]
+    public GoalSubject? Subject { get; set; }
+
+    /// <summary>The open goals, in the order to offer them, the current one among them.</summary>
+    [Parameter]
+    public IReadOnlyList<GoalOption> Goals { get; set; } = [];
+
+    /// <summary>The goal that holds the work now, or null when none does. Marked
+    /// Attached, and the goal a move would take the work out of.</summary>
+    [Parameter]
+    public GoalOption? CurrentGoal { get; set; }
+
+    /// <summary>An attach is being written: Attach spins and the choices wait.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Why the last attach was refused, in the module's words.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>Attach was pressed with an existing goal chosen: its id.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnAttach { get; set; }
+
+    /// <summary>Attach was pressed with a new goal filled in: its trimmed title and due
+    /// date. The host sets the goal and attaches the work to it.</summary>
+    [Parameter]
+    public EventCallback<GoalDraft> OnCreate { get; set; }
+
+    /// <summary>The search an opening starts with. Null starts unfiltered, which is what a
+    /// host wants; the storybook sets it to show a search typed.</summary>
+    [Parameter]
+    public string? InitialSearch { get; set; }
+
+    /// <summary>The goal an opening starts with chosen. Null starts on the current goal.</summary>
+    [Parameter]
+    public Guid? InitialSelection { get; set; }
+
+    /// <summary>How long the search waits after the last keystroke. Zero filters on every
+    /// keystroke, which is what a test wants.</summary>
+    [Parameter]
+    public int SearchDebounceMilliseconds { get; set; } = 200;
+
+    [Parameter]
+    public string? TestId { get; set; } = "goal-picker";
+
+    private string? _search;
+    private Guid? _selected;
+    private bool _creating;
+    private string? _draftTitle;
+    private string? _draftDue;
+    private bool _wasOpen;
+
+    protected override void OnParametersSet()
+    {
+        // Each opening starts afresh: a search or a half-typed goal left from the last
+        // one was either attached or given up on.
+        if (Open && !_wasOpen)
+        {
+            _search = InitialSearch;
+            _selected = InitialSelection ?? CurrentGoal?.Id;
+            _creating = false;
+            _draftTitle = null;
+            _draftDue = null;
+        }
+
+        _wasOpen = Open;
+    }
+
+    private IReadOnlyList<GoalOption> Shown
+    {
+        get
+        {
+            var words = _search?.Trim();
+            return string.IsNullOrEmpty(words)
+                ? Goals
+                : [.. Goals.Where(goal => goal.Title.Contains(words, StringComparison.OrdinalIgnoreCase))];
+        }
+    }
+
+    private GoalDraft? Draft =>
+        !string.IsNullOrWhiteSpace(_draftTitle)
+        && DateOnly.TryParseExact(_draftDue, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var due)
+            ? new GoalDraft(_draftTitle.Trim(), due)
+            : null;
+
+    private bool CanAttach => _creating
+        ? Draft is not null
+        : _selected is { } chosen && chosen != CurrentGoal?.Id && Goals.Any(goal => goal.Id == chosen);
+
+    /// <summary>Said whenever the choice would take the work out of the goal that holds
+    /// it — another goal chosen, or a new one being set.</summary>
+    private string? MoveNote =>
+        CurrentGoal is { } current && (_creating || (_selected is { } chosen && chosen != current.Id))
+            ? $"Attaching moves this {Subject?.Noun ?? "work"} from “{current.Title}”."
+            : null;
+
+    private void Choose(Guid id) => _selected = id;
+
+    private void StartNew()
+    {
+        _creating = true;
+        _selected = null;
+    }
+
+    private void ChooseExisting()
+    {
+        _creating = false;
+        _selected = CurrentGoal?.Id;
+    }
+
+    private Task AttachAsync()
+    {
+        if (!CanAttach) return Task.CompletedTask;
+
+        if (_creating) return Draft is { } draft ? OnCreate.InvokeAsync(draft) : Task.CompletedTask;
+
+        return _selected is { } id ? OnAttach.InvokeAsync(id) : Task.CompletedTask;
+    }
+}

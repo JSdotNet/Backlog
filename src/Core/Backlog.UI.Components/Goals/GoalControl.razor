@@ -1,0 +1,51 @@
+@*
+    The "Goal" line a piece of work carries (.devbook/domain/progress/features.md
+    #attaching-work-to-a-goal): a small label, and one quiet button reading the goal the
+    work counts toward, or "Attach to goal" while it counts toward none. Pressing it
+    asks the host to open the picker; the control holds no goal and decides nothing.
+
+    One button whether or not a goal is set, because both are the same act — choose the
+    goal — and a title that was text when set would be a control to hunt for the moment
+    the goal needed changing.
+*@
+<span class="@ClassValue" data-testid="@TestId">
+    <span class="goal-control__label" aria-hidden="true">Goal</span>
+    <AppButton Variant="ButtonVariant.Ghost"
+               Size="ButtonSize.Small"
+               CssClass="@(string.IsNullOrWhiteSpace(GoalTitle) ? "goal-control__button goal-control__button--none" : "goal-control__button")"
+               Busy="Busy"
+               BusyLabel="Attaching"
+               aria-label="@AriaLabel"
+               title="@(string.IsNullOrWhiteSpace(GoalTitle) ? null : "Change the goal")"
+               TestId="@(TestId is null ? null : TestId + "-open")"
+               OnClick="() => OnOpen.InvokeAsync()">@Label</AppButton>
+</span>
+
+@code {
+    /// <summary>The goal the work counts toward, or null for none.</summary>
+    [Parameter]
+    public string? GoalTitle { get; set; }
+
+    /// <summary>The button was pressed: the host opens the picker.</summary>
+    [Parameter]
+    public EventCallback OnOpen { get; set; }
+
+    /// <summary>An attach is being written: the button spins and ignores a second press.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "goal-control";
+
+    private string Label => string.IsNullOrWhiteSpace(GoalTitle) ? "Attach to goal" : GoalTitle;
+
+    /// <summary>The visible "Goal" word is hidden from assistive technology and said
+    /// here instead, so the button is announced as one sentence rather than a title
+    /// with no hint of what it is the title of.</summary>
+    private string AriaLabel => string.IsNullOrWhiteSpace(GoalTitle) ? "Attach to goal" : $"Goal: {GoalTitle}";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "goal-control" : $"goal-control {CssClass}";
+}

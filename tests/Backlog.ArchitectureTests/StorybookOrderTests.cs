@@ -55,6 +55,7 @@ public class StorybookOrderTests
         ["Day"] = ["today", "task-detail", "focus"],
         ["Diagrams"] = ["diagrams", "graph-explorer", "graph-atlas"],
         ["Feedback"] = ["feedback"],
+        ["Goals"] = ["goals"],
         ["Icons"] = ["foundations"],
         ["Inputs"] = ["inputs", "radio-group", "file-field", "attachment-strip"],
         ["Integrations"] = ["integrations"],

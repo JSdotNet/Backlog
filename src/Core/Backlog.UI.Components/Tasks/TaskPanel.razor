@@ -249,6 +249,15 @@
         </div>
     }
 
+    @* Under the rows you set things on and above the text: the goal is one more fact
+       set on the task, and the body keeps its place as the part with no natural height. *@
+    @if (Goal is not null)
+    {
+        <div class="task-panel__goal" data-testid="@Suffix("goal")">
+            @Goal
+        </div>
+    }
+
     @if (Body is not null)
     {
         <div class="task-panel__body" data-testid="@Suffix("body")">
@@ -428,6 +437,12 @@
     /// practice.</summary>
     [Parameter]
     public RenderFragment? Details { get; set; }
+
+    /// <summary>The goal the task counts toward — the goal control a host draws through
+    /// its <see cref="GoalControlSlot"/>. A slot, like the rest, so the panel never
+    /// learns what a goal is; unset, nothing is drawn.</summary>
+    [Parameter]
+    public RenderFragment? Goal { get; set; }
 
     /// <summary>The rest of the task: a list of sub-items, or its markdown. Both
     /// are the same slot because they are the same thing to the panel — the part

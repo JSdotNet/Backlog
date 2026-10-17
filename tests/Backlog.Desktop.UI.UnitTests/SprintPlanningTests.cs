@@ -218,6 +218,21 @@ public sealed class SprintPlanningTests : IDisposable
         Assert.Empty(elsewhere.FindAll("[data-testid=sprint-task-panel]"));
     }
 
+    /// <summary>Goals replace sprints in the task panel: while they are on, the goal
+    /// control stands where this section stood, and the section reads no series.</summary>
+    [Fact]
+    public void With_goals_on_the_section_draws_nothing()
+    {
+        var progress = new FakeProgress(Series(items: [], plans: []));
+        _context.Services.AddSingleton<IAppFeatureSettings>(new ProgressSwitch(true, goals: true));
+        _context.Services.AddSingleton<ISprintSeriesPlanning>(progress);
+
+        var section = _context.Render<TaskSprintSection>(parameters => parameters.Add(p => p.Candidate, Candidates[1]));
+
+        Assert.Empty(section.FindAll("[data-testid=sprint-task-panel]"));
+        Assert.Empty(section.Nodes);
+    }
+
     // ---- Composition --------------------------------------------------------------------
 
     private FakeProgress Compose(bool on, SprintSeriesDto series)
@@ -261,7 +276,7 @@ public sealed class SprintPlanningTests : IDisposable
 
     public void Dispose() => _context.Dispose();
 
-    private sealed class ProgressSwitch(bool on) : IAppFeatureSettings
+    private sealed class ProgressSwitch(bool on, bool goals = false) : IAppFeatureSettings
     {
         public event Action? Changed { add { } remove { } }
 
@@ -269,7 +284,7 @@ public sealed class SprintPlanningTests : IDisposable
 
         public string SettingsPath => "features.json";
 
-        public bool IsEnabled(string key) => key == ProgressFeatures.Progress && on;
+        public bool IsEnabled(string key) => (key == ProgressFeatures.Progress && on) || (key == ProgressFeatures.Goals && goals);
 
         public string? SetEnabled(string key, bool enabled) => null;
     }
