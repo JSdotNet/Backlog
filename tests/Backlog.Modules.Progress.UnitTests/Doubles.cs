@@ -56,7 +56,9 @@ internal sealed class FakeTaskSource : ISprintTaskSource
             .. Tasks.Where(task =>
                 ids.Contains(task.Id)
                 || (task.PlanTags.Any(tag => query.PlanTags.Any(plan => PlanTags.Same(plan, tag)))
-                    && (query.AnyRepository || task.RepositoryAliases.Any(alias => query.RepositoryAliases.Contains(alias, StringComparer.OrdinalIgnoreCase)))))
+                    && (query.AnyRepository || task.RepositoryAliases.Any(alias => query.RepositoryAliases.Contains(alias, StringComparer.OrdinalIgnoreCase))))
+                || query.CompletedInRange(task.CompletedOn)
+                || query.DueInRange(task.DueOn))
         ]);
     }
 }

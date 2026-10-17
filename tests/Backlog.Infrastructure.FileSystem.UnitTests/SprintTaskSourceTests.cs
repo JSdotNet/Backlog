@@ -130,6 +130,71 @@ public class SprintTaskSourceTests
     }
 
     [Fact]
+    public void A_task_carries_its_due_day_effort_and_order()
+    {
+        var entry = Entry("Recurring invoices") with { DueOn = new DateOnly(2026, 10, 22), Effort = 5, Order = 7 };
+
+        var task = Assert.Single(Select([entry], new SprintTaskQuery([entry.Id], [], [])));
+
+        Assert.Equal((new DateOnly(2026, 10, 22), 5, 7), (task.DueOn, task.Effort, task.Order));
+        Assert.False(task.WaitsOnOpenWork);
+    }
+
+    /// <summary>The stand-up reads the tasks finished in its history and due in its next
+    /// window, whichever goal holds them or none, in any repository.</summary>
+    [Fact]
+    public void The_completion_and_due_ranges_select_tasks_in_any_repository()
+    {
+        var finished = Entry("VAT rate per line item", EntryStatus.Done, repoId: "Someone/Else", completedOn: new DateOnly(2026, 10, 14));
+        var finishedBefore = Entry("Earlier", EntryStatus.Done, completedOn: new DateOnly(2026, 9, 1));
+        var due = Entry("Recurring invoices") with { DueOn = new DateOnly(2026, 10, 22) };
+        var dueLater = Entry("Later") with { DueOn = new DateOnly(2026, 11, 2) };
+
+        var read = Select(
+            [finished, finishedBefore, due, dueLater],
+            new SprintTaskQuery(
+                [],
+                [],
+                [],
+                CompletedFrom: new DateOnly(2026, 9, 21),
+                CompletedThrough: new DateOnly(2026, 10, 16),
+                DueFrom: new DateOnly(2026, 10, 19),
+                DueThrough: new DateOnly(2026, 10, 23)));
+
+        Assert.Equal([finished.Id, due.Id], read.Select(task => task.Id));
+    }
+
+    [Fact]
+    public void Without_ranges_no_task_is_selected_by_its_days()
+    {
+        var finished = Entry("Done", EntryStatus.Done, completedOn: new DateOnly(2026, 10, 14)) with { DueOn = new DateOnly(2026, 10, 14) };
+
+        Assert.Empty(Select([finished], new SprintTaskQuery([], [], [])));
+    }
+
+    /// <summary>An entry waits on open work while one of its <c>after:</c> values — a real id
+    /// or an import slug — names a task not done, or names no live task.</summary>
+    [Fact]
+    public void A_task_waits_on_open_work_while_a_dependency_is_not_done()
+    {
+        var done = Entry("Bank import mapping", EntryStatus.Done, completedOn: new DateOnly(2026, 10, 12)) with { ImportItemId = "mapping", ImportPlanId = "bank-integration" };
+        var open = Entry("Payment matching rules") with { ImportItemId = "rules", ImportPlanId = "bank-integration" };
+        var afterDone = Entry("After done", tags: ["+bank-integration"]) with { DependsOn = ["mapping"], ImportPlanId = "bank-integration" };
+        var afterOpen = Entry("After open") with { DependsOn = [open.Id.ToString()] };
+        var afterNothing = Entry("After nothing") with { DependsOn = ["no-such-step"] };
+        var completedNotDone = Entry("Completed", EntryStatus.Ready, completedOn: new DateOnly(2026, 10, 12));
+        var afterCompleted = Entry("After completed") with { DependsOn = [completedNotDone.Id.ToString()] };
+
+        var read = Select(
+            [done, open, afterDone, afterOpen, afterNothing, completedNotDone, afterCompleted],
+            new SprintTaskQuery([afterDone.Id, afterOpen.Id, afterNothing.Id, afterCompleted.Id], [], []));
+
+        Assert.Equal(
+            [("After done", false), ("After open", true), ("After nothing", true), ("After completed", false)],
+            read.Select(task => (task.Title, task.WaitsOnOpenWork)));
+    }
+
+    [Fact]
     public async Task It_reads_the_backlog_through_the_published_port_and_writes_nothing()
     {
         var entry = Entry("Only", tags: ["+plan"]);

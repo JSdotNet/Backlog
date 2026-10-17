@@ -126,12 +126,13 @@ computed when read. Progress stores none.
 
 | Length | Window |
 | --- | --- |
-| Day | one day |
+| Day | one working day of the person's working week |
 | Week | Monday to Friday |
-| 2 weeks | ten working days from a start date kept in the settings |
+| 2 weeks | fourteen days from a start date kept in the settings |
 | Month | a calendar month |
 
-"Last" is the window before the current one, and "next" the one after. The
+"Next" is the window that holds today, or the first one after today, and "last"
+the window just before next. The
 chosen length is a per-person setting.
 
 ### 4. The stand-up is a reading, in four blocks

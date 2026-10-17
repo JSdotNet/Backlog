@@ -41,15 +41,41 @@ public sealed class SprintTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDir
         var plans = query.PlanTags.Select(Bare).Where(tag => tag.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var repos = query.RepositoryAliases.Select(alias => alias.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        return
-        [
-            .. backlog
-                .Select(entry => ToSprintTask(entry, aliasById))
-                .Where(task =>
-                    ids.Contains(task.Id)
-                    || (task.PlanTags.Any(plans.Contains) && (query.AnyRepository || task.RepositoryAliases.Any(repos.Contains))))
-                .DistinctBy(task => task.Id)
-        ];
+        var selected = backlog
+            .Select(entry => (Entry: entry, Task: ToSprintTask(entry, aliasById)))
+            .Where(pair =>
+                ids.Contains(pair.Task.Id)
+                || (pair.Task.PlanTags.Any(plans.Contains) && (query.AnyRepository || pair.Task.RepositoryAliases.Any(repos.Contains)))
+                || query.CompletedInRange(pair.Task.CompletedOn)
+                || query.DueInRange(pair.Task.DueOn))
+            .DistinctBy(pair => pair.Task.Id)
+            .ToList();
+
+        if (!selected.Any(pair => pair.Entry.DependsOn is { Count: > 0 })) return [.. selected.Select(pair => pair.Task)];
+
+        // Dependencies resolve against the whole backlog, as the pane and the roadmap
+        // resolve them, so a slug the import left behind still finds its step.
+        var index = new DependencyResolution.CandidateIndex(
+            [.. backlog.Select(entry => new DependencyResolution.Candidate(entry.Id, entry.ImportItemId, entry.ImportPlanId))]);
+        var byId = new Dictionary<Guid, TaskItemDto>();
+        foreach (var entry in backlog) byId.TryAdd(entry.Id, entry);
+
+        return [.. selected.Select(pair => pair.Task with { WaitsOnOpenWork = WaitsOnOpenWork(pair.Entry, index, byId) })];
+    }
+
+    /// <summary>Whether one of <paramref name="entry"/>'s dependencies names a task that is
+    /// not done — neither Done nor completed — or names no live task at all.</summary>
+    private static bool WaitsOnOpenWork(
+        TaskItemDto entry,
+        DependencyResolution.CandidateIndex index,
+        Dictionary<Guid, TaskItemDto> byId)
+    {
+        if (entry.DependsOn is not { Count: > 0 } declared) return false;
+
+        return DependencyResolution.ResolveAll(declared, index, entry.ImportPlanId, entry.Tags)
+            .Any(value => !Guid.TryParse(value, out var id)
+                || !byId.TryGetValue(id, out var predecessor)
+                || (predecessor.Status != EntryStatus.Done && predecessor.CompletedOn is null));
     }
 
     internal static SprintTaskDto ToSprintTask(TaskItemDto entry, IReadOnlyDictionary<string, string> aliasById) =>
@@ -78,7 +104,10 @@ public sealed class SprintTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDir
                 .Select(projection => new PullRequestRefDto(projection.RepoId, projection.ExternalId))
                 .Distinct()],
             entry.StartedOn,
-            entry.BlockedSince);
+            entry.BlockedSince,
+            entry.DueOn,
+            entry.Effort,
+            entry.Order);
 
     private static string Bare(string tag)
     {

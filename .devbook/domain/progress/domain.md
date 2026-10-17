@@ -280,7 +280,7 @@ shared by the goals, the impediments and the stand-up. Its **length** is one of 
 |---|---|
 | Day | one working day of the person's [working week](../roadmap/domain.md#working-week) |
 | Week | Monday to Friday |
-| Two weeks | fourteen days from the [two-week start](context.md#two-week-start), or a whole number of fourteen days after it |
+| Two weeks | fourteen days from the [two-week start](context.md#two-week-start), or a whole number of fourteen days before or after it; until a start is chosen, from the Monday of the current week |
 | Month | one calendar month, from its first day to its last |
 
 **Next** is the window that holds today. When today falls in no window, such as a
@@ -335,10 +335,10 @@ related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/tas
 The work a stand-up expects in the next iteration. Nobody picks it: it is derived from
 three sources, each item listed once:
 
-- the items goals hold that are in progress;
-- the items due inside the next window;
+- the items goals hold that are in progress and not blocked;
+- the items due inside the next window, under No goal when no goal holds them;
 - for each attached plan, its first [ready](../tasks/domain.md#readiness) entry in the
-  plan's order that is not in progress yet.
+  plan's order that is not in progress, marked blocked or archived yet.
 
 ### Pace
 
